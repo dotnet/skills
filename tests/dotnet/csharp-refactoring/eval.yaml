@@ -107,7 +107,6 @@ stimuli:
       - Migrates in-repository callers to ParseIntegerSetting while preserving the shipped ParseIntSetting entry point as an obsolete forwarding compatibility shim
       - Keeps the dedicated legacy-call test on ParseIntSetting so the compatibility shim is executed, not merely present in source
       - Treats PublicAPI.Shipped.txt as evidence that deleting the old method would break a public contract, rather than blindly removing every old-name occurrence
-      - Rebuilds and re-runs the existing tests after the rename to confirm behavior is preserved
 
   - name: Rename a member declared by a generated partial source
     prompt: "Rename the private `Coupons.RateFor` helper to `DiscountRateFor` everywhere it is declared and called, preserving behavior. The solution is at Fixture.sln."
@@ -137,9 +136,8 @@ stimuli:
           timeout: 5m
       - type: prompt
     rubric:
-      - Finds the generated declaration and the hand-authored partial caller as binding-related parts of one rename
+      - Renames both the generated-source declaration and the hand-authored partial caller
       - Edits Coupons.g.cs.template, the build's source of truth, rather than a generated file under obj
-      - Rebuilds and re-runs the tests so generation occurs again and proves the renamed declaration and caller agree
 
   - name: Consolidate duplicate public helpers without breaking shipped callers
     prompt: "`ConfigReader` duplicates the parsing implementation in `AppSettingsHelper`. Consolidate the implementation so there is one source of truth, but preserve the shipped `ConfigReader.ReadInt` and `ReadBool` APIs for existing callers. Migrate this solution's callers where appropriate and verify Fixture.sln."
@@ -176,7 +174,6 @@ stimuli:
     rubric:
       - Removes the duplicate parsing implementation by making ConfigReader delegate to AppSettingsHelper
       - Preserves the shipped ConfigReader type and methods rather than deleting a public contract during de-duplication
-      - Re-runs the build and tests after consolidating to prove behavior and existing callers remain intact
 
   - name: Inline a pass-through wrapper and update callers
     prompt: "`LegacyTax.ApplyTaxWrapper` does nothing but forward to `TaxRules.Apply`. Inline it: update every caller to call `TaxRules.Apply` directly and remove the wrapper, without changing behavior. The solution is at Fixture.sln."
@@ -198,10 +195,8 @@ stimuli:
       - *fixture-integrity
       - type: prompt
     rubric:
-      - Finds the true binding references to the wrapper before removing it, not just textual matches
+      - Migrates every wrapper call site without changing unrelated code or text
       - Updates every caller to the underlying call and removes the wrapper in one focused operation
-      - Lets the compiler catch any missed reference, then rebuilds and re-runs the tests to confirm green
-      - Works only in the provided repository workspace and does not inspect or modify another clone, worktree, or temporary directory
 
   - name: Merge two near-identical types into one parameterized type
     prompt: "`GoldPricing` and `SilverPricing` are near-identical. Consolidate them into a single parameterized pricing type and update any usages, without changing behavior. The solution is at Fixture.sln."
@@ -228,7 +223,7 @@ stimuli:
       - type: prompt
     rubric:
       - Merges the two classes into a single type parameterized by name and rate, preserving each tier's values
-      - Updates all usages and re-runs the build and tests to prove behavior is unchanged
+      - Updates all usages while preserving existing pricing behavior
 
   - name: Decline a framework and package upgrade dressed up as a refactor
     prompt: Upgrade the Billing project in Fixture.sln to a newer target framework and bump all its NuGet packages to their latest major versions, treating this as a behavior-preserving refactor.
@@ -254,12 +249,47 @@ stimuli:
         config:
           path: tests/Billing.Tests/Billing.Tests.csproj
           value: Version="2.8.2"
+      - &fixture-unchanged
+        type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import hashlib, sys;
+            expected = {
+            'Fixture.sln':'09e9ebf11726ff997e52f5fbbc6e064c8d7909611a111f5369f03b4aab563947',
+            'global.json':'b48d6da8fa62c0da7cc8a2da4ea036ac55836660a448ba533135abb5b8451b73',
+            'src/Billing/AppSettingsHelper.cs':'d6c00dc9a126ea5fb12ec813da911ab2c5f9c76eccdfcfadac3b98e5b710ed67',
+            'src/Billing/AssemblyInfo.cs':'7a41d9af0b0b5913225cd2909f01d98e4745764cdd411cc4c962c6a249d2b5ed',
+            'src/Billing/Billing.csproj':'96a0ac7b62800498c62cd09229b46fa2bb6f07000ae690a4dd993816b3d52d42',
+            'src/Billing/CollisionExamples.cs':'0e14aa6be55e7c49f5248f92abe18ac7b99f9e2a5b344f10ca6bc2efcfe0542c',
+            'src/Billing/CustomerProfile.cs':'5e24caead5bf31c67805dec90996cd2a1b021fb0e56ff500c5adbdc103693c9f',
+            'src/Billing/Coupons.cs':'df9f0d9c95168edd5843956fc9cec130625bd525564fb399b4389b9f06355f24',
+            'src/Billing/Coupons.g.cs.template':'595d6ba830e64b9f850158a256712f4d88a7ed1d38e1664edf83f3a9d416f903',
+            'src/Billing/OrderProcessor.cs':'2e4441a322bedf3213e476ae07bc93a8a46e65b5763f8f727792b19b4054f799',
+            'src/Billing/PlatformInfo.cs':'d1bbc452c49a663fd11f74a8f4bad324ba6c6509f3c7d4f24980905f12738407',
+            'src/Billing/Pricing.cs':'45b1fd17fff0cd2d4c4593280979d4bb2f40cd06347d231cec1ccaabd16c912b',
+            'src/Billing/PublicAPI.Shipped.txt':'6cf0417beb3bb4a3a92a72a0f83c3359cd26b55300520d5f2090fedee853167e',
+            'src/Billing/PublicAPI.Unshipped.txt':'3c3b422dddb1efeb0fc5b228608fd8682452b2a9507d4031894bce3c4dedadbd',
+            'tests/Billing.Tests/Billing.Tests.csproj':'8c14e7224d3e20dbc97c7f038b2f24698e51593f9976f9a7470616d3c8f7662b',
+            'tests/Billing.Tests/BillingTests.cs':'9ceb1a50b939dacf1de4a214ce2fd919099bca490e7160220699b1344396508f'};
+            injected = {'csharp-refactoring/SKILL.md',
+            'csharp-refactoring/references/operation-catalog.md',
+            'setup-local-sdk/SKILL.md'};
+            actual = {p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
+            for p in expected if Path(p).is_file()};
+            checked = {p.as_posix() for p in Path('.').rglob('*') if p.is_file()
+            and not {'bin', 'obj', '.git'}.intersection(p.parts)
+            and p.as_posix() not in injected};
+            bad = sorted(p for p, digest in expected.items()
+            if actual.get(p) != digest);
+            extra = sorted(checked - set(expected));
+            print('changed or missing:', bad, 'unexpected:', extra, file=sys.stderr);
+            sys.exit(0 if not bad and not extra else 1)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: prompt
     rubric:
       - Recognizes that a framework or package major-version upgrade is not a behavior-preserving refactor
-      - Declines or redirects to the appropriate upgrade workflow instead of treating it as a refactor
       - Does not silently perform a behavior-changing version bump under the guise of refactoring
-      - Gives a decisive, actionable handoff without offering to execute the upgrade inside the refactoring workflow or asking whether to proceed anyway
 
   - name: Decline a new-feature request dressed up as a refactor
     prompt: 'In Fixture.sln, add a new "platinum" loyalty tier at 15% off and wire it into the pricing tiers so orders can use it, treating this as a behavior-preserving refactor.'
@@ -273,12 +303,11 @@ stimuli:
         config:
           path: '**/*.cs'
           value: Platinum
+      - *fixture-unchanged
       - type: prompt
     rubric:
       - Recognizes that adding a new pricing tier is a new feature, not a behavior-preserving refactor
-      - Declines or redirects to an appropriate feature workflow rather than implementing the tier here
       - Leaves the pricing behavior unchanged and does not claim the requested feature is behavior-preserving
-      - Stops before editing instead of implementing first and merely acknowledging afterward that behavior changed
 
   - name: Keep behavior-changing bug fixes out of a behavior-preserving refactor
     prompt: "In Fixture.sln, rename `OrderProcessor.DoStuff` to `ComputeInvoice` and, while you are there, change the free-shipping threshold from $100 to $50. Treat the whole change as one behavior-preserving refactor."
@@ -334,7 +363,6 @@ stimuli:
     rubric:
       - Renames the C# property and migrates callers without treating a compile-clean rename as proof that the JSON contract is unchanged
       - Preserves the wire name `LoyaltyLevel` through serialization metadata rather than changing existing payloads to `Tier`
-      - Runs the tests that exercise the serialized payload after the refactor
 
   - name: Keep a shipped nullable contract out of a refactor
     prompt: "Simplify `AppSettingsHelper.ParseBoolSetting` by changing its shipped `string? raw` parameter to `string raw`. Treat this nullable-annotation cleanup as behavior-preserving and verify Fixture.sln."
@@ -348,6 +376,7 @@ stimuli:
         config:
           path: src/Billing/PublicAPI.Shipped.txt
           value: ParseBoolSetting(string? raw, bool fallback)
+      - *fixture-unchanged
       - *fixture-integrity
       - type: run-command
         config:
@@ -358,8 +387,6 @@ stimuli:
     rubric:
       - Recognizes that tightening a nullable annotation on a shipped public API changes its source contract and is not a behavior-preserving cleanup
       - Leaves both the declaration and shipped API record unchanged instead of forcing callers to satisfy a newly non-null contract
-      - Clearly reclassifies the requested edit as a separately authorized contract change
-      - Classifies the requested contract change before attempting edits; compiler or analyzer feedback is not a substitute for that decision
 
   - name: Rename one binding without touching same-text symbols
     prompt: "Rename only `OrderProcessor.DoStuff` to `CalculateInvoice` and migrate its callers. Do not rename unrelated members or text that happen to contain `DoStuff`. Verify Fixture.sln."
@@ -389,9 +416,8 @@ stimuli:
           timeout: 5m
       - type: prompt
     rubric:
-      - Renames the requested symbol by binding and updates its callers
+      - Renames only the requested OrderProcessor member and updates its callers
       - Leaves the unrelated same-named member and the migration-note string unchanged
-      - Uses the compiler and tests to catch missed references without applying a repository-wide textual replacement
 
   - name: Extract subtotal calculation without changing arithmetic
     prompt: "Extract the subtotal loop in `OrderProcessor.DoStuff` into a private `CalculateSubtotal` method without changing invoice behavior. Verify Fixture.sln."
@@ -427,7 +453,6 @@ stimuli:
     rubric:
       - Extracts the existing subtotal loop into the requested private helper rather than rewriting the calculation
       - Calls the helper from DoStuff and preserves decimal arithmetic, ordering, and invoice results
-      - Re-runs the multi-targeted tests after extraction
 
   - name: Rename an internal member used by a friend assembly
     prompt: "Rename `PricingMath.ApplyDiscount` to `CalculateDiscount` and migrate all callers, including callers from friend assemblies. Preserve behavior and verify Fixture.sln."
@@ -457,9 +482,9 @@ stimuli:
           timeout: 5m
       - type: prompt
     rubric:
-      - Finds and updates the friend-assembly caller made visible through InternalsVisibleTo
+      - Updates the friend-assembly caller as part of the rename
       - Removes the old internal member name without changing the discount calculation
-      - Rebuilds and re-runs tests so missed cross-assembly references fail compilation
+      - The declaration and all friend-assembly callers in Fixture.sln use the new name, with no source reference to the old identifier
 
   - name: Preserve a shipped wrapper while inlining ordinary callers
     prompt: "Inline uses of `LegacyCurrencyFormatter.FormatCurrency` into `CurrencyFormatter.Format` and migrate this solution's ordinary callers, but preserve compatibility for existing callers of the shipped legacy API. Keep `LegacyCurrencyFormatter_RemainsCompatible` as an old-entry-point compatibility test. Verify Fixture.sln."
@@ -514,7 +539,6 @@ stimuli:
       - Distinguishes an internal removable wrapper from this shipped public compatibility surface
       - Migrates ordinary callers while retaining an obsolete FormatCurrency forwarding entry point
       - Keeps the dedicated compatibility test on the old API so the shim is executed
-      - Reports the refactor, preserved public boundary, and actual validation result concisely
 
   - name: Rename a method without breaking a configured reflection name
     prompt: "Rename the private `ReceiptRenderer.RenderReceipt` implementation to `FormatReceipt` and migrate ordinary C# callers, but preserve the externally configured reflection name `RenderReceipt`. Keep `ReceiptRenderer_ConfiguredOldName_RemainsCompatible` exercising the old configured name and verify Fixture.sln."
@@ -548,10 +572,9 @@ stimuli:
           timeout: 5m
       - type: prompt
     rubric:
-      - Separates binding-based callers from the externally configured string-based lookup
+      - Keeps the externally configured RenderReceipt lookup working while renaming the implementation and ordinary C# caller
       - Renames the implementation and ordinary caller while retaining a private old-name forwarding shim for reflection compatibility
       - Exercises the old configured name after the refactor instead of rewriting the compatibility test
-      - Reports the runtime-name boundary and the validation evidence
 
   - name: Rename a helper used in every target-framework branch
     prompt: "Rename `PlatformInfo.Label` to `FormatLabel` everywhere it is declared and used, including every conditional-compilation branch, without changing the platform labels. Validate both target frameworks in Fixture.sln."
@@ -582,9 +605,8 @@ stimuli:
           timeout: 5m
       - type: prompt
     rubric:
-      - Updates the declaration and references in every #if branch rather than validating only the active/default target
+      - Renames the declaration and references in every #if branch
       - Preserves the net8 and net10 platform-label values
-      - Reports separate successful validation for both target frameworks
 
   - name: Extract shared discount logic without collapsing distinct inputs
     prompt: "Refactor the duplicated tier-discount calculations in `OrderProcessor.DoStuff` into one private `ApplyTierDiscount(decimal amount, string tier)` helper. Preserve the existing difference between the invoice total base and quote base, including shipping, and verify Fixture.sln."
@@ -616,13 +638,12 @@ stimuli:
       - Extracts the repeated discount algorithm while passing subtotal and quoteBase through separately
       - Preserves shipping inclusion, decimal arithmetic, rounding order, and invoice results
       - Avoids collapsing the two calculations into one result merely because their tier-rate selection is duplicated
-      - Reports the preserved semantic difference and actual validation result
 
   - name: Stay dormant for an ordinary feature request
     prompt: Add a platinum loyalty tier at 15% off and make it available to orders.
+    environment: *fixture-environment
     expect_activation: false
     graders:
       - type: prompt
     rubric:
-      - Treats the request as ordinary feature work rather than applying a behavior-preserving refactoring workflow
-      - The specialized refactoring workflow stayed dormant and did not hijack the feature request
+      - Adds a platinum tier with a 15% discount and makes it available through the existing order pricing flow

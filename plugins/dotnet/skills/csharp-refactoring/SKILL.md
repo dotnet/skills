@@ -1,6 +1,6 @@
 ---
 name: csharp-refactoring
-description: "Performs safe, behavior-preserving refactoring of C#/.NET code, verified with build, tests, and analyzers. USE FOR: rename or move a symbol/type/file; extract a method/type/interface; inline a wrapper/method/local; merge or consolidate near-identical classes or duplicate helpers; split or modernize C# code; generated/partial declarations; public, serialized, friend-assembly, or multi-targeted contracts; and mixed requests where a feature, bug fix, package/framework upgrade, public nullability change, or other behavior/contract change is presented as a refactor and must be separated or declined. DO NOT USE FOR: ordinary feature or bug-fix requests not framed as refactoring; upgrades after reclassification (use dotnet-upgrade); new tests; or formatting-only passes (use dotnet format)."
+description: "Safely refactors C#/.NET code without changing behavior. USE FOR any request to refactor, rename, move, extract, inline, merge, consolidate, deduplicate, split, or modernize C# code, including partial/generated declarations, wrappers, public APIs, serialization/reflection/configuration names, friend assemblies, conditional compilation, and multi-targeted projects. Also use when a request calls a feature, bug fix, package/framework upgrade, or public nullability change a refactor and the behavior-changing part must be separated or declined. DO NOT USE FOR ordinary feature or bug fixes not presented as refactoring; standalone upgrades after reclassification (use dotnet-upgrade); adding tests; or formatting-only work."
 license: MIT
 ---
 
@@ -12,10 +12,18 @@ a one-line local rename does not need the ceremony a public multi-targeted chang
 
 ## Mandatory gate: classify before validation or editing
 
-Read only enough repository context to classify the request. Do this before restoring, building, or
-making an edit. If the entire requested operation changes behavior or cannot preserve the relevant
-public/source contract, the correct result of this skill is a decisive handoff, not an implementation
-attempt:
+Read only enough repository context to classify **each requested operation**. Do this before restoring,
+building, or making an edit. Classification precedence is:
+
+- If the request explicitly asks for at least one separable behavior-preserving operation, complete
+  that structural work and defer only the behavior-changing or contract-changing operations. Do not
+  invent or infer structural work to avoid the stop response.
+- If the structural and behavior-changing parts cannot be separated, use the whole-request stop
+  response and state why they are inseparable.
+- Otherwise, use the whole-request stop response only when **every** requested operation is outside
+  behavior-preserving refactoring.
+
+For a whole request that is outside behavior-preserving refactoring:
 
 1. State: `Not a behavior-preserving refactor: <specific reason>.`
 2. State: `No files changed.`
@@ -29,18 +37,24 @@ attempt:
 | Threshold, rate, output, or bug-result change | **Behavior change.** Defer it and hand off to the repository's bug-fix or behavior-change workflow; still complete any clearly separable structural operation. |
 | Tighten or loosen a shipped/public nullable annotation | **Source-contract change.** Leave the declaration and API record unchanged; hand off to the repository's API-contract workflow. |
 
-The three-line stop response applies only when the entire request is outside behavior-preserving
-refactoring. For a mixed request, perform only a clearly separable structural operation and explicitly
-defer the behavior/contract change. Never state `No files changed.` after completing that structural
-operation, and never modify tests to make an unauthorized behavior change appear preserved.
+For a mixed request, never stop after classification. Perform the separable structural operation,
+explicitly defer the behavior/contract change, and never state `No files changed.` after completing
+structural work. Never modify tests to make an unauthorized behavior change appear preserved.
 
-## Work only in the current repository
+## Work only in the current workspace
 
-Resolve the repository root first (`git rev-parse --show-toplevel`) and resolve any prompt-provided
-relative solution/project path inside that root. Search and edit only that workspace. Never use
-filesystem-wide search or select a similarly named clone, temporary directory, build output, or
-another worktree because a file also exists there. If the named path is absent from the current
-repository, stop and report that mismatch instead of guessing another workspace.
+Use the current agent workspace as the boundary. If it is a Git checkout, resolve its repository root
+(`git rev-parse --show-toplevel`) and stay inside it. If Git metadata is absent, treat the current working
+directory and its subdirectories as the boundary, and use a solution or project named in the request
+inside it; Git is not a prerequisite for a refactor. Resolve prompt-provided relative paths inside that
+boundary.
+
+Search and edit only that workspace. Never use filesystem-wide search or select a similarly named clone,
+another worktree, build output, or unrelated temporary directory because a file also exists there. If a
+named path is absent, stop and report the mismatch instead of guessing another workspace. If a tool rejects
+an in-workspace path for a mechanical reason such as path form or unsupported tool root, retry through
+another in-workspace mechanism. If the rejection is a permission or policy denial, report it instead of
+working around it. Never search outside the boundary.
 
 ## Rename / move by bindings, not text
 
@@ -142,9 +156,12 @@ needs `[TypeForwardedTo]` in the original assembly; a move within one assembly d
 *rename* needs an `[Obsolete]` shim, not a forwarder. For a provably local/private change, skip these
 checks.
 
-## Stop and ask when
+## Stop an in-scope refactor when
 
 - The baseline is already red (you can't prove you preserved behavior).
-- A public/shipped API would change without a forwarder/shim or explicit authorization for a breaking change.
+- The requested structural change would alter a public/shipped API and no compatibility shim or forwarder
+  can preserve it. Report the boundary. Use the gate's handoff format when no structural work was completed;
+  after separable work, put the incompatible operation on the `Deferred:` line instead. Do not ask to make
+  the breaking change.
 - Equivalence depends on runtime behavior tests don't cover (reflection, DI, serialization, `dynamic`,
-  P/Invoke) — flag it.
+  P/Invoke) — report the unverified boundary instead of claiming behavior was preserved.
