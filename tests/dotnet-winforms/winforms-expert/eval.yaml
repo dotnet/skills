@@ -1,0 +1,240 @@
+name: winforms-expert
+description: Evaluates the dotnet-winforms/winforms-expert skill
+type: capability
+defaults:
+  timeout: 10m
+  runs: 1
+stimuli:
+  - name: Add a button with a named event handler
+    prompt: |
+      In this WinForms customer editor, add a Clear button beside Save. Name the
+      control `_clearButton`; clicking it must clear `_customerNameTextBox`.
+      Keep the form editable in the Visual Studio WinForms designer, then build
+      WinFormsFixture.csproj.
+    environment:
+      files:
+        - src: fixtures/add-control
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario add-control
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Adds the requested Clear button and wires it to a named code-behind event handler that clears the customer name
+      - Keeps the control declaration, construction, property assignments, event hookup, and Controls.Add call in the designer file
+      - Keeps executable handler logic out of MainForm.Designer.cs so the form remains designer-loadable
+      - Builds the Windows-targeted project successfully after the change
+
+  - name: Replace absolute positioning with a responsive layout container
+    prompt: |
+      MainForm currently positions its contact fields with fixed coordinates.
+      Rework it to use a designer-managed TableLayoutPanel field named
+      `_detailsLayout`: an AutoSize label column, a 100-percent editor column,
+      and a layout that grows with the form. Keep the existing controls and save
+      behavior, preserve Visual Studio designer support, and build the project.
+    environment:
+      files:
+        - src: fixtures/layout-container
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario layout-container
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Replaces direct form positioning with the requested two-column TableLayoutPanel and moves every existing control into it
+      - Uses AutoSize for captions and percentage sizing for the editor column so the fields respond to form resizing
+      - Represents the container as a designer field and uses straightforward serialization-style setup in InitializeComponent
+      - Preserves the existing event behavior and produces a successful build
+
+  - name: Rename a designer control and its event handler
+    prompt: |
+      The Commit button is still named `_saveButton`, and its handler is still
+      `SaveButton_Click`. Rename them to `_commitButton` and
+      `CommitButton_Click` everywhere without changing the displayed text or
+      behavior. Make the rename safe for the WinForms designer and build the
+      project.
+    environment:
+      files:
+        - src: fixtures/rename-control
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario rename-control
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Propagates the control-field rename through construction, properties, Controls.Add, and code-behind references
+      - Renames the handler and keeps a named method subscription rather than replacing it with inline logic
+      - Removes all stale `_saveButton` and `SaveButton_Click` references while preserving the Commit text and behavior
+      - Leaves a designer-loadable form that builds successfully
+
+  - name: Add designer-compatible object binding
+    prompt: |
+      Bind `_nameTextBox.Text` to `CustomerViewModel.Name` with formatting
+      enabled and update-on-property-change behavior. Use a component-owned
+      BindingSource field named `_customerViewModelBindingSource`, expose
+      `CustomerViewModel` as its design-time data source, and assign the existing
+      `_viewModel` instance at runtime. Keep the form usable in the designer and
+      build WinFormsFixture.csproj.
+    environment:
+      files:
+        - src: fixtures/data-binding
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario data-binding
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-contains
+        config:
+          path: MainForm.cs
+          value: _customerViewModelBindingSource.DataSource = _viewModel
+      - type: file-contains
+        config:
+          path: MainForm.Designer.cs
+          value: DataSourceUpdateMode.OnPropertyChanged
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Creates a BindingSource owned by the designer components container and types it to CustomerViewModel for design-time support
+      - Binds the Text property to Name with formatting and source updates on property changes
+      - Assigns the existing view-model instance in ordinary code after InitializeComponent rather than embedding runtime state in designer serialization
+      - Preserves change notification and produces a successful build
+
+  - name: Add safe serialization metadata to a custom control
+    prompt: |
+      Extend StatusBadge with three properties: `HighlightColor` defaulting to
+      yellow, a runtime-only `RuntimeMessages` string list, and an optional
+      `CustomFont`. Make each property cooperate correctly with WinForms
+      designer serialization: use a declared default for HighlightColor, keep
+      RuntimeMessages out of generated code, and provide conditional
+      serialization plus reset behavior for CustomFont. Do not put this logic in
+      MainForm.Designer.cs. Build the project when finished.
+    environment:
+      files:
+        - src: fixtures/custom-control
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario custom-control
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Gives HighlightColor one stable yellow default that agrees with its DefaultValue metadata
+      - Marks RuntimeMessages hidden from designer serialization while keeping it usable at runtime
+      - Implements matching ShouldSerializeCustomFont and ResetCustomFont methods for the optional font
+      - Keeps custom-control behavior and serialization rules in StatusBadge.cs, leaves the form designer declarative, and builds successfully
+
+  - name: Localize form and button text through resources
+    prompt: |
+      Prepare MainForm for localization by moving the form title and Save button
+      caption out of hard-coded designer strings and into MainForm.resx. Use the
+      normal WinForms designer resource pattern so later cultures can override
+      `$this.Text` and `_saveButton.Text`. Preserve the click handler and
+      designer usability, then build the project.
+    environment:
+      files:
+        - src: fixtures/localization
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario localization
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-exists
+        config:
+          path: MainForm.resx
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Creates valid WinForms resources for the form title and Save button caption using the expected component resource names
+      - Replaces hard-coded UI strings with the designer-compatible ComponentResourceManager ApplyResources pattern
+      - Preserves the named click-handler subscription and keeps non-serialization logic out of MainForm.Designer.cs
+      - Produces a successful build with the embedded form resource
+
+  - name: Leave an already designer-safe form unchanged
+    prompt: |
+      Review this small WinForms project for constructs that would stop
+      MainForm from opening in the Visual Studio designer. Fix source files only
+      if such a problem actually exists, and verify the project builds.
+    environment:
+      files:
+        - src: fixtures/no-op
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario no-op
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Correctly recognizes that InitializeComponent already uses named fields, simple assignments, and a named event handler
+      - Leaves the tracked project and source files byte-for-byte unchanged instead of performing an unnecessary designer rewrite
+      - Still verifies the existing Windows-targeted project builds successfully
