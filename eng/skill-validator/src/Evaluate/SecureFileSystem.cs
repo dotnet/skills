@@ -27,6 +27,9 @@ internal static class SecureFileSystem
     private const int UnixReadOnly = 0;
     private const int UnixWriteOnly = 1;
     private const int UnixMissingPath = 2;
+    private const int UnixFileTypeMask = 0xF000;
+    private const int UnixDirectoryMode = 0x4000;
+    private const int PalUnixReadOnly = 0x0000;
     private const int PalUnixWriteOnly = 0x0001;
     private const int PalUnixCloseOnExec = 0x0010;
     private const int PalUnixCreate = 0x0020;
@@ -267,10 +270,9 @@ internal static class SecureFileSystem
             segments.AsSpan(0, segments.Length - 1),
             createMissing: true);
         beforeLeafOpen?.Invoke();
-        var fd = OpenAtUnix(
+        var fd = OpenUnixFileForAppend(
             parent.DangerousGetHandle().ToInt32(),
-            segments[^1],
-            UnixWriteOnly | UnixAppend | UnixNoFollow | UnixCloseOnExec);
+            segments[^1]);
         if (fd < 0 && Marshal.GetLastPInvokeError() == UnixMissingPath)
             return null;
         if (fd < 0)
@@ -417,10 +419,9 @@ internal static class SecureFileSystem
         {
             foreach (var segment in segments)
             {
-                var nextFd = OpenAtUnix(
+                var nextFd = OpenUnixDirectoryEntry(
                     current.DangerousGetHandle().ToInt32(),
-                    segment,
-                    UnixReadOnly | UnixNonBlock | UnixNoFollow | UnixCloseOnExec);
+                    segment);
                 if (nextFd < 0 && createMissing && Marshal.GetLastPInvokeError() == UnixMissingPath)
                 {
                     if (MakeDirectoryAtUnix(
@@ -431,10 +432,9 @@ internal static class SecureFileSystem
                     {
                         ThrowUnixPathError(Path.Combine(root, segment));
                     }
-                    nextFd = OpenAtUnix(
+                    nextFd = OpenUnixDirectoryEntry(
                         current.DangerousGetHandle().ToInt32(),
-                        segment,
-                        UnixReadOnly | UnixNonBlock | UnixNoFollow | UnixCloseOnExec);
+                        segment);
                 }
                 if (nextFd < 0)
                     ThrowUnixPathError(Path.Combine(root, segment));
@@ -456,6 +456,50 @@ internal static class SecureFileSystem
             throw;
         }
     }
+
+    private static int OpenUnixDirectoryEntry(int parentFd, string segment)
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return OpenAtUnix(
+                parentFd,
+                segment,
+                UnixReadOnly | UnixNonBlock | UnixNoFollow | UnixCloseOnExec);
+        }
+
+        var descriptorPath = GetLinuxDescriptorPath(parentFd, segment);
+        if (GetPathStatusSystemNative(descriptorPath, out var status) == 0
+            && (status.Mode & UnixFileTypeMask) != UnixDirectoryMode)
+        {
+            throw new UnauthorizedAccessException($"Path component is not a directory: {segment}");
+        }
+
+        var handle = OpenSystemNative(
+            descriptorPath,
+            PalUnixReadOnly | PalUnixCloseOnExec | PalUnixNoFollow,
+            0);
+        return handle.ToInt32();
+    }
+
+    private static int OpenUnixFileForAppend(int parentFd, string segment)
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return OpenAtUnix(
+                parentFd,
+                segment,
+                UnixWriteOnly | UnixAppend | UnixNoFollow | UnixCloseOnExec);
+        }
+
+        var handle = OpenSystemNative(
+            GetLinuxDescriptorPath(parentFd, segment),
+            PalUnixWriteOnly | PalUnixCloseOnExec | PalUnixNoFollow,
+            0);
+        return handle.ToInt32();
+    }
+
+    private static string GetLinuxDescriptorPath(int parentFd, string segment) =>
+        $"/proc/self/fd/{parentFd}/{segment}";
 
     private static bool IsUnixDirectory(SafeFileHandle handle)
     {
@@ -589,6 +633,11 @@ internal static class SecureFileSystem
     [DllImport("System.Native", EntryPoint = "SystemNative_FStat", SetLastError = true)]
     private static extern int GetFileStatusSystemNative(
         nint fileDescriptor,
+        out UnixFileStatus status);
+
+    [DllImport("System.Native", EntryPoint = "SystemNative_LStat", SetLastError = true)]
+    private static extern int GetPathStatusSystemNative(
+        string path,
         out UnixFileStatus status);
 
     [DllImport("libc", EntryPoint = "openat", SetLastError = true)]
