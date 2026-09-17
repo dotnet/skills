@@ -286,6 +286,84 @@ def path_exists_at_ref(base_ref: str, path: str) -> bool:
     return result.returncode == 0
 
 
+def _without_execution_shard_metadata(content: str) -> str:
+    """Remove only the legacy or current execution-shard routing metadata."""
+    lines = content.splitlines(keepends=True)
+    normalized: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if re.fullmatch(r"executionShard:\s*[\w.\-]+\s*(?:\r?\n)?", line):
+            i += 1
+            continue
+        if (re.fullmatch(r"tags:\s*(?:\r?\n)?", line)
+                and i + 1 < len(lines)
+                and re.fullmatch(
+                    r"[ \t]+executionShard:\s*[\w.\-]+\s*(?:\r?\n)?",
+                    lines[i + 1])):
+            j = i + 2
+            while j < len(lines) and not lines[j].strip():
+                j += 1
+            if j == len(lines) or not lines[j].startswith((" ", "\t")):
+                i += 2
+                continue
+        normalized.append(line)
+        i += 1
+    return "".join(normalized)
+
+
+def _execution_shard_metadata(content: str) -> tuple[str | None, str | None]:
+    legacy = re.search(
+        r"(?m)^executionShard:\s*([\w.\-]+)\s*$",
+        content)
+    nested = re.search(
+        r"(?m)^tags:\s*\r?\n[ \t]+executionShard:\s*([\w.\-]+)\s*$",
+        content)
+    return (
+        legacy.group(1) if legacy else None,
+        nested.group(1) if nested else None,
+    )
+
+
+def is_execution_shard_metadata_only_change(
+        spec: str, base_ref: str, changed_paths: set[str]) -> bool:
+    """Return true only when the suite changed solely to relocate shard metadata."""
+    suite_prefix = spec.rsplit("/", 1)[0] + "/"
+    affected = {
+        path for path in changed_paths
+        if path == spec or path.startswith(suite_prefix)
+    }
+    if affected != {spec}:
+        return False
+
+    try:
+        base = subprocess.run(
+            ["git", "show", f"{base_ref}:{spec}"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="strict")
+        with open(spec, encoding="utf-8") as current_file:
+            current = current_file.read()
+    except (FileNotFoundError, OSError):
+        return False
+    if base.returncode != 0:
+        return False
+
+    base_legacy, base_nested = _execution_shard_metadata(base.stdout)
+    current_legacy, current_nested = _execution_shard_metadata(current)
+    if (base_legacy is None
+            or base_nested is not None
+            or current_legacy is not None
+            or current_nested != base_legacy):
+        return False
+
+    return (
+        _without_execution_shard_metadata(base.stdout)
+        == _without_execution_shard_metadata(current)
+    )
+
+
 def path_is_affected(path: str, changed_paths: set[str] | None) -> bool:
     """Treat any change within an eval suite as affecting the whole suite."""
     if changed_paths is None or ".gitignore" in changed_paths:
@@ -1752,7 +1830,16 @@ def main() -> int:
         changed_paths.update(
             spec for spec in specs if not path_exists_at_ref(base_ref, spec))
     tracked = git_tracked_files()
-    checked_specs = [spec for spec in specs if path_is_affected(spec, changed_paths)]
+    checked_specs = [
+        spec for spec in specs
+        if path_is_affected(spec, changed_paths)
+        and not (
+            base_ref
+            and changed_paths is not None
+            and is_execution_shard_metadata_only_change(
+                spec, base_ref, changed_paths)
+        )
+    ]
     for spec in checked_specs:
         try:
             with open(spec, encoding="utf-8") as fh:

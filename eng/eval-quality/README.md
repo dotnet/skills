@@ -18,6 +18,10 @@ the previous commit. Pull-request CI passes `--base-ref` explicitly, so every
 fixture, reference, or spec changed by the PR is checked as one suite. This is
 a shrink-only ratchet: existing defects in unrelated plugins do not block a
 focused change, but editing that suite requires it to meet the current rules.
+The one non-semantic exception is moving an unchanged `executionShard` value
+from the rejected legacy top-level key into `tags.executionShard`; the gate
+compares normalized base/current content and ignores the suite only when that
+metadata relocation is its sole change.
 Use `--all` for a repository-wide migration audit.
 
 ## Failing checks

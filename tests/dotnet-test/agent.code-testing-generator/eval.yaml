@@ -1,7 +1,8 @@
 name: agent.code-testing-generator
 description: Evaluates the dotnet-test/code-testing-generator custom-agent pipeline
 type: capability
-executionShard: generation
+tags:
+  executionShard: generation
 defaults:
   timeout: 60m
   runs: 1
