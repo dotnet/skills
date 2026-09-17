@@ -280,8 +280,7 @@ stimuli:
             bad = sorted(p for p, digest in expected.items()
             if actual.get(p) != digest);
             extra = sorted(checked - set(expected));
-            print('changed or missing:', bad, 'unexpected:', extra, file=sys.stderr)
-            if bad or extra else None;
+            print('changed or missing:', bad, 'unexpected:', extra, file=sys.stderr);
             sys.exit(0 if not bad and not extra else 1)"
           expected_exit_code: 0
           timeout: 1m
