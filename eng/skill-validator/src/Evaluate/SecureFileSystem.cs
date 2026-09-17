@@ -33,6 +33,7 @@ internal static class SecureFileSystem
     private const int UnixFileTypeMask = 0xF000;
     private const int UnixDirectoryMode = 0x4000;
     private const int UnixRegularFileMode = 0x8000;
+    private const int UnixSymbolicLinkMode = 0xA000;
     private const int PalUnixWriteOnly = 0x0001;
     private const int PalUnixCloseOnExec = 0x0010;
     private const int PalUnixCreate = 0x0020;
@@ -465,9 +466,10 @@ internal static class SecureFileSystem
     {
         if (OperatingSystem.IsLinux())
         {
-            return OpenUnixPath(
+            return OpenLinuxVerifiedPath(
                 GetLinuxDescriptorPath(parentFd, segment),
-                UnixReadOnly | UnixNonBlock | UnixNoFollow | UnixCloseOnExec);
+                UnixReadOnly | UnixNonBlock | UnixNoFollow | UnixCloseOnExec,
+                UnixEntryKind.RegularFileOrDirectory);
         }
 
         return OpenAtUnix(
@@ -711,10 +713,10 @@ internal static class SecureFileSystem
                 UnixReadOnly | UnixNonBlock | UnixNoFollow | UnixCloseOnExec);
         }
 
-        var descriptorPath = GetLinuxDescriptorPath(parentFd, segment);
-        return OpenUnixPath(
-            descriptorPath,
-            UnixReadOnly | UnixNonBlock | UnixNoFollow | UnixCloseOnExec);
+        return OpenLinuxVerifiedPath(
+            GetLinuxDescriptorPath(parentFd, segment),
+            UnixReadOnly | UnixNonBlock | UnixNoFollow | UnixCloseOnExec,
+            UnixEntryKind.Directory);
     }
 
     private static int OpenUnixFileForAppend(int parentFd, string segment)
@@ -727,13 +729,77 @@ internal static class SecureFileSystem
                 UnixWriteOnly | UnixAppend | UnixNoFollow | UnixCloseOnExec);
         }
 
-        return OpenUnixPath(
+        return OpenLinuxVerifiedPath(
             GetLinuxDescriptorPath(parentFd, segment),
-            UnixWriteOnly | UnixAppend | UnixNonBlock | UnixNoFollow | UnixCloseOnExec);
+            UnixWriteOnly | UnixAppend | UnixNonBlock | UnixNoFollow | UnixCloseOnExec,
+            UnixEntryKind.RegularFile);
     }
 
     private static string GetLinuxDescriptorPath(int parentFd, string segment) =>
         $"/proc/self/fd/{parentFd}/{segment}";
+
+    private static int OpenLinuxVerifiedPath(
+        string path,
+        int flags,
+        UnixEntryKind expectedKind)
+    {
+        if (GetPathStatusSystemNative(path, out var before) != 0)
+        {
+            var error = Marshal.GetLastPInvokeError();
+            Marshal.SetLastPInvokeError(error);
+            return -1;
+        }
+        ValidateUnixEntryKind(before, expectedKind, path);
+
+        var fd = OpenUnixPath(path, flags);
+        if (fd < 0)
+            return fd;
+
+        using var handle = new SafeFileHandle(new IntPtr(fd), ownsHandle: true);
+        if (GetFileStatusSystemNative(handle.DangerousGetHandle(), out var opened) != 0
+            || GetPathStatusSystemNative(path, out var after) != 0)
+        {
+            throw new UnauthorizedAccessException($"Filesystem entry changed while opening: {path}");
+        }
+        ValidateUnixEntryKind(opened, expectedKind, path);
+        ValidateUnixEntryKind(after, expectedKind, path);
+        if (before.Device != opened.Device
+            || before.Inode != opened.Inode
+            || after.Device != opened.Device
+            || after.Inode != opened.Inode)
+        {
+            throw new UnauthorizedAccessException($"Filesystem entry changed while opening: {path}");
+        }
+
+        handle.SetHandleAsInvalid();
+        return fd;
+    }
+
+    private static void ValidateUnixEntryKind(
+        UnixFileStatus status,
+        UnixEntryKind expectedKind,
+        string path)
+    {
+        var type = status.Mode & UnixFileTypeMask;
+        if (type == UnixSymbolicLinkMode)
+            throw new UnauthorizedAccessException($"Symbolic-link traversal blocked: {path}");
+        if (expectedKind == UnixEntryKind.Directory
+            && type == UnixRegularFileMode)
+        {
+            throw new FileNotFoundException($"Path component is not a directory: {path}");
+        }
+
+        var valid = expectedKind switch
+        {
+            UnixEntryKind.Directory => type == UnixDirectoryMode,
+            UnixEntryKind.RegularFile => type == UnixRegularFileMode,
+            UnixEntryKind.RegularFileOrDirectory =>
+                type is UnixRegularFileMode or UnixDirectoryMode,
+            _ => false,
+        };
+        if (!valid)
+            throw new UnauthorizedAccessException($"Unsupported filesystem entry: {path}");
+    }
 
     private static bool IsUnixDirectory(SafeFileHandle handle)
     {
@@ -767,9 +833,14 @@ internal static class SecureFileSystem
 
     private static SafeFileHandle OpenUnixRootDirectory(string root)
     {
-        var fd = OpenUnixPath(
-            root,
-            UnixReadOnly | UnixNonBlock | UnixNoFollow | UnixCloseOnExec);
+        var fd = OperatingSystem.IsLinux()
+            ? OpenLinuxVerifiedPath(
+                root,
+                UnixReadOnly | UnixNonBlock | UnixNoFollow | UnixCloseOnExec,
+                UnixEntryKind.Directory)
+            : OpenUnixPath(
+                root,
+                UnixReadOnly | UnixNonBlock | UnixNoFollow | UnixCloseOnExec);
         if (fd < 0)
             ThrowUnixPathError(root);
 
@@ -879,6 +950,11 @@ internal static class SecureFileSystem
         nint fileDescriptor,
         out UnixFileStatus status);
 
+    [DllImport("System.Native", EntryPoint = "SystemNative_LStat", SetLastError = true)]
+    private static extern int GetPathStatusSystemNative(
+        string path,
+        out UnixFileStatus status);
+
     [DllImport("libc", EntryPoint = "open", SetLastError = true)]
     private static extern int OpenUnixPath(string path, int flags);
 
@@ -936,6 +1012,13 @@ internal static class SecureFileSystem
         internal readonly long Inode;
         internal readonly uint UserFlags;
         internal readonly uint HardLinkCount;
+    }
+
+    private enum UnixEntryKind
+    {
+        Directory,
+        RegularFile,
+        RegularFileOrDirectory,
     }
 
     [StructLayout(LayoutKind.Sequential)]
