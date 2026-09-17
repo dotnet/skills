@@ -48,6 +48,27 @@ public static class EvidenceCommand
           and never rewrites that original file. The output is a fresh untrusted
           draft, not evidence validation or a readiness conclusion.
 
+        Evidence text constraints (inclusive maxima):
+          | Field | Maximum |
+          | --- | --- |
+          | --claim | 512 UTF-8 bytes |
+          | --method | 512 UTF-8 bytes |
+          | --locator | 2048 UTF-8 bytes; provenance-specific grammar also applies |
+          | --component | 256 UTF-8 bytes when required by scope |
+
+          These limits count bytes, not characters. Text must be nonempty,
+          NFC-normalized and free of leading or trailing whitespace. C0/C1 controls
+          are disallowed; Unicode Format characters are disallowed except U+200C/U+200D.
+          Other internal whitespace remains subject to each field's grammar.
+          --claim must also be one syntactically atomic non-Markdown sentence.
+          --component is required for component-specific scope; omit it for
+          repository-wide scope and preserve exact component spelling/case.
+          --captured-at still requires canonical UTC seconds (YYYY-MM-DDTHH:mm:ssZ);
+          --supersedes requires EV1- followed by 64 lowercase hexadecimal digits.
+          Byte ceilings do not replace those exact-format, omission or locator rules.
+          EVID005 text checks report the first failure: empty, non-NFC, untrimmed,
+          byte length, then disallowed character. They do not repair or truncate text.
+
         Existing provenance kinds and locator grammars:
         {{string.Join(Environment.NewLine, EvidenceIdentity.ExistingProvenanceKinds.Select(kind => $"  {kind}: {EvidenceIdentity.GetLocatorGrammar(kind)}"))}}
 

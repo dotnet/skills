@@ -411,14 +411,36 @@ public static partial class EvidenceIdentity
     {
         ArgumentNullException.ThrowIfNull(value);
         _ = StrictUtf8.GetBytes(value);
-        if (value.Length == 0 ||
-            !value.IsNormalized(NormalizationForm.FormC) ||
-            !string.Equals(value, value.Trim(), StringComparison.Ordinal) ||
-            StrictUtf8.GetByteCount(value) > maximumUtf8Bytes ||
-            ContainsDisallowedCharacter(value))
+        if (value.Length == 0)
         {
             throw new DeterministicValidationException(
-                $"EVID005: {name} is empty, non-NFC, untrimmed, too long, or contains controls.");
+                $"EVID005: {name} must not be empty.");
+        }
+
+        if (!value.IsNormalized(NormalizationForm.FormC))
+        {
+            throw new DeterministicValidationException(
+                $"EVID005: {name} must be NFC-normalized.");
+        }
+
+        if (!string.Equals(value, value.Trim(), StringComparison.Ordinal))
+        {
+            throw new DeterministicValidationException(
+                $"EVID005: {name} must not contain leading or trailing whitespace.");
+        }
+
+        var actualUtf8Bytes = StrictUtf8.GetByteCount(value);
+        if (actualUtf8Bytes > maximumUtf8Bytes)
+        {
+            throw new DeterministicValidationException(string.Create(
+                CultureInfo.InvariantCulture,
+                $"EVID005: {name} exceeds the UTF-8 byte limit: actual {actualUtf8Bytes} bytes; maximum {maximumUtf8Bytes} bytes."));
+        }
+
+        if (ContainsDisallowedCharacter(value))
+        {
+            throw new DeterministicValidationException(
+                $"EVID005: {name} contains a disallowed control or format character.");
         }
 
         return value;

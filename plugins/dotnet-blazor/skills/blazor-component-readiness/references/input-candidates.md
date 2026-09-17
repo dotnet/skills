@@ -114,6 +114,27 @@ Before authoring evidence drafts, read `<launcher> evidence draft-add --help` fo
 existing provenance kinds, locator grammars, and typed options. Supply actual observed
 claims and inspection/capture facts; never invent provenance metadata.
 Evidence drafts are not canonical ledgers, and their logical locators are not filesystem paths.
+
+Evidence text limits are inclusive and count bytes, not characters:
+
+| Field | Maximum |
+| --- | --- |
+| `--claim` | 512 UTF-8 bytes |
+| `--method` | 512 UTF-8 bytes |
+| `--locator` | 2048 UTF-8 bytes; provenance-specific grammar also applies |
+| `--component` | 256 UTF-8 bytes when required by scope |
+
+Text must be nonempty, NFC-normalized and free of leading or trailing whitespace.
+C0/C1 controls are disallowed; Unicode Format characters are disallowed except U+200C/U+200D.
+Other internal whitespace remains subject to each field's grammar. Claims must also be
+syntactically atomic non-Markdown sentences. Supply `--component` for component-specific
+scope, omit it for repository-wide scope, and preserve exact component spelling/case.
+`--captured-at` still requires canonical UTC seconds (`YYYY-MM-DDTHH:mm:ssZ`);
+`--supersedes` requires `EV1-` followed by 64 lowercase hexadecimal digits.
+Byte ceilings do not replace those exact-format, omission or locator rules.
+EVID005 text checks report the first failure: empty, non-NFC, untrimmed, byte length,
+then disallowed character. They do not repair or truncate text.
+
 For ordinary authoring, use the typed producer rather than transcribing computed hashes into JSON:
 
 For a new capture, obtain UTC mechanically at the capture step and pass it explicitly in the

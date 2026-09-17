@@ -138,7 +138,29 @@ internal static class WorkflowTests
         AssertWorkerLaunchContract(pluginRoot);
         AssertReadinessLauncherExample(skillRoot);
         AssertOptionalJqInventoryProjection(pluginRoot);
+        AssertEvidenceTextConstraints(skillRoot);
         AssertSourceFindingExample(skillRoot);
+    }
+
+    private static void AssertEvidenceTextConstraints(string skillRoot)
+    {
+        var reference = File.ReadAllText(Path.Combine(skillRoot, "references", "input-candidates.md"));
+        AssertContains(reference, "<launcher> evidence draft-add --help", "evidence text rules are discoverable from actual help");
+        foreach (var constraint in new[]
+        {
+            "| `--claim` | 512 UTF-8 bytes |", "| `--method` | 512 UTF-8 bytes |",
+            "| `--locator` | 2048 UTF-8 bytes; provenance-specific grammar also applies |",
+            "| `--component` | 256 UTF-8 bytes when required by scope |",
+            "inclusive", "bytes, not characters", "nonempty, NFC-normalized",
+            "leading or trailing whitespace", "C0/C1", "except U+200C/U+200D",
+            "internal whitespace", "syntactically atomic non-Markdown sentences",
+            "component-specific", "omit it for repository-wide", "exact component spelling/case",
+            "YYYY-MM-DDTHH:mm:ssZ", "`EV1-` followed by 64 lowercase hexadecimal digits",
+            "report the first failure", "do not repair or truncate text"
+        })
+            AssertContains(reference, constraint, $"evidence authoring constraint: {constraint}");
+        AssertBefore(reference, "Evidence text limits", "CAPTURED_AT=",
+            "authors see byte and text constraints before the existing producer examples");
     }
 
     private static void AssertSourceFindingExample(string skillRoot)

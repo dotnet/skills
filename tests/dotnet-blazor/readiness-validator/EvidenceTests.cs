@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
@@ -22,6 +23,7 @@ internal static class EvidenceTests
     {
         EvidenceHandoffTests.Run(repositoryRoot, pluginRoot);
         TestKnownAnswersAndCanonicalBytes();
+        TestEvidenceTextContract(repositoryRoot);
         TestCliCommandSurface();
         TestEvidenceDraftProducer(repositoryRoot);
         TestPackageInspectionPersistence(repositoryRoot);
@@ -35,6 +37,231 @@ internal static class EvidenceTests
         TestPackageArtifactVerification(repositoryRoot);
         TestResourceCeilings();
         TestCliSubprocesses(repositoryRoot, pluginRoot);
+    }
+
+    private static void TestEvidenceTextContract(string repositoryRoot)
+    {
+        var outcomes = new List<object>();
+        var messages = new Dictionary<string, string>(StringComparer.Ordinal);
+        var draft = RepositoryDraft(
+            EvidenceIdentity.VendorSourceRepository, "source:src/Observed.cs", "Retained source was read.");
+
+        void Check(string name, string field, string value, int expectedBytes, bool accepted,
+            Func<byte[]> normalize, string errorPrefix = "EVID005:")
+        {
+            AssertEqual(expectedBytes, new UTF8Encoding(false, true).GetByteCount(value),
+                $"{name} independently specified UTF-8 fixture size");
+            byte[]? canonical = null;
+            string? exceptionType = null;
+            if (accepted)
+            {
+                canonical = normalize();
+            }
+            else
+            {
+                var error = CaptureValidation(() => { _ = normalize(); }, name);
+                Assert(error.Message.StartsWith(errorPrefix, StringComparison.Ordinal), $"{name} error category");
+                messages.Add(name, error.Message);
+                exceptionType = error.GetType().FullName;
+            }
+            outcomes.Add(new
+            {
+                name, field, input = value, utf8Bytes = expectedBytes, accepted, exceptionType,
+                canonicalBase64 = canonical is null ? null : Convert.ToBase64String(canonical)
+            });
+        }
+
+        void CheckDraft(string name, EvidenceRecordDraft input, string field, string value,
+            int expectedBytes, bool accepted, string errorPrefix = "EVID005:") =>
+            Check(name, field, value, expectedBytes, accepted, () =>
+            {
+                var normalized = EvidenceIdentity.NormalizeRecordDraft(input);
+                AssertEqual(input.Claim, normalized.Claim, $"{name} claim is not repaired");
+                AssertEqual(input.Applicability, normalized.Applicability, $"{name} exact applicability");
+                AssertEqual(input.Provenance, normalized.Provenance, $"{name} exact provenance");
+                AssertSequence(input.Supersedes, normalized.Supersedes, $"{name} exact supersedes");
+                return CanonicalEvidenceJson.SerializeDraftDocument(new EvidenceDraftDocument(1, [normalized]));
+            }, errorPrefix);
+
+        var supplementary = string.Concat(Enumerable.Repeat("\U0001f600", 128));
+        AssertEqual(256, supplementary.Length, "supplementary boundary has 256 UTF-16 code units, not 512");
+        var claimCases = new (string Name, string Value, int Bytes, bool Accepted)[]
+        {
+            ("ascii-512", new string('a', 512), 512, true),
+            ("ascii-513", new string('a', 513), 513, false),
+            ("multibyte-512", new string('\u00e9', 256), 512, true),
+            ("multibyte-513", new string('\u00e9', 256) + "a", 513, false),
+            ("supplementary-512", supplementary, 512, true),
+            ("supplementary-513", supplementary + "a", 513, false),
+            ("empty", "", 0, false),
+            ("non-nfc", "e\u0301", 3, false),
+            ("leading-whitespace", " padded", 7, false),
+            ("trailing-whitespace", "padded ", 7, false),
+            ("c0-control", "a\0b", 3, false),
+            ("c1-control", "a\u0085b", 4, false),
+            ("internal-tab", "a\tb", 3, false),
+            ("format-character", "a\u2060b", 5, false),
+            ("allowed-joiners", "a\u200c\u200db", 8, true),
+            ("internal-spaces", "a  b", 4, true),
+            ("internal-nonbreaking-space", "a\u00a0b", 4, true),
+            ("internal-line-separator", "a\u2028b", 5, true),
+            ("internal-paragraph-separator", "a\u2029b", 5, true),
+            ("nfc-before-trim", " e\u0301 ", 5, false),
+            ("trim-before-length", " " + new string('a', 512), 513, false),
+            ("length-before-control", new string('a', 512) + "\0", 513, false)
+        };
+        foreach (var item in claimCases)
+            CheckDraft(item.Name, draft with { Claim = item.Value }, "claim", item.Value, item.Bytes, item.Accepted);
+        foreach (var length in new[] { 512, 513 })
+        {
+            var value = new string('m', length);
+            CheckDraft($"method-{length}", draft with { Provenance = draft.Provenance with { Method = value } },
+                "method", value, length, length == 512);
+        }
+        foreach (var length in new[] { 256, 257 })
+        {
+            var component = new string('C', length);
+            CheckDraft($"component-{length}", ComponentDraft(component), "component_id", component, length, length == 256);
+        }
+        foreach (var length in new[] { 2048, 2049 })
+        {
+            var locator = "source:" + new string('a', length - 7);
+            CheckDraft($"locator-{length}", draft with { Provenance = draft.Provenance with { Locator = locator } },
+                "locator", locator, length, length == 2048);
+        }
+        foreach (var length in new[] { 256, 257 })
+        {
+            var locator = new string('a', length);
+            CheckDraft($"command-grammar-{length}", draft with
+            {
+                Provenance = draft.Provenance with { Kind = EvidenceIdentity.ReviewerGeneratedAnalysis, Locator = locator }
+            }, "locator", locator, length, length == 256);
+        }
+        CheckDraft("claim-markdown", draft with { Claim = "- item" }, "claim", "- item", 6, false, "EVID004:");
+        CheckDraft("claim-delimiter", draft with { Claim = "a|b" }, "claim", "a|b", 3, false, "EVID004:");
+        foreach (var (name, value, accepted, prefix) in new[]
+        {
+            ("evidence-id-68", KnownEvidenceId, true, "EVID002:"),
+            ("evidence-id-69", KnownEvidenceId + "a", false, "EVID005:"),
+            ("evidence-id-grammar", "EV1-" + new string('g', 64), false, "EVID002:")
+        })
+            CheckDraft(name, draft with { Supersedes = [value] }, "evidence_id", value, value.Length, accepted, prefix);
+        foreach (var (name, value, accepted) in new[]
+        {
+            ("timestamp-20", "2026-09-02T20:00:00Z", true),
+            ("timestamp-21", "2026-09-02T20:00:00Zx", false),
+            ("timestamp-grammar", "2026-13-02T20:00:00Z", false)
+        })
+            CheckDraft(name, draft with { Provenance = draft.Provenance with { CapturedAtUtc = value } },
+                "captured_at_utc", value, value.Length, accepted);
+
+        var assessment = KnownAssessment();
+        foreach (var (name, field, value, input, accepted, prefix) in new[]
+        {
+            ("package-100", "package_id", new string('a', 100),
+                assessment with { Package = assessment.Package with { PackageId = new string('a', 100) } }, true, "EVID005:"),
+            ("package-101", "package_id", new string('a', 101),
+                assessment with { Package = assessment.Package with { PackageId = new string('a', 101) } }, false, "EVID005:"),
+            ("package-grammar", "package_id", "a/b",
+                assessment with { Package = assessment.Package with { PackageId = "a/b" } }, false, "EVID006:"),
+            ("version-256", "version", "1.0.0-" + new string('a', 250),
+                assessment with { Package = assessment.Package with { Version = "1.0.0-" + new string('a', 250) } }, true, "EVID005:"),
+            ("version-257", "version", "1.0.0-" + new string('a', 251),
+                assessment with { Package = assessment.Package with { Version = "1.0.0-" + new string('a', 251) } }, false, "EVID005:"),
+            ("version-grammar", "version", "bad",
+                assessment with { Package = assessment.Package with { Version = "bad" } }, false, "The package version core"),
+            ("assessment-kind-16", "assessment_kind", new string('a', 16),
+                assessment with { AssessmentKind = new string('a', 16) }, false, "EVID006:"),
+            ("assessment-kind-17", "assessment_kind", new string('a', 17),
+                assessment with { AssessmentKind = new string('a', 17) }, false, "EVID005:")
+        })
+            Check(name, field, value, value.Length, accepted, () =>
+            {
+                var normalized = EvidenceIdentity.NormalizeAssessment(input);
+                AssertEqual(input, normalized, $"{name} canonical identity is unchanged");
+                return CanonicalEvidenceJson.SerializeAssessment(normalized);
+            }, prefix);
+
+        foreach (var (name, value, expectedType) in new (string, string?, Type)[]
+        {
+            ("null-precheck", null, typeof(ArgumentNullException)),
+            ("high-surrogate-precheck", "\ud800", typeof(EncoderFallbackException)),
+            ("low-surrogate-precheck", "\udc00", typeof(EncoderFallbackException)),
+            ("encoding-before-nfc-trim-length", " e\u0301" + new string('a', 512) + "\ud800", typeof(EncoderFallbackException))
+        })
+        {
+            Exception? failure = null;
+            try { _ = EvidenceIdentity.NormalizeRecordDraft(draft with { Claim = value! }); }
+            catch (Exception error) when (error is ArgumentNullException or EncoderFallbackException) { failure = error; }
+            AssertEqual(expectedType, failure?.GetType(), $"{name} strict precheck exception");
+            if (failure is ArgumentNullException nullError)
+                AssertEqual("value", nullError.ParamName, "null text precheck parameter");
+            outcomes.Add(new
+            {
+                name, field = "claim", inputUtf16 = value?.Select(character => (int)character).ToArray(),
+                accepted = false, exceptionType = failure!.GetType().FullName
+            });
+        }
+        const string ClaimLengthMessage =
+            "EVID005: claim exceeds the UTF-8 byte limit: actual 513 bytes; maximum 512 bytes.";
+        const string LocatorLengthMessage =
+            "EVID005: locator exceeds the UTF-8 byte limit: actual 2049 bytes; maximum 2048 bytes.";
+        var expectedMessages = new (string Message, string[] Names)[]
+        {
+            (ClaimLengthMessage, ["ascii-513", "multibyte-513", "supplementary-513", "length-before-control"]),
+            ("EVID005: claim must not be empty.", ["empty"]),
+            ("EVID005: claim must be NFC-normalized.", ["non-nfc", "nfc-before-trim"]),
+            ("EVID005: claim must not contain leading or trailing whitespace.",
+                ["leading-whitespace", "trailing-whitespace", "trim-before-length"]),
+            ("EVID005: claim contains a disallowed control or format character.",
+                ["c0-control", "c1-control", "internal-tab", "format-character"]),
+            ("EVID005: method exceeds the UTF-8 byte limit: actual 513 bytes; maximum 512 bytes.", ["method-513"]),
+            ("EVID005: component_id exceeds the UTF-8 byte limit: actual 257 bytes; maximum 256 bytes.", ["component-257"]),
+            (LocatorLengthMessage, ["locator-2049"]),
+            ("EVID005: evidence_id exceeds the UTF-8 byte limit: actual 69 bytes; maximum 68 bytes.", ["evidence-id-69"]),
+            ("EVID005: captured_at_utc exceeds the UTF-8 byte limit: actual 21 bytes; maximum 20 bytes.", ["timestamp-21"]),
+            ("EVID005: package_id exceeds the UTF-8 byte limit: actual 101 bytes; maximum 100 bytes.", ["package-101"]),
+            ("EVID005: version exceeds the UTF-8 byte limit: actual 257 bytes; maximum 256 bytes.", ["version-257"]),
+            ("EVID005: assessment_kind exceeds the UTF-8 byte limit: actual 17 bytes; maximum 16 bytes.", ["assessment-kind-17"]),
+            ("EVID005: runtime-observation locator contains unsupported characters.", ["command-grammar-257"]),
+            ("EVID004: claim must be one syntactically atomic non-Markdown sentence.", ["claim-markdown", "claim-delimiter"]),
+            ("EVID002: invalid stable evidence ID 'EV1-" + new string('g', 64) + "'.", ["evidence-id-grammar"]),
+            ("EVID005: captured_at_utc must use canonical UTC-second format.", ["timestamp-grammar"]),
+            ("EVID006: package_id has invalid canonical NuGet ID syntax.", ["package-grammar"]),
+            ("The package version core contains an invalid numeric part.", ["version-grammar"]),
+            ("EVID006: invalid assessment_kind 'aaaaaaaaaaaaaaaa'.", ["assessment-kind-16"])
+        };
+        AssertEqual(messages.Count, expectedMessages.Sum(item => item.Names.Length), "every validation message is asserted exactly");
+        foreach (var (message, names) in expectedMessages)
+            foreach (var name in names)
+                AssertEqual(message, messages[name], $"{name} exact first failure without payload disclosure or aggregation");
+        var originalCulture = CultureInfo.CurrentCulture;
+        var diagnosticCultures = new[] { "ar-SA", "th-TH" };
+        try
+        {
+            foreach (var culture in diagnosticCultures)
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(culture);
+                AssertEqual(ClaimLengthMessage,
+                    CaptureValidation(() => EvidenceIdentity.NormalizeRecordDraft(draft with { Claim = new string('a', 513) })).Message,
+                    $"{culture} invariant claim byte counts");
+                AssertEqual(LocatorLengthMessage,
+                    CaptureValidation(() => EvidenceIdentity.NormalizeRecordDraft(draft with
+                    {
+                        Provenance = draft.Provenance with { Locator = "source:" + new string('a', 2042) }
+                    })).Message, $"{culture} invariant locator byte counts");
+            }
+        }
+        finally { CultureInfo.CurrentCulture = originalCulture; }
+        var root = Path.Combine(
+            Environment.GetEnvironmentVariable("READINESS_TEST_ARTIFACTS") ?? Path.Combine(repositoryRoot, "artifacts"),
+            $"evidence-text-contract-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        File.WriteAllText(Path.Combine(root, "receipt.json"),
+            JsonSerializer.Serialize(new { outcomes, messages, exactMessageCount = messages.Count, diagnosticCultures },
+                new JsonSerializerOptions { WriteIndented = true }),
+            new UTF8Encoding(false));
+        Console.WriteLine($"Evidence text contract: {outcomes.Count} preservation cases passed. Receipt: {root}");
     }
 
     private static void TestAssessmentKindsAndManifestBinding()
@@ -189,7 +416,7 @@ internal static class EvidenceTests
             ExitCodes.Success,
             CliApplication.Run(["evidence", "--help"], output, error),
             "evidence help exit");
-        foreach (var command in new[] { "ledger-build", "ledger-validate", "bundle" })
+        foreach (var command in new[] { "draft-add", "ledger-build", "ledger-validate", "bundle" })
         {
             output.GetStringBuilder().Clear();
             error.GetStringBuilder().Clear();
@@ -206,6 +433,17 @@ internal static class EvidenceTests
             output.ToString().Contains("draft-add", StringComparison.Ordinal) &&
             output.ToString().Contains(EvidenceIdentity.OwnerDeclaredUnavailable, StringComparison.Ordinal),
             "evidence help documents draft producer and existing provenance kinds");
+        foreach (var constraint in new[]
+        {
+            "| --claim | 512 UTF-8 bytes |", "| --method | 512 UTF-8 bytes |",
+            "| --locator | 2048 UTF-8 bytes; provenance-specific grammar also applies |",
+            "| --component | 256 UTF-8 bytes when required by scope |",
+            "bytes, not characters", "NFC-normalized", "leading or trailing whitespace", "C0/C1",
+            "except U+200C/U+200D", "internal whitespace", "component-specific scope; omit it for",
+            "repository-wide scope", "exact component spelling/case", "YYYY-MM-DDTHH:mm:ssZ",
+            "64 lowercase hexadecimal digits", "report the first failure", "do not repair or truncate text"
+        })
+            Assert(output.ToString().Contains(constraint, StringComparison.Ordinal), $"evidence help discloses {constraint}");
     }
 
     private static void TestEvidenceDraftProducer(string repositoryRoot)
@@ -282,6 +520,71 @@ internal static class EvidenceTests
                 CliApplication.Run(manualArguments, new StringWriter(), new StringWriter()),
                 "manual valid draft append exit");
             AssertBytes(manualOriginal, File.ReadAllBytes(manualInputPath), "manual draft remains unchanged");
+
+            var textOutcomes = new List<object>();
+            var textReceiptRoot = Path.Combine(Path.GetDirectoryName(root)!, $"evidence-text-cli-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(textReceiptRoot);
+            foreach (var (name, value, bytes, expectedExit) in new[]
+            {
+                ("ascii-512", new string('a', 512), 512, ExitCodes.Success),
+                ("ascii-513", new string('a', 513), 513, ExitCodes.ValidationFailure),
+                ("multibyte-512", new string('\u00e9', 256), 512, ExitCodes.Success),
+                ("multibyte-513", new string('\u00e9', 256) + "a", 513, ExitCodes.ValidationFailure),
+                ("supplementary-512", string.Concat(Enumerable.Repeat("\U0001f600", 128)), 512, ExitCodes.Success),
+                ("supplementary-513", string.Concat(Enumerable.Repeat("\U0001f600", 128)) + "a", 513, ExitCodes.ValidationFailure)
+            })
+            {
+                AssertEqual(bytes, Encoding.UTF8.GetByteCount(value), $"{name} CLI fixture UTF-8 byte count");
+                var boundaryPath = Path.Combine(root, name + ".json");
+                var boundaryArguments = manualArguments.ToArray();
+                boundaryArguments[3] = boundaryPath;
+                boundaryArguments[5] = value;
+                var stdout = new StringWriter();
+                var stderr = new StringWriter();
+                AssertEqual(expectedExit, CliApplication.Run(boundaryArguments, stdout, stderr), $"{name} actual CLI exit");
+                if (expectedExit == ExitCodes.Success)
+                {
+                    var document = CanonicalEvidenceJson.ParseDraftDocument(File.ReadAllBytes(boundaryPath));
+                    AssertEqual(2, document.Records.Count, $"{name} appends to the retained prior draft");
+                    AssertEqual(value, document.Records.Last().Claim, $"{name} CLI does not repair text");
+                    AssertEqual("", stderr.ToString(), $"{name} no CLI error");
+                    File.Copy(boundaryPath, Path.Combine(textReceiptRoot, name + ".json"), overwrite: false);
+                }
+                else
+                {
+                    AssertEqual("validation error: EVID005: claim exceeds the UTF-8 byte limit: actual 513 bytes; maximum 512 bytes." +
+                        Environment.NewLine, stderr.ToString(), $"{name} actionable actual CLI diagnostic");
+                    Assert(!stderr.ToString().Contains(value, StringComparison.Ordinal), $"{name} error does not echo claim");
+                    Assert(!stderr.ToString().Contains(contentPath, StringComparison.Ordinal) &&
+                        !stderr.ToString().Contains(manualInputPath, StringComparison.Ordinal), $"{name} no new path disclosure");
+                    AssertEqual("", stdout.ToString(), $"{name} no success output");
+                    Assert(!File.Exists(boundaryPath), $"{name} invalid boundary creates no draft");
+                }
+                AssertBytes([3], File.ReadAllBytes(contentPath), $"{name} retained content unchanged");
+                AssertBytes(firstBytes, File.ReadAllBytes(outputPath), $"{name} earlier typed draft unchanged");
+                AssertBytes(manualOriginal, File.ReadAllBytes(manualInputPath), $"{name} supplied prior draft unchanged");
+                textOutcomes.Add(new { name, input = value, utf8Bytes = bytes, exitCode = expectedExit,
+                    error = stderr.ToString(), outputExists = File.Exists(boundaryPath) });
+            }
+            var malformedArguments = manualArguments.ToArray();
+            malformedArguments[3] = Path.Combine(root, "invalid-utf16.json");
+            malformedArguments[5] = "\ud800";
+            var malformedError = new StringWriter();
+            AssertEqual(ExitCodes.EnvironmentFailure,
+                CliApplication.Run(malformedArguments, new StringWriter(), malformedError),
+                "malformed UTF-16 retains the existing CLI environment failure category");
+            Assert(malformedError.ToString().StartsWith("environment error: unexpected validator failure:", StringComparison.Ordinal),
+                "strict encoding failure is not reclassified as EVID005");
+            Assert(!File.Exists(malformedArguments[3]), "malformed UTF-16 creates no draft");
+            AssertBytes([3], File.ReadAllBytes(contentPath), "malformed UTF-16 leaves content unchanged");
+            AssertBytes(manualOriginal, File.ReadAllBytes(manualInputPath), "malformed UTF-16 leaves prior draft unchanged");
+            File.Copy(contentPath, Path.Combine(textReceiptRoot, "source.txt"), overwrite: false);
+            File.Copy(manualInputPath, Path.Combine(textReceiptRoot, "prior-draft.json"), overwrite: false);
+            File.WriteAllText(Path.Combine(textReceiptRoot, "receipt.json"),
+                JsonSerializer.Serialize(new { textOutcomes, malformedUtf16Exit = ExitCodes.EnvironmentFailure,
+                    priorDraftPreserved = true, retainedContentPreserved = true },
+                    new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+            Console.WriteLine($"Evidence text CLI: six boundary cases and strict encoding category passed. Receipt: {textReceiptRoot}");
 
             const string ExpectedContentDigest =
                 "084fed08b978af4d7d196a7446a86b58009e636b611db16211b65a9aadff29c5";
