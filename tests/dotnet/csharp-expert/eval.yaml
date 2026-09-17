@@ -57,7 +57,7 @@ stimuli:
       - The timeout cancels the operation that owns the eventual completion side effect rather than only abandoning its await
       - Timed-out work is awaited or otherwise observed and cannot complete or fault later in the background
       - Caller cancellation remains distinguishable and surfaces as OperationCanceledException
-      - The project builds and the executable prints timeout-cancels-work-ok
+      - The project builds and the verifier prints timeout-verifier-ok.
   - name: Handle nullable lookup results explicitly
     prompt: '`UserDirectory.GetDisplayNameLength` crashes when the requested user is absent. Make the
 
