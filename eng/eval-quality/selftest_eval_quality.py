@@ -1202,6 +1202,58 @@ def config_and_defaults_together(d):
         f.write("config:\n  timeout: 5m\n")
 
 
+def _seed_legacy_execution_shard(d):
+    with open(EV(d), encoding="utf-8") as f:
+        content = f.read()
+    with open(EV(d), "w", encoding="utf-8") as f:
+        f.write("executionShard: heavy\n" + content)
+    subprocess.run(["git", "add", "-A"], cwd=d, check=True)
+    subprocess.run(["git", "commit", "-qm", "legacy shard metadata"], cwd=d, check=True)
+
+
+def execution_shard_metadata_relocation(d):
+    _seed_legacy_execution_shard(d)
+    with open(EV(d), encoding="utf-8") as f:
+        content = f.read()
+    with open(EV(d), "w", encoding="utf-8") as f:
+        f.write(content.replace(
+            "executionShard: heavy\n",
+            "tags:\n  executionShard: heavy\n",
+            1))
+
+
+def execution_shard_value_change(d):
+    execution_shard_metadata_relocation(d)
+    with open(EV(d), encoding="utf-8") as f:
+        content = f.read()
+    with open(EV(d), "w", encoding="utf-8") as f:
+        f.write(content.replace(
+            "executionShard: heavy",
+            "executionShard: light",
+            1))
+
+
+def execution_shard_deletion(d):
+    _seed_legacy_execution_shard(d)
+    with open(EV(d), encoding="utf-8") as f:
+        content = f.read()
+    with open(EV(d), "w", encoding="utf-8") as f:
+        f.write(content.replace("executionShard: heavy\n", "", 1))
+
+
+def execution_shard_addition(d):
+    with open(EV(d), encoding="utf-8") as f:
+        content = f.read()
+    with open(EV(d), "w", encoding="utf-8") as f:
+        f.write("tags:\n  executionShard: heavy\n" + content)
+
+
+def execution_shard_relocation_with_semantic_change(d):
+    execution_shard_metadata_relocation(d)
+    with open(EV(d), "a", encoding="utf-8") as f:
+        f.write("config:\n  timeout: 5m\n")
+
+
 def preexisting_deprecated_config_with_unrelated_change(d):
     path = EV(d)
     with open(path) as f:
@@ -1705,6 +1757,25 @@ results = [
     output_case("default mode compares changed suite with HEAD^",
                 default_mode_changed_suite,
                 "enforced 1 changed eval suite(s) of 1 total against HEAD^"),
+    output_case("pure execution shard metadata relocation is non-semantic",
+                execution_shard_metadata_relocation,
+                "enforced 0 changed eval suite(s) of 1 total against HEAD",
+                gate_args=("--base-ref", "HEAD")),
+    output_case("execution shard value change remains semantic",
+                execution_shard_value_change,
+                "enforced 1 changed eval suite(s) of 1 total against HEAD",
+                gate_args=("--base-ref", "HEAD")),
+    output_case("execution shard deletion remains semantic",
+                execution_shard_deletion,
+                "enforced 1 changed eval suite(s) of 1 total against HEAD",
+                gate_args=("--base-ref", "HEAD")),
+    output_case("execution shard addition remains semantic",
+                execution_shard_addition,
+                "enforced 1 changed eval suite(s) of 1 total against HEAD",
+                gate_args=("--base-ref", "HEAD")),
+    case("shard relocation plus semantic edit remains enforced",
+         execution_shard_relocation_with_semantic_change,
+         expect_fail=True, gate_args=("--base-ref", "HEAD")),
     failing_output_case("push before SHA checks suites changed in earlier commits",
                         push_before_includes_all_commits,
                         "declares the deprecated top-level 'config:' alias",

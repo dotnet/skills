@@ -1,7 +1,8 @@
 name: run-tests
 description: Evaluates the dotnet-test/run-tests skill
 type: capability
-executionShard: execution
+tags:
+  executionShard: execution
 # Run 31083033945 exhausted the monolithic plugin step after 233/234 trajectories.
 # Two tied scenarios were removed as duplicates. Three unique but expensive
 # multi-TFM, NUnit, and VSTest-TRX paths were replaced by focused no-tool

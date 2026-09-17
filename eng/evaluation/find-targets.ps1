@@ -3,8 +3,9 @@ $plugins = @()
 . (Join-Path $PWD "eng/evaluation/path-safety.ps1")
 
 # Build matrix entries for a full-plugin evaluation, sharding skills
-# that have eval specs by the optional `executionShard:` top-level tag
-# in tests/<plugin>/<skill>/eval.yaml. Untagged evals fall into a
+# that have eval specs by the optional `executionShard:` metadata key
+# under the top-level `tags` mapping in tests/<plugin>/<skill>/eval.yaml.
+# Untagged evals fall into a
 # synthetic "default" bucket. Plugins with all skills in one bucket
 # produce a single entry (unchanged behavior); plugins with multiple
 # buckets fan out into one matrix entry per shard so each shard
@@ -48,9 +49,8 @@ function Get-PluginShardEntries {
     if (-not (Test-Path $evalPath)) { continue }
     $evalSkills += $skill
     $shard = "default"
-    # Allow optional leading whitespace so an accidentally indented
-    # executionShard: key still groups correctly (rather than silently
-    # collapsing back to the default bucket).
+    # Allow leading whitespace because executionShard is nested under the
+    # top-level tags mapping.
     $m = Select-String -Path $evalPath -Pattern '^\s*executionShard:\s*[\x27"]?([\w.\-]+)' -List
     if ($m) { $shard = $m.Matches[0].Groups[1].Value }
     if (-not $shardGroups.ContainsKey($shard)) { $shardGroups[$shard] = @() }
