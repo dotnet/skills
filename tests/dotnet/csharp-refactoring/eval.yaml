@@ -271,10 +271,14 @@ stimuli:
             'src/Billing/PublicAPI.Unshipped.txt':'3c3b422dddb1efeb0fc5b228608fd8682452b2a9507d4031894bce3c4dedadbd',
             'tests/Billing.Tests/Billing.Tests.csproj':'8c14e7224d3e20dbc97c7f038b2f24698e51593f9976f9a7470616d3c8f7662b',
             'tests/Billing.Tests/BillingTests.cs':'9ceb1a50b939dacf1de4a214ce2fd919099bca490e7160220699b1344396508f'};
+            injected = {'csharp-refactoring/SKILL.md',
+            'csharp-refactoring/references/operation-catalog.md',
+            'setup-local-sdk/SKILL.md'};
             actual = {p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
             for p in expected if Path(p).is_file()};
             checked = {p.as_posix() for p in Path('.').rglob('*') if p.is_file()
-            and not {'bin', 'obj', '.git'}.intersection(p.parts)};
+            and not {'bin', 'obj', '.git'}.intersection(p.parts)
+            and p.as_posix() not in injected};
             bad = sorted(p for p, digest in expected.items()
             if actual.get(p) != digest);
             extra = sorted(checked - set(expected));
