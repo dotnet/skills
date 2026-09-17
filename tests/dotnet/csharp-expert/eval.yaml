@@ -1,0 +1,241 @@
+name: csharp-expert
+description: Evaluates implementation correctness and C# language and API semantics
+type: capability
+defaults:
+  timeout: 10m
+  runs: 1
+stimuli:
+  - name: Propagate cancellation into asynchronous work
+    prompt: |
+      `Worker.ObserveCancellationAsync` is supposed to stop promptly when its cancellation token is
+      canceled, but the executable currently reports a failure. Fix the implementation without
+      changing the validation code or weakening its timing requirement. Build and run the project.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/async-cancellation
+          dest: .
+    graders:
+      - type: file-exists
+        config:
+          path: Program.cs
+      - type: run-command
+        config:
+          command: dotnet run --project Fixture.csproj --configuration Release
+          expected_exit_code: 0
+          stdout_matches: cancellation-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The asynchronous operation passes cancellation into the operation that is actually waiting
+      - Cancellation ends the operation promptly and is surfaced as cancellation rather than success
+      - The project builds and the executable prints cancellation-ok
+
+  - name: Handle nullable lookup results explicitly
+    prompt: |
+      `UserDirectory.GetDisplayNameLength` crashes when the requested user is absent. Make the
+      nullable contract honest and return zero for a missing user while preserving the existing
+      result for a found user. Do not suppress nullable analysis. Build and run the project.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/nullable-flow
+          dest: .
+    graders:
+      - type: file-exists
+        config:
+          path: Program.cs
+      - type: run-command
+        config:
+          command: dotnet run --project Fixture.csproj --configuration Release
+          expected_exit_code: 0
+          stdout_matches: nullable-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The implementation handles the possibly missing lookup result before dereferencing it
+      - The fix preserves nullable annotations and does not use the null-forgiving operator to hide the risk
+      - The project builds and the executable prints nullable-ok
+
+  - name: Preserve ownership of a caller supplied stream
+    prompt: |
+      `HeaderReader.ReadFirstLine` should read the header without taking ownership of the stream
+      supplied by its caller. The caller must still be able to use that stream afterward, while any
+      wrapper created by the method is still cleaned up correctly. Fix it, then build and run the project.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/stream-ownership
+          dest: .
+    graders:
+      - type: file-exists
+        config:
+          path: Program.cs
+      - type: run-command
+        config:
+          command: dotnet run --project Fixture.csproj --configuration Release
+          expected_exit_code: 0
+          stdout_matches: ownership-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The method disposes its reader without closing the caller-owned stream
+      - The caller can continue reading from and writing to the stream after the method returns
+      - The project builds and the executable prints ownership-ok
+
+  - name: Give identifier objects value equality
+    prompt: |
+      Two `Coordinate` instances with the same X and Y values represent the same identifier, but
+      collection lookup currently treats them as different. Implement appropriate value semantics
+      without changing the validation code. Build and run the project.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/value-equality
+          dest: .
+    graders:
+      - type: file-exists
+        config:
+          path: Program.cs
+      - type: run-command
+        config:
+          command: dotnet run --project Fixture.csproj --configuration Release
+          expected_exit_code: 0
+          stdout_matches: equality-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Equal coordinate values compare equal and produce compatible hash codes
+      - Hash-based collection lookup succeeds for a distinct instance with the same values
+      - The project builds and the executable prints equality-ok
+
+  - name: Enforce a TryParse style port contract
+    prompt: |
+      `PortNumber.TryParse` is intended to accept decimal TCP port numbers from 1 through 65535.
+      Invalid, missing, negative, and out-of-range input must return false and leave the out value at
+      zero. Correct the API implementation without changing its signature or the validation code,
+      then build and run the project.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/api-contract
+          dest: .
+    graders:
+      - type: file-exists
+        config:
+          path: Program.cs
+      - type: run-command
+        config:
+          command: dotnet run --project Fixture.csproj --configuration Release
+          expected_exit_code: 0
+          stdout_matches: api-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The API accepts every valid port boundary and rejects invalid or out-of-range input
+      - Failure consistently resets the out value to zero
+      - The project builds and the executable prints api-ok
+
+  - name: Make concurrent increments atomic
+    prompt: |
+      `AsyncCounter.IncrementAsync` loses updates when many operations run concurrently. Make the
+      counter thread-safe while keeping the asynchronous method and its public surface intact.
+      Do not serialize the validation code. Build and run the project.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/concurrent-counter
+          dest: .
+    graders:
+      - type: file-exists
+        config:
+          path: Program.cs
+      - type: run-command
+        config:
+          command: dotnet run --project Fixture.csproj --configuration Release
+          expected_exit_code: 0
+          stdout_matches: concurrency-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Concurrent increments cannot overwrite one another
+      - The final count exactly matches the number of completed increment operations
+      - The project builds and the executable prints concurrency-ok
+
+  - name: Remove hot path allocations from word counting
+    prompt: |
+      `WordCounter.CountAsciiWords` is on a hot path. It must keep its current results for empty,
+      repeated-space, and ordinary ASCII input while allocating no managed memory per call after
+      warmup. Replace the allocation-heavy implementation without changing the validation thresholds.
+      Build and run the project.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/allocation-hot-path
+          dest: .
+    graders:
+      - type: file-exists
+        config:
+          path: Program.cs
+      - type: run-command
+        config:
+          command: dotnet run --project Fixture.csproj --configuration Release
+          expected_exit_code: 0
+          stdout_matches: allocation-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The word count remains correct for the supplied edge cases
+      - The counting operation avoids temporary arrays, substrings, or enumerable allocations
+      - The project builds and the executable stays within the allocation limit and prints allocation-ok
+
+  - name: Leave an already correct cancellation implementation unchanged
+    prompt: |
+      Review `LineReader.ReadNonEmptyLinesAsync`. It should return every non-empty line in order and
+      observe cancellation through its asynchronous reads. Make changes only if the implementation
+      is incorrect, then build and run the project.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/already-correct
+          dest: .
+    graders:
+      - type: file-exists
+        config:
+          path: Program.cs
+      - type: run-command
+        config:
+          command: >-
+            pwsh -NoProfile -Command
+            "if ([Convert]::ToBase64String([IO.File]::ReadAllBytes('Program.cs')) -eq
+            [Convert]::ToBase64String([IO.File]::ReadAllBytes('ExpectedProgram.cs')))
+            { exit 0 } else { exit 1 }"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet run --project Fixture.csproj --configuration Release
+          expected_exit_code: 0
+          stdout_matches: already-correct
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The agent recognizes that normal reads and cancellation already satisfy the requested behavior
+      - The implementation is left byte-for-byte unchanged rather than rewritten without a defect
+      - The project builds and the executable prints already-correct
