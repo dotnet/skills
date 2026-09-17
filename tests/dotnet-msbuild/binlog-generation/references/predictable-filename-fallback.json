@@ -10,13 +10,13 @@
     {
       "step_id": 1,
       "source": "agent",
-      "message": "Reading ci-artifacts-manifest.txt first, since the ask is for filenames the upload step can rely on before the build even starts -- that rules out /bl:{}, which only resolves to a real name once MSBuild runs.",
+      "message": "Reading predictable-filename/ci-artifacts-manifest.txt first, since the ask is for filenames the upload step can rely on before the build even starts -- that rules out /bl:{}, which only resolves to a real name once MSBuild runs.",
       "tool_calls": [
         {
           "tool_call_id": "call_1",
           "function_name": "bash",
           "arguments": {
-            "command": "cat ci-artifacts-manifest.txt"
+            "command": "cat predictable-filename/ci-artifacts-manifest.txt"
           }
         }
       ],
@@ -24,7 +24,7 @@
         "results": [
           {
             "source_call_id": "call_1",
-            "content": "Read ci-artifacts-manifest.txt: the artifact store already has debug-1/2/3.binlog and release-1/2/3.binlog from earlier pipeline runs, following a <config>-<run number>.binlog convention."
+            "content": "Read predictable-filename/ci-artifacts-manifest.txt: the artifact store already has debug-1/2/3.binlog and release-1/2/3.binlog from earlier pipeline runs, following a <config>-<run number>.binlog convention."
           }
         ]
       }
@@ -32,20 +32,20 @@
     {
       "step_id": 2,
       "source": "agent",
-      "message": "The filenames must be explicit and known before either build starts. The manifest stops at run 3, so debug-4.binlog and release-4.binlog are two distinct predictable top-level names that cannot collide with anything listed; other explicit non-colliding names would also satisfy the requirement.",
+      "message": "The filenames must be explicit and known before either build starts. predictable-filename/ci-artifacts-manifest.txt stops at run 3, so predictable-filename/debug-4.binlog and predictable-filename/release-4.binlog are two distinct predictable top-level names that cannot collide with anything listed; other explicit non-colliding names would also satisfy the requirement.",
       "tool_calls": [
         {
           "tool_call_id": "call_1",
           "function_name": "bash",
           "arguments": {
-            "command": "dotnet build SimpleApp.csproj -c Debug /bl:debug-4.binlog"
+            "command": "dotnet build predictable-filename/SimpleApp.csproj -c Debug /bl:predictable-filename/debug-4.binlog"
           }
         },
         {
           "tool_call_id": "call_2",
           "function_name": "bash",
           "arguments": {
-            "command": "dotnet build SimpleApp.csproj -c Release /bl:release-4.binlog"
+            "command": "dotnet build predictable-filename/SimpleApp.csproj -c Release /bl:predictable-filename/release-4.binlog"
           }
         }
       ],
@@ -53,11 +53,11 @@
         "results": [
           {
             "source_call_id": "call_1",
-            "content": "Ran: dotnet build SimpleApp.csproj -c Debug /bl:debug-4.binlog -> Build succeeded, wrote debug-4.binlog."
+            "content": "Ran: dotnet build predictable-filename/SimpleApp.csproj -c Debug /bl:predictable-filename/debug-4.binlog -> Build succeeded, wrote predictable-filename/debug-4.binlog."
           },
           {
             "source_call_id": "call_2",
-            "content": "Ran: dotnet build SimpleApp.csproj -c Release /bl:release-4.binlog -> Build succeeded, wrote release-4.binlog."
+            "content": "Ran: dotnet build predictable-filename/SimpleApp.csproj -c Release /bl:predictable-filename/release-4.binlog -> Build succeeded, wrote predictable-filename/release-4.binlog."
           }
         ]
       }
@@ -65,7 +65,7 @@
     {
       "step_id": 3,
       "source": "agent",
-      "message": "Both nonempty binlogs are in place with explicit, predictable, upload-ready names chosen before the builds: debug-4.binlog and release-4.binlog. They are distinct and absent from the manifest, and the upload step can reference them directly without globbing for an auto-generated name."
+      "message": "Both nonempty binlogs are in place with explicit, predictable, upload-ready names chosen before the builds: predictable-filename/debug-4.binlog and predictable-filename/release-4.binlog. They are distinct and absent from predictable-filename/ci-artifacts-manifest.txt, and the upload step can reference them directly without globbing for an auto-generated name."
     }
   ]
 }
