@@ -34,6 +34,9 @@ Given a phase from the plan, write all the test files for that phase and ensure 
   `<TESTAGENT_DIR>/plan.md` path
 - Read the command, convention, and target entries needed for that phase from
   `<TESTAGENT_DIR>/research.md`
+- Read the assigned rows from `<TESTAGENT_DIR>/scope-ledger.md`
+- Use the framework version and API guidance already recorded by the generator;
+  do not independently reload supporting framework skills
 - Identify which phase you're implementing
 
 ### 2. Read Source Files and Validate References
@@ -44,9 +47,19 @@ For each file in your phase:
 - Understand the public API — verify exact parameter types, count, return types, and **actual return values for key inputs** before writing assertions
 - **Trace the logic** for each code path you plan to test — understand what the function actually does, not what you think it should do
 - Note dependencies and how to mock them
+- **Use the canonical test project**: Read its exact path and solution or
+  repository entry point from research. Anchor every generated test file,
+  project edit, build, and test command to that same project.
+- **Validate new-project placement**: If the newly scaffolded SDK-style test
+  project is beneath a production project, require existing MSBuild item
+  configuration that excludes the complete test tree. Otherwise report the
+  placement blocker before creating test source; do not patch the production
+  project after a failed build.
 - **Validate project references**: Read the test project file and verify it references the source project(s) you'll test. Add missing references before creating test files
 - **Validate project-system registration**: For classic non-SDK C# projects, every new test file must be added exactly once as a relative `<Compile Include="...">`. For SDK-style projects, confirm default compile globs are enabled before relying on implicit inclusion.
 - **Capture the baseline test count**: run the harness-equivalent discovery command from the repo root (see the "Harness Discovery Check" section of your language extension) and record the count. You will compare against this in Step 7.
+- Keep every assigned scope-ledger row in the phase. Framework coupling changes
+  the test technique; it does not permit silently skipping the file.
 
 ### 3. Register Tests with the Build System
 
@@ -55,7 +68,10 @@ glob automatically**. Call the `code-testing-extensions` skill and read the
 relevant language extension (e.g., `dotnet.md` for .NET solution and classic
 `Compile Include` registration).
 
-> **Reminder**: If Step 4 below creates a *new* test project (`dotnet new`, scaffolded gem, new module), come back here before Step 5 — a new project that is not registered will pass your scoped build/test but will be invisible to the harness, every CI pipeline, and the final solution-level test command.
+For .NET, the generator owns first-project scaffolding before implementer
+dispatch. Do not create a second test project. If the canonical project is
+missing or unusable, report its exact path and blocker to the generator.
+For other languages, register any new test container before building it.
 
 ### 4. Write Test Files
 
@@ -96,6 +112,9 @@ not the full solution.
 
 If build fails: call `code-testing-fixer`, rebuild, retry up to 3 times.
 
+If a new SDK-style test project was created, also build the affected production
+project and require that no diagnostic is attributed to the test-project tree.
+
 ### 6. Verify with Tests
 
 Call the `code-testing-tester` sub-agent to run tests, passing the exact test
@@ -135,7 +154,7 @@ passing the exact lint command and absolute `<TESTAGENT_DIR>`.
 
 ```text
 PHASE: [N]
-STATUS: SUCCESS | PARTIAL | FAILED
+STATUS: SUCCESS | PARTIAL | FAILED | BLOCKED
 TESTS_CREATED: [count]
 TESTS_PASSING: [count]
 HARNESS_DISCOVERY: [count delta from Step 7]
@@ -144,6 +163,12 @@ FILES:
 ISSUES:
 - [Any unresolved issues]
 ```
+
+Update `<TESTAGENT_DIR>/scope-ledger.md` before reporting. Mark a row `tested`
+only when meaningful tests exercise its behavior and cite the test names. Mark
+it `deferred` only with a concrete blocker and why mocks, fakes, or a local
+in-process test host are not reasonable. Leave unfinished work `pending` and
+report PARTIAL, FAILED, or BLOCKED, not SUCCESS.
 
 Consult a language example only when the repository has no representative tests and the base extension does not answer a concrete implementation question.
 
@@ -155,3 +180,5 @@ Consult a language example only when the repository has no representative tests 
 4. **Be thorough** — cover edge cases
 5. **Report clearly** — state what was done and any issues
 6. **Stay within edit boundaries** — existing test files are append-only; never modify non-test source files (see Step 4 for details)
+7. **Account for phase scope** — update every assigned ledger row before reporting
+8. **Preserve project identity** — use the canonical project and entry point; the affected production build must not compile generated test source

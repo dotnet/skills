@@ -29,6 +29,14 @@ Generate concise, parameterized, and effective unit tests using discovered conve
 - **Prefer unit tests** over integration tests, unless integration tests are clearly needed and can run locally
 - **Traverse code thoroughly** to ensure high coverage (80%+) of the entire scope
 - Continue generating tests until you reach the coverage target or have covered all non-trivial public surface area
+- Preserve the user's complete requested scope. Dependency complexity,
+  framework coupling, and existing test projects affect test technique and
+  phase order; they do not justify narrowing the scope to easy classes.
+- For project, solution, module, folder, or multi-file requests, maintain a
+  source-file ledger and account for every non-trivial file as tested, pending,
+  or concretely deferred.
+- Apply coverage goals to the entire original requested scope. Never claim the
+  target is met only "for tested units" or for a selected subset.
 
 ### Key Testing Goals
 
@@ -193,7 +201,12 @@ class TestCalculator:
 
 ## Test Scope Guidelines
 
-- **Write unit tests, not integration/acceptance tests**: Focus on testing individual classes and methods with mocked dependencies
+- **Prefer unit tests**: Test individual classes and methods with mocked
+  dependencies when that gives meaningful coverage.
+- **Use local in-process tests when needed**: Framework-coupled code may use
+  `TestServer`, `WebApplicationFactory`, in-memory providers, or an equivalent
+  local harness when isolated unit tests would not exercise the behavior.
+  Never call external services or bind public network endpoints.
 - **No external dependencies**: Never write tests that call external URLs, bind to network ports, require service discovery, or depend on precise timing
 - **Mock everything external**: HTTP clients, database connections, file systems, network endpoints — all should be mocked in unit tests
 - **Fix assertions, not production code**: When tests fail, read the production code, understand its actual behavior, and update the test assertion

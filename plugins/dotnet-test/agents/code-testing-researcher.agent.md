@@ -18,13 +18,18 @@ You research codebases to understand what needs testing and how to test it. You 
 
 ## Your Mission
 
-Analyze only the requested test-generation scope and produce a compact research document that is sufficient to implement it.
+Analyze only the requested test-generation scope, inventory every non-trivial
+source file inside it, and produce compact research sufficient to implement it.
 
 ## Research Process
 
 ### 1. Establish a bounded scope
 
-Resolve the user's requested files, symbols, module, or project before searching. Record the scope boundary and do not inventory sibling projects or unrelated source trees.
+Resolve the user's requested files, symbols, module, folder, project, or
+solution before searching. Record that exact boundary and do not inventory
+sibling projects or unrelated source trees. Within the requested boundary,
+account for every non-trivial source file; do not cap research to a sample or
+select only leaf, self-contained, mock-free, or framework-decoupled classes.
 
 Discover only the manifests and configuration files needed to interpret that scope:
 
@@ -71,7 +76,7 @@ Based on files found:
 
 ### 5. Analyze Source Files
 
-For each source file selected as a test target:
+For every non-trivial source file in the requested scope:
 
 - Identify public classes/functions
 - Note dependencies and complexity
@@ -85,7 +90,14 @@ For each source file selected as a test target:
 - **Leaf-first testing**: Leaves that fall within the test scope should be tested directly with no mocking needed
 - **Layer-up with mocks**: For types above the leaves that fall within the test scope, mock their leaf dependencies and test the layer's own logic in isolation
 
-Do not read every source file merely because it is under the same project. Record non-target files by path from manifests or pairing output; the implementer will read a file only when its phase starts.
+Create or update `<TESTAGENT_DIR>/scope-ledger.md` with one row per non-trivial
+source file. Record existing test evidence, testability, dependency layer, and
+status. New rows begin as `pending`. A file may be `deferred` only with a
+concrete blocker and why mocks, fakes, or a local in-process test host are not
+reasonable. Dependencies determine phase order and technique, not scope.
+
+Use manifests and pairing output for the inventory; do not eagerly read every
+implementation. The implementer reads each file when its phase starts.
 
 ### 6. Discover Build/Test Commands
 
@@ -147,11 +159,16 @@ Create `<TESTAGENT_DIR>/research.md` with this structure:
 - **Lint**: `[command]` (if available)
 
 ## Scope
-- **Boundary**: [requested files/module/project]
-- **Targets**: [exact source paths selected for testing]
+- **Boundary**: [requested files/module/folder/project/solution]
+- **Targets**: [every non-trivial source path in the requested scope]
+- **Scope ledger**: `<TESTAGENT_DIR>/scope-ledger.md`
+- **Canonical .NET test project and entry point**: [absolute paths; existing or proposed]
 - **Representative existing tests**: [at most two paths, or "none found"]
 
 ## Files to Test
+
+The tables must account for every row in `<TESTAGENT_DIR>/scope-ledger.md`.
+Do not substitute a representative sample.
 
 ### High Priority
 | File | Classes/Functions | Testability | Estimated Coverage | Notes |
@@ -177,6 +194,8 @@ For each test project found, list:
 - **Project file**: `path/to/TestProject.csproj`
 - **Target source project**: what source project it references
 - **Test files**: list of test files in the project
+- **Framework and installed version**: package, SDK, or assembly evidence
+- **Repository entry point**: exact `.sln`, `.slnx`, `.slnf`, or project-oriented command
 
 ## Testing Patterns
 - [Concise conventions from the representative tests; do not reproduce whole files]
@@ -189,9 +208,9 @@ For each test project found, list:
 
 ## Output
 
-Write the research document to the absolute `<TESTAGENT_DIR>/research.md` path
-provided by the caller. `<TESTAGENT_DIR>` must be non-stageable host scratch
-storage, Git metadata, or OS temp. Never place `<TESTAGENT_DIR>` or its files in
-version-controlled workspace content.
+Write the research document and scope ledger to the caller-provided absolute
+`<TESTAGENT_DIR>/research.md` and `<TESTAGENT_DIR>/scope-ledger.md` paths.
+`<TESTAGENT_DIR>` must be non-stageable host scratch storage, Git metadata, or
+OS temp. Never place it or its files in version-controlled workspace content.
 
 Only consult a language example when no representative tests exist and the base extension does not establish the needed convention.

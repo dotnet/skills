@@ -22,9 +22,10 @@ Read the research document and create a phased implementation plan that will gui
 
 ### 1. Read the Research
 
-Read the target inventory, command section, dependency summary, and testing
-conventions from the absolute `<TESTAGENT_DIR>/research.md` path provided by the
-caller. Do not reread repository files during planning.
+Read `<TESTAGENT_DIR>/research.md` and
+`<TESTAGENT_DIR>/scope-ledger.md`. Reuse the inventory, commands, canonical
+project identity, dependencies, and conventions. Do not reread repository
+files during planning.
 
 - Project structure and language
 - Files that need tests
@@ -39,11 +40,13 @@ Check the coverage classification in the research:
 
 **Broad strategy** (most files are untested or estimated coverage is unknown):
 
-- Generate tests for all files in the bounded target inventory
+- Generate tests for every pending row in the authoritative scope ledger
 - Organize into phases by priority and complexity (2-5 phases)
 - Every public class and method must have at least one test
 - If >15 source files, use more phases (up to 8-10)
 - Assign each target file to exactly one phase
+- Split very large scopes across numbered iterations instead of limiting the
+  plan to a convenient subset
 
 **Targeted strategy** (most targets have substantial existing tests):
 
@@ -77,6 +80,14 @@ For each file in each phase, specify:
   the prompt. Group sibling inputs in parameterized or table-driven tests.
 
 **Important**: When adding new tests, they MUST go into the existing test project that already tests the target code. Do not create a separate test project unnecessarily. If no existing test project covers the target, create a new one.
+
+Preserve the canonical test project and entry point recorded by research. The
+generator owns required scaffolding after planning; do not create projects or
+test source during planning.
+
+Every pending row must appear in a phase or in an explicit deferred section
+with a concrete blocker. Framework dependencies, mocking effort, or an existing
+test project are not sufficient reasons to omit an in-scope source file.
 
 ### 5. Generate Plan Document
 
@@ -139,7 +150,7 @@ Only consult a language example when research found no existing tests and the ba
 ## Rules
 
 1. **Be specific** — include exact file paths and method names
-2. **Be realistic** — don't plan more than can be implemented
+2. **Preserve scope** — use more phases or numbered iterations when one plan cannot implement the entire requested scope
 3. **Be incremental** — each phase should be independently valuable
 4. **Avoid templates** — reference the concise conventions captured in research instead of embedding example code
 5. **Match existing style** — follow patterns from existing tests if any

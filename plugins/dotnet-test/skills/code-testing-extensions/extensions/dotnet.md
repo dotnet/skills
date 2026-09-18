@@ -18,6 +18,26 @@ For classic projects, inspect repository scripts, CI configuration, `README*`, a
 command wins. If no compatible runner is installed, report that blocker instead of
 migrating the project or claiming `dotnet test` succeeded.
 
+## New Test-Project Placement
+
+SDK default item globs are rooted at each project directory. A test project
+created beneath an SDK-style production project can therefore add its `*.cs`
+files to the production compilation and its other files to production
+`Content` or `None` items.
+
+Follow an existing safe test-root convention. If none exists, create the new
+test project as a canonical solution- or repository-level sibling beside the
+production project directory, not inside it merely because the solution file is
+there. Treat a nested location as safe only when inherited or project-local
+item configuration already excludes the complete test tree or disables the
+applicable default items.
+
+If no repository-consistent location is safe, report the blocker before
+creating test source. Do not discover the collision through a failed production
+build and then add production-project exclusions as recovery. After test source
+exists, build the affected production project and require that no diagnostic is
+attributed to the test-project tree.
+
 ## Build Commands
 
 | Scope | Command |
@@ -99,10 +119,13 @@ not part of the test assembly and must never be reported as generated coverage.
 
 ### Registering a new test project (MANDATORY when `dotnet new` was used)
 
-A new `.csproj` is **invisible** to `dotnet test <solution>`, to `dotnet test` run from the repo root, and to any CI/benchmark harness until it is added to the solution. Run `dotnet sln add` *immediately* after creating the project as part of Step 3 ("Register Test Project with Build System") — do not defer it to a later step.
+A new test project must be registered in the repository's actual build entry
+point before solution-level validation can discover it. Invoke
+`scaffold-dotnet-test-project` immediately after creation and complete its
+registration workflow; do not defer registration to final validation.
 
 1. Use the exact solution or solution-filter target identified in the research or plan document under `<TESTAGENT_DIR>` — do not search for or substitute a different `.sln`, `.slnx`, or `.slnf` target.
-2. If that target is a `.sln` or `.slnx`, run `dotnet sln <solution> add <test-project.csproj>`.
+2. If that target is a `.sln` or `.slnx`, use the scaffolding skill's exact `dotnet sln <solution> add <test-project.csproj>` and listing workflow.
 3. If the target is a `.slnf` (solution filter), also ensure the new project is included in the filter; adding only to the underlying `.sln` may not be enough for test discovery.
 4. Skip this if the project is already included in the solution or solution filter used for testing.
 5. Prefer the researched test command. If you need to run the solution directly, use `dotnet test --solution <solution>` only for repos on .NET SDK 10+ with MTP-style syntax; otherwise use the standard positional form `dotnet test <solution>`.
@@ -116,7 +139,10 @@ Before reporting success, run the **harness-equivalent** discovery command from 
 dotnet test <solution> --list-tests --no-build 2>&1 | grep -c '^    [A-Za-z]'
 ```
 
-If the delta is `0`, the new project isn't in the solution. Run `dotnet sln <solution> add <test-project.csproj>` and re-run the check. Do **not** report success until the harness command sees your new tests.
+If discovery misses the new tests, inspect the canonical project's registration
+and runner configuration. Use `scaffold-dotnet-test-project` to repair only
+missing wiring, then re-run the same check. Do **not** report success until the
+harness command sees the new tests.
 
 For a classic non-SDK project, use the repository's normal build and discovery
 command instead of the example above. The minimum acceptable check is:
