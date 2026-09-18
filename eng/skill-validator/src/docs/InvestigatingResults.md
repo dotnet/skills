@@ -13,7 +13,7 @@
 > the bounded retry and fail-closed rules.
 
 > Current Vally PR evaluations default to `claude-sonnet-5` and `gpt-5.6-luna`,
-> with primary judges `gpt-5.6-terra` and `claude-opus-4.8`, respectively.
+> with judges `gpt-5.6-terra` and `claude-haiku-4.5`, respectively.
 > Explicit profiles and the scheduled cadence can select other models.
 > These defaults do not change the model fields in historical results or the
 > legacy schema below. Health and issue-triage workflow models are separate.

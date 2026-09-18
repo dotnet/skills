@@ -17,9 +17,9 @@ When an evaluation has a non-pass or warning, the PR comment includes a ready-to
 ## Quick start
 
 The default PR evaluation profile uses `claude-sonnet-5` and `gpt-5.6-luna`.
-Sonnet is judged by `gpt-5.6-terra`; Luna is judged by `claude-opus-4.8`.
+Sonnet is judged by `gpt-5.6-terra`; Luna is judged by `claude-haiku-4.5`.
 The `full` profile includes those defaults. Explicit profile selections still
-apply, and scheduled runs use their configured profile and optional second judge.
+apply, and scheduled runs use their configured profile.
 Read the model and judge fields in each result, rather than assuming that an
 older run used the current defaults. The separate health and issue-triage
 workflows default to `gpt-5.6-sol`; they do not choose the PR evaluation models.

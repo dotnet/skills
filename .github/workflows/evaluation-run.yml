@@ -380,7 +380,6 @@ jobs:
           ENTRY_EVAL_PATH: ${{ matrix.entry.eval_path }}
           ENTRY_MODEL: ${{ matrix.entry.model }}
           ENTRY_JUDGE: ${{ matrix.entry.judge }}
-          ENTRY_JUDGE2: ${{ matrix.entry.judge2 }}
         run: |
           set -f
           # LC_ALL=C avoids locale-dependent collation quirks in [A-Za-z] ranges.
@@ -404,12 +403,10 @@ jobs:
             echo "::error::Invalid target_kind '$ENTRY_TARGET_KIND' (must be skill or agent)"; exit 1
           fi
           # Cross-family executor/judge fields (IMPACT-ANALYSIS.md §10) are
-          # OPTIONAL: they are empty in the single-model default and non-empty
-          # only when the discover job fans the matrix across models. When
-          # present they override the executor/judge below, so hold them to the
-          # same strict allowlist as names. Empty = "use the experiment-file
-          # default" and is skipped (not an error).
-          for mval in "$ENTRY_MODEL" "$ENTRY_JUDGE" "$ENTRY_JUDGE2"; do
+          # populated when the discover job expands the selected profile.
+          # They override the experiment-file defaults below, so hold them to
+          # the same strict allowlist as names.
+          for mval in "$ENTRY_MODEL" "$ENTRY_JUDGE"; do
             if [ -n "$mval" ]; then
               if ! [[ "$mval" =~ $name_re ]] || [[ "$mval" == "." ]] || [[ "$mval" == *".."* ]]; then
                 echo "::error::Invalid matrix model/judge value '$mval' (must match $name_re, not be '.', and not contain '..')"; exit 1
@@ -544,7 +541,6 @@ jobs:
           DEFAULT_JUDGE_MODEL: ${{ env.FALLBACK_JUDGE_MODEL }}
           ENTRY_MODEL: ${{ matrix.entry.model }}
           ENTRY_JUDGE: ${{ matrix.entry.judge }}
-          ENTRY_JUDGE2: ${{ matrix.entry.judge2 }}
         run: |
           read_override() {
             awk -v k="$1" '
@@ -556,28 +552,19 @@ jobs:
           MODEL="$(read_override model)"; MODEL="${MODEL:-$DEFAULT_MODEL}"
           JUDGE_MODEL="$(read_override judge_model)"; JUDGE_MODEL="${JUDGE_MODEL:-$DEFAULT_JUDGE_MODEL}"
           # A cross-family matrix entry (IMPACT-ANALYSIS.md §10) injects the
-          # executor model + judge(s) directly (validated upstream in `discover`).
-          # When present they take precedence over the experiment file so one base
-          # experiment fans across models; when absent (the single-model default)
-          # the experiment file stays the source of truth and behavior is
-          # byte-for-byte unchanged. JUDGE2 is the optional second judge used only
-          # by the scheduled dual-judge cadence.
+          # executor model and its single judge directly (validated upstream in
+          # `discover`). They take precedence over the experiment file so one
+          # base experiment fans across models.
           if [ -n "$ENTRY_MODEL" ]; then MODEL="$ENTRY_MODEL"; fi
           if [ -n "$ENTRY_JUDGE" ]; then JUDGE_MODEL="$ENTRY_JUDGE"; fi
-          JUDGE2_MODEL="$ENTRY_JUDGE2"
           model_re='^[A-Za-z0-9._:/-]+$'
           if ! [[ "$MODEL" =~ $model_re ]] || ! [[ "$JUDGE_MODEL" =~ $model_re ]]; then
             echo "::error::Experiment model overrides must match $model_re"
             exit 1
           fi
-          if [ -n "$JUDGE2_MODEL" ] && ! [[ "$JUDGE2_MODEL" =~ $model_re ]]; then
-            echo "::error::Secondary judge override must match $model_re"
-            exit 1
-          fi
-          echo "Executor model=$MODEL  primary judge=$JUDGE_MODEL  secondary judge=${JUDGE2_MODEL:-<none>}"
+          echo "Executor model=$MODEL  judge=$JUDGE_MODEL"
           echo "model=$MODEL" >> "$GITHUB_OUTPUT"
           echo "judge-model=$JUDGE_MODEL" >> "$GITHUB_OUTPUT"
-          echo "judge2=$JUDGE2_MODEL" >> "$GITHUB_OUTPUT"
 
       - name: Checkout trusted validator source
         if: steps.find-evals.outputs.has_evals == 'true'
@@ -833,7 +820,6 @@ jobs:
           DISPATCH_SKILL: ${{ inputs.skill }}
           MODEL: ${{ steps.eval-models.outputs.model }}
           JUDGE_MODEL: ${{ steps.eval-models.outputs.judge-model }}
-          JUDGE2_MODEL: ${{ steps.eval-models.outputs.judge2 }}
           EXPECTED_EVAL_COUNT: ${{ steps.find-evals.outputs.count }}
           # ENTRY_MODEL is kept only to gate the static-experiment sed fallback
           # below (cross-family leg that failed plugin-variant generation).
@@ -1101,28 +1087,6 @@ jobs:
             exit "$ADAPT_STATUS"
           fi
 
-          # Cross-family robustness pass (IMPACT-ANALYSIS.md §10.5/§10.6): when the
-          # matrix entry supplies a second (within-family, different-model) judge,
-          # RE-SCORE the transcripts this leg already produced. This re-runs only
-          # `vally compare` (the cheap half) against the SAME $RUN_DIR — the
-          # executor is NOT run again — so a dual-judge scheduled run costs ~2x
-          # judging, not ~2x total. The re-score lands in a SEPARATE output root
-          # and is uploaded under the `vally-crossjudge-*` prefix, which the
-          # downstream `vally-results-*` consumers do NOT glob, so it stays a
-          # cross-check and never pollutes the primary dashboard dataset.
-          if [ -n "$JUDGE2_MODEL" ] && [ "$JUDGE2_MODEL" != "$JUDGE_MODEL" ]; then
-            RESULTS_DIR2="${RESULTS_DIR/\/vally\//\/vally-crossjudge\/}"
-            echo "Re-scoring $PLUGIN transcripts with secondary judge $JUDGE2_MODEL -> $RESULTS_DIR2"
-            node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/adapt.mjs" \
-              --experiment-dir "$RUN_DIR" \
-              --output-root "$RESULTS_DIR2" \
-              --vally "vally" \
-              --repo-root "$GITHUB_WORKSPACE" \
-              --expected-evals "$RUNNER_TEMP/evaluation-expected-evals.txt" \
-              --model "$MODEL" \
-              --judge-model "$JUDGE2_MODEL" \
-              "${OVERFIT_ARGS[@]}" || echo "::warning::secondary judge ($JUDGE2_MODEL) re-score failed for $PLUGIN"
-          fi
           fi
 
           # Surface how many verdicts were produced.
@@ -1171,20 +1135,6 @@ jobs:
           path: artifacts/TestResults/vally/${{ matrix.entry.name }}/
           include-hidden-files: true
           if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload cross-family second-judge results
-        # The optional scheduled dual-judge re-score (§10.6). Deliberately a
-        # SEPARATE artifact under a `vally-crossjudge-*` name so downstream
-        # `vally-results-*` consumers ignore it; `if-no-files-found: ignore`
-        # keeps single-judge legs (the common case) from failing this step.
-        if: always() && steps.find-evals.outputs.has_evals == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: vally-crossjudge-${{ matrix.entry.name }}
-          path: artifacts/TestResults/vally-crossjudge/${{ matrix.entry.name }}/
-          include-hidden-files: true
-          if-no-files-found: ignore
           retention-days: 14
 
       - name: Write summary
