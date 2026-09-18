@@ -585,15 +585,15 @@ stimuli:
       - The invoice total reflects the requested 10% reduction
       - The existing class and method names, signature, loop, and surrounding structure remain unchanged
       - The bug fix does not perform a rename, extraction, or modernization; the existing structure stays unchanged
-  - name: Stay dormant for a behavior-preserving rename
+  - name: Stay dormant for a semantic symbol rename
     tags:
       capability: routing-boundary
       risk: low
       journey: dormancy
     prompt: |
-      Rename `OrderProcessor.ProcessOrderAsync` to `SubmitOrderAsync` across the
-      solution. Update every call site and test, preserve the public method's
-      behavior and signature apart from its name, then build and run the tests.
+      Use a semantic symbol rename to change `OrderProcessor.ProcessOrderAsync`
+      to `SubmitOrderAsync` across the solution. Update every reference and test.
+      Change no method body, contract, or behavior, then build and run the tests.
     expect_activation: false
     graders:
       - type: exit-success
