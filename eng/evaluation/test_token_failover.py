@@ -1739,9 +1739,20 @@ case "$COPILOT_GITHUB_TOKEN" in
   status-429) echo "Request failed with status code 429" >&2; exit 1 ;;
   too-many-requests) echo "Too Many Requests" >&2; exit 1 ;;
   weekly-message) echo "You have reached your weekly rate limit" >&2; exit 1 ;;
+  quota-exceeded) echo '{"type":"session.error","data":{"errorType":"quota","message":"You have exceeded your monthly quota","statusCode":402,"errorCode":"quota_exceeded"}}' >&2; exit 1 ;;
+  status-402) echo "Request failed with status code 402" >&2; exit 1 ;;
   timed-out) exit 124 ;;
   unauthorized) echo "401 Unauthorized" >&2; exit 7 ;;
   unauthorized-after-effort) echo "401 Unauthorized after effort retry" >&2; exit 7 ;;
+  no-auth-guidance)
+    echo "To authenticate, you can use any of the following methods:" >&2
+    echo "  • Start 'copilot' and run the '/login' command" >&2
+    echo "  • Set the COPILOT_GITHUB_TOKEN, GH_TOKEN, or GITHUB_TOKEN environment variable" >&2
+    echo "  • Run 'gh auth login' to authenticate with the GitHub CLI" >&2
+    exit 1
+    ;;
+  auth-heading-only) echo "To authenticate, you can use any of the following methods:" >&2; exit 9 ;;
+  auth-env-only) echo "Set the COPILOT_GITHUB_TOKEN, GH_TOKEN, or GITHUB_TOKEN environment variable" >&2; exit 9 ;;
   disabled) echo "This organization has been disabled" >&2; exit 8 ;;
   service-error) echo "Unexpected internal service failure" >&2; exit 9 ;;
   model-error) echo "Model gpt-401 not found" >&2; exit 10 ;;
@@ -1822,6 +1833,8 @@ esac
             "status-429",
             "too-many-requests",
             "weekly-message",
+            "quota-exceeded",
+            "status-402",
         ):
             with self.subTest(limited_token=limited_token):
                 result = self.run_selector({0: limited_token, 1: "healthy"})
@@ -1899,7 +1912,11 @@ esac
         self.assertIn("401 Unauthorized after effort retry", result.stdout)
 
     def test_unavailable_candidate_fails_over_to_healthy_candidate(self) -> None:
-        for unavailable_token in ("unauthorized", "disabled"):
+        for unavailable_token in (
+            "unauthorized",
+            "no-auth-guidance",
+            "disabled",
+        ):
             with self.subTest(unavailable_token=unavailable_token):
                 result = self.run_selector(
                     {0: unavailable_token, 1: "healthy"}
@@ -1915,7 +1932,12 @@ esac
                 )
 
     def test_unrelated_failure_does_not_try_another_candidate(self) -> None:
-        for failing_token in ("service-error", "model-error"):
+        for failing_token in (
+            "service-error",
+            "model-error",
+            "auth-heading-only",
+            "auth-env-only",
+        ):
             with self.subTest(failing_token=failing_token):
                 result = self.run_selector(
                     {0: failing_token, 1: "healthy"}
@@ -2010,6 +2032,9 @@ esac
             "user_weekly_rate_limited",
             "Too Many Requests",
             "You have reached your weekly rate limit",
+            '"errorCode":"quota_exceeded"',
+            "You have exceeded your monthly quota",
+            "Request failed with status code 402",
         ):
             env = os.environ.copy()
             env.update({"PATTERN": pattern, "MESSAGE": message})

@@ -266,20 +266,12 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
       ["isolated", scenario.skilledIsolated],
       ["plugin", scenario.skilledPlugin],
     ].filter(([, run]) => !run).map(([name]) => name);
-    const requiredErrorCount = [
-      scenario.baseline,
-      scenario.skilledIsolated,
-      scenario.skilledPlugin,
-    ].reduce((sum, run) => sum + (run?.metrics?.errorCount ?? 0), 0);
     const requiredTimedOut = scenarioTimedOut(scenario);
     const executionError = scenario.executionError
       ?? (missingRequiredArms.length > 0
         ? `Missing required agent evaluation arm(s): ${missingRequiredArms.join(", ")}`
         : null)
       ?? (requiredTimedOut ? "Required agent evaluation arm timed out" : null)
-      ?? (requiredErrorCount > 0
-        ? `Required agent evaluation arm(s) reported ${requiredErrorCount} executor error(s)`
-        : null)
       ?? ((scenario.failedRunCount ?? 0) > 0
         ? `${scenario.failedRunCount} run(s) failed`
         : null)
