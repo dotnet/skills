@@ -72,12 +72,23 @@ jobs:
       - name: Check eval quality
         env:
           BASE_REF: ${{ github.base_ref }}
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
         run: |
           # On a pull request, additionally reject new entries in the
           # underpowered allowlist relative to the base branch — otherwise a PR
           # could add a below-floor eval and exempt it in the same change.
           if [ -n "$BASE_REF" ]; then
             python eng/eval-quality/check_eval_quality.py --base-ref "origin/$BASE_REF"
+          elif [ "$EVENT_NAME" = "push" ] &&
+               [ -n "$PUSH_BEFORE" ] &&
+               [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ] &&
+               git cat-file -e "$PUSH_BEFORE^{commit}"; then
+            # A push can contain multiple commits. Compare with the event's
+            # pre-push tip so suites changed by any commit are checked.
+            python eng/eval-quality/check_eval_quality.py --base-ref "$PUSH_BEFORE"
           else
-            python eng/eval-quality/check_eval_quality.py
+            # workflow_dispatch and unusual push events have no safe comparison
+            # base. A full audit is safer than silently checking only HEAD^.
+            python eng/eval-quality/check_eval_quality.py --all
           fi

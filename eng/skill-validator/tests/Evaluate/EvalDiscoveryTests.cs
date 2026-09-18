@@ -179,6 +179,66 @@ public class EvalDiscoveryTests
             Directory.Delete(tmpDir, true);
         }
     }
+
+    [Fact]
+    public async Task LoadAndParseEvalDataParsesVallyStimuli()
+    {
+        var tmpDir = Path.Combine(Path.GetTempPath(), $"skill-test-{Guid.NewGuid():N}");
+        var skillDir = Path.Combine(tmpDir, "my-skill");
+        var testsDir = Path.Combine(tmpDir, "tests");
+        var evalDir = Path.Combine(testsDir, "my-skill");
+        Directory.CreateDirectory(skillDir);
+        Directory.CreateDirectory(evalDir);
+        try
+        {
+            await File.WriteAllTextAsync(
+                Path.Combine(skillDir, "SKILL.md"),
+                "---\nname: my-skill\ndescription: test\n---\nBody",
+                TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(
+                Path.Combine(evalDir, "eval.yaml"),
+                """
+                name: my-skill
+                stimuli:
+                  - name: Vally test
+                    prompt: Do the thing.
+                    graders:
+                      - type: output-contains
+                        config:
+                          substring: done
+                      - type: run-command
+                        config:
+                          command: node
+                          args:
+                            - -e
+                            - process.stdout.write('checked')
+                          stdout_contains: checked
+                """,
+                TestContext.Current.CancellationToken);
+
+            var skills = await SkillDiscovery.DiscoverSkills(skillDir);
+            var loaded = Assert.Single(
+                await EvaluateCommand.LoadAndParseEvalData(skills, testsDir));
+            var scenario = Assert.Single(loaded.EvalConfig!.Scenarios);
+            Assert.Equal(2, scenario.Assertions!.Count);
+            var outputAssertion = scenario.Assertions[0];
+            var commandAssertion = scenario.Assertions[1];
+
+            Assert.Equal("Vally test", scenario.Name);
+            Assert.Equal(AssertionType.OutputContains, outputAssertion.Type);
+            Assert.Equal("done", outputAssertion.Value);
+            Assert.Equal(AssertionType.RunCommandAndAssert, commandAssertion.Type);
+            Assert.Equal("node", commandAssertion.CommandArgs!.CommandToRun);
+            Assert.NotNull(commandAssertion.CommandArgs.ArgumentList);
+            Assert.Equal(["-e", "process.stdout.write('checked')"], commandAssertion.CommandArgs.ArgumentList!);
+            Assert.Null(commandAssertion.CommandArgs.CommandArguments);
+            Assert.Equal("checked", commandAssertion.CommandArgs.ExpectedStdOutContains);
+        }
+        finally
+        {
+            Directory.Delete(tmpDir, true);
+        }
+    }
 }
 
 public class ValidateEvalPromptsTests

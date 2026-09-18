@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <NormalizedConfig>$(Configuration.ToUpperInvariant())</NormalizedConfig>
+    <ReleaseNotes Condition="Exists('$(MSBuildProjectDirectory)/notes.txt')">$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)/notes.txt'))</ReleaseNotes>
+  </PropertyGroup>
+</Project>

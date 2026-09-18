@@ -1,0 +1,16 @@
+diff --git a/TestProject.csproj b/TestProject.csproj
+--- a/TestProject.csproj
++++ b/TestProject.csproj
+@@ -60,7 +60,12 @@
+       Configuration="$(Configuration)"
+       TargetFramework="$(TargetFramework)" />
+
+     <Message Importance="high" Text="Generated code file: $(_GeneratedFilePath)" />
++
++    <ItemGroup>
++      <Compile Include="$(_GeneratedFilePath)" />
++      <FileWrites Include="$(_GeneratedFilePath)" />
++    </ItemGroup>
+   </Target>
+
+ </Project>

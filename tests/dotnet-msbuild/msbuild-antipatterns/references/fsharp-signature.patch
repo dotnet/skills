@@ -1,0 +1,31 @@
+diff --git a/fsharp/OrderService/OrderService.fsproj b/fsharp/OrderService/OrderService.fsproj
+--- a/fsharp/OrderService/OrderService.fsproj
++++ b/fsharp/OrderService/OrderService.fsproj
+@@ -4,6 +4,7 @@
+     <TargetFramework>net8.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
++    <Compile Include="Domain.fsi" />
+     <Compile Include="Domain.fs" />
+     <Compile Include="Services.fs" />
+     <Compile Include="Program.fs" />
+diff --git a/fsharp/OrderService/Domain.fsi b/fsharp/OrderService/Domain.fsi
+new file mode 100644
+--- /dev/null
++++ b/fsharp/OrderService/Domain.fsi
+@@ -0,0 +1,15 @@
++module OrderService.Domain
++
++type OrderId = OrderId of int
++
++type OrderItem = {
++    Name: string
++    Quantity: int
++    Price: decimal
++}
++
++type Order = {
++    Id: OrderId
++    CustomerName: string
++    Items: OrderItem list
++}

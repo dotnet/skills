@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <CodeGenSchema Include="schemas\api.schema" />
+    <Compile Include="@(CodeGenSchema->'$(IntermediateOutputPath)%(Filename).g.cs')" />
+    <FileWrites Include="@(CodeGenSchema->'$(IntermediateOutputPath)%(Filename).g.cs')" />
+  </ItemGroup>
+
+  <Target Name="GenerateCode" BeforeTargets="CoreCompile"
+          Inputs="@(CodeGenSchema)"
+          Outputs="@(CodeGenSchema->'$(IntermediateOutputPath)%(Filename).g.cs')">
+    <WriteLinesToFile File="$(IntermediateOutputPath)%(CodeGenSchema.Filename).g.cs"
+                      Lines="// generated from %(CodeGenSchema.Identity)" Overwrite="true" />
+  </Target>
+
+  <Target Name="GetApiSurface" Returns="@(ApiSurface)">
+    <ItemGroup>
+      <ApiSurface Include="Api.Client" />
+    </ItemGroup>
+  </Target>
+</Project>

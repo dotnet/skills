@@ -93,9 +93,9 @@ table also separates expected dormancy (`expect_activation: false`) and
 non-model-invocable reference skills from missing or unexpected activation,
 and exposes compact paired-judge excerpts plus source links when the result
 contains them.
-Plugin-arm activation is labeled as aggregate plugin activity because the
-current adapter does not identify which loaded plugin skill emitted that event;
-only the isolated arm proves activation of the target skill.
+Plugin-arm activation is target-specific. The adapter reads named skill events
+and ignores sibling-skill invocations when computing the target's activation
+and post-activation telemetry.
 
 Each evidence header also shows the evaluated commit and compares it with the
 commit that supplied the deployed dashboard UI. A yellow warning means the
@@ -173,7 +173,7 @@ Each scenario merges the compare preference for that stimulus with the absolute 
 | `timedOut` | Whether the skilled run hit its timeout |
 | `agentActivationIsolated` / `agentActivationPlugin` | Agent targets only: exact target activation plus invoked/delegated agent names and event counts |
 | `skillActivationIsolated` | Isolated activation telemetry: `activated`, `activatedRuns`, `continuedRuns`, `activationOnlyCompletions`, `failedActivationOnlyCompletions`, and `unclassifiedRuns`. `continuedRuns` requires an ordered non-skill tool call after skill activation. An activation-only completion is a normally completed run with no such post-activation call; the failed count includes only runs whose graders did not pass |
-| `skillActivationPlugin` | The same telemetry for the whole-plugin run. `activated` means some plugin skill activity was observed; the current adapter does not retain the emitting skill identity (present only when a plugin variant ran) |
+| `skillActivationPlugin` | The same telemetry for the whole-plugin run, filtered to named activation events for the target skill. Sibling-skill invocations do not set `activated` (present only when a plugin variant ran) |
 | `baseline` | `{ judgeResult: { overallScore }, metrics }` — the skill-free control (`overallScore` is 0–5) |
 | `skilledIsolated` | Same shape, for the isolated skilled run |
 | `skilledPlugin` | Same shape, for the whole-plugin run (may be absent) |
@@ -290,6 +290,20 @@ successful first-attempt judgment fixed and replaces only errored slots. A
 recovered transient appears in `recoveredErrors[]`; an unresolved failure stays
 in `errors[]` and makes the state invalid.
 
+For native-agent results, `RunMetrics.errorCount` is diagnostic. Failed or
+retried tool calls can coexist with completed output and a valid pairwise
+judgment, so that counter alone does not invalidate a measurement. The adapter
+fails closed only on terminal evidence: `scenario.executionError`, a missing
+required arm, a timed-out arm, `failedRunCount > 0`, or a missing pairwise
+result.
+
+The workflow token preflight treats HTTP 429 and 402 quota exhaustion
+(`quota_exceeded` or a monthly-quota message) as pool-candidate exhaustion and
+tries another token. It also quarantines credentials when the Copilot CLI emits
+the paired heading and token-environment lines from its no-authentication setup
+block. Other service or configuration
+failures remain terminal so token failover cannot hide them.
+
 At the workflow level, exit code 124 with `Vally comparison watchdog expired`
 means the remote comparison phase exceeded its 60-minute recovery budget.
 Partial artifacts are uploaded for diagnosis but the result set remains invalid;
@@ -308,9 +322,9 @@ The agent didn't finish within the eval's `config.timeout`. Either the task is t
 An explicit dormancy scenario (`expect_activation: false`) activated the
 isolated target skill. This is deterministic routing evidence, so it blocks a
 pass even though the scenario's judge preference is excluded from the sign
-test. Narrow the skill description or routing boundary. Plugin activity alone
-does not prove a violation because the plugin arm cannot identify which sibling
-skill emitted the activity event.
+test. Narrow the skill description or routing boundary. Plugin activation is
+also target-specific; inspect the named `skill.invoked` event when isolated and
+plugin routing differ.
 
 ### 4. Skill didn't activate (`skillActivationIsolated.activated == false`)
 The skill was available but the agent never invoked it, so "skilled" ≈ "baseline" and no improvement is possible. Fixes: sharpen the skill's `description`/trigger phrasing in `SKILL.md` so the model recognizes when to use it, and make sure the eval prompt actually describes a task the skill targets.
