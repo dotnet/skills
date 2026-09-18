@@ -475,8 +475,8 @@ test("fails closed when the plugin arm times out", () => {
   }
 });
 
-test("fails closed when a required arm records an executor error", () => {
-  const root = mkdtempSync(join(tmpdir(), "agent-adapter-error-"));
+test("keeps completed pairwise evidence valid when metrics include recoverable errors", () => {
+  const root = mkdtempSync(join(tmpdir(), "agent-adapter-diagnostic-error-"));
   try {
     writeAgentEval(root);
     const scenarios = [1, 2, 3, 4, 5].map(winningScenario);
@@ -493,17 +493,76 @@ test("fails closed when a required arm records an executor error", () => {
     const verdict = JSON.parse(
       readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
     ).verdicts[0];
-    assert.equal(verdict.state, "INVALID_INCONCLUSIVE");
-    assert.equal(verdict.signTest.wins, 4);
-    assert.equal(verdict.scenarios[0].trials[0].errored, true);
-    assert.match(
-      verdict.scenarios[0].trials[0].evidence,
-      /reported 1 executor error/,
-    );
+    assert.equal(verdict.state, "VALID_PASS");
+    assert.equal(verdict.signTest.wins, 5);
+    assert.equal(verdict.scenarios[0].trials[0].errored, false);
+    assert.equal(verdict.scenarios[0].skilledPlugin.metrics.errorCount, 1);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+for (const {
+  name,
+  mutate,
+  evidence,
+} of [
+  {
+    name: "an explicit execution error",
+    mutate: (scenario) => {
+      scenario.executionError = "Native runner reported a terminal execution failure";
+    },
+    evidence: /terminal execution failure/,
+  },
+  {
+    name: "a missing required arm",
+    mutate: (scenario) => {
+      delete scenario.skilledIsolated;
+    },
+    evidence: /Missing required agent evaluation arm\(s\): isolated/,
+  },
+  {
+    name: "a failed native run",
+    mutate: (scenario) => {
+      scenario.failedRunCount = 1;
+    },
+    evidence: /1 run\(s\) failed/,
+  },
+  {
+    name: "a missing pairwise result",
+    mutate: (scenario) => {
+      delete scenario.pairwiseResult;
+    },
+    evidence: /Pairwise judge did not produce a result/,
+  },
+]) {
+  test(`fails closed when a completed scenario has ${name}`, () => {
+    const root = mkdtempSync(join(tmpdir(), "agent-adapter-terminal-error-"));
+    try {
+      writeAgentEval(root);
+      const scenarios = [1, 2, 3, 4, 5].map(winningScenario);
+      mutate(scenarios[0]);
+      const { output, result } = runAdapter(root, {
+        skillName: "router",
+        skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
+        skillKind: "agent",
+        passed: true,
+        scenarios,
+      });
+
+      assert.equal(result.status, 0, result.stderr);
+      const verdict = JSON.parse(
+        readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+      ).verdicts[0];
+      assert.equal(verdict.state, "INVALID_INCONCLUSIVE");
+      assert.equal(verdict.signTest.wins, 4);
+      assert.equal(verdict.scenarios[0].trials[0].errored, true);
+      assert.match(verdict.scenarios[0].trials[0].evidence, evidence);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+}
 
 test("preserves a native target-agent activation failure", () => {
   const root = mkdtempSync(join(tmpdir(), "agent-adapter-activation-"));
