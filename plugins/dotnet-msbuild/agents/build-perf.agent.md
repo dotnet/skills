@@ -35,7 +35,7 @@ Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the 
 
 ### Alternate flow — text-log replay (when MCP is unavailable)
 
-1. Replay to diagnostic log: `dotnet msbuild perf-baseline.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary`
+1. Replay to diagnostic log: `dotnet msbuild perf-baseline.binlog -noconlog -fl "-flp:v=diag;logfile=full.log;performancesummary"`
 2. `grep 'Target Performance Summary' -A 50 full.log` → find dominant targets and their cumulative time
 3. `grep 'Task Performance Summary' -A 50 full.log` → find dominant tasks
 4. `grep 'Project Performance Summary' -A 50 full.log` → find time-heavy projects

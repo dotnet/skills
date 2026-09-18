@@ -1,6 +1,6 @@
 ---
 name: directory-build-organization
-description: "Guide for organizing MSBuild infrastructure with Directory.Build.props, Directory.Build.targets, Directory.Packages.props, and Directory.Build.rsp. USE FOR: structuring multi-project repos, centralizing build settings, implementing NuGet Central Package Management (CPM) with ManagePackageVersionsCentrally, consolidating duplicated properties across .csproj files, setting up multi-level Directory.Build hierarchy with GetPathOfFileAbove, understanding evaluation order (Directory.Build.props → SDK .props → .csproj → SDK .targets → Directory.Build.targets). Critical pitfall: $(TargetFramework) conditions in .props silently fail for single-targeting projects — must use .targets. DO NOT USE FOR: non-MSBuild build systems, migrating legacy projects to SDK-style (use msbuild-modernization), single-project solutions with no shared settings."
+description: "DO NOT INVOKE for one project with no repeated shared policy. This skill requires settings or build infrastructure shared across multiple MSBuild projects. USE FOR: Directory.Build.props/targets/rsp, Directory.Packages.props, central package management, duplicated settings, multi-level hierarchy and overrides, and TargetFramework conditions that must move later. Exclude non-MSBuild systems and legacy-to-SDK migration."
 license: MIT
 ---
 

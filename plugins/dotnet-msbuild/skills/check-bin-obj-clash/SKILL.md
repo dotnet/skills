@@ -78,7 +78,7 @@ Use this only when the MCP server cannot be started.
 Replay the binlog to a diagnostic text log, then grep for the same signals the MCP tools surface:
 
 ```bash
-dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log
+dotnet msbuild build.binlog -noconlog -fl "-flp:v=diag;logfile=full.log"
 ```
 
 Then extract the clash signals:
