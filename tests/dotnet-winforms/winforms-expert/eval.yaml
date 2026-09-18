@@ -51,7 +51,7 @@ stimuli:
       risk: high
       journey: implementation
     prompt: |
-      MainForm's labels and editors drift apart when the window is widened and
+      This WinForms MainForm's labels and editors drift apart when the window is widened and
       overlap when display scaling changes. Replace the brittle positioning with
       a designer-serializable layout that keeps captions content-sized and lets
       editors consume the remaining width. Keep the controls and Save behavior,
@@ -133,7 +133,7 @@ stimuli:
       risk: high
       journey: implementation
     prompt: |
-      The customer name TextBox initially shows the model value, but typing does
+      In this WinForms form, the customer name TextBox initially shows the model value, but typing does
       not update the existing CustomerViewModel as the text changes. Repair the
       form without replacing the view model or making the form unavailable in
       the Visual Studio Designer, then build WinFormsFixture.csproj.
@@ -302,7 +302,7 @@ stimuli:
       risk: high
       journey: repair
     prompt: |
-      The shipping-address fields are clipped when Windows display scaling is
+      The WinForms shipping-address fields are clipped when Windows display scaling is
       increased. A previous repair enabled AutoSize on the nested containers, but
       the clipping remains. Diagnose the complete designer-managed layout and fix
       the actual growth bottleneck; do not hide it by increasing fixed width/height
@@ -327,6 +327,12 @@ stimuli:
           timeout: 1m
       - type: run-command
         config:
+          command: pwsh -NoProfile -EncodedCommand JABkAGUAcwBpAGcAbgBlAHIAIAA9ACAAWwBJAE8ALgBGAGkAbABlAF0AOgA6AFIAZQBhAGQAQQBsAGwAVABlAHgAdAAoACIATQBhAGkAbgBGAG8AcgBtAC4ARABlAHMAaQBnAG4AZQByAC4AYwBzACIAKQAKACQAZgBvAHIAbQBBAGQAZAAgAD0AIAAkAGQAZQBzAGkAZwBuAGUAcgAgAC0AbQBhAHQAYwBoACAAJwAoAD8AbQApAF4AXABzACoAQwBvAG4AdAByAG8AbABzAFwALgBBAGQAZABcACgAXABzACoAXwBzAGEAdgBlAEIAdQB0AHQAbwBuAFwAcwAqAFwAKQBcAHMAKgA7ACcACgAkAGIAbwB0AHQAbwBtAEQAbwBjAGsAIAA9ACAAJABkAGUAcwBpAGcAbgBlAHIAIAAtAG0AYQB0AGMAaAAgACcAXwBzAGEAdgBlAEIAdQB0AHQAbwBuAFwALgBEAG8AYwBrAFwAcwAqAD0AXABzACoARABvAGMAawBTAHQAeQBsAGUAXAAuAEIAbwB0AHQAbwBtAFwAcwAqADsAJwAKACQAcABhAHIAZQBuAHQATQBhAHQAYwBoACAAPQAgAFsAcgBlAGcAZQB4AF0AOgA6AE0AYQB0AGMAaAAoACQAZABlAHMAaQBnAG4AZQByACwAIAAnACgAPwBtACkAXgBcAHMAKgAoAD8APABwAGEAcgBlAG4AdAA+AF8AXAB3ACsAKQBcAC4AQwBvAG4AdAByAG8AbABzAFwALgBBAGQAZABcACgAXABzACoAXwBzAGEAdgBlAEIAdQB0AHQAbwBuAFwAcwAqAFwAKQBcAHMAKgA7ACcAKQAKACQAaQBuAEcAcgBvAHcAaQBuAGcATABhAHkAbwB1AHQAIAA9ACAAJABmAGEAbABzAGUACgBpAGYAIAAoACQAcABhAHIAZQBuAHQATQBhAHQAYwBoAC4AUwB1AGMAYwBlAHMAcwApAAoAewAKACAAIAAgACAAJABwAGEAcgBlAG4AdAAgAD0AIAAkAHAAYQByAGUAbgB0AE0AYQB0AGMAaAAuAEcAcgBvAHUAcABzAFsAJwBwAGEAcgBlAG4AdAAnAF0ALgBWAGEAbAB1AGUACgAgACAAIAAgACQAaQBuAEcAcgBvAHcAaQBuAGcATABhAHkAbwB1AHQAIAA9ACAAJABwAGEAcgBlAG4AdAAgAC0AZQBxACAAJwBfAGMAbwBuAHQAZQBuAHQATABhAHkAbwB1AHQAJwAgAC0AbwByAAoAIAAgACAAIAAgACAAIAAgACQAZABlAHMAaQBnAG4AZQByACAALQBtAGEAdABjAGgAIAAoACIAXwBjAG8AbgB0AGUAbgB0AEwAYQB5AG8AdQB0AFwALgBDAG8AbgB0AHIAbwBsAHMAXAAuAEEAZABkAFwAKABcAHMAKgAiACAAKwAgAFsAcgBlAGcAZQB4AF0AOgA6AEUAcwBjAGEAcABlACgAJABwAGEAcgBlAG4AdAApACAAKwAgACIAXABzACoAXAApACIAKQAKAH0ACgBpAGYAIAAoAC0AbgBvAHQAIAAoACgAJABmAG8AcgBtAEEAZABkACAALQBhAG4AZAAgACQAYgBvAHQAdABvAG0ARABvAGMAawApACAALQBvAHIAIAAoAC0AbgBvAHQAIAAkAGYAbwByAG0AQQBkAGQAIAAtAGEAbgBkACAAJABpAG4ARwByAG8AdwBpAG4AZwBMAGEAeQBvAHUAdAApACkAKQAgAHsAIABlAHgAaQB0ACAAMQAgAH0ACgBXAHIAaQB0AGUALQBPAHUAdABwAHUAdAAgACIAbgBlAHMAdABlAGQALQBzAGEAdgBlAC0AbABhAHkAbwB1AHQALQBvAGsAIgA=
+          expected_exit_code: 0
+          stdout_matches: nested-save-layout-ok
+          timeout: 1m
+      - type: run-command
+        config:
           command: dotnet build WinFormsFixture.csproj --nologo
           expected_exit_code: 0
           timeout: 5m
@@ -335,6 +341,7 @@ stimuli:
     rubric:
       - Finds and removes every fixed growth cap, including maximum-size constraints, so the form and each named container can derive size from content
       - Keeps all shipping-address controls inside the existing nested layout rather than bypassing a container or hiding the clipping with larger constants
+      - Places the Save button in the growing outer layout or docks it outside the expanding content so address growth cannot overlap it
       - Keeps the layout declarations and control hierarchy in straightforward designer-generated form
       - Preserves the Save behavior and produces a successful build
 
@@ -344,7 +351,7 @@ stimuli:
       risk: high
       journey: repair
     prompt: |
-      Clicking Refresh disables the button and starts an update, but callers
+      Clicking Refresh in this WinForms form disables the button and starts an update, but callers
       cannot observe completion and the button can remain disabled. Repair the
       event path so the status update completes on the UI thread and control
       state is restored. Keep executable logic out of MainForm.Designer.cs and
@@ -432,7 +439,7 @@ stimuli:
       risk: high
       journey: repair
     prompt: |
-      Closing and reopening MainForm repeatedly leaves timer callbacks alive, and
+      Closing and reopening this WinForms MainForm repeatedly leaves timer callbacks alive, and
       the timer does not appear in the Designer component tray. Repair the
       lifetime problem while preserving the existing Tick behavior and keeping
       the form editable in the Designer. Build the project.
@@ -472,7 +479,7 @@ stimuli:
       risk: medium
       journey: repair
     prompt: |
-      The Add button appends a Customer to `_customers`, but the bound ListBox
+      In this WinForms form, the Add button appends a Customer to `_customers`, but the bound ListBox
       does not show the new item until the form is reopened. Fix the cause
       without manually refreshing or rebinding the ListBox. Keep the existing
       Customer type and button behavior, then build the project.
@@ -512,7 +519,7 @@ stimuli:
       risk: high
       journey: repair
     prompt: |
-      MainForm runs correctly because Program supplies ICustomerService, but the
+      This WinForms MainForm runs correctly because Program supplies ICustomerService, but the
       Visual Studio Designer reports that it cannot create the form. Repair the
       design-time failure without moving service creation into MainForm,
       changing Program's runtime composition, or allowing the Designer to call
@@ -553,7 +560,7 @@ stimuli:
       risk: high
       journey: repair
     prompt: |
-      The orders DataGridView works when the application runs, but after a
+      The WinForms orders DataGridView works when the application runs, but after a
       Designer save/reopen its serialized state is unreliable. A previous manual
       edit changed MainForm.Designer.cs. Repair the smallest defect in the
       generated setup without moving initialization into MainForm.cs or

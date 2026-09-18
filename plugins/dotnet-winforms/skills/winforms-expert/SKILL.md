@@ -1,15 +1,12 @@
 ---
 name: winforms-expert
 description: >-
-  Create, modify, debug, or review Windows Forms applications, Forms, UserControls,
-  custom controls, designer-generated code, layout, data binding, async UI code,
-  accessibility, DPI, and dark mode. USE FOR: WinForms, Windows Forms,
-  System.Windows.Forms, InitializeComponent, *.Designer.cs, *.Designer.vb,
-  Visual Studio Form Designer, TableLayoutPanel, BindingSource, Control.InvokeAsync,
-  custom control serialization, or designer-managed desktop forms, controls, layout,
-  binding, UI threading, component lifetime, and serialization. DO NOT USE FOR: other
-  UI frameworks, console or web applications, or general C# work with no Windows Forms
-  UI or designer concern.
+  Create, modify, debug, or review Windows Forms applications only when the request
+  contains a concrete Windows Forms marker. USE FOR: WinForms, Windows Forms,
+  System.Windows.Forms, Form or UserControl designer files (*.Designer.cs or
+  *.Designer.vb), Visual Studio WinForms Designer, TableLayoutPanel, BindingSource,
+  DataGridView, Control.InvokeAsync, component-tray ownership, or custom control
+  serialization. DO NOT USE when none of these Windows Forms markers is present.
 license: MIT
 ---
 
@@ -123,7 +120,7 @@ the existing project and failure identify one.
 | Controls/components disappear, duplicate, or fail after Designer save/reopen | Restore the generated field/collection shape and balance every `BeginInit`/`EndInit` and `SuspendLayout`/`ResumeLayout` pair | Patch the symptom in `OnLoad` or move serialized controls into local variables | Save, close, reopen, and inspect the regenerated diff |
 | A designer-created `Timer`, `BindingSource`, image list, or similar component outlives the Form | Create the `components` container and pass it to the component constructor | Add ad hoc disposal while leaving designer ownership inconsistent | Closing the Form disposes the container-owned component and the component remains designer-managed |
 | Adding/removing list items does not refresh a bound WinForms list control | Use `BindingList<T>` or the repository's adapter that raises WinForms list-change notifications | Treat `ObservableCollection<T>` as a drop-in WinForms `DataSource` | Mutate the list after binding and observe the control update |
-| Nested content clips at DPI, font, or localization changes | Inspect `AutoSize`, `AutoSizeMode`, `Dock`, `MinimumSize`, `MaximumSize`, and row/column styles from the leaf through every parent; remove the actual growth cap while preserving intentional minimums | Assume `AutoSize = true` is sufficient, increase one fixed `Size`, or bypass a parent container | Exercise resize plus the relevant DPI/font/text expansion |
+| Nested content clips at DPI, font, or localization changes | Inspect `AutoSize`, `AutoSizeMode`, `Dock`, `MinimumSize`, `MaximumSize`, and row/column styles from the leaf through every parent; remove the actual growth cap while preserving intentional minimums; also inspect sibling controls positioned against the growing chain and keep them in responsive layout | Assume `AutoSize = true` is sufficient, increase one fixed `Size`, bypass a parent container, or leave a sibling where expanded content can overlap it | Exercise resize plus the relevant DPI/font/text expansion |
 | UI work is posted but completion/errors are lost | Await the background operation; update controls on the captured WinForms context or await `InvokeAsync` when execution can be off-context; restore control state in `finally`; handle cancellation only when the operation has a real cancellation path | Use `_ =`, `BeginInvoke`, a dead cancellation catch, or an application-wide exception hook as the normal path | Exercise success and failure, plus cancellation only when the UI can actually request it |
 | Text must be localizable | Use the existing `.resx` and `ComponentResourceManager.ApplyResources` serialization pattern | Leave fallback UI text hard-coded in `InitializeComponent` | Build, switch culture when possible, and perform a Designer save/reopen |
 | A VB app needs startup, single-instance, or unhandled-UI hooks | Extend `ApplicationEvents.vb`; qualify `Microsoft.VisualBasic.ApplicationServices` event-argument types when ambiguous; restore, activate, and bring the existing `MainForm` forward; log `e.Exception`; set `e.ExitApplication = True` explicitly | Invent `Program.vb`, add `Sub Main`, replace generated startup, or leave post-error continuation implicit | The configured `StartupObject` and generated application file remain unchanged, no new entry point exists, and the final report states the exit choice |

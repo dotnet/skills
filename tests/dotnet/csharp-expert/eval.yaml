@@ -42,8 +42,8 @@ stimuli:
     prompt: '`WorkTracker.RunWithTimeoutAsync` returns `timed-out` promptly, but
       `CompletedWorkCount` increases a few hundred milliseconds later. Make the timeout stop and
       observe the underlying operation before returning, while preserving caller cancellation as
-      cancellation. Keep the public surface and validation timing intact, then build and run the
-      project.
+      cancellation. Keep the public surface and validation timing intact, then run the project so
+      the verifier compiles and executes it.
 
       '
     environment:
@@ -65,7 +65,7 @@ stimuli:
       - The timeout cancels the operation that owns the eventual completion side effect rather than only abandoning its await
       - Timed-out work is awaited or otherwise observed and cannot complete or fault later in the background
       - Caller cancellation before the timeout surfaces as OperationCanceledException; timed-out is returned only when the caller token was not canceled
-      - The project builds and the verifier prints timeout-verifier-ok.
+      - The project run reports timed-out:0, proving that the timeout returns and no completion side effect occurs
   - name: Handle nullable lookup results explicitly
     tags:
       capability: nullable-flow
