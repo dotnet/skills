@@ -454,6 +454,7 @@ switch ($Scenario)
             Assert-Matches $designer "_addressLayout\.Controls\.Add\s*\(\s*$control\b" "$control was moved out of the address layout."
         }
         Assert-NotMatches $designer '_addressGroup\.Size\s*=|_addressLayout\.Size\s*=|_contentLayout\.Size\s*=' "A nested container still has an explicit fixed size."
+        Assert-NotMatches $designer '_addressGroup\.MaximumSize\s*=|_addressLayout\.MaximumSize\s*=|_contentLayout\.MaximumSize\s*=' "A nested container still has a maximum size that caps autosizing."
     }
     "async-ui-refresh"
     {
