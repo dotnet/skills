@@ -1,0 +1,569 @@
+name: winforms-expert
+description: Evaluates the dotnet-winforms/winforms-expert skill
+type: capability
+defaults:
+  timeout: 10m
+  runs: 1
+stimuli:
+  - name: Add a button with a named event handler
+    prompt: |
+      In this WinForms customer editor, add a Clear button beside Save. Name the
+      control `_clearButton`; clicking it must clear `_customerNameTextBox`.
+      Keep the form editable in the Visual Studio WinForms designer, then build
+      WinFormsFixture.csproj.
+    environment:
+      files:
+        - src: fixtures/add-control
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMQAzAEIARgBDAEIANwBEADQAQgA1AEYAQQA1ADcARgA5ADUAQwA1ADAANAAyADEARAA2AEYAMAA5AEIAQwAzAEMAMAA0ADgANgAyADkAMgBCADQANABEAEUAQwBBADIARgBDADgAMwA5AEIARgAyAEMARgA5ADcAMgA1AEUANgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario add-control
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Adds the requested Clear button and wires it to a named code-behind event handler that clears the customer name
+      - Keeps the control declaration, construction, property assignments, event hookup, and Controls.Add call in the designer file
+      - Keeps executable handler logic out of MainForm.Designer.cs so the form remains designer-loadable
+      - Builds the Windows-targeted project successfully after the change
+
+  - name: Replace absolute positioning with a responsive layout container
+    prompt: |
+      MainForm's labels and editors drift apart when the window is widened and
+      overlap when display scaling changes. Replace the brittle positioning with
+      a designer-serializable layout that keeps captions content-sized and lets
+      editors consume the remaining width. Keep the controls and Save behavior,
+      preserve Visual Studio designer support, and build the project.
+    environment:
+      files:
+        - src: fixtures/layout-container
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMQAzAEIARgBDAEIANwBEADQAQgA1AEYAQQA1ADcARgA5ADUAQwA1ADAANAAyADEARAA2AEYAMAA5AEIAQwAzAEMAMAA0ADgANgAyADkAMgBCADQANABEAEUAQwBBADIARgBDADgAMwA5AEIARgAyAEMARgA5ADcAMgA1AEUANgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario layout-container
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Replaces direct form positioning with the requested two-column TableLayoutPanel and moves every existing control into it
+      - Uses AutoSize for captions and percentage sizing for the editor column so the fields respond to form resizing
+      - Represents the container as a designer field and uses straightforward serialization-style setup in InitializeComponent
+      - Runs the available WinForms layout/designer validator as well as the build and reports their results separately
+      - Preserves the existing event behavior and does not claim a Visual Studio Designer round trip on the non-Windows runner
+
+  - name: Rename a designer control and its event handler
+    prompt: |
+      The Commit button is still named `_saveButton`, and its handler is still
+      `SaveButton_Click`. Rename them to `_commitButton` and
+      `CommitButton_Click` everywhere without changing the displayed text or
+      behavior. Make the rename safe for the WinForms designer and build the
+      project.
+    environment:
+      files:
+        - src: fixtures/rename-control
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMQAzAEIARgBDAEIANwBEADQAQgA1AEYAQQA1ADcARgA5ADUAQwA1ADAANAAyADEARAA2AEYAMAA5AEIAQwAzAEMAMAA0ADgANgAyADkAMgBCADQANABEAEUAQwBBADIARgBDADgAMwA5AEIARgAyAEMARgA5ADcAMgA1AEUANgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario rename-control
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Propagates the control-field rename through construction, properties, Controls.Add, and code-behind references
+      - Renames the handler and keeps a named method subscription rather than replacing it with inline logic
+      - Removes all stale `_saveButton` and `SaveButton_Click` references while preserving the Commit text and behavior
+      - Leaves a designer-loadable form that builds successfully
+
+  - name: Add designer-compatible object binding
+    prompt: |
+      The customer name TextBox initially shows the model value, but typing does
+      not update the existing CustomerViewModel as the text changes. Repair the
+      form without replacing the view model or making the form unavailable in
+      the Visual Studio Designer, then build WinFormsFixture.csproj.
+    environment:
+      files:
+        - src: fixtures/data-binding
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMQAzAEIARgBDAEIANwBEADQAQgA1AEYAQQA1ADcARgA5ADUAQwA1ADAANAAyADEARAA2AEYAMAA5AEIAQwAzAEMAMAA0ADgANgAyADkAMgBCADQANABEAEUAQwBBADIARgBDADgAMwA5AEIARgAyAEMARgA5ADcAMgA1AEUANgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario data-binding
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-contains
+        config:
+          path: MainForm.cs
+          value: _customerViewModelBindingSource.DataSource = _viewModel
+      - type: file-contains
+        config:
+          path: MainForm.Designer.cs
+          value: DataSourceUpdateMode.OnPropertyChanged
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Creates a BindingSource owned by the designer components container and types it to CustomerViewModel for design-time support
+      - Binds the Text property to Name with formatting and source updates on property changes
+      - Assigns the existing view-model instance in ordinary code after InitializeComponent rather than embedding runtime state in designer serialization
+      - Preserves change notification and produces a successful build
+
+  - name: Add safe serialization metadata to a custom control
+    prompt: |
+      StatusBadge needs a yellow HighlightColor, a RuntimeMessages list that is
+      never persisted by the Designer, and an optional CustomFont. At present
+      the control has no stable property-grid reset/default behavior and runtime
+      state risks leaking into generated code. Implement the properties with
+      coherent WinForms serialization behavior without putting that behavior in
+      MainForm.Designer.cs, then build the project.
+    environment:
+      files:
+        - src: fixtures/custom-control
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMQAzAEIARgBDAEIANwBEADQAQgA1AEYAQQA1ADcARgA5ADUAQwA1ADAANAAyADEARAA2AEYAMAA5AEIAQwAzAEMAMAA0ADgANgAyADkAMgBCADQANABEAEUAQwBBADIARgBDADgAMwA5AEIARgAyAEMARgA5ADcAMgA1AEUANgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario custom-control
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Gives HighlightColor one stable yellow default that agrees with its DefaultValue metadata
+      - Marks RuntimeMessages hidden from designer serialization while keeping it usable at runtime
+      - Implements matching ShouldSerializeCustomFont and ResetCustomFont methods for the optional font
+      - Keeps custom-control behavior and serialization rules in StatusBadge.cs, leaves the form designer declarative, and builds successfully
+
+  - name: Localize form and button text through resources
+    prompt: |
+      Prepare MainForm for translated form titles and Save button captions
+      without requiring per-culture edits to generated code. Use the normal
+      WinForms Designer localization mechanism, preserve the click handler and
+      designer usability, then build the project.
+    environment:
+      files:
+        - src: fixtures/localization
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMQAzAEIARgBDAEIANwBEADQAQgA1AEYAQQA1ADcARgA5ADUAQwA1ADAANAAyADEARAA2AEYAMAA5AEIAQwAzAEMAMAA0ADgANgAyADkAMgBCADQANABEAEUAQwBBADIARgBDADgAMwA5AEIARgAyAEMARgA5ADcAMgA1AEUANgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario localization
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-exists
+        config:
+          path: MainForm.resx
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Creates valid WinForms resources for the form title and Save button caption using the expected component resource names
+      - Replaces hard-coded UI strings with the designer-compatible ComponentResourceManager ApplyResources pattern
+      - Preserves the named click-handler subscription and keeps non-serialization logic out of MainForm.Designer.cs
+      - Produces a successful build with the embedded form resource
+
+  - name: Leave an already designer-safe form unchanged
+    prompt: |
+      Review this small WinForms project for constructs that would stop
+      MainForm from opening in the Visual Studio designer. Fix source files only
+      if such a problem actually exists, and verify the project builds.
+    environment:
+      files:
+        - src: fixtures/no-op
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMQAzAEIARgBDAEIANwBEADQAQgA1AEYAQQA1ADcARgA5ADUAQwA1ADAANAAyADEARAA2AEYAMAA5AEIAQwAzAEMAMAA0ADgANgAyADkAMgBCADQANABEAEUAQwBBADIARgBDADgAMwA5AEIARgAyAEMARgA5ADcAMgA1AEUANgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario no-op -PreservationManifestBase64 eyJmaWxlcyI6eyJNYWluRm9ybS5jcyI6IjJCMUQzQ0IyOEJCODMzNDA4Qzk4QjI1NTI0NjA3OUE5RkRGRDk4QjBCRjg2RjU4MDJDOEZGMURCQzg2NDRGRTgiLCJNYWluRm9ybS5EZXNpZ25lci5jcyI6IjNDNTAyOURBMjQ5QTgzMTU2QzkxOUIyMzExNEM2NDMwNjIxQUQwNEFCM0IxOTdERjA1NDI2NDBENDY1MEM3RjQiLCJQcm9ncmFtLmNzIjoiMzA1RTVBRDFDMzc0QTkwNkQxQjgzRjIzNjZGREEzN0UyNDBGRTFCMjQ5NkQ5MzQzNDFFMjZDNDU5MUI0NjgzRSIsIldpbkZvcm1zRml4dHVyZS5jc3Byb2oiOiJCNkM5NDAzRTBBOUNGRkJBNDU3NDIwQ0FERjIyM0I3MzhCRjZBQjJDQ0JBNEI2MzhDODQzNTEwQkY0QkI5NDZFIn19
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Correctly recognizes that InitializeComponent already uses named fields, simple assignments, and a named event handler
+      - Leaves the tracked project and source files byte-for-byte unchanged instead of performing an unnecessary designer rewrite
+      - Still verifies the existing Windows-targeted project builds successfully
+
+  - name: Repair clipping through nested layout containers
+    prompt: |
+      The shipping-address fields are clipped when Windows display scaling is
+      increased. A previous repair enabled AutoSize on the nested containers, but
+      the clipping remains. Diagnose the complete designer-managed layout and fix
+      the actual growth bottleneck; do not hide it by increasing fixed width/height
+      constants or moving fields out of their existing groups. Preserve Save
+      behavior and build the project.
+    environment:
+      files:
+        - src: fixtures/nested-layout-clipping
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMQAzAEIARgBDAEIANwBEADQAQgA1AEYAQQA1ADcARgA5ADUAQwA1ADAANAAyADEARAA2AEYAMAA5AEIAQwAzAEMAMAA0ADgANgAyADkAMgBCADQANABEAEUAQwBBADIARgBDADgAMwA5AEIARgAyAEMARgA5ADcAMgA1AEUANgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario nested-layout-clipping
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Finds and removes every fixed growth cap, including maximum-size constraints, so the form and each named container can derive size from content
+      - Keeps all shipping-address controls inside the existing nested layout rather than bypassing a container or hiding the clipping with larger constants
+      - Keeps the layout declarations and control hierarchy in straightforward designer-generated form
+      - Preserves the Save behavior and produces a successful build
+
+  - name: Await background refresh and restore UI state
+    prompt: |
+      Clicking Refresh disables the button and starts an update, but callers
+      cannot observe completion and the button can remain disabled. Repair the
+      event path so the status update completes on the UI thread and control
+      state is restored. Keep executable logic out of MainForm.Designer.cs and
+      build the project.
+    environment:
+      files:
+        - src: fixtures/async-ui-refresh
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMQAzAEIARgBDAEIANwBEADQAQgA1AEYAQQA1ADcARgA5ADUAQwA1ADAANAAyADEARAA2AEYAMAA5AEIAQwAzAEMAMAA0ADgANgAyADkAMgBCADQANABEAEUAQwBBADIARgBDADgAMwA5AEIARgAyAEMARgA5ADcAMgA1AEUANgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario async-ui-refresh
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-not-contains
+        config:
+          path: MainForm.cs
+          value: _ = Task.Run
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Awaits background completion and performs the status update on the WinForms UI context, either through the captured event-handler context or an awaited marshal
+      - Restores the Refresh button state after the awaited work completes
+      - Keeps event and UI-thread marshaling logic in code-behind and produces a successful build
+
+  - name: Add VB application event handling without a new entry point
+    prompt: |
+      This Visual Basic WinForms app is already configured as single-instance,
+      but a second launch does not restore its minimized MainForm. It also needs
+      last-chance logging of otherwise-unhandled UI exceptions to
+      `application-errors.log` before exit. Implement both through the existing
+      startup model without changing generated startup code or adding another
+      entry point, then build the project.
+    environment:
+      files:
+        - src: fixtures/vb-application-events
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMQAzAEIARgBDAEIANwBEADQAQgA1AEYAQQA1ADcARgA5ADUAQwA1ADAANAAyADEARAA2AEYAMAA5AEIAQwAzAEMAMAA0ADgANgAyADkAMgBCADQANABEAEUAQwBBADIARgBDADgAMwA5AEIARgAyAEMARgA5ADcAMgA1AEUANgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario vb-application-events -PreservationManifestBase64 eyJmaWxlcyI6eyJNYWluRm9ybS5EZXNpZ25lci52YiI6IjUzRUQ1RTk0MjQ3QjIzNkMzNTI0QzQ2NkUyMjRFMUQ3RDczMDlEN0ZBMEY1RDRCRTA5MUE2NTVDQjEwREE0NjciLCJNYWluRm9ybS52YiI6IjM2MUVFODNGOUU4NjE5NjkzRjAzNDM3RUEzNzMxRjcxODc2MDZCMjRFMkUzMkMyQkZCODUxMDNFMjk4NzZFNDIiLCJNeSBQcm9qZWN0L0FwcGxpY2F0aW9uLkRlc2lnbmVyLnZiIjoiQTVBQUU3OUIxMjBFRDJGMjAzREFBQzEyNzcxRUFDRkNFQkRGRUUwNUJCQkZCQTFEQzFFQzI0QzM4ODJCN0VFMCIsIk15IFByb2plY3QvQXBwbGljYXRpb25FdmVudHMudmIiOm51bGwsIldpbkZvcm1zRml4dHVyZS52YnByb2oiOiIwREJENDMxQTdBMTMwREY3RTQzRjlBQUEwM0QxNDI3QjhBQTkwMEExMDUwNzQ1RDc4NjMwNUNCRDIyNTQ1QzBCIn19
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-exists
+        config:
+          path: My Project/ApplicationEvents.vb
+      - type: file-not-exists
+        config:
+          path: Program.vb
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.vbproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Uses the existing application lifecycle hooks to restore and activate the main window on a repeated launch
+      - Records otherwise-unhandled UI exceptions in the requested file, disambiguates Application Framework event types when necessary, and explicitly chooses and reports the post-error exit behavior
+      - Preserves the configured Application Framework startup path and does not introduce Program.vb or another entry point
+      - Runs the available WinForms validator and build, confirms no unrelated startup files were introduced, and leaves generated startup and designer files unchanged
+
+  - name: Restore designer ownership of a form timer
+    prompt: |
+      Closing and reopening MainForm repeatedly leaves timer callbacks alive, and
+      the timer does not appear in the Designer component tray. Repair the
+      lifetime problem while preserving the existing Tick behavior and keeping
+      the form editable in the Designer. Build the project.
+    environment:
+      files:
+        - src: fixtures/component-ownership
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMQAzAEIARgBDAEIANwBEADQAQgA1AEYAQQA1ADcARgA5ADUAQwA1ADAANAAyADEARAA2AEYAMAA5AEIAQwAzAEMAMAA0ADgANgAyADkAMgBCADQANABEAEUAQwBBADIARgBDADgAMwA5AEIARgAyAEMARgA5ADcAMgA1AEUANgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario component-ownership
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Restores designer component-container ownership so closing the form disposes the Timer with the form
+      - Preserves the named Tick handler and keeps component construction and wiring designer-serializable
+      - Avoids an ad hoc runtime disposal workaround or an unowned Timer
+      - Produces a successful build
+
+  - name: Make bound list additions visible immediately
+    prompt: |
+      The Add button appends a Customer to `_customers`, but the bound ListBox
+      does not show the new item until the form is reopened. Fix the cause
+      without manually refreshing or rebinding the ListBox. Keep the existing
+      Customer type and button behavior, then build the project.
+    environment:
+      files:
+        - src: fixtures/live-list-binding
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMQAzAEIARgBDAEIANwBEADQAQgA1AEYAQQA1ADcARgA5ADUAQwA1ADAANAAyADEARAA2AEYAMAA5AEIAQwAzAEMAMAA0ADgANgAyADkAMgBCADQANABEAEUAQwBBADIARgBDADgAMwA5AEIARgAyAEMARgA5ADcAMgA1AEUANgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario live-list-binding
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Uses a list source that raises the notifications WinForms data binding consumes when items are added
+      - Keeps the existing DataSource and Add-button flow rather than manually refreshing or rebinding the control
+      - Does not treat ObservableCollection as a drop-in WinForms list source
+      - Produces a successful build
+
+  - name: Preserve runtime injection while restoring designer construction
+    prompt: |
+      MainForm runs correctly because Program supplies ICustomerService, but the
+      Visual Studio Designer reports that it cannot create the form. Repair the
+      design-time failure without moving service creation into MainForm,
+      changing Program's runtime composition, or allowing the Designer to call
+      the production service. Build the project.
+    environment:
+      files:
+        - src: fixtures/designer-constructor
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMQAzAEIARgBDAEIANwBEADQAQgA1AEYAQQA1ADcARgA5ADUAQwA1ADAANAAyADEARAA2AEYAMAA5AEIAQwAzAEMAMAA0ADgANgAyADkAMgBCADQANABEAEUAQwBBADIARgBDADgAMwA5AEIARgAyAEMARgA5ADcAMgA1AEUANgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario designer-constructor
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-contains
+        config:
+          path: Program.cs
+          value: new MainForm(new CustomerService())
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Adds a designer-usable parameterless construction path that reaches InitializeComponent without resolving production services
+      - Preserves the service-accepting runtime constructor and Program's composition-root behavior
+      - Defers or guards service-dependent work so the Designer path cannot dereference an unavailable dependency
+      - Produces a successful build without null-forgiving suppression
+
+  - name: Balance designer initialization for a grid
+    prompt: |
+      The orders DataGridView works when the application runs, but after a
+      Designer save/reopen its serialized state is unreliable. A previous manual
+      edit changed MainForm.Designer.cs. Repair the smallest defect in the
+      generated setup without moving initialization into MainForm.cs or
+      rebuilding the grid at runtime. Build the project.
+    environment:
+      files:
+        - src: fixtures/initialization-balance
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMQAzAEIARgBDAEIANwBEADQAQgA1AEYAQQA1ADcARgA5ADUAQwA1ADAANAAyADEARAA2AEYAMAA5AEIAQwAzAEMAMAA0ADgANgAyADkAMgBCADQANABEAEUAQwBBADIARgBDADgAMwA5AEIARgAyAEMARgA5ADcAMgA1AEUANgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario initialization-balance
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Restores the matching EndInit call for the DataGridView in the generated initialization sequence
+      - Keeps BeginInit/EndInit and SuspendLayout/ResumeLayout balanced in designer code
+      - Does not hide the serialization defect with runtime reconstruction or code-behind initialization
+      - Produces a successful build
+
+  - name: Stay dormant for a WPF layout request
+    prompt: |
+      In my WPF MainWindow.xaml, the customer editor uses a Canvas with fixed
+      coordinates and clips when the window is resized. Replace it with a
+      responsive Grid using Auto and star-sized columns, keep the existing
+      bindings and Save command, and show the updated XAML.
+    expect_activation: false
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?is)<Grid\b.*ColumnDefinitions
+      - type: output-matches
+        config:
+          pattern: (?i)(Width\s*=\s*["']Auto["']|Width\s*=\s*["']\*["'])
+      - type: output-not-matches
+        config:
+          pattern: (?i)(TableLayoutPanel|System\.Windows\.Forms|InitializeComponent\s*\(\s*\)\s*\{)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Answers with WPF XAML Grid layout rather than applying WinForms designer serialization patterns
+      - Preserves the existing WPF bindings and Save command
+      - Uses Auto and star sizing to make the WPF editor responsive
+      - Did not apply the WinForms-specific skill to the neighboring WPF framework request

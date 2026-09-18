@@ -19,5 +19,6 @@ Prerequisites:
 
 ## Skills
 
+- [csharp-expert](skills/csharp-expert/SKILL.md)
 - [csharp-refactoring](skills/csharp-refactoring/SKILL.md)
 - [setup-local-sdk](skills/setup-local-sdk/SKILL.md)

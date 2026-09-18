@@ -1,1 +1,2 @@
-namespace ItemManagement { public static class Constants { public const int Version = 1; } }
+namespace ItemManagement { public static class Constants { public const int Version = 1
+} }
