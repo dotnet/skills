@@ -69,7 +69,7 @@ foreach ($p in $CoberturaPath) {
 
 # Merge methods across all Cobertura files using a stable key (Class|Method|Signature|File).
 # Line hits and branch data are accumulated so coverage reflects all test projects.
-$methodMap = @{}
+$methodMap = [System.Collections.Generic.Dictionary[string, object]]::new([StringComparer]::Ordinal)
 
 foreach ($p in $CoberturaPath) {
     try {
@@ -117,14 +117,15 @@ foreach ($p in $CoberturaPath) {
                             $covered = [int]$Matches[1]
                             $total   = [int]$Matches[2]
                             if ($methodMap[$key].BranchData.ContainsKey($lineNo)) {
-                                # Merge branch coverage across files by accumulating covered branches (capped at total)
                                 $existingCovered = $methodMap[$key].BranchData[$lineNo].Covered
                                 $existingTotal = $methodMap[$key].BranchData[$lineNo].Total
                                 if ($existingTotal -ne $total) {
                                     Write-Warning ("Branch total mismatch for {0} at line {1}: {2} vs {3}" -f $key, $lineNo, $existingTotal, $total)
                                 }
                                 $mergedTotal = [Math]::Max($existingTotal, $total)
-                                $mergedCovered = [Math]::Min($existingCovered + $covered, $mergedTotal)
+                                # Cobertura does not identify which branch outcomes were covered. Summing can
+                                # double-count the same outcome across reports, so merge conservatively.
+                                $mergedCovered = [Math]::Min([Math]::Max($existingCovered, $covered), $mergedTotal)
                                 $methodMap[$key].BranchData[$lineNo] = @{ Covered = $mergedCovered; Total = $mergedTotal }
                             } else {
                                 $methodMap[$key].BranchData[$lineNo] = @{ Covered = $covered; Total = $total }
