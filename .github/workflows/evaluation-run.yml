@@ -355,7 +355,7 @@ jobs:
     timeout-minutes: 180
     env:
       COPILOT_RATE_LIMIT_PATTERN: >-
-        "errorType"[[:space:]]*:[[:space:]]*"rate_limit"|API rate limit exceeded|rate[ -]?limit exceeded|too many requests|user_weekly_rate_limited|weekly[ _-]?rate[ _-]?limit|HTTP([[:space:]]+status)?[[:space:]]+429|status([[:space:]]*code)?[[:space:]=:]+429
+        "errorType"[[:space:]]*:[[:space:]]*"rate_limit"|API rate limit exceeded|rate[ -]?limit exceeded|too many requests|user_weekly_rate_limited|weekly[ _-]?rate[ _-]?limit|quota_exceeded|monthly[ _-]?quota|HTTP([[:space:]]+status)?[[:space:]]+429|status([[:space:]]*code)?[[:space:]=:]+429|HTTP([[:space:]]+status)?[[:space:]]+402|status([[:space:]]*code)?[[:space:]=:]+402
       COPILOT_TOKEN_UNAVAILABLE_PATTERN: >-
         HTTP([[:space:]]+status)?[[:space:]:=]+401|status([[:space:]]*code)?[[:space:]=:]+401|unauthori[sz]ed|bad credentials|authentication token[[:space:]]+(found[[:space:]]+but[[:space:]]+)?could not be validated|(invalid|expired|revoked)[[:space:]]+(authentication[[:space:]]+|access[[:space:]]+)?(credential(s)?|token)|(authentication|access|github|copilot)[[:space:]]+(credential(s)?|token)[[:space:]]+(is[[:space:]]+|was[[:space:]]+|has([[:space:]]+been)?[[:space:]]+)?(invalid|expired|revoked)|organi[sz]ation[[:space:]]+(has[[:space:]]+been|is|was)[[:space:]]+(disabled|suspended)|(disabled|suspended)[[:space:]]+by[[:space:]]+(your|the|this|an?)[[:space:]]+organi[sz]ation
     name: vally (${{ matrix.entry.name }})
@@ -785,7 +785,9 @@ jobs:
                 break
               fi
 
-              if grep -Eiq "$COPILOT_TOKEN_UNAVAILABLE_PATTERN" "$PROBE_LOG"; then
+              if grep -Eiq "$COPILOT_TOKEN_UNAVAILABLE_PATTERN" "$PROBE_LOG" \
+                || { grep -Fq "To authenticate, you can use any of the following methods:" "$PROBE_LOG" \
+                  && grep -Fq "Set the COPILOT_GITHUB_TOKEN, GH_TOKEN, or GITHUB_TOKEN environment variable" "$PROBE_LOG"; }; then
                 echo "::warning::Copilot PAT pool entry $candidate_number has unusable credentials or belongs to a disabled organization; quarantining it and trying another entry"
                 cat "$PROBE_LOG"
                 candidate_rejected=true
