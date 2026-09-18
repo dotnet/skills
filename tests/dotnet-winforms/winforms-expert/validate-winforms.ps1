@@ -384,6 +384,23 @@ switch ($Scenario)
         $control = Read-Source "StatusBadge.cs"
         Assert-Matches $control '\[\s*DefaultValue\s*\(\s*typeof\s*\(\s*Color\s*\)\s*,\s*"Yellow"\s*\)\s*\]' "HighlightColor does not declare its yellow default."
         Assert-Matches $control '\bColor\s+HighlightColor\s*\{' "HighlightColor is missing."
+        $usesYellowAutoProperty =
+            $control -match '\bColor\s+HighlightColor\s*\{[^}]*\}\s*=\s*Color\.Yellow\s*;'
+        $yellowBackingFieldMatch = [regex]::Match(
+            $control,
+            '(?<field>_\w+)\s*=\s*Color\.Yellow\s*;'
+        )
+        $usesYellowBackingField = $false
+        if ($yellowBackingFieldMatch.Success)
+        {
+            $backingField = [regex]::Escape($yellowBackingFieldMatch.Groups['field'].Value)
+            $usesYellowBackingField =
+                $control -match "\bColor\s+HighlightColor\s*\{[^}]*\bget\s*(?:=>|{[^}]*return)\s*$backingField\b"
+        }
+        if (-not $usesYellowAutoProperty -and -not $usesYellowBackingField)
+        {
+            Fail "A new StatusBadge does not initialize HighlightColor to the advertised yellow default."
+        }
         Assert-Matches $control '\[\s*DesignerSerializationVisibility\s*\(\s*DesignerSerializationVisibility\.Hidden\s*\)\s*\]' "RuntimeMessages is not hidden from designer serialization."
         Assert-Matches $control '\b(?:List<string>|IList<string>|IReadOnlyList<string>)\s+RuntimeMessages\s*\{' "RuntimeMessages is missing."
         Assert-Matches $control '\bFont\??\s+CustomFont\s*\{' "CustomFont is missing."
@@ -443,7 +460,28 @@ switch ($Scenario)
         Assert-Matches $designer '_refreshButton\.Click\s*\+=\s*RefreshButton_Click\s*;' "The Refresh button is not wired to its named handler."
         Assert-Matches $codeBehind '\basync\s+void\s+RefreshButton_Click\s*\(' "The event handler does not await its asynchronous work."
         Assert-Matches $codeBehind '\bawait\s+Task\.Run\s*\(' "The background refresh is not awaited."
-        Assert-Matches $codeBehind '\bawait\s+(?:\w+\.)?InvokeAsync\s*\(' "The UI update is not marshaled with an awaited operation."
+        $usesAwaitedMarshal = $codeBehind -match '\bawait\s+(?:\w+\.)?InvokeAsync\s*\('
+        $taskRunStart = $codeBehind.IndexOf('await Task.Run', [System.StringComparison]::Ordinal)
+        $taskRunEnd = $codeBehind.IndexOf('});', $taskRunStart, [System.StringComparison]::Ordinal)
+        $statusUpdateAfterAwait = if ($taskRunEnd -ge 0)
+        {
+            $codeBehind.IndexOf(
+                '_statusLabel.Text',
+                $taskRunEnd + 3,
+                [System.StringComparison]::Ordinal
+            )
+        }
+        else
+        {
+            -1
+        }
+        $usesCapturedUiContext =
+            $codeBehind -notmatch '\.ConfigureAwait\s*\(\s*false\s*\)' -and
+            $statusUpdateAfterAwait -ge 0
+        if (-not $usesAwaitedMarshal -and -not $usesCapturedUiContext)
+        {
+            Fail "The status update is not performed on an awaited WinForms UI context."
+        }
         Assert-Matches $codeBehind '_refreshButton\.Enabled\s*=\s*true\s*;' "The Refresh button is not re-enabled."
         Assert-NotMatches $codeBehind '_\s*=\s*Task\.Run|\.BeginInvoke\s*\(' "Fire-and-forget work remains in the refresh path."
         Assert-NotMatches $designer '\bTask\b' "Asynchronous logic was placed in the designer file."

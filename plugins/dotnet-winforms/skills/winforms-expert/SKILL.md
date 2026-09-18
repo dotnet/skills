@@ -21,6 +21,25 @@ Visual Studio Designer. Treat `InitializeComponent` and `*.Designer.*` as a seri
 not ordinary application code; keep behavior in the main partial class and verify designer
 usability whenever the environment permits.
 
+## Execution Contract
+
+Before editing, locate any task-specific validator, test script, or documented verification
+command in the workspace. After editing:
+
+1. Run that narrow validator first and fix every failure it attributes to the change.
+2. Run the focused project build after the validator passes.
+3. Report those commands separately from runtime UI and Designer round-trip checks.
+
+A successful build never substitutes for an available layout, binding, serialization, or
+designer-safety validator.
+
+Use the repository's actual command and arguments; the sequence should look like:
+
+```powershell
+pwsh -NoProfile -File <task-validator.ps1> <scenario-arguments>
+dotnet build <project> --nologo
+```
+
 ## Boundaries
 
 Use this skill for:
@@ -104,7 +123,7 @@ the existing project and failure identify one.
 | A designer-created `Timer`, `BindingSource`, image list, or similar component outlives the Form | Create the `components` container and pass it to the component constructor | Add ad hoc disposal while leaving designer ownership inconsistent | Closing the Form disposes the container-owned component and the component remains designer-managed |
 | Adding/removing list items does not refresh a bound WinForms list control | Use `BindingList<T>` or the repository's adapter that raises WinForms list-change notifications | Treat `ObservableCollection<T>` as a drop-in WinForms `DataSource` | Mutate the list after binding and observe the control update |
 | Nested content clips at DPI, font, or localization changes | Fix the complete autosizing/docking chain from leaf through every parent to the Form | Increase one fixed `Size` or bypass a parent container | Exercise resize plus the relevant DPI/font/text expansion |
-| UI work is posted but completion/errors are lost | Await the background operation and the marshaled UI operation; restore control state in `finally`; handle cancellation only when the operation has a real cancellation path | Use `_ =`, `BeginInvoke`, a dead cancellation catch, or an application-wide exception hook as the normal path | Exercise success and failure, plus cancellation only when the UI can actually request it |
+| UI work is posted but completion/errors are lost | Await the background operation; update controls on the captured WinForms context or await `InvokeAsync` when execution can be off-context; restore control state in `finally`; handle cancellation only when the operation has a real cancellation path | Use `_ =`, `BeginInvoke`, a dead cancellation catch, or an application-wide exception hook as the normal path | Exercise success and failure, plus cancellation only when the UI can actually request it |
 | Text must be localizable | Use the existing `.resx` and `ComponentResourceManager.ApplyResources` serialization pattern | Leave fallback UI text hard-coded in `InitializeComponent` | Build, switch culture when possible, and perform a Designer save/reopen |
 | A VB app needs startup, single-instance, or unhandled-UI hooks | Extend `ApplicationEvents.vb`; qualify `Microsoft.VisualBasic.ApplicationServices` event-argument types when ambiguous; restore, activate, and bring the existing `MainForm` forward; log `e.Exception`; set `e.ExitApplication = True` explicitly | Invent `Program.vb`, add `Sub Main`, replace generated startup, or leave post-error continuation implicit | The configured `StartupObject` and generated application file remain unchanged, no new entry point exists, and the final report states the exit choice |
 | The workspace contains a task-specific validator or test script | Run the narrow repository-provided check after editing and before the generic build; treat its failure as evidence that the change is incomplete | Skip the specialized check because the project compiles, or claim a Designer round trip from static validation | Report the exact validator and build commands separately, then state whether runtime UI and Designer round-trip checks were actually available |
@@ -160,6 +179,10 @@ For dialogs:
 
 - Follow the project's language and style conventions; modern syntax belongs only in regular code.
 - Keep UI-thread affinity explicit. Marshal control access from background work.
+- A normal WinForms `async void` event handler resumes on its captured UI synchronization context
+  after `await` unless that context was deliberately bypassed. Direct control access there is valid.
+  Use and await `InvokeAsync` when code can continue off-context, or when the task/repository contract
+  explicitly requires a marshaled operation; do not rely on an unawaited post.
 - For modern .NET versions that support it, select the `Control.InvokeAsync` overload matching
   whether the delegate is synchronous/asynchronous and whether it returns a value. Await the
   returned operation; do not create fire-and-forget UI work.

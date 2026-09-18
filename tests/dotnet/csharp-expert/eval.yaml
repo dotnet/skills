@@ -306,9 +306,9 @@ stimuli:
       - Compiler and runtime evidence remain visible instead of being bypassed by an assertion, broad conversion,
         suppression, or catch-all handler
   - name: Correct percentage arithmetic without adding architecture
-    prompt: '`OrderTotalCalculator.ApplyDiscount` returns 180 for a 200 total with a 20 percent
-      discount, but the required result is 160. Correct only this defect, then build and run the
-      project.
+    prompt: '`OrderTotalCalculator.ApplyDiscount` returns 190 for a 200 total with a 10 percent
+      discount, but the required result is 180. Correct only this defect, preserve the zero-discount
+      behavior, then build and run the project.
 
       '
     environment:
