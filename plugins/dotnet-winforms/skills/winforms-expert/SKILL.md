@@ -3,12 +3,13 @@ name: winforms-expert
 description: >-
   Create, modify, debug, or review Windows Forms applications, Forms, UserControls,
   custom controls, designer-generated code, layout, data binding, async UI code,
-  accessibility, DPI, and dark mode. USE FOR: WinForms, System.Windows.Forms,
-  InitializeComponent, *.Designer.cs, *.Designer.vb, Visual Studio Form Designer,
-  TableLayoutPanel, BindingSource, Control.InvokeAsync, custom control serialization,
-  or requests to make a Windows desktop UI designer-safe. DO NOT USE FOR: WPF,
-  WinUI, .NET MAUI, Avalonia, console or web applications, or general C# work with
-  no WinForms UI or designer concerns.
+  accessibility, DPI, and dark mode. USE FOR: WinForms, Windows Forms,
+  System.Windows.Forms, InitializeComponent, *.Designer.cs, *.Designer.vb,
+  Visual Studio Form Designer, TableLayoutPanel, BindingSource, Control.InvokeAsync,
+  custom control serialization, or designer-managed desktop forms, controls, layout,
+  binding, UI threading, component lifetime, and serialization. DO NOT USE FOR: other
+  UI frameworks, console or web applications, or general C# work with no Windows Forms
+  UI or designer concern.
 license: MIT
 ---
 
