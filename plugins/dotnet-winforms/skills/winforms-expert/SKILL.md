@@ -1,12 +1,12 @@
 ---
 name: winforms-expert
 description: >-
-  Create, modify, debug, or review Windows Forms applications only when the request
-  contains a concrete Windows Forms marker. USE FOR: WinForms, Windows Forms,
-  System.Windows.Forms, Form or UserControl designer files (*.Designer.cs or
-  *.Designer.vb), Visual Studio WinForms Designer, TableLayoutPanel, BindingSource,
-  DataGridView, Control.InvokeAsync, component-tray ownership, or custom control
-  serialization. DO NOT USE when none of these Windows Forms markers is present.
+  WINDOWS FORMS ONLY. NEVER USE FOR: WPF, XAML, WinUI, .NET MAUI, Avalonia, console,
+  web, or general C# tasks. USE FOR only when the request has an explicit WinForms
+  marker: WinForms, Windows Forms, System.Windows.Forms, a Form or UserControl
+  *.Designer.cs/*.Designer.vb file, Visual Studio WinForms Designer, TableLayoutPanel,
+  BindingSource, DataGridView, Control.InvokeAsync, component-tray ownership, or custom
+  control serialization.
 license: MIT
 ---
 

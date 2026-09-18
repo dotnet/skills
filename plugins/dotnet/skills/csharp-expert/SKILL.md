@@ -1,17 +1,16 @@
 ---
 name: csharp-expert
 description: >-
-  Implement, debug, or review C# source when the user requests a C# implementation,
-  bug fix, or correctness review involving language, compiler, runtime, API design,
-  nullability, async/cancellation, exceptions, allocation, or concurrency. USE FOR:
-  C# compiler errors; overload or generic inference; nullable warnings; async/await,
-  Task, ValueTask, IAsyncEnumerable, CancellationToken; records, pattern matching,
-  spans, memory ownership, disposal, exceptions, and focused C# feature or bug-fix
-  work. DO NOT USE FOR: behavior-preserving rename, move, extract, inline,
-  consolidation, or modernization requests (use csharp-refactoring); standalone
+  Implement, debug, or review C# code when the load-bearing problem is a C# language,
+  compiler, runtime, API-design, nullability, async/cancellation, exception, allocation,
+  or concurrency decision. USE FOR: C# compiler errors; overload or generic inference;
+  nullable warnings; async/await, Task, ValueTask, IAsyncEnumerable, CancellationToken;
+  records, pattern matching, spans, memory ownership, disposal, exceptions, and focused
+  C# feature or bug-fix work. DO NOT USE FOR: behavior-preserving rename, move, extract,
+  inline, consolidation, or modernization requests (use csharp-refactoring); standalone
   file-based C# apps (use csharp-scripts); local SDK installation (use setup-local-sdk);
-  framework-specific WinForms, ASP.NET Core, MAUI, MSBuild, NuGet, upgrade, or
-  diagnostic work when that framework or tool is the primary problem (use its owning skill).
+  framework-specific WinForms, ASP.NET Core, MAUI, MSBuild, NuGet, upgrade, or diagnostic
+  work when that framework or tool is the primary problem (use its owning skill).
 license: MIT
 ---
 
