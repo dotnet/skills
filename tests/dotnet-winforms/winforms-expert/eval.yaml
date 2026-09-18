@@ -595,31 +595,30 @@ stimuli:
       - Does not hide the serialization defect with runtime reconstruction or code-behind initialization
       - Produces a successful build
 
-  - name: Stay dormant for a WPF layout request
+  - name: Stay dormant for a WPF command binding request
     tags:
       capability: routing-boundary
       risk: low
       journey: dormancy
     prompt: |
-      In my WPF MainWindow.xaml, the customer editor uses a Canvas with fixed
-      coordinates and clips when the window is resized. Replace it with a
-      responsive Grid using Auto and star-sized columns, keep the existing
-      bindings and Save command, and show the updated XAML.
+      In my WPF MainWindow.xaml, bind Ctrl+S to the existing SaveCommand through
+      the window's input bindings. Keep the current DataContext and button command,
+      and show the updated XAML.
     expect_activation: false
     graders:
       - type: output-matches
         config:
-          pattern: (?is)<Grid\b.*ColumnDefinitions
+          pattern: (?is)<Window\.InputBindings>.*<KeyBinding\b
       - type: output-matches
         config:
-          pattern: (?i)(Width\s*=\s*["']Auto["']|Width\s*=\s*["']\*["'])
+          pattern: (?i)(Gesture\s*=\s*["']Ctrl\+S["']|Key\s*=\s*["']S["'])
       - type: output-not-matches
         config:
-          pattern: (?i)(TableLayoutPanel|System\.Windows\.Forms|InitializeComponent\s*\(\s*\)\s*\{)
+          pattern: (?i)(TableLayoutPanel|System\.Windows\.Forms|Keys\.Control|ProcessCmdKey)
       - type: exit-success
       - type: prompt
     rubric:
-      - Answers with WPF XAML Grid layout rather than applying WinForms designer serialization patterns
-      - Preserves the existing WPF bindings and Save command
-      - Uses Auto and star sizing to make the WPF editor responsive
+      - Adds a WPF KeyBinding under Window.InputBindings for the existing SaveCommand
+      - Preserves the existing DataContext and button command
+      - Uses WPF XAML input-binding syntax rather than Windows Forms keyboard handling
       - Did not apply the WinForms-specific skill to the neighboring WPF framework request
