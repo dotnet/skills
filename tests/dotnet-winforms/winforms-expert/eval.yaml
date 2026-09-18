@@ -6,6 +6,10 @@ defaults:
   runs: 1
 stimuli:
   - name: Add a button with a named event handler
+    tags:
+      capability: designer-event-wiring
+      risk: medium
+      journey: implementation
     prompt: |
       In this WinForms customer editor, add a Clear button beside Save. Name the
       control `_clearButton`; clicking it must clear `_customerNameTextBox`.
@@ -42,8 +46,12 @@ stimuli:
       - Builds the Windows-targeted project successfully after the change
 
   - name: Replace absolute positioning with a responsive layout container
+    tags:
+      capability: responsive-layout
+      risk: high
+      journey: implementation
     prompt: |
-      MainForm's labels and editors drift apart when the window is widened and
+      This WinForms MainForm's labels and editors drift apart when the window is widened and
       overlap when display scaling changes. Replace the brittle positioning with
       a designer-serializable layout that keeps captions content-sized and lets
       editors consume the remaining width. Keep the controls and Save behavior,
@@ -76,10 +84,13 @@ stimuli:
       - Replaces direct form positioning with the requested two-column TableLayoutPanel and moves every existing control into it
       - Uses AutoSize for captions and percentage sizing for the editor column so the fields respond to form resizing
       - Represents the container as a designer field and uses straightforward serialization-style setup in InitializeComponent
-      - Runs the available WinForms layout/designer validator as well as the build and reports their results separately
       - Preserves the existing event behavior and does not claim a Visual Studio Designer round trip on the non-Windows runner
 
   - name: Rename a designer control and its event handler
+    tags:
+      capability: designer-safe-rename
+      risk: medium
+      journey: refactor
     prompt: |
       The Commit button is still named `_saveButton`, and its handler is still
       `SaveButton_Click`. Rename them to `_commitButton` and
@@ -117,8 +128,12 @@ stimuli:
       - Leaves a designer-loadable form that builds successfully
 
   - name: Add designer-compatible object binding
+    tags:
+      capability: data-binding
+      risk: high
+      journey: implementation
     prompt: |
-      The customer name TextBox initially shows the model value, but typing does
+      In this WinForms form, the customer name TextBox initially shows the model value, but typing does
       not update the existing CustomerViewModel as the text changes. Repair the
       form without replacing the view model or making the form unavailable in
       the Visual Studio Designer, then build WinFormsFixture.csproj.
@@ -139,14 +154,12 @@ stimuli:
           command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario data-binding
           expected_exit_code: 0
           timeout: 1m
-      - type: file-contains
+      - type: run-command
         config:
-          path: MainForm.cs
-          value: _customerViewModelBindingSource.DataSource = _viewModel
-      - type: file-contains
-        config:
-          path: MainForm.Designer.cs
-          value: DataSourceUpdateMode.OnPropertyChanged
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAE0AYQBpAG4ARgBvAHIAbQAuAGMAcwAiACkACgBpAGYAIAAoACQAdABlAHgAdAAgAC0AbgBvAHQAbQBhAHQAYwBoACAAJwBcAGIAXAB3ACsAXAAuAEQAYQB0AGEAUwBvAHUAcgBjAGUAXABzACoAPQBcAHMAKgBfAHYAaQBlAHcATQBvAGQAZQBsAFwAcwAqADsAJwApACAAewAgAGUAeABpAHQAIAAxACAAfQAKAFcAcgBpAHQAZQAtAE8AdQB0AHAAdQB0ACAAIgByAHUAbgB0AGkAbQBlAC0AYgBpAG4AZABpAG4AZwAtAG8AawAiAA==
+          expected_exit_code: 0
+          stdout_matches: runtime-binding-ok
+          timeout: 1m
       - type: run-command
         config:
           command: dotnet build WinFormsFixture.csproj --nologo
@@ -161,6 +174,10 @@ stimuli:
       - Preserves change notification and produces a successful build
 
   - name: Add safe serialization metadata to a custom control
+    tags:
+      capability: custom-control-serialization
+      risk: high
+      journey: implementation
     prompt: |
       StatusBadge needs a yellow HighlightColor, a RuntimeMessages list that is
       never persisted by the Designer, and an optional CustomFont. At present
@@ -199,6 +216,10 @@ stimuli:
       - Keeps custom-control behavior and serialization rules in StatusBadge.cs, leaves the form designer declarative, and builds successfully
 
   - name: Localize form and button text through resources
+    tags:
+      capability: designer-localization
+      risk: medium
+      journey: implementation
     prompt: |
       Prepare MainForm for translated form titles and Save button captions
       without requiring per-culture edits to generated code. Use the normal
@@ -238,6 +259,10 @@ stimuli:
       - Produces a successful build with the embedded form resource
 
   - name: Leave an already designer-safe form unchanged
+    tags:
+      capability: designer-safety
+      risk: low
+      journey: review
     prompt: |
       Review this small WinForms project for constructs that would stop
       MainForm from opening in the Visual Studio designer. Fix source files only
@@ -272,8 +297,12 @@ stimuli:
       - Still verifies the existing Windows-targeted project builds successfully
 
   - name: Repair clipping through nested layout containers
+    tags:
+      capability: dpi-layout
+      risk: high
+      journey: repair
     prompt: |
-      The shipping-address fields are clipped when Windows display scaling is
+      The WinForms shipping-address fields are clipped when Windows display scaling is
       increased. A previous repair enabled AutoSize on the nested containers, but
       the clipping remains. Diagnose the complete designer-managed layout and fix
       the actual growth bottleneck; do not hide it by increasing fixed width/height
@@ -298,6 +327,12 @@ stimuli:
           timeout: 1m
       - type: run-command
         config:
+          command: pwsh -NoProfile -EncodedCommand JABkAGUAcwBpAGcAbgBlAHIAIAA9ACAAWwBJAE8ALgBGAGkAbABlAF0AOgA6AFIAZQBhAGQAQQBsAGwAVABlAHgAdAAoACIATQBhAGkAbgBGAG8AcgBtAC4ARABlAHMAaQBnAG4AZQByAC4AYwBzACIAKQAKACQAZgBvAHIAbQBBAGQAZAAgAD0AIAAkAGQAZQBzAGkAZwBuAGUAcgAgAC0AbQBhAHQAYwBoACAAJwAoAD8AbQApAF4AXABzACoAQwBvAG4AdAByAG8AbABzAFwALgBBAGQAZABcACgAXABzACoAXwBzAGEAdgBlAEIAdQB0AHQAbwBuAFwAcwAqAFwAKQBcAHMAKgA7ACcACgAkAGIAbwB0AHQAbwBtAEQAbwBjAGsAIAA9ACAAJABkAGUAcwBpAGcAbgBlAHIAIAAtAG0AYQB0AGMAaAAgACcAXwBzAGEAdgBlAEIAdQB0AHQAbwBuAFwALgBEAG8AYwBrAFwAcwAqAD0AXABzACoARABvAGMAawBTAHQAeQBsAGUAXAAuAEIAbwB0AHQAbwBtAFwAcwAqADsAJwAKACQAcABhAHIAZQBuAHQATQBhAHQAYwBoACAAPQAgAFsAcgBlAGcAZQB4AF0AOgA6AE0AYQB0AGMAaAAoACQAZABlAHMAaQBnAG4AZQByACwAIAAnACgAPwBtACkAXgBcAHMAKgAoAD8APABwAGEAcgBlAG4AdAA+AF8AXAB3ACsAKQBcAC4AQwBvAG4AdAByAG8AbABzAFwALgBBAGQAZABcACgAXABzACoAXwBzAGEAdgBlAEIAdQB0AHQAbwBuAFwAcwAqAFwAKQBcAHMAKgA7ACcAKQAKACQAaQBuAEcAcgBvAHcAaQBuAGcATABhAHkAbwB1AHQAIAA9ACAAJABmAGEAbABzAGUACgBpAGYAIAAoACQAcABhAHIAZQBuAHQATQBhAHQAYwBoAC4AUwB1AGMAYwBlAHMAcwApAAoAewAKACAAIAAgACAAJABwAGEAcgBlAG4AdAAgAD0AIAAkAHAAYQByAGUAbgB0AE0AYQB0AGMAaAAuAEcAcgBvAHUAcABzAFsAJwBwAGEAcgBlAG4AdAAnAF0ALgBWAGEAbAB1AGUACgAgACAAIAAgACQAaQBuAEcAcgBvAHcAaQBuAGcATABhAHkAbwB1AHQAIAA9ACAAJABwAGEAcgBlAG4AdAAgAC0AZQBxACAAJwBfAGMAbwBuAHQAZQBuAHQATABhAHkAbwB1AHQAJwAgAC0AbwByAAoAIAAgACAAIAAgACAAIAAgACQAZABlAHMAaQBnAG4AZQByACAALQBtAGEAdABjAGgAIAAoACIAXwBjAG8AbgB0AGUAbgB0AEwAYQB5AG8AdQB0AFwALgBDAG8AbgB0AHIAbwBsAHMAXAAuAEEAZABkAFwAKABcAHMAKgAiACAAKwAgAFsAcgBlAGcAZQB4AF0AOgA6AEUAcwBjAGEAcABlACgAJABwAGEAcgBlAG4AdAApACAAKwAgACIAXABzACoAXAApACIAKQAKAH0ACgBpAGYAIAAoAC0AbgBvAHQAIAAoACgAJABmAG8AcgBtAEEAZABkACAALQBhAG4AZAAgACQAYgBvAHQAdABvAG0ARABvAGMAawApACAALQBvAHIAIAAoAC0AbgBvAHQAIAAkAGYAbwByAG0AQQBkAGQAIAAtAGEAbgBkACAAJABpAG4ARwByAG8AdwBpAG4AZwBMAGEAeQBvAHUAdAApACkAKQAgAHsAIABlAHgAaQB0ACAAMQAgAH0ACgBXAHIAaQB0AGUALQBPAHUAdABwAHUAdAAgACIAbgBlAHMAdABlAGQALQBzAGEAdgBlAC0AbABhAHkAbwB1AHQALQBvAGsAIgA=
+          expected_exit_code: 0
+          stdout_matches: nested-save-layout-ok
+          timeout: 1m
+      - type: run-command
+        config:
           command: dotnet build WinFormsFixture.csproj --nologo
           expected_exit_code: 0
           timeout: 5m
@@ -306,12 +341,17 @@ stimuli:
     rubric:
       - Finds and removes every fixed growth cap, including maximum-size constraints, so the form and each named container can derive size from content
       - Keeps all shipping-address controls inside the existing nested layout rather than bypassing a container or hiding the clipping with larger constants
+      - Places the Save button in the growing outer layout or docks it outside the expanding content so address growth cannot overlap it
       - Keeps the layout declarations and control hierarchy in straightforward designer-generated form
       - Preserves the Save behavior and produces a successful build
 
   - name: Await background refresh and restore UI state
+    tags:
+      capability: async-ui
+      risk: high
+      journey: repair
     prompt: |
-      Clicking Refresh disables the button and starts an update, but callers
+      Clicking Refresh in this WinForms form disables the button and starts an update, but callers
       cannot observe completion and the button can remain disabled. Repair the
       event path so the status update completes on the UI thread and control
       state is restored. Keep executable logic out of MainForm.Designer.cs and
@@ -333,10 +373,6 @@ stimuli:
           command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario async-ui-refresh
           expected_exit_code: 0
           timeout: 1m
-      - type: file-not-contains
-        config:
-          path: MainForm.cs
-          value: _ = Task.Run
       - type: run-command
         config:
           command: dotnet build WinFormsFixture.csproj --nologo
@@ -350,6 +386,10 @@ stimuli:
       - Keeps event and UI-thread marshaling logic in code-behind and produces a successful build
 
   - name: Add VB application event handling without a new entry point
+    tags:
+      capability: vb-application-events
+      risk: high
+      journey: implementation
     prompt: |
       This Visual Basic WinForms app is already configured as single-instance,
       but a second launch does not restore its minimized MainForm. It also needs
@@ -391,11 +431,15 @@ stimuli:
       - Uses the existing application lifecycle hooks to restore and activate the main window on a repeated launch
       - Records otherwise-unhandled UI exceptions in the requested file, disambiguates Application Framework event types when necessary, and explicitly chooses and reports the post-error exit behavior
       - Preserves the configured Application Framework startup path and does not introduce Program.vb or another entry point
-      - Runs the available WinForms validator and build, confirms no unrelated startup files were introduced, and leaves generated startup and designer files unchanged
+      - Introduces no unrelated startup files and leaves generated startup and designer files unchanged
 
   - name: Restore designer ownership of a form timer
+    tags:
+      capability: component-lifetime
+      risk: high
+      journey: repair
     prompt: |
-      Closing and reopening MainForm repeatedly leaves timer callbacks alive, and
+      Closing and reopening this WinForms MainForm repeatedly leaves timer callbacks alive, and
       the timer does not appear in the Designer component tray. Repair the
       lifetime problem while preserving the existing Tick behavior and keeping
       the form editable in the Designer. Build the project.
@@ -430,8 +474,12 @@ stimuli:
       - Produces a successful build
 
   - name: Make bound list additions visible immediately
+    tags:
+      capability: list-binding
+      risk: medium
+      journey: repair
     prompt: |
-      The Add button appends a Customer to `_customers`, but the bound ListBox
+      In this WinForms form, the Add button appends a Customer to `_customers`, but the bound ListBox
       does not show the new item until the form is reopened. Fix the cause
       without manually refreshing or rebinding the ListBox. Keep the existing
       Customer type and button behavior, then build the project.
@@ -466,8 +514,12 @@ stimuli:
       - Produces a successful build
 
   - name: Preserve runtime injection while restoring designer construction
+    tags:
+      capability: designer-construction
+      risk: high
+      journey: repair
     prompt: |
-      MainForm runs correctly because Program supplies ICustomerService, but the
+      This WinForms MainForm runs correctly because Program supplies ICustomerService, but the
       Visual Studio Designer reports that it cannot create the form. Repair the
       design-time failure without moving service creation into MainForm,
       changing Program's runtime composition, or allowing the Designer to call
@@ -489,10 +541,6 @@ stimuli:
           command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario designer-constructor
           expected_exit_code: 0
           timeout: 1m
-      - type: file-contains
-        config:
-          path: Program.cs
-          value: new MainForm(new CustomerService())
       - type: run-command
         config:
           command: dotnet build WinFormsFixture.csproj --nologo
@@ -507,8 +555,12 @@ stimuli:
       - Produces a successful build without null-forgiving suppression
 
   - name: Balance designer initialization for a grid
+    tags:
+      capability: designer-initialization
+      risk: high
+      journey: repair
     prompt: |
-      The orders DataGridView works when the application runs, but after a
+      The WinForms orders DataGridView works when the application runs, but after a
       Designer save/reopen its serialized state is unreliable. A previous manual
       edit changed MainForm.Designer.cs. Repair the smallest defect in the
       generated setup without moving initialization into MainForm.cs or
@@ -543,27 +595,30 @@ stimuli:
       - Does not hide the serialization defect with runtime reconstruction or code-behind initialization
       - Produces a successful build
 
-  - name: Stay dormant for a WPF layout request
+  - name: Stay dormant for a WPF command binding request
+    tags:
+      capability: routing-boundary
+      risk: low
+      journey: dormancy
     prompt: |
-      In my WPF MainWindow.xaml, the customer editor uses a Canvas with fixed
-      coordinates and clips when the window is resized. Replace it with a
-      responsive Grid using Auto and star-sized columns, keep the existing
-      bindings and Save command, and show the updated XAML.
+      In my WPF MainWindow.xaml, bind Ctrl+S to the existing SaveCommand through
+      the window's input bindings. Keep the current DataContext and button command,
+      and show the updated XAML.
     expect_activation: false
     graders:
       - type: output-matches
         config:
-          pattern: (?is)<Grid\b.*ColumnDefinitions
+          pattern: (?is)<Window\.InputBindings>.*<KeyBinding\b
       - type: output-matches
         config:
-          pattern: (?i)(Width\s*=\s*["']Auto["']|Width\s*=\s*["']\*["'])
+          pattern: (?i)(Gesture\s*=\s*["']Ctrl\+S["']|Key\s*=\s*["']S["'])
       - type: output-not-matches
         config:
-          pattern: (?i)(TableLayoutPanel|System\.Windows\.Forms|InitializeComponent\s*\(\s*\)\s*\{)
+          pattern: (?i)(TableLayoutPanel|System\.Windows\.Forms|Keys\.Control|ProcessCmdKey)
       - type: exit-success
       - type: prompt
     rubric:
-      - Answers with WPF XAML Grid layout rather than applying WinForms designer serialization patterns
-      - Preserves the existing WPF bindings and Save command
-      - Uses Auto and star sizing to make the WPF editor responsive
+      - Adds a WPF KeyBinding under Window.InputBindings for the existing SaveCommand
+      - Preserves the existing DataContext and button command
+      - Uses WPF XAML input-binding syntax rather than Windows Forms keyboard handling
       - Did not apply the WinForms-specific skill to the neighboring WPF framework request

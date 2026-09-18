@@ -6,6 +6,10 @@ defaults:
   runs: 1
 stimuli:
   - name: Propagate cancellation into asynchronous work
+    tags:
+      capability: async-cancellation
+      risk: high
+      journey: repair
     prompt: '`Worker.ObserveCancellationAsync` keeps running for about a second after its caller
       cancels and the executable reports a failure. Make cancellation stop the operation promptly
       without changing the validation code or timing requirement. Build and run the project.
@@ -31,11 +35,15 @@ stimuli:
       - Cancellation ends the operation promptly and is surfaced as cancellation rather than success
       - The project builds and the executable prints cancellation-ok
   - name: Stop timed-out work before returning
+    tags:
+      capability: timeout-cancellation
+      risk: high
+      journey: repair
     prompt: '`WorkTracker.RunWithTimeoutAsync` returns `timed-out` promptly, but
       `CompletedWorkCount` increases a few hundred milliseconds later. Make the timeout stop and
       observe the underlying operation before returning, while preserving caller cancellation as
-      cancellation. Keep the public surface and validation timing intact, then build and run the
-      project.
+      cancellation. Keep the public surface and validation timing intact, then run the project so
+      the verifier compiles and executes it.
 
       '
     environment:
@@ -56,9 +64,13 @@ stimuli:
     rubric:
       - The timeout cancels the operation that owns the eventual completion side effect rather than only abandoning its await
       - Timed-out work is awaited or otherwise observed and cannot complete or fault later in the background
-      - Caller cancellation remains distinguishable and surfaces as OperationCanceledException
-      - The project builds and the verifier prints timeout-verifier-ok.
+      - Caller cancellation before the timeout surfaces as OperationCanceledException; timed-out is returned only when the caller token was not canceled
+      - The project run reports timed-out:0, proving that the timeout returns and no completion side effect occurs
   - name: Handle nullable lookup results explicitly
+    tags:
+      capability: nullable-flow
+      risk: medium
+      journey: repair
     prompt: '`UserDirectory.GetDisplayNameLength` crashes when the requested user is absent. Make the
 
       nullable contract honest and return zero for a missing user while preserving the existing
@@ -86,6 +98,10 @@ stimuli:
       - The fix preserves nullable annotations and does not use the null-forgiving operator to hide the risk
       - The project builds and the executable prints nullable-ok
   - name: Preserve ownership of a caller supplied stream
+    tags:
+      capability: resource-ownership
+      risk: high
+      journey: repair
     prompt: 'After `HeaderReader.ReadFirstLine` returns, the caller can no longer use the stream it
       supplied. The caller owns that stream and must be able to continue reading and writing it.
       Repair the method without leaking resources, then build and run the project.
@@ -111,6 +127,10 @@ stimuli:
       - The caller can continue reading from and writing to the stream after the method returns
       - The project builds and the executable prints ownership-ok
   - name: Give identifier objects value equality
+    tags:
+      capability: value-equality
+      risk: medium
+      journey: repair
     prompt: 'A `HashSet<Coordinate>` cannot find a newly-created Coordinate with the same X and Y
       values as an item already in the set. Coordinates are identifiers whose values define
       equality. Repair the type without changing validation code, then build and run the project.
@@ -136,6 +156,10 @@ stimuli:
       - Hash-based collection lookup succeeds for a distinct instance with the same values
       - The project builds and the executable prints equality-ok
   - name: Enforce a TryParse style port contract
+    tags:
+      capability: api-contract
+      risk: high
+      journey: repair
     prompt: '`PortNumber.TryParse` is intended to accept decimal TCP port numbers from 1 through 65535.
 
       Invalid, missing, negative, and out-of-range input must return false and leave the out value at
@@ -165,6 +189,10 @@ stimuli:
       - Failure consistently resets the out value to zero
       - The project builds and the executable prints api-ok
   - name: Make concurrent increments atomic
+    tags:
+      capability: concurrency
+      risk: high
+      journey: repair
     prompt: 'After many concurrent calls to `AsyncCounter.IncrementAsync`, `Value` is sometimes less
       than the number of completed calls. Repair the implementation while keeping the asynchronous
       method and public surface intact. Do not change or serialize the validation code. Build and
@@ -191,6 +219,10 @@ stimuli:
       - The final count exactly matches the number of completed increment operations
       - The project builds and the executable prints concurrency-ok
   - name: Remove hot path allocations from word counting
+    tags:
+      capability: allocation-performance
+      risk: medium
+      journey: optimization
     prompt: '`WordCounter.CountAsciiWords` is on a hot path. It must keep its current results for empty,
 
       repeated-space, and ordinary ASCII input while allocating no managed memory per call after
@@ -220,6 +252,10 @@ stimuli:
       - The counting operation avoids temporary arrays, substrings, or enumerable allocations
       - The project builds and the executable stays within the allocation limit and prints allocation-ok
   - name: Leave an already correct cancellation implementation unchanged
+    tags:
+      capability: async-cancellation
+      risk: low
+      journey: review
     prompt: 'Review `LineReader.ReadNonEmptyLinesAsync`. It should return every non-empty line in order
       and
 
@@ -248,6 +284,10 @@ stimuli:
       - The implementation is left byte-for-byte unchanged rather than rewritten without a defect
       - The project builds and the executable prints already-correct
   - name: Repair code within the configured language version
+    tags:
+      capability: language-version
+      risk: medium
+      journey: repair
     prompt: 'The Profile property should trim assigned names, but the checked-in project no longer
       compiles. Repair the source without changing repository build configuration or dependencies.
       Build and run the project.
@@ -273,6 +313,10 @@ stimuli:
       - The implementation compiles under the language version already configured by the project
       - The project settings remain unchanged rather than being raised to accommodate the original syntax
   - name: Reject invalid values without hiding type evidence
+    tags:
+      capability: runtime-type-safety
+      risk: high
+      journey: repair
     prompt: '`CodeReader.Read` should accept only string values, trim them, and return uppercase text.
 
       Null and non-string values must throw `ArgumentException` naming `value`. Fix the method
@@ -306,6 +350,10 @@ stimuli:
       - Compiler and runtime evidence remain visible instead of being bypassed by an assertion, broad conversion,
         suppression, or catch-all handler
   - name: Correct percentage arithmetic without adding architecture
+    tags:
+      capability: focused-bug-fix
+      risk: low
+      journey: repair
     prompt: '`OrderTotalCalculator.ApplyDiscount` returns 190 for a 200 total with a 10 percent
       discount, but the required result is 180. Correct only this defect, preserve the zero-discount
       behavior, then build and run the project.
@@ -336,6 +384,10 @@ stimuli:
       - The existing calculator API remains intact
       - The fix does not add interfaces, patterns, or other abstraction without a demonstrated boundary or variation
   - name: Keep deferred file results valid after return
+    tags:
+      capability: deferred-resource-lifetime
+      risk: high
+      journey: repair
     prompt: '`LineFile.ReadNonEmpty` returns successfully, but enumerating the returned sequence
       throws because its file is already closed. Keep the deferred API and make the sequence usable
       after the method returns without leaking the file handle. Build and run the project.
@@ -362,6 +414,10 @@ stimuli:
       - File resources have a valid, bounded lifetime rather than being disposed before deferred work or left
         open indefinitely
   - name: Keep returned memory valid after returning a pooled buffer
+    tags:
+      capability: pooled-buffer-lifetime
+      risk: high
+      journey: repair
     prompt: '`BufferReader.ReadPrefix` returns the right length, but the bytes are already corrupted
       when the caller reads them because the rented array has been returned to its pool. Keep the
       current API, ensure the caller receives stable data, and still return the rented buffer on
@@ -389,6 +445,10 @@ stimuli:
       - The method retains its existing signature and returns exactly the bytes read
       - The project builds and the executable prints pooled-buffer-lifetime-ok
   - name: Leave a simple asynchronous API in its safe form
+    tags:
+      capability: async-api-design
+      risk: low
+      journey: review
     prompt: 'Review `GreetingStore.GetGreetingAsync` for correctness and maintainability. It serves a
 
       low-volume configuration path and has no reported latency or allocation issue. Make changes
@@ -417,6 +477,10 @@ stimuli:
         without a demonstrated need
       - The project builds and the executable prints simple-safe-ok
   - name: Evaluate a proposed optimization with runtime evidence
+    tags:
+      capability: performance-validation
+      risk: high
+      journey: review
     prompt: 'A proposed rewrite replaces `SumLoop` with `SumSorted`, and the author says it should be
       faster because the body is shorter. Evaluate whether it is a behaviorally compatible
       performance improvement using this project. If initial timings are inconsistent, investigate
@@ -460,6 +524,10 @@ stimuli:
       - The slower candidate is not recommended as a performance improvement
       - The implementation remains unchanged
   - name: Validate behavior on every supported target
+    tags:
+      capability: multi-targeting
+      risk: high
+      journey: repair
     prompt: '`PlatformName.Current` is expected to report the runtime family selected by each target in
 
       this project, but one supported target reports the wrong value. Fix the implementation and
@@ -487,6 +555,10 @@ stimuli:
       - Both target-specific executions are validated rather than relying on one green default command
       - The target framework list remains unchanged
   - name: Keep an invoice bug fix structurally focused
+    tags:
+      capability: focused-bug-fix
+      risk: low
+      journey: repair
     prompt: '`InvoiceCalculator.DoStuff` applies a 20% reduction, but the business rule is a 10% reduction.
 
       Correct that defect without changing the method''s API or unrelated calculation structure.
@@ -514,6 +586,10 @@ stimuli:
       - The existing class and method names, signature, loop, and surrounding structure remain unchanged
       - The bug fix does not perform a rename, extraction, or modernization; the existing structure stays unchanged
   - name: Stay dormant for a behavior-preserving rename
+    tags:
+      capability: routing-boundary
+      risk: low
+      journey: dormancy
     prompt: |
       Rename `OrderProcessor.ProcessOrderAsync` to `SubmitOrderAsync` across the
       solution. Update every call site and test, preserve the public method's
@@ -525,5 +601,5 @@ stimuli:
     rubric:
       - Treats the request as a behavior-preserving C# refactoring rather than language or bug-fix work
       - Preserves behavior while propagating the symbol rename through references and tests
-      - Uses binding-aware rename and build/test validation appropriate for csharp-refactoring
+      - Uses binding-aware rename and build/test validation appropriate for a behavior-preserving refactor
       - Did not apply the csharp-expert skill to the neighboring refactoring request

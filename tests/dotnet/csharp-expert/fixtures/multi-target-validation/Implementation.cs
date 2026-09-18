@@ -5,7 +5,7 @@ internal static class PlatformName
 #if NET8_0
         return "net8";
 #elif NET10_0
-        return "net10";
+        return "net8";
 #else
 #error Unexpected target framework
 #endif
