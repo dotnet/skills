@@ -95,7 +95,7 @@ Based on the request scope, pick exactly one strategy and follow it:
 | ---------- | ------------- | ------------ |
 | **Direct** | Exactly one source file, class, method, or function | Reuse the canonical test project and existing test file when available. Do not create intermediate state files or invoke worker agents. Write and run tests immediately, fixing failures before writing more. Skip only the delegated phases (Steps 3-5), never final validation, coverage review, or the Step 7 pre-completion gate. |
 | **Single pass** | An explicit scope of 2-9 non-trivial source files | Execute one complete Research → Plan → Implement cycle covering every scope-ledger row, then execute Steps 6-9. |
-| **Iterative** | A project, solution, module, folder, 10 or more source files, or an ambitious coverage target | Execute Steps 3-8, measure remaining original-scope gaps, then repeat on pending or weakly covered ledger rows. Use numbered research and plan documents. Continue until the target is met or every remaining row has a concrete, evidence-backed deferral reason. |
+| **Iterative** | A project, solution, module, folder, 10 or more source files, or an ambitious coverage target | Execute Steps 3-8, measure remaining original-scope gaps, then repeat on pending or weakly covered ledger rows. Reuse the canonical research, plan, and ledger files: append an `## Iteration N` section to research and plan, update ledger rows in place, and preserve prior evidence. Continue until the target is met or every remaining row has a concrete, evidence-backed deferral reason. |
 
 Choose from the target shape and source-file count, not from whether an existing
 test project is available. A project, solution, module, or folder request can
@@ -143,7 +143,7 @@ Delegate to the `code-testing-researcher` subagent with this task:
 ```text
 runSubagent({
   agent: "code-testing-researcher",
-  prompt: "Research the original requested scope at [PATH]. Write <TESTAGENT_DIR>/research.md and <TESTAGENT_DIR>/scope-ledger.md. Inventory every non-trivial source file without selecting only easy, leaf, mock-free, or framework-decoupled classes. Record conventions, source-to-test pairs, dependencies, testability, exact build/test/discovery commands, and for .NET the canonical test project, framework and installed version, runner contract, and repository entry point. Do not create or edit test source."
+  prompt: "Research Iteration N for the original requested scope at [PATH]. Use <TESTAGENT_DIR>/research.md and <TESTAGENT_DIR>/scope-ledger.md. On Iteration 1, create both files. On later iterations, read them first, append an `## Iteration N` research section, preserve prior sections and all original ledger rows, and update statuses/evidence in place without resetting tested or deferred rows. Focus new analysis on pending or weakly covered rows. Inventory every non-trivial source file without selecting only easy, leaf, mock-free, or framework-decoupled classes. Record conventions, source-to-test pairs, dependencies, testability, exact build/test/discovery commands, and for .NET the canonical test project, framework and installed version, runner contract, command mode, and repository entry point. Do not create or edit test source."
 })
 ```
 
@@ -166,7 +166,7 @@ of invoking `writing-mstest-tests` independently.
 
 Delegate to the `code-testing-planner` subagent with this task:
 
-> Create `<TESTAGENT_DIR>/plan.md` from `<TESTAGENT_DIR>/research.md` and `<TESTAGENT_DIR>/scope-ledger.md`. Assign every pending source file to a phase or record a concrete evidence-backed deferral. Use more phases or numbered iterations instead of shrinking scope. Preserve the canonical test project and entry point. Carry recorded framework-version and API constraints into the plan.
+> Plan Iteration N in `<TESTAGENT_DIR>/plan.md` from `<TESTAGENT_DIR>/research.md` and `<TESTAGENT_DIR>/scope-ledger.md`. On Iteration 1, create the plan. On later iterations, read it first and append an `## Iteration N` section without replacing earlier phases. Assign every pending or weakly covered source file to a phase or record a concrete evidence-backed deferral. Use more phases or iterations instead of shrinking scope. Preserve the canonical test project, command mode, and entry point. Carry recorded framework-version and API constraints into the plan.
 
 Output: `<TESTAGENT_DIR>/plan.md`
 
@@ -192,7 +192,7 @@ root. Do not create a second same-named project as a recovery step.
 
 Execute each phase by delegating to the `code-testing-implementer` subagent — once per phase, sequentially. For each phase, delegate with this task:
 
-> Implement Phase N from `<TESTAGENT_DIR>/plan.md`: [phase description]. Use the recorded canonical test project and entry point. Honor the framework version and API guidance in research and the plan without reloading supporting skills. Update every assigned scope-ledger row. Ensure tests compile, pass, and remain discoverable through the repository entry point.
+> Implement Iteration I, Phase N from `<TESTAGENT_DIR>/plan.md`: [phase description]. Use the recorded canonical test project, command mode, and entry point. Honor the framework version and API guidance in research and the plan without reloading supporting skills. Update every assigned scope-ledger row. Ensure tests compile, pass, and remain discoverable through the repository entry point.
 
 Do not write phase test files from the generator conversation. The implementer
 owns phase mutations and verification.
@@ -263,8 +263,9 @@ ledger. Do not reread unrelated workspace areas.
 4. Keep a delegated row `pending` when it has no meaningful test evidence. For
    Direct, keep the corresponding requirement unresolved.
 5. For Direct, close unresolved or weakly covered requirements inline. For
-   Single pass and Iterative, start another numbered delegated RPI cycle for
-   pending or weakly covered rows.
+   Single pass and Iterative, start Iteration N+1 for pending or weakly covered
+   rows. Append iteration sections to research and plan, update the existing
+   ledger in place, and preserve all prior evidence.
 6. Treat the checklist as the floor. Sweep each target API for still-unproved
    observable equivalence partitions and invariants: identity, empty,
    singleton, representative interior inputs, exact and adjacent boundaries,
@@ -315,6 +316,10 @@ non-stageable `<TESTAGENT_DIR>`:
 - `<TESTAGENT_DIR>/plan.md` — Implementation plan
 - `<TESTAGENT_DIR>/scope-ledger.md` — Every non-trivial source file in the original scope
 - `<TESTAGENT_DIR>/status.md` — Final quality review, fixes, and validation status
+
+Iterative runs keep these canonical paths. Research and plan append one
+`## Iteration N` section per cycle; the ledger is updated in place and never
+recreated.
 
 ## Rules
 

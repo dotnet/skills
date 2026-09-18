@@ -22,6 +22,10 @@ Read the research document and create a phased implementation plan that will gui
 
 ### 1. Read the Research
 
+Use the iteration number supplied by the caller. On Iteration 1, create the
+plan. On later iterations, read the existing plan first and append an
+`## Iteration N` section without replacing earlier phases.
+
 Read `<TESTAGENT_DIR>/research.md` and
 `<TESTAGENT_DIR>/scope-ledger.md`. Reuse the inventory, commands, canonical
 project identity, dependencies, and conventions. Do not reread repository
@@ -91,10 +95,13 @@ test project are not sufficient reasons to omit an in-scope source file.
 
 ### 5. Generate Plan Document
 
-Create `<TESTAGENT_DIR>/plan.md` with this structure:
+Create the first iteration or append the current iteration to
+`<TESTAGENT_DIR>/plan.md` with this structure:
 
 ```markdown
 # Test Implementation Plan
+
+## Iteration N
 
 ## Overview
 Brief description of the testing scope and approach.
@@ -158,6 +165,7 @@ Only consult a language example when research found no existing tests and the ba
 ## Output
 
 Write the plan document to the absolute `<TESTAGENT_DIR>/plan.md` path provided
-by the caller. `<TESTAGENT_DIR>` must be non-stageable host scratch storage,
+by the caller. Iteration 1 creates it; later iterations append without replacing
+earlier sections. `<TESTAGENT_DIR>` must be non-stageable host scratch storage,
 Git metadata, or OS temp. Never place it or its files in version-controlled
 workspace content.

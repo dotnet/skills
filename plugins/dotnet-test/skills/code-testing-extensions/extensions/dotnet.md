@@ -52,12 +52,20 @@ attributed to the test-project tree.
 
 ## Test Commands
 
-| Scope | Command |
-|-------|---------|
-| SDK-style all tests | `dotnet test` |
-| SDK-style filtered | `dotnet test --filter "FullyQualifiedName~ClassName"` |
-| SDK-style after build | `dotnet test --no-build` |
-| Classic non-SDK | Use the checked-in runner command; commonly `vstest.console.exe <test.dll>` after MSBuild |
+Before recording a scoped or harness-level command, resolve the command mode
+through `run-tests` and record the exact project and entry-point commands in
+research. Do not infer command mode from the test framework or `MSTest.Sdk`
+alone.
+
+| Scope | VSTest mode or MTP bridge | SDK 10+ native MTP mode |
+|-------|---------------------------|-------------------------|
+| SDK-style test project | `dotnet test MyProject.Tests.csproj` | `dotnet test --project MyProject.Tests.csproj` |
+| SDK-style solution | `dotnet test MySolution.sln` | `dotnet test --solution MySolution.sln` |
+| Current directory | `dotnet test` | `dotnet test` only when repository configuration makes the target unambiguous |
+| Filtered | Use the framework-compatible VSTest or bridge syntax from `run-tests` | Use the native MTP syntax from `run-tests` |
+
+Classic non-SDK projects use the checked-in runner command, commonly
+`vstest.console.exe <test.dll>` after MSBuild.
 
 - Use `--no-build` if already built
 - Use `-v:q` for quieter output
@@ -128,16 +136,28 @@ registration workflow; do not defer registration to final validation.
 2. If that target is a `.sln` or `.slnx`, use the scaffolding skill's exact `dotnet sln <solution> add <test-project.csproj>` and listing workflow.
 3. If the target is a `.slnf` (solution filter), also ensure the new project is included in the filter; adding only to the underlying `.sln` may not be enough for test discovery.
 4. Skip this if the project is already included in the solution or solution filter used for testing.
-5. Prefer the researched test command. If you need to run the solution directly, use `dotnet test --solution <solution>` only for repos on .NET SDK 10+ with MTP-style syntax; otherwise use the standard positional form `dotnet test <solution>`.
+5. Use the exact command mode recorded by research. Native MTP uses
+   `dotnet test --solution <solution>`; VSTest mode and an MTP bridge use the
+   positional `dotnet test <solution>` form.
 
 ### Harness Discovery Check
 
-Before reporting success, run the **harness-equivalent** discovery command from the repo root and confirm the test count went up by at least the number of tests you generated. The harness (CI, msbench, coverage tools) does not know which `.csproj` you targeted — it runs the solution-level command, so a test that passes via `dotnet test MyProject.Tests.csproj` is still worthless if `dotnet test <solution> --list-tests` doesn't enumerate it.
+Before reporting success, run the **harness-equivalent** discovery command from
+the repo root and confirm the test count went up by at least the number of tests
+you generated. Use the recorded command mode for both scoped and entry-point
+execution.
 
 ```bash
-# From repo root, against the solution identified in <TESTAGENT_DIR>/research.md
+# VSTest command mode or MTP bridge
 dotnet test <solution> --list-tests --no-build 2>&1 | grep -c '^    [A-Za-z]'
+
+# SDK 10+ native MTP command mode
+dotnet test --solution <solution> --list-tests --no-build 2>&1 | grep -c '^    [A-Za-z]'
 ```
+
+For a project-oriented repository with no solution, use the recorded project
+command instead: positional in VSTest/bridge mode and
+`dotnet test --project <test-project>` in native MTP mode.
 
 If discovery misses the new tests, inspect the canonical project's registration
 and runner configuration. Use `scaffold-dotnet-test-project` to repair only

@@ -30,7 +30,7 @@ Given a phase from the plan, write all the test files for that phase and ensure 
 
 ### 1. Read the Plan and Research
 
-- Read only the current phase from the caller-provided absolute
+- Read only the current iteration and phase from the caller-provided absolute
   `<TESTAGENT_DIR>/plan.md` path
 - Read the command, convention, and target entries needed for that phase from
   `<TESTAGENT_DIR>/research.md`

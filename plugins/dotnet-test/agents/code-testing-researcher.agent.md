@@ -25,6 +25,13 @@ source file inside it, and produce compact research sufficient to implement it.
 
 ### 1. Establish a bounded scope
 
+Use the iteration number supplied by the caller. On Iteration 1, create the
+research document and scope ledger. On later iterations, read both files first,
+append an `## Iteration N` section to the research document, and update the
+existing ledger in place. Preserve prior research, every original ledger row,
+and all `tested` or `deferred` statuses unless new evidence explicitly changes
+them. Never recreate the ledger or reset completed rows to `pending`.
+
 Resolve the user's requested files, symbols, module, folder, project, or
 solution before searching. Record that exact boundary and do not inventory
 sibling projects or unrelated source trees. Within the requested boundary,
@@ -110,8 +117,8 @@ Search for commands in:
 
 Identify **two** test commands and record both in the caller-provided research document:
 
-1. **Scoped test command** — what the implementer should run during fix cycles (e.g., `dotnet test <test.csproj>` for SDK-style .NET, the repository's MSBuild + VSTest/MSTest command for classic .NET, `bundle exec rspec spec/foo_spec.rb`, `Invoke-Pester -Path ./Tests/Foo.Tests.ps1`). Optimized for speed and locality.
-2. **Harness-equivalent discovery command** — what a generic CI/benchmark verifier would run from the repo root with no args (e.g., `dotnet test <solution> --list-tests` for SDK-style .NET, the checked-in runner/discovery command for classic .NET, `bundle exec rspec --dry-run`, `Invoke-Pester` with default config, `pytest --collect-only -q`). This is the command the implementer's "Verify Harness Discovery" step uses to confirm new tests are visible to outside tooling. Call the `code-testing-extensions` skill and consult the "Harness Discovery Check" section of the relevant language extension.
+1. **Scoped test command** — what the implementer should run during fix cycles. For SDK-style .NET, invoke `run-tests` and record the resolved mode: positional `dotnet test <test.csproj>` for VSTest/bridge mode or `dotnet test --project <test.csproj>` for native MTP. For classic .NET, keep the repository's MSBuild + VSTest/MSTest command. Optimized for speed and locality.
+2. **Harness-equivalent discovery command** — what a generic CI/benchmark verifier would run from the repo root with no args. For SDK-style .NET, record positional `dotnet test <solution> --list-tests` for VSTest/bridge mode or `dotnet test --solution <solution> --list-tests` for native MTP. For classic .NET, keep the checked-in runner/discovery command. This is the command the implementer's "Verify Harness Discovery" step uses to confirm new tests are visible to outside tooling. Call the `code-testing-extensions` skill and consult the "Harness Discovery Check" section of the relevant language extension.
 
 For classic .NET projects, do not invent a `dotnet` replacement. Prefer commands
 already used by scripts or CI. If the required Windows/Visual Studio toolchain is
@@ -144,6 +151,7 @@ Create `<TESTAGENT_DIR>/research.md` with this structure:
 - **Framework**: [detected framework]
 - **Test Framework**: [detected or recommended]
 - **Project system**: [SDK-style / classic non-SDK / not applicable]
+- **dotnet test command mode**: [VSTest / native MTP / not applicable]
 - **Dependency format and versions**: [PackageReference / packages.config; test framework and mocking-library versions]
 - **New-file registration**: [implicit glob / explicit Compile Include / other manifest rule]
 
@@ -208,9 +216,11 @@ For each test project found, list:
 
 ## Output
 
-Write the research document and scope ledger to the caller-provided absolute
-`<TESTAGENT_DIR>/research.md` and `<TESTAGENT_DIR>/scope-ledger.md` paths.
-`<TESTAGENT_DIR>` must be non-stageable host scratch storage, Git metadata, or
-OS temp. Never place it or its files in version-controlled workspace content.
+Write or update the research document and scope ledger at the caller-provided
+absolute `<TESTAGENT_DIR>/research.md` and
+`<TESTAGENT_DIR>/scope-ledger.md` paths. Iteration 1 creates them; later
+iterations append research and update ledger rows in place. `<TESTAGENT_DIR>`
+must be non-stageable host scratch storage, Git metadata, or OS temp. Never
+place it or its files in version-controlled workspace content.
 
 Only consult a language example when no representative tests exist and the base extension does not establish the needed convention.

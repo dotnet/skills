@@ -111,10 +111,25 @@ Read only enough to determine:
 
 For SDK-style .NET repositories, read the repository-root `global.json`
 directly before choosing the framework, runner, project shape, or test command.
+Invoke `run-tests` to resolve the `dotnet test` command mode and record exact
+commands before creating or repairing a project:
+
+| Command mode | Project command | Solution or SDK-solution command |
+|---|---|---|
+| VSTest mode or MTP bridge | `dotnet test <test-project>` | `dotnet test <entry-point>` |
+| SDK 10+ native MTP | `dotnet test --project <test-project>` | `dotnet test --solution <entry-point>` |
+
+For a project-oriented repository with no solution, use the project command as
+the entry-point command. For `.slnf` or a repository-specific wrapper, preserve
+the exact command established by `run-tests` or CI rather than substituting a
+different solution artifact.
+
 After resolving the contract:
 
 - keep the canonical test project, repository root, and exact entry point as
   absolute paths for every edit and validation command;
+- record the command mode, exact project test command, and exact entry-point
+  test command;
 - create only a path proven absent, and edit an existing file in place;
 - use the repository-native test command, consulting `run-tests` when command
   mode or flags are not proven. Do not add convenience switches unless the
@@ -245,9 +260,9 @@ Run the narrowest commands that prove the chosen route:
 
 | Route | Required evidence |
 |---|---|
-| Newly created project | `dotnet test <test-project>`, the exact entry-point command CI uses, and registration listing. If the entry point is a `.slnf`/`.slnx` containing tests, run `dotnet test` on that artifact rather than proving only that it builds. |
-| Missing reference | Targeted project test plus the exact solution/root test command requested |
-| Missing `.sln`/`.slnx` registration | Listing and `dotnet test` for that exact artifact; never use another solution as a fallback |
+| Newly created project | The recorded project test command, the exact entry-point command CI uses, and registration listing. Native MTP commands must use `--project` or `--solution`; positional paths are invalid in that mode. |
+| Missing reference | The recorded project test command plus the exact solution/root test command requested |
+| Missing `.sln`/`.slnx` registration | Listing and the recorded test command for that exact artifact; never use another solution or command mode as a fallback |
 | Missing `.slnf` entry | Inspect the filter entry and run the exact CI filter build command; do not prepend a deliberately failing alternate command |
 | Already correct/no-op | Structural inspection of the existing reference and registration. Unless execution was requested, do not run tests merely to prove a no-op because that creates `bin`/`obj` and weakens byte-for-byte cleanliness evidence. |
 
@@ -288,6 +303,8 @@ Keep the handoff proportional to the change:
 - Only the requested production scope is referenced and tested.
 - Framework, runner, target framework, and central package conventions remain
   intact.
+- Project and entry-point validation use the recorded `dotnet test` command
+  mode; native MTP paths use `--project` or `--solution`.
 - A new SDK-style test project is outside production-project default item globs,
   and the affected production project builds without compiling test source.
 - The project containing generated tests is the canonical project recorded by
