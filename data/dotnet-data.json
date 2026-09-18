@@ -2,448 +2,6 @@
   "entries": {
     "Efficiency": [
       {
-        "tool": "customSmallerIsBetter",
-        "date": 1788535360017,
-        "model": "claude-sonnet-4.6",
-        "commit": {
-          "id": "57733bebc82ffd0fe70286870f67201174cee364",
-          "author": {
-            "username": "AbhitejJohn",
-            "name": "Amaury Levé"
-          },
-          "message": "Keep test agent state out of commits (#1108)",
-          "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
-          "timestamp": "2026-09-03T23:36:32+00:00"
-        },
-        "benches": [
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Skilled Time",
-            "value": 157.3,
-            "unit": "seconds",
-            "overfitting": "high"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Skilled Tokens In",
-            "value": 497663.0,
-            "unit": "tokens",
-            "overfitting": "high"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Plugin Time",
-            "value": 177.5,
-            "unit": "seconds",
-            "overfitting": "high"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Plugin Tokens In",
-            "value": 539614.0,
-            "unit": "tokens",
-            "overfitting": "high"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Vanilla Time",
-            "value": 109.3,
-            "unit": "seconds"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Vanilla Tokens In",
-            "value": 504235.0,
-            "unit": "tokens"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Skilled Time",
-            "value": 152.2,
-            "unit": "seconds",
-            "overfitting": "high"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Skilled Tokens In",
-            "value": 503448.0,
-            "unit": "tokens",
-            "overfitting": "high"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Plugin Time",
-            "value": 147.7,
-            "unit": "seconds",
-            "overfitting": "high"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Plugin Tokens In",
-            "value": 508315.0,
-            "unit": "tokens",
-            "overfitting": "high"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Vanilla Time",
-            "value": 130.6,
-            "unit": "seconds"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Vanilla Tokens In",
-            "value": 264291.0,
-            "unit": "tokens"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Skilled Time",
-            "value": 203.0,
-            "unit": "seconds",
-            "overfitting": "high"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Skilled Tokens In",
-            "value": 857914.0,
-            "unit": "tokens",
-            "overfitting": "high"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Plugin Time",
-            "value": 186.4,
-            "unit": "seconds",
-            "overfitting": "high"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Plugin Tokens In",
-            "value": 760069.0,
-            "unit": "tokens",
-            "overfitting": "high"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Vanilla Time",
-            "value": 135.3,
-            "unit": "seconds"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Vanilla Tokens In",
-            "value": 387807.0,
-            "unit": "tokens"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Skilled Time",
-            "value": 123.3,
-            "unit": "seconds",
-            "overfitting": "high"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Skilled Tokens In",
-            "value": 476428.0,
-            "unit": "tokens",
-            "overfitting": "high"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Plugin Time",
-            "value": 166.6,
-            "unit": "seconds",
-            "overfitting": "high"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Plugin Tokens In",
-            "value": 645853.0,
-            "unit": "tokens",
-            "overfitting": "high"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Vanilla Time",
-            "value": 75.9,
-            "unit": "seconds"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Vanilla Tokens In",
-            "value": 289293.0,
-            "unit": "tokens"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Skilled Time",
-            "value": 133.0,
-            "unit": "seconds",
-            "overfitting": "high"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Skilled Tokens In",
-            "value": 361924.0,
-            "unit": "tokens",
-            "overfitting": "high"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Plugin Time",
-            "value": 127.4,
-            "unit": "seconds",
-            "overfitting": "high"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Plugin Tokens In",
-            "value": 370862.0,
-            "unit": "tokens",
-            "overfitting": "high"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Vanilla Time",
-            "value": 114.6,
-            "unit": "seconds"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Vanilla Tokens In",
-            "value": 373569.0,
-            "unit": "tokens"
-          },
-          {
-            "overfittingScore": 0.46,
-            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Skilled Time",
-            "value": 360.0,
-            "unit": "seconds",
-            "overfitting": "moderate"
-          },
-          {
-            "overfittingScore": 0.46,
-            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Skilled Tokens In",
-            "value": 533648.0,
-            "unit": "tokens",
-            "overfitting": "moderate"
-          },
-          {
-            "overfittingScore": 0.46,
-            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Plugin Time",
-            "value": 118.9,
-            "unit": "seconds",
-            "overfitting": "moderate"
-          },
-          {
-            "overfittingScore": 0.46,
-            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Plugin Tokens In",
-            "value": 304352.0,
-            "unit": "tokens",
-            "overfitting": "moderate"
-          },
-          {
-            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Vanilla Time",
-            "value": 84.9,
-            "unit": "seconds"
-          },
-          {
-            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Vanilla Tokens In",
-            "value": 204511.0,
-            "unit": "tokens"
-          }
-        ]
-      },
-      {
-        "tool": "customSmallerIsBetter",
-        "date": 1788535360089,
-        "model": "gpt-5.6-luna",
-        "commit": {
-          "id": "57733bebc82ffd0fe70286870f67201174cee364",
-          "author": {
-            "username": "AbhitejJohn",
-            "name": "Amaury Levé"
-          },
-          "message": "Keep test agent state out of commits (#1108)",
-          "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
-          "timestamp": "2026-09-03T23:36:32+00:00"
-        },
-        "benches": [
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Skilled Time",
-            "value": 102.4,
-            "unit": "seconds"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Skilled Tokens In",
-            "value": 528364.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Plugin Time",
-            "value": 157.5,
-            "unit": "seconds"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Plugin Tokens In",
-            "value": 663909.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Vanilla Time",
-            "value": 129.9,
-            "unit": "seconds"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Vanilla Tokens In",
-            "value": 289546.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Skilled Time",
-            "value": 112.1,
-            "unit": "seconds"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Skilled Tokens In",
-            "value": 387520.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Plugin Time",
-            "value": 112.6,
-            "unit": "seconds"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Plugin Tokens In",
-            "value": 383357.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Vanilla Time",
-            "value": 138.1,
-            "unit": "seconds"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Vanilla Tokens In",
-            "value": 378622.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Skilled Time",
-            "value": 179.7,
-            "unit": "seconds"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Skilled Tokens In",
-            "value": 1258909.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Plugin Time",
-            "value": 138.5,
-            "unit": "seconds"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Plugin Tokens In",
-            "value": 670300.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Vanilla Time",
-            "value": 133.5,
-            "unit": "seconds"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Vanilla Tokens In",
-            "value": 628095.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Skilled Time",
-            "value": 120.8,
-            "unit": "seconds"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Skilled Tokens In",
-            "value": 520947.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Plugin Time",
-            "value": 226.6,
-            "unit": "seconds"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Plugin Tokens In",
-            "value": 1076180.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Vanilla Time",
-            "value": 74.2,
-            "unit": "seconds"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Vanilla Tokens In",
-            "value": 221648.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Skilled Time",
-            "value": 130.0,
-            "unit": "seconds"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Skilled Tokens In",
-            "value": 569605.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Plugin Time",
-            "value": 101.6,
-            "unit": "seconds"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Plugin Tokens In",
-            "value": 350513.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Vanilla Time",
-            "value": 135.8,
-            "unit": "seconds"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Vanilla Tokens In",
-            "value": 381644.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Skilled Time",
-            "value": 178.0,
-            "unit": "seconds"
-          },
-          {
-            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Skilled Tokens In",
-            "value": 460937.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Plugin Time",
-            "value": 147.5,
-            "unit": "seconds"
-          },
-          {
-            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Plugin Tokens In",
-            "value": 374778.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Vanilla Time",
-            "value": 165.2,
-            "unit": "seconds"
-          },
-          {
-            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Vanilla Tokens In",
-            "value": 256095.0,
-            "unit": "tokens"
-          }
-        ]
-      },
-      {
         "benches": [
           {
             "overfitting": "high",
@@ -5925,623 +5483,451 @@
         "date": 1789642372543,
         "tool": "customSmallerIsBetter",
         "model": "claude-opus-4.8"
+      },
+      {
+        "tool": "customSmallerIsBetter",
+        "model": "claude-sonnet-5",
+        "benches": [
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Skilled Time",
+            "value": 199.0,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Skilled Tokens In",
+            "value": 1692726.0,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Plugin Time",
+            "value": 230.2,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Plugin Tokens In",
+            "value": 1776232.0,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Vanilla Time",
+            "value": 142.0
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Vanilla Tokens In",
+            "value": 823660.0
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Skilled Time",
+            "value": 346.3,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Skilled Tokens In",
+            "value": 2991547.0,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Plugin Time",
+            "value": 329.1,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Plugin Tokens In",
+            "value": 2749705.0,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Vanilla Time",
+            "value": 200.4
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Vanilla Tokens In",
+            "value": 1004632.0
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Skilled Time",
+            "value": 174.5,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Skilled Tokens In",
+            "value": 1528304.0,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Plugin Time",
+            "value": 138.5,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Plugin Tokens In",
+            "value": 1021073.0,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Vanilla Time",
+            "value": 184.3
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Vanilla Tokens In",
+            "value": 1069487.0
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Skilled Time",
+            "value": 159.9,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Skilled Tokens In",
+            "value": 1289127.0,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Plugin Time",
+            "value": 143.6,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Plugin Tokens In",
+            "value": 1237631.0,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Vanilla Time",
+            "value": 55.4
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Vanilla Tokens In",
+            "value": 376814.0
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Skilled Time",
+            "value": 241.8,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Skilled Tokens In",
+            "value": 2043071.0,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Plugin Time",
+            "value": 328.6,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Plugin Tokens In",
+            "value": 2941178.0,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Vanilla Time",
+            "value": 209.0
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Vanilla Tokens In",
+            "value": 1209820.0
+          },
+          {
+            "unit": "seconds",
+            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Skilled Time",
+            "value": 135.4,
+            "overfitting": "high",
+            "overfittingScore": 0.57
+          },
+          {
+            "unit": "tokens",
+            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Skilled Tokens In",
+            "value": 632403.0,
+            "overfitting": "high",
+            "overfittingScore": 0.57
+          },
+          {
+            "unit": "seconds",
+            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Plugin Time",
+            "value": 193.9,
+            "overfitting": "high",
+            "overfittingScore": 0.57
+          },
+          {
+            "unit": "tokens",
+            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Plugin Tokens In",
+            "value": 491860.0,
+            "overfitting": "high",
+            "overfittingScore": 0.57
+          },
+          {
+            "unit": "seconds",
+            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Vanilla Time",
+            "value": 327.3
+          },
+          {
+            "unit": "tokens",
+            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Vanilla Tokens In",
+            "value": 823825.0
+          }
+        ],
+        "commit": {
+          "message": "Merge pull request #1184 from dotnet/dependabot/npm_and_yarn/eng/evaluation-tools/microsoft/vally-cli-0.16.0",
+          "timestamp": "2026-09-17T03:09:52+00:00",
+          "url": "https://github.com/dotnet/skills/commit/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "id": "8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3"
+        },
+        "date": 1789745910467
+      },
+      {
+        "tool": "customSmallerIsBetter",
+        "model": "gpt-5.6-luna",
+        "benches": [
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Skilled Time",
+            "value": 65.9
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Skilled Tokens In",
+            "value": 396088.0
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Plugin Time",
+            "value": 85.2
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Plugin Tokens In",
+            "value": 543553.0
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Vanilla Time",
+            "value": 74.3
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Vanilla Tokens In",
+            "value": 343234.0
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Skilled Time",
+            "value": 82.7
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Skilled Tokens In",
+            "value": 380850.0
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Plugin Time",
+            "value": 110.3
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Plugin Tokens In",
+            "value": 430687.0
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Vanilla Time",
+            "value": 88.8
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Vanilla Tokens In",
+            "value": 384942.0
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Skilled Time",
+            "value": 123.6
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Skilled Tokens In",
+            "value": 401252.0
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Plugin Time",
+            "value": 102.1
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Plugin Tokens In",
+            "value": 928639.0
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Vanilla Time",
+            "value": 88.6
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Vanilla Tokens In",
+            "value": 447165.0
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Skilled Time",
+            "value": 90.0
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Skilled Tokens In",
+            "value": 507464.0
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Plugin Time",
+            "value": 103.9
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Plugin Tokens In",
+            "value": 452093.0
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Vanilla Time",
+            "value": 50.0
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Vanilla Tokens In",
+            "value": 224955.0
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Skilled Time",
+            "value": 75.8
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Skilled Tokens In",
+            "value": 411110.0
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Plugin Time",
+            "value": 92.4
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Plugin Tokens In",
+            "value": 523341.0
+          },
+          {
+            "unit": "seconds",
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Vanilla Time",
+            "value": 73.9
+          },
+          {
+            "unit": "tokens",
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Vanilla Tokens In",
+            "value": 340324.0
+          },
+          {
+            "unit": "seconds",
+            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Skilled Time",
+            "value": 139.3
+          },
+          {
+            "unit": "tokens",
+            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Skilled Tokens In",
+            "value": 339972.0
+          },
+          {
+            "unit": "seconds",
+            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Plugin Time",
+            "value": 177.5
+          },
+          {
+            "unit": "tokens",
+            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Plugin Tokens In",
+            "value": 368215.0
+          },
+          {
+            "unit": "seconds",
+            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Vanilla Time",
+            "value": 244.1
+          },
+          {
+            "unit": "tokens",
+            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Vanilla Tokens In",
+            "value": 512381.0
+          }
+        ],
+        "commit": {
+          "message": "Merge pull request #1184 from dotnet/dependabot/npm_and_yarn/eng/evaluation-tools/microsoft/vally-cli-0.16.0",
+          "timestamp": "2026-09-17T03:09:52+00:00",
+          "url": "https://github.com/dotnet/skills/commit/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "id": "8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3"
+        },
+        "date": 1789745910531
       }
     ],
     "Quality": [
-      {
-        "tool": "customBiggerIsBetter",
-        "commit": {
-          "id": "57733bebc82ffd0fe70286870f67201174cee364",
-          "author": {
-            "username": "AbhitejJohn",
-            "name": "Amaury Levé"
-          },
-          "message": "Keep test agent state out of commits (#1108)",
-          "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
-          "timestamp": "2026-09-03T23:36:32+00:00"
-        },
-        "model": "claude-sonnet-4.6",
-        "date": 1788535360017,
-        "benches": [
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Skilled Quality",
-            "value": 7.5,
-            "unit": "Score (0-10)",
-            "overfitting": "high"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Plugin Quality",
-            "value": 7.5,
-            "unit": "Score (0-10)",
-            "overfitting": "high"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Vanilla Quality",
-            "value": 4.375,
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Skilled Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "overfitting": "high"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Plugin Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "overfitting": "high"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Vanilla Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Skilled Quality",
-            "value": 9.583333015441895,
-            "unit": "Score (0-10)",
-            "overfitting": "high"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Plugin Quality",
-            "value": 9.583333015441895,
-            "unit": "Score (0-10)",
-            "overfitting": "high"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Vanilla Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Skilled Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "overfitting": "high"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Plugin Quality",
-            "value": 8.333333015441895,
-            "unit": "Score (0-10)",
-            "overfitting": "high"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Vanilla Quality",
-            "value": 4.583333492279053,
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Skilled Quality",
-            "value": 6.0,
-            "unit": "Score (0-10)",
-            "overfitting": "high"
-          },
-          {
-            "overfittingScore": 0.51,
-            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Plugin Quality",
-            "value": 6.0,
-            "unit": "Score (0-10)",
-            "overfitting": "high"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Vanilla Quality",
-            "value": 3.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfittingScore": 0.46,
-            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Skilled Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "overfitting": "moderate"
-          },
-          {
-            "overfittingScore": 0.46,
-            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Plugin Quality",
-            "value": 9.464285850524902,
-            "unit": "Score (0-10)",
-            "overfitting": "moderate"
-          },
-          {
-            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Vanilla Quality",
-            "value": 8.928571701049805,
-            "unit": "Score (0-10)"
-          }
-        ],
-        "verdictEvidence": [
-          {
-            "skillName": "create-datadriven-aspnetcore",
-            "skillKind": "invocable",
-            "state": "VALID_NO_CHANGE",
-            "stateReason": {
-              "code": "no_credible_preference_change",
-              "phase": "decision"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +60.0% (4W/0T/1L over 5 preference-eligible stimulus vote(s), sign test p=0.188), mean preference +60.0% across 5 paired run(s) — not credible (sign test p=0.188 > 0.05)",
-            "gateEvidence": {
-              "stimulusVoteCount": 5,
-              "wins": 4,
-              "ties": 0,
-              "losses": 1,
-              "discordant": 5,
-              "direction": "better",
-              "pValue": 0.18750000000000003,
-              "alpha": 0.05,
-              "netWin": 0.6,
-              "minimumNetWin": 0.2,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": true,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "Explicit dormancy expectations are evaluated independently of preference",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": true,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Scaffold Blazor CRUD components",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Scaffold MVC CRUD with an existing DbContext",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Scaffold Minimal API child and required parent CRUD",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Scaffold Minimal API endpoints with OpenAPI",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Scaffold Razor Pages CRUD with EF Core and SQLite",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Scaffold Blazor CRUD components",
-                "direction": "better",
-                "rationale": "B satisfies all stated requirements, notably using an applied EF migration and providing complete Employee CRUD including details. A builds and covers the basic flows, but its EnsureCreated startup database approach directly misses the migrations requirement."
-              },
-              {
-                "scenarioName": "Scaffold MVC CRUD with an existing DbContext",
-                "direction": "better",
-                "rationale": "Both appear to fulfill the core scaffolding, migration, and build requirements. B has a modest but material edge because it explicitly implements and reports the requested user navigation to Authors, including a way to create an Author before Book creation."
-              },
-              {
-                "scenarioName": "Scaffold Minimal API child and required parent CRUD",
-                "direction": "worse",
-                "rationale": "The solutions are broadly comparable and both appear to meet most scaffolding requirements, but B's observed failure to return Product GET collection/by-ID results is a substantive CRUD defect and its validation of that behavior was unsound. A is therefore more reliable overall, despite B's slightly more explicit description metadata."
-              },
-              {
-                "scenarioName": "Scaffold Minimal API endpoints with OpenAPI",
-                "direction": "better",
-                "rationale": "Both implement the foundational API and context, but B additionally fulfills the explicit .http-file and migrations expectations, provides substantially richer OpenAPI metadata, and validates the running CRUD API end-to-end."
-              },
-              {
-                "scenarioName": "Scaffold Razor Pages CRUD with EF Core and SQLite",
-                "direction": "better",
-                "rationale": "Both implementations satisfy the core Product CRUD and DbContext requirements and compile, but B also delivers the necessary Category management and an actual applied EF migration. These are substantive requirements for a usable required-FK CRUD application."
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/57733bebc82ffd0fe70286870f67201174cee364/plugins/dotnet-data/skills/create-datadriven-aspnetcore/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/57733bebc82ffd0fe70286870f67201174cee364/tests/dotnet-data/create-datadriven-aspnetcore/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364"
-              }
-            ]
-          },
-          {
-            "skillName": "optimizing-ef-core-queries",
-            "skillKind": "invocable",
-            "state": "INVALID_INCONCLUSIVE",
-            "stateReason": {
-              "code": "underpowered",
-              "phase": "eval_design"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +100.0% (1W/0T/0L over 1 preference-eligible stimulus vote(s), sign test p=0.500), mean preference +100.0% across 1 paired run(s) — underpowered (1 preference-eligible stimulus vote(s); a credible verdict needs at least 5, and this eval won every one of them) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
-            "gateEvidence": {
-              "stimulusVoteCount": 1,
-              "wins": 1,
-              "ties": 0,
-              "losses": 0,
-              "discordant": 1,
-              "direction": "better",
-              "pValue": 0.5,
-              "alpha": 0.05,
-              "netWin": 1,
-              "minimumNetWin": 0.2,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": true,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "Explicit dormancy expectations are evaluated independently of preference",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": true,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Audit a back-office operations service riddled with query problems",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Audit a back-office operations service riddled with query problems",
-                "direction": "better",
-                "rationale": "Both cover several straightforward LINQ/materialization fixes, but B also addresses the major missed issues: sargable customer-sales filtering, split queries for Cartesian Includes, deep paging limitations, hot-query compilation, and a truly set-based maintenance update. Its benchmarked equivalent results further support the implementation."
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/57733bebc82ffd0fe70286870f67201174cee364/plugins/dotnet-data/skills/optimizing-ef-core-queries/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/57733bebc82ffd0fe70286870f67201174cee364/tests/dotnet-data/optimizing-ef-core-queries/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364"
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "tool": "customBiggerIsBetter",
-        "commit": {
-          "id": "57733bebc82ffd0fe70286870f67201174cee364",
-          "author": {
-            "username": "AbhitejJohn",
-            "name": "Amaury Levé"
-          },
-          "message": "Keep test agent state out of commits (#1108)",
-          "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
-          "timestamp": "2026-09-03T23:36:32+00:00"
-        },
-        "model": "gpt-5.6-luna",
-        "date": 1788535360089,
-        "benches": [
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Skilled Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Plugin Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Vanilla Quality",
-            "value": 4.375,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Skilled Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Plugin Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Vanilla Quality",
-            "value": 9.583333015441895,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Skilled Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Plugin Quality",
-            "value": 9.583333015441895,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Vanilla Quality",
-            "value": 9.583333015441895,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Skilled Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Plugin Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Vanilla Quality",
-            "value": 4.166666507720947,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Skilled Quality",
-            "value": 6.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Plugin Quality",
-            "value": 6.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Vanilla Quality",
-            "value": 3.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Skilled Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Plugin Quality",
-            "value": 9.821428298950195,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Vanilla Quality",
-            "value": 9.821428298950195,
-            "unit": "Score (0-10)"
-          }
-        ],
-        "verdictEvidence": [
-          {
-            "skillName": "create-datadriven-aspnetcore",
-            "skillKind": "invocable",
-            "state": "VALID_NO_CHANGE",
-            "stateReason": {
-              "code": "no_credible_preference_change",
-              "phase": "decision"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +60.0% (3W/2T/0L over 5 preference-eligible stimulus vote(s), sign test p=0.125), mean preference +48.0% across 5 paired run(s) — not credible — 2 of 5 preference-eligible stimulus vote(s) tied, leaving only 3 discordant preference vote(s). The sign test conditions on non-tie stimulus votes and cannot reach 0.05 below 5, so no record could have passed here — this is not a measured null. Either the skill is inert on these scenarios (make them discriminate) or the eval needs more distinct stimuli to clear the ties",
-            "gateEvidence": {
-              "stimulusVoteCount": 5,
-              "wins": 3,
-              "ties": 2,
-              "losses": 0,
-              "discordant": 3,
-              "direction": "better",
-              "pValue": 0.12500000000000003,
-              "alpha": 0.05,
-              "netWin": 0.6,
-              "minimumNetWin": 0.2,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": true,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "Explicit dormancy expectations are evaluated independently of preference",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": true,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Scaffold Blazor CRUD components",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Scaffold MVC CRUD with an existing DbContext",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Scaffold Minimal API child and required parent CRUD",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Scaffold Minimal API endpoints with OpenAPI",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Scaffold Razor Pages CRUD with EF Core and SQLite",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Scaffold Blazor CRUD components",
-                "direction": "better",
-                "rationale": "Both produce working Employee CRUD Blazor components with AppDbContext and build successfully. The key differentiator is the migrations requirement: B explicitly used EF Core migrations (add + database update), matching the rubric, whereas A chose seeding/database initialization in code, which the rubric explicitly disfavors. B also provided fuller handling of the related Department entity with its own CRUD and nav. This makes B better overall, though the margin is moderate since core CRUD scaffolding is comparable."
-              },
-              {
-                "scenarioName": "Scaffold MVC CRUD with an existing DbContext",
-                "direction": "none",
-                "rationale": "Both responses accomplished the task equivalently: reusing CatalogDbContext with SQLite, generating full CRUD controllers/views for Book and Author, creating and applying an InitialCreate migration without EnsureCreated/seed, and achieving a successful build. Response B recovered from a Razor section error and cleaned up build artifacts, while Response A had an early failed migration attempt it corrected. These minor differences balance out, leaving the final results essentially equal in quality."
-              },
-              {
-                "scenarioName": "Scaffold Minimal API child and required parent CRUD",
-                "direction": "none",
-                "rationale": "Position-swap inconsistent (forward: A, reverse: tie). Defaulting to tie."
-              },
-              {
-                "scenarioName": "Scaffold Minimal API endpoints with OpenAPI",
-                "direction": "better",
-                "rationale": "Both satisfy the core endpoints and DbContext requirements and both build successfully. However, B additionally generated a .http file, used proper EF Core migrations rather than startup seeding/EnsureCreated, added rich OpenAPI metadata and validation, and even smoke-tested the running API via curl. A meets the basic requirements but misses three of the five rubric criteria (no .http file, uses EnsureCreated instead of migrations, no evidence of rich OpenAPI metadata). B is much better overall."
-              },
-              {
-                "scenarioName": "Scaffold Razor Pages CRUD with EF Core and SQLite",
-                "direction": "better",
-                "rationale": "Both responses satisfied the core Product CRUD and AppDbContext requirements with successful builds. However, Response B fully met two additional rubric criteria that Response A missed: it used proper EF Core migrations (rather than automatic DB creation on startup) and scaffolded Category CRUD pages for the FK parent. Response B recovered methodically from Razor directive build errors. These are two significant rubric-defined requirements, making B substantially better overall despite A having a slightly cleaner path."
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/57733bebc82ffd0fe70286870f67201174cee364/plugins/dotnet-data/skills/create-datadriven-aspnetcore/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/57733bebc82ffd0fe70286870f67201174cee364/tests/dotnet-data/create-datadriven-aspnetcore/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364"
-              }
-            ]
-          },
-          {
-            "skillName": "optimizing-ef-core-queries",
-            "skillKind": "invocable",
-            "state": "INVALID_INCONCLUSIVE",
-            "stateReason": {
-              "code": "underpowered",
-              "phase": "eval_design"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +100.0% (1W/0T/0L over 1 preference-eligible stimulus vote(s), sign test p=0.500), mean preference +40.0% across 1 paired run(s) — underpowered (1 preference-eligible stimulus vote(s); a credible verdict needs at least 5, and this eval won every one of them) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
-            "gateEvidence": {
-              "stimulusVoteCount": 1,
-              "wins": 1,
-              "ties": 0,
-              "losses": 0,
-              "discordant": 1,
-              "direction": "better",
-              "pValue": 0.5,
-              "alpha": 0.05,
-              "netWin": 1,
-              "minimumNetWin": 0.2,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": true,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "Explicit dormancy expectations are evaluated independently of preference",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": true,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Audit a back-office operations service riddled with query problems",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Audit a back-office operations service riddled with query problems",
-                "direction": "better",
-                "rationale": "Both responses made nearly identical, correct optimizations that pass the benchmark suite with equivalent results. B is slightly better because it explicitly addresses several rubric points A glosses over: the non-sargable .Year filter and date-range fix, the offset vs keyset pagination tradeoff for GetOrderPage, and index recommendations for frequent filters. B also loaded and used the EF-core optimization skill and provided more thorough production-level guidance. The functional code changes are essentially equivalent, so the gap is small."
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/57733bebc82ffd0fe70286870f67201174cee364/plugins/dotnet-data/skills/optimizing-ef-core-queries/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/57733bebc82ffd0fe70286870f67201174cee364/tests/dotnet-data/optimizing-ef-core-queries/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364"
-              }
-            ]
-          }
-        ]
-      },
       {
         "date": 1788627833663,
         "verdictEvidence": [
@@ -14314,167 +13700,731 @@
             "unit": "Score (0-10)"
           }
         ]
+      },
+      {
+        "benches": [
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Skilled Quality",
+            "value": 10.0,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Plugin Quality",
+            "value": 10.0,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Vanilla Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Skilled Quality",
+            "value": 10.0,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Plugin Quality",
+            "value": 10.0,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Vanilla Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Skilled Quality",
+            "value": 10.0,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Plugin Quality",
+            "value": 10.0,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Vanilla Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Skilled Quality",
+            "value": 8.333333015441895,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Plugin Quality",
+            "value": 8.333333015441895,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Vanilla Quality",
+            "value": 4.166666507720947
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Skilled Quality",
+            "value": 6.0,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Plugin Quality",
+            "value": 6.0,
+            "overfitting": "moderate",
+            "overfittingScore": 0.31
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Vanilla Quality",
+            "value": 5.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Skilled Quality",
+            "value": 10.0,
+            "overfitting": "high",
+            "overfittingScore": 0.57
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Plugin Quality",
+            "value": 10.0,
+            "overfitting": "high",
+            "overfittingScore": 0.57
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Vanilla Quality",
+            "value": 9.821428298950195
+          }
+        ],
+        "date": 1789745910467,
+        "tool": "customBiggerIsBetter",
+        "model": "claude-sonnet-5",
+        "commit": {
+          "message": "Merge pull request #1184 from dotnet/dependabot/npm_and_yarn/eng/evaluation-tools/microsoft/vally-cli-0.16.0",
+          "timestamp": "2026-09-17T03:09:52+00:00",
+          "url": "https://github.com/dotnet/skills/commit/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "id": "8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3"
+        },
+        "verdictEvidence": [
+          {
+            "skillName": "create-datadriven-aspnetcore",
+            "skillKind": "invocable",
+            "state": "VALID_PASS",
+            "stateReason": {
+              "code": "credible_preference_improvement",
+              "phase": "decision"
+            },
+            "passed": true,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +100.0% (5W/0T/0L over 5 preference-eligible stimulus vote(s), sign test p=0.031), mean preference +52.0% across 5 paired run(s) — credibly better",
+            "gateEvidence": {
+              "stimulusVoteCount": 5,
+              "wins": 5,
+              "ties": 0,
+              "losses": 0,
+              "discordant": 5,
+              "direction": "better",
+              "pValue": 0.03125,
+              "alpha": 0.05,
+              "netWin": 1,
+              "minimumNetWin": 0.2,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Scaffold Blazor CRUD components",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Scaffold MVC CRUD with an existing DbContext",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Scaffold Minimal API child and required parent CRUD",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Scaffold Minimal API endpoints with OpenAPI",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Scaffold Razor Pages CRUD with EF Core and SQLite",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Scaffold Blazor CRUD components",
+                "direction": "better",
+                "rationale": "Both satisfy the core requested Employee CRUD, context, SQLite, and migration work. B is modestly stronger overall because its full Department CRUD directly resolves management of Employee's required foreign-key dependency, and it performed live route checks."
+              },
+              {
+                "scenarioName": "Scaffold MVC CRUD with an existing DbContext",
+                "direction": "better",
+                "rationale": "Both runs largely satisfy the task, but B provides stronger evidence that the required Author/Book CRUD actually works, including a targeted fix for navigation-property validation and complete end-to-end form-flow testing. Its retained migrated empty database also better reflects the requested applied migration."
+              },
+              {
+                "scenarioName": "Scaffold Minimal API child and required parent CRUD",
+                "direction": "better",
+                "rationale": "Both appear to complete the requested implementation correctly. B has slightly stronger evidence of fully meeting the OpenAPI-metadata requirement, especially explicit tags and validation response metadata, along with comprehensive CRUD verification."
+              },
+              {
+                "scenarioName": "Scaffold Minimal API endpoints with OpenAPI",
+                "direction": "better",
+                "rationale": "Both provide the core SQLite CRUD API and build successfully, but B additionally satisfies the migration, HTTP sample, and rich OpenAPI-documentation expectations and verifies live CRUD/OpenAPI behavior. A is a competent core implementation but misses substantial requested/scaffold-quality deliverables."
+              },
+              {
+                "scenarioName": "Scaffold Razor Pages CRUD with EF Core and SQLite",
+                "direction": "better",
+                "rationale": "Both satisfy the central Product CRUD, DbContext, SQLite, and migration work, but B additionally fulfills the important Category CRUD requirement, integrates navigation, and addresses navigation-property validation."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3/plugins/dotnet-data/skills/create-datadriven-aspnetcore/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3/tests/dotnet-data/create-datadriven-aspnetcore/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3"
+              }
+            ]
+          },
+          {
+            "skillName": "optimizing-ef-core-queries",
+            "skillKind": "invocable",
+            "state": "INVALID_INCONCLUSIVE",
+            "stateReason": {
+              "code": "underpowered",
+              "phase": "eval_design"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +100.0% (1W/0T/0L over 1 preference-eligible stimulus vote(s), sign test p=0.500), mean preference +40.0% across 1 paired run(s) — underpowered (1 preference-eligible stimulus vote(s); a credible verdict needs at least 5, and this eval won every one of them) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
+            "gateEvidence": {
+              "stimulusVoteCount": 1,
+              "wins": 1,
+              "ties": 0,
+              "losses": 0,
+              "discordant": 1,
+              "direction": "better",
+              "pValue": 0.5,
+              "alpha": 0.05,
+              "netWin": 1,
+              "minimumNetWin": 0.2,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Audit a back-office operations service riddled with query problems",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Audit a back-office operations service riddled with query problems",
+                "direction": "better",
+                "rationale": "Both cover most EF inefficiencies and preserve the stated API, but B additionally addresses the sargable customer-sales predicate, calls out the pending-order index and offset-paging limitation, and uses a true set-based discount update. A's benchmark validation is useful evidence, but its final result misses those important optimizations and incorrectly labels offset paging efficient."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3/plugins/dotnet-data/skills/optimizing-ef-core-queries/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3/tests/dotnet-data/optimizing-ef-core-queries/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "benches": [
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Skilled Quality",
+            "value": 7.5
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Plugin Quality",
+            "value": 7.5
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Vanilla Quality",
+            "value": 6.25
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Skilled Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Plugin Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Vanilla Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Skilled Quality",
+            "value": 9.583333015441895
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Plugin Quality",
+            "value": 9.583333015441895
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Vanilla Quality",
+            "value": 9.583333015441895
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Skilled Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Plugin Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Vanilla Quality",
+            "value": 3.75
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Skilled Quality",
+            "value": 6.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Plugin Quality",
+            "value": 6.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Vanilla Quality",
+            "value": 3.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Skilled Quality",
+            "value": 9.821428298950195
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Plugin Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "optimizing-ef-core-queries/Audit a back-office operations service riddled with query problems - Vanilla Quality",
+            "value": 9.821428298950195
+          }
+        ],
+        "date": 1789745910531,
+        "tool": "customBiggerIsBetter",
+        "model": "gpt-5.6-luna",
+        "commit": {
+          "message": "Merge pull request #1184 from dotnet/dependabot/npm_and_yarn/eng/evaluation-tools/microsoft/vally-cli-0.16.0",
+          "timestamp": "2026-09-17T03:09:52+00:00",
+          "url": "https://github.com/dotnet/skills/commit/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "id": "8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3"
+        },
+        "verdictEvidence": [
+          {
+            "skillName": "create-datadriven-aspnetcore",
+            "skillKind": "invocable",
+            "state": "VALID_NO_CHANGE",
+            "stateReason": {
+              "code": "no_credible_preference_change",
+              "phase": "decision"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +60.0% (4W/0T/1L over 5 preference-eligible stimulus vote(s), sign test p=0.188), mean preference +60.0% across 5 paired run(s) — not credible (sign test p=0.188 > 0.05)",
+            "gateEvidence": {
+              "stimulusVoteCount": 5,
+              "wins": 4,
+              "ties": 0,
+              "losses": 1,
+              "discordant": 5,
+              "direction": "better",
+              "pValue": 0.18750000000000003,
+              "alpha": 0.05,
+              "netWin": 0.6,
+              "minimumNetWin": 0.2,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Scaffold Blazor CRUD components",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Scaffold MVC CRUD with an existing DbContext",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Scaffold Minimal API child and required parent CRUD",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Scaffold Minimal API endpoints with OpenAPI",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Scaffold Razor Pages CRUD with EF Core and SQLite",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Scaffold Blazor CRUD components",
+                "direction": "better",
+                "rationale": "Both responses produced working, compiling Blazor CRUD with AppDbContext. However, the task and rubric specifically require EF Core migrations rather than seeding in Program.cs. Response A used sed-based edits, added database initialization/seeding in Program.cs, and did not create migrations — failing a key criterion. Response B leveraged the scaffolding skill, created and applied an InitialCreate migration, added a Details page, and full Department CRUD for the related entity. B satisfies all four criteria more completely, making it clearly better overall."
+              },
+              {
+                "scenarioName": "Scaffold MVC CRUD with an existing DbContext",
+                "direction": "better",
+                "rationale": "Both runs completed all rubric criteria: reused CatalogDbContext with SQLite, produced full Book/Author CRUD, migration applied, no EnsureCreated/seed, clean build. B leveraged the domain skill and explicitly wired a shared Bootstrap layout with Books/Authors navigation and validation, giving slightly stronger evidence of proper navigation and view conventions. The difference is minor since both appear complete and correct."
+              },
+              {
+                "scenarioName": "Scaffold Minimal API child and required parent CRUD",
+                "direction": "worse",
+                "rationale": "Both responses successfully completed all five requirements with clean builds and applied migrations. The main quality difference is that Response B relied on the deprecated WithOpenApi API and hit several build/syntax errors mid-run (invalid attribute syntax, missing assets file) requiring recovery, while Response A proceeded methodically with modern OpenAPI metadata (tags, summaries, response metadata) and no errors. Both recovered and produced working final results, so the edge to A is slight."
+              },
+              {
+                "scenarioName": "Scaffold Minimal API endpoints with OpenAPI",
+                "direction": "better",
+                "rationale": "Both responses successfully created TodoEndpoints and TodoDbContext with SQLite and OpenAPI. However, B fulfilled three additional rubric criteria that A missed or handled worse: it generated a .http file with dependency-aware CRUD requests, used proper EF Core migrations instead of in-Program seeding, and added rich per-endpoint OpenAPI metadata. B also verified the running API end-to-end via curl. A only built the project. B is meaningfully more complete and better aligned with the rubric."
+              },
+              {
+                "scenarioName": "Scaffold Razor Pages CRUD with EF Core and SQLite",
+                "direction": "better",
+                "rationale": "Both produced working Product CRUD with AppDbContext, but B satisfied two additional key rubric criteria that A missed: it used proper EF Core migrations (A used EnsureCreated seeding) and it scaffolded full Category CRUD pages (A only added dropdowns). B was also more methodical, leveraging the ASP.NET Core skill and verifying migrations were applied to the database."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3/plugins/dotnet-data/skills/create-datadriven-aspnetcore/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3/tests/dotnet-data/create-datadriven-aspnetcore/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3"
+              }
+            ]
+          },
+          {
+            "skillName": "optimizing-ef-core-queries",
+            "skillKind": "invocable",
+            "state": "INVALID_INCONCLUSIVE",
+            "stateReason": {
+              "code": "underpowered",
+              "phase": "eval_design"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +100.0% (1W/0T/0L over 1 preference-eligible stimulus vote(s), sign test p=0.500), mean preference +40.0% across 1 paired run(s) — underpowered (1 preference-eligible stimulus vote(s); a credible verdict needs at least 5, and this eval won every one of them) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
+            "gateEvidence": {
+              "stimulusVoteCount": 1,
+              "wins": 1,
+              "ties": 0,
+              "losses": 0,
+              "discordant": 1,
+              "direction": "better",
+              "pValue": 0.5,
+              "alpha": 0.05,
+              "netWin": 1,
+              "minimumNetWin": 0.2,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Audit a back-office operations service riddled with query problems",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Audit a back-office operations service riddled with query problems",
+                "direction": "better",
+                "rationale": "Both responses successfully applied nearly identical optimizations, both built cleanly and passed the benchmark equivalence suite. The key differences favor B: it explicitly names and addresses individual methods (ListActiveProducts, SearchProducts, GetOrdersOverTotal) rather than grouping them generically, and it demonstrates awareness of the offset-paging weakness in GetOrderPage ('deep numbered pages still incur offset cost'), which A dismissed as already efficient. B also loaded a domain-relevant skill and produced a more granular per-method explanation. The differences are modest since the actual code changes are equivalent, so B is only slightly better overall."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3/plugins/dotnet-data/skills/optimizing-ef-core-queries/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3/tests/dotnet-data/optimizing-ef-core-queries/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3"
+              }
+            ]
+          }
+        ]
       }
     ],
     "SkillValue": [
-      {
-        "model": "claude-sonnet-4.6",
-        "date": 1788535360017,
-        "judgeModel": "gpt-5.6-terra",
-        "commit": {
-          "id": "57733bebc82ffd0fe70286870f67201174cee364",
-          "author": {
-            "username": "AbhitejJohn",
-            "name": "Amaury Levé"
-          },
-          "message": "Keep test agent state out of commits (#1108)",
-          "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
-          "timestamp": "2026-09-03T23:36:32+00:00"
-        },
-        "skills": [
-          {
-            "skill": "create-datadriven-aspnetcore",
-            "treatmentFail": 2,
-            "treatment": {
-              "cacheRead": 489100.6,
-              "tokens": 539475.4,
-              "n": 5,
-              "cacheWrite": 19196.6,
-              "tokensIn": 528644.8,
-              "timeMs": 153758.2,
-              "tokensOut": 10830.6
-            },
-            "passTotal": 5,
-            "activationFired": 5,
-            "baseline": {
-              "cacheRead": 337734.2,
-              "tokens": 363839.0,
-              "n": 5,
-              "cacheWrite": 13703.6,
-              "tokensIn": 356649.8,
-              "timeMs": 113151.4,
-              "tokensOut": 7189.2
-            },
-            "baseAvailable": 5,
-            "hasPassData": true,
-            "baselineFail": 3,
-            "timedOut": false,
-            "activationExpected": 5,
-            "treatAvailable": 5,
-            "pairedN": 5
-          },
-          {
-            "skill": "optimizing-ef-core-queries",
-            "treatmentFail": 0,
-            "treatment": {
-              "cacheRead": 503009.0,
-              "tokens": 533648.0,
-              "n": 1,
-              "cacheWrite": 21608.0,
-              "tokensIn": 524644.0,
-              "timeMs": 360003.0,
-              "tokensOut": 9004.0
-            },
-            "passTotal": 1,
-            "activationFired": 1,
-            "baseline": {
-              "cacheRead": 180058.0,
-              "tokens": 204511.0,
-              "n": 1,
-              "cacheWrite": 17347.0,
-              "tokensIn": 197418.0,
-              "timeMs": 84928.0,
-              "tokensOut": 7093.0
-            },
-            "baseAvailable": 1,
-            "hasPassData": true,
-            "baselineFail": 1,
-            "timedOut": false,
-            "activationExpected": 1,
-            "treatAvailable": 1,
-            "pairedN": 1
-          }
-        ]
-      },
-      {
-        "model": "gpt-5.6-luna",
-        "date": 1788535360089,
-        "judgeModel": "claude-opus-4.8",
-        "commit": {
-          "id": "57733bebc82ffd0fe70286870f67201174cee364",
-          "author": {
-            "username": "AbhitejJohn",
-            "name": "Amaury Levé"
-          },
-          "message": "Keep test agent state out of commits (#1108)",
-          "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
-          "timestamp": "2026-09-03T23:36:32+00:00"
-        },
-        "skills": [
-          {
-            "skill": "create-datadriven-aspnetcore",
-            "treatmentFail": 1,
-            "treatment": {
-              "cacheRead": 596945.8,
-              "tokens": 653069.0,
-              "n": 5,
-              "cacheWrite": 45267.8,
-              "tokensIn": 642286.8,
-              "timeMs": 129012.6,
-              "tokensOut": 10782.2
-            },
-            "passTotal": 5,
-            "activationFired": 5,
-            "baseline": {
-              "cacheRead": 325753.2,
-              "tokens": 379911.0,
-              "n": 5,
-              "cacheWrite": 42825.4,
-              "tokensIn": 368632.0,
-              "timeMs": 122306.0,
-              "tokensOut": 11279.0
-            },
-            "baseAvailable": 5,
-            "hasPassData": true,
-            "baselineFail": 3,
-            "timedOut": false,
-            "activationExpected": 5,
-            "treatAvailable": 5,
-            "pairedN": 5
-          },
-          {
-            "skill": "optimizing-ef-core-queries",
-            "treatmentFail": 0,
-            "treatment": {
-              "cacheRead": 393850.0,
-              "tokens": 460937.0,
-              "n": 1,
-              "cacheWrite": 59100.0,
-              "tokensIn": 453007.0,
-              "timeMs": 178033.0,
-              "tokensOut": 7930.0
-            },
-            "passTotal": 1,
-            "activationFired": 1,
-            "baseline": {
-              "cacheRead": 207618.0,
-              "tokens": 256095.0,
-              "n": 1,
-              "cacheWrite": 41551.0,
-              "tokensIn": 249205.0,
-              "timeMs": 165157.0,
-              "tokensOut": 6890.0
-            },
-            "baseAvailable": 1,
-            "hasPassData": true,
-            "baselineFail": 0,
-            "timedOut": false,
-            "activationExpected": 1,
-            "treatAvailable": 1,
-            "pairedN": 1
-          }
-        ]
-      },
       {
         "judgeModel": "gpt-5.6-terra",
         "date": 1788627833663,
@@ -16449,10 +16399,168 @@
           }
         ],
         "model": "claude-opus-4.8"
+      },
+      {
+        "judgeModel": "gpt-5.6-terra",
+        "model": "claude-sonnet-5",
+        "skills": [
+          {
+            "hasPassData": true,
+            "activationFired": 5,
+            "baselineFail": 2,
+            "baseAvailable": 5,
+            "timedOut": false,
+            "baseline": {
+              "cacheRead": 860142.4,
+              "cacheWrite": 27142.4,
+              "tokensIn": 887348.0,
+              "n": 5,
+              "tokens": 896882.6,
+              "tokensOut": 9534.6,
+              "timeMs": 158223.4
+            },
+            "treatmentFail": 2,
+            "treatment": {
+              "cacheRead": 1846512.6,
+              "cacheWrite": 43582.0,
+              "tokensIn": 1890189.4,
+              "n": 5,
+              "tokens": 1908955.0,
+              "tokensOut": 18765.6,
+              "timeMs": 224304.6
+            },
+            "activationExpected": 5,
+            "pairedN": 5,
+            "treatAvailable": 5,
+            "skill": "create-datadriven-aspnetcore",
+            "passTotal": 5
+          },
+          {
+            "hasPassData": true,
+            "activationFired": 1,
+            "baselineFail": 0,
+            "baseAvailable": 1,
+            "timedOut": false,
+            "baseline": {
+              "cacheRead": 783836.0,
+              "cacheWrite": 27891.0,
+              "tokensIn": 811787.0,
+              "n": 1,
+              "tokens": 823825.0,
+              "tokensOut": 12038.0,
+              "timeMs": 327319.0
+            },
+            "treatmentFail": 0,
+            "treatment": {
+              "cacheRead": 583635.0,
+              "cacheWrite": 35212.0,
+              "tokensIn": 618885.0,
+              "n": 1,
+              "tokens": 632403.0,
+              "tokensOut": 13518.0,
+              "timeMs": 135392.0
+            },
+            "activationExpected": 1,
+            "pairedN": 1,
+            "treatAvailable": 1,
+            "skill": "optimizing-ef-core-queries",
+            "passTotal": 1
+          }
+        ],
+        "commit": {
+          "message": "Merge pull request #1184 from dotnet/dependabot/npm_and_yarn/eng/evaluation-tools/microsoft/vally-cli-0.16.0",
+          "timestamp": "2026-09-17T03:09:52+00:00",
+          "url": "https://github.com/dotnet/skills/commit/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "id": "8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3"
+        },
+        "date": 1789745910467
+      },
+      {
+        "judgeModel": "claude-opus-4.8",
+        "model": "gpt-5.6-luna",
+        "skills": [
+          {
+            "hasPassData": true,
+            "activationFired": 5,
+            "baselineFail": 3,
+            "baseAvailable": 5,
+            "timedOut": false,
+            "baseline": {
+              "cacheRead": 311354.0,
+              "cacheWrite": 26464.4,
+              "tokensIn": 337872.4,
+              "n": 5,
+              "tokens": 348124.0,
+              "tokensOut": 10251.6,
+              "timeMs": 75111.0
+            },
+            "treatmentFail": 2,
+            "treatment": {
+              "cacheRead": 376402.0,
+              "cacheWrite": 32101.6,
+              "tokensIn": 408557.6,
+              "n": 5,
+              "tokens": 419352.8,
+              "tokensOut": 10795.2,
+              "timeMs": 87613.6
+            },
+            "activationExpected": 5,
+            "pairedN": 5,
+            "treatAvailable": 5,
+            "skill": "create-datadriven-aspnetcore",
+            "passTotal": 5
+          },
+          {
+            "hasPassData": true,
+            "activationFired": 1,
+            "baselineFail": 0,
+            "baseAvailable": 1,
+            "timedOut": false,
+            "baseline": {
+              "cacheRead": 465058.0,
+              "cacheWrite": 38100.0,
+              "tokensIn": 503218.0,
+              "n": 1,
+              "tokens": 512381.0,
+              "tokensOut": 9163.0,
+              "timeMs": 244101.0
+            },
+            "treatmentFail": 0,
+            "treatment": {
+              "cacheRead": 300871.0,
+              "cacheWrite": 31671.0,
+              "tokensIn": 332587.0,
+              "n": 1,
+              "tokens": 339972.0,
+              "tokensOut": 7385.0,
+              "timeMs": 139293.0
+            },
+            "activationExpected": 1,
+            "pairedN": 1,
+            "treatAvailable": 1,
+            "skill": "optimizing-ef-core-queries",
+            "passTotal": 1
+          }
+        ],
+        "commit": {
+          "message": "Merge pull request #1184 from dotnet/dependabot/npm_and_yarn/eng/evaluation-tools/microsoft/vally-cli-0.16.0",
+          "timestamp": "2026-09-17T03:09:52+00:00",
+          "url": "https://github.com/dotnet/skills/commit/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "id": "8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3"
+        },
+        "date": 1789745910531
       }
     ]
   },
   "repoUrl": "",
-  "lastUpdate": 1789642372543,
+  "lastUpdate": 1789745910531,
   "schemaVersion": 2
 }
