@@ -6,14 +6,19 @@ public static class SkillDiscovery
 {
     private static readonly IDeserializer FrontmatterDeserializer = SkillValidatorYamlContext.UnderscoredDeserializer;
 
-    public static async Task<IReadOnlyList<SkillInfo>> DiscoverSkills(string targetPath)
+    public static async Task<IReadOnlyList<SkillInfo>> DiscoverSkills(
+        string targetPath,
+        string? allowedRoot = null)
     {
+        if (allowedRoot is not null && PathSafety.ContainsReparsePoint(allowedRoot, targetPath))
+            return [];
+
         // If pointing at a SKILL.md file, use its parent directory
         if (File.Exists(targetPath) && Path.GetFileName(targetPath).Equals("SKILL.md", StringComparison.OrdinalIgnoreCase))
             targetPath = Path.GetDirectoryName(targetPath)!;
 
         // Check if the target itself is a skill
-        var directSkill = await DiscoverSkillAt(targetPath);
+        var directSkill = await DiscoverSkillAt(targetPath, allowedRoot);
         if (directSkill is not null)
             return [directSkill];
 
@@ -27,7 +32,7 @@ public static class SkillDiscovery
             if (Path.GetFileName(dir).StartsWith('.'))
                 continue;
 
-            var skill = await DiscoverSkillAt(dir);
+            var skill = await DiscoverSkillAt(dir, allowedRoot);
             if (skill is not null)
                 skills.Add(skill);
         }
@@ -58,10 +63,16 @@ public static class SkillDiscovery
         return skills;
     }
 
-    private static async Task<SkillInfo?> DiscoverSkillAt(string dirPath)
+    private static async Task<SkillInfo?> DiscoverSkillAt(
+        string dirPath,
+        string? allowedRoot = null)
     {
+        if (allowedRoot is not null && PathSafety.ContainsReparsePoint(allowedRoot, dirPath))
+            return null;
         var skillMdPath = Path.Combine(dirPath, "SKILL.md");
         if (!File.Exists(skillMdPath))
+            return null;
+        if (allowedRoot is not null && PathSafety.ContainsReparsePoint(allowedRoot, skillMdPath))
             return null;
 
         var skillMdContent = await File.ReadAllTextAsync(skillMdPath);

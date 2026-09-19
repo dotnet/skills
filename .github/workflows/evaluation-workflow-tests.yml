@@ -6,20 +6,46 @@ on:
       - ".github/workflows/evaluation.yml"
       - ".github/workflows/evaluation-run.yml"
       - ".github/workflows/evaluation-workflow-tests.yml"
+      - ".github/aw/actions-lock.json"
+      - ".github/aw/shared/devops-health.lock.md"
+      - ".github/aw/shared/devops-investigate.lock.md"
+      - ".github/workflows/agentics-maintenance.yml"
+      - ".github/workflows/copilot-setup-steps.yml"
+      - ".github/workflows/devops-health-check.md"
+      - ".github/workflows/devops-health-groom.md"
+      - ".github/workflows/devops-health-investigate.md"
+      - ".github/workflows/issue-triage.md"
+      - ".github/workflows/*.lock.yml"
       - "eng/evaluation-tools/**"
       - "eng/evaluation/test_token_failover.py"
+      - "eng/evaluation/find-targets.ps1"
+      - "eng/evaluation/path-safety.ps1"
       - "eng/dashboard/**"
       - "eng/vally-adapter/**"
+      - "eng/skill-validator/src/**"
   push:
     branches: [main]
     paths:
       - ".github/workflows/evaluation.yml"
       - ".github/workflows/evaluation-run.yml"
       - ".github/workflows/evaluation-workflow-tests.yml"
+      - ".github/aw/actions-lock.json"
+      - ".github/aw/shared/devops-health.lock.md"
+      - ".github/aw/shared/devops-investigate.lock.md"
+      - ".github/workflows/agentics-maintenance.yml"
+      - ".github/workflows/copilot-setup-steps.yml"
+      - ".github/workflows/devops-health-check.md"
+      - ".github/workflows/devops-health-groom.md"
+      - ".github/workflows/devops-health-investigate.md"
+      - ".github/workflows/issue-triage.md"
+      - ".github/workflows/*.lock.yml"
       - "eng/evaluation-tools/**"
       - "eng/evaluation/test_token_failover.py"
+      - "eng/evaluation/find-targets.ps1"
+      - "eng/evaluation/path-safety.ps1"
       - "eng/dashboard/**"
       - "eng/vally-adapter/**"
+      - "eng/skill-validator/src/**"
   workflow_dispatch:
 
 permissions:
@@ -69,8 +95,12 @@ jobs:
         working-directory: eng/evaluation-tools
         run: |
           node_modules/.bin/vally --version
+          node vally.mjs --version
           node_modules/.bin/copilot --version
           node --input-type=module -e "import.meta.resolve('@github/copilot-linux-x64/sdk')"
+
+      - name: Test SDK startup ordering without model calls
+        run: node --test eng/evaluation-tools/*.test.mjs
 
   token-failover:
     runs-on: ubuntu-latest

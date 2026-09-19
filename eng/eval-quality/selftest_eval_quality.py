@@ -395,14 +395,13 @@ def runs_do_not_lift_a_single_scenario_over_the_floor(d):
     write_single_stimulus(d, runs=5)
 
 
-def agent_eval_exempted(d):
-    # agent.* evals never receive a verdict, so they never need an exemption —
-    # and an entry for one would otherwise sit in the ledger forever.
+def underpowered_agent_eval(d):
+    # Agent evals now receive the same sign-test verdict as skill evals, so the
+    # preference-eligible stimulus floor applies to them too.
     ev = os.path.join(d, "tests", "demo", "agent.widget")
     os.makedirs(ev)
     with open(os.path.join(ev, "eval.yaml"), "w") as f:
         f.write("name: agent-widget\nstimuli:\n  - name: One\n    prompt: go\n    rubric:\n      - Did it\n")
-    write_allowlist(d, "tests/demo/agent.widget/eval.yaml")
 
 
 def commit(d, message):
@@ -486,7 +485,7 @@ results = [
                 "(4 preference paired run(s))"),
     case("stale exemption for an eval that now qualifies", allowlisted_eval_that_now_meets_the_floor, expect_fail=True),
     case("exemption for a spec that no longer exists", allowlist_entry_for_a_spec_that_does_not_exist, expect_fail=True),
-    case("exemption for an agent.* eval that never needs one", agent_eval_exempted, expect_fail=True),
+    case("underpowered agent eval", underpowered_agent_eval, expect_fail=True),
     case("runs cannot lift one scenario over the floor",
          runs_do_not_lift_a_single_scenario_over_the_floor, expect_fail=True),
     case("ledger unchanged since its base", allowlist_unchanged_since_base,

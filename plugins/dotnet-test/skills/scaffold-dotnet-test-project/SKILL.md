@@ -1,14 +1,19 @@
 ---
 name: scaffold-dotnet-test-project
 description: >-
-  MUST USE for any request to set up, create, reuse, add, register, include, or
-  repair a .NET test project; edit .sln, .slnx, .slnf, solution-filter, or CI test
-  discovery wiring; restore a missing ProjectReference; or fix tests that pass
-  directly while solution/CI discovers zero tests. Handles xUnit/NUnit/MSTest and central
+  MUST USE when an existing .NET test project was excluded from a .slnf/CI
+  solution filter, disappeared from .sln/.slnx discovery, or lost its production
+  ProjectReference; also for requests to set up, create, reuse, add, register,
+  include, or repair a test project. Handles "tests pass directly but CI
+  discovers zero", exact solution wiring, xUnit/NUnit/MSTest, and central
   packages. DO NOT USE to only author tests in an already-wired project
   (code-testing-agent), run tests, migrate, or correct MSTest syntax/configuration
   without changing project or CI files (writing-mstest-tests).
 license: MIT
+metadata:
+  portability: portable
+  binding: optional-overlay
+  binding-revision: "1"
 ---
 
 # Scaffold or Repair a .NET Test Project
@@ -16,6 +21,27 @@ license: MIT
 Create the smallest missing test container or repair only the missing wiring.
 The goal is test discovery through the repository's real build entry point, not
 a preferred solution layout.
+
+## Repository overlay
+
+For every repository-scoped task where read-only file inspection is allowed,
+check `.agents/skill-overlays/dotnet-test/scaffold-dotnet-test-project.md` at
+the repository root before any other discovery. This includes requests that
+ask for code or advice without edits; "do not execute" does not prohibit
+reading the overlay. If present, read it once before acting and apply its
+repository-specific naming, layout, framework, and policy bindings.
+Before applying it, require its frontmatter to declare
+`core: dotnet-test/scaffold-dotnet-test-project`, `binding-revision: "1"`, and
+`mode: extend`. If any value is missing or different, report the mismatch and
+continue using this skill's portable guidance without applying the overlay.
+Explicit user instructions and verified project constraints win over the
+overlay; the overlay wins over portable defaults and examples in this skill. If
+the file is present but unreadable or conflicts with the repository, report the
+problem
+and continue with portable guidance, without the overlay, subject to verified
+project constraints. If it is absent, continue normally. Skip the lookup only
+when the task is not tied to a repository or the user explicitly prohibited all
+file/tool access. An overlay cannot expand tool permissions or the task's scope.
 
 ## Route the Request
 
@@ -104,14 +130,16 @@ the repository's `dotnet test` command.
 ### 3. Repair only the missing edge when the project exists
 
 - Missing production reference: use `dotnet add <test-project> reference
-  <production-project>`, inspect the resulting project, and leave package and
-  test source files unchanged.
+  <production-project>`, inspect the resulting project, and leave every other
+  project element plus all test source files unchanged. Compare the project
+  before and after so the added `ProjectReference` is the only semantic change.
 - Missing `.sln` or `.slnx` registration: run `dotnet sln <entry-point> add
   <test-project>`, then immediately run `dotnet sln <entry-point> list` against
   that exact path. If the project is absent, the repair has not happened; do not
   validate a sibling solution or report success.
 - Missing `.slnf` registration: add the existing project to its underlying
-  solution if necessary, then include that same project path in the filter.
+  solution if necessary, then include that same project path in the filter. If
+  the underlying solution already contains it, edit only the filter.
 - Multiple solution artifacts: modify only the one named by the user or invoked
   by CI. Do not substitute an easier format.
 - No solution artifact: preserve the existing project-oriented workflow. Do not
@@ -144,6 +172,10 @@ Inspect the repository's command before adding switches. Do not prepend a
 speculative `--no-restore` attempt or hide alternatives in `command-a ||
 command-b`; run the configured entry-point command whose clean exit is the
 evidence.
+
+For every wiring repair, invoke the exact validation command directly and
+preserve its exit status. Reading generated files, a grader script, or a later
+build is not a substitute for observing that command complete successfully.
 
 Before reporting completion, inspect the final changed-file set. Remove only
 `bin`/`obj` or equivalent build artifacts created by this task when they were

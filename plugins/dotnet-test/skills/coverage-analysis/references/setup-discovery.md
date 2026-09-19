@@ -178,14 +178,15 @@ $coberturaFiles | ForEach-Object { Write-Host "EXISTING_COBERTURA:$($_.FullName)
 ```
 
 - If `EXISTING_COBERTURA_COUNT` > 0 → skip fresh collection and analyze these paths.
-- If `EXISTING_COBERTURA_COUNT` == 0 and all test projects are SDK-style → run
-  the collection workflow in `test-execution.md`.
+- If `EXISTING_COBERTURA_COUNT` == 0 and all test projects are SDK-style →
+  invoke `run-tests` to select the repository-compatible platform/provider
+  command and collect Cobertura.
 - If `EXISTING_COBERTURA_COUNT` == 0 and only classic/packages.config projects
   exist → use a repository-owned coverage command that emits Cobertura;
   otherwise stop with the message above.
 - If `EXISTING_COBERTURA_COUNT` == 0 and both classic and SDK-style projects
-  exist → collect only for `SDK_TEST_PROJECTS` and mark the result partial until
-  classic-project Cobertura is available.
+  exist → ask `run-tests` to collect only for `SDK_TEST_PROJECTS` and mark the
+  result partial until classic-project Cobertura is available.
 
 ## Step 2c: Recommend ignoring `TestResults/`
 

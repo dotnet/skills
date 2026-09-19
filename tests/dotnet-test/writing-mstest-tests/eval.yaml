@@ -518,3 +518,61 @@ stimuli:
         - bash
         - edit
         - create
+  - name: Apply checked-in MSTest naming and category conventions
+    tags:
+      feature: repository-overlay
+    prompt: |
+      Fix the supplied MSTest code in PriceCalculatorTests.cs. Apply the
+      applicable repository naming and TestCategory conventions while
+      preserving the calculation, assertion behavior, and installed
+      dependencies.
+    environment:
+      files:
+        - src: fixtures/modern-mstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/modern-mstest/global.json
+          dest: global.json
+        - src: fixtures/repository-overlay/AGENTS.md
+          dest: AGENTS.md
+        - src: fixtures/repository-overlay/PriceCalculatorTests.cs
+          dest: PriceCalculatorTests.cs
+        - src: fixtures/repository-overlay/PriceCalculator.cs
+          dest: PriceCalculator.cs
+        - src: fixtures/repository-overlay/overlay.md
+          dest: .agents/skill-overlays/dotnet-test/writing-mstest-tests.md
+    graders:
+      - type: file-contains
+        config:
+          path: PriceCalculatorTests.cs
+          value: public void Should_
+      - type: file-contains
+        config:
+          path: PriceCalculatorTests.cs
+          value: _When_
+      - type: file-contains
+        config:
+          path: PriceCalculatorTests.cs
+          value: '[TestCategory("Fast")]'
+      - type: file-not-contains
+        config:
+          path: PriceCalculatorTests.cs
+          value: CalculateDiscount_ValidCoupon_ReturnsDiscountedTotal
+      - type: file-not-contains
+        config:
+          path: PriceCalculatorTests.cs
+          value: '[TestCategory("Unit")]'
+      - type: file-not-contains
+        config:
+          path: PriceCalculatorTests.cs
+          value: sealed class
+      - type: run-command
+        config:
+          command: dotnet test TestProject.csproj
+          expected_exit_code: 0
+          timeout: 10m
+      - type: prompt
+    rubric:
+      - The updated test uses the component-specific method naming convention rather than the general repository default
+      - The test uses the component-specific Fast category rather than the general Unit category
+      - The class remains inheritable under the component-specific fixture-generation exception
+      - The calculation and assertion behavior remain unchanged

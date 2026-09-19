@@ -61,6 +61,11 @@ skill-validator evaluate --help
 # Evaluate a skill (--tests-dir is required)
 skill-validator evaluate --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills/my-skill
 
+# Evaluate a custom agent without forcing it as the primary persona. The
+# default parent must route to the registered target agent.
+skill-validator evaluate --runs 1 --verdict-warn-only \
+  --tests-dir ./tests/my-plugin ./plugins/my-plugin/agents/my-agent.agent.md
+
 # Verbose output with per-scenario breakdowns
 skill-validator evaluate --verbose --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
@@ -115,6 +120,13 @@ skill-validator check --verbose --plugin ./plugins/my-plugin
 skill-validator check --json --plugin ./plugins/my-plugin
 ```
 
+Plugin checks also validate the Codex compatibility manifest when
+`.codex-plugin/plugin.json` is present. Unsupported Codex component fields are rejected, and MCP
+server declarations are checked for the known incompatible `tools` array and malformed per-tool
+settings. The pinned `codex-plugin-smoke` workflow uses Codex itself to validate the complete
+server shape during marketplace installation and a real MCP tool call, avoiding a brittle duplicate
+of Codex's evolving server parser in `skill-validator`.
+
 ## `check` flags
 
 | Flag | Default | Description |
@@ -133,7 +145,7 @@ skill-validator check --json --plugin ./plugins/my-plugin
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `<paths...>` | *(required)* | Paths to skill directories or parent directories |
+| `<paths...>` | *(required)* | Paths to skill directories, agent files/directories, or their parent directories |
 | `--tests-dir <path>` | *(required)* | Directory containing test subdirectories |
 | `--model <name>` | `claude-opus-4.6` | Model for agent runs |
 | `--judge-model <name>` | same as `--model` | Model for LLM judge (can be different) |
@@ -241,6 +253,12 @@ scenarios:
 Both settings are optional. When omitted, the CLI defaults (`--parallel-scenarios`, `--parallel-runs`) apply unchanged. The override can only *reduce* parallelism (via `Math.Min`), never increase it beyond the CLI value.
 
 ### Scenarios
+
+Custom-agent evaluation also accepts the repository's Vally-native
+`stimuli:`/`graders:` format. `environment.skills` declares isolated-run skill
+dependencies, while an agent frontmatter `agents:` list declares custom-agent
+dependencies recursively. The plugin arm ignores those narrowed declarations
+and registers the complete production plugin skill and agent surface.
 
 ```yaml
 scenarios:

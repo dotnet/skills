@@ -31,7 +31,8 @@ public sealed record AgentInfo(
     string Path,
     string AgentMdContent,
     string FileName,
-    IReadOnlyList<string>? Tools = null);
+    IReadOnlyList<string>? Tools = null,
+    IReadOnlyList<string>? Agents = null);
 
 // --- Plugin info ---
 
@@ -64,4 +65,5 @@ public sealed record AgentFrontmatter
     public string? Name { get; set; }
     public string? Description { get; set; }
     public List<string>? Tools { get; set; }
+    public List<string>? Agents { get; set; }
 }

@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using SkillValidator.Evaluate;
 using SkillValidator.Shared;
 
@@ -61,6 +62,130 @@ public class EvaluateAssertionsTests
         var assertions = new List<Assertion> { new(AssertionType.ExitSuccess) };
         var results = await AssertionEvaluator.EvaluateAssertions(assertions, "", WorkDir);
         Assert.False(results[0].Passed);
+    }
+
+    [Fact]
+    public async Task ExitSuccessFailsWhenRunTimedOutAfterOutput()
+    {
+        var metrics = new RunMetrics
+        {
+            TimedOut = true,
+            AgentOutput = "partial output",
+            Events = [new AgentEvent("assistant.message", 0, [])],
+        };
+
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.ExitSuccess)],
+            metrics.AgentOutput,
+            WorkDir,
+            metrics: metrics);
+
+        Assert.False(results[0].Passed);
+        Assert.Contains("timed out", results[0].Message);
+    }
+
+    [Fact]
+    public async Task ExitSuccessFailsWhenRunRecordedErrorAfterOutput()
+    {
+        var metrics = new RunMetrics
+        {
+            ErrorCount = 1,
+            AgentOutput = "partial output",
+            Events = [new AgentEvent("session.idle", 0, [])],
+        };
+
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.ExitSuccess)],
+            metrics.AgentOutput,
+            WorkDir,
+            metrics: metrics);
+
+        Assert.False(results[0].Passed);
+        Assert.Contains("recorded 1 error", results[0].Message);
+    }
+
+    [Fact]
+    public async Task ExitSuccessFailsAfterUnsuccessfulToolCompletionAndIdle()
+    {
+        var events = new List<AgentEvent>
+        {
+            new(
+                "tool.execution_complete",
+                0,
+                new Dictionary<string, JsonNode?>
+                {
+                    ["success"] = JsonValue.Create(false),
+                    ["result"] = JsonValue.Create("command failed"),
+                }),
+            new("session.idle", 1, []),
+        };
+        var metrics = MetricsCollector.CollectMetrics(
+            events, "partial output", 1000, "/tmp/work");
+
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.ExitSuccess)],
+            "partial output",
+            "/tmp/work",
+            metrics: metrics);
+
+        Assert.False(results[0].Passed);
+        Assert.Contains("recorded 1 error", results[0].Message);
+    }
+
+    [Fact]
+    public async Task ExitSuccessRequiresSessionIdleWhenMetricsProvided()
+    {
+        var metrics = new RunMetrics
+        {
+            AgentOutput = "partial output",
+            Events = [new AgentEvent("assistant.message", 0, [])],
+        };
+
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.ExitSuccess)],
+            metrics.AgentOutput,
+            WorkDir,
+            metrics: metrics);
+
+        Assert.False(results[0].Passed);
+        Assert.Contains("did not reach session.idle", results[0].Message);
+    }
+
+    [Fact]
+    public async Task ExitSuccessFailsClosedWhenEventsAreMissing()
+    {
+        var metrics = new RunMetrics
+        {
+            AgentOutput = "partial output",
+            Events = null!,
+        };
+
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.ExitSuccess)],
+            metrics.AgentOutput,
+            WorkDir,
+            metrics: metrics);
+
+        Assert.False(results[0].Passed);
+        Assert.Contains("did not reach session.idle", results[0].Message);
+    }
+
+    [Fact]
+    public async Task ExitSuccessPassesForCleanIdleRun()
+    {
+        var metrics = new RunMetrics
+        {
+            AgentOutput = "complete output",
+            Events = [new AgentEvent("session.idle", 0, [])],
+        };
+
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.ExitSuccess)],
+            metrics.AgentOutput,
+            WorkDir,
+            metrics: metrics);
+
+        Assert.True(results[0].Passed);
     }
 
     [Fact]

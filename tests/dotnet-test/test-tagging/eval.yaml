@@ -215,6 +215,26 @@ stimuli:
         config:
           path: TaskManager.Tests/TaskServiceTests.cs
           value: "[Category("
+      - type: run-command
+        config:
+          command: dotnet build TaskManager.Tests/TaskManager.Tests.csproj
+          expected_exit_code: 0
+          timeout: 3m
+      - type: run-command
+        config:
+          command: dotnet test TaskManager.Tests/TaskManager.Tests.csproj --no-build --list-tests
+          expected_exit_code: 0
+          stdout_matches: DeleteTask_Success
+          timeout: 3m
+      - type: output-matches
+        config:
+          pattern: (?i)dotnet build
+      - type: output-matches
+        config:
+          pattern: (?i)(--list-tests|list tests|test discovery)
+      - type: output-matches
+        config:
+          pattern: (?i)(build succeeded|0 errors?|[1-9]\d* tests? (?:listed|discovered))
       - type: prompt
     rubric:
       - Classified DeleteTask_Success as negative (and/or security) because the body asserts UnauthorizedAccessException,
@@ -228,6 +248,9 @@ stimuli:
       - Classified DeleteTask_Validation as positive and security because the body verifies admin authorization succeeds
       - Used NUnit [Category("...")] attribute syntax, not MSTest or xUnit syntax
       - Every test method received at least one trait attribute
+      - Built the NUnit test project after editing and, when supported, used non-executing discovery rather than
+        running arbitrary tests
+      - Reported successful validation and any discovered test count without claiming success after a failed command
   - name: Tag MSTest tests and verify the project still builds
     prompt: I need you to tag all the tests in my OrderService.Tests/ MSTest project with appropriate category attributes.
       After adding the tags, please verify the project still compiles by running dotnet build.

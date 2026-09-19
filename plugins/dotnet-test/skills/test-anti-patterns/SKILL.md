@@ -20,7 +20,9 @@ license: MIT
 
 Quick, pragmatic analysis of test code in any supported language for anti-patterns and quality issues that undermine test reliability, maintainability, and diagnostic value.
 
-> **Language-specific guidance**: Call the `test-analysis-extensions` skill to discover available extension files, then read the file matching the target codebase (e.g., `extensions/dotnet.md`, `extensions/python.md`, `extensions/typescript.md`, `extensions/go.md`). The extension file tells you which sleep / time / random / skip / setup-teardown / mystery-guest APIs to look for in that language.
+> **Language-specific guidance**: Try `test-analysis-extensions` once. If it is
+> unavailable, continue immediately with this skill's built-in framework rules;
+> never block the audit on the helper.
 
 ## When to Use
 
@@ -47,7 +49,7 @@ Quick, pragmatic analysis of test code in any supported language for anti-patter
 
 | Input | Required | Description |
 |-------|----------|-------------|
-| Test code | Yes | One or more test files or classes to analyze |
+| Test scope | No | Test files, classes, directory, or project to analyze. Discover from the current workspace when omitted. |
 | Production code | No | The code under test, for context on what tests should verify |
 | Specific concern | No | A focused area like "flakiness" or "naming" to narrow the review |
 
@@ -55,17 +57,39 @@ Quick, pragmatic analysis of test code in any supported language for anti-patter
 
 ### Step 1: Detect language and load extension
 
-Identify the target codebase's language and test framework. Call the `test-analysis-extensions` skill and read the matching extension file. The extension file documents framework-specific anti-pattern markers — what counts as a sleep/wait, a test marker, a skip, a setup/teardown, a shared-state hot spot, and an integration boundary — so this skill stays language-neutral.
+Resolve the named test path from the current workspace before asking for input.
+When no path is supplied, discover test files under the current directory using
+the repository manifests and conventional test markers. The skill context's
+`Base directory` is documentation storage, not the user's workspace; never
+resolve target files relative to it.
+
+If one reader says a path is missing but a workspace glob/search finds it,
+normalize that exact path and retry. Use a shell text reader (`sed`/`cat` on
+Unix, `Get-Content` on PowerShell) only for a confirmed reader availability,
+transport, or path-normalization failure and only after verifying the canonical
+path remains inside the current workspace. Stop on content-exclusion,
+permission/policy, workspace-boundary, or unknown failures. Audit any discovered
+file that a permitted reader can access; never ask the user to paste it. If
+every permitted reader fails, report the exact blocker without bypassing
+security boundaries.
+
+Identify the language and framework. Try the matching
+`test-analysis-extensions` guidance once; if unavailable, use the catalog below.
 
 ### Step 2: Gather the test code
 
-Read the test files the user wants reviewed. If the user points to a directory or project, scan for all test files using the discovery markers in the loaded language extension file (e.g., `[TestClass]`/`[Fact]`/`[Test]` for .NET, `test_*.py` / `def test_*` for pytest, `*.test.ts` / `it()` for Jest, `*Test.java` / `@Test` for JUnit, `*_test.go` / `func TestXxx` for Go, `*_spec.rb` for RSpec, `#[test]` for Rust, `*.Tests.ps1` / `Describe` for Pester, `TEST(...)` for GoogleTest, `TEST_CASE(...)` for Catch2/doctest).
+Read every test file in the resolved scope. Use extension discovery markers
+when loaded; otherwise use the built-in markers in this skill (attributes such
+as `[TestClass]`/`[Fact]`/`[Test]`, `test_*.py`, `*.test.*`, `*_test.go`,
+`*_spec.rb`, `#[test]`, `*.Tests.ps1`, `TEST(...)`, and `TEST_CASE(...)`).
 
 If production code is available, read it too -- this is critical for detecting tests that are coupled to implementation details rather than behavior.
 
 ### Step 3: Scan for anti-patterns
 
-Check each test file against the anti-pattern catalog below. Report findings grouped by severity. The examples are .NET-centric but the patterns generalize — use the loaded language extension file to map each pattern to the framework you are auditing.
+Check each test file against the anti-pattern catalog below. Report findings
+grouped by severity. Use extension mappings when loaded; otherwise use the
+cross-framework examples in the catalog.
 
 Before drafting the report, make a private completeness ledger with one row for
 every test method and every class-level fixture/resource. Record its oracle (or
@@ -103,12 +127,13 @@ sound. In particular:
 | **Over-mocking** | More mock setup lines than actual test logic. Verifying exact call sequences on mocks rather than outcomes. Mocking types the test owns. Per language: Moq/NSubstitute/FakeItEasy (.NET), `unittest.mock` / `pytest-mock` (Python), Jest auto-mocks / Sinon (JS/TS), Mockito/PowerMock (Java), gomock/testify mock (Go), RSpec mocks/mocha (Ruby), `mockall` (Rust), MockK (Kotlin), `Mock` cmdlet (Pester), gmock (C++). For a deep mock audit in .NET, use `exp-mock-usage-analysis`. |
 | **Implementation coupling** | Testing private methods via reflection (`MethodInfo.Invoke`, `getattr` in Python, `(thing as any)` in TS, `Field.setAccessible(true)` in Java, `Object#send` in Ruby, internal `pub(crate)` access in Rust). Asserting on internal state instead of observable behavior. Verifying exact method call counts on collaborators instead of business outcomes. |
 | **Broad exception assertions** | `Assert.ThrowsException<Exception>(...)` (.NET) / `pytest.raises(Exception)` / `expect(fn).toThrow(Error)` without a message matcher / `assertThrows(Exception.class, ...)` (Java) / `assert.Error(t, err)` without checking the kind / `expect { ... }.to raise_error` without class (RSpec) / `#[should_panic]` without `expected = "..."` / `Should -Throw` without `-ExpectedMessage` / `EXPECT_ANY_THROW` instead of `EXPECT_THROW(stmt, SpecificType)`. |
+| **Weak transformation oracle** | A normalization, casing, trimming, mapping, or conversion test supplies an input already in the expected form, so a no-op implementation passes even though the assertion may catch other defects. Use an input that must change and assert an independently derived expected value. A producer/consumer round trip is useful but does not replace an independent format assertion when both sides could share the same defect. |
 
 #### Medium -- Maintainability and clarity issues
 
 | Anti-Pattern | What to Look For |
 |---|---|
-| **Poor naming** | Test names like `Test1`, `TestMethod`, `test`, names that don't describe the scenario or expected outcome. Good naming differs by language convention — see the loaded language extension file (e.g., `Add_NegativeNumber_ThrowsArgumentException` for .NET, `test_add_negative_number_raises_value_error` for pytest, `addNegativeNumber_throwsArgumentException` for Java, `'adds negative number throws'` for Jest descriptions, `TestAdd_NegativeNumber_ReturnsError` for Go). |
+| **Poor naming** | Test names like `Test1`, `TestMethod`, or `test` that don't describe the scenario or outcome. Use the loaded extension when available; otherwise follow the existing naming convention in the same suite. |
 | **Magic values** | Unexplained numbers or strings in arrange/assert: `Assert.AreEqual(42, result)` / `assert result == 42` / `expect(result).toBe(42)` -- what does 42 mean? |
 | **Duplicate tests** | Three or more test methods with near-identical bodies that differ only in a single input value. Should be parametrized: `[DataRow]`/`[Theory]`/`[TestCase]` (.NET), `@pytest.mark.parametrize` (pytest), `test.each` / `it.each` (Jest/Vitest), `@ParameterizedTest` + `@ValueSource` (JUnit 5), `@DataProvider` (TestNG), Go table-driven tests, `where` / shared examples (RSpec), `#[rstest]` (Rust), `@ParameterizedTest` + `@MethodSource` (Kotlin), `-ForEach` / `-TestCases` (Pester), `INSTANTIATE_TEST_SUITE_P` (GoogleTest), `SECTION` / `GENERATE` (Catch2), `TEST_CASE_TEMPLATE` (doctest). For a detailed duplication analysis in .NET, use `exp-test-maintainability`. Note: Two tests covering distinct boundary conditions (e.g., zero vs. negative) are NOT duplicates -- separate tests for different edge cases provide clearer failure diagnostics and are a valid practice. |
 | **Giant tests** | Test methods exceeding ~30 lines or testing multiple behaviors at once. Hard to diagnose when they fail. |
@@ -128,14 +153,15 @@ sound. In particular:
 
 Before reporting, re-check each finding against these severity rules:
 
-- **Critical/High**: Only for issues that cause tests to give false confidence or be unreliable. A test that always passes regardless of correctness is Critical. Flaky shared state is High. Missing-await on async assertions is Critical (silent pass).
+- **Critical/High**: Only for issues that cause tests to give false confidence or be unreliable. A test that always passes regardless of correctness is Critical. Shared mutable state is High when it is a latent isolation risk, but **Critical when the user reports actual order-dependent failures or the code proves one test requires another to run first**. Missing-await on async assertions is Critical (silent pass).
 - **Medium**: Only for issues that actively harm maintainability -- 5+ nearly-identical tests, truly meaningless names like `Test1` / `test` / `it1`.
 - **Low**: Cosmetic naming mismatches, minor style preferences, assertion messages that could be better. When in doubt, rate Low.
 - **Use the caller's severity vocabulary consistently.** If the caller asks for
-  Critical / Warning / Info, map reliability risks to Warning and
-  maintenance/cosmetic concerns to Info rather than silently collapsing every
-  item into Critical. Severity describes the demonstrated failure mode, not how
-  much prose a finding receives.
+  Critical / Warning / Info, map latent reliability risks to Warning and
+  maintenance/cosmetic concerns to Info. Keep a demonstrated false-confidence
+  or current order-dependency root cause Critical; do not downgrade it merely to
+  make every requested tier non-empty. Severity describes the demonstrated
+  failure mode, not how much prose a finding receives.
 - **Separate a systemic finding from its instances.** Coverage touching across a
   facade is one Critical systemic finding whose evidence lists every affected
   test. All assertion-free instances, including the last facade method, retain
@@ -155,8 +181,12 @@ Before reporting, re-check each finding against these severity rules:
   - Explicit per-test setup instead of `[TestInitialize]` / `beforeEach` (this *improves* isolation).
   - Tests that are short and clear but could theoretically be consolidated.
   - Round-trip or serialization equality with non-trivial input. It is valid
-    metamorphic evidence; suggest an independent representation assertion when
-    two implementations could share the same bug.
+    metamorphic evidence, not a self-comparison; still recommend one independent
+    representation when producer and consumer could share a defect.
+  - A transformation tested only with an already-transformed input. Keep it out
+    of the tautology count, but report the weak oracle when removing the
+    transformation would still pass. Use an input that must change and pin its
+    independently expected output.
   - Clone value equality. Keep it, and add distinct-reference or mutation-
     independence evidence when the contract promises a deep copy.
   - A validator or accessor returning the original value when pass-through is the
@@ -182,7 +212,12 @@ IMPORTANT: If the tests are well-written, say so clearly up front. Do not inflat
    before assigning a finding. If the assertion compares a transformed output
    with non-trivial input, clone state, snapshot, mock verification, or a
    framework-native assertion context, explain why it can fail before calling it
-   tautological or assertion-free.
+   tautological or assertion-free. Conversely, when a transformation test uses
+   an already-normalized input, call out that the input cannot distinguish the
+   real transformation from a no-op and provide a changing input plus exact
+   expected output. For paired producer/consumer APIs, retain the round-trip test
+   and add one independent representation oracle rather than replacing valid
+   metamorphic evidence.
 3. **Make every Critical/High fix complete and specific.** Give the replacement assertion with the *exact expected value* (the computed discount, the exact CSV line, the full expected object), not a `// assert something here` placeholder.
 4. **Name obvious adjacent gaps without widening into mutation analysis** —
    when production code is supplied, note directly related untested throws,
