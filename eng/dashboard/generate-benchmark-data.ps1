@@ -707,7 +707,8 @@ $skillValueKey = "SkillValue"
 
 # --- Build Skill Value per-skill aggregates for this run ---
 # One record per skill: baseline (without-skill) vs treatment (with-skill) arm
-# metric means, the treatment activation count, and the aggregate pass matrix.
+# metric means, the treatment activation count, authoritative preference evidence,
+# and the aggregate pass matrix used only for reliability diagnostics.
 # Everything here comes straight from the verdict the adapter already emits, so
 # no adapter change is needed. The dashboard's Skill Value view keys the trailing
 # average by (skill, model, judgeModel) and gates on the sample sizes carried here.
@@ -732,6 +733,30 @@ foreach ($verdict in $results.verdicts) {
     # results, so they are pass TELEMETRY, not an objective/deterministic gate.
     $passTotal = 0; $baselineFail = 0; $treatmentFail = 0
     $bothPass = 0; $bothFail = 0; $baselineOnlyPass = 0; $treatmentOnlyPass = 0
+
+    # The adapter's deciding statistic: one directional vote per distinct,
+    # preference-eligible stimulus. Repeated trials have already been collapsed,
+    # and expect_activation:false stimuli have already been excluded. Preserve
+    # this separately from pass telemetry, which may include LLM-grader results.
+    $signTest = $verdict.signTest
+    $preference = if ($signTest) {
+        @{
+            count              = [int]$verdict.stimulusVoteCount
+            wins               = [int]$signTest.wins
+            ties               = [int]$signTest.ties
+            losses             = [int]$signTest.losses
+            direction          = $signTest.direction
+            pValue             = $signTest.pValue
+            alpha              = $signTest.alpha
+            netWin             = $verdict.netWin
+            underpowered       = ($verdict.underpowered -eq $true)
+            conclusive         = ($verdict.conclusive -eq $true)
+            minCredibleStimuli = [int]$verdict.minCredibleStimuli
+            practicalPassed    = ($verdict.practicalSignificance.passed -eq $true)
+        }
+    } else {
+        $null
+    }
 
     foreach ($scenario in $verdict.scenarios) {
         # Activation is only meaningful where the scenario expects the skill to
@@ -843,6 +868,7 @@ foreach ($verdict in $results.verdicts) {
         baselineOnlyPass  = $baselineOnlyPass
         treatmentOnlyPass = $treatmentOnlyPass
         hasPassData      = ($passTotal -gt 0)
+        preference       = $preference
     })
 }
 

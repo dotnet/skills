@@ -1,8 +1,8 @@
 // Skill Value dashboard view
 // Loaded by dashboard.html, exposes window.initSkillValue().
 //
-// Answers, per skill: "Does the pass-rate improvement remain worthwhile after
-// accounting for sampling uncertainty and the skill's token/time cost?"
+// Answers, per skill: "Does the authoritative paired preference result favor
+// the skill, and what resource tradeoff accompanies it?"
 // Data source: compact `data/skill-value.json`, derived from the
 // `entries.SkillValue` arrays in per-plugin dashboard data by
 // eng/dashboard/generate-benchmark-data.ps1. Both arms — baseline (without the
@@ -27,8 +27,6 @@
   const ACTIVATION_MIN = 0.5;
   // Trailing window: most-recent N runs per (skill, executor model, judge model).
   const TRAILING_RUNS = 20;
-  const CONFIDENCE_Z = 1.959963984540054;
-  const PAIRED_CELL_Z = 2.241402727604947;
   // Headline "tokens" = input + output (the adapter's tokenEstimate / totalTokens).
   // Cache read/write are billed/served differently and swing with infra caching,
   // so they are shown only in the drill-down, never in the headline delta.
@@ -48,75 +46,7 @@
     return Math.round(n).toString();
   }
   function fmtPct(frac) { return (frac * 100).toFixed(0) + '%'; }
-  function fmtSignedPoints(frac) {
-    const points = frac * 100;
-    if (Math.abs(points) < 0.05) return '0 pp';
-    return `${points > 0 ? '+' : '−'}${Math.abs(points).toFixed(0)} pp`;
-  }
   function fmtSecs(ms) { return (ms / 1000).toFixed(1) + 's'; }
-
-  // Wilson score interval for a binomial proportion. It behaves well near 0/1
-  // and at the small sample sizes common in skill evaluations.
-  function wilsonInterval(successes, total, z = CONFIDENCE_Z) {
-    if (!Number.isFinite(successes) || !Number.isFinite(total) || total <= 0) return null;
-    const n = total;
-    const p = Math.min(1, Math.max(0, successes / n));
-    const z2 = z * z;
-    const denominator = 1 + z2 / n;
-    const center = (p + z2 / (2 * n)) / denominator;
-    const margin = z * Math.sqrt((p * (1 - p) + z2 / (4 * n)) / n) / denominator;
-    return { estimate: p, low: Math.max(0, center - margin), high: Math.min(1, center + margin) };
-  }
-
-  function pairedDifferenceInterval(counts, z = PAIRED_CELL_Z) {
-    const { bothPass, bothFail, baselineOnlyPass, treatmentOnlyPass } = counts;
-    const n = bothPass + bothFail + baselineOnlyPass + treatmentOnlyPass;
-    if (n <= 0) return null;
-
-    // Only discordant pairs move the pass rate. Wilson-bound each discordant
-    // cell at 97.5%, then subtract the adverse endpoints; Bonferroni makes the
-    // resulting difference interval at least 95%. Unlike a paired Wald interval,
-    // this does not collapse to zero width at small-sample 0%/100% outcomes.
-    const treatmentWins = wilsonInterval(treatmentOnlyPass, n, z);
-    const baselineWins = wilsonInterval(baselineOnlyPass, n, z);
-    const estimate = (treatmentOnlyPass - baselineOnlyPass) / n;
-    return {
-      estimate,
-      low: Math.max(-1, treatmentWins.low - baselineWins.high),
-      high: Math.min(1, treatmentWins.high - baselineWins.low),
-      method: 'paired',
-    };
-  }
-
-  // Prefer the paired trial-difference interval. Historical compact data lacks
-  // the 2x2 counts, so retain a conservative independent-Wilson fallback until
-  // enough newly generated runs replace it in the trailing window.
-  function passEvidence(row) {
-    if (!row.hasPass || !gated(row.passTotal) || row.passTotal <= 0) return null;
-    const basePasses = row.passTotal - row.baseFail;
-    const treatPasses = row.passTotal - row.treatFail;
-    const baseline = wilsonInterval(basePasses, row.passTotal);
-    const treatment = wilsonInterval(treatPasses, row.passTotal);
-    if (!baseline || !treatment) return null;
-    const pairedTotal = row.bothPass + row.bothFail + row.baselineOnlyPass + row.treatmentOnlyPass;
-    const paired = pairedTotal === row.passTotal
-      ? pairedDifferenceInterval(row)
-      : null;
-    const fallbackBaseline = wilsonInterval(basePasses, row.passTotal, PAIRED_CELL_Z);
-    const fallbackTreatment = wilsonInterval(treatPasses, row.passTotal, PAIRED_CELL_Z);
-    return {
-      baseline,
-      treatment,
-      lift: paired || {
-        estimate: treatment.estimate - baseline.estimate,
-        // Each marginal gets a 97.5% interval, so the Bonferroni-combined
-        // difference interval has at least 95% coverage.
-        low: fallbackTreatment.low - fallbackBaseline.high,
-        high: fallbackTreatment.high - fallbackBaseline.low,
-        method: 'independent-fallback',
-      },
-    };
-  }
 
   function costMultiplier(row) {
     if (!row.baseline || !row.treatment) return null;
@@ -138,26 +68,27 @@
     return `${tokens} and ${time}`;
   }
 
-  // Confidence-adjusted value:
-  //   baseline pass rate + lower95(pass-rate lift)
-  //   ------------------------------------------------
-  //   baseline pass rate × worst observed cost ratio
-  //
-  // A value > 1 means the conservative quality gain more than pays for the
-  // skill's worse measured resource multiplier. This intentionally avoids an
-  // arbitrary universal token budget.
+  // Recommendation status is determined only by the adapter's authoritative
+  // preference evidence. Aggregate pass telemetry remains visible as a separate
+  // reliability diagnostic and never votes here.
   function valueAssessment(row) {
-    const evidence = passEvidence(row);
+    const evidence = row.preference;
     const cost = costMultiplier(row);
     if (!evidence) return { status: 'insufficient', evidence, cost, index: null };
-    if (evidence.lift.high < 0) return { status: 'regression', evidence, cost, index: null };
-    if (evidence.lift.low <= 0) return { status: 'unproven', evidence, cost, index: null };
-    if (!cost || cost.worst <= 0 || evidence.baseline.estimate <= 0) {
-      return { status: 'lift-only', evidence, cost, index: null };
+    if (!evidence.conclusive || evidence.underpowered) {
+      return { status: 'insufficient', evidence, cost, index: null };
     }
-    const conservativeTreatmentPass = Math.max(0, evidence.baseline.estimate + evidence.lift.low);
-    const index = conservativeTreatmentPass / (evidence.baseline.estimate * cost.worst);
-    return { status: index > 1 ? 'worth' : 'tradeoff', evidence, cost, index };
+    const credible = Number.isFinite(evidence.pValue)
+      && Number.isFinite(evidence.alpha)
+      && evidence.pValue <= evidence.alpha;
+    if (!credible || !evidence.practicalPassed || evidence.direction === 'none') {
+      return { status: 'unproven', evidence, cost, index: null };
+    }
+    if (evidence.direction === 'worse') {
+      return { status: 'regression', evidence, cost, index: null };
+    }
+    if (!cost) return { status: 'preference-only', evidence, cost, index: null };
+    return { status: cost.worst <= 1 ? 'worth' : 'tradeoff', evidence, cost, index: null };
   }
 
   // n-weighted running accumulator for one arm's metrics across runs.
@@ -244,6 +175,7 @@
       let passTotal = 0, baseFail = 0, treatFail = 0;
       let bothPass = 0, bothFail = 0, baselineOnlyPass = 0, treatmentOnlyPass = 0;
       let hasPass = false;
+      let preference = null;
       let timedOutRuns = 0, baseAvail = 0, treatAvail = 0;
       for (const { s } of runs) {
         addArm(base, s.baseline);
@@ -258,6 +190,10 @@
         baselineOnlyPass += s.baselineOnlyPass || 0;
         treatmentOnlyPass += s.treatmentOnlyPass || 0;
         if (s.hasPassData) hasPass = true;
+        // Each run already collapses repeated trials to one vote per distinct,
+        // preference-eligible stimulus. Use the newest run's verdict rather than
+        // summing runs, which would count the same eval stimuli repeatedly.
+        if (!preference && s.preference) preference = s.preference;
         if (s.timedOut) timedOutRuns += 1;
         baseAvail += s.baseAvailable || 0;
         treatAvail += s.treatAvailable || 0;
@@ -270,6 +206,7 @@
         activationExpected: actExpected, activationFired: actFired,
         passTotal, baseFail, treatFail, hasPass,
         bothPass, bothFail, baselineOnlyPass, treatmentOnlyPass,
+        preference,
         timedOutRuns, baseAvail, treatAvail,
       });
     }
@@ -328,9 +265,18 @@
     }
     const assessment = valueAssessment(row);
     if (!assessment.evidence) {
-      const detail = row.hasPass
-        ? `n=${row.passTotal}, need ≥${MIN_SAMPLES}`
-        : 'no paired pass/fail data';
+      return {
+        text: 'Insufficient signal — no preference-eligible W/T/L evidence is available. Pass rate is shown only as a reliability diagnostic.',
+        cls: 'sv-insufficient',
+        status: assessment.status,
+      };
+    }
+    if (assessment.status === 'insufficient') {
+      const p = row.preference;
+      const minimum = p.minCredibleStimuli || MIN_SAMPLES;
+      const detail = p.underpowered
+        ? `${p.count} preference-eligible stimulus vote(s), need at least ${minimum}`
+        : 'the preference comparison was inconclusive';
       return { text: `Insufficient signal — ${detail}.`, cls: 'sv-insufficient', status: assessment.status };
     }
 
@@ -338,48 +284,47 @@
 
     if (assessment.status === 'worth') {
       return {
-        text: `<b>Worth installing</b> — it is likely to complete more tasks successfully, and the improvement is large enough to justify its resource use. Compared with no skill: ${costText}.`,
+        text: `<b>Worth installing</b> — the preference-eligible paired comparison credibly favors the skill, with no measured token/time regression. Compared with no skill: ${costText}.`,
         cls: 'sv-value positive',
         status: assessment.status,
       };
     }
     if (assessment.status === 'tradeoff') {
       return {
-        text: `<b>Probably too expensive</b> — it is likely to improve results, but not enough to justify its resource use. Compared with no skill: ${costText}.`,
+        text: `<b>Preference win with a resource tradeoff</b> — the paired comparison credibly favors the skill, but it uses more time or tokens. Compared with no skill: ${costText}.`,
         cls: 'sv-value sv-tradeoff',
         status: assessment.status,
       };
     }
-    if (assessment.status === 'lift-only') {
+    if (assessment.status === 'preference-only') {
       return {
-        text: '<b>Likely improves results</b> — there is not enough cost information to say whether it is worth installing.',
+        text: '<b>Preference favors the skill</b> — the paired result is credible, but cost information is unavailable.',
         cls: 'sv-value sv-tradeoff',
         status: assessment.status,
       };
     }
     if (assessment.status === 'regression') {
       return {
-        text: `<b>Not recommended</b> — it is likely to complete fewer tasks successfully. Compared with no skill: ${costText}.`,
+        text: `<b>Not recommended</b> — the preference-eligible paired comparison credibly favors baseline. Compared with no skill: ${costText}.`,
         cls: 'sv-value negative',
         status: assessment.status,
       };
     }
     return {
-      text: `<b>No clear benefit yet</b> — the results may be normal run-to-run variation. Compared with no skill: ${costText}.`,
+      text: `<b>No clear preference yet</b> — the authoritative W/T/L result does not establish a credible improvement or regression. Compared with no skill: ${costText}.`,
       cls: 'sv-value sv-unproven',
       status: assessment.status,
     };
   }
 
   function failureCell(row) {
-    if (!row.hasPass || row.passTotal === 0) return '<td class="num" title="No counted baseline/treatment pass data is available">N/A</td>';
+    if (!row.hasPass || row.passTotal === 0) return '<td class="num" title="No counted baseline/treatment reliability data is available">N/A</td>';
     if (!gated(row.passTotal)) return `<td class="num"><span class="sv-insufficient">n=${row.passTotal}</span></td>`;
-    const evidence = passEvidence(row);
-    if (!evidence) return '<td class="num">N/A</td>';
-    const b = evidence.baseline;
-    const t = evidence.treatment;
-    const cls = t.estimate > b.estimate ? 'positive' : (t.estimate < b.estimate ? 'negative' : 'neutral');
-    return `<td class="num"><span class="${cls}">${fmtPct(b.estimate)} → ${fmtPct(t.estimate)}</span></td>`;
+    const baseline = (row.passTotal - row.baseFail) / row.passTotal;
+    const treatment = (row.passTotal - row.treatFail) / row.passTotal;
+    const cls = treatment > baseline ? 'positive' : (treatment < baseline ? 'negative' : 'neutral');
+    return `<td class="num"><span class="${cls}">${fmtPct(baseline)} → ${fmtPct(treatment)}</span>` +
+      '<span class="sv-sub">diagnostic only</span></td>';
   }
 
   function activationCell(row) {
@@ -390,16 +335,14 @@
   }
 
   function metricCell(row) {
-    const metricN = Math.min(row.baseline ? row.baseline.n : 0, row.treatment ? row.treatment.n : 0);
-    const evidence = passEvidence(row);
-    if (!evidence) {
-      const n = row.hasPass ? row.passTotal : metricN;
-      return `<td class="num"><span class="sv-insufficient">${n}</span>` +
-        `<span class="sv-sub">CI unavailable</span></td>`;
+    const p = row.preference;
+    if (!p) {
+      return '<td class="num"><span class="sv-insufficient">N/A</span>' +
+        '<span class="sv-sub">preference unavailable</span></td>';
     }
-    const lift = evidence.lift;
-    return `<td class="num"><span class="neutral">${row.passTotal}</span>` +
-      `<span class="sv-sub">${fmtSignedPoints(lift.low)} to ${fmtSignedPoints(lift.high)}</span></td>`;
+    const pValue = Number.isFinite(p.pValue) ? `p=${p.pValue.toFixed(3)}` : 'p unavailable';
+    return `<td class="num"><span class="neutral">${p.wins}W / ${p.ties}T / ${p.losses}L</span>` +
+      `<span class="sv-sub">${pValue} · ${p.count} stimulus vote(s)</span></td>`;
   }
 
   function drilldown(row) {
@@ -420,8 +363,8 @@
     notes += '</div>';
     const assessment = valueAssessment(row);
     if (assessment.evidence) {
-      notes += `<div class="sv-sub">Value formula: (baseline pass rate + lower 95% pass-rate lift) ÷ (baseline pass rate × worse of token/time cost ratios). ` +
-        `Install when the result is &gt; 1. Current value: ${assessment.index == null ? 'not established' : `${assessment.index.toFixed(2)}×`}.</div>`;
+      notes += '<div class="sv-sub">Recommendation basis: the latest run’s authoritative preference-eligible stimulus W/T/L sign test. ' +
+        'Repeated reliability trials and aggregate pass rates do not vote in the recommendation. Cost determines only whether a credible preference win has a measured resource tradeoff.</div>';
     }
     return `<div class="sv-drill">` +
       `<div class="sv-sub" style="margin-bottom:6px;">${escapeHtml(row.plugin)} · executor <b>${escapeHtml(row.model)}</b> · judge <b>${escapeHtml(row.judge)}</b> · ${row.runCount} run(s) in window</div>` +
@@ -473,7 +416,7 @@
       `<label>Judge model <select id="sv-judge"><option value="">All</option>${judges.map(m => `<option>${escapeHtml(m)}</option>`).join('')}</select></label>` +
       `<button type="button" id="sv-expand" class="sv-btn">Expand all</button>` +
       `<button type="button" id="sv-collapse" class="sv-btn">Collapse all</button>` +
-      `<span class="sv-sub">Grouped Plugin → Skill → Model. Trailing window: ${TRAILING_RUNS} runs. N / CI shows counted pass trials and the paired 95% confidence interval for pass-rate lift (skill minus baseline); legacy rows use a conservative fallback. “Worth installing” requires conservative quality per worst-cost unit &gt; 1. Tokens = input+output. ≈ marks a diluted (low-activation) delta. Models are never blended.</span>` +
+      `<span class="sv-sub">Grouped Plugin → Skill → Model. Costs and reliability use a trailing window of ${TRAILING_RUNS} runs. Preference W/T/L is the latest run’s authoritative one-vote-per-eligible-stimulus result; repeated trials and pass rate are reliability diagnostics only. “Worth installing” requires a credible preference win with no measured token/time regression. Tokens = input+output. ≈ marks a diluted (low-activation) delta. Models are never blended.</span>` +
       `</div>` +
       `<div id="sv-table-wrap"></div>`;
 
@@ -562,7 +505,7 @@
 
       let html = `<table class="token-table sv-table"><thead><tr>` +
         `<th>Plugin / Skill / Model</th><th class="num">Activation</th><th class="num">Tokens Δ</th>` +
-        `<th class="num">Time Δ</th><th class="num" title="Counted pass trials and the 95% confidence interval for skilled-minus-baseline pass-rate lift.">N / CI</th><th class="num" title="Counted trial pass rates. Aggregate pass telemetry may include judge-scored graders.">Pass rate (base→skill)</th><th>Confidence-adjusted value</th></tr></thead><tbody>`;
+        `<th class="num">Time Δ</th><th class="num" title="Latest authoritative preference result: one vote per distinct preference-eligible stimulus.">Preference W/T/L</th><th class="num" title="Aggregate trial pass telemetry for reliability diagnosis only; may include judge-scored graders and never determines the recommendation.">Reliability pass rate (base→skill)</th><th>Preference + cost guidance</th></tr></thead><tbody>`;
 
       let uid = 0;
       for (const plugin of [...byPlugin.keys()].sort()) {
@@ -616,6 +559,6 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { wilsonInterval, pairedDifferenceInterval, passEvidence, costMultiplier, valueAssessment };
+    module.exports = { costMultiplier, valueAssessment };
   }
 })();

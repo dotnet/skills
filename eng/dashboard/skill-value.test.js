@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-test('skill value table shows confidence-aware install guidance', async (t) => {
+test('skill value table uses preference evidence for install guidance', async (t) => {
   const previousGlobals = {
     document: globalThis.document,
     window: globalThis.window,
@@ -74,6 +74,20 @@ test('skill value table shows confidence-aware install guidance', async (t) => {
           baselineOnlyPass: 0,
           treatmentOnlyPass: 50,
           hasPassData: true,
+          preference: {
+            count: 8,
+            wins: 8,
+            ties: 0,
+            losses: 0,
+            direction: 'better',
+            pValue: 0.00390625,
+            alpha: 0.05,
+            netWin: 1,
+            underpowered: false,
+            conclusive: true,
+            minCredibleStimuli: 5,
+            practicalPassed: true,
+          },
         }],
       }],
     }),
@@ -86,28 +100,30 @@ test('skill value table shows confidence-aware install guidance', async (t) => {
   assert.ok(headerMatch, 'rendered table contains a header row');
   const header = headerMatch[1];
   assert.equal((header.match(/<th/g) || []).length, 7);
-  assert.equal((header.match(/>N \/ CI<\/th>/g) || []).length, 1);
-  assert.match(header, /Pass rate \(base→skill\)/);
-  assert.match(header, /Confidence-adjusted value/);
+  assert.match(header, /Preference W\/T\/L/);
+  assert.match(header, /Reliability pass rate \(base→skill\)/);
+  assert.match(header, /Preference \+ cost guidance/);
   assert.match(wrap.innerHTML, /colspan="7"/);
-  assert.match(container.innerHTML, /paired 95% confidence interval/);
-  assert.doesNotMatch(wrap.innerHTML, /paired 95% lift/);
-  assert.match(wrap.innerHTML, /\+34 pp to \+61 pp/);
+  assert.match(container.innerHTML, /one-vote-per-eligible-stimulus/);
+  assert.match(container.innerHTML, /pass rate are reliability diagnostics only/);
+  assert.match(wrap.innerHTML, /8W \/ 0T \/ 0L/);
+  assert.match(wrap.innerHTML, /p=0\.004/);
+  assert.match(wrap.innerHTML, /diagnostic only/);
   assert.match(wrap.innerHTML, /Worth installing/);
-  assert.match(wrap.innerHTML, /complete more tasks successfully/);
+  assert.match(wrap.innerHTML, /paired comparison credibly favors the skill/);
   assert.match(wrap.innerHTML, /20% fewer tokens and 20% faster/);
   const valueCell = wrap.innerHTML.match(/<td class="sv-value positive">(.*?)<\/td>/s);
   assert.ok(valueCell, 'rendered model row contains a value cell');
-  assert.doesNotMatch(valueCell[1], /lift|confidence|CI|lower bound/i);
+  assert.doesNotMatch(valueCell[1], /pass rate|grader|reliability/i);
 });
 
-test('value assessment separates statistical noise from expensive reliable gains', (t) => {
+test('value assessment uses preference evidence and treats pass telemetry as irrelevant', (t) => {
   const previousWindow = globalThis.window;
   const hadWindow = Object.hasOwn(globalThis, 'window');
   const modulePath = require.resolve('./skill-value.js');
   globalThis.window = {};
   delete require.cache[modulePath];
-  const { pairedDifferenceInterval, valueAssessment } = require(modulePath);
+  const { valueAssessment } = require(modulePath);
 
   t.after(() => {
     if (hadWindow) globalThis.window = previousWindow;
@@ -115,68 +131,63 @@ test('value assessment separates statistical noise from expensive reliable gains
     delete require.cache[modulePath];
   });
 
-  const strongCounts = {
-    passTotal: 100,
-    baseFail: 60,
-    treatFail: 10,
-    bothPass: 40,
-    bothFail: 10,
-    baselineOnlyPass: 0,
-    treatmentOnlyPass: 50,
-    hasPass: true,
+  const credibleWin = {
+    count: 8,
+    wins: 7,
+    ties: 1,
+    losses: 0,
+    direction: 'better',
+    pValue: 0.0078125,
+    alpha: 0.05,
+    netWin: 0.875,
+    underpowered: false,
+    conclusive: true,
+    minCredibleStimuli: 5,
+    practicalPassed: true,
   };
-  const row = (tokens, timeMs, counts = strongCounts) => ({
-    ...counts,
+  const row = (tokens, timeMs, preference = credibleWin) => ({
+    preference,
+    passTotal: 100,
+    baseFail: 0,
+    treatFail: 100,
+    hasPass: true,
     baseline: { tokens: 100, timeMs: 1000 },
     treatment: { tokens, timeMs },
   });
 
-  const interval = pairedDifferenceInterval(strongCounts);
-  assert.equal(interval.method, 'paired');
-  assert.equal(interval.estimate, 0.5);
-  assert.ok(interval.low > 0.34 && interval.low < 0.35);
-
-  const smallPerfectRecord = pairedDifferenceInterval({
-    bothPass: 0,
-    bothFail: 0,
-    baselineOnlyPass: 0,
-    treatmentOnlyPass: 5,
-  });
-  assert.ok(smallPerfectRecord.low < 0);
-  assert.ok(smallPerfectRecord.low < smallPerfectRecord.high);
-
-  const worth = valueAssessment(row(120, 1100));
+  const worth = valueAssessment(row(80, 900));
   assert.equal(worth.status, 'worth');
-  assert.ok(worth.index > 1);
 
-  const expensive = valueAssessment(row(300, 2500));
+  const telemetryOnly = valueAssessment({ ...row(80, 900), preference: null });
+  assert.equal(telemetryOnly.status, 'insufficient');
+
+  const expensive = valueAssessment(row(120, 1100));
   assert.equal(expensive.status, 'tradeoff');
-  assert.ok(expensive.index < 1);
 
-  const noisy = valueAssessment(row(100, 1000, {
-    passTotal: 100,
-    baseFail: 32,
-    treatFail: 28,
-    bothPass: 60,
-    bothFail: 20,
-    baselineOnlyPass: 8,
-    treatmentOnlyPass: 12,
-    hasPass: true,
+  const inconclusive = valueAssessment(row(80, 900, {
+    ...credibleWin,
+    wins: 4,
+    ties: 3,
+    losses: 1,
+    pValue: 0.1875,
   }));
-  assert.equal(noisy.status, 'unproven');
-  assert.ok(noisy.evidence.lift.low < 0);
-  assert.ok(noisy.evidence.lift.high > 0);
+  assert.equal(inconclusive.status, 'unproven');
 
-  const regression = valueAssessment(row(100, 1000, {
-    passTotal: 100,
-    baseFail: 10,
-    treatFail: 60,
-    bothPass: 40,
-    bothFail: 10,
-    baselineOnlyPass: 50,
-    treatmentOnlyPass: 0,
-    hasPass: true,
+  const regression = valueAssessment(row(80, 900, {
+    ...credibleWin,
+    wins: 0,
+    ties: 1,
+    losses: 7,
+    direction: 'worse',
   }));
   assert.equal(regression.status, 'regression');
-  assert.ok(regression.evidence.lift.high < 0);
+
+  const underpowered = valueAssessment(row(80, 900, {
+    ...credibleWin,
+    count: 4,
+    wins: 4,
+    ties: 0,
+    underpowered: true,
+  }));
+  assert.equal(underpowered.status, 'insufficient');
 });
