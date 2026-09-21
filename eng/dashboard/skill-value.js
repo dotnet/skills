@@ -27,6 +27,8 @@
   const ACTIVATION_MIN = 0.5;
   // Trailing window: most-recent N runs per (skill, executor model, judge model).
   const TRAILING_RUNS = 20;
+  const CONFIDENCE_Z = 1.959963984540054;
+  const PAIRED_CELL_Z = 2.241402727604947;
   // Headline "tokens" = input + output (the adapter's tokenEstimate / totalTokens).
   // Cache read/write are billed/served differently and swing with infra caching,
   // so they are shown only in the drill-down, never in the headline delta.
@@ -46,7 +48,60 @@
     return Math.round(n).toString();
   }
   function fmtPct(frac) { return (frac * 100).toFixed(0) + '%'; }
+  function fmtSignedPoints(frac) {
+    const points = frac * 100;
+    if (Math.abs(points) < 0.05) return '0 pp';
+    return `${points > 0 ? '+' : '−'}${Math.abs(points).toFixed(0)} pp`;
+  }
   function fmtSecs(ms) { return (ms / 1000).toFixed(1) + 's'; }
+
+  // Reliability diagnostic only. These aggregate pass booleans may include
+  // judge-scored graders, so neither the interval nor its point estimate votes
+  // in valueAssessment.
+  function wilsonInterval(successes, total, z = CONFIDENCE_Z) {
+    if (!Number.isFinite(successes) || !Number.isFinite(total) || total <= 0) return null;
+    const n = total;
+    const p = Math.min(1, Math.max(0, successes / n));
+    const z2 = z * z;
+    const denominator = 1 + z2 / n;
+    const center = (p + z2 / (2 * n)) / denominator;
+    const margin = z * Math.sqrt((p * (1 - p) + z2 / (4 * n)) / n) / denominator;
+    return { estimate: p, low: Math.max(0, center - margin), high: Math.min(1, center + margin) };
+  }
+
+  function pairedDifferenceInterval(counts, z = PAIRED_CELL_Z) {
+    const { bothPass, bothFail, baselineOnlyPass, treatmentOnlyPass } = counts;
+    const n = bothPass + bothFail + baselineOnlyPass + treatmentOnlyPass;
+    if (n <= 0) return null;
+    const treatmentWins = wilsonInterval(treatmentOnlyPass, n, z);
+    const baselineWins = wilsonInterval(baselineOnlyPass, n, z);
+    return {
+      estimate: (treatmentOnlyPass - baselineOnlyPass) / n,
+      low: Math.max(-1, treatmentWins.low - baselineWins.high),
+      high: Math.min(1, treatmentWins.high - baselineWins.low),
+      method: 'paired',
+    };
+  }
+
+  function reliabilityEvidence(row) {
+    if (!row.hasPass || !gated(row.passTotal) || row.passTotal <= 0) return null;
+    const pairedTotal = row.bothPass + row.bothFail + row.baselineOnlyPass + row.treatmentOnlyPass;
+    if (pairedTotal === row.passTotal) return pairedDifferenceInterval(row);
+
+    // Historical rows without a complete paired matrix retain a conservative
+    // independent-Wilson fallback so their diagnostic does not disappear.
+    const basePasses = row.passTotal - row.baseFail;
+    const treatPasses = row.passTotal - row.treatFail;
+    const baseline = wilsonInterval(basePasses, row.passTotal, PAIRED_CELL_Z);
+    const treatment = wilsonInterval(treatPasses, row.passTotal, PAIRED_CELL_Z);
+    if (!baseline || !treatment) return null;
+    return {
+      estimate: treatment.estimate - baseline.estimate,
+      low: treatment.low - baseline.high,
+      high: treatment.high - baseline.low,
+      method: 'independent-fallback',
+    };
+  }
 
   function costMultiplier(row) {
     if (!row.baseline || !row.treatment) return null;
@@ -334,14 +389,18 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
   }
 
   function metricCell(row) {
+    const interval = reliabilityEvidence(row);
     const p = row.preference;
-    if (!p) {
-      return '<td class="num"><span class="sv-insufficient">N/A</span>' +
-        '<span class="sv-sub">preference unavailable</span></td>';
+    if (!interval) {
+      const n = row.hasPass ? row.passTotal : 0;
+      return `<td class="num"><span class="sv-insufficient">${n > 0 ? `n=${n}` : 'N/A'}</span>` +
+        '<span class="sv-sub">reliability CI unavailable</span></td>';
     }
-    const pValue = Number.isFinite(p.pValue) ? `p=${p.pValue.toFixed(3)}` : 'p unavailable';
-    return `<td class="num"><span class="neutral">${p.wins}W / ${p.ties}T / ${p.losses}L</span>` +
-      `<span class="sv-sub">${pValue} · ${p.count} stimulus vote(s)</span></td>`;
+    const preference = p
+      ? ` · preference ${p.wins}W/${p.ties}T/${p.losses}L`
+      : '';
+    return `<td class="num"><span class="neutral">${row.passTotal}</span>` +
+      `<span class="sv-sub">${fmtSignedPoints(interval.low)} to ${fmtSignedPoints(interval.high)}${preference}</span></td>`;
   }
 
   function drilldown(row) {
@@ -442,7 +501,7 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
       `<label>Judge model <select id="sv-judge"><option value="">All</option>${judges.map(m => `<option>${escapeHtml(m)}</option>`).join('')}</select></label>` +
       `<button type="button" id="sv-expand" class="sv-btn">Expand all</button>` +
       `<button type="button" id="sv-collapse" class="sv-btn">Collapse all</button>` +
-      `<span class="sv-sub">Grouped Plugin → Skill → Model. Costs and reliability use a trailing window of ${TRAILING_RUNS} runs. Preference W/T/L is the latest run’s authoritative one-vote-per-eligible-stimulus result; repeated trials and pass rate are reliability diagnostics only. “Worth installing” requires a credible preference win with no measured token/time regression. Tokens = input+output. ≈ marks a diluted (low-activation) delta. Models are never blended.</span>` +
+      `<span class="sv-sub">Grouped Plugin → Skill → Model. Costs and reliability use a trailing window of ${TRAILING_RUNS} runs. Reliability N / CI shows counted paired pass trials and the 95% interval for skill-minus-baseline pass-rate difference; it may include judge-scored graders and never determines the recommendation. Preference W/T/L, when available, is the latest run’s authoritative one-vote-per-eligible-stimulus result. “Worth installing” requires a credible preference win with no measured token/time regression. Tokens = input+output. ≈ marks a diluted (low-activation) delta. Models are never blended.</span>` +
       `</div>` +
       `<div id="sv-table-wrap"></div>`;
 
@@ -531,7 +590,7 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
 
       let html = `<table class="token-table sv-table"><thead><tr>` +
         `<th>Plugin / Skill / Model</th><th class="num">Activation</th><th class="num">Tokens Δ</th>` +
-        `<th class="num">Time Δ</th><th class="num" title="Latest authoritative preference result: one vote per distinct preference-eligible stimulus.">Preference W/T/L</th><th class="num" title="Aggregate trial pass telemetry for reliability diagnosis only; may include judge-scored graders and never determines the recommendation.">Reliability pass rate (base→skill)</th><th>Preference + cost guidance</th></tr></thead><tbody>`;
+        `<th class="num">Time Δ</th><th class="num" title="Counted reliability trials and the 95% interval for skilled-minus-baseline pass-rate difference. Diagnostic only.">Reliability N / 95% CI</th><th class="num" title="Aggregate trial pass telemetry for reliability diagnosis only; may include judge-scored graders and never determines the recommendation.">Reliability pass rate (base→skill)</th><th>Preference + cost guidance</th></tr></thead><tbody>`;
 
       let uid = 0;
       for (const plugin of [...byPlugin.keys()].sort()) {
@@ -585,6 +644,16 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { aggregate, costMultiplier, valueAssessment, singleModelRollup, countRollup };
+    module.exports = {
+      aggregate,
+      wilsonInterval,
+      pairedDifferenceInterval,
+      reliabilityEvidence,
+      metricCell,
+      costMultiplier,
+      valueAssessment,
+      singleModelRollup,
+      countRollup,
+    };
   }
 })();

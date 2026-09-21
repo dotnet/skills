@@ -100,14 +100,15 @@ test('skill value table uses preference evidence for install guidance', async (t
   assert.ok(headerMatch, 'rendered table contains a header row');
   const header = headerMatch[1];
   assert.equal((header.match(/<th/g) || []).length, 7);
-  assert.match(header, /Preference W\/T\/L/);
+  assert.match(header, /Reliability N \/ 95% CI/);
   assert.match(header, /Reliability pass rate \(base→skill\)/);
   assert.match(header, /Preference \+ cost guidance/);
   assert.match(wrap.innerHTML, /colspan="7"/);
   assert.match(container.innerHTML, /one-vote-per-eligible-stimulus/);
-  assert.match(container.innerHTML, /pass rate are reliability diagnostics only/);
-  assert.match(wrap.innerHTML, /8W \/ 0T \/ 0L/);
-  assert.match(wrap.innerHTML, /p=0\.004/);
+  assert.match(container.innerHTML, /Reliability N \/ CI/);
+  assert.match(container.innerHTML, /never determines the recommendation/);
+  assert.match(wrap.innerHTML, /\+34 pp to \+61 pp/);
+  assert.match(wrap.innerHTML, /preference 8W\/0T\/0L/);
   assert.match(wrap.innerHTML, /diagnostic only/);
   assert.match(wrap.innerHTML, /Worth installing/);
   assert.match(wrap.innerHTML, /paired comparison credibly favors the skill/);
@@ -123,7 +124,7 @@ test('value assessment uses preference evidence and treats pass telemetry as irr
   const modulePath = require.resolve('./skill-value.js');
   globalThis.window = {};
   delete require.cache[modulePath];
-  const { valueAssessment } = require(modulePath);
+  const { metricCell, reliabilityEvidence, valueAssessment } = require(modulePath);
 
   t.after(() => {
     if (hadWindow) globalThis.window = previousWindow;
@@ -160,6 +161,20 @@ test('value assessment uses preference evidence and treats pass telemetry as irr
 
   const telemetryOnly = valueAssessment({ ...row(80, 900), preference: null });
   assert.equal(telemetryOnly.status, 'insufficient');
+  const legacyReliabilityRow = {
+    ...row(80, 900, null),
+    bothPass: 40,
+    bothFail: 10,
+    baselineOnlyPass: 0,
+    treatmentOnlyPass: 50,
+    baseFail: 60,
+    treatFail: 10,
+  };
+  const interval = reliabilityEvidence(legacyReliabilityRow);
+  assert.equal(interval.method, 'paired');
+  assert.ok(interval.low > 0.34 && interval.low < 0.35);
+  assert.match(metricCell(legacyReliabilityRow), /\+34 pp to \+61 pp/);
+  assert.doesNotMatch(metricCell(legacyReliabilityRow), /preference unavailable|N\/A/);
 
   const expensive = valueAssessment(row(120, 1100));
   assert.equal(expensive.status, 'tradeoff');
