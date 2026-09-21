@@ -1,14 +1,16 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
-$computeScript = Join-Path $repoRoot "plugins\dotnet-test\skills\coverage-analysis\scripts\Compute-CrapScores.ps1"
-$extractScript = Join-Path $repoRoot "plugins\dotnet-test\skills\coverage-analysis\scripts\Extract-MethodCoverage.ps1"
-$methodOnlyReport = Join-Path $repoRoot "tests\dotnet-test\coverage-analysis\fixtures\partial-coverage\coverage.cobertura.xml"
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "../../..")).Path
+$computeScript = Join-Path $repoRoot "plugins/dotnet-test/skills/coverage-analysis/scripts/Compute-CrapScores.ps1"
+$extractScript = Join-Path $repoRoot "plugins/dotnet-test/skills/coverage-analysis/scripts/Extract-MethodCoverage.ps1"
+$methodOnlyReport = Join-Path $repoRoot "tests/dotnet-test/coverage-analysis/fixtures/partial-coverage/coverage.cobertura.xml"
 $pwsh = (Get-Command pwsh -ErrorAction Stop).Source
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ("dotnet-skills-coverage-" + [Guid]::NewGuid().ToString("N"))
 $partialReport = Join-Path $tempRoot "partial.cobertura.xml"
 $fullReport = Join-Path $tempRoot "full.cobertura.xml"
+$rootCoveredReport = Join-Path $tempRoot "root-covered.cobertura.xml"
+$rootUncoveredReport = Join-Path $tempRoot "root-uncovered.cobertura.xml"
 $passed = 0
 $failed = 0
 
@@ -142,6 +144,18 @@ try {
   </packages>
 </coverage>
 '@)
+    [IO.File]::WriteAllText($rootCoveredReport, @'
+<?xml version="1.0" encoding="utf-8"?>
+<coverage line-rate="1.0" branch-rate="0.5" lines-covered="1" lines-valid="1" branches-covered="1" branches-valid="2">
+  <packages />
+</coverage>
+'@)
+    [IO.File]::WriteAllText($rootUncoveredReport, @'
+<?xml version="1.0" encoding="utf-8"?>
+<coverage line-rate="0.0" branch-rate="0.0" lines-covered="0" lines-valid="99" branches-covered="0" branches-valid="8">
+  <packages />
+</coverage>
+'@)
 
     $computeOutput = @(Invoke-CoverageScript -ScriptPath $computeScript -CoberturaPaths @($partialReport, $fullReport))
     Assert-ContainsLine "Overlapping lines use file-and-line identity" "OVERALL_LINE_COVERAGE:100" $computeOutput
@@ -162,6 +176,14 @@ try {
     $methodOnlyOutput = @(Invoke-CoverageScript -ScriptPath $computeScript -CoberturaPaths @($methodOnlyReport))
     Assert-ContainsLine "Method lines backfill missing class lines" "OVERALL_LINE_COVERAGE:46.8" $methodOnlyOutput
     Assert-ContainsLine "Method branches backfill missing class lines" "OVERALL_BRANCH_COVERAGE:43.8" $methodOnlyOutput
+
+    $rootOnlyOutput = @(Invoke-CoverageScript -ScriptPath $computeScript -CoberturaPaths @($rootCoveredReport, $rootUncoveredReport))
+    Assert-ContainsLine "Root-only line counters are weighted" "OVERALL_LINE_COVERAGE:1" $rootOnlyOutput
+    Assert-ContainsLine "Root-only branch counters are weighted" "OVERALL_BRANCH_COVERAGE:10" $rootOnlyOutput
+
+    $mixedDetailOutput = @(Invoke-CoverageScript -ScriptPath $computeScript -CoberturaPaths @($partialReport, $rootUncoveredReport))
+    Assert-ContainsLine "Root-only lines remain in mixed aggregation" "OVERALL_LINE_COVERAGE:1" $mixedDetailOutput
+    Assert-ContainsLine "Root-only branches remain in mixed aggregation" "OVERALL_BRANCH_COVERAGE:10" $mixedDetailOutput
 } finally {
     if (Test-Path -LiteralPath $tempRoot) {
         Remove-Item -LiteralPath $tempRoot -Recurse -Force

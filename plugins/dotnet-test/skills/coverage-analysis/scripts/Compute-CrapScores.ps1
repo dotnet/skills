@@ -27,6 +27,10 @@ $overallLineHits = [System.Collections.Generic.Dictionary[string, int]]::new([St
 $overallBranchData = [System.Collections.Generic.Dictionary[string, object]]::new([StringComparer]::Ordinal)
 $overallLineRate = 0.0
 $overallBranchRate = 0.0
+$unlocatedLinesCovered = 0.0
+$unlocatedLinesValid = 0.0
+$unlocatedBranchesCovered = 0.0
+$unlocatedBranchesValid = 0.0
 $fallbackLineRates = [System.Collections.Generic.List[double]]::new()
 $fallbackBranchRates = [System.Collections.Generic.List[double]]::new()
 
@@ -43,12 +47,8 @@ foreach ($filePath in $CoberturaPath) {
         exit 2
     }
 
-    if ($cobertura.coverage.'line-rate') {
-        $fallbackLineRates.Add([double]$cobertura.coverage.'line-rate')
-    }
-    if ($cobertura.coverage.'branch-rate') {
-        $fallbackBranchRates.Add([double]$cobertura.coverage.'branch-rate')
-    }
+    $reportHasLineData = $false
+    $reportHasBranchData = $false
 
     foreach ($package in $cobertura.coverage.packages.package) {
         foreach ($class in $package.classes.class) {
@@ -63,6 +63,7 @@ foreach ($filePath in $CoberturaPath) {
                 $lineNo = $line.number
                 $lineKey = "$fileName|$lineNo"
                 $hits = [int]$line.hits
+                $reportHasLineData = $true
                 if ($overallLineHits.ContainsKey($lineKey)) {
                     $overallLineHits[$lineKey] = [Math]::Max($overallLineHits[$lineKey], $hits)
                 } else {
@@ -72,6 +73,7 @@ foreach ($filePath in $CoberturaPath) {
                 if (($line.branch -eq 'true') -and $line.'condition-coverage' -and ($line.'condition-coverage' -match '\((\d+)/(\d+)\)')) {
                     $covered = [int]$Matches[1]
                     $total = [int]$Matches[2]
+                    $reportHasBranchData = $true
                     if ($overallBranchData.ContainsKey($lineKey)) {
                         $existingCovered = $overallBranchData[$lineKey].Covered
                         $existingTotal = $overallBranchData[$lineKey].Total
@@ -118,6 +120,24 @@ foreach ($filePath in $CoberturaPath) {
                     }
                 }
             }
+
+        }
+    }
+
+    if (-not $reportHasLineData) {
+        if ($null -ne $cobertura.coverage.'lines-covered' -and $null -ne $cobertura.coverage.'lines-valid') {
+            $unlocatedLinesCovered += [double]$cobertura.coverage.'lines-covered'
+            $unlocatedLinesValid += [double]$cobertura.coverage.'lines-valid'
+        } elseif ($cobertura.coverage.'line-rate') {
+            $fallbackLineRates.Add([double]$cobertura.coverage.'line-rate')
+        }
+    }
+    if (-not $reportHasBranchData) {
+        if ($null -ne $cobertura.coverage.'branches-covered' -and $null -ne $cobertura.coverage.'branches-valid') {
+            $unlocatedBranchesCovered += [double]$cobertura.coverage.'branches-covered'
+            $unlocatedBranchesValid += [double]$cobertura.coverage.'branches-valid'
+        } elseif ($cobertura.coverage.'branch-rate') {
+            $fallbackBranchRates.Add([double]$cobertura.coverage.'branch-rate')
         }
     }
 }
@@ -154,27 +174,30 @@ foreach ($entry in $methodMap.Values) {
 $hotspots = $results | Sort-Object CrapScore -Descending | Select-Object -First $TopN
 $flagged  = $results | Where-Object { $_.CrapScore -gt $CrapThreshold }
 
+$overallCoveredLines = $unlocatedLinesCovered
+$overallTotalLines = $unlocatedLinesValid
 if ($overallLineHits.Count -gt 0) {
-    $overallCoveredLines = ($overallLineHits.Values | Where-Object { $_ -gt 0 } | Measure-Object).Count
-    $overallLineRate = [double]$overallCoveredLines / [double]$overallLineHits.Count
+    $overallCoveredLines += ($overallLineHits.Values | Where-Object { $_ -gt 0 } | Measure-Object).Count
+    $overallTotalLines += $overallLineHits.Count
+}
+if ($overallTotalLines -gt 0) {
+    $overallLineRate = [double]$overallCoveredLines / [double]$overallTotalLines
 } elseif ($fallbackLineRates.Count -gt 0) {
     $overallLineRate = ($fallbackLineRates | Measure-Object -Average).Average
 } else {
     $overallLineRate = 0.0
 }
 
+$overallCoveredBranches = $unlocatedBranchesCovered
+$overallTotalBranches = $unlocatedBranchesValid
 if ($overallBranchData.Count -gt 0) {
-    $overallCoveredBranches = 0
-    $overallTotalBranches = 0
     foreach ($branch in $overallBranchData.Values) {
         $overallCoveredBranches += $branch.Covered
         $overallTotalBranches += $branch.Total
     }
-    $overallBranchRate = if ($overallTotalBranches -gt 0) {
-        [double]$overallCoveredBranches / [double]$overallTotalBranches
-    } else {
-        0.0
-    }
+}
+if ($overallTotalBranches -gt 0) {
+    $overallBranchRate = [double]$overallCoveredBranches / [double]$overallTotalBranches
 } elseif ($fallbackBranchRates.Count -gt 0) {
     $overallBranchRate = ($fallbackBranchRates | Measure-Object -Average).Average
 } else {

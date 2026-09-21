@@ -1,8 +1,8 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
-$analyzer = Join-Path $repoRoot "plugins\dotnet-test\skills\find-untested-sources\scripts\Find-UntestedSources.cs"
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "../../..")).Path
+$analyzer = Join-Path $repoRoot "plugins/dotnet-test/skills/find-untested-sources/scripts/Find-UntestedSources.cs"
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ("dotnet-skills-find-untested-" + [Guid]::NewGuid().ToString("N"))
 $repositoryRoot = Join-Path $tempRoot "repo"
 $outsideSourceRoot = Join-Path $tempRoot "outside-source"
@@ -86,26 +86,26 @@ function Get-PairedTests {
 [IO.Directory]::CreateDirectory($outsideTestRoot) | Out-Null
 
 try {
-    Write-TestFile $repositoryRoot "src\App\App.csproj" @'
+    Write-TestFile $repositoryRoot "src/App/App.csproj" @'
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 </Project>
 '@
-    Write-TestFile $repositoryRoot "src\App\ExactType.cs" @'
+    Write-TestFile $repositoryRoot "src/App/ExactType.cs" @'
 namespace Visibility;
 public sealed class ExactType { }
 '@
-    Write-TestFile $repositoryRoot "src\App\ChildType.cs" @'
+    Write-TestFile $repositoryRoot "src/App/ChildType.cs" @'
 namespace Visibility.Child;
 public sealed class ChildType { }
 '@
-    Write-TestFile $repositoryRoot "src\App\EnclosingType.cs" @'
+    Write-TestFile $repositoryRoot "src/App/EnclosingType.cs" @'
 namespace Enclosing;
 public sealed class EnclosingType { }
 '@
-    Write-TestFile $repositoryRoot "tests\App.Tests\App.Tests.csproj" @'
+    Write-TestFile $repositoryRoot "tests/App.Tests/App.Tests.csproj" @'
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -113,7 +113,7 @@ public sealed class EnclosingType { }
   </PropertyGroup>
 </Project>
 '@
-    Write-TestFile $repositoryRoot "tests\App.Tests\ImportTests.cs" @'
+    Write-TestFile $repositoryRoot "tests/App.Tests/ImportTests.cs" @'
 using Visibility;
 namespace Consumer.Tests;
 public sealed class ImportTests
@@ -122,7 +122,7 @@ public sealed class ImportTests
     private ChildType? child;
 }
 '@
-    Write-TestFile $repositoryRoot "tests\App.Tests\EnclosingTests.cs" @'
+    Write-TestFile $repositoryRoot "tests/App.Tests/EnclosingTests.cs" @'
 namespace Enclosing.Tests;
 public sealed class EnclosingTests
 {
@@ -148,13 +148,14 @@ public sealed class LinkedType { }
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\src\App\App.csproj" />
+    <ProjectReference Include="../repo/src/App/App.csproj" />
   </ItemGroup>
 </Project>
 '@
 
     $sourceLinkCreated = Try-CreateDirectoryLink $sourceLink $outsideSourceRoot
     $testProjectLinkCreated = Try-CreateDirectoryLink $testProjectLink $outsideTestRoot
+    Assert-Equal "Linked test project reference resolves" $true (Test-Path (Join-Path $outsideTestRoot "../repo/src/App/App.csproj"))
 
     $stderrPath = Join-Path $tempRoot "analyzer.stderr.txt"
     Push-Location $tempRoot
