@@ -251,17 +251,17 @@
 
   function valueSentence(row) {
     const pairedN = Math.min(row.baseline ? row.baseline.n : 0, row.treatment ? row.treatment.n : 0);
-    if (!gated(pairedN)) return { text: `Insufficient signal (n=${pairedN} paired, need ≥${MIN_SAMPLES})`, cls: 'sv-insufficient' };
+    if (!gated(pairedN)) return { text: `Insufficient signal (n=${pairedN} paired, need ≥${MIN_SAMPLES})`, cls: 'sv-insufficient', status: 'insufficient' };
     // Activation contamination guard. If the skill is not confirmed to fire in
     // most expected scenarios, the treatment arm behaves like baseline and any
     // delta is diluted — so suppress the confident value claim. A null activation
     // means NO scenario declared expect_activation, so we cannot confirm the skill
     // fired at all; treat that as unverified rather than asserting value.
     if (row.activation == null) {
-      return { text: 'Insufficient signal — no expected-activation scenarios, so the skill firing is unverified', cls: 'sv-insufficient' };
+      return { text: 'Insufficient signal — no expected-activation scenarios, so the skill firing is unverified', cls: 'sv-insufficient', status: 'insufficient' };
     }
     if (row.activation < ACTIVATION_MIN) {
-      return { text: `Insufficient signal — skill fired in only ${fmtPct(row.activation)} of expected scenarios (delta is diluted)`, cls: 'sv-insufficient' };
+      return { text: `Insufficient signal — skill fired in only ${fmtPct(row.activation)} of expected scenarios (delta is diluted)`, cls: 'sv-insufficient', status: 'insufficient' };
     }
     const assessment = valueAssessment(row);
     if (!assessment.evidence) {
@@ -373,10 +373,28 @@
       `</div>`;
   }
 
-  // A (skill, executor, judge) leaf clears both the confidence and cost bars.
-  function isConfirmed(row) { return valueSentence(row).status === 'worth'; }
-
   function pctSigned(r) { return signedPct(r, 'n/a'); }
+
+  function assessmentStatus(row) {
+    return valueSentence(row).status || 'insufficient';
+  }
+
+  function rollupTag(status) {
+    switch (status) {
+      case 'worth':
+        return '<span class="positive">worth installing</span>';
+      case 'tradeoff':
+        return '<span class="sv-tradeoff">preference win + resource tradeoff</span>';
+      case 'preference-only':
+        return '<span class="sv-tradeoff">preference win; cost unavailable</span>';
+      case 'regression':
+        return '<span class="negative">not recommended</span>';
+      case 'unproven':
+        return '<span class="sv-unproven">no clear preference</span>';
+      default:
+        return '<span class="sv-insufficient">insufficient signal</span>';
+    }
+  }
 
   // Rollup for a group that resolves to a SINGLE model leaf (e.g. a skill with one
   // model, or any group once the viewer filters to one executor/judge). With one
@@ -387,22 +405,31 @@
     const timeR = reduction(row.baseline ? row.baseline.timeMs : null, row.treatment ? row.treatment.timeMs : null);
     const diluted = row.activation != null && row.activation < ACTIVATION_MIN;
     const mark = diluted ? '<span class="sv-dilute-mark" title="Skill fired in a minority of runs — delta is diluted toward baseline">≈</span>' : '';
-    const tag = isConfirmed(row)
-      ? '<span class="positive">worth installing</span>'
-      : '<span class="sv-insufficient">not yet worth installing</span>';
+    const tag = rollupTag(assessmentStatus(row));
     return `${escapeHtml(row.model)}: ${mark}${pctSigned(tokR)} tokens · ${pctSigned(timeR)} time · ${tag}`;
   }
 
-  // Rollup for a multi-model group. Avoids the ambiguous "0/m" (which reads like a
-  // failure): it states how many models show a measured value AND how many are
-  // still gathering data, so an all-insufficient group reads as "awaiting data",
-  // never as "the skill failed".
+  // Rollup for a multi-model group. Preserve each leaf's assessment category so
+  // conclusive regressions and credible preference-only results are not flattened
+  // into a misleading "not yet worth installing" bucket.
   function countRollup(rows) {
-    const conf = rows.filter(isConfirmed).length;
-    const insuff = rows.length - conf;
-    let s = `${conf} of ${rows.length} model/judge result(s) are worth installing`;
-    if (insuff > 0) s += ` · ${insuff} do not clear confidence + cost`;
-    return s;
+    const labels = [
+      ['worth', 'worth installing'],
+      ['tradeoff', 'preference win(s) + resource tradeoff'],
+      ['preference-only', 'preference win(s); cost unavailable'],
+      ['regression', 'not recommended'],
+      ['unproven', 'with no clear preference'],
+      ['insufficient', 'with insufficient signal'],
+    ];
+    const counts = new Map();
+    for (const row of rows) {
+      const status = assessmentStatus(row);
+      counts.set(status, (counts.get(status) || 0) + 1);
+    }
+    return labels
+      .filter(([status]) => counts.has(status))
+      .map(([status, label]) => `${counts.get(status)} ${label}`)
+      .join(' · ');
   }
 
   function render(container, entries) {
@@ -559,6 +586,6 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { costMultiplier, valueAssessment };
+    module.exports = { costMultiplier, valueAssessment, singleModelRollup, countRollup };
   }
 })();

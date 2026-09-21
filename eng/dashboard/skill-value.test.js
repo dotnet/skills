@@ -191,3 +191,81 @@ test('value assessment uses preference evidence and treats pass telemetry as irr
   }));
   assert.equal(underpowered.status, 'insufficient');
 });
+
+test('rollups preserve regression and preference-only leaf guidance', (t) => {
+  const previousGlobals = {
+    document: globalThis.document,
+    window: globalThis.window,
+  };
+  const hadGlobal = {
+    document: Object.hasOwn(globalThis, 'document'),
+    window: Object.hasOwn(globalThis, 'window'),
+  };
+  const modulePath = require.resolve('./skill-value.js');
+  globalThis.document = {
+    createElement: () => ({
+      set textContent(value) { this.innerHTML = String(value); },
+      innerHTML: '',
+    }),
+  };
+  globalThis.window = {};
+  delete require.cache[modulePath];
+  const { singleModelRollup, countRollup } = require(modulePath);
+
+  t.after(() => {
+    for (const name of Object.keys(previousGlobals)) {
+      if (hadGlobal[name]) globalThis[name] = previousGlobals[name];
+      else delete globalThis[name];
+    }
+    delete require.cache[modulePath];
+  });
+
+  const preference = {
+    count: 8,
+    wins: 7,
+    ties: 1,
+    losses: 0,
+    direction: 'better',
+    pValue: 0.0078125,
+    alpha: 0.05,
+    underpowered: false,
+    conclusive: true,
+    minCredibleStimuli: 5,
+    practicalPassed: true,
+  };
+  const row = (model, preferenceEvidence, baseline, treatment) => ({
+    model,
+    preference: preferenceEvidence,
+    activation: 1,
+    baseline,
+    treatment,
+  });
+  const worth = row(
+    'worth-model',
+    preference,
+    { n: 8, tokens: 100, timeMs: 1000 },
+    { n: 8, tokens: 80, timeMs: 900 },
+  );
+  const regression = row(
+    'regression-model',
+    { ...preference, wins: 0, losses: 7, direction: 'worse' },
+    { n: 8, tokens: 100, timeMs: 1000 },
+    { n: 8, tokens: 80, timeMs: 900 },
+  );
+  const preferenceOnly = row(
+    'unknown-cost-model',
+    preference,
+    { n: 8, tokens: 0, timeMs: 0 },
+    { n: 8, tokens: 0, timeMs: 0 },
+  );
+
+  assert.match(singleModelRollup(regression), /not recommended/);
+  assert.doesNotMatch(singleModelRollup(regression), /not yet/);
+  assert.match(singleModelRollup(preferenceOnly), /preference win; cost unavailable/);
+
+  const summary = countRollup([worth, regression, preferenceOnly]);
+  assert.match(summary, /1 worth installing/);
+  assert.match(summary, /1 not recommended/);
+  assert.match(summary, /1 preference win\(s\); cost unavailable/);
+  assert.doesNotMatch(summary, /do not clear|not yet/);
+});
