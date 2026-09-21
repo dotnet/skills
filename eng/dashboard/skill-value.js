@@ -456,8 +456,9 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
     const preference = p
       ? ` · preference ${p.wins}W/${p.ties}T/${p.losses}L`
       : '';
+    const method = interval.method === 'paired' ? '' : ' · legacy independent fallback';
     return `<td class="num"><span class="neutral">${row.passTotal}</span>` +
-      `<span class="sv-sub">${fmtSignedPoints(interval.low)} to ${fmtSignedPoints(interval.high)}${preference}</span></td>`;
+      `<span class="sv-sub">${fmtSignedPoints(interval.low)} to ${fmtSignedPoints(interval.high)}${method}${preference}</span></td>`;
   }
 
   function drilldown(row) {
