@@ -100,22 +100,21 @@ test('skill value table uses preference evidence for install guidance', async (t
   assert.ok(headerMatch, 'rendered table contains a header row');
   const header = headerMatch[1];
   assert.equal((header.match(/<th/g) || []).length, 7);
-  assert.match(header, /Reliability N \/ 95% CI/);
+  assert.match(header, /Reliability N \/ CI/);
   assert.match(header, /Reliability pass rate \(base→skill\)/);
-  assert.match(header, /Preference \+ cost guidance/);
+  assert.match(header, /What the results suggest/);
   assert.match(wrap.innerHTML, /colspan="7"/);
-  assert.match(container.innerHTML, /one-vote-per-eligible-stimulus/);
   assert.match(container.innerHTML, /Reliability N \/ CI/);
-  assert.match(container.innerHTML, /never produces “Worth installing” or “Not recommended.”/);
+  assert.match(container.innerHTML, /Strong install or avoid recommendations require consistent side-by-side task results/);
   assert.match(wrap.innerHTML, /\+34 pp to \+61 pp/);
   assert.match(wrap.innerHTML, /preference 8W\/0T\/0L/);
   assert.match(wrap.innerHTML, /diagnostic only/);
   assert.match(wrap.innerHTML, /Worth installing/);
-  assert.match(wrap.innerHTML, /paired comparison credibly favors the skill/);
+  assert.match(wrap.innerHTML, /side-by-side task comparisons consistently favored the skill/);
   assert.match(wrap.innerHTML, /20% fewer tokens and 20% faster/);
   const valueCell = wrap.innerHTML.match(/<td class="sv-value positive">(.*?)<\/td>/s);
   assert.ok(valueCell, 'rendered model row contains a value cell');
-  assert.doesNotMatch(valueCell[1], /pass rate|grader|reliability/i);
+  assert.doesNotMatch(valueCell[1], /pass rate|grader|reliability|provisional|95% interval/i);
 });
 
 test('value assessment uses preference evidence and treats pass telemetry as irrelevant', (t) => {
@@ -185,8 +184,9 @@ test('value assessment uses preference evidence and treats pass telemetry as irr
   assert.equal(provisionalReliabilityAssessment(legacyReliabilityRow).status, 'reliability-promising');
   const legacyDescription = valueSentence(legacyReliabilityRow);
   assert.equal(legacyDescription.status, 'reliability-promising');
-  assert.match(legacyDescription.text, /Promising provisional value signal/);
-  assert.match(legacyDescription.text, /reliability telemetry favors the skill/);
+  assert.match(legacyDescription.text, /Looks helpful/);
+  assert.match(legacyDescription.text, /completed more successfully/);
+  assert.doesNotMatch(legacyDescription.text, /provisional|95% interval|reliability telemetry/i);
   assert.doesNotMatch(legacyDescription.text, /Insufficient signal/);
 
   const legacyTradeoff = {
@@ -194,7 +194,7 @@ test('value assessment uses preference evidence and treats pass telemetry as irr
     treatment: { n: 100, tokens: 120, timeMs: 1100 },
   };
   assert.equal(provisionalReliabilityAssessment(legacyTradeoff).status, 'reliability-tradeoff');
-  assert.match(valueSentence(legacyTradeoff).text, /resource tradeoff/);
+  assert.match(valueSentence(legacyTradeoff).text, /May help, but costs more/);
 
   const uncertainReliability = {
     ...legacyReliabilityRow,
@@ -206,7 +206,7 @@ test('value assessment uses preference evidence and treats pass telemetry as irr
     treatmentOnlyPass: 12,
   };
   assert.equal(provisionalReliabilityAssessment(uncertainReliability).status, 'reliability-uncertain');
-  assert.match(valueSentence(uncertainReliability).text, /Uncertain provisional value signal/);
+  assert.match(valueSentence(uncertainReliability).text, /No clear result yet/);
 
   const expensive = valueAssessment(row(120, 1100));
   assert.equal(expensive.status, 'tradeoff');
@@ -352,11 +352,11 @@ test('rollups preserve regression and preference-only leaf guidance', (t) => {
 
   assert.match(singleModelRollup(regression), /not recommended/);
   assert.doesNotMatch(singleModelRollup(regression), /not yet/);
-  assert.match(singleModelRollup(preferenceOnly), /preference win; cost unavailable/);
+  assert.match(singleModelRollup(preferenceOnly), /looks helpful; cost unavailable/);
 
   const summary = countRollup([worth, regression, preferenceOnly]);
   assert.match(summary, /1 worth installing/);
   assert.match(summary, /1 not recommended/);
-  assert.match(summary, /1 preference win\(s\); cost unavailable/);
+  assert.match(summary, /1 look helpful; cost unavailable/);
   assert.doesNotMatch(summary, /do not clear|not yet/);
 });

@@ -340,54 +340,44 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
     if (!assessment.evidence) {
       const provisional = provisionalReliabilityAssessment(row);
       if (provisional) {
-        const interval = `${fmtSignedPoints(provisional.evidence.low)} to ${fmtSignedPoints(provisional.evidence.high)}`;
-        const diagnosticOnly = 'Preference guidance is unavailable; this is a provisional reliability diagnostic, not an install recommendation.';
+        const moreData = 'More evaluation data is needed before making an install recommendation.';
         if (provisional.status === 'reliability-promising') {
           return {
-            text: `<b>Promising provisional value signal</b> — reliability telemetry favors the skill ` +
-              `(95% interval ${interval}) and measured time/tokens do not regress. ${diagnosticOnly}`,
+            text: `<b>Looks helpful</b> — runs with the skill completed more successfully without using more time or tokens. ${moreData}`,
             cls: 'sv-value positive',
             status: provisional.status,
           };
         }
         if (provisional.status === 'reliability-tradeoff') {
           return {
-            text: `<b>Provisional reliability gain with a resource tradeoff</b> — reliability telemetry favors the skill ` +
-              `(95% interval ${interval}), but compared with no skill it uses ${describeCost(provisional.cost)}. ${diagnosticOnly}`,
+            text: `<b>May help, but costs more</b> — runs with the skill completed more successfully, ` +
+              `but compared with no skill it uses ${describeCost(provisional.cost)}. ${moreData}`,
             cls: 'sv-value sv-tradeoff',
             status: provisional.status,
           };
         }
         if (provisional.status === 'reliability-positive-no-cost') {
           return {
-            text: `<b>Provisional reliability gain</b> — reliability telemetry favors the skill ` +
-              `(95% interval ${interval}), but cost information is unavailable. ${diagnosticOnly}`,
+            text: `<b>May help</b> — runs with the skill completed more successfully, but cost information is unavailable. ${moreData}`,
             cls: 'sv-value sv-tradeoff',
             status: provisional.status,
           };
         }
         if (provisional.status === 'reliability-negative') {
           return {
-            text: `<b>Provisional negative reliability signal</b> — reliability telemetry favors baseline ` +
-              `(95% interval ${interval}). ${diagnosticOnly}`,
+            text: `<b>May hurt results</b> — runs without the skill completed more successfully. ${moreData}`,
             cls: 'sv-value negative',
             status: provisional.status,
           };
         }
-        const lean = provisional.evidence.estimate > 0
-          ? 'leans toward the skill'
-          : provisional.evidence.estimate < 0
-            ? 'leans toward baseline'
-            : 'is neutral';
         return {
-          text: `<b>Uncertain provisional value signal</b> — the reliability point estimate ${lean}, ` +
-            `but its 95% interval (${interval}) crosses no difference. ${diagnosticOnly}`,
+          text: `<b>No clear result yet</b> — the runs do not show a dependable difference between using the skill and not using it. ${moreData}`,
           cls: 'sv-value sv-unproven',
           status: provisional.status,
         };
       }
       return {
-        text: 'Insufficient signal — no preference-eligible W/T/L evidence is available. Pass rate is shown only as a reliability diagnostic.',
+        text: 'Not enough data yet — no usable side-by-side comparison or completion-rate result is available.',
         cls: 'sv-insufficient',
         status: assessment.status,
       };
@@ -396,43 +386,43 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
       const p = row.preference;
       const minimum = p.minCredibleStimuli || MIN_SAMPLES;
       const detail = p.underpowered
-        ? `${p.count} preference-eligible stimulus vote(s), need at least ${minimum}`
-        : 'the preference comparison was inconclusive';
-      return { text: `Insufficient signal — ${detail}.`, cls: 'sv-insufficient', status: assessment.status };
+        ? `only ${p.count} distinct task(s) were compared; at least ${minimum} are needed`
+        : 'the side-by-side task results were incomplete';
+      return { text: `Not enough data yet — ${detail}.`, cls: 'sv-insufficient', status: assessment.status };
     }
 
     const costText = describeCost(assessment.cost);
 
     if (assessment.status === 'worth') {
       return {
-        text: `<b>Worth installing</b> — the preference-eligible paired comparison credibly favors the skill, with no measured token/time regression. Compared with no skill: ${costText}.`,
+        text: `<b>Worth installing</b> — side-by-side task comparisons consistently favored the skill, and it did not use more time or tokens. Compared with no skill: ${costText}.`,
         cls: 'sv-value positive',
         status: assessment.status,
       };
     }
     if (assessment.status === 'tradeoff') {
       return {
-        text: `<b>Preference win with a resource tradeoff</b> — the paired comparison credibly favors the skill, but it uses more time or tokens. Compared with no skill: ${costText}.`,
+        text: `<b>Helpful, but costs more</b> — side-by-side task comparisons consistently favored the skill, but it uses more time or tokens. Compared with no skill: ${costText}.`,
         cls: 'sv-value sv-tradeoff',
         status: assessment.status,
       };
     }
     if (assessment.status === 'preference-only') {
       return {
-        text: '<b>Preference favors the skill</b> — the paired result is credible, but cost information is unavailable.',
+        text: '<b>Looks helpful</b> — side-by-side task comparisons consistently favored the skill, but cost information is unavailable.',
         cls: 'sv-value sv-tradeoff',
         status: assessment.status,
       };
     }
     if (assessment.status === 'regression') {
       return {
-        text: `<b>Not recommended</b> — the preference-eligible paired comparison credibly favors baseline. Compared with no skill: ${costText}.`,
+        text: `<b>Not recommended</b> — side-by-side task comparisons consistently favored not using the skill. Compared with no skill: ${costText}.`,
         cls: 'sv-value negative',
         status: assessment.status,
       };
     }
     return {
-      text: `<b>No clear preference yet</b> — the authoritative W/T/L result does not establish a credible improvement or regression. Compared with no skill: ${costText}.`,
+      text: `<b>No clear result yet</b> — side-by-side task comparisons were mixed. Compared with no skill: ${costText}.`,
       cls: 'sv-value sv-unproven',
       status: assessment.status,
     };
@@ -488,8 +478,8 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
     notes += '</div>';
     const assessment = valueAssessment(row);
     if (assessment.evidence) {
-      notes += '<div class="sv-sub">Recommendation basis: the latest run’s authoritative preference-eligible stimulus W/T/L sign test. ' +
-        'Repeated reliability trials and aggregate pass rates do not vote in the recommendation. Cost determines only whether a credible preference win has a measured resource tradeoff.</div>';
+      notes += '<div class="sv-sub">How this guidance is chosen: the latest side-by-side task comparison determines the result. ' +
+        'Completion rates provide supporting context, and time/tokens show whether the skill costs more to use.</div>';
     }
     return `<div class="sv-drill">` +
       `<div class="sv-sub" style="margin-bottom:6px;">${escapeHtml(row.plugin)} · executor <b>${escapeHtml(row.model)}</b> · judge <b>${escapeHtml(row.judge)}</b> · ${row.runCount} run(s) in window</div>` +
@@ -509,23 +499,23 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
       case 'worth':
         return '<span class="positive">worth installing</span>';
       case 'tradeoff':
-        return '<span class="sv-tradeoff">preference win + resource tradeoff</span>';
+        return '<span class="sv-tradeoff">helpful, but costs more</span>';
       case 'preference-only':
-        return '<span class="sv-tradeoff">preference win; cost unavailable</span>';
+        return '<span class="sv-tradeoff">looks helpful; cost unavailable</span>';
       case 'regression':
         return '<span class="negative">not recommended</span>';
       case 'unproven':
-        return '<span class="sv-unproven">no clear preference</span>';
+        return '<span class="sv-unproven">no clear result</span>';
       case 'reliability-promising':
-        return '<span class="positive">provisional reliability + cost signal</span>';
+        return '<span class="positive">looks helpful; more data needed</span>';
       case 'reliability-tradeoff':
-        return '<span class="sv-tradeoff">provisional reliability gain + cost tradeoff</span>';
+        return '<span class="sv-tradeoff">may help, but costs more</span>';
       case 'reliability-positive-no-cost':
-        return '<span class="sv-tradeoff">provisional reliability gain; cost unavailable</span>';
+        return '<span class="sv-tradeoff">may help; cost unavailable</span>';
       case 'reliability-negative':
-        return '<span class="negative">provisional negative reliability signal</span>';
+        return '<span class="negative">may hurt results</span>';
       case 'reliability-uncertain':
-        return '<span class="sv-unproven">uncertain provisional value signal</span>';
+        return '<span class="sv-unproven">no clear result yet</span>';
       default:
         return '<span class="sv-insufficient">insufficient signal</span>';
     }
@@ -550,15 +540,15 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
   function countRollup(rows) {
     const labels = [
       ['worth', 'worth installing'],
-      ['tradeoff', 'preference win(s) + resource tradeoff'],
-      ['preference-only', 'preference win(s); cost unavailable'],
+      ['tradeoff', 'helpful but cost more'],
+      ['preference-only', 'look helpful; cost unavailable'],
       ['regression', 'not recommended'],
-      ['unproven', 'with no clear preference'],
-      ['reliability-promising', 'with provisional reliability + cost signal'],
-      ['reliability-tradeoff', 'with provisional reliability gain + cost tradeoff'],
-      ['reliability-positive-no-cost', 'with provisional reliability gain; cost unavailable'],
-      ['reliability-negative', 'with provisional negative reliability signal'],
-      ['reliability-uncertain', 'with uncertain provisional value signal'],
+      ['unproven', 'with no clear result'],
+      ['reliability-promising', 'that look helpful; more data needed'],
+      ['reliability-tradeoff', 'that may help but cost more'],
+      ['reliability-positive-no-cost', 'that may help; cost unavailable'],
+      ['reliability-negative', 'that may hurt results'],
+      ['reliability-uncertain', 'with no clear result yet'],
       ['insufficient', 'with insufficient signal'],
     ];
     const counts = new Map();
@@ -583,7 +573,7 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
       `<label>Judge model <select id="sv-judge"><option value="">All</option>${judges.map(m => `<option>${escapeHtml(m)}</option>`).join('')}</select></label>` +
       `<button type="button" id="sv-expand" class="sv-btn">Expand all</button>` +
       `<button type="button" id="sv-collapse" class="sv-btn">Collapse all</button>` +
-      `<span class="sv-sub">Grouped Plugin → Skill → Model. Costs and reliability use a trailing window of ${TRAILING_RUNS} runs. Reliability N / CI shows counted paired pass trials and the 95% interval for skill-minus-baseline pass-rate difference. When preference evidence is unavailable, reliability CI + cost provides explicitly provisional guidance; it may include judge-scored graders and never produces “Worth installing” or “Not recommended.” Preference W/T/L, when available, is the latest run’s authoritative one-vote-per-eligible-stimulus result. Tokens = input+output. ≈ marks a diluted (low-activation) delta. Models are never blended.</span>` +
+      `<span class="sv-sub">Grouped Plugin → Skill → Model. Costs and reliability use a trailing window of ${TRAILING_RUNS} runs. Reliability N / CI shows the number of runs and the likely range of the pass-rate difference. When side-by-side comparison results are unavailable, the last column gives cautious guidance from completion rate and cost, and says when more data is needed. Strong install or avoid recommendations require consistent side-by-side task results. Tokens = input+output. ≈ marks a diluted (low-activation) delta. Models are never blended.</span>` +
       `</div>` +
       `<div id="sv-table-wrap"></div>`;
 
@@ -672,7 +662,7 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
 
       let html = `<table class="token-table sv-table"><thead><tr>` +
         `<th>Plugin / Skill / Model</th><th class="num">Activation</th><th class="num">Tokens Δ</th>` +
-        `<th class="num">Time Δ</th><th class="num" title="Counted reliability trials and the 95% interval for skilled-minus-baseline pass-rate difference. Diagnostic only.">Reliability N / 95% CI</th><th class="num" title="Aggregate trial pass telemetry for reliability diagnosis only; may include judge-scored graders and never determines the recommendation.">Reliability pass rate (base→skill)</th><th>Preference + cost guidance</th></tr></thead><tbody>`;
+        `<th class="num">Time Δ</th><th class="num" title="Number of counted runs and the likely range of the pass-rate difference between using and not using the skill.">Reliability N / CI</th><th class="num" title="How often runs completed successfully without and with the skill.">Reliability pass rate (base→skill)</th><th>What the results suggest</th></tr></thead><tbody>`;
 
       let uid = 0;
       for (const plugin of [...byPlugin.keys()].sort()) {
