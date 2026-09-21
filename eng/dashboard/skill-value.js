@@ -105,8 +105,12 @@
 
   function costMultiplier(row) {
     if (!row.baseline || !row.treatment) return null;
-    const tokenRatio = row.baseline.tokens > 0 ? row.treatment.tokens / row.baseline.tokens : null;
-    const timeRatio = row.baseline.timeMs > 0 ? row.treatment.timeMs / row.baseline.timeMs : null;
+    if (row.baseline.tokens <= 0 || row.treatment.tokens <= 0
+        || row.baseline.timeMs <= 0 || row.treatment.timeMs <= 0) {
+      return null;
+    }
+    const tokenRatio = row.treatment.tokens / row.baseline.tokens;
+    const timeRatio = row.treatment.timeMs / row.baseline.timeMs;
     if (tokenRatio == null || timeRatio == null || !Number.isFinite(tokenRatio) || !Number.isFinite(timeRatio)) return null;
     return { tokenRatio, timeRatio, worst: Math.max(tokenRatio, timeRatio) };
   }
@@ -309,7 +313,10 @@
   }
 
   function deltaCell(base, treat, unitFmt, diluted) {
-    if (base == null || treat == null) return '<td class="num">–</td>';
+    if (base == null || treat == null || base <= 0 || treat <= 0) {
+      return '<td class="num"><span class="sv-insufficient">N/A</span>' +
+        '<span class="sv-sub">telemetry unavailable</span></td>';
+    }
     const r = reduction(base, treat);
     const abs = treat - base;
     const cls = r == null ? 'neutral' : (r > 0 ? 'positive' : (r < 0 ? 'negative' : 'neutral'));
@@ -742,6 +749,7 @@
       pairedDifferenceInterval,
       reliabilityEvidence,
       metricCell,
+      deltaCell,
       costMultiplier,
       valueAssessment,
       provisionalReliabilityAssessment,

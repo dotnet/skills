@@ -124,6 +124,8 @@ test('value assessment uses preference evidence and treats pass telemetry as irr
   globalThis.window = {};
   delete require.cache[modulePath];
   const {
+    costMultiplier,
+    deltaCell,
     metricCell,
     provisionalReliabilityAssessment,
     reliabilityEvidence,
@@ -165,6 +167,14 @@ test('value assessment uses preference evidence and treats pass telemetry as irr
 
   const worth = valueAssessment(row(80, 900));
   assert.equal(worth.status, 'worth');
+
+  const fallbackZeroMetrics = row(0, 0);
+  assert.equal(costMultiplier(fallbackZeroMetrics), null);
+  assert.equal(valueAssessment(fallbackZeroMetrics).status, 'preference-only');
+  assert.match(valueSentence(fallbackZeroMetrics).text, /cost information is unavailable/);
+  assert.doesNotMatch(valueSentence(fallbackZeroMetrics).text, /Worth installing|100% fewer/);
+  assert.match(deltaCell(100, 0, String, false), /telemetry unavailable/);
+  assert.doesNotMatch(deltaCell(100, 0, String, false), /100%/);
 
   const activationFailure = {
     ...row(80, 900),

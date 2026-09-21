@@ -789,13 +789,23 @@ foreach ($verdict in $results.verdicts) {
 
         if ($scenario.timedOut -eq $true) { $anyTimedOut = $true }
 
-        # Probe both arms' metrics. Adapter already fills absent token fields with
-        # 0, so a non-null metrics block with a numeric wallTimeMs is fully numeric.
+        # Probe both arms' metrics. The adapters normalize missing wall-time/token
+        # telemetry to 0, so zero is an availability sentinel here, not measured
+        # free execution. Require both core cost metrics to be positive before a
+        # scenario can contribute to cost means or paired metric counts.
         $skilled = if ($scenario.PSObject.Properties['skilledIsolated']) { $scenario.skilledIsolated } else { $scenario.withSkill }
         $tm = $skilled.metrics
         $bm = $scenario.baseline.metrics
-        $treatHas = ($null -ne $tm -and $null -ne $tm.wallTimeMs)
-        $baseHas  = ($null -ne $bm -and $null -ne $bm.wallTimeMs)
+        $treatHas = (
+            $null -ne $tm -and
+            [double]$tm.wallTimeMs -gt 0 -and
+            [double]$tm.tokenEstimate -gt 0
+        )
+        $baseHas = (
+            $null -ne $bm -and
+            [double]$bm.wallTimeMs -gt 0 -and
+            [double]$bm.tokenEstimate -gt 0
+        )
         if ($treatHas) { $treatAvail++ }
         if ($baseHas)  { $baseAvail++ }
 
