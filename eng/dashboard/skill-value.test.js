@@ -192,6 +192,50 @@ test('value assessment uses preference evidence and treats pass telemetry as irr
   assert.equal(underpowered.status, 'insufficient');
 });
 
+test('aggregation preserves a null preference from the newest run', (t) => {
+  const previousWindow = globalThis.window;
+  const hadWindow = Object.hasOwn(globalThis, 'window');
+  const modulePath = require.resolve('./skill-value.js');
+  globalThis.window = {};
+  delete require.cache[modulePath];
+  const { aggregate, valueAssessment } = require(modulePath);
+
+  t.after(() => {
+    if (hadWindow) globalThis.window = previousWindow;
+    else delete globalThis.window;
+    delete require.cache[modulePath];
+  });
+
+  const skill = (preference) => ({
+    skill: 'skill',
+    baseline: { n: 5, timeMs: 1000, tokens: 100 },
+    treatment: { n: 5, timeMs: 900, tokens: 90 },
+    activationExpected: 5,
+    activationFired: 5,
+    preference,
+  });
+  const crediblePreference = {
+    count: 8,
+    wins: 8,
+    ties: 0,
+    losses: 0,
+    direction: 'better',
+    pValue: 0.00390625,
+    alpha: 0.05,
+    underpowered: false,
+    conclusive: true,
+    practicalPassed: true,
+  };
+  const rows = aggregate([
+    { plugin: 'plugin', model: 'model', judgeModel: 'judge', date: 1, skills: [skill(crediblePreference)] },
+    { plugin: 'plugin', model: 'model', judgeModel: 'judge', date: 2, skills: [skill(null)] },
+  ]);
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].preference, null);
+  assert.equal(valueAssessment(rows[0]).status, 'insufficient');
+});
+
 test('rollups preserve regression and preference-only leaf guidance', (t) => {
   const previousGlobals = {
     document: globalThis.document,

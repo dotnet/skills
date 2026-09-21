@@ -175,7 +175,10 @@
       let passTotal = 0, baseFail = 0, treatFail = 0;
       let bothPass = 0, bothFail = 0, baselineOnlyPass = 0, treatmentOnlyPass = 0;
       let hasPass = false;
-      let preference = null;
+      // Recommendation evidence is strictly the newest run's value, including
+      // null. Falling through to an older non-null result would let a legacy or
+      // incomplete latest run retain a stale "worth installing" assessment.
+      const preference = runs.length > 0 ? (runs[0].s.preference ?? null) : null;
       let timedOutRuns = 0, baseAvail = 0, treatAvail = 0;
       for (const { s } of runs) {
         addArm(base, s.baseline);
@@ -190,10 +193,6 @@
         baselineOnlyPass += s.baselineOnlyPass || 0;
         treatmentOnlyPass += s.treatmentOnlyPass || 0;
         if (s.hasPassData) hasPass = true;
-        // Each run already collapses repeated trials to one vote per distinct,
-        // preference-eligible stimulus. Use the newest run's verdict rather than
-        // summing runs, which would count the same eval stimuli repeatedly.
-        if (!preference && s.preference) preference = s.preference;
         if (s.timedOut) timedOutRuns += 1;
         baseAvail += s.baseAvailable || 0;
         treatAvail += s.treatAvailable || 0;
@@ -586,6 +585,6 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { costMultiplier, valueAssessment, singleModelRollup, countRollup };
+    module.exports = { aggregate, costMultiplier, valueAssessment, singleModelRollup, countRollup };
   }
 })();
