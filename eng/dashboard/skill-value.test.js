@@ -124,7 +124,7 @@ test('value assessment uses preference evidence and treats pass telemetry as irr
   const modulePath = require.resolve('./skill-value.js');
   globalThis.window = {};
   delete require.cache[modulePath];
-  const { metricCell, reliabilityEvidence, valueAssessment } = require(modulePath);
+  const { metricCell, reliabilityEvidence, valueAssessment, valueSentence } = require(modulePath);
 
   t.after(() => {
     if (hadWindow) globalThis.window = previousWindow;
@@ -152,8 +152,9 @@ test('value assessment uses preference evidence and treats pass telemetry as irr
     baseFail: 0,
     treatFail: 100,
     hasPass: true,
-    baseline: { tokens: 100, timeMs: 1000 },
-    treatment: { tokens, timeMs },
+    baseline: { n: 100, tokens: 100, timeMs: 1000 },
+    treatment: { n: 100, tokens, timeMs },
+    activation: 1,
   });
 
   const worth = valueAssessment(row(80, 900));
@@ -175,6 +176,11 @@ test('value assessment uses preference evidence and treats pass telemetry as irr
   assert.ok(interval.low > 0.34 && interval.low < 0.35);
   assert.match(metricCell(legacyReliabilityRow), /\+34 pp to \+61 pp/);
   assert.doesNotMatch(metricCell(legacyReliabilityRow), /preference unavailable|N\/A/);
+  const legacyDescription = valueSentence(legacyReliabilityRow);
+  assert.equal(legacyDescription.status, 'reliability-only');
+  assert.match(legacyDescription.text, /Preference guidance unavailable/);
+  assert.match(legacyDescription.text, /reliability telemetry favors the skill/);
+  assert.doesNotMatch(legacyDescription.text, /Insufficient signal/);
 
   const expensive = valueAssessment(row(120, 1100));
   assert.equal(expensive.status, 'tradeoff');

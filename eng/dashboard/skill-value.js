@@ -319,6 +319,21 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
     }
     const assessment = valueAssessment(row);
     if (!assessment.evidence) {
+      const reliability = reliabilityEvidence(row);
+      if (reliability) {
+        const direction = reliability.low > 0
+          ? 'favors the skill'
+          : reliability.high < 0
+            ? 'favors baseline'
+            : 'does not show a clear difference';
+        return {
+          text: `<b>Preference guidance unavailable</b> — reliability telemetry ${direction} ` +
+            `(95% interval ${fmtSignedPoints(reliability.low)} to ${fmtSignedPoints(reliability.high)}), ` +
+            'but this diagnostic does not determine install value.',
+          cls: 'sv-value sv-unproven',
+          status: 'reliability-only',
+        };
+      }
       return {
         text: 'Insufficient signal — no preference-eligible W/T/L evidence is available. Pass rate is shown only as a reliability diagnostic.',
         cls: 'sv-insufficient',
@@ -449,6 +464,8 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
         return '<span class="negative">not recommended</span>';
       case 'unproven':
         return '<span class="sv-unproven">no clear preference</span>';
+      case 'reliability-only':
+        return '<span class="sv-unproven">reliability only; preference unavailable</span>';
       default:
         return '<span class="sv-insufficient">insufficient signal</span>';
     }
@@ -477,6 +494,7 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
       ['preference-only', 'preference win(s); cost unavailable'],
       ['regression', 'not recommended'],
       ['unproven', 'with no clear preference'],
+      ['reliability-only', 'with reliability only; preference unavailable'],
       ['insufficient', 'with insufficient signal'],
     ];
     const counts = new Map();
@@ -652,6 +670,7 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
       metricCell,
       costMultiplier,
       valueAssessment,
+      valueSentence,
       singleModelRollup,
       countRollup,
     };
