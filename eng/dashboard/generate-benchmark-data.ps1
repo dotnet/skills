@@ -731,6 +731,7 @@ foreach ($verdict in $results.verdicts) {
     # NOTE: per adapt.mjs these per-arm pass booleans may include LLM-grader
     # results, so they are pass TELEMETRY, not an objective/deterministic gate.
     $passTotal = 0; $baselineFail = 0; $treatmentFail = 0
+    $bothPass = 0; $bothFail = 0; $baselineOnlyPass = 0; $treatmentOnlyPass = 0
 
     foreach ($scenario in $verdict.scenarios) {
         # Activation is only meaningful where the scenario expects the skill to
@@ -795,6 +796,15 @@ foreach ($verdict in $results.verdicts) {
                 $passTotal++
                 if (-not $bp) { $baselineFail++ }
                 if (-not $tp) { $treatmentFail++ }
+                if ($bp -and $tp) {
+                    $bothPass++
+                } elseif ($bp) {
+                    $baselineOnlyPass++
+                } elseif ($tp) {
+                    $treatmentOnlyPass++
+                } else {
+                    $bothFail++
+                }
             }
         }
     }
@@ -828,6 +838,10 @@ foreach ($verdict in $results.verdicts) {
         passTotal        = $passTotal
         baselineFail     = $baselineFail
         treatmentFail    = $treatmentFail
+        bothPass          = $bothPass
+        bothFail          = $bothFail
+        baselineOnlyPass  = $baselineOnlyPass
+        treatmentOnlyPass = $treatmentOnlyPass
         hasPassData      = ($passTotal -gt 0)
     })
 }
