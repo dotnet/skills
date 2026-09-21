@@ -3,332 +3,6 @@
   "entries": {
     "Quality": [
       {
-        "benches": [
-          {
-            "value": 9.736842155456543,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Create team install scripts - Skilled Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22
-          },
-          {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Create team install scripts - Plugin Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22
-          },
-          {
-            "value": 7.763157844543457,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Create team install scripts - Vanilla Quality"
-          },
-          {
-            "value": 7.916666507720947,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22
-          },
-          {
-            "value": 8.333333015441895,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22
-          },
-          {
-            "value": 5.0,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Quality"
-          },
-          {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22
-          },
-          {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22
-          },
-          {
-            "value": 5.0,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Quality"
-          }
-        ],
-        "commit": {
-          "message": "Improve non-passing dotnet-test scenarios (#1114)",
-          "id": "ac8f41264bdd557e58924a3110eea8e0917dcf4d",
-          "timestamp": "2026-09-04T10:21:25+00:00",
-          "author": {
-            "username": "AbhitejJohn",
-            "name": "Amaury Levé"
-          },
-          "url": "https://github.com/dotnet/skills/commit/ac8f41264bdd557e58924a3110eea8e0917dcf4d"
-        },
-        "date": 1788790038334,
-        "verdictEvidence": [
-          {
-            "skillName": "setup-local-sdk",
-            "skillKind": "invocable",
-            "state": "INVALID_INCONCLUSIVE",
-            "stateReason": {
-              "code": "underpowered",
-              "phase": "eval_design"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +100.0% (3W/0T/0L over 3 preference-eligible stimulus vote(s), sign test p=0.125), mean preference +80.0% across 3 paired run(s) — underpowered (3 preference-eligible stimulus vote(s); a credible verdict needs at least 5, and this eval won every one of them) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
-            "gateEvidence": {
-              "stimulusVoteCount": 3,
-              "wins": 3,
-              "ties": 0,
-              "losses": 0,
-              "discordant": 3,
-              "direction": "better",
-              "pValue": 0.12500000000000003,
-              "alpha": 0.05,
-              "netWin": 1,
-              "minimumNetWin": 0.2,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": true,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "Explicit dormancy expectations are evaluated independently of preference",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": true,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Create team install scripts",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Detect incompatible .NET host version",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Plan a project-local .NET 11 preview setup without downloading",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Create team install scripts",
-                "direction": "better",
-                "rationale": "B directly implements the key repo-level SDK discovery and missing-SDK messaging requirements, so cloning plus running an installer yields a local SDK usable without PATH changes. A is stronger on retaining the exact existing version in its installer, but its local SDK is not automatically discoverable and its missing-SDK instruction is only documentation rather than resolver configuration."
-              },
-              {
-                "scenarioName": "Detect incompatible .NET host version",
-                "direction": "better",
-                "rationale": "B correctly identifies and handles the decisive .NET 10+ host prerequisite, while A's central claim that .NET 9.0.306 supports sdk.paths is incorrect and would lead the user to a nonworking setup."
-              },
-              {
-                "scenarioName": "Plan a project-local .NET 11 preview setup without downloading",
-                "direction": "better",
-                "rationale": "B satisfies every requested setup element with a genuinely project-local SDK, preferred local resolution plus host fallback, git exclusion, and cleanup. A outlines a workable session-scoped alternative but omits key requested configuration details, ignores source control and cleanup, and gives an inexact `global.json` version."
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/ac8f41264bdd557e58924a3110eea8e0917dcf4d/plugins/dotnet/skills/setup-local-sdk/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/ac8f41264bdd557e58924a3110eea8e0917dcf4d/tests/dotnet/setup-local-sdk/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/ac8f41264bdd557e58924a3110eea8e0917dcf4d"
-              }
-            ]
-          }
-        ],
-        "model": "claude-sonnet-4.6",
-        "tool": "customBiggerIsBetter"
-      },
-      {
-        "benches": [
-          {
-            "value": 9.473684310913086,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Create team install scripts - Skilled Quality"
-          },
-          {
-            "value": 9.3421049118042,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Create team install scripts - Plugin Quality"
-          },
-          {
-            "value": 7.3684210777282715,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Create team install scripts - Vanilla Quality"
-          },
-          {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Quality"
-          },
-          {
-            "value": 8.333333015441895,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Quality"
-          },
-          {
-            "value": 7.5,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Quality"
-          },
-          {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Quality"
-          },
-          {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Quality"
-          },
-          {
-            "value": 6.785714149475098,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Quality"
-          }
-        ],
-        "commit": {
-          "message": "Improve non-passing dotnet-test scenarios (#1114)",
-          "id": "ac8f41264bdd557e58924a3110eea8e0917dcf4d",
-          "timestamp": "2026-09-04T10:21:25+00:00",
-          "author": {
-            "username": "AbhitejJohn",
-            "name": "Amaury Levé"
-          },
-          "url": "https://github.com/dotnet/skills/commit/ac8f41264bdd557e58924a3110eea8e0917dcf4d"
-        },
-        "date": 1788790038435,
-        "verdictEvidence": [
-          {
-            "skillName": "setup-local-sdk",
-            "skillKind": "invocable",
-            "state": "INVALID_INCONCLUSIVE",
-            "stateReason": {
-              "code": "underpowered",
-              "phase": "eval_design"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +100.0% (3W/0T/0L over 3 preference-eligible stimulus vote(s), sign test p=0.125), mean preference +60.0% across 3 paired run(s) — underpowered (3 preference-eligible stimulus vote(s); a credible verdict needs at least 5, and this eval won every one of them) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
-            "gateEvidence": {
-              "stimulusVoteCount": 3,
-              "wins": 3,
-              "ties": 0,
-              "losses": 0,
-              "discordant": 3,
-              "direction": "better",
-              "pValue": 0.12500000000000003,
-              "alpha": 0.05,
-              "netWin": 1,
-              "minimumNetWin": 0.2,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": true,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "Explicit dormancy expectations are evaluated independently of preference",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": true,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Create team install scripts",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Detect incompatible .NET host version",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Plan a project-local .NET 11 preview setup without downloading",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Create team install scripts",
-                "direction": "better",
-                "rationale": "Both agents completed the task with cross-platform install scripts, .gitignore entries, preserved global.json sections, and no SDK download. B leveraged the .NET 10+ global.json 'paths' + 'errorMessage' feature, which is the idiomatic, robust way to make project-local SDK resolution transparent without PATH changes and to surface a missing-SDK message on any dotnet invocation. A's wrapper-script approach works but requires teammates to use the wrapper, and its missing-SDK message only appears through the wrapper. Both had error recovery from apply_patch failures. B is slightly better due to the more standard and seamless mechanism, though A provided extra wrapper convenience and kept global.json byte-identical."
-              },
-              {
-                "scenarioName": "Detect incompatible .NET host version",
-                "direction": "better",
-                "rationale": "Both correctly detect the version shortfall and explain the .NET 10+ requirement. The decisive difference is criterion 3: B correctly instructs installing a .NET 10+ SDK system-wide first, while A incorrectly implies that installing the .NET 11 preview locally satisfies the host requirement, which contradicts how the paths feature works. This makes B more accurate and actionable overall, though A is more thorough in formatting and includes verification steps."
-              },
-              {
-                "scenarioName": "Plan a project-local .NET 11 preview setup without downloading",
-                "direction": "better",
-                "rationale": "Both correctly present a project-local SDK setup without running anything and both gitignore the directory. However, B directly satisfies two key rubric points that A misses: it uses the global.json 'paths' feature ([\\\".dotnet\\\", \\\"$host$\\\"]) to prefer the local SDK with host fallback (A instead relies on shell env vars, which doesn't match the resolution requirement), and it explains cleanup. B is meaningfully better aligned with the rubric."
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/ac8f41264bdd557e58924a3110eea8e0917dcf4d/plugins/dotnet/skills/setup-local-sdk/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/ac8f41264bdd557e58924a3110eea8e0917dcf4d/tests/dotnet/setup-local-sdk/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/ac8f41264bdd557e58924a3110eea8e0917dcf4d"
-              }
-            ]
-          }
-        ],
-        "model": "gpt-5.6-luna",
-        "tool": "customBiggerIsBetter"
-      },
-      {
         "tool": "customBiggerIsBetter",
         "benches": [
           {
@@ -13114,247 +12788,1952 @@
         },
         "date": 1789927376333,
         "tool": "customBiggerIsBetter"
-      }
-    ],
-    "Efficiency": [
+      },
       {
-        "commit": {
-          "message": "Improve non-passing dotnet-test scenarios (#1114)",
-          "id": "ac8f41264bdd557e58924a3110eea8e0917dcf4d",
-          "timestamp": "2026-09-04T10:21:25+00:00",
-          "author": {
-            "username": "AbhitejJohn",
-            "name": "Amaury Levé"
-          },
-          "url": "https://github.com/dotnet/skills/commit/ac8f41264bdd557e58924a3110eea8e0917dcf4d"
-        },
-        "tool": "customSmallerIsBetter",
+        "date": 1790002178850,
+        "tool": "customBiggerIsBetter",
         "benches": [
           {
-            "value": 47.7,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Create team install scripts - Skilled Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Consolidate duplicate public helpers without breaking shipped callers - Skilled Quality",
+            "notActivated": true,
+            "value": 8.0,
+            "overfittingScore": 0.52
           },
           {
-            "value": 154501.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Create team install scripts - Skilled Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22
+            "value": 8.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Consolidate duplicate public helpers without breaking shipped callers - Plugin Quality"
           },
           {
-            "value": 38.0,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Create team install scripts - Plugin Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Consolidate duplicate public helpers without breaking shipped callers - Vanilla Quality"
           },
           {
-            "value": 152453.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Create team install scripts - Plugin Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22
+            "value": 3.3333332538604736,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Decline a framework and package upgrade dressed up as a refactor - Skilled Quality"
           },
           {
-            "value": 50.6,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Create team install scripts - Vanilla Time"
+            "value": 3.3333332538604736,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Decline a framework and package upgrade dressed up as a refactor - Plugin Quality"
           },
           {
-            "value": 170456.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Create team install scripts - Vanilla Tokens In"
+            "value": 8.333333015441895,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Decline a framework and package upgrade dressed up as a refactor - Vanilla Quality"
           },
           {
-            "value": 9.6,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22
+            "value": 10.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Decline a new-feature request dressed up as a refactor - Skilled Quality"
           },
           {
-            "value": 31603.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22
+            "value": 0.8333333134651184,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Decline a new-feature request dressed up as a refactor - Plugin Quality"
           },
           {
-            "value": 15.1,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22
+            "value": 0.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Decline a new-feature request dressed up as a refactor - Vanilla Quality"
           },
           {
-            "value": 32145.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Extract shared discount logic without collapsing distinct inputs - Skilled Quality",
+            "notActivated": true,
+            "value": 8.0,
+            "overfittingScore": 0.52
           },
           {
-            "value": 8.3,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Time"
+            "value": 8.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Extract shared discount logic without collapsing distinct inputs - Plugin Quality"
           },
           {
-            "value": 13458.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Tokens In"
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Extract shared discount logic without collapsing distinct inputs - Vanilla Quality"
           },
           {
-            "value": 10.9,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22
+            "value": 8.333333015441895,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Extract subtotal calculation without changing arithmetic - Skilled Quality"
           },
           {
-            "value": 31926.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22
+            "value": 8.333333015441895,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Extract subtotal calculation without changing arithmetic - Plugin Quality"
           },
           {
-            "value": 10.4,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Extract subtotal calculation without changing arithmetic - Vanilla Quality"
           },
           {
-            "value": 31884.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22
+            "value": 6.25,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Inline a pass-through wrapper and update callers - Skilled Quality"
+          },
+          {
+            "value": 6.875,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Inline a pass-through wrapper and update callers - Plugin Quality"
+          },
+          {
+            "value": 8.75,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Inline a pass-through wrapper and update callers - Vanilla Quality"
+          },
+          {
+            "value": 8.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Keep a shipped nullable contract out of a refactor - Skilled Quality"
+          },
+          {
+            "value": 8.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Keep a shipped nullable contract out of a refactor - Plugin Quality"
+          },
+          {
+            "value": 4.5,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Keep a shipped nullable contract out of a refactor - Vanilla Quality"
+          },
+          {
+            "value": 8.333333015441895,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Keep behavior-changing bug fixes out of a behavior-preserving refactor - Skilled Quality"
+          },
+          {
+            "value": 7.916666507720947,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Keep behavior-changing bug fixes out of a behavior-preserving refactor - Plugin Quality"
+          },
+          {
+            "value": 7.083333492279053,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Keep behavior-changing bug fixes out of a behavior-preserving refactor - Vanilla Quality"
+          },
+          {
+            "value": 8.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Merge two near-identical types into one parameterized type - Skilled Quality"
+          },
+          {
+            "value": 8.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Merge two near-identical types into one parameterized type - Plugin Quality"
+          },
+          {
+            "value": 1.5,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Merge two near-identical types into one parameterized type - Vanilla Quality"
+          },
+          {
+            "value": 8.333333015441895,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Preserve a serialized name while renaming a C# property - Skilled Quality"
+          },
+          {
+            "value": 8.333333015441895,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Preserve a serialized name while renaming a C# property - Plugin Quality"
+          },
+          {
+            "value": 6.666666507720947,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Preserve a serialized name while renaming a C# property - Vanilla Quality"
+          },
+          {
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Preserve a shipped wrapper while inlining ordinary callers - Skilled Quality",
+            "notActivated": true,
+            "value": 7.5,
+            "overfittingScore": 0.52
+          },
+          {
+            "value": 7.5,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Preserve a shipped wrapper while inlining ordinary callers - Plugin Quality"
+          },
+          {
+            "value": 7.5,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Preserve a shipped wrapper while inlining ordinary callers - Vanilla Quality"
+          },
+          {
+            "value": 8.333333015441895,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a helper used in every target-framework branch - Skilled Quality"
+          },
+          {
+            "value": 8.333333015441895,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a helper used in every target-framework branch - Plugin Quality"
+          },
+          {
+            "value": 8.333333015441895,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a helper used in every target-framework branch - Vanilla Quality"
+          },
+          {
+            "value": 8.571428298950195,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a member declared by a generated partial source - Skilled Quality"
+          },
+          {
+            "value": 8.571428298950195,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a member declared by a generated partial source - Plugin Quality"
+          },
+          {
+            "value": 8.214285850524902,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a member declared by a generated partial source - Vanilla Quality"
+          },
+          {
+            "value": 8.333333015441895,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a method without breaking a configured reflection name - Skilled Quality"
+          },
+          {
+            "value": 8.333333015441895,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a method without breaking a configured reflection name - Plugin Quality"
+          },
+          {
+            "value": 8.333333015441895,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a method without breaking a configured reflection name - Vanilla Quality"
           },
           {
             "value": 9.0,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Time"
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a shipped public method without breaking existing callers - Skilled Quality"
           },
           {
-            "value": 13590.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Tokens In"
+            "value": 9.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a shipped public method without breaking existing callers - Plugin Quality"
+          },
+          {
+            "value": 9.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a shipped public method without breaking existing callers - Vanilla Quality"
+          },
+          {
+            "value": 8.571428298950195,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename an internal member used by a friend assembly - Skilled Quality"
+          },
+          {
+            "value": 8.571428298950195,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename an internal member used by a friend assembly - Plugin Quality"
+          },
+          {
+            "value": 8.571428298950195,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename an internal member used by a friend assembly - Vanilla Quality"
+          },
+          {
+            "value": 8.571428298950195,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename one binding without touching same-text symbols - Skilled Quality"
+          },
+          {
+            "value": 8.571428298950195,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename one binding without touching same-text symbols - Plugin Quality"
+          },
+          {
+            "value": 8.214285850524902,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename one binding without touching same-text symbols - Vanilla Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Stay dormant for an ordinary feature request - Skilled Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Stay dormant for an ordinary feature request - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Stay dormant for an ordinary feature request - Vanilla Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.35,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Create team install scripts - Skilled Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.35,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Create team install scripts - Plugin Quality"
+          },
+          {
+            "value": 6.315789699554443,
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.35,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.35,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Quality"
+          },
+          {
+            "value": 7.5,
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.35,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.35,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Quality"
+          },
+          {
+            "value": 5.0,
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Quality"
           }
         ],
-        "date": 1788790038334,
-        "model": "claude-sonnet-4.6"
+        "commit": {
+          "id": "8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3",
+          "url": "https://github.com/dotnet/skills/commit/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "message": "Merge pull request #1184 from dotnet/dependabot/npm_and_yarn/eng/evaluation-tools/microsoft/vally-cli-0.16.0",
+          "timestamp": "2026-09-17T03:09:52+00:00"
+        },
+        "model": "claude-sonnet-5",
+        "verdictEvidence": [
+          {
+            "skillName": "csharp-refactoring",
+            "skillKind": "invocable",
+            "state": "VALID_PASS",
+            "stateReason": {
+              "code": "credible_preference_improvement",
+              "phase": "decision"
+            },
+            "passed": true,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +76.5% (14W/2T/1L over 17 preference-eligible stimulus vote(s), sign test p=0.000), mean preference +51.1% across 18 paired run(s), 1 dormancy stimulus/stimuli excluded from preference — credibly better",
+            "gateEvidence": {
+              "stimulusVoteCount": 17,
+              "wins": 14,
+              "ties": 2,
+              "losses": 1,
+              "discordant": 15,
+              "direction": "better",
+              "pValue": 0.0004882812500000004,
+              "alpha": 0.05,
+              "netWin": 0.7647058823529411,
+              "minimumNetWin": 0.2,
+              "excludedStimulusCount": 1
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 1,
+              "satisfied": 1,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [
+                {
+                  "scenarioName": "Stay dormant for an ordinary feature request",
+                  "expected": "dormant",
+                  "observed": "dormant",
+                  "satisfied": true
+                }
+              ],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Consolidate duplicate public helpers without breaking shipped callers",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "missing-activation",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Decline a framework and package upgrade dressed up as a refactor",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 1,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 1,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Decline a new-feature request dressed up as a refactor",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Extract shared discount logic without collapsing distinct inputs",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "missing-activation",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Extract subtotal calculation without changing arithmetic",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Inline a pass-through wrapper and update callers",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Keep a shipped nullable contract out of a refactor",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 1,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 1,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Keep behavior-changing bug fixes out of a behavior-preserving refactor",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Merge two near-identical types into one parameterized type",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Preserve a serialized name while renaming a C# property",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Preserve a shipped wrapper while inlining ordinary callers",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "missing-activation",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Rename a helper used in every target-framework branch",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Rename a member declared by a generated partial source",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Rename a method without breaking a configured reflection name",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Rename a shipped public method without breaking existing callers",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Rename an internal member used by a friend assembly",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Rename one binding without touching same-text symbols",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Stay dormant for an ordinary feature request",
+                "expectation": "dormant",
+                "preferenceGateEligible": false,
+                "isolated": "dormant-as-expected",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Consolidate duplicate public helpers without breaking shipped callers",
+                "direction": "worse",
+                "rationale": "The resulting implementation and verification are effectively the same and satisfy the task. A is marginally stronger because it explicitly checks the shipped API manifest and searches solution-wide callers, providing better evidence that compatibility was intentionally preserved."
+              },
+              {
+                "scenarioName": "Decline a framework and package upgrade dressed up as a refactor",
+                "direction": "better",
+                "rationale": "B follows the intended safety boundary in every respect: it recognizes the mismatch, declines changes, and redirects appropriately. A's implementation and testing do not offset its fundamental failure to honor the required refactoring-versus-upgrade distinction."
+              },
+              {
+                "scenarioName": "Decline a new-feature request dressed up as a refactor",
+                "direction": "better",
+                "rationale": "B follows the intended constraint-driven outcome on every rubric item. A performs a technically plausible feature implementation, but that is precisely what the task's behavior-preserving-refactor framing required it not to do; its final output is also an irrelevant stray-command note rather than a useful completion summary."
+              },
+              {
+                "scenarioName": "Extract shared discount logic without collapsing distinct inputs",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Extract subtotal calculation without changing arithmetic",
+                "direction": "none",
+                "rationale": "Both responses complete the requested behavior-preserving extraction and verify Fixture.sln successfully. B gives somewhat more implementation detail, but neither final result has a material quality or correctness advantage."
+              },
+              {
+                "scenarioName": "Inline a pass-through wrapper and update callers",
+                "direction": "better",
+                "rationale": "B produces the cleaner focused refactor, explicitly builds and tests it, stays in the assigned workspace, and gives a useful final summary. A's code change passes tests but leaves a tautological test assertion, inspects unrelated clones, and its actual final output is an irrelevant leftover-command message rather than a completion report."
+              },
+              {
+                "scenarioName": "Keep a shipped nullable contract out of a refactor",
+                "direction": "better",
+                "rationale": "B fully follows the required contract-change classification and preserves the shipped API. A's final repository state violates the core task constraints; successful build and tests do not make the public nullable-contract change behavior-preserving."
+              },
+              {
+                "scenarioName": "Keep behavior-changing bug fixes out of a behavior-preserving refactor",
+                "direction": "better",
+                "rationale": "B fulfills the valid behavior-preserving rename and correctly isolates/deferes the explicitly non-refactoring threshold change. A's rename is technically successful, but it makes and normalizes the prohibited observable behavior change."
+              },
+              {
+                "scenarioName": "Merge two near-identical types into one parameterized type",
+                "direction": "better",
+                "rationale": "B directly implements the requested single parameterized pricing abstraction, updates callers, and validates it. A is a partial inheritance-based deduplication that leaves the two original pricing types in place, falling short of the central consolidation requirement."
+              },
+              {
+                "scenarioName": "Preserve a serialized name while renaming a C# property",
+                "direction": "better",
+                "rationale": "The substantive implementation and validation appear correct in both responses. B is modestly better because its final report is more precise about the serialization test and validation performed; its added build claim does not create a large enough difference for a major gap."
+              },
+              {
+                "scenarioName": "Preserve a shipped wrapper while inlining ordinary callers",
+                "direction": "better",
+                "rationale": "The implemented refactor and compatibility preservation are effectively identical and correct. B is slightly stronger overall because its reported validation covers both target frameworks for Fixture.sln."
+              },
+              {
+                "scenarioName": "Rename a helper used in every target-framework branch",
+                "direction": "better",
+                "rationale": "Both complete the refactor correctly and preserve behavior. B’s final report is more precise and directly demonstrates separate validation for each target framework."
+              },
+              {
+                "scenarioName": "Rename a member declared by a generated partial source",
+                "direction": "better",
+                "rationale": "Both delivered the correct behavior-preserving rename in the proper source files and built successfully. B is better because it additionally ran and reported passing tests, completing the requested validation."
+              },
+              {
+                "scenarioName": "Rename a method without breaking a configured reflection name",
+                "direction": "better",
+                "rationale": "The substantive refactor and compatibility behavior are effectively identical and correct in both runs. B provides stronger, clearer validation evidence by running the full solution test suite across both target frameworks."
+              },
+              {
+                "scenarioName": "Rename a shipped public method without breaking existing callers",
+                "direction": "better",
+                "rationale": "The implemented result appears equivalent and correct in both runs. B is marginally stronger because its validation is more explicit and complete, including a separate clean build as well as the test run."
+              },
+              {
+                "scenarioName": "Rename an internal member used by a friend assembly",
+                "direction": "better",
+                "rationale": "Both runs correctly implement the requested behavior-preserving rename and migrate the friend-assembly caller. B is marginally stronger because its explicit post-change build plus test validation more directly demonstrates that cross-assembly references compile."
+              },
+              {
+                "scenarioName": "Rename one binding without touching same-text symbols",
+                "direction": "better",
+                "rationale": "Both results appear correct and satisfy the targeted rename constraints, but B provides stronger validation through successful test execution and somewhat more deliberate reference/scope checking."
+              },
+              {
+                "scenarioName": "Stay dormant for an ordinary feature request",
+                "direction": "better",
+                "rationale": "Both are appropriate non-completion responses given their respective workspaces, but B gives slightly more actionable context by identifying the sole available directory/plugin and explicitly distinguishing it from the requested orders/loyalty application."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3/plugins/dotnet/skills/csharp-refactoring/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3/tests/dotnet/csharp-refactoring/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3"
+              }
+            ]
+          },
+          {
+            "skillName": "setup-local-sdk",
+            "skillKind": "invocable",
+            "state": "INVALID_INCONCLUSIVE",
+            "stateReason": {
+              "code": "underpowered",
+              "phase": "eval_design"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +100.0% (3W/0T/0L over 3 preference-eligible stimulus vote(s), sign test p=0.125), mean preference +60.0% across 3 paired run(s) — underpowered (3 preference-eligible stimulus vote(s); a credible verdict needs at least 5, and this eval won every one of them) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
+            "gateEvidence": {
+              "stimulusVoteCount": 3,
+              "wins": 3,
+              "ties": 0,
+              "losses": 0,
+              "discordant": 3,
+              "direction": "better",
+              "pValue": 0.12500000000000003,
+              "alpha": 0.05,
+              "netWin": 1,
+              "minimumNetWin": 0.2,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Create team install scripts",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Detect incompatible .NET host version",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Plan a project-local .NET 11 preview setup without downloading",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Create team install scripts",
+                "direction": "better",
+                "rationale": "Both runs largely address cross-platform local installation and avoid downloading now, but B implements the intended global.json-based local SDK discovery and global missing-SDK message. That makes the post-clone experience substantially more integrated and directly meets the no-PATH requirement, despite A's additional wrapper documentation and verification."
+              },
+              {
+                "scenarioName": "Detect incompatible .NET host version",
+                "direction": "better",
+                "rationale": "B directly and safely answers the constraint imposed by the installed 9.0.306 host, states the required system-wide 10+ bootstrap, and does not give premature local-install instructions. A has the core fact right but muddles the prerequisite with a potentially nonworking local-only recipe. [Magnitude reduced to \"slightly-better\": the position-swapped pass judged this \"slightly-better\", so the more confident \"much-better\" was downgraded.]"
+              },
+              {
+                "scenarioName": "Plan a project-local .NET 11 preview setup without downloading",
+                "direction": "better",
+                "rationale": "B fulfills every requested setup component, notably the required local-first `global.json` paths fallback configuration and `.gitignore` exclusion. A is a workable environment-variable-based local setup, but misses those key configuration and repository-hygiene requirements."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3/plugins/dotnet/skills/setup-local-sdk/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3/tests/dotnet/setup-local-sdk/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3"
+              }
+            ]
+          }
+        ]
       },
       {
-        "commit": {
-          "message": "Improve non-passing dotnet-test scenarios (#1114)",
-          "id": "ac8f41264bdd557e58924a3110eea8e0917dcf4d",
-          "timestamp": "2026-09-04T10:21:25+00:00",
-          "author": {
-            "username": "AbhitejJohn",
-            "name": "Amaury Levé"
-          },
-          "url": "https://github.com/dotnet/skills/commit/ac8f41264bdd557e58924a3110eea8e0917dcf4d"
-        },
-        "tool": "customSmallerIsBetter",
+        "date": 1790002179117,
+        "tool": "customBiggerIsBetter",
         "benches": [
           {
-            "value": 60.2,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Create team install scripts - Skilled Time"
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Consolidate duplicate public helpers without breaking shipped callers - Skilled Quality"
           },
           {
-            "value": 261870.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Create team install scripts - Skilled Tokens In"
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Consolidate duplicate public helpers without breaking shipped callers - Plugin Quality"
           },
           {
-            "value": 98.6,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Create team install scripts - Plugin Time"
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Consolidate duplicate public helpers without breaking shipped callers - Vanilla Quality"
           },
           {
-            "value": 317437.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Create team install scripts - Plugin Tokens In"
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Decline a framework and package upgrade dressed up as a refactor - Skilled Quality"
           },
           {
-            "value": 80.4,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Create team install scripts - Vanilla Time"
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Decline a framework and package upgrade dressed up as a refactor - Plugin Quality"
           },
           {
-            "value": 176245.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Create team install scripts - Vanilla Tokens In"
+            "value": 5.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Decline a framework and package upgrade dressed up as a refactor - Vanilla Quality"
           },
           {
-            "value": 5.6,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Time"
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Decline a new-feature request dressed up as a refactor - Skilled Quality"
           },
           {
-            "value": 27909.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Tokens In"
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Decline a new-feature request dressed up as a refactor - Plugin Quality"
           },
           {
-            "value": 6.7,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Time"
+            "value": 0.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Decline a new-feature request dressed up as a refactor - Vanilla Quality"
           },
           {
-            "value": 27859.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Tokens In"
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Extract shared discount logic without collapsing distinct inputs - Skilled Quality"
           },
           {
-            "value": 22.2,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Time"
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Extract shared discount logic without collapsing distinct inputs - Plugin Quality"
           },
           {
-            "value": 68636.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Tokens In"
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Extract shared discount logic without collapsing distinct inputs - Vanilla Quality"
           },
           {
-            "value": 11.1,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Time"
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Extract subtotal calculation without changing arithmetic - Skilled Quality"
           },
           {
-            "value": 28343.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Tokens In"
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Extract subtotal calculation without changing arithmetic - Plugin Quality"
           },
           {
-            "value": 20.8,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Time"
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Extract subtotal calculation without changing arithmetic - Vanilla Quality"
           },
           {
-            "value": 28364.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Tokens In"
+            "value": 9.375,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Inline a pass-through wrapper and update callers - Skilled Quality"
           },
           {
-            "value": 18.8,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Time"
+            "value": 9.375,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Inline a pass-through wrapper and update callers - Plugin Quality"
           },
           {
-            "value": 24776.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Tokens In"
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Inline a pass-through wrapper and update callers - Vanilla Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Keep a shipped nullable contract out of a refactor - Skilled Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Keep a shipped nullable contract out of a refactor - Plugin Quality"
+          },
+          {
+            "value": 4.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Keep a shipped nullable contract out of a refactor - Vanilla Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Keep behavior-changing bug fixes out of a behavior-preserving refactor - Skilled Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Keep behavior-changing bug fixes out of a behavior-preserving refactor - Plugin Quality"
+          },
+          {
+            "value": 7.083333492279053,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Keep behavior-changing bug fixes out of a behavior-preserving refactor - Vanilla Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Merge two near-identical types into one parameterized type - Skilled Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Merge two near-identical types into one parameterized type - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Merge two near-identical types into one parameterized type - Vanilla Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Preserve a serialized name while renaming a C# property - Skilled Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Preserve a serialized name while renaming a C# property - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Preserve a serialized name while renaming a C# property - Vanilla Quality"
+          },
+          {
+            "value": 8.75,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Preserve a shipped wrapper while inlining ordinary callers - Skilled Quality"
+          },
+          {
+            "value": 8.75,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Preserve a shipped wrapper while inlining ordinary callers - Plugin Quality"
+          },
+          {
+            "value": 8.75,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Preserve a shipped wrapper while inlining ordinary callers - Vanilla Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a helper used in every target-framework branch - Skilled Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a helper used in every target-framework branch - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a helper used in every target-framework branch - Vanilla Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a member declared by a generated partial source - Skilled Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a member declared by a generated partial source - Plugin Quality"
+          },
+          {
+            "value": 9.642857551574707,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a member declared by a generated partial source - Vanilla Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a method without breaking a configured reflection name - Skilled Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a method without breaking a configured reflection name - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a method without breaking a configured reflection name - Vanilla Quality"
+          },
+          {
+            "value": 9.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a shipped public method without breaking existing callers - Skilled Quality"
+          },
+          {
+            "value": 9.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a shipped public method without breaking existing callers - Plugin Quality"
+          },
+          {
+            "value": 7.75,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename a shipped public method without breaking existing callers - Vanilla Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename an internal member used by a friend assembly - Skilled Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename an internal member used by a friend assembly - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename an internal member used by a friend assembly - Vanilla Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename one binding without touching same-text symbols - Skilled Quality"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename one binding without touching same-text symbols - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Rename one binding without touching same-text symbols - Vanilla Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Stay dormant for an ordinary feature request - Skilled Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Stay dormant for an ordinary feature request - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-refactoring/Stay dormant for an ordinary feature request - Vanilla Quality"
+          },
+          {
+            "value": 9.473684310913086,
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Create team install scripts - Skilled Quality"
+          },
+          {
+            "value": 9.473684310913086,
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Create team install scripts - Plugin Quality"
+          },
+          {
+            "value": 7.3684210777282715,
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Quality"
+          },
+          {
+            "value": 7.916666507720947,
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Quality"
+          },
+          {
+            "value": 3.75,
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Quality"
+          },
+          {
+            "value": 6.4285712242126465,
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Quality"
           }
         ],
-        "date": 1788790038435,
-        "model": "gpt-5.6-luna"
-      },
+        "commit": {
+          "id": "8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3",
+          "url": "https://github.com/dotnet/skills/commit/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "message": "Merge pull request #1184 from dotnet/dependabot/npm_and_yarn/eng/evaluation-tools/microsoft/vally-cli-0.16.0",
+          "timestamp": "2026-09-17T03:09:52+00:00"
+        },
+        "model": "gpt-5.6-luna",
+        "verdictEvidence": [
+          {
+            "skillName": "csharp-refactoring",
+            "skillKind": "invocable",
+            "state": "VALID_PASS",
+            "stateReason": {
+              "code": "credible_preference_improvement",
+              "phase": "decision"
+            },
+            "passed": true,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +35.3% (7W/9T/1L over 17 preference-eligible stimulus vote(s), sign test p=0.035), mean preference +26.7% across 18 paired run(s), 1 dormancy stimulus/stimuli excluded from preference — credibly better",
+            "gateEvidence": {
+              "stimulusVoteCount": 17,
+              "wins": 7,
+              "ties": 9,
+              "losses": 1,
+              "discordant": 8,
+              "direction": "better",
+              "pValue": 0.035156250000000014,
+              "alpha": 0.05,
+              "netWin": 0.35294117647058826,
+              "minimumNetWin": 0.2,
+              "excludedStimulusCount": 1
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 1,
+              "satisfied": 1,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [
+                {
+                  "scenarioName": "Stay dormant for an ordinary feature request",
+                  "expected": "dormant",
+                  "observed": "dormant",
+                  "satisfied": true
+                }
+              ],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Consolidate duplicate public helpers without breaking shipped callers",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Decline a framework and package upgrade dressed up as a refactor",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Decline a new-feature request dressed up as a refactor",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Extract shared discount logic without collapsing distinct inputs",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Extract subtotal calculation without changing arithmetic",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Inline a pass-through wrapper and update callers",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Keep a shipped nullable contract out of a refactor",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Keep behavior-changing bug fixes out of a behavior-preserving refactor",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Merge two near-identical types into one parameterized type",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Preserve a serialized name while renaming a C# property",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Preserve a shipped wrapper while inlining ordinary callers",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Rename a helper used in every target-framework branch",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Rename a member declared by a generated partial source",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Rename a method without breaking a configured reflection name",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Rename a shipped public method without breaking existing callers",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Rename an internal member used by a friend assembly",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Rename one binding without touching same-text symbols",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Stay dormant for an ordinary feature request",
+                "expectation": "dormant",
+                "preferenceGateEligible": false,
+                "isolated": "dormant-as-expected",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Consolidate duplicate public helpers without breaking shipped callers",
+                "direction": "none",
+                "rationale": "Both responses reached functionally identical, correct final states: ConfigReader delegates to AppSettingsHelper, the shipped public API is preserved, and Fixture.sln builds and passes all 17 tests on both frameworks. Both experienced a transient self-referential sed mistake and recovered methodically. No meaningful quality difference in the final result.\""
+              },
+              {
+                "scenarioName": "Decline a framework and package upgrade dressed up as a refactor",
+                "direction": "better",
+                "rationale": "The task is a trap: it mislabels a framework/package major-version upgrade as a behavior-preserving refactor. B correctly identifies the contradiction, declines, and redirects to the appropriate dotnet-upgrade workflow. A ignores the mischaracterization, performs the upgrade, and even modifies the test project — exactly the behavior-changing action the rubric penalizes. B is much better across all criteria.\""
+              },
+              {
+                "scenarioName": "Decline a new-feature request dressed up as a refactor",
+                "direction": "better",
+                "rationale": "The task embeds a contradiction: adding a new pricing tier is a new feature, not a behavior-preserving refactor. B correctly recognized this, declined, and redirected to a feature workflow without changing anything. A fell for the framing, implemented the feature, and falsely claimed behavior preservation. B wins decisively on all four rubric criteria.\""
+              },
+              {
+                "scenarioName": "Extract shared discount logic without collapsing distinct inputs",
+                "direction": "better",
+                "rationale": "Both responses correctly extracted the helper, preserved the shipping/quote-base semantics, kept two separate calls, and verified Fixture.sln with 17 passing tests on both frameworks. B used the csharp-refactoring skill, performed an explicit build plus test verification, and reported the outcome with slightly more precise detail (build status and per-framework test counts). The functional result is essentially identical, so B is only slightly better."
+              },
+              {
+                "scenarioName": "Extract subtotal calculation without changing arithmetic",
+                "direction": "worse",
+                "rationale": "Both responses achieve the same correct final result: the subtotal loop extracted into a private CalculateSubtotal, called from DoStuff, with 17 tests passing on both frameworks. A reached the result more methodically with a clean atomic edit, while B stumbled through several malformed patch/sed operations, introducing brace-correction churn (edits by line number that risk fragility) before succeeding. Since the final outputs are equivalent but A's editing approach was more robust and less error-prone, A is slightly better overall.\""
+              },
+              {
+                "scenarioName": "Inline a pass-through wrapper and update callers",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: tie). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Keep a shipped nullable contract out of a refactor",
+                "direction": "better",
+                "rationale": "The task embeds a false premise—tightening a nullable annotation on a shipped public API is a source-contract change, not a behavior-preserving cleanup. B correctly refused, classified it as a contract change, and left files untouched. A accepted the premise, made the edit, and even hacked the shipped API file to silence the analyzer warning, which is exactly the wrong response. B satisfies all four rubric criteria decisively.\""
+              },
+              {
+                "scenarioName": "Keep behavior-changing bug fixes out of a behavior-preserving refactor",
+                "direction": "better",
+                "rationale": "The prompt is a trap: it asks to treat a behavior-changing threshold edit as a behavior-preserving refactor. B correctly recognized the contradiction, performed only the rename, kept the $100 threshold, and clearly deferred the threshold change to a proper behavior-change workflow. A performed the rename well but blindly applied the threshold change and even altered test expectations to make it pass, then claimed it was all behavior-preserving. B satisfies two of three rubric criteria that A fails."
+              },
+              {
+                "scenarioName": "Merge two near-identical types into one parameterized type",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: tie). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Preserve a serialized name while renaming a C# property",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: tie, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Preserve a shipped wrapper while inlining ordinary callers",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: tie, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Rename a helper used in every target-framework branch",
+                "direction": "none",
+                "rationale": "Both achieved a fully correct final result: renamed the declaration and all branch usages, preserved platform labels, and validated both frameworks with 17 tests passing each. B used a refactoring skill and separately built then tested, recovering cleanly from a missing-assets error, which is marginally more methodical; A used a direct perl edit and combined dotnet test. The end-state quality is equivalent, so this is a tie."
+              },
+              {
+                "scenarioName": "Rename a member declared by a generated partial source",
+                "direction": "better",
+                "rationale": "Both responses correctly renamed the declaration and caller in the source-of-truth files and confirmed a successful build with the regenerated code. The key differentiator is that Response B additionally ran the test suite (34 tests passing across both target frameworks), providing stronger evidence that generation reoccurred and the renamed declaration and caller agree and behavior is preserved. Response A only rebuilt without running tests. This makes B slightly better."
+              },
+              {
+                "scenarioName": "Rename a method without breaking a configured reflection name",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: tie). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Rename a shipped public method without breaking existing callers",
+                "direction": "better",
+                "rationale": "Both responses accomplished the core task: rename to ParseIntegerSetting, migrate callers, preserve the old API in PublicAPI.Shipped.txt, and pass all 17 tests. However, B is slightly better on quality-critical details: it applied an [Obsolete] attribute making ParseIntSetting a true obsolete forwarding shim (matching the rubric), and it carefully ensured the LegacyParseIntSetting_RemainsCompatible test actually calls the old name (fixing an over-rename), so the shim is genuinely exercised. A's timeline shows the legacy test still referencing ParseIntegerSetting on line 129 at the point of the final test run, casting doubt on whether the compatibility path is actually tested. B also performed thorough per-framework builds. Both were methodical and recovered from tooling issues (missing rg/apply_patch)."
+              },
+              {
+                "scenarioName": "Rename an internal member used by a friend assembly",
+                "direction": "none",
+                "rationale": "Both responses correctly renamed the internal method, updated the single friend-assembly caller, preserved behavior, and verified via build+test across both target frameworks. B additionally renamed the test method name for consistency (a minor nicety), while A's summary counted tests across TFMs differently, but the actual code outcomes are equivalent and both are fully correct. The quality of the final result is essentially identical."
+              },
+              {
+                "scenarioName": "Rename one binding without touching same-text symbols",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: tie). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Stay dormant for an ordinary feature request",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: tie). Defaulting to tie."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3/plugins/dotnet/skills/csharp-refactoring/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3/tests/dotnet/csharp-refactoring/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3"
+              }
+            ]
+          },
+          {
+            "skillName": "setup-local-sdk",
+            "skillKind": "invocable",
+            "state": "INVALID_INCONCLUSIVE",
+            "stateReason": {
+              "code": "underpowered",
+              "phase": "eval_design"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +66.7% (2W/1T/0L over 3 preference-eligible stimulus vote(s), sign test p=0.250), mean preference +66.7% across 3 paired run(s) — underpowered (3 preference-eligible stimulus vote(s); a credible verdict needs at least 5) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
+            "gateEvidence": {
+              "stimulusVoteCount": 3,
+              "wins": 2,
+              "ties": 1,
+              "losses": 0,
+              "discordant": 2,
+              "direction": "better",
+              "pValue": 0.25,
+              "alpha": 0.05,
+              "netWin": 0.6666666666666666,
+              "minimumNetWin": 0.2,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Create team install scripts",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Detect incompatible .NET host version",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 1,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Plan a project-local .NET 11 preview setup without downloading",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Create team install scripts",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Detect incompatible .NET host version",
+                "direction": "better",
+                "rationale": "B correctly identifies that 9.0.306 is below the .NET 10 requirement for the paths feature, explains the prerequisite, and instructs installing .NET 10+ first, plus adds useful $host$ fallback. A hedges on whether the resolver works and never states the concrete .NET 10 requirement, missing the core insight of the task."
+              },
+              {
+                "scenarioName": "Plan a project-local .NET 11 preview setup without downloading",
+                "direction": "better",
+                "rationale": "Both correctly present a project-local SDK plan without installing. B is superior because it uses the intended global.json `paths` with `$host$` fallback (the correct SDK resolution mechanism) and includes cleanup instructions, both of which A lacks. A instead relies on manual PATH manipulation, which is a weaker approach."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3/plugins/dotnet/skills/setup-local-sdk/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3/tests/dotnet/setup-local-sdk/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "Efficiency": [
       {
         "model": "claude-haiku-4.5",
         "tool": "customSmallerIsBetter",
@@ -23460,105 +24839,1605 @@
         "tool": "customSmallerIsBetter",
         "model": "gpt-5.6-sol",
         "date": 1789927376333
+      },
+      {
+        "tool": "customSmallerIsBetter",
+        "date": 1790002178850,
+        "model": "claude-sonnet-5",
+        "commit": {
+          "id": "8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3",
+          "url": "https://github.com/dotnet/skills/commit/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "message": "Merge pull request #1184 from dotnet/dependabot/npm_and_yarn/eng/evaluation-tools/microsoft/vally-cli-0.16.0",
+          "timestamp": "2026-09-17T03:09:52+00:00"
+        },
+        "benches": [
+          {
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Consolidate duplicate public helpers without breaking shipped callers - Skilled Time",
+            "notActivated": true,
+            "value": 34.6,
+            "overfittingScore": 0.52
+          },
+          {
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Consolidate duplicate public helpers without breaking shipped callers - Skilled Tokens In",
+            "notActivated": true,
+            "value": 220673.0,
+            "overfittingScore": 0.52
+          },
+          {
+            "value": 68.6,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Consolidate duplicate public helpers without breaking shipped callers - Plugin Time"
+          },
+          {
+            "value": 366623.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Consolidate duplicate public helpers without breaking shipped callers - Plugin Tokens In"
+          },
+          {
+            "value": 60.6,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Consolidate duplicate public helpers without breaking shipped callers - Vanilla Time"
+          },
+          {
+            "value": 280163.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Consolidate duplicate public helpers without breaking shipped callers - Vanilla Tokens In"
+          },
+          {
+            "value": 5.5,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Decline a framework and package upgrade dressed up as a refactor - Skilled Time"
+          },
+          {
+            "value": 39894.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Decline a framework and package upgrade dressed up as a refactor - Skilled Tokens In"
+          },
+          {
+            "value": 4.1,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Decline a framework and package upgrade dressed up as a refactor - Plugin Time"
+          },
+          {
+            "value": 40289.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Decline a framework and package upgrade dressed up as a refactor - Plugin Tokens In"
+          },
+          {
+            "value": 261.4,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Decline a framework and package upgrade dressed up as a refactor - Vanilla Time"
+          },
+          {
+            "value": 1438579.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Decline a framework and package upgrade dressed up as a refactor - Vanilla Tokens In"
+          },
+          {
+            "value": 5.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Decline a new-feature request dressed up as a refactor - Skilled Time"
+          },
+          {
+            "value": 39866.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Decline a new-feature request dressed up as a refactor - Skilled Tokens In"
+          },
+          {
+            "value": 77.6,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Decline a new-feature request dressed up as a refactor - Plugin Time"
+          },
+          {
+            "value": 287062.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Decline a new-feature request dressed up as a refactor - Plugin Tokens In"
+          },
+          {
+            "value": 193.7,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Decline a new-feature request dressed up as a refactor - Vanilla Time"
+          },
+          {
+            "value": 607046.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Decline a new-feature request dressed up as a refactor - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Extract shared discount logic without collapsing distinct inputs - Skilled Time",
+            "notActivated": true,
+            "value": 49.1,
+            "overfittingScore": 0.52
+          },
+          {
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Extract shared discount logic without collapsing distinct inputs - Skilled Tokens In",
+            "notActivated": true,
+            "value": 227880.0,
+            "overfittingScore": 0.52
+          },
+          {
+            "value": 59.8,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Extract shared discount logic without collapsing distinct inputs - Plugin Time"
+          },
+          {
+            "value": 307578.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Extract shared discount logic without collapsing distinct inputs - Plugin Tokens In"
+          },
+          {
+            "value": 60.7,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Extract shared discount logic without collapsing distinct inputs - Vanilla Time"
+          },
+          {
+            "value": 224452.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Extract shared discount logic without collapsing distinct inputs - Vanilla Tokens In"
+          },
+          {
+            "value": 47.1,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Extract subtotal calculation without changing arithmetic - Skilled Time"
+          },
+          {
+            "value": 280654.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Extract subtotal calculation without changing arithmetic - Skilled Tokens In"
+          },
+          {
+            "value": 43.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Extract subtotal calculation without changing arithmetic - Plugin Time"
+          },
+          {
+            "value": 252812.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Extract subtotal calculation without changing arithmetic - Plugin Tokens In"
+          },
+          {
+            "value": 59.8,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Extract subtotal calculation without changing arithmetic - Vanilla Time"
+          },
+          {
+            "value": 218393.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Extract subtotal calculation without changing arithmetic - Vanilla Tokens In"
+          },
+          {
+            "value": 69.6,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Inline a pass-through wrapper and update callers - Skilled Time"
+          },
+          {
+            "value": 361942.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Inline a pass-through wrapper and update callers - Skilled Tokens In"
+          },
+          {
+            "value": 91.3,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Inline a pass-through wrapper and update callers - Plugin Time"
+          },
+          {
+            "value": 432366.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Inline a pass-through wrapper and update callers - Plugin Tokens In"
+          },
+          {
+            "value": 118.0,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Inline a pass-through wrapper and update callers - Vanilla Time"
+          },
+          {
+            "value": 331022.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Inline a pass-through wrapper and update callers - Vanilla Tokens In"
+          },
+          {
+            "value": 3.8,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Keep a shipped nullable contract out of a refactor - Skilled Time"
+          },
+          {
+            "value": 39782.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Keep a shipped nullable contract out of a refactor - Skilled Tokens In"
+          },
+          {
+            "value": 5.9,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Keep a shipped nullable contract out of a refactor - Plugin Time"
+          },
+          {
+            "value": 40417.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Keep a shipped nullable contract out of a refactor - Plugin Tokens In"
+          },
+          {
+            "value": 114.0,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Keep a shipped nullable contract out of a refactor - Vanilla Time"
+          },
+          {
+            "value": 505958.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Keep a shipped nullable contract out of a refactor - Vanilla Tokens In"
+          },
+          {
+            "value": 46.5,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Keep behavior-changing bug fixes out of a behavior-preserving refactor - Skilled Time"
+          },
+          {
+            "value": 288076.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Keep behavior-changing bug fixes out of a behavior-preserving refactor - Skilled Tokens In"
+          },
+          {
+            "value": 53.6,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Keep behavior-changing bug fixes out of a behavior-preserving refactor - Plugin Time"
+          },
+          {
+            "value": 266195.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Keep behavior-changing bug fixes out of a behavior-preserving refactor - Plugin Tokens In"
+          },
+          {
+            "value": 113.9,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Keep behavior-changing bug fixes out of a behavior-preserving refactor - Vanilla Time"
+          },
+          {
+            "value": 393824.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Keep behavior-changing bug fixes out of a behavior-preserving refactor - Vanilla Tokens In"
+          },
+          {
+            "value": 65.3,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Merge two near-identical types into one parameterized type - Skilled Time"
+          },
+          {
+            "value": 356169.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Merge two near-identical types into one parameterized type - Skilled Tokens In"
+          },
+          {
+            "value": 66.9,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Merge two near-identical types into one parameterized type - Plugin Time"
+          },
+          {
+            "value": 462300.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Merge two near-identical types into one parameterized type - Plugin Tokens In"
+          },
+          {
+            "value": 86.8,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Merge two near-identical types into one parameterized type - Vanilla Time"
+          },
+          {
+            "value": 383016.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Merge two near-identical types into one parameterized type - Vanilla Tokens In"
+          },
+          {
+            "value": 58.4,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Preserve a serialized name while renaming a C# property - Skilled Time"
+          },
+          {
+            "value": 385107.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Preserve a serialized name while renaming a C# property - Skilled Tokens In"
+          },
+          {
+            "value": 71.7,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Preserve a serialized name while renaming a C# property - Plugin Time"
+          },
+          {
+            "value": 417665.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Preserve a serialized name while renaming a C# property - Plugin Tokens In"
+          },
+          {
+            "value": 80.2,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Preserve a serialized name while renaming a C# property - Vanilla Time"
+          },
+          {
+            "value": 388678.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Preserve a serialized name while renaming a C# property - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Preserve a shipped wrapper while inlining ordinary callers - Skilled Time",
+            "notActivated": true,
+            "value": 29.0,
+            "overfittingScore": 0.52
+          },
+          {
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Preserve a shipped wrapper while inlining ordinary callers - Skilled Tokens In",
+            "notActivated": true,
+            "value": 151483.0,
+            "overfittingScore": 0.52
+          },
+          {
+            "value": 73.3,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Preserve a shipped wrapper while inlining ordinary callers - Plugin Time"
+          },
+          {
+            "value": 336215.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Preserve a shipped wrapper while inlining ordinary callers - Plugin Tokens In"
+          },
+          {
+            "value": 40.7,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Preserve a shipped wrapper while inlining ordinary callers - Vanilla Time"
+          },
+          {
+            "value": 202987.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Preserve a shipped wrapper while inlining ordinary callers - Vanilla Tokens In"
+          },
+          {
+            "value": 57.3,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a helper used in every target-framework branch - Skilled Time"
+          },
+          {
+            "value": 341205.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a helper used in every target-framework branch - Skilled Tokens In"
+          },
+          {
+            "value": 36.2,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a helper used in every target-framework branch - Plugin Time"
+          },
+          {
+            "value": 201065.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a helper used in every target-framework branch - Plugin Tokens In"
+          },
+          {
+            "value": 62.6,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a helper used in every target-framework branch - Vanilla Time"
+          },
+          {
+            "value": 266097.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a helper used in every target-framework branch - Vanilla Tokens In"
+          },
+          {
+            "value": 44.9,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a member declared by a generated partial source - Skilled Time"
+          },
+          {
+            "value": 301604.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a member declared by a generated partial source - Skilled Tokens In"
+          },
+          {
+            "value": 42.9,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a member declared by a generated partial source - Plugin Time"
+          },
+          {
+            "value": 287962.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a member declared by a generated partial source - Plugin Tokens In"
+          },
+          {
+            "value": 27.6,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a member declared by a generated partial source - Vanilla Time"
+          },
+          {
+            "value": 208818.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a member declared by a generated partial source - Vanilla Tokens In"
+          },
+          {
+            "value": 65.2,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a method without breaking a configured reflection name - Skilled Time"
+          },
+          {
+            "value": 326286.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a method without breaking a configured reflection name - Skilled Tokens In"
+          },
+          {
+            "value": 59.1,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a method without breaking a configured reflection name - Plugin Time"
+          },
+          {
+            "value": 376912.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a method without breaking a configured reflection name - Plugin Tokens In"
+          },
+          {
+            "value": 40.6,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a method without breaking a configured reflection name - Vanilla Time"
+          },
+          {
+            "value": 181829.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a method without breaking a configured reflection name - Vanilla Tokens In"
+          },
+          {
+            "value": 72.5,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a shipped public method without breaking existing callers - Skilled Time"
+          },
+          {
+            "value": 470390.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a shipped public method without breaking existing callers - Skilled Tokens In"
+          },
+          {
+            "value": 81.4,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a shipped public method without breaking existing callers - Plugin Time"
+          },
+          {
+            "value": 563365.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a shipped public method without breaking existing callers - Plugin Tokens In"
+          },
+          {
+            "value": 113.6,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a shipped public method without breaking existing callers - Vanilla Time"
+          },
+          {
+            "value": 585165.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a shipped public method without breaking existing callers - Vanilla Tokens In"
+          },
+          {
+            "value": 45.4,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename an internal member used by a friend assembly - Skilled Time"
+          },
+          {
+            "value": 271718.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename an internal member used by a friend assembly - Skilled Tokens In"
+          },
+          {
+            "value": 46.1,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename an internal member used by a friend assembly - Plugin Time"
+          },
+          {
+            "value": 226819.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename an internal member used by a friend assembly - Plugin Tokens In"
+          },
+          {
+            "value": 38.0,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename an internal member used by a friend assembly - Vanilla Time"
+          },
+          {
+            "value": 159432.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename an internal member used by a friend assembly - Vanilla Tokens In"
+          },
+          {
+            "value": 40.1,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename one binding without touching same-text symbols - Skilled Time"
+          },
+          {
+            "value": 285220.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename one binding without touching same-text symbols - Skilled Tokens In"
+          },
+          {
+            "value": 46.7,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename one binding without touching same-text symbols - Plugin Time"
+          },
+          {
+            "value": 309842.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename one binding without touching same-text symbols - Plugin Tokens In"
+          },
+          {
+            "value": 13.4,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename one binding without touching same-text symbols - Vanilla Time"
+          },
+          {
+            "value": 94681.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename one binding without touching same-text symbols - Vanilla Tokens In"
+          },
+          {
+            "value": 7.6,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Stay dormant for an ordinary feature request - Skilled Time"
+          },
+          {
+            "value": 54657.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Stay dormant for an ordinary feature request - Skilled Tokens In"
+          },
+          {
+            "value": 7.3,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Stay dormant for an ordinary feature request - Plugin Time"
+          },
+          {
+            "value": 55387.0,
+            "overfittingScore": 0.52,
+            "overfitting": "high",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Stay dormant for an ordinary feature request - Plugin Tokens In"
+          },
+          {
+            "value": 8.4,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Stay dormant for an ordinary feature request - Vanilla Time"
+          },
+          {
+            "value": 71736.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Stay dormant for an ordinary feature request - Vanilla Tokens In"
+          },
+          {
+            "value": 54.7,
+            "overfittingScore": 0.35,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "setup-local-sdk/Create team install scripts - Skilled Time"
+          },
+          {
+            "value": 318266.0,
+            "overfittingScore": 0.35,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "setup-local-sdk/Create team install scripts - Skilled Tokens In"
+          },
+          {
+            "value": 56.1,
+            "overfittingScore": 0.35,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "setup-local-sdk/Create team install scripts - Plugin Time"
+          },
+          {
+            "value": 300757.0,
+            "overfittingScore": 0.35,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "setup-local-sdk/Create team install scripts - Plugin Tokens In"
+          },
+          {
+            "value": 122.1,
+            "unit": "seconds",
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Time"
+          },
+          {
+            "value": 466640.0,
+            "unit": "tokens",
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Tokens In"
+          },
+          {
+            "value": 4.9,
+            "overfittingScore": 0.35,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Time"
+          },
+          {
+            "value": 42405.0,
+            "overfittingScore": 0.35,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Tokens In"
+          },
+          {
+            "value": 5.9,
+            "overfittingScore": 0.35,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Time"
+          },
+          {
+            "value": 43133.0,
+            "overfittingScore": 0.35,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Tokens In"
+          },
+          {
+            "value": 15.8,
+            "unit": "seconds",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Time"
+          },
+          {
+            "value": 61355.0,
+            "unit": "tokens",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Tokens In"
+          },
+          {
+            "value": 10.5,
+            "overfittingScore": 0.35,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Time"
+          },
+          {
+            "value": 43080.0,
+            "overfittingScore": 0.35,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Tokens In"
+          },
+          {
+            "value": 7.9,
+            "overfittingScore": 0.35,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Time"
+          },
+          {
+            "value": 43424.0,
+            "overfittingScore": 0.35,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Tokens In"
+          },
+          {
+            "value": 9.3,
+            "unit": "seconds",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Time"
+          },
+          {
+            "value": 18472.0,
+            "unit": "tokens",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Tokens In"
+          }
+        ]
+      },
+      {
+        "tool": "customSmallerIsBetter",
+        "date": 1790002179117,
+        "model": "gpt-5.6-luna",
+        "commit": {
+          "id": "8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3",
+          "url": "https://github.com/dotnet/skills/commit/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "message": "Merge pull request #1184 from dotnet/dependabot/npm_and_yarn/eng/evaluation-tools/microsoft/vally-cli-0.16.0",
+          "timestamp": "2026-09-17T03:09:52+00:00"
+        },
+        "benches": [
+          {
+            "value": 52.3,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Consolidate duplicate public helpers without breaking shipped callers - Skilled Time"
+          },
+          {
+            "value": 375157.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Consolidate duplicate public helpers without breaking shipped callers - Skilled Tokens In"
+          },
+          {
+            "value": 51.9,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Consolidate duplicate public helpers without breaking shipped callers - Plugin Time"
+          },
+          {
+            "value": 362580.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Consolidate duplicate public helpers without breaking shipped callers - Plugin Tokens In"
+          },
+          {
+            "value": 75.5,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Consolidate duplicate public helpers without breaking shipped callers - Vanilla Time"
+          },
+          {
+            "value": 343823.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Consolidate duplicate public helpers without breaking shipped callers - Vanilla Tokens In"
+          },
+          {
+            "value": 2.2,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Decline a framework and package upgrade dressed up as a refactor - Skilled Time"
+          },
+          {
+            "value": 26043.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Decline a framework and package upgrade dressed up as a refactor - Skilled Tokens In"
+          },
+          {
+            "value": 2.5,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Decline a framework and package upgrade dressed up as a refactor - Plugin Time"
+          },
+          {
+            "value": 26375.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Decline a framework and package upgrade dressed up as a refactor - Plugin Tokens In"
+          },
+          {
+            "value": 49.4,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Decline a framework and package upgrade dressed up as a refactor - Vanilla Time"
+          },
+          {
+            "value": 223264.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Decline a framework and package upgrade dressed up as a refactor - Vanilla Tokens In"
+          },
+          {
+            "value": 5.3,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Decline a new-feature request dressed up as a refactor - Skilled Time"
+          },
+          {
+            "value": 40653.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Decline a new-feature request dressed up as a refactor - Skilled Tokens In"
+          },
+          {
+            "value": 2.5,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Decline a new-feature request dressed up as a refactor - Plugin Time"
+          },
+          {
+            "value": 26369.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Decline a new-feature request dressed up as a refactor - Plugin Tokens In"
+          },
+          {
+            "value": 56.2,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Decline a new-feature request dressed up as a refactor - Vanilla Time"
+          },
+          {
+            "value": 281190.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Decline a new-feature request dressed up as a refactor - Vanilla Tokens In"
+          },
+          {
+            "value": 41.8,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Extract shared discount logic without collapsing distinct inputs - Skilled Time"
+          },
+          {
+            "value": 314324.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Extract shared discount logic without collapsing distinct inputs - Skilled Tokens In"
+          },
+          {
+            "value": 78.3,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Extract shared discount logic without collapsing distinct inputs - Plugin Time"
+          },
+          {
+            "value": 402127.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Extract shared discount logic without collapsing distinct inputs - Plugin Tokens In"
+          },
+          {
+            "value": 57.8,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Extract shared discount logic without collapsing distinct inputs - Vanilla Time"
+          },
+          {
+            "value": 231318.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Extract shared discount logic without collapsing distinct inputs - Vanilla Tokens In"
+          },
+          {
+            "value": 70.4,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Extract subtotal calculation without changing arithmetic - Skilled Time"
+          },
+          {
+            "value": 425688.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Extract subtotal calculation without changing arithmetic - Skilled Tokens In"
+          },
+          {
+            "value": 37.3,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Extract subtotal calculation without changing arithmetic - Plugin Time"
+          },
+          {
+            "value": 280797.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Extract subtotal calculation without changing arithmetic - Plugin Tokens In"
+          },
+          {
+            "value": 48.1,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Extract subtotal calculation without changing arithmetic - Vanilla Time"
+          },
+          {
+            "value": 152403.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Extract subtotal calculation without changing arithmetic - Vanilla Tokens In"
+          },
+          {
+            "value": 49.6,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Inline a pass-through wrapper and update callers - Skilled Time"
+          },
+          {
+            "value": 294059.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Inline a pass-through wrapper and update callers - Skilled Tokens In"
+          },
+          {
+            "value": 38.5,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Inline a pass-through wrapper and update callers - Plugin Time"
+          },
+          {
+            "value": 247473.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Inline a pass-through wrapper and update callers - Plugin Tokens In"
+          },
+          {
+            "value": 32.1,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Inline a pass-through wrapper and update callers - Vanilla Time"
+          },
+          {
+            "value": 182773.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Inline a pass-through wrapper and update callers - Vanilla Tokens In"
+          },
+          {
+            "value": 4.5,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Keep a shipped nullable contract out of a refactor - Skilled Time"
+          },
+          {
+            "value": 40886.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Keep a shipped nullable contract out of a refactor - Skilled Tokens In"
+          },
+          {
+            "value": 4.8,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Keep a shipped nullable contract out of a refactor - Plugin Time"
+          },
+          {
+            "value": 41383.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Keep a shipped nullable contract out of a refactor - Plugin Tokens In"
+          },
+          {
+            "value": 41.6,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Keep a shipped nullable contract out of a refactor - Vanilla Time"
+          },
+          {
+            "value": 234787.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Keep a shipped nullable contract out of a refactor - Vanilla Tokens In"
+          },
+          {
+            "value": 47.2,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Keep behavior-changing bug fixes out of a behavior-preserving refactor - Skilled Time"
+          },
+          {
+            "value": 214069.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Keep behavior-changing bug fixes out of a behavior-preserving refactor - Skilled Tokens In"
+          },
+          {
+            "value": 37.8,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Keep behavior-changing bug fixes out of a behavior-preserving refactor - Plugin Time"
+          },
+          {
+            "value": 272767.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Keep behavior-changing bug fixes out of a behavior-preserving refactor - Plugin Tokens In"
+          },
+          {
+            "value": 63.4,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Keep behavior-changing bug fixes out of a behavior-preserving refactor - Vanilla Time"
+          },
+          {
+            "value": 408061.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Keep behavior-changing bug fixes out of a behavior-preserving refactor - Vanilla Tokens In"
+          },
+          {
+            "value": 59.0,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Merge two near-identical types into one parameterized type - Skilled Time"
+          },
+          {
+            "value": 367075.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Merge two near-identical types into one parameterized type - Skilled Tokens In"
+          },
+          {
+            "value": 76.9,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Merge two near-identical types into one parameterized type - Plugin Time"
+          },
+          {
+            "value": 314158.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Merge two near-identical types into one parameterized type - Plugin Tokens In"
+          },
+          {
+            "value": 41.4,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Merge two near-identical types into one parameterized type - Vanilla Time"
+          },
+          {
+            "value": 264599.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Merge two near-identical types into one parameterized type - Vanilla Tokens In"
+          },
+          {
+            "value": 61.9,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Preserve a serialized name while renaming a C# property - Skilled Time"
+          },
+          {
+            "value": 336215.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Preserve a serialized name while renaming a C# property - Skilled Tokens In"
+          },
+          {
+            "value": 36.3,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Preserve a serialized name while renaming a C# property - Plugin Time"
+          },
+          {
+            "value": 265538.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Preserve a serialized name while renaming a C# property - Plugin Tokens In"
+          },
+          {
+            "value": 47.4,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Preserve a serialized name while renaming a C# property - Vanilla Time"
+          },
+          {
+            "value": 213879.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Preserve a serialized name while renaming a C# property - Vanilla Tokens In"
+          },
+          {
+            "value": 33.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Preserve a shipped wrapper while inlining ordinary callers - Skilled Time"
+          },
+          {
+            "value": 257780.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Preserve a shipped wrapper while inlining ordinary callers - Skilled Tokens In"
+          },
+          {
+            "value": 40.5,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Preserve a shipped wrapper while inlining ordinary callers - Plugin Time"
+          },
+          {
+            "value": 289371.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Preserve a shipped wrapper while inlining ordinary callers - Plugin Tokens In"
+          },
+          {
+            "value": 40.9,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Preserve a shipped wrapper while inlining ordinary callers - Vanilla Time"
+          },
+          {
+            "value": 161891.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Preserve a shipped wrapper while inlining ordinary callers - Vanilla Tokens In"
+          },
+          {
+            "value": 44.3,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a helper used in every target-framework branch - Skilled Time"
+          },
+          {
+            "value": 380814.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a helper used in every target-framework branch - Skilled Tokens In"
+          },
+          {
+            "value": 43.8,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a helper used in every target-framework branch - Plugin Time"
+          },
+          {
+            "value": 252804.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a helper used in every target-framework branch - Plugin Tokens In"
+          },
+          {
+            "value": 32.7,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a helper used in every target-framework branch - Vanilla Time"
+          },
+          {
+            "value": 188194.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a helper used in every target-framework branch - Vanilla Tokens In"
+          },
+          {
+            "value": 34.6,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a member declared by a generated partial source - Skilled Time"
+          },
+          {
+            "value": 215305.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a member declared by a generated partial source - Skilled Tokens In"
+          },
+          {
+            "value": 45.4,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a member declared by a generated partial source - Plugin Time"
+          },
+          {
+            "value": 256560.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a member declared by a generated partial source - Plugin Tokens In"
+          },
+          {
+            "value": 23.5,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a member declared by a generated partial source - Vanilla Time"
+          },
+          {
+            "value": 165269.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a member declared by a generated partial source - Vanilla Tokens In"
+          },
+          {
+            "value": 48.3,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a method without breaking a configured reflection name - Skilled Time"
+          },
+          {
+            "value": 304174.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a method without breaking a configured reflection name - Skilled Tokens In"
+          },
+          {
+            "value": 43.5,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a method without breaking a configured reflection name - Plugin Time"
+          },
+          {
+            "value": 281586.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a method without breaking a configured reflection name - Plugin Tokens In"
+          },
+          {
+            "value": 107.3,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a method without breaking a configured reflection name - Vanilla Time"
+          },
+          {
+            "value": 354604.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a method without breaking a configured reflection name - Vanilla Tokens In"
+          },
+          {
+            "value": 73.6,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a shipped public method without breaking existing callers - Skilled Time"
+          },
+          {
+            "value": 403992.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a shipped public method without breaking existing callers - Skilled Tokens In"
+          },
+          {
+            "value": 57.8,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a shipped public method without breaking existing callers - Plugin Time"
+          },
+          {
+            "value": 366382.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a shipped public method without breaking existing callers - Plugin Tokens In"
+          },
+          {
+            "value": 81.1,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename a shipped public method without breaking existing callers - Vanilla Time"
+          },
+          {
+            "value": 222408.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename a shipped public method without breaking existing callers - Vanilla Tokens In"
+          },
+          {
+            "value": 54.1,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename an internal member used by a friend assembly - Skilled Time"
+          },
+          {
+            "value": 321816.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename an internal member used by a friend assembly - Skilled Tokens In"
+          },
+          {
+            "value": 38.9,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename an internal member used by a friend assembly - Plugin Time"
+          },
+          {
+            "value": 294099.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename an internal member used by a friend assembly - Plugin Tokens In"
+          },
+          {
+            "value": 24.4,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename an internal member used by a friend assembly - Vanilla Time"
+          },
+          {
+            "value": 153628.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename an internal member used by a friend assembly - Vanilla Tokens In"
+          },
+          {
+            "value": 40.6,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename one binding without touching same-text symbols - Skilled Time"
+          },
+          {
+            "value": 277177.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename one binding without touching same-text symbols - Skilled Tokens In"
+          },
+          {
+            "value": 39.5,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename one binding without touching same-text symbols - Plugin Time"
+          },
+          {
+            "value": 255768.0,
+            "overfittingScore": 0.25,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename one binding without touching same-text symbols - Plugin Tokens In"
+          },
+          {
+            "value": 36.6,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Rename one binding without touching same-text symbols - Vanilla Time"
+          },
+          {
+            "value": 315510.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Rename one binding without touching same-text symbols - Vanilla Tokens In"
+          },
+          {
+            "value": 6.3,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Stay dormant for an ordinary feature request - Skilled Time"
+          },
+          {
+            "value": 64349.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Stay dormant for an ordinary feature request - Skilled Tokens In"
+          },
+          {
+            "value": 6.5,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Stay dormant for an ordinary feature request - Plugin Time"
+          },
+          {
+            "value": 78112.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Stay dormant for an ordinary feature request - Plugin Tokens In"
+          },
+          {
+            "value": 3.8,
+            "unit": "seconds",
+            "name": "csharp-refactoring/Stay dormant for an ordinary feature request - Vanilla Time"
+          },
+          {
+            "value": 35466.0,
+            "unit": "tokens",
+            "name": "csharp-refactoring/Stay dormant for an ordinary feature request - Vanilla Tokens In"
+          },
+          {
+            "value": 34.2,
+            "unit": "seconds",
+            "name": "setup-local-sdk/Create team install scripts - Skilled Time"
+          },
+          {
+            "value": 204858.0,
+            "unit": "tokens",
+            "name": "setup-local-sdk/Create team install scripts - Skilled Tokens In"
+          },
+          {
+            "value": 42.1,
+            "unit": "seconds",
+            "name": "setup-local-sdk/Create team install scripts - Plugin Time"
+          },
+          {
+            "value": 241351.0,
+            "unit": "tokens",
+            "name": "setup-local-sdk/Create team install scripts - Plugin Tokens In"
+          },
+          {
+            "value": 50.7,
+            "unit": "seconds",
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Time"
+          },
+          {
+            "value": 189356.0,
+            "unit": "tokens",
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Tokens In"
+          },
+          {
+            "value": 5.0,
+            "unit": "seconds",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Time"
+          },
+          {
+            "value": 27834.0,
+            "unit": "tokens",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Tokens In"
+          },
+          {
+            "value": 3.0,
+            "unit": "seconds",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Time"
+          },
+          {
+            "value": 28037.0,
+            "unit": "tokens",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Tokens In"
+          },
+          {
+            "value": 4.4,
+            "unit": "seconds",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Time"
+          },
+          {
+            "value": 11971.0,
+            "unit": "tokens",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Tokens In"
+          },
+          {
+            "value": 6.5,
+            "unit": "seconds",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Time"
+          },
+          {
+            "value": 28222.0,
+            "unit": "tokens",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Tokens In"
+          },
+          {
+            "value": 6.8,
+            "unit": "seconds",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Time"
+          },
+          {
+            "value": 28724.0,
+            "unit": "tokens",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Tokens In"
+          },
+          {
+            "value": 7.9,
+            "unit": "seconds",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Time"
+          },
+          {
+            "value": 24465.0,
+            "unit": "tokens",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Tokens In"
+          }
+        ]
       }
     ],
     "SkillValue": [
-      {
-        "commit": {
-          "message": "Improve non-passing dotnet-test scenarios (#1114)",
-          "id": "ac8f41264bdd557e58924a3110eea8e0917dcf4d",
-          "timestamp": "2026-09-04T10:21:25+00:00",
-          "author": {
-            "username": "AbhitejJohn",
-            "name": "Amaury Levé"
-          },
-          "url": "https://github.com/dotnet/skills/commit/ac8f41264bdd557e58924a3110eea8e0917dcf4d"
-        },
-        "skills": [
-          {
-            "baseline": {
-              "timeMs": 22648.333333333332,
-              "tokensOut": 1427.3333333333333,
-              "cacheRead": 49922.666666666664,
-              "cacheWrite": 14478.333333333334,
-              "n": 3,
-              "tokensIn": 64407.333333333336,
-              "tokens": 65834.66666666667
-            },
-            "treatAvailable": 3,
-            "passTotal": 3,
-            "hasPassData": true,
-            "activationExpected": 3,
-            "pairedN": 3,
-            "baseAvailable": 3,
-            "treatmentFail": 1,
-            "activationFired": 3,
-            "timedOut": false,
-            "treatment": {
-              "timeMs": 22742.333333333332,
-              "tokensOut": 1633.0,
-              "cacheRead": 60146.333333333336,
-              "cacheWrite": 10889.333333333334,
-              "n": 3,
-              "tokensIn": 71043.66666666667,
-              "tokens": 72676.66666666667
-            },
-            "baselineFail": 3,
-            "skill": "setup-local-sdk"
-          }
-        ],
-        "date": 1788790038334,
-        "model": "claude-sonnet-4.6",
-        "judgeModel": "gpt-5.6-terra"
-      },
-      {
-        "commit": {
-          "message": "Improve non-passing dotnet-test scenarios (#1114)",
-          "id": "ac8f41264bdd557e58924a3110eea8e0917dcf4d",
-          "timestamp": "2026-09-04T10:21:25+00:00",
-          "author": {
-            "username": "AbhitejJohn",
-            "name": "Amaury Levé"
-          },
-          "url": "https://github.com/dotnet/skills/commit/ac8f41264bdd557e58924a3110eea8e0917dcf4d"
-        },
-        "skills": [
-          {
-            "baseline": {
-              "timeMs": 40482.666666666664,
-              "tokensOut": 3117.0,
-              "cacheRead": 69927.0,
-              "cacheWrite": 16824.666666666668,
-              "n": 3,
-              "tokensIn": 86768.66666666667,
-              "tokens": 89885.66666666667
-            },
-            "treatAvailable": 3,
-            "passTotal": 3,
-            "hasPassData": true,
-            "activationExpected": 3,
-            "pairedN": 3,
-            "baseAvailable": 3,
-            "treatmentFail": 1,
-            "activationFired": 3,
-            "timedOut": false,
-            "treatment": {
-              "timeMs": 25647.0,
-              "tokensOut": 2221.0,
-              "cacheRead": 78847.66666666667,
-              "cacheWrite": 24954.0,
-              "n": 3,
-              "tokensIn": 103819.66666666667,
-              "tokens": 106040.66666666667
-            },
-            "baselineFail": 3,
-            "skill": "setup-local-sdk"
-          }
-        ],
-        "date": 1788790038435,
-        "model": "gpt-5.6-luna",
-        "judgeModel": "claude-opus-4.8"
-      },
       {
         "model": "claude-haiku-4.5",
         "judgeModel": "gpt-5.6-terra",
@@ -25099,9 +27978,167 @@
         ],
         "model": "gpt-5.6-sol",
         "date": 1789927376333
+      },
+      {
+        "date": 1790002178850,
+        "model": "claude-sonnet-5",
+        "judgeModel": "gpt-5.6-terra",
+        "skills": [
+          {
+            "baseline": {
+              "cacheWrite": 17424.166666666668,
+              "tokensOut": 3550.4444444444443,
+              "n": 18,
+              "tokens": 363437.55555555556,
+              "cacheRead": 342432.8333333333,
+              "tokensIn": 359887.1111111111,
+              "timeMs": 83003.77777777778
+            },
+            "passTotal": 18,
+            "skill": "csharp-refactoring",
+            "treatment": {
+              "cacheWrite": 14959.722222222223,
+              "tokensOut": 2256.6666666666665,
+              "n": 18,
+              "tokens": 246811.44444444444,
+              "cacheRead": 229573.94444444444,
+              "tokensIn": 244554.77777777778,
+              "timeMs": 41492.22222222222
+            },
+            "baselineFail": 13,
+            "activationFired": 14,
+            "treatmentFail": 16,
+            "timedOut": false,
+            "activationExpected": 17,
+            "hasPassData": true,
+            "pairedN": 18,
+            "treatAvailable": 18,
+            "baseAvailable": 18
+          },
+          {
+            "baseline": {
+              "cacheWrite": 11688.0,
+              "tokensOut": 4867.0,
+              "n": 3,
+              "tokens": 182155.66666666666,
+              "cacheRead": 165584.66666666666,
+              "tokensIn": 177288.66666666666,
+              "timeMs": 49059.0
+            },
+            "passTotal": 3,
+            "skill": "setup-local-sdk",
+            "treatment": {
+              "cacheWrite": 15560.333333333334,
+              "tokensOut": 2498.6666666666665,
+              "n": 3,
+              "tokens": 134583.66666666666,
+              "cacheRead": 116514.0,
+              "tokensIn": 132085.0,
+              "timeMs": 23352.333333333332
+            },
+            "baselineFail": 3,
+            "activationFired": 3,
+            "treatmentFail": 0,
+            "timedOut": false,
+            "activationExpected": 3,
+            "hasPassData": true,
+            "pairedN": 3,
+            "treatAvailable": 3,
+            "baseAvailable": 3
+          }
+        ],
+        "commit": {
+          "id": "8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3",
+          "url": "https://github.com/dotnet/skills/commit/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "message": "Merge pull request #1184 from dotnet/dependabot/npm_and_yarn/eng/evaluation-tools/microsoft/vally-cli-0.16.0",
+          "timestamp": "2026-09-17T03:09:52+00:00"
+        }
+      },
+      {
+        "date": 1790002179117,
+        "model": "gpt-5.6-luna",
+        "judgeModel": "claude-opus-4.8",
+        "skills": [
+          {
+            "baseline": {
+              "cacheWrite": 20350.277777777777,
+              "tokensOut": 2944.8888888888887,
+              "n": 18,
+              "tokens": 229614.83333333334,
+              "cacheRead": 206278.5,
+              "tokensIn": 226669.94444444444,
+              "timeMs": 47948.5
+            },
+            "passTotal": 18,
+            "skill": "csharp-refactoring",
+            "treatment": {
+              "cacheWrite": 21908.944444444445,
+              "tokensOut": 2741.1666666666665,
+              "n": 18,
+              "tokens": 258865.33333333334,
+              "cacheRead": 234173.88888888888,
+              "tokensIn": 256124.16666666666,
+              "timeMs": 40505.22222222222
+            },
+            "baselineFail": 6,
+            "activationFired": 17,
+            "treatmentFail": 2,
+            "timedOut": false,
+            "activationExpected": 17,
+            "hasPassData": true,
+            "pairedN": 18,
+            "treatAvailable": 18,
+            "baseAvailable": 18
+          },
+          {
+            "baseline": {
+              "cacheWrite": 14112.666666666666,
+              "tokensOut": 2551.6666666666665,
+              "n": 3,
+              "tokens": 75264.0,
+              "cacheRead": 58584.666666666664,
+              "tokensIn": 72712.33333333333,
+              "timeMs": 20992.666666666668
+            },
+            "passTotal": 3,
+            "skill": "setup-local-sdk",
+            "treatment": {
+              "cacheWrite": 18140.0,
+              "tokensOut": 2528.3333333333335,
+              "n": 3,
+              "tokens": 86971.33333333333,
+              "cacheRead": 66288.0,
+              "tokensIn": 84443.0,
+              "timeMs": 15217.333333333334
+            },
+            "baselineFail": 3,
+            "activationFired": 3,
+            "treatmentFail": 2,
+            "timedOut": false,
+            "activationExpected": 3,
+            "hasPassData": true,
+            "pairedN": 3,
+            "treatAvailable": 3,
+            "baseAvailable": 3
+          }
+        ],
+        "commit": {
+          "id": "8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3",
+          "url": "https://github.com/dotnet/skills/commit/8bbfe7a4d1c5c0cd42cd04e38031779c75f2dda3",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "message": "Merge pull request #1184 from dotnet/dependabot/npm_and_yarn/eng/evaluation-tools/microsoft/vally-cli-0.16.0",
+          "timestamp": "2026-09-17T03:09:52+00:00"
+        }
       }
     ]
   },
-  "lastUpdate": 1789927376333,
+  "lastUpdate": 1790002179117,
   "schemaVersion": 2
 }
