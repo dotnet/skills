@@ -251,7 +251,7 @@
 
   function valueSentence(row) {
     const pairedN = Math.min(row.baseline ? row.baseline.n : 0, row.treatment ? row.treatment.n : 0);
-    if (!gated(pairedN)) return { text: `Insufficient signal (n=${pairedN} paired, need ≥${MIN_SAMPLES})`, cls: 'sv-insufficient', status: 'insufficient' };
+if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return { text: `Insufficient signal (n=${pairedN} paired, need ≥${MIN_SAMPLES})`, cls: 'sv-insufficient', status: 'insufficient' };
     // Activation contamination guard. If the skill is not confirmed to fire in
     // most expected scenarios, the treatment arm behaves like baseline and any
     // delta is diluted — so suppress the confident value claim. A null activation
