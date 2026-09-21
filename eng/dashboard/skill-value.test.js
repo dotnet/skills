@@ -106,7 +106,7 @@ test('skill value table uses preference evidence for install guidance', async (t
   assert.match(wrap.innerHTML, /colspan="7"/);
   assert.match(container.innerHTML, /one-vote-per-eligible-stimulus/);
   assert.match(container.innerHTML, /Reliability N \/ CI/);
-  assert.match(container.innerHTML, /never determines the recommendation/);
+  assert.match(container.innerHTML, /never produces “Worth installing” or “Not recommended.”/);
   assert.match(wrap.innerHTML, /\+34 pp to \+61 pp/);
   assert.match(wrap.innerHTML, /preference 8W\/0T\/0L/);
   assert.match(wrap.innerHTML, /diagnostic only/);
@@ -124,7 +124,13 @@ test('value assessment uses preference evidence and treats pass telemetry as irr
   const modulePath = require.resolve('./skill-value.js');
   globalThis.window = {};
   delete require.cache[modulePath];
-  const { metricCell, reliabilityEvidence, valueAssessment, valueSentence } = require(modulePath);
+  const {
+    metricCell,
+    provisionalReliabilityAssessment,
+    reliabilityEvidence,
+    valueAssessment,
+    valueSentence,
+  } = require(modulePath);
 
   t.after(() => {
     if (hadWindow) globalThis.window = previousWindow;
@@ -176,11 +182,31 @@ test('value assessment uses preference evidence and treats pass telemetry as irr
   assert.ok(interval.low > 0.34 && interval.low < 0.35);
   assert.match(metricCell(legacyReliabilityRow), /\+34 pp to \+61 pp/);
   assert.doesNotMatch(metricCell(legacyReliabilityRow), /preference unavailable|N\/A/);
+  assert.equal(provisionalReliabilityAssessment(legacyReliabilityRow).status, 'reliability-promising');
   const legacyDescription = valueSentence(legacyReliabilityRow);
-  assert.equal(legacyDescription.status, 'reliability-only');
-  assert.match(legacyDescription.text, /Preference guidance unavailable/);
+  assert.equal(legacyDescription.status, 'reliability-promising');
+  assert.match(legacyDescription.text, /Promising provisional value signal/);
   assert.match(legacyDescription.text, /reliability telemetry favors the skill/);
   assert.doesNotMatch(legacyDescription.text, /Insufficient signal/);
+
+  const legacyTradeoff = {
+    ...legacyReliabilityRow,
+    treatment: { n: 100, tokens: 120, timeMs: 1100 },
+  };
+  assert.equal(provisionalReliabilityAssessment(legacyTradeoff).status, 'reliability-tradeoff');
+  assert.match(valueSentence(legacyTradeoff).text, /resource tradeoff/);
+
+  const uncertainReliability = {
+    ...legacyReliabilityRow,
+    baseFail: 32,
+    treatFail: 28,
+    bothPass: 60,
+    bothFail: 20,
+    baselineOnlyPass: 8,
+    treatmentOnlyPass: 12,
+  };
+  assert.equal(provisionalReliabilityAssessment(uncertainReliability).status, 'reliability-uncertain');
+  assert.match(valueSentence(uncertainReliability).text, /Uncertain provisional value signal/);
 
   const expensive = valueAssessment(row(120, 1100));
   assert.equal(expensive.status, 'tradeoff');

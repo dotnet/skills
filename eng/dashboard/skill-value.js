@@ -146,6 +146,25 @@
     return { status: cost.worst <= 1 ? 'worth' : 'tradeoff', evidence, cost, index: null };
   }
 
+  // Legacy dashboard rows predate preference payloads. Give them a provisional,
+  // explicitly diagnostic value signal from reliability CI + measured cost, but
+  // never promote that signal to the authoritative install/reject labels above.
+  function provisionalReliabilityAssessment(row) {
+    const evidence = reliabilityEvidence(row);
+    const cost = costMultiplier(row);
+    if (!evidence) return null;
+    if (evidence.low > 0) {
+      if (!cost) return { status: 'reliability-positive-no-cost', evidence, cost };
+      return {
+        status: cost.worst <= 1 ? 'reliability-promising' : 'reliability-tradeoff',
+        evidence,
+        cost,
+      };
+    }
+    if (evidence.high < 0) return { status: 'reliability-negative', evidence, cost };
+    return { status: 'reliability-uncertain', evidence, cost };
+  }
+
   // n-weighted running accumulator for one arm's metrics across runs.
   function newArm() {
     return { n: 0, timeMs: 0, tokens: 0, tokensIn: 0, tokensOut: 0, cacheRead: 0, cacheWrite: 0 };
@@ -319,19 +338,52 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
     }
     const assessment = valueAssessment(row);
     if (!assessment.evidence) {
-      const reliability = reliabilityEvidence(row);
-      if (reliability) {
-        const direction = reliability.low > 0
-          ? 'favors the skill'
-          : reliability.high < 0
-            ? 'favors baseline'
-            : 'does not show a clear difference';
+      const provisional = provisionalReliabilityAssessment(row);
+      if (provisional) {
+        const interval = `${fmtSignedPoints(provisional.evidence.low)} to ${fmtSignedPoints(provisional.evidence.high)}`;
+        const diagnosticOnly = 'Preference guidance is unavailable; this is a provisional reliability diagnostic, not an install recommendation.';
+        if (provisional.status === 'reliability-promising') {
+          return {
+            text: `<b>Promising provisional value signal</b> — reliability telemetry favors the skill ` +
+              `(95% interval ${interval}) and measured time/tokens do not regress. ${diagnosticOnly}`,
+            cls: 'sv-value positive',
+            status: provisional.status,
+          };
+        }
+        if (provisional.status === 'reliability-tradeoff') {
+          return {
+            text: `<b>Provisional reliability gain with a resource tradeoff</b> — reliability telemetry favors the skill ` +
+              `(95% interval ${interval}), but compared with no skill it uses ${describeCost(provisional.cost)}. ${diagnosticOnly}`,
+            cls: 'sv-value sv-tradeoff',
+            status: provisional.status,
+          };
+        }
+        if (provisional.status === 'reliability-positive-no-cost') {
+          return {
+            text: `<b>Provisional reliability gain</b> — reliability telemetry favors the skill ` +
+              `(95% interval ${interval}), but cost information is unavailable. ${diagnosticOnly}`,
+            cls: 'sv-value sv-tradeoff',
+            status: provisional.status,
+          };
+        }
+        if (provisional.status === 'reliability-negative') {
+          return {
+            text: `<b>Provisional negative reliability signal</b> — reliability telemetry favors baseline ` +
+              `(95% interval ${interval}). ${diagnosticOnly}`,
+            cls: 'sv-value negative',
+            status: provisional.status,
+          };
+        }
+        const lean = provisional.evidence.estimate > 0
+          ? 'leans toward the skill'
+          : provisional.evidence.estimate < 0
+            ? 'leans toward baseline'
+            : 'is neutral';
         return {
-          text: `<b>Preference guidance unavailable</b> — reliability telemetry ${direction} ` +
-            `(95% interval ${fmtSignedPoints(reliability.low)} to ${fmtSignedPoints(reliability.high)}), ` +
-            'but this diagnostic does not determine install value.',
+          text: `<b>Uncertain provisional value signal</b> — the reliability point estimate ${lean}, ` +
+            `but its 95% interval (${interval}) crosses no difference. ${diagnosticOnly}`,
           cls: 'sv-value sv-unproven',
-          status: 'reliability-only',
+          status: provisional.status,
         };
       }
       return {
@@ -464,8 +516,16 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
         return '<span class="negative">not recommended</span>';
       case 'unproven':
         return '<span class="sv-unproven">no clear preference</span>';
-      case 'reliability-only':
-        return '<span class="sv-unproven">reliability only; preference unavailable</span>';
+      case 'reliability-promising':
+        return '<span class="positive">provisional reliability + cost signal</span>';
+      case 'reliability-tradeoff':
+        return '<span class="sv-tradeoff">provisional reliability gain + cost tradeoff</span>';
+      case 'reliability-positive-no-cost':
+        return '<span class="sv-tradeoff">provisional reliability gain; cost unavailable</span>';
+      case 'reliability-negative':
+        return '<span class="negative">provisional negative reliability signal</span>';
+      case 'reliability-uncertain':
+        return '<span class="sv-unproven">uncertain provisional value signal</span>';
       default:
         return '<span class="sv-insufficient">insufficient signal</span>';
     }
@@ -494,7 +554,11 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
       ['preference-only', 'preference win(s); cost unavailable'],
       ['regression', 'not recommended'],
       ['unproven', 'with no clear preference'],
-      ['reliability-only', 'with reliability only; preference unavailable'],
+      ['reliability-promising', 'with provisional reliability + cost signal'],
+      ['reliability-tradeoff', 'with provisional reliability gain + cost tradeoff'],
+      ['reliability-positive-no-cost', 'with provisional reliability gain; cost unavailable'],
+      ['reliability-negative', 'with provisional negative reliability signal'],
+      ['reliability-uncertain', 'with uncertain provisional value signal'],
       ['insufficient', 'with insufficient signal'],
     ];
     const counts = new Map();
@@ -519,7 +583,7 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
       `<label>Judge model <select id="sv-judge"><option value="">All</option>${judges.map(m => `<option>${escapeHtml(m)}</option>`).join('')}</select></label>` +
       `<button type="button" id="sv-expand" class="sv-btn">Expand all</button>` +
       `<button type="button" id="sv-collapse" class="sv-btn">Collapse all</button>` +
-      `<span class="sv-sub">Grouped Plugin → Skill → Model. Costs and reliability use a trailing window of ${TRAILING_RUNS} runs. Reliability N / CI shows counted paired pass trials and the 95% interval for skill-minus-baseline pass-rate difference; it may include judge-scored graders and never determines the recommendation. Preference W/T/L, when available, is the latest run’s authoritative one-vote-per-eligible-stimulus result. “Worth installing” requires a credible preference win with no measured token/time regression. Tokens = input+output. ≈ marks a diluted (low-activation) delta. Models are never blended.</span>` +
+      `<span class="sv-sub">Grouped Plugin → Skill → Model. Costs and reliability use a trailing window of ${TRAILING_RUNS} runs. Reliability N / CI shows counted paired pass trials and the 95% interval for skill-minus-baseline pass-rate difference. When preference evidence is unavailable, reliability CI + cost provides explicitly provisional guidance; it may include judge-scored graders and never produces “Worth installing” or “Not recommended.” Preference W/T/L, when available, is the latest run’s authoritative one-vote-per-eligible-stimulus result. Tokens = input+output. ≈ marks a diluted (low-activation) delta. Models are never blended.</span>` +
       `</div>` +
       `<div id="sv-table-wrap"></div>`;
 
@@ -670,6 +734,7 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
       metricCell,
       costMultiplier,
       valueAssessment,
+      provisionalReliabilityAssessment,
       valueSentence,
       singleModelRollup,
       countRollup,
