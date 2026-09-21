@@ -739,6 +739,16 @@ foreach ($verdict in $results.verdicts) {
     # and expect_activation:false stimuli have already been excluded. Preserve
     # this separately from pass telemetry, which may include LLM-grader results.
     $signTest = $verdict.signTest
+    $activationContract = if ($verdict.activationContract) {
+        @{
+            evaluated = ($verdict.activationContract.evaluated -eq $true)
+            passed    = ($verdict.activationContract.passed -eq $true)
+            count     = [int]$verdict.activationContract.count
+            violated  = [int]$verdict.activationContract.violated
+        }
+    } else {
+        $null
+    }
     $preference = if ($signTest) {
         @{
             count              = [int]$verdict.stimulusVoteCount
@@ -868,6 +878,7 @@ foreach ($verdict in $results.verdicts) {
         baselineOnlyPass  = $baselineOnlyPass
         treatmentOnlyPass = $treatmentOnlyPass
         hasPassData      = ($passTotal -gt 0)
+        activationContract = $activationContract
         preference       = $preference
     })
 }

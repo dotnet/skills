@@ -129,6 +129,9 @@
   function valueAssessment(row) {
     const evidence = row.preference;
     const cost = costMultiplier(row);
+    if (row.activationContract && row.activationContract.passed === false) {
+      return { status: 'activation-contract-failed', evidence, cost, index: null };
+    }
     if (!evidence) return { status: 'insufficient', evidence, cost, index: null };
     if (!evidence.conclusive || evidence.underpowered) {
       return { status: 'insufficient', evidence, cost, index: null };
@@ -150,6 +153,7 @@
   // explicitly diagnostic value signal from reliability CI + measured cost, but
   // never promote that signal to the authoritative install/reject labels above.
   function provisionalReliabilityAssessment(row) {
+    if (row.activationContract && row.activationContract.passed === false) return null;
     const evidence = reliabilityEvidence(row);
     const cost = costMultiplier(row);
     if (!evidence) return null;
@@ -253,6 +257,7 @@
       // null. Falling through to an older non-null result would let a legacy or
       // incomplete latest run retain a stale "worth installing" assessment.
       const preference = runs.length > 0 ? (runs[0].s.preference ?? null) : null;
+      const activationContract = runs.length > 0 ? (runs[0].s.activationContract ?? null) : null;
       let timedOutRuns = 0, baseAvail = 0, treatAvail = 0;
       for (const { s } of runs) {
         addArm(base, s.baseline);
@@ -279,7 +284,7 @@
         activationExpected: actExpected, activationFired: actFired,
         passTotal, baseFail, treatFail, hasPass,
         bothPass, bothFail, baselineOnlyPass, treatmentOnlyPass,
-        preference,
+        preference, activationContract,
         timedOutRuns, baseAvail, treatAvail,
       });
     }
@@ -324,7 +329,18 @@
 
   function valueSentence(row) {
     const pairedN = Math.min(row.baseline ? row.baseline.n : 0, row.treatment ? row.treatment.n : 0);
-if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return { text: `Insufficient signal (n=${pairedN} paired, need ≥${MIN_SAMPLES})`, cls: 'sv-insufficient', status: 'insufficient' };
+    const initialAssessment = valueAssessment(row);
+    if (initialAssessment.status === 'activation-contract-failed') {
+      const violated = row.activationContract.violated || 0;
+      return {
+        text: `<b>Guidance withheld</b> — the skill activated in ${violated} task(s) where it was expected to stay off.`,
+        cls: 'sv-value negative',
+        status: initialAssessment.status,
+      };
+    }
+    if (!gated(pairedN) && initialAssessment.status !== 'preference-only') {
+      return { text: `Insufficient signal (n=${pairedN} paired, need ≥${MIN_SAMPLES})`, cls: 'sv-insufficient', status: 'insufficient' };
+    }
     // Activation contamination guard. If the skill is not confirmed to fire in
     // most expected scenarios, the treatment arm behaves like baseline and any
     // delta is diluted — so suppress the confident value claim. A null activation
@@ -336,7 +352,7 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
     if (row.activation < ACTIVATION_MIN) {
       return { text: `Insufficient signal — skill fired in only ${fmtPct(row.activation)} of expected scenarios (delta is diluted)`, cls: 'sv-insufficient', status: 'insufficient' };
     }
-    const assessment = valueAssessment(row);
+    const assessment = initialAssessment;
     if (!assessment.evidence) {
       const provisional = provisionalReliabilityAssessment(row);
       if (provisional) {
@@ -505,6 +521,8 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
         return '<span class="sv-tradeoff">looks helpful; cost unavailable</span>';
       case 'regression':
         return '<span class="negative">not recommended</span>';
+      case 'activation-contract-failed':
+        return '<span class="negative">guidance withheld: activated when it should not</span>';
       case 'unproven':
         return '<span class="sv-unproven">no clear result</span>';
       case 'reliability-promising':
@@ -544,6 +562,7 @@ if (!gated(pairedN) && valueAssessment(row).status !== 'preference-only') return
       ['tradeoff', 'helpful but cost more'],
       ['preference-only', 'look helpful; cost unavailable'],
       ['regression', 'not recommended'],
+      ['activation-contract-failed', 'with guidance withheld for unexpected activation'],
       ['unproven', 'with no clear result'],
       ['reliability-promising', 'that look helpful; more data needed'],
       ['reliability-tradeoff', 'that may help but cost more'],
