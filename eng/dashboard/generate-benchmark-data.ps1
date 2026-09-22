@@ -741,11 +741,13 @@ foreach ($verdict in $results.verdicts) {
     $signTest = $verdict.signTest
     $activationContract = if ($verdict.activationContract) {
         @{
-        passed    = if ($null -eq $verdict.activationContract.passed) {
-            $null
-        } else {
-            ($verdict.activationContract.passed -eq $true)
-        }
+            evaluated = ($verdict.activationContract.evaluated -eq $true)
+            passed    = if ($null -eq $verdict.activationContract.passed) {
+                $null
+            } else {
+                ($verdict.activationContract.passed -eq $true)
+            }
+            count     = [int]$verdict.activationContract.count
             violated  = [int]$verdict.activationContract.violated
         }
     } else {

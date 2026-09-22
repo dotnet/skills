@@ -74,6 +74,7 @@ test('skill value table uses preference evidence for install guidance', async (t
           baselineOnlyPass: 0,
           treatmentOnlyPass: 50,
           hasPassData: true,
+          activationContract: { evaluated: true, passed: true, count: 100, violated: 0 },
           preference: {
             count: 8,
             wins: 8,
@@ -187,6 +188,12 @@ test('value assessment uses preference evidence and treats pass telemetry as irr
   assert.match(activationFailureDescription.text, /Guidance withheld/);
   assert.match(activationFailureDescription.text, /expected to stay off/);
   assert.doesNotMatch(activationFailureDescription.text, /Worth installing|Looks helpful/);
+
+  assert.equal(valueAssessment({ ...row(80, 900), activationContract: null }).status, 'insufficient');
+  assert.equal(valueAssessment({
+    ...row(80, 900),
+    activationContract: { evaluated: false, passed: null, count: 0, violated: 0 },
+  }).status, 'insufficient');
 
   const telemetryOnly = valueAssessment({ ...row(80, 900), preference: null });
   assert.equal(telemetryOnly.status, 'insufficient');
@@ -458,6 +465,7 @@ test('rollups preserve regression and preference-only leaf guidance', (t) => {
   const row = (model, preferenceEvidence, baseline, treatment) => ({
     model,
     preference: preferenceEvidence,
+    activationContract: { evaluated: true, passed: true, count: 8, violated: 0 },
     activation: 1,
     baseline,
     treatment,

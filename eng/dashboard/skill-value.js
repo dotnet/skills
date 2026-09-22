@@ -139,6 +139,7 @@
         ? 'activation-contract-failed'
         : 'insufficient';
       return { status, evidence, cost, index: null };
+    }
     if (!evidence) return { status: 'insufficient', evidence, cost, index: null };
     if (!evidence.conclusive || evidence.underpowered) {
       return { status: 'insufficient', evidence, cost, index: null };
