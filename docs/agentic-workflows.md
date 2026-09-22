@@ -11,6 +11,7 @@ The workflow source files live in `.github/workflows/` and are compiled with `gh
 | [devops-health-check](../.github/workflows/devops-health-check.md) | Daily orchestrator that collects repo infrastructure health signals (pipelines, CI/CD infrastructure, resource usage), computes a fingerprint-based diff against the previous run, and updates a pinned health dashboard issue | `cron: 0 3 * * *` (03:00 UTC daily), `workflow_dispatch` |
 | [devops-health-investigate](../.github/workflows/devops-health-investigate.md) | Worker agent dispatched by the health check orchestrator to perform deep root-cause analysis on individual findings | `workflow_dispatch` (dispatched by orchestrator via `dispatch-workflow`) |
 | [devops-health-groom](../.github/workflows/devops-health-groom.md) | Runs ~3h after the health check to link investigation results into the issue body, hide stale comments (>7 days), and clean up resolved investigations | `cron: 0 6 * * *` (06:00 UTC daily), `workflow_dispatch` |
+| [devops-health-copilot-pin](../.github/workflows/devops-health-copilot-pin.yml) | Validates and proposes updates to the explicit DevOps Health Copilot CLI pin | `cron: 23 10 * * 1` (Monday 10:23 UTC), `workflow_dispatch` |
 | [issue-triage](../.github/workflows/issue-triage.md) | Triages individual issues: assigns an `area-*` label, identifies owners from CODEOWNERS, adds the `Triaged` label, and posts a brief actionable summary | `issues: [opened, reopened]`, `workflow_dispatch` |
 | [issue-triage-batch](../.github/workflows/issue-triage-batch.yml) | Deterministic workflow that dispatches the issue-triage agent for each untriaged issue in an optional date range | `workflow_dispatch` (with optional `date_from`/`date_to`) |
 | [issue-investigate](../.github/workflows/issue-investigate.md) | Deep investigation agent that analyzes an issue against the codebase, suggests next steps, and creates a draft PR if the fix is clear | `issues: [labeled]` (when `auto-investigate` label is added) |
@@ -64,6 +65,21 @@ gh aw run devops-health-check --dry-run
 # Run on GitHub Actions (from a pushed branch)
 gh aw run devops-health-check --push --ref <branch>
 ```
+
+## Copilot CLI Pin Ownership
+
+The three DevOps Health workflows use one explicit `engine.version` pin. The
+maintenance workflow does not use the latest published Copilot CLI version.
+It gets the candidate from `github/gh-aw/.github/aw/compat.json` at the
+immutable commit behind the exact gh-aw compiler tag recorded in all three
+generated lock files.
+
+The same generated lock manifests own the selected MCP Gateway image and
+digest. A candidate is eligible only when all three sources, compiler metadata,
+setup action SHAs, and gateway images agree. Before a draft update is proposed,
+the workflow strictly compiles all three sources, runs targeted tests, runs a
+Copilot canary with no tools, and starts the digest-pinned MCP Gateway for a
+health canary. The workflow fails closed if any owned input differs.
 
 ## File Structure
 

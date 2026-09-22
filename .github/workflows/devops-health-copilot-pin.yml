@@ -1,0 +1,463 @@
+name: Maintain DevOps Health Copilot pin
+
+on:
+  schedule:
+    - cron: "23 10 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: devops-health-copilot-pin
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate owned candidate
+    if: >-
+      github.repository == 'dotnet/skills' &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: copilot-pat-pool
+    outputs:
+      stale: ${{ steps.plan.outputs.stale }}
+      compiler: ${{ steps.plan.outputs.compiler }}
+      current: ${{ steps.plan.outputs.current }}
+      candidate: ${{ steps.plan.outputs.candidate }}
+      gateway_image: ${{ steps.plan.outputs.gateway_image }}
+      compat_sha: ${{ steps.compat-ref.outputs.compat_sha }}
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          persist-credentials: false
+
+      - name: Resolve selected compiler
+        id: compiler
+        shell: bash
+        run: |
+          set -euo pipefail
+          compiler=$(
+            python -c '
+          import json
+          from pathlib import Path
+          line = Path(".github/workflows/devops-health-check.lock.yml").read_text().splitlines()[0]
+          print(json.loads(line.removeprefix("# gh-aw-metadata: "))["compiler_version"])
+          '
+          )
+          if [[ ! "$compiler" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid compiler version: $compiler"
+            exit 1
+          fi
+          echo "compiler=$compiler" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch compiler-owned compatibility source
+        id: compat-ref
+        env:
+          COMPILER: ${{ steps.compiler.outputs.compiler }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          object=$(
+            gh api "repos/github/gh-aw/git/ref/tags/${COMPILER}" \
+              --jq '.object | [.type, .sha] | @tsv'
+          )
+          read -r object_type object_sha <<< "$object"
+          if [[ "$object_type" == "tag" ]]; then
+            object_sha=$(
+              gh api "repos/github/gh-aw/git/tags/${object_sha}" --jq '.object.sha'
+            )
+          elif [[ "$object_type" != "commit" ]]; then
+            echo "::error::Unexpected gh-aw tag object type: $object_type"
+            exit 1
+          fi
+          if [[ ! "$object_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Invalid gh-aw compatibility commit: $object_sha"
+            exit 1
+          fi
+          echo "compat_sha=$object_sha" >> "$GITHUB_OUTPUT"
+          curl --fail --silent --show-error --location \
+            --output "$RUNNER_TEMP/compat.json" \
+            "https://raw.githubusercontent.com/github/gh-aw/${object_sha}/.github/aw/compat.json"
+
+      - name: Plan candidate
+        id: plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          python eng/devops-health/copilot_pin.py plan \
+            --compat "$RUNNER_TEMP/compat.json" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Verify selected ownership
+        env:
+          EXPECTED_COMPILER: ${{ steps.compiler.outputs.compiler }}
+          PLANNED_COMPILER: ${{ steps.plan.outputs.compiler }}
+          PLANNED_SETUP_SHA: ${{ steps.plan.outputs.setup_sha }}
+          EXPECTED_SETUP_SHA: 5e508589e03a7757a7e05b26e834292f5445bfb6
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$EXPECTED_COMPILER" != "$PLANNED_COMPILER" ]]; then
+            echo "::error::Compiler changed while planning"
+            exit 1
+          fi
+          if [[ "$PLANNED_SETUP_SHA" != "$EXPECTED_SETUP_SHA" ]]; then
+            echo "::error::The selected compiler requires an unreviewed setup action SHA"
+            exit 1
+          fi
+
+      - name: Stop when the pin is current
+        if: steps.plan.outputs.stale != 'true'
+        env:
+          CURRENT: ${{ steps.plan.outputs.current }}
+          COMPILER: ${{ steps.plan.outputs.compiler }}
+        shell: bash
+        run: |
+          {
+            echo "## DevOps Health Copilot pin is current"
+            echo
+            echo "- Copilot CLI: \`$CURRENT\`"
+            echo "- gh-aw compiler: \`$COMPILER\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Setup selected gh-aw scripts
+        if: steps.plan.outputs.stale == 'true'
+        uses: github/gh-aw-actions/setup@5e508589e03a7757a7e05b26e834292f5445bfb6 # v0.88.7
+        with:
+          destination: ${{ runner.temp }}/gh-aw/actions
+
+      - name: Install selected gh-aw compiler
+        if: steps.plan.outputs.stale == 'true'
+        uses: github/gh-aw-actions/setup-cli@5e508589e03a7757a7e05b26e834292f5445bfb6 # v0.88.7
+        with:
+          version: ${{ steps.plan.outputs.compiler }}
+
+      - name: Apply candidate and strictly compile all DevOps Health workflows
+        if: steps.plan.outputs.stale == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python eng/devops-health/copilot_pin.py apply \
+            --compat "$RUNNER_TEMP/compat.json"
+          gh aw compile --strict --no-check-update \
+            devops-health-check \
+            devops-health-groom \
+            devops-health-investigate
+          python eng/devops-health/copilot_pin.py plan \
+            --compat "$RUNNER_TEMP/compat.json" |
+            jq -e '.stale == false'
+
+      - name: Run targeted tests
+        if: steps.plan.outputs.stale == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet pyyaml
+          python -m unittest eng/devops-health/test_copilot_pin.py
+          python -m unittest \
+            eng.evaluation.test_token_failover.TokenFailoverTests.test_gh_aw_runtime_upgrade_is_complete
+
+      - name: Install candidate Copilot CLI
+        if: steps.plan.outputs.stale == 'true'
+        env:
+          CANDIDATE: ${{ steps.plan.outputs.candidate }}
+          GH_HOST: github.com
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash "$RUNNER_TEMP/gh-aw/actions/install_copilot_cli.sh" "$CANDIDATE"
+          test "$(copilot --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)" = "$CANDIDATE"
+
+      - name: Run non-mutating Copilot canary
+        if: steps.plan.outputs.stale == 'true'
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT_0 || secrets.COPILOT_PAT_1 || secrets.COPILOT_PAT_2 || secrets.COPILOT_PAT_3 || secrets.COPILOT_PAT_4 || secrets.COPILOT_PAT_5 || secrets.COPILOT_PAT_6 || secrets.COPILOT_PAT_7 || secrets.COPILOT_PAT_8 || secrets.COPILOT_PAT_9 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$COPILOT_GITHUB_TOKEN" ]]; then
+            echo "::error::No Copilot PAT is available for the safe canary"
+            exit 1
+          fi
+          output=$(timeout 60 copilot \
+            --prompt "Reply exactly OK" \
+            --available-tools="" \
+            --silent \
+            --effort=low)
+          if [[ "$output" != *"OK"* ]]; then
+            echo "::error::Copilot canary did not return the expected marker"
+            exit 1
+          fi
+
+      - name: Run non-mutating MCP Gateway canary
+        if: steps.plan.outputs.stale == 'true'
+        env:
+          GATEWAY_IMAGE: ${{ steps.plan.outputs.gateway_image }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="devops-health-pin-canary-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          gateway_pid=""
+          cleanup() {
+            docker rm --force "$name" >/dev/null 2>&1 || true
+            if [[ -n "$gateway_pid" ]]; then
+              wait "$gateway_pid" 2>/dev/null || true
+            fi
+          }
+          trap cleanup EXIT
+          cat > "$RUNNER_TEMP/gateway-config.json" <<'JSON'
+          {
+            "mcpServers": {
+              "canary": {
+                "type": "http",
+                "url": "http://host.docker.internal:18081/mcp"
+              }
+            },
+            "gateway": {
+              "port": 18080,
+              "domain": "localhost",
+              "agentId": "devops-health-pin-canary"
+            }
+          }
+          JSON
+          docker pull "$GATEWAY_IMAGE"
+          docker run --rm --interactive --name "$name" \
+            --add-host host.docker.internal:host-gateway \
+            --publish 127.0.0.1:18080:18080 \
+            --env MCP_GATEWAY_PORT=18080 \
+            --env MCP_GATEWAY_DOMAIN=localhost \
+            --env MCP_GATEWAY_AGENT_ID=devops-health-pin-canary \
+            "$GATEWAY_IMAGE" \
+            < "$RUNNER_TEMP/gateway-config.json" \
+            > "$RUNNER_TEMP/gateway.log" 2>&1 &
+          gateway_pid=$!
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:18080/health >/dev/null; then
+              exit 0
+            fi
+            if ! kill -0 "$gateway_pid" 2>/dev/null; then
+              cat "$RUNNER_TEMP/gateway.log"
+              echo "::error::MCP Gateway exited before its health check passed"
+              exit 1
+            fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/gateway.log"
+          echo "::error::MCP Gateway health canary failed"
+          exit 1
+
+      - name: Record validated candidate
+        if: steps.plan.outputs.stale == 'true'
+        env:
+          CURRENT: ${{ steps.plan.outputs.current }}
+          CANDIDATE: ${{ steps.plan.outputs.candidate }}
+          COMPILER: ${{ steps.plan.outputs.compiler }}
+          GATEWAY_IMAGE: ${{ steps.plan.outputs.gateway_image }}
+        shell: bash
+        run: |
+          {
+            echo "## Validated DevOps Health Copilot pin candidate"
+            echo
+            echo "- Copilot CLI: \`$CURRENT\` -> \`$CANDIDATE\`"
+            echo "- gh-aw compiler: \`$COMPILER\`"
+            echo "- MCP Gateway: \`$GATEWAY_IMAGE\`"
+            echo "- Strict compile: all three DevOps Health workflows"
+            echo "- Canaries: Copilot read-only prompt and MCP Gateway health"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  propose:
+    name: Propose validated pin update
+    needs: validate
+    if: needs.validate.outputs.stale == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: copilot-pat-pool
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      UPDATE_BRANCH: automated/devops-health-copilot-pin
+    steps:
+      - name: Require workflow-capable token
+        env:
+          GH_AW_GITHUB_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "$GH_AW_GITHUB_TOKEN" ]]; then
+            echo "::error::GH_AW_GITHUB_TOKEN is required to update workflow files"
+            exit 1
+          fi
+
+      - name: Checkout trusted main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+
+      - name: Fetch compiler-owned compatibility source
+        id: compat-ref
+        env:
+          COMPILER: ${{ needs.validate.outputs.compiler }}
+          EXPECTED_COMPAT_SHA: ${{ needs.validate.outputs.compat_sha }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          object=$(
+            gh api "repos/github/gh-aw/git/ref/tags/${COMPILER}" \
+              --jq '.object | [.type, .sha] | @tsv'
+          )
+          read -r object_type object_sha <<< "$object"
+          if [[ "$object_type" == "tag" ]]; then
+            object_sha=$(
+              gh api "repos/github/gh-aw/git/tags/${object_sha}" --jq '.object.sha'
+            )
+          elif [[ "$object_type" != "commit" ]]; then
+            echo "::error::Unexpected gh-aw tag object type: $object_type"
+            exit 1
+          fi
+          test "$object_sha" = "$EXPECTED_COMPAT_SHA"
+          curl --fail --silent --show-error --location \
+            --output "$RUNNER_TEMP/compat.json" \
+            "https://raw.githubusercontent.com/github/gh-aw/${object_sha}/.github/aw/compat.json"
+
+      - name: Recheck validated ownership
+        id: plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          python eng/devops-health/copilot_pin.py plan \
+            --compat "$RUNNER_TEMP/compat.json" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Match validated candidate
+        env:
+          VALIDATED_COMPILER: ${{ needs.validate.outputs.compiler }}
+          VALIDATED_CURRENT: ${{ needs.validate.outputs.current }}
+          VALIDATED_CANDIDATE: ${{ needs.validate.outputs.candidate }}
+          VALIDATED_GATEWAY_IMAGE: ${{ needs.validate.outputs.gateway_image }}
+          PLANNED_COMPILER: ${{ steps.plan.outputs.compiler }}
+          PLANNED_CURRENT: ${{ steps.plan.outputs.current }}
+          PLANNED_CANDIDATE: ${{ steps.plan.outputs.candidate }}
+          PLANNED_GATEWAY_IMAGE: ${{ steps.plan.outputs.gateway_image }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$VALIDATED_COMPILER" = "$PLANNED_COMPILER"
+          test "$VALIDATED_CURRENT" = "$PLANNED_CURRENT"
+          test "$VALIDATED_CANDIDATE" = "$PLANNED_CANDIDATE"
+          test "$VALIDATED_GATEWAY_IMAGE" = "$PLANNED_GATEWAY_IMAGE"
+
+      - name: Install selected gh-aw compiler
+        uses: github/gh-aw-actions/setup-cli@5e508589e03a7757a7e05b26e834292f5445bfb6 # v0.88.7
+        with:
+          version: ${{ steps.plan.outputs.compiler }}
+
+      - name: Apply and verify exact update
+        shell: bash
+        run: |
+          set -euo pipefail
+          python eng/devops-health/copilot_pin.py apply \
+            --compat "$RUNNER_TEMP/compat.json"
+          gh aw compile --strict --no-check-update \
+            devops-health-check \
+            devops-health-groom \
+            devops-health-investigate
+          python -m pip install --quiet pyyaml
+          python -m unittest eng/devops-health/test_copilot_pin.py
+          python -m unittest \
+            eng.evaluation.test_token_failover.TokenFailoverTests.test_gh_aw_runtime_upgrade_is_complete
+          python eng/devops-health/copilot_pin.py plan \
+            --compat "$RUNNER_TEMP/compat.json" |
+            jq -e '.stale == false'
+          changed=$(git diff --name-only)
+          expected=$(
+            printf '%s\n' \
+              .github/workflows/devops-health-check.lock.yml \
+              .github/workflows/devops-health-check.md \
+              .github/workflows/devops-health-groom.lock.yml \
+              .github/workflows/devops-health-groom.md \
+              .github/workflows/devops-health-investigate.lock.yml \
+              .github/workflows/devops-health-investigate.md
+          )
+          test "$changed" = "$expected"
+
+      - name: Create or update draft pull request
+        env:
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          CURRENT: ${{ steps.plan.outputs.current }}
+          CANDIDATE: ${{ steps.plan.outputs.candidate }}
+          COMPILER: ${{ steps.plan.outputs.compiler }}
+          GATEWAY_IMAGE: ${{ steps.plan.outputs.gateway_image }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin \
+            "$UPDATE_BRANCH:refs/remotes/origin/$UPDATE_BRANCH" 2>/dev/null || true
+          existing_json=$(
+            gh pr list --state open --head "$UPDATE_BRANCH" \
+              --json number,isDraft --jq '.[0] // empty'
+          )
+          existing_number=""
+          if [[ -n "$existing_json" ]]; then
+            existing_number=$(jq -r '.number' <<< "$existing_json")
+            if [[ "$(jq -r '.isDraft' <<< "$existing_json")" != "true" ]]; then
+              echo "::error::Refusing to update non-draft PR #$existing_number"
+              exit 1
+            fi
+          fi
+          git switch --force-create "$UPDATE_BRANCH"
+          git add \
+            .github/workflows/devops-health-check.md \
+            .github/workflows/devops-health-check.lock.yml \
+            .github/workflows/devops-health-groom.md \
+            .github/workflows/devops-health-groom.lock.yml \
+            .github/workflows/devops-health-investigate.md \
+            .github/workflows/devops-health-investigate.lock.yml
+          git commit -m "Update DevOps Health Copilot pin" \
+            -m "Co-authored-by: Copilot App <223556219+Copilot@users.noreply.github.com>"
+          git push --force-with-lease origin "$UPDATE_BRANCH"
+
+          cat > "$RUNNER_TEMP/pr-body.md" <<EOF
+          ## Summary
+
+          Update the explicit DevOps Health Copilot CLI pin from \`$CURRENT\` to
+          \`$CANDIDATE\`.
+
+          ## Why
+
+          The exact gh-aw \`$COMPILER\` compatibility matrix owns this candidate.
+          The update was validated before this branch was changed.
+
+          ## Impact
+
+          Only the three DevOps Health workflow sources and their generated locks
+          change. The selected MCP Gateway remains \`$GATEWAY_IMAGE\`.
+
+          ## Validation
+
+          - Strictly compiled all three workflows with gh-aw \`$COMPILER\`
+          - Ran the targeted pin and DevOps Health workflow tests
+          - Ran a non-mutating Copilot prompt canary with no tools
+          - Started the digest-pinned MCP Gateway and passed its health canary
+          EOF
+
+          if [[ -z "$existing_number" ]]; then
+            gh pr create \
+              --draft \
+              --base main \
+              --head "$UPDATE_BRANCH" \
+              --title "Update DevOps Health Copilot pin" \
+              --body-file "$RUNNER_TEMP/pr-body.md"
+          else
+            gh pr edit "$existing_number" \
+              --title "Update DevOps Health Copilot pin" \
+              --body-file "$RUNNER_TEMP/pr-body.md"
+          fi
