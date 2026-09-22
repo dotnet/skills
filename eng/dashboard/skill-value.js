@@ -134,9 +134,11 @@
   function valueAssessment(row) {
     const evidence = row.preference;
     const cost = costMultiplier(row);
-    if (row.activationContract && row.activationContract.passed === false) {
-      return { status: 'activation-contract-failed', evidence, cost, index: null };
-    }
+    if (row.activationContract?.evaluated !== true || row.activationContract.passed !== true) {
+      const status = row.activationContract?.evaluated === true && row.activationContract.passed === false
+        ? 'activation-contract-failed'
+        : 'insufficient';
+      return { status, evidence, cost, index: null };
     if (!evidence) return { status: 'insufficient', evidence, cost, index: null };
     if (!evidence.conclusive || evidence.underpowered) {
       return { status: 'insufficient', evidence, cost, index: null };
