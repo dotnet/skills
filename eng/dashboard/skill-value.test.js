@@ -127,6 +127,7 @@ test('value assessment uses preference evidence and treats pass telemetry as irr
   const {
     costMultiplier,
     deltaCell,
+    drilldown,
     metricCell,
     provisionalReliabilityAssessment,
     reliabilityEvidence,
@@ -251,6 +252,23 @@ test('value assessment uses preference evidence and treats pass telemetry as irr
   assert.match(valueSentence(underSampledCost).text, /Looks helpful/);
   assert.match(valueSentence(underSampledCost).text, /cost information is unavailable/);
   assert.doesNotMatch(valueSentence(underSampledCost).text, /Insufficient signal/);
+  assert.match(deltaCell(100, 80, String, false, false), /telemetry unavailable/);
+  assert.doesNotMatch(deltaCell(100, 80, String, false, false), /20%/);
+
+  const missingArmMetrics = {
+    ...row(80, 900),
+    baseline: {
+      n: 0,
+      timeMs: null,
+      tokens: null,
+      tokensIn: null,
+      tokensOut: null,
+      cacheRead: null,
+      cacheWrite: null,
+    },
+  };
+  assert.match(drilldown(missingArmMetrics), /Latest run without skill<\/span> <span class="sv-sub">no metrics/);
+  assert.doesNotMatch(drilldown(missingArmMetrics), /time 0\.0s/);
 
   const inconclusive = valueAssessment(row(80, 900, {
     ...credibleWin,
@@ -488,10 +506,18 @@ test('rollups preserve regression and preference-only leaf guidance', (t) => {
     { n: 8, tokens: 0, timeMs: 0 },
     { n: 8, tokens: 0, timeMs: 0 },
   );
+  const underSampled = row(
+    'under-sampled-model',
+    preference,
+    { n: 4, tokens: 100, timeMs: 1000 },
+    { n: 4, tokens: 80, timeMs: 900 },
+  );
 
   assert.match(singleModelRollup(regression), /not recommended/);
   assert.doesNotMatch(singleModelRollup(regression), /not yet/);
   assert.match(singleModelRollup(preferenceOnly), /looks helpful; cost unavailable/);
+  assert.match(singleModelRollup(underSampled), /n\/a tokens · n\/a time/);
+  assert.doesNotMatch(singleModelRollup(underSampled), /−20% tokens|−10% time/);
 
   const summary = countRollup([worth, regression, preferenceOnly]);
   assert.match(summary, /1 worth installing/);

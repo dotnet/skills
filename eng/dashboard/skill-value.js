@@ -341,8 +341,8 @@
     return `${pct > 0 ? '−' : '+'}${Math.abs(pct)}%`;
   }
 
-  function deltaCell(base, treat, unitFmt, diluted) {
-    if (base == null || treat == null || base <= 0 || treat <= 0) {
+  function deltaCell(base, treat, unitFmt, diluted, costAvailable = true) {
+    if (!costAvailable || base == null || treat == null || base <= 0 || treat <= 0) {
       return '<td class="num"><span class="sv-insufficient">N/A</span>' +
         '<span class="sv-sub">telemetry unavailable</span></td>';
     }
@@ -515,9 +515,13 @@
 
   function drilldown(row) {
     const arm = (a, label) => {
-      if (!a) return `<div class="sv-arm"><span class="sv-arm-label">${label}</span> <span class="sv-sub">no metrics</span></div>`;
+      if (!a || !Number.isFinite(a.n) || a.n <= 0) {
+        return `<div class="sv-arm"><span class="sv-arm-label">${label}</span> <span class="sv-sub">no metrics</span></div>`;
+      }
+      const time = Number.isFinite(a.timeMs) && a.timeMs > 0 ? fmtSecs(a.timeMs) : 'unavailable';
+      const tokens = Number.isFinite(a.tokens) && a.tokens > 0 ? fmtK(a.tokens) : 'unavailable';
       return `<div class="sv-arm"><span class="sv-arm-label">${label}</span> ` +
-        `time ${fmtSecs(a.timeMs)} · tokens ${fmtK(a.tokens)} ` +
+        `time ${time} · tokens ${tokens} ` +
         `(in ${fmtK(a.tokensIn)} / out ${fmtK(a.tokensOut)}) · ` +
         `cache read ${fmtK(a.cacheRead)} / write ${fmtK(a.cacheWrite)} · n=${a.n}</div>`;
     };
@@ -597,8 +601,9 @@
   // model there is nothing to blend, so show that model's ACTUAL deltas instead of
   // a bare count — this is the header working under a single-model filter.
   function singleModelRollup(row) {
-    const tokR = reduction(row.baseline ? row.baseline.tokens : null, row.treatment ? row.treatment.tokens : null);
-    const timeR = reduction(row.baseline ? row.baseline.timeMs : null, row.treatment ? row.treatment.timeMs : null);
+    const cost = costMultiplier(row);
+    const tokR = cost ? 1 - cost.tokenRatio : null;
+    const timeR = cost ? 1 - cost.timeRatio : null;
     const diluted = row.activation != null && row.activation < ACTIVATION_MIN;
     const mark = diluted ? '<span class="sv-dilute-mark" title="Skill fired in a minority of runs — delta is diluted toward baseline">≈</span>' : '';
     const tag = rollupTag(assessmentStatus(row));
@@ -761,13 +766,14 @@
           for (const row of modelRows) {
             const mid = `svm${uid++}`;
             const v = valueSentence(row);
+            const costAvailable = costMultiplier(row) != null;
             const diluted = row.activation != null && row.activation < ACTIVATION_MIN;
             const label = `${escapeHtml(row.model)} <span class="sv-sub">judge ${escapeHtml(row.judge)}</span>`;
             html += `<tr class="level-2 child-of-${sid} expandable" data-toggle="${mid}" style="display:none">` +
               `<td><span class="expand-icon" id="icon-${mid}">▶</span>${label}</td>` +
               activationCell(row) +
-              deltaCell(row.baseline ? row.baseline.tokens : null, row.treatment ? row.treatment.tokens : null, fmtK, diluted) +
-              deltaCell(row.baseline ? row.baseline.timeMs : null, row.treatment ? row.treatment.timeMs : null, fmtSecs, diluted) +
+              deltaCell(row.baseline ? row.baseline.tokens : null, row.treatment ? row.treatment.tokens : null, fmtK, diluted, costAvailable) +
+              deltaCell(row.baseline ? row.baseline.timeMs : null, row.treatment ? row.treatment.timeMs : null, fmtSecs, diluted, costAvailable) +
               metricCell(row) +
               failureCell(row) +
               `<td class="${v.cls}">${v.text}</td></tr>` +
@@ -795,6 +801,7 @@
       reliabilityEvidence,
       metricCell,
       deltaCell,
+      drilldown,
       costMultiplier,
       valueAssessment,
       provisionalReliabilityAssessment,
