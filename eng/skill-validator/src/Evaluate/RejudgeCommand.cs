@@ -107,6 +107,26 @@ public static class RejudgeCommand
             return 1;
         }
 
+        bool usePairwise = judgeMode is JudgeMode.Pairwise or JudgeMode.Both;
+        var allRunGroups = sessions
+            .GroupBy(s => (s.SkillName, s.ScenarioName, s.RunIndex))
+            .ToList();
+        var incompleteRunGroups = FindIncompleteInlineRunGroups(allRunGroups);
+
+        if (incompleteRunGroups.Count > 0)
+        {
+            Console.Error.WriteLine("Cannot rejudge: incomplete inline run group(s):");
+            foreach (var identity in incompleteRunGroups)
+                Console.Error.WriteLine($"  - {identity}");
+            return 1;
+        }
+
+        if (allRunGroups.Count == 0)
+        {
+            Console.Error.WriteLine("No complete run groups found.");
+            return 1;
+        }
+
         try
         {
             var client = await AgentRunner.GetSharedClient(verbose);
@@ -125,18 +145,7 @@ public static class RejudgeCommand
 
         Console.WriteLine($"Rejudging {sessions.Count} sessions with model: {effectiveJudgeModel}, mode: {judgeMode}");
 
-        bool usePairwise = judgeMode is JudgeMode.Pairwise or JudgeMode.Both;
-        var runGroups = sessions
-            .GroupBy(s => (s.SkillName, s.ScenarioName, s.RunIndex))
-            .Where(g => SelectInlineRunGroup(g) is not null)
-            .ToList();
-
-        if (runGroups.Count == 0)
-        {
-            Console.Error.WriteLine("No complete run groups found.");
-            return 1;
-        }
-
+        var runGroups = allRunGroups;
         Console.WriteLine($"Found {runGroups.Count} run group(s) across {runGroups.Select(g => g.Key.SkillName).Distinct().Count()} skill(s)\n");
 
         var firstSession = sessions[0];
@@ -299,6 +308,14 @@ public static class RejudgeCommand
             return 1;
         }
 
+        var pairing = PairCrossDir(baselineSessions, treatmentSessions);
+        var pairingFailure = GetCrossDirPairingFailure(pairing);
+        if (pairingFailure is not null)
+        {
+            Console.Error.WriteLine(pairingFailure);
+            return 1;
+        }
+
         try
         {
             var client = await AgentRunner.GetSharedClient(verbose);
@@ -312,16 +329,6 @@ public static class RejudgeCommand
         catch (Exception error)
         {
             Console.Error.WriteLine($"Failed to validate model: {error}");
-            return 1;
-        }
-
-        var pairing = PairCrossDir(baselineSessions, treatmentSessions);
-        foreach (var unmatched in pairing.Unmatched)
-            Console.WriteLine($"⚠️  No baseline match for treatment run {unmatched}; skipping.");
-
-        if (pairing.Pairs.Count == 0)
-        {
-            Console.Error.WriteLine("No treatment runs could be paired with a baseline.");
             return 1;
         }
 
@@ -428,6 +435,13 @@ public static class RejudgeCommand
             isolated.Role == "with-agent-isolated");
     }
 
+    internal static IReadOnlyList<string> FindIncompleteInlineRunGroups(
+        IEnumerable<IGrouping<(string SkillName, string ScenarioName, int RunIndex), SessionRecord>> runGroups) =>
+        runGroups
+            .Where(group => SelectInlineRunGroup(group) is null)
+            .Select(FormatRunGroupIdentity)
+            .ToList();
+
     internal static SkillVerdict ComputeRejudgeVerdict(
         string targetName,
         string targetPath,
@@ -474,13 +488,17 @@ public static class RejudgeCommand
         IReadOnlyList<SessionRecord> baselineSessions,
         IReadOnlyList<SessionRecord> treatmentSessions)
     {
-        var baselineByKey = baselineSessions
-            .Where(s => BaselineRoles.Contains(s.Role) && !string.IsNullOrEmpty(s.BaselineKey))
+        var baselineRuns = baselineSessions
+            .Where(s => BaselineRoles.Contains(s.Role))
+            .ToList();
+        var baselineByKey = baselineRuns
+            .Where(s => !string.IsNullOrEmpty(s.BaselineKey))
             .GroupBy(s => s.BaselineKey!)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         var pairs = new List<CrossDirPair>();
-        var unmatched = new List<string>();
+        var matchedBaselineIds = new HashSet<string>(StringComparer.Ordinal);
+        var unmatchedTreatment = new List<string>();
 
         foreach (var group in treatmentSessions.GroupBy(s => (s.SkillName, s.ScenarioName, s.RunIndex)))
         {
@@ -488,7 +506,10 @@ public static class RejudgeCommand
                 .Select(role => group.FirstOrDefault(s => s.Role == role))
                 .FirstOrDefault(s => s is not null);
             if (isolated is null)
+            {
+                unmatchedTreatment.Add(FormatRunGroupIdentity(group));
                 continue;
+            }
 
             var plugin = PluginRoles
                 .Select(role => group.FirstOrDefault(s => s.Role == role))
@@ -497,11 +518,12 @@ public static class RejudgeCommand
             var key = isolated.BaselineKey;
             if (string.IsNullOrEmpty(key) || !baselineByKey.TryGetValue(key, out var candidates) || candidates.Count == 0)
             {
-                unmatched.Add($"{group.Key.SkillName}/{group.Key.ScenarioName}#{group.Key.RunIndex + 1}");
+                unmatchedTreatment.Add(FormatSessionIdentity(isolated));
                 continue;
             }
 
             var baseline = candidates.FirstOrDefault(b => b.RunIndex == group.Key.RunIndex) ?? candidates[0];
+            matchedBaselineIds.Add(baseline.Id);
             pairs.Add(new CrossDirPair(
                 group.Key.SkillName,
                 group.Key.ScenarioName,
@@ -512,8 +534,60 @@ public static class RejudgeCommand
                 isolated.Role == "with-agent-isolated"));
         }
 
-        return new CrossDirPairing(pairs, unmatched);
+        var unmatchedBaseline = baselineRuns
+            .Where(session => !matchedBaselineIds.Contains(session.Id))
+            .Select(FormatSessionIdentity)
+            .ToList();
+
+        return new CrossDirPairing(pairs, unmatchedBaseline, unmatchedTreatment);
     }
+
+    internal static string? GetCrossDirPairingFailure(CrossDirPairing pairing)
+    {
+        if (pairing.UnmatchedBaseline.Count == 0 && pairing.UnmatchedTreatment.Count == 0)
+        {
+            return pairing.Pairs.Count == 0
+                ? "No treatment runs could be paired with a baseline."
+                : null;
+        }
+
+        var lines = new List<string>
+        {
+            "Cannot rejudge: cross-directory run pairing is incomplete. No verdict was published.",
+        };
+        if (pairing.UnmatchedBaseline.Count > 0)
+        {
+            lines.Add("Unmatched baseline run(s):");
+            lines.AddRange(pairing.UnmatchedBaseline.Select(identity => $"  - {identity}"));
+        }
+        if (pairing.UnmatchedTreatment.Count > 0)
+        {
+            lines.Add("Unmatched treatment run(s):");
+            lines.AddRange(pairing.UnmatchedTreatment.Select(identity => $"  - {identity}"));
+        }
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static string FormatSessionIdentity(SessionRecord session)
+    {
+        var baselineKey = FormatBaselineKey(session.BaselineKey);
+        return $"{session.SkillName}/{session.ScenarioName}#{session.RunIndex + 1}/{session.Role} "
+            + $"(id={session.Id}, baseline_key={baselineKey})";
+    }
+
+    private static string FormatRunGroupIdentity(
+        IGrouping<(string SkillName, string ScenarioName, int RunIndex), SessionRecord> group)
+    {
+        var sessions = string.Join(", ", group
+            .OrderBy(session => session.Role, StringComparer.Ordinal)
+            .Select(session =>
+                $"{session.Role}:id={session.Id},baseline_key={FormatBaselineKey(session.BaselineKey)}"));
+        return $"{group.Key.SkillName}/{group.Key.ScenarioName}#{group.Key.RunIndex + 1} ({sessions})";
+    }
+
+    private static string FormatBaselineKey(string? baselineKey) =>
+        string.IsNullOrEmpty(baselineKey) ? "<missing>" : baselineKey;
 
     /// <summary>
     /// Pure validation of cross-directory model/judge-model compatibility. Baseline and treatment
@@ -1054,4 +1128,5 @@ public sealed record CrossDirPair(
 /// <summary>Result of pairing treatment runs to baseline runs across two results directories.</summary>
 public sealed record CrossDirPairing(
     IReadOnlyList<CrossDirPair> Pairs,
-    IReadOnlyList<string> Unmatched);
+    IReadOnlyList<string> UnmatchedBaseline,
+    IReadOnlyList<string> UnmatchedTreatment);

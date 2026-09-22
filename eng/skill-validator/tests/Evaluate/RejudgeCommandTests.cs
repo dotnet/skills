@@ -189,11 +189,13 @@ public class RejudgeCommandTests
 
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
-        Assert.Empty(pairing.Unmatched);
+        Assert.Empty(pairing.UnmatchedBaseline);
+        Assert.Empty(pairing.UnmatchedTreatment);
         Assert.Equal(2, pairing.Pairs.Count);
         Assert.Equal("b0", pairing.Pairs.Single(p => p.RunIndex == 0).Baseline.Id);
         Assert.Equal("b1", pairing.Pairs.Single(p => p.RunIndex == 1).Baseline.Id);
         Assert.Equal("t0", pairing.Pairs.Single(p => p.RunIndex == 0).Isolated.Id);
+        Assert.Null(RejudgeCommand.GetCrossDirPairingFailure(pairing));
     }
 
     [Fact]
@@ -218,8 +220,107 @@ public class RejudgeCommandTests
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
         Assert.Empty(pairing.Pairs);
-        var unmatched = Assert.Single(pairing.Unmatched);
-        Assert.Contains("scn", unmatched);
+        Assert.Contains("b0", Assert.Single(pairing.UnmatchedBaseline));
+        Assert.Contains("t0", Assert.Single(pairing.UnmatchedTreatment));
+        var failure = RejudgeCommand.GetCrossDirPairingFailure(pairing);
+        Assert.Contains("No verdict was published", failure);
+        Assert.Contains("Unmatched baseline run(s)", failure);
+        Assert.Contains("Unmatched treatment run(s)", failure);
+    }
+
+    [Fact]
+    public void PairCrossDir_UnmatchedTreatment_FailsAccounting()
+    {
+        var baseline = new[] { Rec("b0", "baseline", 0, "K1") };
+        var treatment = new[]
+        {
+            Rec("t0", "with-skill-isolated", 0, "K1"),
+            Rec("t1", "with-skill-isolated", 1, "K2"),
+        };
+
+        var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
+
+        Assert.Single(pairing.Pairs);
+        Assert.Empty(pairing.UnmatchedBaseline);
+        Assert.Contains("t1", Assert.Single(pairing.UnmatchedTreatment));
+        var failure = RejudgeCommand.GetCrossDirPairingFailure(pairing);
+        Assert.Contains("Unmatched treatment run(s)", failure);
+        Assert.Contains("skill/scn#2/with-skill-isolated", failure);
+    }
+
+    [Fact]
+    public void PairCrossDir_UnmatchedBaseline_FailsAccounting()
+    {
+        var baseline = new[]
+        {
+            Rec("b0", "baseline", 0, "K1"),
+            Rec("b1", "baseline", 1, "K2"),
+        };
+        var treatment = new[] { Rec("t0", "with-skill-isolated", 0, "K1") };
+
+        var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
+
+        Assert.Single(pairing.Pairs);
+        Assert.Contains("b1", Assert.Single(pairing.UnmatchedBaseline));
+        Assert.Empty(pairing.UnmatchedTreatment);
+        var failure = RejudgeCommand.GetCrossDirPairingFailure(pairing);
+        Assert.Contains("Unmatched baseline run(s)", failure);
+        Assert.Contains("skill/scn#2/baseline", failure);
+    }
+
+    [Fact]
+    public void PairCrossDir_MixedPairedAndUnmatched_FailsAccounting()
+    {
+        var baseline = new[]
+        {
+            Rec("b0", "baseline", 0, "K1"),
+            Rec("b1", "baseline", 1, "K2"),
+        };
+        var treatment = new[]
+        {
+            Rec("t0", "with-skill-isolated", 0, "K1"),
+            Rec("t1", "with-skill-isolated", 1, "K3"),
+        };
+
+        var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
+
+        Assert.Single(pairing.Pairs);
+        Assert.Contains("b1", Assert.Single(pairing.UnmatchedBaseline));
+        Assert.Contains("t1", Assert.Single(pairing.UnmatchedTreatment));
+        Assert.NotNull(RejudgeCommand.GetCrossDirPairingFailure(pairing));
+    }
+
+    [Fact]
+    public void PairCrossDir_CompletePairing_PassesAccounting()
+    {
+        var baseline = new[]
+        {
+            Rec("b0", "baseline", 0, "K1"),
+            Rec("b1", "baseline", 1, "K2"),
+        };
+        var treatment = new[]
+        {
+            Rec("t0", "with-skill-isolated", 0, "K1"),
+            Rec("t1", "with-skill-isolated", 1, "K2"),
+        };
+
+        var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
+
+        Assert.Equal(2, pairing.Pairs.Count);
+        Assert.Empty(pairing.UnmatchedBaseline);
+        Assert.Empty(pairing.UnmatchedTreatment);
+        Assert.Null(RejudgeCommand.GetCrossDirPairingFailure(pairing));
+    }
+
+    [Fact]
+    public void PairCrossDir_ZeroPairs_FailsAccounting()
+    {
+        var pairing = RejudgeCommand.PairCrossDir([], []);
+
+        Assert.Empty(pairing.Pairs);
+        Assert.Equal(
+            "No treatment runs could be paired with a baseline.",
+            RejudgeCommand.GetCrossDirPairingFailure(pairing));
     }
 
     [Fact]
@@ -288,6 +389,20 @@ public class RejudgeCommandTests
         Assert.Equal("s0", selected.Isolated.Id);
         Assert.Null(selected.Plugin);
         Assert.False(selected.IsAgent);
+    }
+
+    [Fact]
+    public void FindIncompleteInlineRunGroups_ReportsMissingIsolatedArm()
+    {
+        var sessions = new[] { Rec("b0", "baseline", 0, "K1") };
+        var runGroups = sessions.GroupBy(s => (s.SkillName, s.ScenarioName, s.RunIndex));
+
+        var incomplete = RejudgeCommand.FindIncompleteInlineRunGroups(runGroups);
+
+        var identity = Assert.Single(incomplete);
+        Assert.Contains("skill/scn#1", identity);
+        Assert.Contains("baseline:id=b0", identity);
+        Assert.Contains("baseline_key=K1", identity);
     }
 
     [Fact]
