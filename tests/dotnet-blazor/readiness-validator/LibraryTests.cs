@@ -43,9 +43,12 @@ internal static class LibraryTests
             CreateComponentRevisions(fixture, packageRevisions);
             TestPackageArtifactCannotSatisfyComponentHandoff(fixture);
             TestCompleteReconcileAndIndex(fixture);
+            TestStandaloneComponentUnit(fixture);
+            TestUnsupportedRevisionEntrypoints(fixture);
             TestCorruptManifestReconstruction(fixture);
             TestConflictsAndWrongPackage(fixture);
             TestCliSubprocess(fixture, pluginRoot);
+            TestFeedbackHistoryInLibrary(fixture);
         }
         finally
         {
@@ -1287,6 +1290,126 @@ internal static class LibraryTests
         AssertBytes(expected, File.ReadAllBytes(fixture.RunPath), "stale run manifest reconstructs exactly");
     }
 
+    private static void TestStandaloneComponentUnit(Fixture fixture)
+    {
+        var component = fixture.Inventory.Packages[0].Components[0];
+        var revisions = Path.Combine(fixture.Root, component.RevisionRoot);
+        var saved = Path.Combine(fixture.Root, "saved-bound-component");
+        Directory.Move(revisions, saved);
+        try
+        {
+            var inputPath = Path.Combine(fixture.Root, component.InputManifestPath);
+            var inputBytes = File.ReadAllBytes(inputPath);
+            var input = InputManifestService.Parse(inputBytes);
+            var initialized = AssessmentService.Initialize("component", fixture.Root, input, inputBytes, component.ComponentId);
+            var evidence = BuildEvidence(initialized.Identity, component.RenderModes, input);
+            _ = Render(fixture.Root, inputPath, Complete(initialized, evidence), evidence, revisions, null);
+            var manifest = LibraryService.Reconcile(fixture.Root, fixture.Inventory, fixture.InventoryBytes);
+            var unit = manifest.Units.Single(unit => unit.UnitId == component.UnitId);
+            Assert(unit.State == "completed" && unit.PackageValidationManifestDigest is null,
+                "library accepts a standalone component and never infers a package relationship");
+            _ = LibraryService.Validate(fixture.Root, fixture.Inventory, fixture.InventoryBytes, manifest);
+        }
+        finally
+        {
+            Directory.Delete(revisions, recursive: true);
+            Directory.Move(saved, revisions);
+        }
+    }
+
+    private static void TestUnsupportedRevisionEntrypoints(Fixture fixture)
+    {
+        var revision = Path.Combine(fixture.Root, fixture.Inventory.Packages[0].Components[0].RevisionRoot, "0001");
+        var path = Path.Combine(revision, "component.assessment.json");
+        var original = File.ReadAllBytes(path);
+        var retained = new[] { fixture.RunPath, Path.Combine(fixture.Root, "library-index.json"),
+            Path.Combine(fixture.Root, "library-index.md"), Path.Combine(fixture.Root, ".readiness-index", "current-generation.json") }
+            .ToDictionary(name => name, File.ReadAllBytes);
+        foreach (var text in new[]
+        {
+            Encoding.UTF8.GetString(original).Replace("\"rubric_version\":\"2.1.0\"", "\"rubric_version\":\"2.0.1\"", StringComparison.Ordinal),
+            Encoding.UTF8.GetString(original).Replace("\"assessment_kind\":\"component\"", "\"assessment_kind\":\"unified\"", StringComparison.Ordinal)
+        })
+        {
+            try
+            {
+                File.WriteAllText(path, text, new UTF8Encoding(false));
+                foreach (var (family, operation) in new[]
+                {
+                    ("inventory", "status"), ("library", "reconcile"), ("library", "validate"), ("library", "index")
+                })
+                {
+                    string[] index = operation == "index"
+                        ? ["--json", Path.Combine(fixture.Root, "library-index.json"),
+                            "--markdown", Path.Combine(fixture.Root, "library-index.md")] : [];
+                    var output = new StringWriter();
+                    var error = new StringWriter();
+                    AssertEqual(ExitCodes.ValidationFailure, CliApplication.Run(
+                        [family, operation, "--root", fixture.Root, "--inventory", fixture.ConfirmedPath,
+                            "--run-manifest", fixture.RunPath, .. index], output, error), "unsupported unit " + operation);
+                    if (family == "inventory")
+                    {
+                        Assert(output.ToString().Contains("\"state\":\"invalid\"", StringComparison.Ordinal),
+                            "unsupported unit reports explicit invalid inventory state");
+                    }
+                }
+                foreach (var (name, bytes) in retained)
+                {
+                    AssertBytes(bytes, File.ReadAllBytes(name), "unsupported unit does not replace current output");
+                }
+            }
+            finally
+            {
+                File.WriteAllBytes(path, original);
+            }
+        }
+    }
+
+    private static void TestFeedbackHistoryInLibrary(Fixture fixture)
+    {
+        var package = fixture.Inventory.Packages[0];
+        var component = package.Components[0];
+        var revisions = Path.Combine(fixture.Root, component.RevisionRoot);
+        var revision = Path.Combine(revisions, "0001");
+        var first = Path.Combine(fixture.Root, "library-feedback-first.md");
+        var second = Path.Combine(fixture.Root, "library-feedback-second.md");
+        var assessment = AssessmentService.Parse(File.ReadAllBytes(Path.Combine(revision, "component.assessment.json")));
+        foreach (var (path, text) in new[] { (first, "First"), (second, "Second") })
+        {
+            File.WriteAllText(path, "# Assessment feedback\n\n| Requirement IDs | Feedback |\n|---|---|\n" +
+                $"| `{assessment.Rows[0].Id}` | {text} library commentary. |\n", new UTF8Encoding(false));
+        }
+        var predecessor = ContractJson.RawDigest(File.ReadAllBytes(Path.Combine(revision, "component.validation.json"))).Value;
+        string[] render = ["report", "render", "--root", fixture.Root,
+            "--input", Path.Combine(revision, "input-manifest.json"),
+            "--assessment", Path.Combine(revision, "component.assessment.json"),
+            "--evidence", Path.Combine(revision, "component.evidence.json"), "--output", revisions,
+            "--package-revision", Path.Combine(fixture.Root, package.RevisionRoot, "0001")];
+        RunCliRaw([.. render, "--feedback", first, "--predecessor", predecessor]);
+        predecessor = ContractJson.RawDigest(File.ReadAllBytes(Path.Combine(revisions, "0002", "component.validation.json"))).Value;
+        RunCliRaw([.. render, "--feedback", second, "--feedback-history", first, "--predecessor", predecessor]);
+        var previousRun = File.ReadAllBytes(fixture.RunPath);
+        var error = new StringWriter();
+        AssertEqual(ExitCodes.ValidationFailure, CliApplication.Run(
+            ["library", "reconcile", "--root", fixture.Root, "--inventory", fixture.ConfirmedPath,
+                "--run-manifest", fixture.RunPath], new StringWriter(), error),
+            "library cannot skip exact component feedback");
+        AssertBytes(previousRun, File.ReadAllBytes(fixture.RunPath), "missing commentary leaves run state unchanged");
+        foreach (var (family, operation) in new[]
+        {
+            ("library", "reconcile"), ("library", "validate"), ("inventory", "status"), ("library", "index")
+        })
+        {
+            string[] index = operation == "index"
+                ? ["--json", Path.Combine(fixture.Root, "library-index.json"),
+                    "--markdown", Path.Combine(fixture.Root, "library-index.md")] : [];
+            RunCliRaw([family, operation, "--root", fixture.Root, "--inventory", fixture.ConfirmedPath,
+                "--run-manifest", fixture.RunPath, "--feedback-history", first, "--feedback-history", second, .. index]);
+        }
+        AssertEqual("complete", LibraryService.Parse(File.ReadAllBytes(fixture.RunPath)).State,
+            "current exact feedback history preserves library completion");
+    }
+
     private static void TestPackageArtifactCannotSatisfyComponentHandoff(Fixture fixture)
     {
         var package = fixture.Inventory.Packages[0];
@@ -1298,31 +1421,18 @@ internal static class LibraryTests
         var inputPath = Path.Combine(fixture.Root, package.InputManifestPath);
         var inputBytes = File.ReadAllBytes(inputPath);
         var input = InputManifestService.Parse(inputBytes);
-        var unified = AssessmentService.Initialize(
-            "unified",
+        var packageAssessment = AssessmentService.Initialize(
+            "package",
             fixture.Root,
             input,
             inputBytes,
-            component.ComponentId);
-        var unifiedEvidence = BuildEvidence(unified.Identity, component.RenderModes, input);
-        var unifiedAssessment = Complete(unified, unifiedEvidence);
-        var repositoryEvidenceId = unifiedEvidence.SourceLedgers
-            .Single(source => source.Ledger.LedgerKind == "repository")
-            .Ledger.Records.Single()
-            .StableId;
-        unifiedAssessment = unifiedAssessment with
-        {
-            Rows = unifiedAssessment.Rows
-                .Select((row, index) => index == 0
-                    ? row with { EvidenceIds = [repositoryEvidenceId] }
-                    : row)
-                .ToArray()
-        };
+            null);
+        var packageEvidence = BuildEvidence(packageAssessment.Identity, [], input);
         _ = Render(
             fixture.Root,
             inputPath,
-            unifiedAssessment,
-            unifiedEvidence,
+            Complete(packageAssessment, packageEvidence),
+            packageEvidence,
             componentRoot,
             packageRevision: null);
         try
@@ -1332,7 +1442,7 @@ internal static class LibraryTests
                     fixture.Root,
                     fixture.Inventory,
                     fixture.InventoryBytes),
-                "unified artifact cannot satisfy split component handoff");
+                "package artifact cannot satisfy component handoff");
         }
         finally
         {
@@ -1542,7 +1652,7 @@ internal static class LibraryTests
         IReadOnlyList<string> renderModes,
         InputManifest? input = null)
     {
-        var repositoryEvidence = identity.AssessmentKind is "package" or "unified";
+        var repositoryEvidence = identity.AssessmentKind == "package";
         var packageSource = input?.PackageSources.FirstOrDefault();
         var modes = repositoryEvidence
             ? new[] { "package-wide" }
@@ -1629,7 +1739,7 @@ internal static class LibraryTests
                         identity.AssessmentKind,
                         identity.Package,
                         identity.InputManifestDigest,
-                        identity.AssessmentKind == "unified" ? identity.ComponentId : null),
+                        null),
                     drafts)
             ];
         var selectedEvidenceIds = ledgers
@@ -1672,6 +1782,12 @@ internal static class LibraryTests
                     Status = "verified",
                     Observation = "The retained deterministic evidence establishes this synthetic observation.",
                     EvidenceIds = evidenceIds
+                }
+                : row.Id == "BEQ-05"
+                ? row with
+                {
+                    Status = "not tested",
+                    AssessmentFollowUp = "The synthetic library fixture does not exercise static SSR."
                 }
                 : row with
                 {

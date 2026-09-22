@@ -7,18 +7,19 @@ by [artifact acquisition](artifact-acquisition.md#original-library-source-closur
 
 ## Split coordination
 
-For an ordinary split request, preserve one 60-row `package` handoff and one bound 61-row
+For an explicit split request, preserve one 60-row `package` handoff and one 52-row
 `component` handoff per confirmed component. Reject `unified.assessment.*` as a mode mismatch.
-A coordinator-managed split request requires separate unit execution; a request for an already
-bound component alone does not introduce library orchestration.
+A coordinator-managed split request requires separate unit execution; a request for one
+component alone does not introduce package work or library orchestration.
 Use exactly one top-level `blazor-component-readiness-worker` session per confirmed unit when
 separate execution is required; read [worker execution](worker-execution.md) before staging or
-launch. Single unified work stays in one bounded context unless the owner explicitly requests
+launch. A single component stays in one bounded context unless the owner explicitly requests
 separate execution. Package-only has no component worker or library inventory/index.
 
 Each unit follows [shared assessment workflow](assessment-workflow.md) and its selected area
-owners. Exact full-package binding precedes component work; scoped recovery/profile results
-cannot substitute for ordinary split or full-library completion.
+owners. Package and component units may proceed in either order. Only an explicitly supplied
+current full-package revision may be bound to a component; absent relationships remain absent.
+Scoped package results cannot substitute for full-package library completion.
 
 ## Capability gate
 
@@ -38,11 +39,11 @@ and confirmation.
 Create:
 
 - one package unit per exact package ID/version/nupkg digest, owning the 60 repository-wide/conditional rows;
-- one component unit per confirmed component, owning the 61 component-specific rows and every
+- one component unit per confirmed component, owning the 52 component-specific rows and every
   claimed mode;
 - exactly one top-level writable worker session per unit.
 
-A component handoff receives only its unit inputs and exact package revision. Reject sibling
+A component handoff receives only its unit inputs and any explicitly declared exact package revision. Reject sibling
 documents/source/evidence, duplicate unit IDs, changed package identities, missing modes, or
 repository-wide rows in a component result.
 
@@ -63,6 +64,10 @@ blocked probes, transition time, and reason.
 
 Completed units name the output revision, report path, validation-manifest path/digest, status
 counts, and package-manifest binding when applicable. Never hand-edit these fields.
+For feedback-bound units, supply current and predecessor commentary through repeatable
+`--feedback-history <file>` on `inventory status` and `library reconcile/validate/index`.
+Resolution uses each declared digest; the scanner never guesses feedback from nearby files.
+Missing or altered component feedback blocks completion without rewriting prior artifacts.
 
 ## Interruption and resume
 

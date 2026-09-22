@@ -7,16 +7,16 @@ namespace BlazorComponentReadiness.Validator.Validation;
 
 public static class RubricLoader
 {
-    public const string CurrentVersion = "2.0.1";
+    public const string CurrentVersion = "2.1.0";
     internal const string RequirementBasisFilename = "requirement-basis.json";
     private const string CurrentRubricDigest =
-        "260c646feb6b9c89ba46a15362ea0b6f5ed632891c330934915b916e7125cc0b";
+        "0153ba6982fd1102df9193d3bc2b1957bac1e3478bd0d6cef5a78b0e6daa31cd";
     private const string CurrentCoreDigest =
-        "d48756ed60c90b510b215e8dcdcb28523c0aca6de2a8a1d01368e31dbd45022d";
+        "2edf382ccaa972a3f15ce1122a51499ef06ef0d1a948e116447853e9eb7bae3e";
     private const string CurrentScopeDigest =
-        "6e949e7018070880972909990f685bc048cc5f4f391024fc0ff4e224aeba4c0a";
+        "f324b3db1217d7aade766fad3ce983c96fdf88182f35c26ac314d4672c79e13e";
     private const string ExpectedCrosswalkDigest =
-        "b987b982163f2253a28d9d46e85073ceec8e48f4755bd45c35d96e4bc68a94ad";
+        "5f39232d19fce5c5ea40e3f6949b3b4f695fed616a75446e3a42e8015c05cd5e";
     private static readonly string[] ExpectedStatuses =
     [
         "verified",
@@ -66,10 +66,10 @@ public static class RubricLoader
             .EnumerateArray()
             .Select(element => ParseCoreRequirement(element, clauses))
             .ToArray();
-        const int expectedCount = 121;
+        const int expectedCount = 112;
         if (core.Length != expectedCount ||
             core.Count(requirement => requirement.Scope == "repository-wide") != 60 ||
-            core.Count(requirement => requirement.Scope == "component-specific") != 61 ||
+            core.Count(requirement => requirement.Scope == "component-specific") != 52 ||
             core.Select(requirement => requirement.Id).Distinct(StringComparer.Ordinal).Count() != expectedCount)
         {
             throw new DeterministicValidationException("Rubric canonical inventory or ledger ownership has drifted.");
@@ -126,12 +126,20 @@ public static class RubricLoader
 
         var core = kind switch
         {
-            "unified" => rubric.CoreRequirements,
             "package" => rubric.CoreRequirements.Where(row => row.Scope == "repository-wide").ToArray(),
             "component" => rubric.CoreRequirements.Where(row => row.Scope == "component-specific").ToArray(),
             _ => throw new DeterministicValidationException($"Unknown assessment kind '{kind}'.")
         };
         return core.ToArray();
+    }
+
+    internal static void RequireSupportedKind(string kind)
+    {
+        if (kind is not ("package" or "component"))
+        {
+            throw new DeterministicValidationException(
+                "Only separate package and component assessments are supported; unified assessments are retired.");
+        }
     }
 
     private static string ResolveReferencePath(string filename)

@@ -108,9 +108,9 @@ launcher build diagnostics can precede command output.
 - SBOM/provenance correspondence to the exact final package digest;
 - source mapping to a reachable exact commit when source is available.
 
-Input schema 1 records each captured source file in `source_artifacts` with its canonical
+Input schema 2 records each captured source file in `source_artifacts` with its canonical
 repository-relative `source_path`, local `content_path`, and exact SHA-256. Confirmation re-reads
-the local capture. Component and unified evidence may select only confirmed source artifacts that
+the local capture. Component evidence may select only confirmed source artifacts that
 also appear in that component's `allowed_source_paths`; package evidence may use any confirmed
 repository-wide source artifact.
 

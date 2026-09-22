@@ -2,13 +2,16 @@
 
 Applies to `CI-*`.
 
+For a component's remaining release-reverification requirement, inspect only
+evidence applicable to that component. The package pipeline audit below belongs
+to separately requested package work, not a component prerequisite.
+
 Trace pull-request validation and release separately through source/dependency acquisition,
 restore/build/test/package/browser checks, accessibility/security gates, immutable artifact
 handoff, signing, SBOM/provenance generation, release, retained evidence, and revalidation.
 
 Collect the exact workflow revision used for the assessed package, required-check evidence when
-available, package-based tests, browser coverage for each claimed render mode, compiling
-documentation samples with behavioral assertions, toolchain prerequisites, artifact digests before
+available, applicable release-check results, artifact digests before
 and after privileged stages, and requirement-mapped release results.
 
 Workflow configuration shows intent. Successful required execution against the exact artifact is
@@ -32,15 +35,17 @@ privileged publishing stage. Signing, verifying, and pushing the same mutable wo
 without that boundary is a `gap`; rebuilding, repacking, or permitting mutation after verification
 also invalidates the handoff.
 
-When this same assessment directly establishes a current product defect and the exact admitted test
-inventory does not cover it, the regression-coverage row is a `gap`; do not require a separate
-owner-acceptance record to hide the observable missing test. Exact documentation example source
-that contains syntax but no behavioral assertion directly establishes the missing-assertion
-conjunct even if compilation was not rerun. Bind a `CI-09` direct absence gap with
-`public-absence-v1` using a typed `sample-inventory`. If behavioral assertions are present but the
-sample compilation itself fails, use `direct-failure-v1` cause `sample-compilation-failed` bound to
-a `sample-compilation-result`; do not make a false absence claim. These two directed-gap protocol
-families are mutually exclusive for one completed `CI-09` row.
+Do not score separate obligations for per-defect regression coverage, browser
+test infrastructure, additional accessibility cadence, documentation assertions
+or assessor tool prerequisites. Existing render-mode, sample-discovery and named
+accessibility requirements remain. Use relevant existing tests/results as
+evidence without imposing another testing-policy deliverable.
+
+Check operation-specific tools internally before using them. Missing assessor
+SDKs, browsers or workloads are probe blockers, not vendor defects. Do not install
+tools or execute assessed inputs without permission and required isolation.
+Demonstrably incorrect vendor setup instructions can be reported on their own
+evidence; absence of an assessor prerequisite is not that evidence.
 
 A release checklist or completed release execution may be private governance evidence unless the
 row explicitly requires publication. Public absence alone therefore routes to

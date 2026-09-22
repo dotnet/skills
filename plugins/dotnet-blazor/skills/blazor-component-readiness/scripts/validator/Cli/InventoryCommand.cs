@@ -15,6 +15,8 @@ public static class InventoryCommand
           readiness-validator inventory discover --root <dir> --candidates <json> --output <inventory.draft.json>
           readiness-validator inventory confirm --root <dir> --draft <inventory.draft.json> --output <inventory.confirmed.json>
           readiness-validator inventory status --root <dir> --inventory <inventory.confirmed.json> --run-manifest <run-manifest.json>
+
+        Status accepts repeatable --feedback-history <file> for exact unit commentary.
         """;
 
     public static int Run(IReadOnlyList<string> args, TextWriter output)
@@ -66,7 +68,7 @@ public static class InventoryCommand
 
     private static int Status(IReadOnlyList<string> args, TextWriter output)
     {
-        var options = CommandOptions.Parse(args, "--root", "--inventory", "--run-manifest");
+        var options = CommandOptions.Parse(args, "--root", "--inventory", "--run-manifest", "--feedback-history");
         var root = PrepareRoot(options.Single("--root"));
         var inventoryBytes = ReadExact(
             root,
@@ -78,13 +80,19 @@ public static class InventoryCommand
         var total = inventory.Packages.Count + inventory.Packages.Sum(item => item.Components.Count);
         try
         {
+            var feedbackHistory = AssessmentBindingOptions.ReadFeedbackHistory(root, options);
             var manifestBytes = ReadExact(
                 root,
                 options.Single("--run-manifest"),
                 "run-manifest.json",
                 "run manifest");
             var manifest = LibraryService.Parse(manifestBytes);
-            var validated = LibraryService.Validate(root, inventory, inventoryBytes, manifest);
+            var validated = LibraryService.Validate(root, inventory, inventoryBytes, manifest,
+                feedbackHistory.Select(snapshot => snapshot.Bytes).ToArray());
+            foreach (var snapshot in feedbackHistory)
+            {
+                snapshot.EnsureUnchanged();
+            }
             output.Write(System.Text.Encoding.UTF8.GetString(
                 LibraryService.SerializeStatus(LibraryService.GetStatus(validated))));
             output.WriteLine();

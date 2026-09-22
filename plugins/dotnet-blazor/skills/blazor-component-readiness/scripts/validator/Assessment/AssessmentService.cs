@@ -3,6 +3,7 @@ using BlazorComponentReadiness.Validator.Contracts;
 using BlazorComponentReadiness.Validator.Evidence;
 using BlazorComponentReadiness.Validator.Inputs;
 using BlazorComponentReadiness.Validator.IO;
+using BlazorComponentReadiness.Validator.Rendering;
 using BlazorComponentReadiness.Validator.Validation;
 
 namespace BlazorComponentReadiness.Validator.Assessment;
@@ -21,11 +22,13 @@ public static class AssessmentService
         PackageRevisionBinding? packageBinding = null,
         ScopedPackageContextBinding? scopedPackageContext = null)
     {
-        InputManifestService.Validate(input, root, requireConfirmed: true);
-        var profile = ScopedComponentProfile.Load(root, input);
         kind = kind.ToLowerInvariant();
+        RubricLoader.RequireSupportedKind(kind);
+        RejectScopedContext(scopedPackageContext);
+        InputManifestService.Validate(input, root, requireConfirmed: true);
+        ContractJson.RequireCanonical(inputBytes, InputManifestService.Serialize(input), "confirmed input manifest");
         string? canonicalComponent = null;
-        if (kind is "unified" or "component")
+        if (kind == "component")
         {
             if (componentId is null)
             {
@@ -41,16 +44,7 @@ public static class AssessmentService
         }
         else if (kind != "package" || componentId is not null)
         {
-            throw new DeterministicValidationException("Assessment kind must be unified, package, or component.");
-        }
-
-        if (profile is null && scopedPackageContext is not null)
-            throw new DeterministicValidationException("Scoped package context requires the explicit Scoped-component profile.");
-
-        if (kind == "component" && packageBinding is null && profile is null)
-        {
-            throw new DeterministicValidationException(
-                "Component assessment requires an exact validated package revision.");
+            throw new DeterministicValidationException("A package assessment must not select a component.");
         }
 
         if (kind != "component" && packageBinding is not null)
@@ -61,8 +55,7 @@ public static class AssessmentService
 
         var rubric = RubricLoader.Load();
         var authorizedScope = AuthorizedPackageScope.Load(root, input);
-        var requirements = profile?.Select(rubric, kind) ??
-            authorizedScope?.Select(rubric, kind) ?? RubricLoader.Select(rubric, kind, []);
+        var requirements = authorizedScope?.Select(rubric, kind) ?? RubricLoader.Select(rubric, kind, []);
         var package = new EvidencePackageIdentity(
             input.Package.PackageId,
             input.Package.Version,
@@ -101,8 +94,6 @@ public static class AssessmentService
         {
             ValidatePackageBinding(assessment, input, packageBinding);
         }
-        profile?.ValidateBinding(assessment, input, scopedPackageContext, packageBinding);
-
         return assessment;
     }
 
@@ -112,6 +103,12 @@ public static class AssessmentService
         ReadOnlySpan<byte> inputBytes)
     {
         EvidenceIdentity.ValidateAssessment(identity);
+        ComponentReportScope.RejectRetiredInputs(input);
+        if (input.SchemaVersion != InputManifestService.SchemaVersion)
+        {
+            throw new DeterministicValidationException("Assessment input must use the current input-manifest schema.");
+        }
+        ContractJson.RequireCanonical(inputBytes, InputManifestService.Serialize(input), "confirmed input manifest");
         if (input.State != "confirmed")
         {
             throw new DeterministicValidationException("A draft input manifest cannot be used for assessment.");
@@ -130,7 +127,7 @@ public static class AssessmentService
                 "Initialize/export identity from the final confirmed manifest and rebuild downstream ledgers and bundle.");
         }
 
-        if (identity.AssessmentKind is "unified" or "component")
+        if (identity.AssessmentKind == "component")
         {
             if (identity.ComponentId is null ||
                 !input.Components.Any(component => component.Id == identity.ComponentId))
@@ -156,31 +153,13 @@ public static class AssessmentService
         PackageRevisionBinding? packageBinding = null,
         ScopedPackageContextBinding? scopedPackageContext = null)
     {
-        if (assessment.SchemaVersion != SchemaVersion ||
-            assessment.AssessmentKind is not ("unified" or "package" or "component") ||
-            assessment.AssessmentKind != assessment.Identity.AssessmentKind)
-        {
-            throw new DeterministicValidationException("Assessment schema or kind is invalid.");
-        }
-
+        var rubric = RequireCurrentContract(assessment);
+        RejectScopedContext(scopedPackageContext);
         ValidateInputIdentity(assessment.Identity, input, inputBytes);
-        if (evidence.Assessment != assessment.Identity)
-        {
-            throw new DeterministicValidationException(
-                "Assessment, input-manifest digest, package identity, component, and evidence identity must match exactly.");
-        }
+        ValidateEvidenceIdentity(assessment, evidence);
         var expectedPackage = assessment.Identity.Package;
 
-        var profile = ScopedComponentProfile.Load(root, input);
-        if (profile is not null)
-            profile.ValidateBinding(assessment, input, scopedPackageContext, packageBinding);
-        else
-        {
-            if (scopedPackageContext is not null)
-                throw new DeterministicValidationException("Ordinary assessments cannot use scoped package context.");
-            ValidatePackageReference(assessment, expectedPackage, input, packageBinding);
-        }
-        var rubric = RubricLoader.Load(assessment.RubricVersion);
+        ValidatePackageReference(assessment, expectedPackage, input, packageBinding);
         var selectedOverlayIds = assessment.Overlays.Select(overlay => overlay.Id).ToArray();
         if (selectedOverlayIds.Length != 0)
         {
@@ -189,33 +168,9 @@ public static class AssessmentService
         }
 
         var authorizedScope = AuthorizedPackageScope.Load(root, input);
-        var expectedRequirements = profile?.Select(rubric, assessment.AssessmentKind) ??
-            authorizedScope?.Select(rubric, assessment.AssessmentKind) ??
+        var expectedRequirements = authorizedScope?.Select(rubric, assessment.AssessmentKind) ??
             RubricLoader.Select(rubric, assessment.AssessmentKind, selectedOverlayIds);
-        if (assessment.RubricVersion != rubric.RubricVersion ||
-            assessment.ScopeSchemaVersion != rubric.ScopeSchemaVersion ||
-            assessment.RubricDigest != rubric.RubricDigest ||
-            assessment.ScopeMapDigest != rubric.ScopeMapDigest ||
-            !assessment.SelectedIds.SequenceEqual(expectedRequirements.Select(row => row.Id), StringComparer.Ordinal) ||
-            assessment.Rows.Count != expectedRequirements.Count)
-        {
-            throw new DeterministicValidationException(
-                "Assessment rubric, scope, overlay, or selected-ID binding is invalid.");
-        }
-
-        for (var index = 0; index < assessment.Rows.Count; index++)
-        {
-            var row = assessment.Rows[index];
-            var expected = expectedRequirements[index];
-            if (row.Id != expected.Id ||
-                row.Requirement != expected.Requirement ||
-                row.Scope != expected.Scope ||
-                row.Area != expected.Area)
-            {
-                throw new DeterministicValidationException(
-                    $"Assessment row {index + 1} is missing, duplicated, reordered, unknown, or has wording/scope drift.");
-            }
-        }
+        ValidateSelection(assessment, expectedRequirements);
 
         var selectedEvidence = evidence.Selection
             .OrderBy(selection => selection.DisplayOrder)
@@ -257,21 +212,20 @@ public static class AssessmentService
         }
 
         authorizedScope?.Validate(assessment, input, evidence);
-        profile?.ValidateEvidence(input, evidence);
+        ComponentReportScope.For(assessment)?.ValidateEvidence(evidence);
         EvidenceInputBindingValidator.Validate(root, assessment, input, evidence);
         EvidenceProtocolValidator.Validate(
             root,
             assessment,
             input,
-            evidence,
-            enforceCurrentProtocols: true,
-            enforceAutoTransitionProtocol: true);
+            evidence);
         ValidateCompletion(assessment);
         BoundedIO.EnsureLength(assessmentBytes.Length, ResourceLimits.SerializedArtifactBytes, "assessment");
     }
 
     public static byte[] Serialize(ReadinessAssessment assessment)
     {
+        RequireCurrentContract(assessment);
         var bytes = StrictJson.SerializeCanonical(writer =>
         {
             writer.WriteStartObject();
@@ -379,13 +333,7 @@ public static class AssessmentService
             ContractJson.Array(root, "findings").EnumerateArray().Select(element => ParseFinding(element, requireCanonical)).ToArray(),
             ContractJson.Array(root, "summary_groups").EnumerateArray().Select(element => ParseSummary(element, requireCanonical)).ToArray(),
             ContractJson.String(root, "completion_state"));
-        if (assessment.SchemaVersion != SchemaVersion ||
-            assessment.RubricVersion != RubricLoader.CurrentVersion ||
-            assessment.Overlays.Count != 0)
-        {
-            throw new DeterministicValidationException(
-                "Assessments require schema 2, the bundled current rubric, and an empty overlays array.");
-        }
+        RequireCurrentContract(assessment);
 
         if (requireCanonical)
         {
@@ -393,6 +341,67 @@ public static class AssessmentService
         }
 
         return assessment;
+    }
+
+    internal static RubricContract RequireCurrentContract(ReadinessAssessment assessment)
+    {
+        RubricLoader.RequireSupportedKind(assessment.AssessmentKind);
+        EvidenceIdentity.ValidateAssessment(assessment.Identity);
+        var rubric = RubricLoader.Load(assessment.RubricVersion);
+        if (assessment.SchemaVersion != SchemaVersion ||
+            assessment.AssessmentKind != assessment.Identity.AssessmentKind ||
+            assessment.ScopeSchemaVersion != rubric.ScopeSchemaVersion ||
+            assessment.RubricDigest != rubric.RubricDigest ||
+            assessment.ScopeMapDigest != rubric.ScopeMapDigest ||
+            assessment.Overlays.Count != 0 ||
+            assessment.AssessmentKind == "package" && assessment.PackageReference is not null)
+        {
+            throw new DeterministicValidationException(
+                "Assessment schema, kind, rubric or scope identity is not the current supported contract.");
+        }
+
+        return rubric;
+    }
+
+    internal static void ValidateEvidenceIdentity(ReadinessAssessment assessment, EvidenceBundle evidence)
+    {
+        EvidenceLedgerValidator.ValidateBundle(evidence);
+        if (evidence.Assessment != assessment.Identity)
+        {
+            throw new DeterministicValidationException(
+                "Assessment, input-manifest digest, package identity, component, and evidence identity must match exactly.");
+        }
+    }
+
+    internal static void ValidateSelection(
+        ReadinessAssessment assessment, IReadOnlyList<RubricRequirement> expectedRequirements)
+    {
+        if (!assessment.SelectedIds.SequenceEqual(expectedRequirements.Select(row => row.Id), StringComparer.Ordinal) ||
+            assessment.Rows.Count != expectedRequirements.Count)
+        {
+            throw new DeterministicValidationException("Assessment selected-ID binding is invalid.");
+        }
+
+        for (var index = 0; index < assessment.Rows.Count; index++)
+        {
+            var row = assessment.Rows[index];
+            var expected = expectedRequirements[index];
+            if (row.Id != expected.Id || row.Requirement != expected.Requirement ||
+                row.Scope != expected.Scope || row.Area != expected.Area)
+            {
+                throw new DeterministicValidationException(
+                    $"Assessment row {index + 1} is missing, duplicated, reordered, unknown, or has wording/scope drift.");
+            }
+        }
+    }
+
+    internal static void RejectScopedContext(ScopedPackageContextBinding? context)
+    {
+        if (context is not null)
+        {
+            throw new DeterministicValidationException(
+                "Scoped package contexts are retired. Use a standalone component assessment.");
+        }
     }
 
     private static void ValidatePackageReference(
@@ -403,12 +412,17 @@ public static class AssessmentService
     {
         if (assessment.AssessmentKind == "component")
         {
+            if (assessment.PackageReference is null && packageBinding is null)
+            {
+                return;
+            }
+
             if (assessment.PackageReference is null ||
                 assessment.PackageReference.Package != package ||
                 packageBinding is null)
             {
                 throw new DeterministicValidationException(
-                    "Component assessment requires an exact validated package revision.");
+                    "A declared component package reference requires its exact validated package revision.");
             }
 
             if (assessment.CompletionState == "complete" &&
@@ -433,6 +447,13 @@ public static class AssessmentService
         InputManifest componentInput,
         PackageRevisionBinding packageBinding)
     {
+        var rubric = RequireCurrentContract(packageBinding.Assessment);
+        var inputBytes = InputManifestService.Serialize(packageBinding.Input);
+        ValidateInputIdentity(packageBinding.Assessment.Identity, packageBinding.Input, inputBytes);
+        ValidateSelection(packageBinding.Assessment, RubricLoader.Select(rubric, "package", []));
+        ValidateCompletion(packageBinding.Assessment);
+        var assessmentBytes = Serialize(packageBinding.Assessment);
+        var manifestBytes = ReportService.SerializeManifest(packageBinding.Manifest);
         if (packageBinding.Assessment.AssessmentKind != "package" ||
             packageBinding.Assessment.CompletionState != "complete" ||
             packageBinding.Manifest.AssessmentKind != "package" ||
@@ -447,7 +468,15 @@ public static class AssessmentService
             assessment.ScopeSchemaVersion != packageBinding.Assessment.ScopeSchemaVersion ||
             assessment.RubricDigest != packageBinding.Assessment.RubricDigest ||
             assessment.ScopeMapDigest != packageBinding.Assessment.ScopeMapDigest ||
-            !assessment.Overlays.SequenceEqual(packageBinding.Assessment.Overlays))
+            !assessment.Overlays.SequenceEqual(packageBinding.Assessment.Overlays) ||
+            AuthorizedPackageScope.IsRequested(packageBinding.Input) ||
+            packageBinding.Reference.Package != packageBinding.Assessment.Identity.Package ||
+            packageBinding.Manifest.InputManifestDigest != ContractJson.RawDigest(inputBytes) ||
+            packageBinding.Manifest.AssessmentDigest != ContractJson.RawDigest(assessmentBytes) ||
+            packageBinding.Reference.InputManifestDigest != packageBinding.Manifest.InputManifestDigest ||
+            packageBinding.Reference.AssessmentDigest != packageBinding.Manifest.AssessmentDigest ||
+            packageBinding.Reference.ReportDigest != packageBinding.Manifest.ReportDigest ||
+            packageBinding.Reference.ValidationDigest != ContractJson.RawDigest(manifestBytes))
         {
             throw new DeterministicValidationException(
                 "Component assessment package ID, version, nupkg digest, source mapping, rubric, scope, overlays, completion, or package artifact binding differs from the validated package revision.");

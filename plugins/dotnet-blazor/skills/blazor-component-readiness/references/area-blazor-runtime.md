@@ -78,9 +78,19 @@ artifact; free-text analysis is insufficient. For `BEQ-12`, use proof kind
 valid only when the mapped lifecycle operation is failed or not tested. A passed mapped operation
 contradicts the source proof and must be reconciled instead of bypassed.
 
-`source-proof-v1` is currently limited to components whose dynamic-child lifecycle is required.
-Keep non-dynamic callback/cleanup source proof fail-closed until a separate protocol defines how it
-reconciles without the lifecycle matrix.
+When dynamic-child lifecycle is explicitly `not-applicable`, a matching `source-proof-v1`
+may establish a `BEQ-12` callback or `BEQ-15` cleanup source `gap` without a lifecycle companion.
+The confirmed declaration still requires its rationale and no triggers; missing, unknown or
+malformed applicability is not permission to use this path. Do not invent lifecycle operations,
+change the applicability declaration, or leave an established source conflict unscored merely
+because the component has no dynamic children.
+
+Use the same requirement-specific proof kinds and exact confirmed source path/digest, bound by
+the selected component's outer evidence and final input identity. Register the actual proof,
+confirm final inputs, and use the existing identity, evidence and assessment producers. This
+remains typed, gap-only evidence, not a free-text workaround or proof that a runtime operation
+ran. For lifecycle-required components, the companion, mapped outcomes and contradiction rules
+above remain mandatory and unchanged.
 The [synthetic worked example](#synthetic-source-finding-example) below materializes both protocols
 and follows the existing input/identity/evidence producers without executing the source.
 
@@ -89,7 +99,7 @@ For documentation requirements, direct absence from the confirmed complete publi
 alternative is directly contradicted. Conditional render-mode rows are `not applicable` when that
 mode is not a confirmed support claim.
 
-For current `2.0.1` `BEQ-03`, require supported-mode documentation **and** a clear compile-time
+For current `2.1.0` `BEQ-03`, require supported-mode documentation **and** a clear compile-time
 **or** runtime error for an applicable unsupported-mode diagnostic. Documentation alone does not
 discharge the error obligation; an error alone does not discharge documentation. A directly
 established missing required conjunct is a `gap`. A blocked or unperformed applicable diagnostic
@@ -100,8 +110,32 @@ with clear errors elsewhere. Do not invent an unsupported configuration or requi
 unsupported mode. Valid prerendering for supported interactive modes is not an unsupported-mode
 diagnostic. Keep `BEQ-02` and `BEQ-04` independent; prerendering must not throw.
 
-For a `BEQ-05` direct documentation-absence gap, use `public-absence-v1` bound to a
-`public-document-corpus` input.
+For `BEQ-05`, verify correct static-SSR behavior only when it is a confirmed support
+claim. A temporary placeholder during interactive prerendering is not automatically
+a static-SSR defect, and static SSR does not mean JavaScript must be disabled.
+There is no extra requirement to publish an SSR usefulness/accessibility contract.
+Unknown applicability or an unperformed observation is not a verified or N/A result.
+
+A `verified` or `gap` outcome uses `protocol:static-ssr-behavior-v1`, bound through
+the normal evidence producer to the exact confirmed component/package identity.
+Retain the actual observation as an `evidence_inputs` entry of kind `raw-observation`:
+
+```json
+{"schema_version":1,"observation":"static-ssr-behavior","component_id":"<confirmed-id>","mode":"static-ssr","observed_identity":"static","expected_behavior":"<behavior being checked in the supported context>","observed_behavior":"<actual captured result and limitations>","result":"passed"}
+```
+
+Use `failed` only for an observed contradiction, not an unavailable probe. Bind that
+capture's actual SHA-256 in the canonical protocol:
+
+```json
+{"schema_version":1,"protocol":"static-ssr-behavior","component_id":"<confirmed-id>","result":"passed","raw_observation_sha256":{"algorithm":"sha256","value":"<actual-raw-observation-sha256>"}}
+```
+
+Both results must agree. Register the actual captured files and confirm the final
+manifest before initializing/exporting identity. These examples describe record
+shape, not executed evidence; do not fabricate renderer identity or observations.
+The validator checks correspondence, not execution authenticity, semantic truth
+or complete accessibility conformance. Documentation alone is not runtime proof.
 
 Implementation-mechanism rows require mechanism evidence. A successful behavior probe does not
 prove `@key`, awaited callbacks, renderer affinity, `StateHasChanged`, or async disposal. Complete
@@ -397,7 +431,7 @@ Readiness inputs confirm --root $InputRoot --draft $draftInput --output $finalIn
 Readiness inputs validate --root $InputRoot --manifest $finalInput
 $initialized = Join-Path $ExampleDir 'assessment-initial.json'
 $identity = Join-Path $ExampleDir 'assessment-identity.json'
-Readiness assessment init --kind unified --component $ComponentId --root $InputRoot --input $finalInput --output $initialized
+Readiness assessment init --kind component --component $ComponentId --root $InputRoot --input $finalInput --output $initialized
 Readiness assessment export-identity --assessment $initialized --output $identity
 $proofDraft = Join-Path $ExampleDir 'proof-draft.json'
 $bothDraft = Join-Path $ExampleDir 'evidence-draft.json'

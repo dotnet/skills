@@ -1,4 +1,4 @@
-# Authoritative bundled requirement basis, version 2.0.1
+# Authoritative bundled requirement basis, version 2.1.0
 
 ## Source and inventory
 
@@ -32,15 +32,19 @@ The [checklist](checklist.md) is the readable ID index; JSON is authoritative.
   vendor remediation demand. The current contract does not encode such approval;
   therefore its extension rows always retain the policy-clarification label.
 
-Existing provenance, CI, and performance extensions keep their canonical ID
-slots. This avoids quietly deleting rows to improve coverage or defect counts.
+Package-only extensions retain their existing classification. The explicitly
+removed component extensions do not remain as scored rows or N/A placeholders.
+BEQ-05 now checks the existing supported static-SSR behavior obligation, not a
+new documentation contract. This is a revised assessment mapping, not a new
+partner quality bar or a claim of improved measured performance.
 `TA-08` is a supplementary extension outside canonical counts, not a replacement
 for any canonical ID. The explicit baseline IsTrimmable obligation is under `TA-01`.
 
 ## Ownership and applicability
 
-The canonical ledger has 121 IDs, split **60 package/conditional + 61 component**,
-including all twelve conditional IDs. There is no optional overlay selection.
+The catalog has 112 IDs in separate **60 package/conditional** and **52 component** inventories,
+including all twelve conditional IDs in the package unit. There is no unified
+assessment or package prerequisite for a component. There is no optional overlay selection.
 `SEC-01` through `SEC-03` are repository-wide rows in the package assessment.
 Their shared action key is `library-security-review`: one exact-package evidence
 packet supports three conclusions and one shared security-review request. Component
@@ -65,11 +69,11 @@ Library .NET/BL* analyzer warnings cannot be waived by a migration plan. Trim/AO
 warnings must be annotated or fixed, not suppressed; AOT is not optional merely
 because a vendor did not claim it. Every packaged binary needs source/upstream
 attribution. WASM trimming and avoiding bloated transitive dependencies remain
-normative even though measured performance budgets are extensions.
+normative without imposing an additional measured-performance-budget requirement.
 
 ## Current contract and exact release boundaries
 
-Rubric `2.0.1` is the sole executable assessment contract. Initialization has no
+Rubric `2.1.0` is the sole executable assessment contract. Initialization has no
 rubric or overlay selector. Persisted `rubric_version` is validator-owned provenance
 and must match that exact version and its frozen digests. `overlays: []` remains
 part of the canonical artifact shape; nonempty overlays are rejected.

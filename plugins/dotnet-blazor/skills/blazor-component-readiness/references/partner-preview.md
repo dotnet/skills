@@ -7,10 +7,10 @@ default local reading view, together with its evidence and technical companions.
 preview of retained facts, not a second assessment, new execution, certification, or permission
 to publish. Do not rewrite the table manually or promote a mixed group to a pass.
 
-Before generic rendering or fallback, explicitly profile-bound work must read the complete
-[scoped component profile](scoped-component-profile.md). Its scoped-context/feedback binding,
-lineage and export restrictions take precedence over ordinary component examples.
-A scope/disclosure failure blocks the deliverable, not permission for an unscoped fallback.
+Read [component scope](scoped-component-profile.md) before component delivery.
+Its evidence/export restrictions apply to every component reader, without a
+package context or special profile. A scope/disclosure failure blocks the deliverable,
+not permission for a broader fallback.
 
 The four columns are `Requirement | Check / requirement | Result | Evidence`.
 Current rubric rows group only by existing ownership, area, clause and classification.
@@ -48,14 +48,12 @@ Full-library assessment still requires top-level isolated writable worker sessio
 cannot provide them cannot run full-library mode. The reader itself is a local deterministic
 command and needs no agent/model service or tracker integration.
 
-For ordinary component revisions, pass `--package-revision` with the exact source package revision.
-For the explicitly selected [scoped component profile](scoped-component-profile.md),
-use `--package-context-revision` and its bound profile/context inputs instead. That relationship
-is scoped package context, not an ordinary full-package prerequisite or component evidence.
+Component revisions need no package revision. If an optional package reference
+was explicitly declared, pass `--package-revision` with that exact current revision.
+Do not create a package assessment or infer a binding for a component reader.
 When a revision binds feedback, pass the exact `--feedback` file and, for package feedback,
-`--package-feedback` on the ordinary path. Scoped-context feedback uses
-`--package-context-feedback` and is retained for context verification, not copied into the
-component output. Paths resolve beneath `--root` even from another working directory.
+`--package-feedback` when applicable. Old scoped-context inputs and flags are
+unsupported. Paths resolve beneath `--root` even from another working directory.
 
 ```bash
 SKILL_DIR="<directory-containing-loaded-SKILL.md>"
@@ -79,31 +77,29 @@ files from the verified source revision, pinned rubric, feedback and local evide
 every byte and the complete file inventory. Moving the directory as a unit preserves its links.
 Re-verification still needs the source input root and revision; it is not an offline certification.
 
-New renders use reader version `1.0.1`. Verification snapshots the existing reader manifest,
-validates its exact fields under the serialized-artifact byte limit, and requires the snapshot
-to remain unchanged while regenerating either `1.0.0` or `1.0.1` in the same renderer. Both
-the mapping and reader manifest carry that version. Missing, malformed, duplicate or unknown
-versions are rejected; choosing a supported version does not bypass exact inventory, byte,
-source, scope or disclosure checks. Existing `1.0.0` readers keep their original bytes and
-presentation wording; verification does not upgrade or rewrite them. These reader output versions
-both project current rubric 2.0.1 assessments; they do not select an assessment schema or rubric.
+Current readers use version `1.1.0` and rubric `2.1.0`. Verification snapshots the
+manifest and regenerates the exact current output. Missing, malformed, duplicate,
+old or unknown versions are rejected without migration or modification of old
+files. Version selection never bypasses inventory, byte, source, scope or
+disclosure checks and is not an assessment-rubric selector.
 
 Evidence links identify **local retained artifacts**, not hosted evidence. Declaration-only and
 runtime records without bound raw bytes remain explicit commitments, not missing-file
 successes. A retained summary does not prove that its secondary outputs exist or were rerun.
-Component readers bind the package revision but do not copy its evidence into a control claim.
-Supply the separate Library and release reader alongside the control reader.
+An optional package relationship is recorded without copying package findings
+into the component. Supply a separate package reader only when package work was
+explicitly requested; a component reader does not require it.
 
-The scoped component reader retains all 51 existing checks and their separate results while
+The component reader retains all 52 current checks and their separate results while
 grouping only for presentation. It does not export the complete internal validation set or raw
-registered inputs/attachments. Full crosswalks, historical ledgers, context-receipt payloads,
+registered inputs/attachments. Full crosswalks and historical ledgers,
 source/package archives and raw captures remain internal; omission notices do not imply their
-bytes were delivered. Its ordinary `package_validation_sha256` field remains null.
-In `1.0.1`, its header labels completion as **check accounting** for those
-51 checks, not completed testing, complete evidence coverage, readiness or approval. Mixed results,
+bytes were delivered. `package_validation_sha256` is null unless an exact package
+relationship was explicitly bound. The header labels completion as **check accounting** for those
+52 checks, not completed testing, complete evidence coverage, readiness or approval. Mixed results,
 missing evidence, per-check qualifications and canonical technical files remain unchanged.
 
-This scoped reader is not a self-contained evidence-validation bundle. Verification requiring
+This component reader is not a self-contained evidence-validation bundle. Verification requiring
 omitted inputs still needs the retained internal workspace. Selected-only companions must use
 existing evidence mechanisms and correct identities/provenance; never crop and relabel an original
 ledger or weaken canonical verification to fit the export. All output surfaces, including technical

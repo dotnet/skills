@@ -3,8 +3,8 @@
 Use this sequence for a requested canonical assessment or factual correction, not an unscored
 offline-facts handoff, a worksheet, or merely rendering an existing revision. Read only the
 selected task's prerequisites from `SKILL.md`; a link for a conditional task is not an instruction
-to execute it. Before generic initialization or binding, an explicitly selected scoped unit
-must read [its profile](scoped-component-profile.md). Ordinary component binding is owned by
+to execute it. Component work follows [standalone component scope](scoped-component-profile.md).
+Optional component binding is owned by
 [the report contract](report-contract.md#ordinary-component-binding).
 
 ## 1. Confirm scope and inputs
@@ -32,12 +32,13 @@ Show the package, sources, documents, evidence inputs, modes, exclusions and sup
 to the owner before scoring. Use [input candidates](input-candidates.md) for typed construction,
 `inputs discover`, explicit `inputs confirm`, and `inputs validate`; never hand-author candidates
 or copy a confirmed manifest back into discovery. Library inventory and separate execution are
-conditional routes in `SKILL.md`, not prerequisites for a package or unified assessment.
+conditional routes in `SKILL.md`, not prerequisites for a package or component assessment.
 
 ## 2. Collect evidence and establish final identity
 
-Before collection, read [provenance and integrity](area-provenance-integrity.md), then only the
-area owners selected by `SKILL.md`. Apply the provenance owner's target and command checks before
+Before collection, read only the area owners for the requested unit. Use
+[provenance and integrity](area-provenance-integrity.md) for relevant exact-input and evidence checks,
+not as an instruction to run package requirements during component work. Apply its target and command checks before
 every package probe, using the active confirmed manifest and the new final manifest after any
 reconfirmation. Keep evidence claim-bounded and component evidence isolated.
 Never treat feedback as evidence or unapproved operational extensions as baseline defects.
@@ -100,22 +101,23 @@ Counts, hashes and a validated revision do not establish coverage or investigati
 ## 4. Produce and verify the canonical revision
 
 The selected profile/binding rules above take precedence over generic commands. The bundled
-`2.0.1` rubric is the sole executable assessment contract, with validator-owned version provenance.
-Initialize the requested kind, never substitute unified for an assigned package/component:
+`2.1.0` rubric is the sole executable assessment contract, with validator-owned version provenance.
+Initialize the requested kind. Unified assessments and former scoped component
+contexts are unsupported; a component requires no package assessment:
 
 ```text
-<launcher> assessment init --kind unified --root <output> --input <input.confirmed.json> --component <component-id> --output <unified.assessment.json>
+<launcher> assessment init --kind component --root <output> --input <input.confirmed.json> --component <component-id> --output <component.assessment.json>
 <launcher> assessment init --kind package --root <output> --input <input> --output <assessment>
 ```
 
-Use [ordinary component initialization](report-contract.md#ordinary-component-binding) or the
-explicit profile's scoped-context path for a component. Edit a **DRAFT**, then canonicalize to
+Use [optional package binding](report-contract.md#ordinary-component-binding) only when
+explicitly supplied. Edit a **DRAFT**, then canonicalize to
 a **new** file before validation, rendering or revision. Canonicalization checks JSON structure,
 not evidence, claims, bindings or completion. Only assessment schema 2 is accepted; unsupported
 assessment schemas and rubric identities are rejected, not migrated.
 
 Follow [report and binding rules](report-contract.md) before these commands. Add the selected
-component's required binding/feedback flags throughout, not just during initialization:
+component's declared optional binding/feedback flags throughout, not just during initialization:
 
 ```text
 <launcher> assessment canonicalize --assessment <draft> --output <canonical>
@@ -135,7 +137,7 @@ Guidance is separate and requires an explicit request.
 Run automatically before completion: `inputs validate` for each confirmed input,
 `evidence ledger-validate` for each ledger, and rebuild the chosen input-bound bundle against
 the final manifest. Then `assessment validate`, `report verify`, and the applicable reader
-verification. Verify the exact ordinary package or scoped-context binding for each component.
+verification. Verify a component's exact package binding only when one is declared.
 Recompute each returned validation-manifest SHA-256; a recorded digest alone is not verification.
 
 Confirm applicable area-specific checks, including every claimed mode and all ten raw-bound

@@ -41,29 +41,33 @@ override an explicit-root launch.
 Use the loaded [skill's task routes](../skills/blazor-component-readiness/SKILL.md).
 For recommendations, implementation examples, remediation, practical guidance or next steps,
 read [remediation guidance](../skills/blazor-component-readiness/references/remediation-guidance.md).
-The request itself opts into `decision-guidance.md`; do not require its filename or a second
-confirmation. Use the existing validated revision and only requested unresolved findings.
+For revision-specific advice, the request itself opts into `decision-guidance.md`; do not require
+its filename or a second confirmation. Use the existing validated revision and requested findings.
+General documentation-testing or payload/serialization questions may be answered inline without
+a report, failed criterion or new assessment. Do not fabricate a finding or validation digest.
 Do not rerun the assessment, collect evidence, execute probes or research the network to write
-this companion. Preserve canonical artifacts and link the companion in the final handoff.
+advice. Preserve canonical artifacts and link any requested companion in the final handoff.
 This advice-only route does not enter the canonical assessment steps below.
 For ordinary canonical units, read [shared assessment workflow](../skills/blazor-component-readiness/references/assessment-workflow.md)
 and its stage-specific input/status/report/reader owners, then only applicable area references.
 Do not duplicate classification rules here or infer component behavior from package context.
 
-For an explicitly requested scoped component, read
-[the complete profile](../skills/blazor-component-readiness/references/scoped-component-profile.md)
-before generic initialization, binding, feedback or reader operations. Preserve 51 component
-checks and the distinct 48-check scoped package context, with `--package-context-revision`.
-Profile metadata is not permission to execute or a replacement for ordinary library completion.
+For a component, read
+[standalone component scope](../skills/blazor-component-readiness/references/scoped-component-profile.md)
+before initialization, binding, feedback or reader operations. Assess its 52 component checks
+without starting or requiring a package assessment. Shared source and exact package identity
+remain inputs, not permission to score package-wide checks.
 
 Freeze kind before work: current package-only uses `assessment init --kind package`, no
 `--component`, no component worker; do not require inventory, workers, or an index.
-Single unified uses one bounded context unless the owner explicitly requests separate execution.
-For ordinary split/full-library execution, read
+A single component uses `assessment init --kind component` in one bounded context unless the owner
+explicitly requests separate execution, with no package revision required. An explicitly supplied
+current package revision may be bound; never infer it.
+For explicitly requested split/full-library execution, read
 [library/split coordination](../skills/blazor-component-readiness/references/library-assessment.md)
 and [worker execution](../skills/blazor-component-readiness/references/worker-execution.md)
-before staging or launching. Require the assigned 60-row package and exact bound 61-row
-component kinds, not a unified substitute. Rubric 2.0.1 is the sole executable assessment contract.
+before staging or launching. Require separate 60-row package and 52-row component outputs, not a
+unified substitute. Rubric 2.1.0 is the sole executable assessment contract.
 
 Carry the absolute trusted plugin root inside each unit. For Bash launches use the shipped
 `prepare-worker-launch.sh` contract and its generated plugin argument/prompt together; stop if
@@ -88,8 +92,9 @@ resume only pending, blocked-after-input or incomplete units in fresh isolated w
 Package-only retains incomplete artifacts and blockers without creating library run state.
 Use [report/feedback/correction rules](../skills/blazor-component-readiness/references/report-contract.md)
 and the reader for existing revisions; new evidence and declared IDs are required for factual
-corrections. `decision-guidance.md` requires the ordinary guidance request and source digest,
-not a feedback file. A factual-only request creates no guidance. Preserve all required status
+corrections. Revision-bound `decision-guidance.md` requires the guidance request and source digest,
+not a feedback file; general requested advice requires neither a revision nor a fabricated digest.
+A factual-only request creates no guidance. Preserve all required status
 fields; currently optional default actions may stay empty rather than invent a prescription.
 
 Before completion run the selected route's deterministic verification. Report local artifact

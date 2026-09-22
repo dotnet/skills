@@ -12,12 +12,11 @@ namespace BlazorComponentReadiness.Validator.Rendering;
 
 public static class ReaderService
 {
-    public const string Version = "1.0.1";
-    public const string LegacyVersion = "1.0.0";
+    public const string Version = "1.1.0";
     internal sealed record Group(string Scope, string Area, string Clause, string Classification, AssessmentRow[] Rows);
 
     internal static string RequireSupportedVersion(string version) =>
-        version is LegacyVersion or Version ? version :
+        version == Version ? version :
             throw new DeterministicValidationException("Unsupported reader_version.");
 
     internal static Group[] Groups(ReadinessAssessment assessment, RubricContract rubric)
@@ -42,46 +41,51 @@ public static class ReaderService
         string readerVersion = Version)
     {
         RequireSupportedVersion(readerVersion);
-        var legacy = readerVersion == LegacyVersion;
         var input = revision.Input;
         var assessment = revision.Assessment;
-        var profile = ScopedComponentProfile.Load(root, input);
-        if (profile is not null)
+        AssessmentService.RejectScopedContext(scopedPackageContext);
+        RubricLoader.RequireSupportedKind(revision.Kind);
+        if (revision.Kind != assessment.AssessmentKind || revision.Kind != revision.Manifest.AssessmentKind)
         {
-            if (package is not null || revision.Kind != assessment.AssessmentKind)
-                throw new DeterministicValidationException("Scoped component readers cannot carry an ordinary package binding.");
-            ContractJson.RequireCanonical(revision.ManifestBytes,
-                ReportService.SerializeManifest(revision.Manifest), "scoped source validation manifest");
-            InputManifestService.Validate(input, root, requireConfirmed: true);
-            AssessmentService.Validate(root, assessment, revision.AssessmentBytes, input, revision.InputBytes,
-                revision.Evidence, scopedPackageContext: scopedPackageContext);
-            var parsedFeedback = feedbackBytes is null ? null : FeedbackService.Parse(feedbackBytes, assessment);
-            if (parsedFeedback?.Digest != feedback?.Digest)
-                throw new DeterministicValidationException("Scoped reader feedback must match its exact retained bytes.");
-            feedback = parsedFeedback;
+            throw new DeterministicValidationException("Reader revision, assessment and manifest kinds must match.");
         }
-        else if (scopedPackageContext is not null)
-            throw new DeterministicValidationException("Ordinary readers cannot use scoped package context.");
-        else
-            ScopedComponentProfile.RejectUnboundComponent(assessment);
+
+        ContractJson.RequireCanonical(revision.ManifestBytes,
+            ReportService.SerializeManifest(revision.Manifest), "source validation manifest");
+        ContractJson.RequireCanonical(revision.AssessmentBytes,
+            AssessmentService.Serialize(assessment), "source assessment");
+        ContractJson.RequireCanonical(revision.InputBytes,
+            InputManifestService.Serialize(input), "source input");
+        ContractJson.RequireCanonical(revision.EvidenceBytes,
+            CanonicalEvidenceJson.SerializeBundle(revision.Evidence), "source evidence");
+        InputManifestService.Validate(input, root, requireConfirmed: true);
+        var packageBinding = package is null ? null : RevisionService.CreatePackageBinding(package);
+        AssessmentService.Validate(root, assessment, revision.AssessmentBytes, input, revision.InputBytes,
+            revision.Evidence, packageBinding);
+        var parsedFeedback = feedbackBytes is null ? null :
+            FeedbackService.Parse(feedbackBytes, assessment);
+        if (parsedFeedback?.Digest != feedback?.Digest)
+        {
+            throw new DeterministicValidationException("Reader feedback must match its exact retained bytes.");
+        }
+
+        feedback = parsedFeedback;
+        var profile = ComponentReportScope.For(assessment);
         var authorizedScope = AuthorizedPackageScope.Load(root, input);
         authorizedScope?.Validate(assessment, input, revision.Evidence);
-        if (authorizedScope is not null || profile is not null)
+        var expectedReport = ReportService.RenderMarkdown(
+            assessment, input, revision.Evidence, feedback, root, scopedPackageContext);
+        if (!revision.ReportBytes.AsSpan().SequenceEqual(expectedReport) ||
+            revision.Manifest.FeedbackDigest != feedback?.Digest)
         {
-            var expectedReport = ReportService.RenderMarkdown(
-                assessment, input, revision.Evidence, feedback, root, scopedPackageContext);
-            if (!revision.ReportBytes.AsSpan().SequenceEqual(expectedReport) ||
-                revision.Manifest.FeedbackDigest != feedback?.Digest)
-            {
-                throw new DeterministicValidationException("Authorized reader requires the exact scope-bound report and feedback.");
-            }
-
-            ReportService.ValidateManifest(revision.Manifest, ReportService.CreateManifest(
-                assessment, revision.AssessmentBytes, input, revision.InputBytes,
-                revision.Evidence, revision.EvidenceBytes, revision.ReportBytes,
-                revision.Manifest.PredecessorManifestDigest, feedback?.Digest,
-                revision.Manifest.DeclaredChangedIds, root, scopedPackageContext));
+            throw new DeterministicValidationException("Reader requires the exact canonical report and feedback.");
         }
+
+        ReportService.ValidateManifest(revision.Manifest, ReportService.CreateManifest(
+            assessment, revision.AssessmentBytes, input, revision.InputBytes,
+            revision.Evidence, revision.EvidenceBytes, revision.ReportBytes,
+            revision.Manifest.PredecessorManifestDigest, feedback?.Digest,
+            revision.Manifest.DeclaredChangedIds, root, scopedPackageContext));
 
         if (input.OwnerInputs.Any(item => item.Provenance == "owner-supplied-internal-evidence") ||
             revision.Evidence.SourceLedgers.SelectMany(item => item.Ledger.Records)
@@ -104,7 +108,7 @@ public static class ReaderService
             : "**Structured selected-only evidence companion: included.** It was constructed and verified with the existing " +
                 "evidence builders, retains selected record identities and provenance, and has its own ledger digests. " +
                 "It is not a relabeled historical ledger or an exact copy of the full internal source bundle.";
-        if (companionBytes is not null && !legacy)
+        if (companionBytes is not null)
         {
             companionNotice = "**Structured selected-only evidence companion: included.** It was constructed and verified " +
                 "with the existing evidence builders and preserves selected record identities and provenance. " +
@@ -123,11 +127,6 @@ public static class ReaderService
             files[$"technical/{AuthorizedPackageScope.Filename}"] = authorizedScope.CopyBytes();
         }
         if (feedbackBytes is not null) files["technical/feedback.txt"] = feedbackBytes;
-        if (package is not null)
-        {
-            // Only the verified package relationship is referenced; package/private evidence is not projected into this control.
-            files["technical/package-binding.json"] = package.ManifestBytes;
-        }
         var title = assessment.AssessmentKind == "package" ? "Library and release report" :
             input.Components.Single(item => item.Id == assessment.Identity.ComponentId).DisplayName + " control report";
         var lines = new List<string>
@@ -135,7 +134,7 @@ public static class ReaderService
             "# " + Text(title), "",
             $"**Release assessed:** {Text(input.Package.PackageId)} {Text(input.Package.Version)}",
             $"**Ownership:** {Text(assessment.AssessmentKind)}. " +
-                (profile is not null && !legacy ? "**Check accounting:** " : "**Completion:** ") +
+                (profile is not null ? "**Check accounting:** " : "**Completion:** ") +
                 $"{Text(assessment.CompletionState)}.",
             $"**Source:** {Text(input.Source.Availability)}; {Text(input.Source.RepositoryUri)}; {Text(input.Source.Commit)}.", "",
             $"**Source mapping:** {Text(input.Source.Mapping)}; confidence: {Text(input.Source.Confidence)}.", "",
@@ -155,16 +154,15 @@ public static class ReaderService
         }
         if (profile is not null)
         {
-            if (!legacy)
-                lines.AddRange(["Check accounting describes whether selected checks have dispositions. It does not establish " +
-                    "completed testing, complete evidence coverage, readiness or approval.", ""]);
-            lines.AddRange([profile.Declaration, "", ScopedComponentProfile.ExportNotice, "", companionNotice, ""]);
+            lines.AddRange(["Check accounting describes whether selected checks have dispositions. It does not establish " +
+                "completed testing, complete evidence coverage, readiness or approval.", ""]);
+            lines.AddRange([profile.Declaration, "", ComponentReportScope.ExportNotice, "", companionNotice, ""]);
         }
 
         if (package is not null)
             lines.Add("Package-wide findings remain in the separately delivered Library and release reader. " +
                 "This control does not re-assess or clone them; its exact validated package relationship is in " +
-                "[package binding](technical/package-binding.json).\n");
+                "[component assessment](technical/component.assessment.json).\n");
         lines.AddRange(["| Requirement | Check / requirement | Result | Evidence |", "|---|---|---|---|"]);
         var positions = new Dictionary<string, string>(StringComparer.Ordinal);
         for (var index = 0; index < groups.Length; index++)
@@ -229,16 +227,14 @@ public static class ReaderService
             "A retained summary is not proof that all underlying outputs were retained or rerun.", "" };
         if (profile is not null)
         {
-            evidenceLines.AddRange([profile.Declaration, "", ScopedComponentProfile.ExportNotice, "", companionNotice, "",
+            evidenceLines.AddRange([profile.Declaration, "", ComponentReportScope.ExportNotice, "", companionNotice, "",
                 "**Internal source bundle SHA-256:** `" + ContractJson.RawDigest(revision.EvidenceBytes).Value + "`."]);
             if (companion is not null)
                 evidenceLines.Add("**Constructed selected-only companion SHA-256:** `" +
                     ContractJson.RawDigest(files["technical/selected.evidence.json"]).Value + "`.");
             evidenceLines.AddRange([
-                legacy
-                    ? "The original full ledgers remain internal with their unchanged digests:"
-                    : "Source ledger artifacts remain retained internally. Any included companion contains their selected record " +
-                        "payloads and may contain complete current ledger payloads when all records are selected. Source ledger digests:",
+                "Source ledger artifacts remain retained internally. Any included companion contains their selected record " +
+                    "payloads and may contain complete current ledger payloads when all records are selected. Source ledger digests:",
                 string.Join("\n", revision.Evidence.SourceLedgers.Select(item => "- `" + item.SourceLedgerSha256 + "`.")), ""]);
         }
         foreach (var selection in revision.Evidence.Selection)

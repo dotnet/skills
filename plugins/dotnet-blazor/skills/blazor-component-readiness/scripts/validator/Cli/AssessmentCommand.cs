@@ -12,7 +12,7 @@ public static class AssessmentCommand
         Canonical readiness assessments
 
         Usage:
-          readiness-validator assessment init --kind <unified|package|component> --root <dir> --input <confirmed> --output <json> [--component <id>] [--package-revision <dir>] [--package-feedback <markdown>]
+          readiness-validator assessment init --kind <package|component> --root <dir> --input <confirmed> --output <json> [--component <id>] [--package-revision <dir>] [--package-feedback <markdown>]
           readiness-validator assessment canonicalize --assessment <json> --output <canonical-json>
           readiness-validator assessment export-identity --assessment <canonical-assessment> --output <new-identity-json>
           readiness-validator assessment validate --root <dir> --input <confirmed> --assessment <json> --evidence <bundle> [--package-revision <dir>] [--package-feedback <markdown>]
@@ -27,9 +27,10 @@ public static class AssessmentCommand
         Completed evidence handoffs require evidence bundle --root/--manifest to
         accept input linkage. This does not score null rows or validate readiness;
         assessment validate remains required for assessment correctness.
-        Scoped-component V1 uses --package-context-revision <dir> instead of --package-revision.
-        Optional bound context feedback uses --package-context-feedback <markdown>, never
-        --package-feedback. Both context options require the confirmed V1 descriptor pair.
+        Component assessments contain only the selected component's 52 checks and need no
+        package assessment. A package revision may be bound only when explicitly supplied.
+        Package assessments contain their separate 60 checks. Unified assessments and old
+        scoped-component/package-context contracts are not supported.
         """;
 
     public static int Run(IReadOnlyList<string> args, TextWriter output)
@@ -118,6 +119,7 @@ public static class AssessmentCommand
             "--package-feedback",
             "--package-context-revision",
             "--package-context-feedback");
+        AssessmentBindingOptions.RejectRetiredOptions(options);
         var root = Path.GetFullPath(options.Single("--root"));
         var inputBytes = BoundedIO.ReadAllBytes(
             options.Single("--input"),
@@ -163,6 +165,7 @@ public static class AssessmentCommand
             "--package-feedback",
             "--package-context-revision",
             "--package-context-feedback");
+        AssessmentBindingOptions.RejectRetiredOptions(options);
         var root = Path.GetFullPath(options.Single("--root"));
         var inputBytes = BoundedIO.ReadAllBytes(
             options.Single("--input"),

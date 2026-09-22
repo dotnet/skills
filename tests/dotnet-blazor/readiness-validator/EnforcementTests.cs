@@ -50,6 +50,7 @@ internal static class EnforcementTests
             TestStructuredVerifiedBoundaries(root);
             TestAutoTransitionProtocol(root);
             TestDynamicLifecycleMatrix(root);
+            TestNonDynamicSourceProofs(root);
             TestToolchainDisposition(root);
             TestComparisonInputGate(root);
         }
@@ -333,7 +334,9 @@ internal static class EnforcementTests
         var bundle = CanonicalEvidenceJson.ParseBundle(File.ReadAllBytes(bundlePath));
         InputManifestService.Validate(finalManifest, inputRoot, requireConfirmed: true);
         Validate(inputRoot, finalManifest, finalBytes, assessment, bundle);
-        AssertEqual("unified", assessment.AssessmentKind, "documented flow uses unified route");
+        AssertEqual("component", assessment.AssessmentKind, "documented flow uses standalone component route");
+        AssertEqual(52, assessment.Rows.Count, "documented flow uses current component inventory");
+        AssertEqual(true, assessment.PackageReference is null, "documented flow has no package prerequisite");
         AssertEqual(componentId, assessment.Identity.ComponentId, "exact component identity");
         AssertEqual("incomplete", assessment.CompletionState, "example is incomplete");
         AssertEqual(true, File.ReadAllBytes(Path.Combine(outputRoot, "assessment-identity.json"))
@@ -397,7 +400,7 @@ internal static class EnforcementTests
         }
 
         const string operationError = "Dynamic child lifecycle protocol must contain every required operation exactly once in canonical order.";
-        const string sourceError = "Source proof protocol must bind the assessed lifecycle-required component and one of its allowed confirmed source artifacts.";
+        const string sourceError = "Source proof protocol must bind the assessed component and one of its allowed confirmed source artifacts.";
         const string canonicalError = "source proof protocol is not in canonical JSON property order and encoding.";
         byte[] Mutate(byte[] bytes, Action<JsonNode> action)
         {
@@ -497,7 +500,7 @@ internal static class EnforcementTests
                 "--candidates", Path.Combine(variantRoot, "source-finding-output", "candidates-both.json"), "--output", draft]);
             RunSourceFindingCli(["inputs", "confirm", "--root", variantRoot, "--draft", draft, "--output", confirmed]);
             RunSourceFindingCli(["inputs", "validate", "--root", variantRoot, "--manifest", confirmed]);
-            RunSourceFindingCli(["assessment", "init", "--kind", "unified", "--component", componentId,
+            RunSourceFindingCli(["assessment", "init", "--kind", "component", "--component", componentId,
                 "--root", variantRoot, "--input", confirmed, "--output", initial]);
             RunSourceFindingCli(["assessment", "export-identity", "--assessment", initial, "--output", identity]);
             foreach (var record in records.OrderBy(record => record.Provenance.Method == EvidenceProtocolValidator.SourceProofMethod ? 0 : 1))
@@ -1251,24 +1254,19 @@ internal static class EnforcementTests
             wrongRequirementAbsence,
             "unsupported public absence requirement fails closed");
 
-        ValidatePublicAbsenceCase(
+        RejectRetiredPublicAbsenceCase(
             fixture,
             "BEQ-05",
             "public-document-corpus",
             "static-ssr-contract");
-        ValidatePublicAbsenceCase(
+        RejectRetiredPublicAbsenceCase(
             fixture,
             "CI-09",
             "sample-inventory",
             "behavioral-assertions");
-        ValidateDirectFailureCase(
-            fixture,
-            "CI-09",
-            "sample-compilation-failed",
-            "sample-compilation-result");
     }
 
-    private static void ValidatePublicAbsenceCase(
+    private static void RejectRetiredPublicAbsenceCase(
         Fixture fixture,
         string requirementId,
         string corpusKind,
@@ -1299,7 +1297,7 @@ internal static class EnforcementTests
         };
         var inputBytes = InputManifestService.Serialize(input);
         var assessment = AssessmentService.Initialize(
-            "unified",
+            "component",
             fixture.Root,
             input,
             inputBytes,
@@ -1319,7 +1317,7 @@ internal static class EnforcementTests
             assessment,
             new Dictionary<string, RowConclusion>(StringComparer.Ordinal)
             {
-                [requirementId] = new RowConclusion(
+                [requirementId == "CI-09" ? "BEQ-01" : requirementId] = new RowConclusion(
                     "gap",
                     "The complete typed public corpus directly records the required marker as absent.",
                     [evidenceId],
@@ -1327,722 +1325,10 @@ internal static class EnforcementTests
                     null,
                     null)
             });
-        Validate(
-            fixture.Root,
-            input,
-            inputBytes,
-            completed,
-            evidence);
-    }
-
-    private static void ValidateDirectFailureCase(
-        Fixture fixture,
-        string requirementId,
-        string causeKind,
-        string evidenceKind)
-    {
-        var suffix = requirementId.ToLowerInvariant();
-        const string componentId = "static-control";
-        const string samplePath = "samples/SyntheticSample.razor";
-        const string sampleContentPath = "synthetic-sample.razor";
-        WriteFile(
-            fixture.Root,
-            sampleContentPath,
-            "<SyntheticControl /> @* Behavioral assertions are supplied by the compilation probe. *@");
-        var sampleDigest = ContractJson.RawDigest(
-            File.ReadAllBytes(Path.Combine(fixture.Root, sampleContentPath)));
-        WriteFile(
-            fixture.Root,
-            "sample-toolchain.json",
-            "{\"toolchain\":\"synthetic-dotnet\",\"version\":\"11.0.100\"}");
-        var toolchain = CreateEvidenceInput(
-            fixture.Root,
-            "sample-toolchain.json",
-            "toolchain-identity");
-        WriteFile(
-            fixture.Root,
-            "sample-compilation.log",
-            "Synthetic sample compilation failed with a bounded compiler diagnostic.");
-        var rawLog = CreateEvidenceInput(
-            fixture.Root,
-            "sample-compilation.log",
-            "sample-compilation-log");
-        var resultBasename = $"{suffix}-direct-failure-result.json";
-        File.WriteAllBytes(
-            Path.Combine(fixture.Root, resultBasename),
-            DirectFailureArtifact(
-                evidenceKind,
-                fixture.Manifest.Package.NupkgDigest,
-                componentId,
-                requirementId,
-                causeKind,
-                samplePath,
-                sampleDigest,
-                toolchain.ContentDigest,
-                rawLog.ContentDigest));
-        var result = CreateEvidenceInput(
-            fixture.Root,
-            resultBasename,
-            evidenceKind);
-        var protocolBasename = $"{suffix}-direct-failure.json";
-        File.WriteAllBytes(
-            Path.Combine(fixture.Root, protocolBasename),
-            DirectFailure(
-                requirementId,
-                causeKind,
-                result.ContentDigest));
-        var protocol = CreateEvidenceInput(
-            fixture.Root,
-            protocolBasename,
-            "structured-protocol");
-        var input = fixture.Manifest with
-        {
-            Source = new InputSource(
-                "source-available",
-                "https://code.example.test/synthetic/sample",
-                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-                "Exact synthetic sample source.",
-                "high"),
-            SourceArtifacts =
-            [
-                new InputSourceArtifact(
-                    samplePath,
-                    sampleContentPath,
-                    sampleDigest)
-            ],
-            Components =
-            [
-                fixture.Manifest.Components.Single() with
-                {
-                    AllowedSourcePaths = [samplePath]
-                }
-            ],
-            EvidenceInputs = new[] { rawLog, result, protocol, toolchain }
-                .OrderBy(item => item.Basename, StringComparer.Ordinal)
-                .ToArray()
-        };
-        var inputBytes = InputManifestService.Serialize(input);
-        var assessment = AssessmentService.Initialize(
-            "unified",
-            fixture.Root,
-            input,
-            inputBytes,
-            "static-control");
-        var evidence = BuildEvidence(
-            assessment.Identity,
-            [
-                Draft(
-                    assessment.Identity,
-                    EvidenceIdentity.ReproducedRuntimeObservation,
-                    protocol.Basename,
-                    EvidenceProtocolValidator.DirectFailureMethod,
-                    protocol.ContentDigest)
-            ]);
-        var evidenceId = evidence.Selection.Single().EvidenceId;
-        var completed = CompleteRows(
-            assessment,
-            new Dictionary<string, RowConclusion>(StringComparer.Ordinal)
-            {
-                [requirementId] = new RowConclusion(
-                    "gap",
-                    "The required surface is present, but its typed direct execution result failed.",
-                    [evidenceId],
-                    "Correct the direct failure and rerun the same bounded check.",
-                    null,
-                    null)
-            });
-        Validate(
-            fixture.Root,
-            input,
-            inputBytes,
-            completed,
-            evidence);
-
-        File.WriteAllBytes(
-            Path.Combine(fixture.Root, "ci-09-conflicting-corpus.json"),
-            PublicCorpus(
-                "sample-inventory",
-                ["behavioral-assertions"],
-                []));
-        var conflictingCorpus = CreateEvidenceInput(
-            fixture.Root,
-            "ci-09-conflicting-corpus.json",
-            "sample-inventory");
-        File.WriteAllBytes(
-            Path.Combine(fixture.Root, "ci-09-conflicting-absence.json"),
-            PublicAbsence(
-                requirementId,
-                "sample-inventory",
-                conflictingCorpus.ContentDigest));
-        var conflictingAbsence = CreateEvidenceInput(
-            fixture.Root,
-            "ci-09-conflicting-absence.json",
-            "structured-protocol");
-        var conflictingInput = input with
-        {
-            EvidenceInputs = input.EvidenceInputs
-                .Append(conflictingCorpus)
-                .Append(conflictingAbsence)
-                .OrderBy(item => item.Basename, StringComparer.Ordinal)
-                .ToArray()
-        };
-        var conflictingBytes = InputManifestService.Serialize(conflictingInput);
-        var conflictingAssessment = AssessmentService.Initialize(
-            "unified",
-            fixture.Root,
-            conflictingInput,
-            conflictingBytes,
-            componentId);
-        var conflictingEvidence = BuildEvidence(
-            conflictingAssessment.Identity,
-            [
-                Draft(
-                    conflictingAssessment.Identity,
-                    EvidenceIdentity.ReviewerGeneratedAnalysis,
-                    conflictingAbsence.Basename,
-                    EvidenceProtocolValidator.PublicAbsenceMethod,
-                    conflictingAbsence.ContentDigest),
-                Draft(
-                    conflictingAssessment.Identity,
-                    EvidenceIdentity.ReproducedRuntimeObservation,
-                    protocol.Basename,
-                    EvidenceProtocolValidator.DirectFailureMethod,
-                    protocol.ContentDigest)
-            ]);
-        var conflictingIds = conflictingEvidence.Selection
-            .Select(item => item.EvidenceId)
-            .Order(StringComparer.Ordinal)
-            .ToArray();
-        var conflictingCompleted = CompleteRows(
-            conflictingAssessment,
-            new Dictionary<string, RowConclusion>(StringComparer.Ordinal)
-            {
-                [requirementId] = new RowConclusion(
-                    "gap",
-                    "Contradictory evidence claims behavioral assertions are both absent and present before compilation failed.",
-                    conflictingIds,
-                    "Resolve the contradictory directed-gap evidence.",
-                    null,
-                    null)
-            });
         ExpectValidationMessage(
-            () => Validate(
-                fixture.Root,
-                conflictingInput,
-                conflictingBytes,
-                conflictingCompleted,
-                conflictingEvidence),
-            "mutually exclusive directed-gap protocol families",
-            "CI-09 rejects simultaneous public-absence and direct-failure protocols");
-
-        var variantNumber = 0;
-        void ExpectDirectFailureVariant(
-            string name,
-            byte[] resultBytes,
-            string resultKind,
-            string protocolRequirementId,
-            string protocolCauseKind,
-            string assessedRowId,
-            Func<InputManifest, InputManifest>? mutateInput = null,
-            string assessmentKind = "unified",
-            string? assessedComponentId = componentId,
-            bool componentSpecificEvidence = true)
-        {
-            variantNumber++;
-            var resultName = $"direct-variant-{variantNumber:D2}-result.json";
-            File.WriteAllBytes(
-                Path.Combine(fixture.Root, resultName),
-                resultBytes);
-            var variantResult = CreateEvidenceInput(
-                fixture.Root,
-                resultName,
-                resultKind);
-            var protocolName = $"direct-variant-{variantNumber:D2}-protocol.json";
-            File.WriteAllBytes(
-                Path.Combine(fixture.Root, protocolName),
-                DirectFailure(
-                    protocolRequirementId,
-                    protocolCauseKind,
-                    variantResult.ContentDigest));
-            var variantProtocol = CreateEvidenceInput(
-                fixture.Root,
-                protocolName,
-                "structured-protocol");
-            var variantInput = input with
-            {
-                EvidenceInputs = input.EvidenceInputs
-                    .Where(item =>
-                        item.Basename != result.Basename &&
-                        item.Basename != protocol.Basename)
-                    .Append(variantResult)
-                    .Append(variantProtocol)
-                    .OrderBy(item => item.Basename, StringComparer.Ordinal)
-                    .ToArray()
-            };
-            if (mutateInput is not null)
-            {
-                variantInput = mutateInput(variantInput);
-            }
-
-            var variantInputBytes = InputManifestService.Serialize(variantInput);
-            var variantAssessment = AssessmentService.Initialize(
-                assessmentKind,
-                fixture.Root,
-                variantInput,
-                variantInputBytes,
-                assessedComponentId);
-            var variantEvidence = BuildEvidence(
-                variantAssessment.Identity,
-                [
-                    Draft(
-                        variantAssessment.Identity,
-                        EvidenceIdentity.ReproducedRuntimeObservation,
-                        variantProtocol.Basename,
-                        EvidenceProtocolValidator.DirectFailureMethod,
-                        variantProtocol.ContentDigest,
-                        componentSpecificEvidence)
-                ]);
-            var variantEvidenceId = variantEvidence.Selection.Single().EvidenceId;
-            var variantCompleted = CompleteRows(
-                variantAssessment,
-                new Dictionary<string, RowConclusion>(StringComparer.Ordinal)
-                {
-                    [assessedRowId] = new RowConclusion(
-                        "gap",
-                        "This synthetic variant must be rejected by the typed direct-failure contract.",
-                        [variantEvidenceId],
-                        "Correct the typed direct-failure binding.",
-                        null,
-                        null)
-                });
-            ExpectValidation(
-                () => Validate(
-                    fixture.Root,
-                    variantInput,
-                    variantInputBytes,
-                    variantCompleted,
-                    variantEvidence),
-                name);
-        }
-
-        var invalidDigest = new Sha256Digest(
-            "sha256",
-            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-        ExpectDirectFailureVariant(
-            "SUP-03 cannot use direct-failure protocol",
-            DirectFailureArtifact(
-                "support-policy-failure",
-                fixture.Manifest.Package.NupkgDigest,
-                componentId,
-                "SUP-03",
-                "published-response-commitment-conflicts",
-                samplePath,
-                sampleDigest,
-                toolchain.ContentDigest,
-                rawLog.ContentDigest),
-            "support-policy-failure",
-            "SUP-03",
-            "published-response-commitment-conflicts",
-            "SUP-03");
-        ExpectDirectFailureVariant(
-            "SUP-05 cannot use direct-failure protocol",
-            DirectFailureArtifact(
-                "support-policy-failure",
-                fixture.Manifest.Package.NupkgDigest,
-                componentId,
-                "SUP-05",
-                "published-patch-cadence-conflicts",
-                samplePath,
-                sampleDigest,
-                toolchain.ContentDigest,
-                rawLog.ContentDigest),
-            "support-policy-failure",
-            "SUP-05",
-            "published-patch-cadence-conflicts",
-            "SUP-05");
-        ExpectDirectFailureVariant(
-            "BEQ-05 cannot use direct-failure protocol",
-            DirectFailureArtifact(
-                "runtime-contract-failure",
-                fixture.Manifest.Package.NupkgDigest,
-                componentId,
-                "BEQ-05",
-                "static-ssr-contract-behavior-failed",
-                samplePath,
-                sampleDigest,
-                toolchain.ContentDigest,
-                rawLog.ContentDigest),
-            "runtime-contract-failure",
-            "BEQ-05",
-            "static-ssr-contract-behavior-failed",
-            "BEQ-05");
-        ExpectDirectFailureVariant(
-            "CI-09 direct failure rejects wrong cause",
-            DirectFailureArtifact(
-                evidenceKind,
-                fixture.Manifest.Package.NupkgDigest,
-                componentId,
-                requirementId,
-                "behavioral-assertions-missing",
-                samplePath,
-                sampleDigest,
-                toolchain.ContentDigest,
-                rawLog.ContentDigest),
-            evidenceKind,
-            requirementId,
-            "behavioral-assertions-missing",
-            requirementId);
-        ExpectDirectFailureVariant(
-            "CI-09 direct failure rejects cross-package replay",
-            DirectFailureArtifact(
-                evidenceKind,
-                invalidDigest,
-                componentId,
-                requirementId,
-                causeKind,
-                samplePath,
-                sampleDigest,
-                toolchain.ContentDigest,
-                rawLog.ContentDigest),
-            evidenceKind,
-            requirementId,
-            causeKind,
-            requirementId);
-        ExpectDirectFailureVariant(
-            "CI-09 direct failure rejects missing sample path",
-            DirectFailureArtifact(
-                evidenceKind,
-                fixture.Manifest.Package.NupkgDigest,
-                componentId,
-                requirementId,
-                causeKind,
-                "samples/Missing.razor",
-                sampleDigest,
-                toolchain.ContentDigest,
-                rawLog.ContentDigest),
-            evidenceKind,
-            requirementId,
-            causeKind,
-            requirementId);
-        ExpectDirectFailureVariant(
-            "CI-09 direct failure rejects wrong sample digest",
-            DirectFailureArtifact(
-                evidenceKind,
-                fixture.Manifest.Package.NupkgDigest,
-                componentId,
-                requirementId,
-                causeKind,
-                samplePath,
-                invalidDigest,
-                toolchain.ContentDigest,
-                rawLog.ContentDigest),
-            evidenceKind,
-            requirementId,
-            causeKind,
-            requirementId);
-        ExpectDirectFailureVariant(
-            "CI-09 direct failure rejects missing toolchain identity",
-            DirectFailureArtifact(
-                evidenceKind,
-                fixture.Manifest.Package.NupkgDigest,
-                componentId,
-                requirementId,
-                causeKind,
-                samplePath,
-                sampleDigest,
-                toolchain.ContentDigest,
-                rawLog.ContentDigest),
-            evidenceKind,
-            requirementId,
-            causeKind,
-            requirementId,
-            manifest => manifest with
-            {
-                EvidenceInputs = manifest.EvidenceInputs
-                    .Where(item => item.Kind != "toolchain-identity")
-                    .ToArray()
-            });
-        ExpectDirectFailureVariant(
-            "CI-09 direct failure rejects unknown toolchain identity",
-            DirectFailureArtifact(
-                evidenceKind,
-                fixture.Manifest.Package.NupkgDigest,
-                componentId,
-                requirementId,
-                causeKind,
-                samplePath,
-                sampleDigest,
-                invalidDigest,
-                rawLog.ContentDigest),
-            evidenceKind,
-            requirementId,
-            causeKind,
-            requirementId);
-        WriteFile(
-            fixture.Root,
-            "duplicate-sample-toolchain.json",
-            File.ReadAllText(Path.Combine(fixture.Root, toolchain.Basename)));
-        var duplicateToolchain = CreateEvidenceInput(
-            fixture.Root,
-            "duplicate-sample-toolchain.json",
-            "toolchain-identity");
-        ExpectDirectFailureVariant(
-            "CI-09 direct failure rejects duplicate toolchain identity",
-            DirectFailureArtifact(
-                evidenceKind,
-                fixture.Manifest.Package.NupkgDigest,
-                componentId,
-                requirementId,
-                causeKind,
-                samplePath,
-                sampleDigest,
-                toolchain.ContentDigest,
-                rawLog.ContentDigest),
-            evidenceKind,
-            requirementId,
-            causeKind,
-            requirementId,
-            manifest => manifest with
-            {
-                EvidenceInputs = manifest.EvidenceInputs
-                    .Append(duplicateToolchain)
-                    .OrderBy(item => item.Basename, StringComparer.Ordinal)
-                    .ToArray()
-            });
-        ExpectDirectFailureVariant(
-            "CI-09 direct failure rejects missing raw compilation log",
-            DirectFailureArtifact(
-                evidenceKind,
-                fixture.Manifest.Package.NupkgDigest,
-                componentId,
-                requirementId,
-                causeKind,
-                samplePath,
-                sampleDigest,
-                toolchain.ContentDigest,
-                rawLog.ContentDigest),
-            evidenceKind,
-            requirementId,
-            causeKind,
-            requirementId,
-            manifest => manifest with
-            {
-                EvidenceInputs = manifest.EvidenceInputs
-                    .Where(item => item.Kind != "sample-compilation-log")
-                    .ToArray()
-            });
-        ExpectDirectFailureVariant(
-            "CI-09 direct failure rejects unknown raw compilation log",
-            DirectFailureArtifact(
-                evidenceKind,
-                fixture.Manifest.Package.NupkgDigest,
-                componentId,
-                requirementId,
-                causeKind,
-                samplePath,
-                sampleDigest,
-                toolchain.ContentDigest,
-                invalidDigest),
-            evidenceKind,
-            requirementId,
-            causeKind,
-            requirementId);
-        WriteFile(
-            fixture.Root,
-            "duplicate-sample-compilation.log",
-            File.ReadAllText(Path.Combine(fixture.Root, rawLog.Basename)));
-        var duplicateRawLog = CreateEvidenceInput(
-            fixture.Root,
-            "duplicate-sample-compilation.log",
-            "sample-compilation-log");
-        ExpectDirectFailureVariant(
-            "CI-09 direct failure rejects duplicate raw compilation log",
-            DirectFailureArtifact(
-                evidenceKind,
-                fixture.Manifest.Package.NupkgDigest,
-                componentId,
-                requirementId,
-                causeKind,
-                samplePath,
-                sampleDigest,
-                toolchain.ContentDigest,
-                rawLog.ContentDigest),
-            evidenceKind,
-            requirementId,
-            causeKind,
-            requirementId,
-            manifest => manifest with
-            {
-                EvidenceInputs = manifest.EvidenceInputs
-                    .Append(duplicateRawLog)
-                    .OrderBy(item => item.Basename, StringComparer.Ordinal)
-                    .ToArray()
-            });
-        ExpectDirectFailureVariant(
-            "CI-09 direct failure requires the assertion surface to be present",
-            DirectFailureArtifact(
-                evidenceKind,
-                fixture.Manifest.Package.NupkgDigest,
-                componentId,
-                requirementId,
-                causeKind,
-                samplePath,
-                sampleDigest,
-                toolchain.ContentDigest,
-                rawLog.ContentDigest,
-                requiredSurfacePresent: false),
-            evidenceKind,
-            requirementId,
-            causeKind,
-            requirementId);
-        ExpectDirectFailureVariant(
-            "CI-09 direct failure rejects package-scope null-component use",
-            DirectFailureArtifact(
-                evidenceKind,
-                fixture.Manifest.Package.NupkgDigest,
-                null,
-                requirementId,
-                causeKind,
-                samplePath,
-                sampleDigest,
-                toolchain.ContentDigest,
-                rawLog.ContentDigest),
-            evidenceKind,
-            requirementId,
-            causeKind,
-            assessedRowId: "SUP-03",
-            assessmentKind: "package",
-            assessedComponentId: null,
-            componentSpecificEvidence: false);
-
-        var siblingInput = input with
-        {
-            Components =
-            [
-                new InputComponent(
-                    "sibling",
-                    "Sibling",
-                    ["interactive-server"],
-                    [samplePath],
-                    new DynamicChildLifecycle(
-                        "not-applicable",
-                        [],
-                        "The sibling has no dynamic child lifecycle surface.")),
-                input.Components.Single()
-            ]
-        };
-        var siblingBytes = InputManifestService.Serialize(siblingInput);
-        var siblingAssessment = AssessmentService.Initialize(
-            "unified",
-            fixture.Root,
-            siblingInput,
-            siblingBytes,
-            "sibling");
-        var siblingEvidence = BuildEvidence(
-            siblingAssessment.Identity,
-            [
-                Draft(
-                    siblingAssessment.Identity,
-                    EvidenceIdentity.ReproducedRuntimeObservation,
-                    protocol.Basename,
-                    EvidenceProtocolValidator.DirectFailureMethod,
-                    protocol.ContentDigest)
-            ]);
-        var siblingEvidenceId = siblingEvidence.Selection.Single().EvidenceId;
-        var siblingCompleted = CompleteRows(
-            siblingAssessment,
-            new Dictionary<string, RowConclusion>(StringComparer.Ordinal)
-            {
-                [requirementId] = new RowConclusion(
-                    "gap",
-                    "A result for another component is incorrectly replayed here.",
-                    [siblingEvidenceId],
-                    "Bind the result to the assessed component.",
-                    null,
-                    null)
-            });
-        ExpectValidation(
-            () => Validate(
-                fixture.Root,
-                siblingInput,
-                siblingBytes,
-                siblingCompleted,
-                siblingEvidence),
-            "direct failure cannot replay across components");
-
-        var wrongRawDigest = new Sha256Digest(
-            "sha256",
-            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-        File.WriteAllBytes(
-            Path.Combine(fixture.Root, "wrong-raw-direct-result.json"),
-            DirectFailureArtifact(
-                evidenceKind,
-                fixture.Manifest.Package.NupkgDigest,
-                componentId,
-                requirementId,
-                causeKind,
-                samplePath,
-                sampleDigest,
-                toolchain.ContentDigest,
-                wrongRawDigest));
-        var wrongResult = CreateEvidenceInput(
-            fixture.Root,
-            "wrong-raw-direct-result.json",
-            evidenceKind);
-        File.WriteAllBytes(
-            Path.Combine(fixture.Root, "wrong-raw-direct-protocol.json"),
-            DirectFailure(
-                requirementId,
-                causeKind,
-                wrongResult.ContentDigest));
-        var wrongProtocol = CreateEvidenceInput(
-            fixture.Root,
-            "wrong-raw-direct-protocol.json",
-            "structured-protocol");
-        var wrongInput = input with
-        {
-            EvidenceInputs = new[] { rawLog, wrongResult, wrongProtocol, toolchain }
-                .OrderBy(item => item.Basename, StringComparer.Ordinal)
-                .ToArray()
-        };
-        var wrongBytes = InputManifestService.Serialize(wrongInput);
-        var wrongAssessment = AssessmentService.Initialize(
-            "unified",
-            fixture.Root,
-            wrongInput,
-            wrongBytes,
-            componentId);
-        var wrongEvidence = BuildEvidence(
-            wrongAssessment.Identity,
-            [
-                Draft(
-                    wrongAssessment.Identity,
-                    EvidenceIdentity.ReproducedRuntimeObservation,
-                    wrongProtocol.Basename,
-                    EvidenceProtocolValidator.DirectFailureMethod,
-                    wrongProtocol.ContentDigest)
-            ]);
-        var wrongEvidenceId = wrongEvidence.Selection.Single().EvidenceId;
-        var wrongCompleted = CompleteRows(
-            wrongAssessment,
-            new Dictionary<string, RowConclusion>(StringComparer.Ordinal)
-            {
-                [requirementId] = new RowConclusion(
-                    "gap",
-                    "A direct failure result cites an unknown raw compilation log.",
-                    [wrongEvidenceId],
-                    "Bind the exact raw compilation log.",
-                    null,
-                    null)
-            });
-        ExpectValidation(
-            () => Validate(
-                fixture.Root,
-                wrongInput,
-                wrongBytes,
-                wrongCompleted,
-                wrongEvidence),
-            "direct failure raw evidence digest fails closed");
+            () => Validate(fixture.Root, input, inputBytes, completed, evidence),
+            "unsupported",
+            $"{requirementId} no longer supports documentation-absence scoring");
     }
 
     private static void ExpectPublicAbsenceValidationFailure(
@@ -2122,7 +1408,7 @@ internal static class EnforcementTests
         };
         var validInputBytes = InputManifestService.Serialize(validInput);
         var initialized = CurrentAssessmentService.Initialize(
-            "unified",
+            "component",
             fixture.Root,
             validInput,
             validInputBytes,
@@ -2170,7 +1456,7 @@ internal static class EnforcementTests
         };
         var invalidInputBytes = InputManifestService.Serialize(invalidInput);
         var invalidInitialized = CurrentAssessmentService.Initialize(
-            "unified",
+            "component",
             fixture.Root,
             invalidInput,
             invalidInputBytes,
@@ -2219,7 +1505,7 @@ internal static class EnforcementTests
             };
             var inputBytes = InputManifestService.Serialize(input);
             var assessment = CurrentAssessmentService.Initialize(
-                "unified",
+                "component",
                 fixture.Root,
                 input,
                 inputBytes,
@@ -2411,7 +1697,7 @@ internal static class EnforcementTests
         };
         var inputBytes = InputManifestService.Serialize(input);
         var initialized = AssessmentService.Initialize(
-            "unified",
+            "component",
             fixture.Root,
             input,
             inputBytes,
@@ -2459,7 +1745,7 @@ internal static class EnforcementTests
         };
         var listedBytes = InputManifestService.Serialize(listedOnly);
         var listedInitialized = AssessmentService.Initialize(
-            "unified",
+            "component",
             fixture.Root,
             listedOnly,
             listedBytes,
@@ -2513,7 +1799,7 @@ internal static class EnforcementTests
         };
         var blockedBytes = InputManifestService.Serialize(blockedInput);
         var blockedInitialized = AssessmentService.Initialize(
-            "unified",
+            "component",
             fixture.Root,
             blockedInput,
             blockedBytes,
@@ -2584,7 +1870,7 @@ internal static class EnforcementTests
         };
         var sourceBytes = InputManifestService.Serialize(sourceInput);
         var sourceInitialized = AssessmentService.Initialize(
-            "unified",
+            "component",
             fixture.Root,
             sourceInput,
             sourceBytes,
@@ -2659,7 +1945,7 @@ internal static class EnforcementTests
         };
         var validSourceBytes = InputManifestService.Serialize(validSourceInput);
         var validSourceInitialized = AssessmentService.Initialize(
-            "unified",
+            "component",
             fixture.Root,
             validSourceInput,
             validSourceBytes,
@@ -2723,7 +2009,7 @@ internal static class EnforcementTests
         };
         var freeTextBytes = InputManifestService.Serialize(freeTextManifest);
         var freeTextInitialized = AssessmentService.Initialize(
-            "unified",
+            "component",
             fixture.Root,
             freeTextManifest,
             freeTextBytes,
@@ -2792,7 +2078,7 @@ internal static class EnforcementTests
         };
         var nonSourceBytes = InputManifestService.Serialize(nonSourceManifest);
         var nonSourceInitialized = AssessmentService.Initialize(
-            "unified",
+            "component",
             fixture.Root,
             nonSourceManifest,
             nonSourceBytes,
@@ -2858,7 +2144,7 @@ internal static class EnforcementTests
         };
         var siblingBytes = InputManifestService.Serialize(siblingManifest);
         var siblingAssessment = AssessmentService.Initialize(
-            "unified",
+            "component",
             fixture.Root,
             siblingManifest,
             siblingBytes,
@@ -2921,7 +2207,7 @@ internal static class EnforcementTests
         };
         var nonDynamicBytes = InputManifestService.Serialize(nonDynamicManifest);
         var nonDynamicAssessment = AssessmentService.Initialize(
-            "unified",
+            "component",
             fixture.Root,
             nonDynamicManifest,
             nonDynamicBytes,
@@ -2941,20 +2227,202 @@ internal static class EnforcementTests
         {
             ["BEQ-15"] = new RowConclusion(
                 "gap",
-                "Source proof is incorrectly applied without a required lifecycle surface.",
+                "The confirmed non-dynamic component source discards the asynchronous cleanup task.",
                 [nonDynamicProofId],
-                "Use the ordinary direct-source boundary for a non-dynamic component.",
+                "Observe the asynchronous cleanup task.",
                 null,
                 null)
         };
-        ExpectValidation(
-            () => Validate(
-                fixture.Root,
-                nonDynamicManifest,
-                nonDynamicBytes,
-                CompleteRows(nonDynamicAssessment, nonDynamicConclusions),
-                nonDynamicEvidence),
-            "source proof requires the assessed dynamic lifecycle surface");
+        Validate(
+            fixture.Root,
+            nonDynamicManifest,
+            nonDynamicBytes,
+            CompleteRows(nonDynamicAssessment, nonDynamicConclusions),
+            nonDynamicEvidence);
+    }
+
+    private static void TestNonDynamicSourceProofs(string root)
+    {
+        foreach (var (requirement, proofKind, source) in new[]
+        {
+            ("BEQ-12", "async-callback-not-awaited",
+                "sealed class StaticControl { Task SelectAsync() { _ = SelectionChanged.InvokeAsync(); return Task.CompletedTask; } }"),
+            ("BEQ-15", "async-cleanup-not-awaited",
+                "sealed class StaticControl : IDisposable { void Dispose() { _ = SendCleanupAsync(); } }")
+        })
+        {
+            var fixture = CreateFixture(Path.Combine(root, "non-dynamic-" + requirement), lifecycleRequired: false);
+            const string sourcePath = "src/StaticControl.cs";
+            const string contentPath = "static-control.cs";
+            WriteFile(fixture.Root, contentPath, source);
+            var sourceDigest = ContractJson.RawDigest(Encoding.UTF8.GetBytes(source));
+            var proof = SourceProof(requirement, proofKind, sourcePath, sourceDigest);
+            File.WriteAllBytes(Path.Combine(fixture.Root, "source-proof.json"), proof);
+            var registration = CreateEvidenceInput(fixture.Root, "source-proof.json", "structured-protocol");
+            var input = fixture.Manifest with
+            {
+                Source = new("source-available", "https://code.example.test/synthetic/static",
+                    new string('a', 40), "Exact inert synthetic source fixture.", "high"),
+                SourceArtifacts = [new(sourcePath, contentPath, sourceDigest)],
+                Components = [fixture.Manifest.Components.Single() with { AllowedSourcePaths = [sourcePath] }],
+                EvidenceInputs = [registration]
+            };
+            var inputBytes = InputManifestService.Serialize(input);
+            var initialized = AssessmentService.Initialize("component", fixture.Root, input, inputBytes, "static-control");
+            var evidence = BuildEvidence(initialized.Identity,
+                [Draft(initialized.Identity, EvidenceIdentity.ReviewerGeneratedAnalysis,
+                    registration.Basename, EvidenceProtocolValidator.SourceProofMethod, registration.ContentDigest)]);
+            var completed = CompleteRows(initialized, new Dictionary<string, RowConclusion>(StringComparer.Ordinal)
+            {
+                [requirement] = new("gap", "The exact inert source discards the named asynchronous task.",
+                    [evidence.Selection.Single().EvidenceId], "Observe the task; runtime behavior was not executed.", null, null)
+            });
+            Validate(fixture.Root, input, inputBytes, completed, evidence);
+            AssertEqual(false, evidence.SourceLedgers.SelectMany(item => item.Ledger.Records)
+                .Any(item => item.Provenance.Method == EvidenceProtocolValidator.LifecycleMethod),
+                "non-dynamic proof needs no invented lifecycle companion");
+            var requiredInput = input with
+            {
+                Components = [input.Components.Single() with
+                {
+                    DynamicChildLifecycle = new("required", ["grouped-children"], null)
+                }]
+            };
+            ExpectValidationMessage(
+                () => EvidenceProtocolValidator.Validate(fixture.Root, completed, requiredInput, evidence),
+                "requires exactly one dynamic lifecycle protocol", requirement + " still requires a genuine lifecycle companion");
+            var lifecycleBytes = StrictJson.SerializeCanonical(writer =>
+            {
+                writer.WriteStartObject();
+                writer.WriteNumber("schema_version", 1);
+                writer.WriteString("protocol", "dynamic-child-lifecycle");
+                writer.WriteStartArray("operations");
+                foreach (var operation in LifecycleOperations)
+                {
+                    writer.WriteStartObject();
+                    writer.WriteString("operation", operation);
+                    writer.WriteString("disposition", "not-tested");
+                    writer.WriteNull("outcome");
+                    writer.WriteNull("raw_observation_sha256");
+                    writer.WriteString("not_tested_reason", "No runtime operation was performed in this static-only fixture.");
+                    writer.WriteEndObject();
+                }
+                writer.WriteEndArray();
+                writer.WriteEndObject();
+            });
+            File.WriteAllBytes(Path.Combine(fixture.Root, "unrequested-lifecycle.json"), lifecycleBytes);
+            var matrixInput = input with
+            {
+                EvidenceInputs = [registration,
+                    new("unrequested-lifecycle.json", "structured-protocol",
+                        ContractJson.RawDigest(lifecycleBytes), lifecycleBytes.LongLength)]
+            };
+            var matrixEvidence = BuildEvidence(initialized.Identity,
+            [
+                Draft(initialized.Identity, EvidenceIdentity.ReviewerGeneratedAnalysis,
+                    registration.Basename, EvidenceProtocolValidator.SourceProofMethod, registration.ContentDigest),
+                Draft(initialized.Identity, EvidenceIdentity.ReproducedRuntimeObservation,
+                    "unrequested-lifecycle.json", EvidenceProtocolValidator.LifecycleMethod, ContractJson.RawDigest(lifecycleBytes))
+            ]);
+            ExpectValidationMessage(
+                () => EvidenceProtocolValidator.Validate(fixture.Root, completed, matrixInput, matrixEvidence),
+                "not-applicable cannot select a lifecycle protocol",
+                requirement + " rejects a fabricated non-dynamic lifecycle companion");
+
+            foreach (var lifecycle in new DynamicChildLifecycle[]
+            {
+                new("", [], "Missing applicability."),
+                new("unknown", [], "Unknown is not confirmed non-applicability."),
+                new("not-applicable", [], null),
+                new("not-applicable", [], " "),
+                new("not-applicable", ["grouped-children"], "Contradictory trigger."),
+                new("required", [], null),
+                new("required", ["grouped-children"], "A non-applicability rationale is contradictory."),
+                new("required", ["grouped-children", "grouped-children"], null),
+                new("required", ["unsupported-trigger"], null)
+            })
+            {
+                var malformed = input with
+                {
+                    Components = [input.Components.Single() with { DynamicChildLifecycle = lifecycle }]
+                };
+                ExpectValidation(() => EvidenceProtocolValidator.Validate(fixture.Root, completed, malformed, evidence),
+                    requirement + " source proof rejects malformed applicability without depending on prior intake");
+            }
+            foreach (var field in new[] { "dynamic_child_lifecycle", "applicability" })
+            {
+                var malformed = JsonNode.Parse(inputBytes)!;
+                var component = malformed["components"]![0]!.AsObject();
+                if (field == "dynamic_child_lifecycle")
+                {
+                    component.Remove(field);
+                }
+                else
+                {
+                    component["dynamic_child_lifecycle"]!.AsObject().Remove(field);
+                }
+                ExpectValidation(() => InputManifestService.Parse(Encoding.UTF8.GetBytes(malformed.ToJsonString())),
+                    requirement + " missing applicability is not non-applicability");
+            }
+            foreach (var status in new[] { "verified", "not tested", "not applicable" })
+            {
+                var wrongStatus = completed with
+                {
+                    Rows = completed.Rows.Select(row => row.Id == requirement ? row with { Status = status } : row).ToArray()
+                };
+                ExpectValidation(() => EvidenceProtocolValidator.Validate(fixture.Root, wrongStatus, input, evidence),
+                    requirement + " source proof remains gap-only");
+            }
+            foreach (var mutation in new[] { "digest", "path", "requirement", "proof-kind", "result", "newline" })
+            {
+                var value = JsonNode.Parse(proof)!;
+                switch (mutation)
+                {
+                    case "digest": value["source_sha256"]!["value"] = new string('0', 64); break;
+                    case "path": value["source_path"] = "src/OtherControl.cs"; break;
+                    case "requirement": value["requirement_id"] = "BEQ-05"; break;
+                    case "proof-kind": value["proof_kind"] = "unsupported-proof"; break;
+                    case "result": value["result"] = "passed"; break;
+                }
+                var bytes = Encoding.UTF8.GetBytes(value.ToJsonString() + (mutation == "newline" ? "\n" : ""));
+                var basename = "invalid-" + mutation + ".json";
+                File.WriteAllBytes(Path.Combine(fixture.Root, basename), bytes);
+                var changedInput = input with
+                {
+                    EvidenceInputs = [new(basename, "structured-protocol", ContractJson.RawDigest(bytes), bytes.LongLength)]
+                };
+                var changedInitial = AssessmentService.Initialize("component", fixture.Root, changedInput,
+                    InputManifestService.Serialize(changedInput), "static-control");
+                var changedEvidence = BuildEvidence(changedInitial.Identity,
+                    [Draft(changedInitial.Identity, EvidenceIdentity.ReviewerGeneratedAnalysis, basename,
+                        EvidenceProtocolValidator.SourceProofMethod, ContractJson.RawDigest(bytes))]);
+                var changedAssessment = CompleteRows(changedInitial, new Dictionary<string, RowConclusion>(StringComparer.Ordinal)
+                {
+                    [requirement] = new("gap", "A deliberately invalid proof is otherwise correctly registered.",
+                        [changedEvidence.Selection.Single().EvidenceId], null, null, null)
+                });
+                ExpectValidation(() => Validate(fixture.Root, changedInput, InputManifestService.Serialize(changedInput),
+                    changedAssessment, changedEvidence), requirement + " rejects independently bound " + mutation);
+            }
+
+            var inputPath = Path.Combine(fixture.Root, "input.confirmed.json");
+            var assessmentPath = Path.Combine(fixture.Root, "component.assessment.json");
+            var evidencePath = Path.Combine(fixture.Root, "component.evidence.json");
+            File.WriteAllBytes(inputPath, inputBytes);
+            File.WriteAllBytes(assessmentPath, AssessmentService.Serialize(completed));
+            File.WriteAllBytes(evidencePath, CanonicalEvidenceJson.SerializeBundle(evidence));
+            var revisions = Path.Combine(fixture.Root, "revisions");
+            RunSourceFindingCli(["report", "render", "--root", fixture.Root, "--input", inputPath,
+                "--assessment", assessmentPath, "--evidence", evidencePath, "--output", revisions]);
+            var revision = Path.Combine(revisions, "0001");
+            var reader = Path.Combine(fixture.Root, "readable");
+            RunSourceFindingCli(["report", "verify", "--root", fixture.Root, "--revision", revision]);
+            RunSourceFindingCli(["reader", "render", "--root", fixture.Root, "--revision", revision, "--output", reader]);
+            RunSourceFindingCli(["reader", "verify", "--root", fixture.Root, "--revision", revision, "--output", reader]);
+            AssertEqual("gap", AssessmentService.Parse(File.ReadAllBytes(Path.Combine(revision, "component.assessment.json")))
+                .Rows.Single(row => row.Id == requirement).Status, "typed source gap survives complete report/reader production");
+        }
+        Console.WriteLine("Non-dynamic callback and cleanup source proofs: paired acceptance, rejection and report/reader checks passed.");
     }
 
     private static void TestToolchainDisposition(string root)
@@ -2989,7 +2457,7 @@ internal static class EnforcementTests
         };
         var inputBytes = InputManifestService.Serialize(input);
         var initialized = AssessmentService.Initialize(
-            "unified",
+            "component",
             fixture.Root,
             input,
             inputBytes,
@@ -3069,6 +2537,42 @@ internal static class EnforcementTests
         ComparisonInputService.Validate(
             ComparisonInputService.Parse(bytes),
             fixtureRoot);
+        foreach (var label in new[] { "unified", "schema", "retired-regression-surface" })
+        {
+            void Mutate(JsonObject value)
+            {
+                if (label == "unified")
+                {
+                    value["assessment_kinds"] = new JsonArray("unified");
+                }
+                else if (label == "schema")
+                {
+                    value["schema_version"] = 999;
+                }
+                else
+                {
+                    value["coverage"]!.AsArray().Single(item =>
+                        item!["id"]!.GetValue<string>() == "release-revalidation")!["id"] = "regression-and-release-mapping";
+                }
+            }
+            var badDraft = JsonNode.Parse(draft)!.AsObject();
+            var badConfirmed = JsonNode.Parse(bytes)!.AsObject();
+            Mutate(badDraft);
+            Mutate(badConfirmed);
+            var rejectedDraftPath = Path.Combine(fixtureRoot, label + "-draft.json");
+            var rejectedManifestPath = Path.Combine(fixtureRoot, label + "-confirmed.json");
+            var rejectedOutput = Path.Combine(fixtureRoot, label + "-frozen.json");
+            File.WriteAllText(rejectedDraftPath, badDraft.ToJsonString());
+            File.WriteAllText(rejectedManifestPath, badConfirmed.ToJsonString());
+            var invalidError = new StringWriter();
+            AssertEqual(ExitCodes.ValidationFailure, CliApplication.Run(
+                ["comparison", "inputs-freeze", "--root", fixtureRoot, "--draft", rejectedDraftPath, "--output", rejectedOutput],
+                new StringWriter(), invalidError), "comparison freeze rejects " + label);
+            AssertEqual(ExitCodes.ValidationFailure, CliApplication.Run(
+                ["comparison", "inputs-validate", "--root", fixtureRoot, "--manifest", rejectedManifestPath],
+                new StringWriter(), invalidError), "comparison intake rejects " + label);
+            AssertEqual(false, File.Exists(rejectedOutput), "unsupported comparison publishes no current input");
+        }
         var legacyManifest = manifest with
         {
             SchemaVersion = 1,
@@ -3349,8 +2853,7 @@ internal static class EnforcementTests
         var appliesToComponent = componentSpecific ??
             (identity.AssessmentKind == "component" ||
              method == EvidenceProtocolValidator.LifecycleMethod ||
-             method == EvidenceProtocolValidator.SourceProofMethod ||
-             method == EvidenceProtocolValidator.DirectFailureMethod);
+             method == EvidenceProtocolValidator.SourceProofMethod);
         return new EvidenceRecordDraft(
             "The structured protocol records direct evidence for this bounded requirement.",
             appliesToComponent
@@ -3565,58 +3068,6 @@ internal static class EnforcementTests
             writer.WriteEndObject();
         });
 
-    private static byte[] DirectFailure(
-        string requirementId,
-        string causeKind,
-        Sha256Digest evidenceDigest) =>
-        StrictJson.SerializeCanonical(writer =>
-        {
-            writer.WriteStartObject();
-            writer.WriteNumber("schema_version", 1);
-            writer.WriteString("protocol", "direct-failure");
-            writer.WriteString("requirement_id", requirementId);
-            writer.WriteString("cause_kind", causeKind);
-            writer.WriteString("result", "failed");
-            WriteDigest(writer, "evidence_sha256", evidenceDigest);
-            writer.WriteEndObject();
-        });
-
-    private static byte[] DirectFailureArtifact(
-        string evidenceKind,
-        Sha256Digest packageDigest,
-        string? componentId,
-        string requirementId,
-        string causeKind,
-        string sampleSourcePath,
-        Sha256Digest sampleSourceDigest,
-        Sha256Digest toolchainDigest,
-        Sha256Digest rawLogDigest,
-        bool requiredSurfacePresent = true) =>
-        StrictJson.SerializeCanonical(writer =>
-        {
-            writer.WriteStartObject();
-            writer.WriteNumber("schema_version", 1);
-            writer.WriteString("evidence_kind", evidenceKind);
-            WriteDigest(writer, "package_sha256", packageDigest);
-            if (componentId is null)
-            {
-                writer.WriteNull("component_id");
-            }
-            else
-            {
-                writer.WriteString("component_id", componentId);
-            }
-            writer.WriteString("requirement_id", requirementId);
-            writer.WriteString("cause_kind", causeKind);
-            writer.WriteString("sample_source_path", sampleSourcePath);
-            WriteDigest(writer, "sample_source_sha256", sampleSourceDigest);
-            WriteDigest(writer, "toolchain_sha256", toolchainDigest);
-            WriteDigest(writer, "raw_log_sha256", rawLogDigest);
-            writer.WriteBoolean("required_surface_present", requiredSurfacePresent);
-            writer.WriteString("outcome", "failed");
-            writer.WriteEndObject();
-        });
-
     private static byte[] WriteRevision(
         string root,
         string revisionsRoot,
@@ -3711,8 +3162,8 @@ internal static class EnforcementTests
                 "No owner-held records were supplied for this blind comparison.", []),
             ("performance-measurements", "blocked",
                 "No representative performance measurement was supplied for this blind comparison.", []),
-            ("regression-and-release-mapping", "available", null,
-                [("defect-regression-map", "defect-regression-map", "probe", "coverage-material"), ("release-revalidation", "release-revalidation", "probe", "coverage-material")]),
+            ("release-revalidation", "available", null,
+                [("release-revalidation", "release-revalidation", "probe", "coverage-material")]),
             ("release-source-and-workflows", "available", null,
                 [("source-snapshot", "source", "source", "release-source"), ("workflow-inventory", "workflow-inventory", "probe", "coverage-material")]),
             ("signing-sbom-provenance", "available", null,
@@ -3746,7 +3197,6 @@ internal static class EnforcementTests
             ("asset-inventory", "asset-inventory", "asset-inventory.bin"),
             ("browser-interop-source", "browser-interop-source", "browser-interop-source.bin"),
             ("component-source-closure", "component-source-closure", "component-source-closure.bin"),
-            ("defect-regression-map", "regression-map", "defect-regression-map.bin"),
             ("dependency-inventory", "dependency-inventory", "dependency-inventory.bin"),
             ("localization-claims", "localization-claim-corpus", "localization-claims.bin"),
             ("mode-claims", "target-manifest", "mode-claims.bin"),
@@ -3806,7 +3256,7 @@ internal static class EnforcementTests
             {"id":"package-fetch","subject":"Exact package and public-input retrieval","locator":"https://packages.example.test/synthetic","disposition":"available","blocker":null,"toolchain_id":null,"browser_id":null,"input_ids":["localization-claims","mode-claims","public-documents","retrieval"]}
           ],
           "probes": [
-            {"id":"coverage-material","subject":"Typed conclusion-free coverage material","locator":"local deterministic inventory generation","disposition":"available","blocker":null,"toolchain_id":null,"browser_id":null,"input_ids":["accessibility-observations","assembly-signing","asset-inventory","browser-interop-source","component-source-closure","defect-regression-map","dependency-inventory","notice-mapping","package-signing","public-support-corpus","release-lifecycle-corpus","release-revalidation","runtime-observations","sample-inventory","sbom-provenance","style-asset-inventory","test-inventory","trim-aot-observations","workflow-inventory"]},
+            {"id":"coverage-material","subject":"Typed conclusion-free coverage material","locator":"local deterministic inventory generation","disposition":"available","blocker":null,"toolchain_id":null,"browser_id":null,"input_ids":["accessibility-observations","assembly-signing","asset-inventory","browser-interop-source","component-source-closure","dependency-inventory","notice-mapping","package-signing","public-support-corpus","release-lifecycle-corpus","release-revalidation","runtime-observations","sample-inventory","sbom-provenance","style-asset-inventory","test-inventory","trim-aot-observations","workflow-inventory"]},
             {"id":"trim-probe","subject":"Supported trim comparison","locator":"local trim command","disposition":"available","blocker":null,"toolchain_id":{{toolchainId}},"browser_id":null,"input_ids":["trim-log"{{extraProbeInput}}]}
           ]
         }
@@ -3820,7 +3270,6 @@ internal static class EnforcementTests
         "asset-inventory",
         "browser-interop-source",
         "component-source-closure",
-        "defect-regression-map",
         "dependency-inventory",
         "localization-claims",
         "mode-claims",

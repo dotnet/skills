@@ -28,18 +28,18 @@ by permissions or content exclusion, fail closed; never try another path or reco
 skill from memory. Normal registered-skill behavior is only applicable when no explicit root is
 supplied, which is not a valid worker launch.
 
-For an explicitly assigned scoped unit, read
-[the complete V1 profile](../skills/blazor-component-readiness/references/scoped-component-profile.md)
-before ordinary initialization or binding. Require exact profile/context descriptors and
-`--package-context-revision`, not a full-package prerequisite. Preserve all 51 individual checks,
-distinct 48-check context, internal verification closure, feedback lineage and disclosure limits.
+For a component unit, read
+[standalone component scope](../skills/blazor-component-readiness/references/scoped-component-profile.md)
+before initialization or binding. Preserve all 52 checks, exact input/evidence identity,
+feedback lineage and disclosure limits. No package assessment or context is a prerequisite.
 This does not authorize another worker or assessment.
 
 Accept only one absolute trusted plugin root inside the assigned unit, confirmed unit ID/kind,
 exact package record, input manifest path/digest, allowed documents/source/evidence, local
-output/revision root and optional timebox. A component additionally needs its ID, every claimed
-render mode and exact validated binding: ordinary full-package or the explicit scoped context
-above. Reject missing, conflicting, unconfirmed, multi-unit or sibling inputs.
+output/revision root and optional timebox. A component additionally needs its ID and every claimed
+render mode. If an exact current package revision is explicitly supplied, validate that optional
+relationship; never infer or create one. Reject missing declared bindings, conflicting,
+unconfirmed, multi-unit or sibling inputs.
 Do not discover or add components, alter inventory, inspect sibling source or broaden the
 package/version. Package-wide inventory in the exact binding is non-evidence for a component:
 never cite or reproduce sibling identities.
@@ -60,9 +60,8 @@ The unit directory, launch flags and input confirmation do not supply OS confine
    and the loaded skill's selected area owners before evidence/status decisions. Missing supplied
    probe results are work to perform, not proof of a blocker. Collect only permitted evidence
    within the unit/timebox. A package worker owns 60 current repository-wide/conditional rows;
-   an ordinary component worker owns 61 component-specific rows bound to the package.
-   Explicit profile selection instead owns 51. Rubric 2.0.1 is the sole executable assessment
-   contract. Never return `unified` for either
+   a component worker owns 52 component-specific rows independently. Rubric 2.1.0 is the sole
+   executable assessment contract. Never return `unified` for either
    assigned kind, infer sibling evidence or turn unapproved extensions into baseline defects.
 3. Component work reads [acquisition/source closure](../skills/blazor-component-readiness/references/artifact-acquisition.md)
    and [runtime preflight/probes](../skills/blazor-component-readiness/references/area-blazor-runtime.md)

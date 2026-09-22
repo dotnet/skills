@@ -24,13 +24,24 @@ WebAssembly AOT only after the execution prerequisite is satisfied, and keep its
 from trimming. Applicable AOT work that is not performed remains `not tested` with the actual
 blocker; lack of a claim alone is not a `not applicable` rationale.
 
-Before performance measurement, define representative item count/depth/templates/interactions and
-relevant server circuits, WebAssembly startup, bundle, payload, allocation, latency, and retained
-state. Source may identify risks but cannot verify a budget.
+Investigate the actual DOCX performance obligations within the approved scope.
+Use `gap` for demonstrated identity instability, unnecessary repeated/unbounded work
+or retained-state problems, not merely a suspicious source pattern. Use `not tested`
+when evidence needed for the applicable conclusion was not obtained.
+Do not demand a vendor budget, written performance targets or benchmark matrix.
+Missing such documents is not an independent readiness shortfall.
 
-Use `gap` for demonstrated identity instability, repeated/unbounded work, retained-state problems,
-or a measured budget failure. Use `owner evidence required` for private targets/budgets/records and
-`not tested` when an applicable deterministic benchmark or runtime probe was not performed.
+For `PERF-06`, inspect relevant component/shared state and reuse applicable
+evidence. Investigate a concrete retention concern when authorized, rather than
+profiling every component by default. Distinguish retained objects from temporary
+allocations, framework caches, disconnected circuits, GC timing, test-host
+references and process working set. A small field list proves no universal pass;
+a memory increase alone proves no component leak. Preserve workload-specific
+facts and actual evidence limits without inventing a universal memory threshold.
+
+Payload, serialization and copy-cost troubleshooting is available only through
+[requested guidance](remediation-guidance.md#requested-data-transfer-troubleshooting).
+That boundary does not disable investigation needed for an actual DOCX obligation.
 
 Separate mechanism rows from measured outcomes. Complete source can establish whether `ShouldRender`
 or `@key` is present and whether a cascading-value surface exists; a passing reorder probe cannot
@@ -48,9 +59,11 @@ direct runtime evidence, use `not tested`. Use `gap` only when a representative 
 demonstrates unnecessary broad rerenders. Use `not applicable` only when complete source proves no
 applicable cascading-value update surface exists.
 
-If the owner has not defined the representative scenarios, data sizes, targets, or budgets needed
-for a measurement row, use `owner evidence required`. If those inputs are confirmed and only the
-benchmark was not run, use `not tested`.
+If an authorized measurement needs workload context, establish the relevant
+scenario and inputs first. Describe the configuration and workload actually
+observed; do not generalize a narrow measurement to production-wide coverage.
+Ask for necessary context, not a new formal budget document or benchmark campaign
+merely to fill a report row. Supplied targets may inform explicitly requested work.
 
 For a comparison that adjudicates `TA-02` or `TA-04`, name the supported SDK/workload/toolchain and
 target framework. A `verified` or `gap` result backed by supplied toolchain logs uses a canonical

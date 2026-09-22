@@ -134,7 +134,7 @@ internal static class AuthorizedScopeTests
         Reject(() => scope.Select(RubricLoader.Load() with { RubricVersion = "unsupported" }, "package"),
             "scope rejects a mismatched rubric independently of loader validation");
         Assert(RubricLoader.Select(RubricLoader.Load(), "package", []).Count == 60, "ordinary selection remains full");
-        Assert(RubricLoader.Select(RubricLoader.Load(), "component", []).Count == 61, "ordinary component remains full");
+        Assert(RubricLoader.Select(RubricLoader.Load(), "component", []).Count == 52, "ordinary component remains complete");
     }
 
     private static void RehashSelection(JsonObject value)

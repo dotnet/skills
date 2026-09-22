@@ -43,7 +43,7 @@ public static partial class ComparisonInputService
         "claimed-mode-runtime",
         "component-api-and-base-source",
         "performance-measurements",
-        "regression-and-release-mapping",
+        "release-revalidation",
         "tests-and-samples",
         "trim-aot-toolchains"
     ];
@@ -945,11 +945,10 @@ public static partial class ComparisonInputService
             .ToArray();
         if (result.Length == 0 ||
             result.Length != values.Count ||
-            result.Any(value => value is not ("unified" or "package" or "component")) ||
-            (result.Contains("unified", StringComparer.Ordinal) && result.Length != 1))
+            result.Any(value => value is not ("package" or "component")))
         {
             throw new DeterministicValidationException(
-                "Comparison assessment_kinds must be unified alone, package, component, or package plus component.");
+                "Comparison assessment_kinds must select separate package and/or component units.");
         }
 
         return result;
@@ -957,10 +956,8 @@ public static partial class ComparisonInputService
 
     private static string[] RequiredCoverageSurfaces(IReadOnlyList<string> assessmentKinds)
     {
-        var includePackage = assessmentKinds.Contains("unified", StringComparer.Ordinal) ||
-            assessmentKinds.Contains("package", StringComparer.Ordinal);
-        var includeComponent = assessmentKinds.Contains("unified", StringComparer.Ordinal) ||
-            assessmentKinds.Contains("component", StringComparer.Ordinal);
+        var includePackage = assessmentKinds.Contains("package", StringComparer.Ordinal);
+        var includeComponent = assessmentKinds.Contains("component", StringComparer.Ordinal);
         return CommonCoverageSurfaces
             .Concat(includePackage ? PackageCoverageSurfaces : [])
             .Concat(includeComponent ? ComponentCoverageSurfaces : [])
@@ -1040,9 +1037,8 @@ public static partial class ComparisonInputService
                 Role("performance-results", "performance-result", "probe"),
                 Role("performance-scenarios", "performance-scenario", "retrieval", "probe")
             ],
-            "regression-and-release-mapping" =>
+            "release-revalidation" =>
             [
-                Role("defect-regression-map", "regression-map", "retrieval", "probe"),
                 Role("release-revalidation", "release-revalidation", "retrieval", "probe")
             ],
             _ => throw new DeterministicValidationException(

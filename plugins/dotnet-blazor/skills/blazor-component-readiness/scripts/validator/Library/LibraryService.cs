@@ -26,9 +26,12 @@ public static class LibraryService
         LibraryInventory inventory,
         ReadOnlySpan<byte> inventoryBytes,
         LibraryRunManifest? previous = null,
-        IReadOnlyDictionary<string, LibraryStateReceiptSnapshot>? stateReceipts = null)
+        IReadOnlyDictionary<string, LibraryStateReceiptSnapshot>? stateReceipts = null,
+        IReadOnlyList<byte[]>? feedbackHistory = null)
     {
         InventoryService.Validate(inventory, root, requireConfirmed: true);
+        feedbackHistory ??= [];
+        _ = FeedbackService.CreateHistory(null, feedbackHistory);
         stateReceipts ??= LibraryStateReceiptService.Load(root, inventory, inventoryBytes);
         if (previous is not null)
         {
@@ -51,7 +54,8 @@ public static class LibraryService
                 package,
                 packageBindings,
                 manifestOwners,
-                identityOwners);
+                identityOwners,
+                feedbackHistory);
             stateReceipts.TryGetValue(package.UnitId, out var stateReceipt);
             units.Add(CreateUnit(package, scan, previousUnit, stateReceipt));
         }
@@ -67,7 +71,8 @@ public static class LibraryService
                     component,
                     packageBindings,
                     manifestOwners,
-                    identityOwners);
+                    identityOwners,
+                    feedbackHistory);
                 stateReceipts.TryGetValue(component.UnitId, out var stateReceipt);
                 units.Add(CreateUnit(component, scan, previousUnit, stateReceipt));
             }
@@ -97,10 +102,11 @@ public static class LibraryService
         string root,
         LibraryInventory inventory,
         ReadOnlySpan<byte> inventoryBytes,
-        LibraryRunManifest manifest)
+        LibraryRunManifest manifest,
+        IReadOnlyList<byte[]>? feedbackHistory = null)
     {
         ValidateShape(manifest, inventory, inventoryBytes);
-        var reconstructed = Reconcile(root, inventory, inventoryBytes, manifest);
+        var reconstructed = Reconcile(root, inventory, inventoryBytes, manifest, feedbackHistory: feedbackHistory);
         if (!Serialize(manifest).AsSpan().SequenceEqual(Serialize(reconstructed)))
         {
             throw new DeterministicValidationException(
@@ -457,7 +463,8 @@ public static class LibraryService
         InventoryPackage package,
         Dictionary<string, (string UnitId, PackageRevisionBinding Binding)> bindings,
         Dictionary<string, string> manifestOwners,
-        Dictionary<string, string> identityOwners)
+        Dictionary<string, string> identityOwners,
+        IReadOnlyList<byte[]> feedbackHistory)
     {
         UnitScan? latest = null;
         foreach (var revision in RevisionDirectories(root, package.RevisionRoot))
@@ -468,13 +475,14 @@ public static class LibraryService
                 feedbackBytes: null,
                 packageBinding: null,
                 validateChain: true,
-                allowMissingFeedback: true);
+                allowMissingFeedback: true,
+                feedbackHistory: feedbackHistory);
             ValidateArtifacts(package, artifacts);
             RegisterIdentity(package.UnitId, artifacts, manifestOwners, identityOwners);
             var scan = FromArtifacts(root, artifacts, packageBindingDigest: null);
             if (artifacts.Manifest.CompletionState == "complete")
             {
-                var binding = RevisionService.LoadPackageBinding(root, revision, feedbackBytes: null);
+                var binding = RevisionService.CreatePackageBinding(artifacts);
                 var digest = ContractJson.RawDigest(artifacts.ManifestBytes).Value;
                 if (!bindings.TryAdd(digest, (package.UnitId, binding)))
                 {
@@ -495,7 +503,8 @@ public static class LibraryService
         InventoryComponent component,
         IReadOnlyDictionary<string, (string UnitId, PackageRevisionBinding Binding)> bindings,
         Dictionary<string, string> manifestOwners,
-        Dictionary<string, string> identityOwners)
+        Dictionary<string, string> identityOwners,
+        IReadOnlyList<byte[]> feedbackHistory)
     {
         UnitScan? latest = null;
         foreach (var revision in RevisionDirectories(root, component.RevisionRoot))
@@ -517,26 +526,30 @@ public static class LibraryService
                 ResourceLimits.SerializedArtifactBytes,
                 "component validation manifest");
             var manifest = ReportService.ParseManifest(manifestBytes);
-            var packageDigest = manifest.PackageReference?.ValidationDigest.Value
-                ?? throw new DeterministicValidationException(
-                    "Component validation manifest requires an exact package validation reference.");
-            if (!bindings.TryGetValue(packageDigest, out var packageBinding) ||
-                packageBinding.UnitId != package.UnitId)
+            PackageRevisionBinding? packageBinding = null;
+            if (manifest.PackageReference is { } packageReference)
             {
-                throw new DeterministicValidationException(
-                    $"Component unit '{component.UnitId}' references the wrong package unit or package revision.");
+                if (!bindings.TryGetValue(packageReference.ValidationDigest.Value, out var declaredBinding) ||
+                    declaredBinding.UnitId != package.UnitId)
+                {
+                    throw new DeterministicValidationException(
+                        $"Component unit '{component.UnitId}' references the wrong package unit or package revision.");
+                }
+
+                packageBinding = declaredBinding.Binding;
             }
 
             var artifacts = RevisionService.VerifyRevision(
                 root,
                 revision,
                 feedbackBytes: null,
-                packageBinding.Binding,
+                packageBinding,
                 validateChain: true,
-                allowMissingFeedback: true);
+                allowMissingFeedback: true,
+                feedbackHistory: feedbackHistory);
             ValidateArtifacts(root, package, component, artifacts);
             RegisterIdentity(component.UnitId, artifacts, manifestOwners, identityOwners);
-            latest = FromArtifacts(root, artifacts, manifest.PackageReference.ValidationDigest);
+            latest = FromArtifacts(root, artifacts, manifest.PackageReference?.ValidationDigest);
         }
 
         return latest ?? UnitScan.Missing;
@@ -562,7 +575,7 @@ public static class LibraryService
         InventoryComponent component,
         RevisionArtifacts artifacts)
     {
-        var inputComponent = artifacts.Input.Components.SingleOrDefault();
+        var inputComponent = artifacts.Input.Components.Count == 1 ? artifacts.Input.Components[0] : null;
         if (artifacts.Kind != "component" ||
             artifacts.Assessment.Identity.Package != package.Package ||
             artifacts.Assessment.Identity.ComponentId != component.ComponentId ||
@@ -822,7 +835,6 @@ public static class LibraryService
                 unit.ReportPath is null ||
                 unit.ValidationManifestPath is null ||
                 unit.ValidationManifestDigest is null ||
-                unit.Kind == "component" && unit.PackageValidationManifestDigest is null ||
                 unit.Kind == "package" && unit.PackageValidationManifestDigest is not null ||
                 unit.StateReceiptPath is not null ||
                 unit.StateReceiptDigest is not null ||

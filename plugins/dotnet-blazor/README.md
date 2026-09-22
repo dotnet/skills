@@ -123,9 +123,12 @@ reports\readable\mapping.json
 reports\readable\reader.validation.json
 ```
 
-Canonical artifacts were under `reports\revisions\0001`: `package.*` files for the
-package request, and `unified.*` files for Button plus shared package context.
-These are examples of the delivered paths.
+Those earlier journeys put canonical artifacts under `reports\revisions\0001`, including
+`package.*` for the package request and historical `unified.*` for Button plus package context.
+Unified output is now retired and is not verified by the current validator. New component
+requests produce independent 52-check `component.*` revisions with no package-assessment
+prerequisite; package requests retain separate 60-check `package.*` revisions. Existing
+historical files are not rewritten or migrated.
 
 Keep the evidence companions, mapping, validation records, and linked technical
 artifacts with the report; review sharing permissions before distributing them.

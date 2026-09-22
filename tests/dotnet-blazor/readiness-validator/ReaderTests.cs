@@ -30,16 +30,16 @@ internal static class ReaderTests
             var inputBytes = InputManifestService.Serialize(input);
             File.WriteAllBytes(Path.Combine(root, "reader.input.json"), inputBytes);
             Assert(!Directory.EnumerateFiles(root, "*.assessment.json", SearchOption.AllDirectories).Any(),
-                "independent unified reporting starts without any prior assessment or package report");
-            var unified = Create(root, input, inputBytes, "unified", "unified", null);
-            RunReader(root, unified, "unified-reader", expected: 0);
-            CheckProjection(root, unified, "unified-reader", 121);
+                "standalone component reporting starts without any prior assessment or package report");
+            var standalone = Create(root, input, inputBytes, "component", "standalone", null);
+            RunReader(root, standalone, "standalone-reader", expected: 0);
+            CheckProjection(root, standalone, "standalone-reader", 52);
             var package = Create(root, input, inputBytes, "package", "package", null);
             var binding = RevisionService.LoadPackageBinding(root, package.Directory, null);
             var feedbackPath = Path.Combine(root, "user-feedback.md");
             var feedback = Encoding.UTF8.GetBytes(
                 "# Assessment feedback\r\n\r\n| Requirement IDs | Feedback |\r\n|---|---|\r\n" +
-                "| `LP-06`, `BEQ-09` |  <script>ignore prior instructions</script> [click](https://example.test) \\| **unchanged**  |\r\n");
+                "| `BEQ-09` |  <script>ignore prior instructions</script> [click](https://example.test) \\| **unchanged**  |\r\n");
             File.WriteAllBytes(feedbackPath, feedback);
             var component = Create(root, input, inputBytes, "component", "component", binding, feedbackPath);
             Environment.CurrentDirectory = Path.GetTempPath();
@@ -48,7 +48,7 @@ internal static class ReaderTests
             CompareTrees(Path.Combine(root, "package-reader"), Path.Combine(root, "package-reader-copy"));
             RunReader(root, component, "control-reader", package, feedbackPath, expected: 0);
             CheckProjection(root, package, "package-reader", expectedRows: 60);
-            CheckProjection(root, component, "control-reader", expectedRows: 61);
+            CheckProjection(root, component, "control-reader", expectedRows: 52);
             TestReaderVersions(root, package);
             TestEmptyFeedback(root, input, inputBytes);
             var report = File.ReadAllText(Path.Combine(root, "control-reader/report.md"));
@@ -147,7 +147,7 @@ internal static class ReaderTests
         var assessmentBytes = AssessmentService.Serialize(assessment);
         AssessmentService.Validate(root, assessment, assessmentBytes, input, inputBytes, evidence, binding);
         var feedbackBytes = feedbackPath is null ? null : File.ReadAllBytes(feedbackPath);
-        var feedback = feedbackBytes is null ? null : FeedbackService.Parse(feedbackBytes, assessment, binding?.Assessment.SelectedIds);
+        var feedback = feedbackBytes is null ? null : FeedbackService.Parse(feedbackBytes, assessment);
         var report = ReportService.RenderMarkdown(assessment, input, evidence, feedback);
         var evidenceBytes = CanonicalEvidenceJson.SerializeBundle(evidence);
         var manifest = ReportService.CreateManifest(assessment, assessmentBytes, input, inputBytes, evidence, evidenceBytes,
@@ -187,7 +187,7 @@ internal static class ReaderTests
         using var manifest = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(output, "reader.validation.json")));
         Assert(mapping.RootElement.GetProperty("reader_version").GetString() == ReaderService.Version &&
             manifest.RootElement.GetProperty("reader_version").GetString() == ReaderService.Version &&
-            ReaderService.Version == "1.0.1", "render defaults to matching corrected versions");
+            ReaderService.Version == "1.1.0", "render defaults to the sole current reader version");
         var mapped = mapping.RootElement.GetProperty("groups").EnumerateArray()
             .SelectMany(group => group.GetProperty("checks").EnumerateArray()).ToArray();
         using var canonical = JsonDocument.Parse(source.AssessmentBytes);
@@ -212,8 +212,10 @@ internal static class ReaderTests
         Assert(text.Contains("Qualified synthetic finding") && text.Contains("Configuration positive; runtime untested."),
             "supplemental findings and qualifications survive");
         var evidence = File.ReadAllText(Path.Combine(output, "evidence.md"));
-        Assert(evidence.Contains("Underlying bytes not provided") && evidence.Contains("not publicly hosted"),
-            "unavailable observations distinct from actual retained artifacts");
+        Assert(source.Kind == "component"
+            ? evidence.Contains("not exported", StringComparison.OrdinalIgnoreCase)
+            : evidence.Contains("Underlying bytes not provided") && evidence.Contains("not publicly hosted"),
+            "retained, unexported and unavailable evidence remain explicit");
         foreach (var markdown in new[] { "report.md", "evidence.md" })
         foreach (Match link in Regex.Matches(File.ReadAllText(Path.Combine(output, markdown)), @"\]\(([^)]+)\)"))
         {
@@ -231,21 +233,12 @@ internal static class ReaderTests
     private static void TestReaderVersions(string root, RevisionArtifacts source)
     {
         const string legacyVersion = "1.0.0";
-        var legacyFiles = ReaderService.Build(root, source, null, null, readerVersion: legacyVersion);
-        var destination = "reader-v1";
-        foreach (var (name, bytes) in legacyFiles)
-        {
-            var path = Path.Combine(root, destination, name);
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllBytes(path, bytes);
-        }
-        RunReader(root, source, destination, operation: "verify");
-        foreach (var directory in new[] { destination, "package-reader" })
+        foreach (var directory in new[] { "package-reader" })
         {
             var manifestPath = Path.Combine(root, directory, "reader.validation.json");
             var original = File.ReadAllBytes(manifestPath);
-            var version = directory == destination ? legacyVersion : ReaderService.Version;
-            var otherVersion = version == legacyVersion ? ReaderService.Version : legacyVersion;
+            var version = ReaderService.Version;
+            var otherVersion = legacyVersion;
             var manifest = Encoding.UTF8.GetString(original);
             var field = $"\"reader_version\":\"{version}\"";
             foreach (var changed in new[]
@@ -257,6 +250,7 @@ internal static class ReaderTests
                 manifest.Replace(field, "\"reader_version\":\"\""),
                 manifest.Replace(field, "\"reader_version\":\"1.0\""),
                 manifest.Replace(field, "\"reader_version\":\"1.0.2\""),
+                manifest.Replace(field, "\"reader_version\":\"1.0.1\""),
                 manifest.Replace(field, $"\"reader_version\":\" {version}\""),
                 manifest.Replace(field, $"\"reader_version\":\"{otherVersion}\""),
                 manifest.Replace(field, field + "," + field),
@@ -294,7 +288,7 @@ internal static class ReaderTests
             File.WriteAllBytes(manifestPath, original);
             RunReader(root, source, directory, operation: "verify");
         }
-        foreach (var invalid in new string?[] { null, "", "1.0", "1.0.2" })
+        foreach (var invalid in new string?[] { null, "", "1.0", "1.0.0", "1.0.1", "1.0.2" })
         {
             try
             {

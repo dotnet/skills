@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using BlazorComponentReadiness.Validator.Assessment;
 using BlazorComponentReadiness.Validator.Cli;
 using BlazorComponentReadiness.Validator.Contracts;
+using BlazorComponentReadiness.Validator.IO;
 using BlazorComponentReadiness.Validator.Validation;
 using CurrentAssessmentService = BlazorComponentReadiness.Validator.Assessment.AssessmentService;
 
@@ -85,8 +86,8 @@ internal static class WorkflowTests
         AssertContains(skill, "certification", "certification boundary");
         AssertContains(skill, "Requires an active .NET 11 SDK", ".NET 11 prerequisite");
         AssertContains(skill, "structural validation", "structural/factual boundary");
-        AssertContains(skill, "121-ID operational crosswalk", "core count");
-        AssertContains(skill, "60 `repository-wide` / 61 `component-specific`", "scope ownership");
+        AssertContains(skill, "112 catalog entries", "core count");
+        AssertContains(skill, "60 `repository-wide` / 52 `component-specific`", "scope ownership");
         AssertContains(skill, "`source-available`, `closed-source`, or `unresolved`", "source availability");
         AssertContains(skill, "owner-supplied-internal-evidence", "owner evidence");
         AssertContains(skill, "owner-supplied-public-evidence", "public owner evidence");
@@ -97,8 +98,8 @@ internal static class WorkflowTests
         AssertContains(skill, "Package-only", "package-only mode");
         AssertContains(skill, "components: []", "empty package inventory");
         AssertContains(skill, "No component worker", "package-only worker boundary");
-        AssertContains(skill, "Single component, unified", "unified mode");
-        AssertContains(skill, "Single package, split", "split mode");
+        AssertContains(skill, "Single component", "standalone component mode");
+        AssertContains(skill, "Explicit package and component request", "separate dual-unit mode");
         AssertContains(skill, "Full library", "library mode");
         AssertContains(skill, "unsupported host: full-library assessment requires isolated workers", "unsupported-host stop");
         AssertContains(skill, "never use a shared-context or serialized fallback", "no shared-context fallback");
@@ -111,8 +112,8 @@ internal static class WorkflowTests
         Assert(
             Regex.IsMatch(
                 workflow,
-                @"assessment init --kind unified\b[^\r\n]*--component <component-id>"),
-            "unified assessment init example requires the component identity");
+                @"assessment init --kind component\b[^\r\n]*--component <component-id>"),
+            "standalone component init example requires the component identity");
 
         foreach (var status in Statuses)
         {
@@ -133,7 +134,9 @@ internal static class WorkflowTests
         AssertAgents(pluginRoot);
         AssertContracts(referencesRoot);
         AssertRemediationGuidance(pluginRoot, skill, referencesRoot);
+        AssertRequestedHelpBoundaries(pluginRoot, referencesRoot);
         AssertGuidanceFixtures(pluginRoot);
+        AssertComponentFixture(pluginRoot);
         AssertEmbeddedSbomFixtures(pluginRoot, referencesRoot);
         AssertWorkerLaunchContract(pluginRoot);
         AssertReadinessLauncherExample(skillRoot);
@@ -201,7 +204,7 @@ internal static class WorkflowTests
         {
             "System.Text.Json.Utf8JsonWriter", "--input $Candidates",
             "inputs discover", "inputs confirm", "inputs validate",
-            "assessment init --kind unified --component $ComponentId", "assessment export-identity",
+            "assessment init --kind component --component $ComponentId", "assessment export-identity",
             "evidence draft-add", "--kind reviewer-generated-analysis", "--kind reproduced-runtime-observation",
             "evidence ledger-build --kind component", "evidence ledger-validate",
             "--root $InputRoot --manifest $finalInput --output $bundle",
@@ -314,19 +317,16 @@ internal static class WorkflowTests
     {
         var routes = new (string Name, string[] Owners)[]
         {
-            ("scoped component", ["scoped-component-profile.md"]),
+            ("Single component", ["scoped-component-profile.md", "assessment-workflow.md"]),
             ("Package-only", ["assessment-workflow.md"]),
-            ("Single component, unified", ["assessment-workflow.md"]),
-            ("Single package, split / ordinary bound component",
-                ["assessment-workflow.md", "report-contract.md#ordinary-component-binding",
-                 "library-assessment.md#split-coordination", "worker-execution.md"]),
+            ("Explicit package and component request",
+                ["report-contract.md#ordinary-component-binding", "library-assessment.md#split-coordination"]),
             ("Full library", ["library-assessment.md", "worker-execution.md"]),
             ("Targeted follow-up / worksheet", ["targeted-profiles.md", "status-boundaries.md"]),
             ("Offline release facts / authorized identity-only handoff", ["offline-release-facts.md", "input-candidates.md"]),
             ("Optional scoped-package preparation", ["package-preparation.md", "input-candidates.md"]),
             ("Existing reader, feedback or correction", ["report-contract.md", "partner-preview.md", "feedback-contract.md"]),
-            ("Recommendations, examples, remediation or next steps",
-                ["remediation-guidance.md", "report-contract.md#decision-guidance"]),
+            ("Requested recommendations or troubleshooting", ["remediation-guidance.md"]),
             ("Explicit blinded comparison", ["blinded-comparison.md", "worker-execution.md"])
         };
         foreach (var (name, owners) in routes)
@@ -349,7 +349,7 @@ internal static class WorkflowTests
             if (name == "Optional scoped-package preparation")
             {
                 foreach (var boundary in new[] { "operator-invoked", "authorized-package-48/1.0.0",
-                             "optional, not a prerequisite", "does not assign statuses" })
+                             "optional, not a component or package-assessment prerequisite", "does not assign statuses" })
                     AssertContains(row, boundary, "optional preparation route");
             }
             if (name == "Targeted follow-up / worksheet")
@@ -365,10 +365,10 @@ internal static class WorkflowTests
                 AssertContains(row, "Rendering alone does not require reacquisition/retesting",
                     "shared acquisition guidance does not force work for rendering");
             }
-            if (name == "Recommendations, examples, remediation or next steps")
+            if (name == "Requested recommendations or troubleshooting")
             {
-                AssertContains(row, "Do not rerun the assessment, probes or network research",
-                    "shared acquisition guidance preserves the advice-only route");
+                AssertContains(row, "advice, not execution", "advice does not authorize probes");
+                AssertContains(row, "need no failed criterion or new assessment", "general help has no assessment prerequisite");
             }
         }
 
@@ -426,10 +426,10 @@ internal static class WorkflowTests
         var reader = File.ReadAllText(Path.Combine(referencesRoot, "partner-preview.md"));
         AssertBefore(reader, "(scoped-component-profile.md)", "reader render", "profile before reader generation");
         var feedback = File.ReadAllText(Path.Combine(referencesRoot, "feedback-contract.md"));
-        AssertBefore(feedback, "(scoped-component-profile.md)", "Component feedback keys", "profile before ordinary feedback keys");
+        AssertBefore(feedback, "(scoped-component-profile.md)", "Feedback keys", "component scope before feedback keys");
         var worker = File.ReadAllText(Path.Combine(referencesRoot, "worker-execution.md"));
         AssertBefore(worker, "(scoped-component-profile.md)", "1. Copy only", "profile before ordinary unit staging");
-        AssertContains(report, "### Scoped component profile (V1)", "profile anchor preserved");
+        AssertContains(report, "### Component scope and disclosure", "normal component disclosure contract");
         AssertContains(File.ReadAllText(Path.Combine(referencesRoot, "artifact-acquisition.md")),
             "## Offline release facts", "old acquisition anchor preserved");
     }
@@ -446,7 +446,7 @@ internal static class WorkflowTests
         var guidance = File.ReadAllText(Path.Combine(referencesRoot, "remediation-guidance.md"));
         var report = File.ReadAllText(Path.Combine(referencesRoot, "report-contract.md"));
         var agent = File.ReadAllText(Path.Combine(pluginRoot, "agents", "blazor-component-readiness.agent.md"));
-        foreach (var text in new[] { skill, agent, report, guidance })
+        foreach (var text in new[] { agent, report, guidance })
             AssertContains(text, "existing validated revision", "guidance uses retained validation");
         AssertBefore(agent, "(../skills/blazor-component-readiness/references/remediation-guidance.md)",
             "For ordinary canonical units", "advice-only routing precedes assessment work");
@@ -528,7 +528,7 @@ internal static class WorkflowTests
                     "no eval spec, alternative case or canned remediation answers staged");
                 var revision = RevisionService.VerifyRevision(caseRoot, Path.Combine(caseRoot, "out", "revisions", "0001"),
                     null, null, validateChain: true);
-                Assert(revision.Assessment.Rows.Count == 60 && revision.Assessment.RubricVersion == "2.0.1",
+                Assert(revision.Assessment.Rows.Count == 60 && revision.Assessment.RubricVersion == "2.1.0",
                     "guidance fixtures are genuinely validated current ordinary package revisions");
                 foreach (var id in new[] { "PI-07", "CI-07", "CI-08" })
                 {
@@ -550,6 +550,66 @@ internal static class WorkflowTests
         finally
         {
             Environment.SetEnvironmentVariable("READINESS_SKILL_ROOT", previous);
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static void AssertRequestedHelpBoundaries(string pluginRoot, string referencesRoot)
+    {
+        var guidance = File.ReadAllText(Path.Combine(referencesRoot, "remediation-guidance.md"));
+        foreach (var rule in new[]
+        {
+            "Requested documentation-testing help", "Requested data-transfer troubleshooting",
+            "An assessment or failed row is not a prerequisite", "answer inline",
+            "Do not create an assessment, invent a finding, add a criterion",
+            "may be discussed even when its related DOCX check is verified",
+            "do not authorize probes, installation, external research or execution",
+            "BEQ-23 already covers locating public samples",
+            "A full-dataset transfer may be intentional",
+            "does not disable normal work needed for PERF-06"
+        })
+        {
+            AssertContains(guidance, rule, "request-only help without replacement obligations");
+        }
+
+        var repositoryRoot = Path.GetFullPath(Path.Combine(pluginRoot, "..", ".."));
+        var helper = Path.Combine(repositoryRoot, "tests", "dotnet-blazor", "blazor-component-readiness",
+            "fixtures", "fixture-tool.py");
+        var scratch = Path.Combine(Environment.GetEnvironmentVariable("READINESS_TEST_ARTIFACTS") ??
+            Path.GetTempPath(), "requested-help-" + Guid.NewGuid().ToString("N"));
+        var result = RunGuidanceHelper(helper, "requested-help-selftests", "--scratch", scratch);
+        Assert(result.ExitCode == 0 && result.StandardOutput.Contains("VALID requested help controls 24", StringComparison.Ordinal),
+            $"requested-help controls: {result.StandardOutput} {result.StandardError}");
+        Console.Write(result.StandardOutput);
+    }
+
+    private static void AssertComponentFixture(string pluginRoot)
+    {
+        var repository = Path.GetFullPath(Path.Combine(pluginRoot, "..", ".."));
+        var fixture = Path.Combine(repository, "tests", "dotnet-blazor", "blazor-component-readiness", "fixtures", "component");
+        var root = Path.Combine(Environment.GetEnvironmentVariable("READINESS_TEST_ARTIFACTS") ??
+            Path.GetTempPath(), "component-fixture-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            foreach (var path in Directory.GetFiles(fixture))
+            {
+                File.Copy(path, Path.Combine(root, Path.GetFileName(path)));
+            }
+            var package = Path.Combine(root, "package.nupkg");
+            File.WriteAllBytes(package, Convert.FromBase64String(File.ReadAllText(Path.Combine(root, "package.nupkg.b64"))));
+            var input = BlazorComponentReadiness.Validator.Inputs.InputManifestService.Discover(
+                root, package, File.ReadAllBytes(Path.Combine(root, "candidates.json")));
+            foreach (var (entry, file) in new[] { ("README.md", "package-readme.md"), ("contentFiles/any/any/Grid.razor", "Grid.razor") })
+            {
+                var digest = NupkgInspector.ComputeEvidenceContentSha256(package, "package:entry/" + entry);
+                Assert(digest == Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(Path.Combine(root, file)))),
+                    "component fixture's declared package/source capture must match actual archive bytes");
+            }
+            Assert(input.Components.Count == 1 && input.Components[0].Id == "grid", "component fixture selects only Grid");
+        }
+        finally
+        {
             Directory.Delete(root, recursive: true);
         }
     }
@@ -702,7 +762,7 @@ internal static class WorkflowTests
             ("input-candidates.md", ["inputs discover", "inputs confirm", "inputs validate",
                 "evidence draft-add", "assessment export-identity", "evidence ledger-build",
                 "evidence ledger-validate", "evidence bundle", "explicitly `inputs confirm`", "EV1"]),
-            ("assessment-workflow.md", ["assessment init --kind unified", "assessment init --kind package",
+            ("assessment-workflow.md", ["assessment init --kind component", "assessment init --kind package",
                 "assessment canonicalize", "assessment validate", "report render", "report verify",
                 "Only assessment schema 2 is accepted", "structural validation", "Missing supplied probe results",
                 "blanket not-tested template", "Low record count alone", "timebox",
@@ -719,21 +779,22 @@ internal static class WorkflowTests
                 "unsupported host: full-library assessment requires isolated workers"]),
             ("blinded-comparison.md", ["comparison inputs-freeze", "comparison inputs-validate",
                 "coverage surface", "before reading evidence"]),
-            ("status-boundaries.md", ["public-absence-v1", "direct-failure-v1",
+            ("status-boundaries.md", ["public-absence-v1", "observed static-SSR behavior",
                 "`RepositoryUrl` is not `ProjectUrl`", "Absence of a feature claim"]),
             ("area-ci-release.md", ["actual release job graph", "privileged", "path equality and in-place ordering"]),
             ("area-blazor-runtime.md", ["every claimed render mode", "dynamic_child_lifecycle.applicability", "`source-proof-v1`",
                 "public `[Parameter]`", "event handlers, callbacks, conditional branches",
                 "not runtime proof", "delivered input event", "supported-context basis", "net10.0"]),
             ("area-trim-performance.md", ["mutable", "applicable rerender risk", "Without descendant render counts",
-                "no repeated identity surface", "owner evidence required"]),
+                "no repeated identity surface", "PERF-06", "profiling every component by default",
+                "Do not demand a vendor budget"]),
             ("offline-release-facts.md", ["never authenticated", "RDF equivalence was not assessed",
                 "not RDF equivalence or", "not-comparable", "all ten required", "64 MiB",
                 "pre-output confirmed manifest", "separate explicit", "result-basename"]),
-            ("scoped-component-profile.md", ["all 51", "48-check", "entire `source` record",
-                "--package-context-revision", "--package-context-feedback", "V1 rejects ordinary",
-                "feedback-bound predecessor", "supersession ancestor", "not a self-contained",
-                "package_reference", "package_validation_sha256", "no raw registered inputs"])
+            ("scoped-component-profile.md", ["all 52", "does not start a package assessment",
+                "may be optionally bound", "do not discover or infer", "supersession ancestors",
+                "not a self-contained", "does not export raw inputs", "exact canonical copies",
+                "immutable revisions", "no-overwrite protection"])
         };
         foreach (var (owner, rules) in ownership)
         {
@@ -1054,8 +1115,8 @@ internal static class WorkflowTests
             .EnumerateArray()
             .Select(row => row.GetProperty("id").GetString()!)
             .ToArray();
-        Assert(ids.Length == 121 && ids.Distinct(StringComparer.Ordinal).Count() == 121,
-            "rubric.json remains the sole current 121-ID source");
+        Assert(ids.Length == 112 && ids.Distinct(StringComparer.Ordinal).Count() == 112,
+            "rubric.json remains the sole current 112-ID source");
         Assert(Directory.GetFiles(referencesRoot, "rubric*.json").Select(Path.GetFileName)
                 .SequenceEqual(["rubric.json"]) &&
             Directory.GetFiles(referencesRoot, "checklist*.md").Select(Path.GetFileName)
@@ -1166,7 +1227,8 @@ internal static class WorkflowTests
         AssertContains(execution, "full argv", "coordinator native launch receipt owner");
         AssertContains(coordinator, "A validated revision is not proof that the requested investigation finished.", "investigation completion boundary");
         AssertContains(workflow, "do not accept a blanket not-tested template as a completed assessment", "placeholder handoff rejection owner");
-        AssertContains(execution, "Pass absolute `--root`, `--revision`, `--output`, and `--package-revision` paths", "absolute verification arguments owner");
+        AssertContains(execution, "Pass absolute `--root`, `--revision` and `--output` paths", "absolute verification arguments owner");
+        AssertContains(execution, "`--package-revision` only for a declared relationship", "verification does not infer package work");
         AssertContains(library, "exactly one top-level `blazor-component-readiness-worker` session", "top-level worker isolation owner");
         AssertContains(coordinator, "unsupported host: full-library assessment requires isolated workers", "coordinator unsupported-host stop");
         AssertContains(coordinator, "decision-guidance.md", "coordinator decision guidance");
@@ -1220,7 +1282,7 @@ internal static class WorkflowTests
         AssertContains(report, "outside `revisions/`", "guidance placement");
         AssertContains(report, "unbound, regenerable", "guidance binding boundary");
         AssertContains(report, "Replace it only after another explicit guidance request.", "guidance replacement");
-        AssertContains(report, "Only assessment schema 2 and rubric 2.0.1 are accepted", "current-only assessment policy");
+        AssertContains(report, "Only assessment schema 2 and rubric 2.1.0 are accepted", "current-only assessment policy");
         AssertContains(report, "identities are rejected, not migrated, reinterpreted or rendered",
             "unsupported assessments have no compatibility execution path");
         AssertContains(report, "the canonical `overlays` array must remain empty", "empty persisted overlay provenance");
@@ -1245,10 +1307,24 @@ internal static class WorkflowTests
 
         var runtime = File.ReadAllText(Path.Combine(referencesRoot, "area-blazor-runtime.md"));
         AssertContains(runtime, "event handlers, callbacks, conditional branches", "BEQ-09 assignment coverage");
+        foreach (var rule in new[]
+        {
+            "When dynamic-child lifecycle is explicitly `not-applicable`",
+            "`BEQ-12` callback or `BEQ-15` cleanup source `gap` without a lifecycle companion",
+            "missing, unknown or malformed applicability",
+            "same requirement-specific proof kinds and exact confirmed source path/digest",
+            "typed, gap-only evidence, not a free-text workaround",
+            "For lifecycle-required components, the companion, mapped outcomes and contradiction rules"
+        })
+        {
+            AssertContains(runtime, rule, "shared non-dynamic source-proof guidance");
+        }
+        Assert(!runtime.Contains("Keep non-dynamic callback/cleanup source proof fail-closed", StringComparison.Ordinal),
+            "ordinary component source conflicts are not blocked by the retired dynamic-only instruction");
         var renderModeDecision = Regex.Match(
-            runtime, @"(?ms)^For documentation requirements,.*?(?=^For a `BEQ-05`)").Value;
+            runtime, @"(?ms)^For documentation requirements,.*?(?=^For `BEQ-05`)").Value;
         AssertContains(renderModeDecision,
-            "For current `2.0.1` `BEQ-03`, require supported-mode documentation **and** a clear " +
+            "For current `2.1.0` `BEQ-03`, require supported-mode documentation **and** a clear " +
             "compile-time **or** runtime error for an applicable unsupported-mode diagnostic.",
             "current render-mode documentation-and-error conjunction");
         AssertContains(renderModeDecision, "Documentation alone does not discharge the error obligation",

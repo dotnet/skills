@@ -1,4 +1,5 @@
 using System.Text.Json;
+using BlazorComponentReadiness.Validator.Assessment;
 using BlazorComponentReadiness.Validator.Contracts;
 using BlazorComponentReadiness.Validator.Evidence;
 using BlazorComponentReadiness.Validator.IO;
@@ -204,6 +205,7 @@ public static class InputManifestService
 
     public static void Validate(InputManifest manifest, string root, bool requireConfirmed)
     {
+        ComponentReportScope.RejectRetiredInputs(manifest);
         if (manifest.SchemaVersion != SchemaVersion ||
             manifest.State is not ("draft" or "confirmed") ||
             requireConfirmed && manifest.State != "confirmed" ||
@@ -1036,9 +1038,12 @@ public static class InputManifestService
     private static InputEvidenceArtifact ParseEvidenceInput(JsonElement element)
     {
         ContractJson.RequireProperties(element, "basename", "kind", "content_sha256", "size");
+        var basename = ContractJson.String(element, "basename");
+        var kind = ContractJson.String(element, "kind");
+        ComponentReportScope.RejectRetiredInput(kind, basename);
         return new InputEvidenceArtifact(
-            ContractJson.String(element, "basename"),
-            ContractJson.String(element, "kind"),
+            basename,
+            kind,
             ContractJson.Digest(ContractJson.Object(element, "content_sha256")),
             ContractJson.Int64(element, "size"));
     }
@@ -1579,7 +1584,7 @@ public static class InputManifestService
         }
     }
 
-    private static void ValidateDynamicChildLifecycle(DynamicChildLifecycle lifecycle)
+    internal static void ValidateDynamicChildLifecycle(DynamicChildLifecycle lifecycle)
     {
         if (lifecycle.Applicability == "required")
         {
@@ -1605,7 +1610,7 @@ public static class InputManifestService
         }
 
         if (!lifecycle.Triggers.SequenceEqual(
-                lifecycle.Triggers.Order(StringComparer.Ordinal),
+                lifecycle.Triggers.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal),
                 StringComparer.Ordinal) ||
             lifecycle.Triggers.Any(trigger =>
                 !DynamicChildLifecycleTriggers.Contains(trigger, StringComparer.Ordinal)))

@@ -173,6 +173,12 @@ def complete(args):
                 "not_applicable_rationale": "This bounded synthetic fixture does not exercise this requirement.",
             }
         )
+        if row["id"] == "BEQ-05":
+            row.update(
+                status="not tested",
+                assessment_follow_up="No static-SSR behavior observation is supplied by this structural fixture.",
+                not_applicable_rationale=None,
+            )
 
     if args.profile == "mixed":
         rows[0].update(
@@ -234,11 +240,20 @@ def verify_revision(args):
     assert len(assessments) == len(validations) == len(reports) == 1
     assessment = json.loads(assessments[0].read_text(encoding="utf-8"))
     manifest = json.loads(validations[0].read_text(encoding="utf-8"))
+    assert args.kind in {"package", "component"}
+    assert assessment["schema_version"] == 2 and assessment["rubric_version"] == "2.1.0"
     assert assessment["assessment_kind"] == args.kind
     assert len(assessment["rows"]) == args.rows
     assert assessment["completion_state"] == "complete"
     assert manifest["assessment_kind"] == args.kind
     assert manifest["completion_state"] == "complete"
+    expected_scope = "repository-wide" if args.kind == "package" else "component-specific"
+    assert all(row["scope"] == expected_scope for row in assessment["rows"])
+    assert len({row["id"] for row in assessment["rows"]}) == args.rows
+    assert not {row["id"] for row in assessment["rows"]} & {
+        "CI-02", "CI-03", "CI-04", "CI-09", "CI-10",
+        "PERF-07", "PERF-08", "PERF-09", "PERF-10",
+    }
     assert not (revision.parent.parent / "decision-guidance.md").exists()
     print(f"VALID {args.kind} {args.rows}")
 
@@ -543,8 +558,8 @@ def verify_dynamic(args):
             assert item["not_tested_reason"]
 
     revision = root / "revisions" / "0001"
-    assessment = json.loads((revision / "unified.assessment.json").read_text(encoding="utf-8"))
-    evidence = json.loads((revision / "unified.evidence.json").read_text(encoding="utf-8"))
+    assessment = json.loads((revision / "component.assessment.json").read_text(encoding="utf-8"))
+    evidence = json.loads((revision / "component.evidence.json").read_text(encoding="utf-8"))
     record = next(
         record
         for ledger in evidence["source_ledgers"]
@@ -555,7 +570,7 @@ def verify_dynamic(args):
         row = next(row for row in assessment["rows"] if row["id"] == row_id)
         assert row["status"] in ("verified", "gap", "not tested")
         assert record["stable_id"] in row["evidence_ids"]
-    verify = argparse.Namespace(revision=str(revision), kind="unified", rows=121)
+    verify = argparse.Namespace(revision=str(revision), kind="component", rows=52)
     verify_revision(verify)
     print("VALID dynamic lifecycle 10")
 
@@ -1791,9 +1806,79 @@ There is no certification or guarantee of acceptance.
         shutil.rmtree(root)
 
 
+def requested_help_selftests(args):
+    root = Path(args.scratch)
+    guidance_check(not root.exists(), "requested-help scratch must be new")
+    root.mkdir(parents=True)
+    count = 0
+
+    def check(action, reject=False):
+        nonlocal count
+        try:
+            action()
+        except ValueError:
+            guidance_check(reject, "valid requested-help control was rejected")
+        else:
+            guidance_check(not reject, "requested-help side effect was accepted")
+        count += 1
+
+    def unchanged(directory, expected):
+        paths = list(directory.rglob("*"))
+        guidance_check(all(path.is_file() and not path.is_symlink() for path in paths),
+                       "advice created a directory or linked artifact")
+        actual = {path.relative_to(directory).as_posix(): sha256_bytes(path.read_bytes()) for path in paths}
+        guidance_check(actual == expected, "advice mutated retained inputs or created an assessment artifact")
+
+    def trajectory(name, arguments):
+        return {
+            "workDir": str(root),
+            "metrics": {"toolCallCount": 1},
+            "events": [
+                {"type": "tool_call", "data": {"toolCallId": "1", "toolName": name, "arguments": arguments}},
+                {"type": "tool_result", "data": {"toolCallId": "1", "result": "control"}},
+            ],
+        }
+
+    try:
+        for topic in ("documentation-testing", "data-transfer"):
+            directory = root / topic
+            directory.mkdir()
+            context = directory / "context.json"
+            original = json.dumps({"topic": topic, "assessment": None, "findings": [],
+                                   "execution_authorized": False}, separators=(",", ":")).encode()
+            context.write_bytes(original)
+            expected = {"context.json": sha256_bytes(original)}
+            check(lambda: unchanged(directory, expected))
+            check(lambda: check_guidance_trajectory(trajectory("Read", {"path": str(context)}), "factual"))
+            for name in ("component.assessment.json", "findings.json", "decision-guidance.md", "execution-permission.json"):
+                extra = directory / name
+                extra.write_text("{}")
+                check(lambda: unchanged(directory, expected), reject=True)
+                extra.unlink()
+            context.write_bytes(original.replace(b'"findings":[]', b'"findings":["new gap"]'))
+            check(lambda: unchanged(directory, expected), reject=True)
+            context.write_bytes(original)
+            for name, arguments in (
+                ("bash", {"command": "dotnet build"}),
+                ("Bash", {"command": "npm install"}),
+                ("execute", {"command": "dotnet trace collect"}),
+                ("web_search", {"query": "new research"}),
+                ("write_file", {"path": str(context), "content": "{}"}),
+            ):
+                check(lambda: check_guidance_trajectory(trajectory(name, arguments), "factual"), reject=True)
+            unchanged(directory, expected)
+        print(f"VALID requested help controls {count}")
+    finally:
+        shutil.rmtree(root)
+
+
 def main():
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(required=True)
+
+    command = sub.add_parser("requested-help-selftests")
+    command.add_argument("--scratch", required=True)
+    command.set_defaults(func=requested_help_selftests)
 
     command = sub.add_parser("decode")
     command.add_argument("input")
@@ -1828,7 +1913,7 @@ def main():
 
     command = sub.add_parser("verify-revision")
     command.add_argument("--revision", required=True)
-    command.add_argument("--kind", choices=["unified", "package", "component"], required=True)
+    command.add_argument("--kind", choices=["package", "component"], required=True)
     command.add_argument("--rows", type=int, required=True)
     command.set_defaults(func=verify_revision)
 

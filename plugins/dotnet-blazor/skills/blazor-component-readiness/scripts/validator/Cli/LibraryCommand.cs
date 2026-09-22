@@ -18,6 +18,8 @@ public static class LibraryCommand
 
         A canonical state-update.json supplies schema_version, unit_id, active/blocked/incomplete
         state, missing_inputs, blocked_probes, transitioned_at_utc, and transition_reason.
+        Repeat --feedback-history <file> for current or predecessor commentary bound by units.
+        Missing exact component feedback is an invalid unit, not completed work.
         """;
 
     public static int Run(IReadOnlyList<string> args, TextWriter output)
@@ -44,11 +46,13 @@ public static class LibraryCommand
             "--root",
             "--inventory",
             "--run-manifest",
+            "--feedback-history",
             "--state-update");
         var initial = LoadInventory(options);
         using var runLock = LibraryRunLock.Acquire(initial.Root, initial.Inventory.RunId!);
         var (root, inventoryBytes, inventory) = LoadInventory(options);
         EnsureLockedInventory(initial, inventoryBytes, inventory);
+        var feedbackHistory = AssessmentBindingOptions.ReadFeedbackHistory(root, options);
         var manifestRelative = InventoryCommand.ExactPath(
             root,
             options.Single("--run-manifest"),
@@ -121,7 +125,12 @@ public static class LibraryCommand
             inventory,
             inventoryBytes,
             previous,
-            receipts);
+            receipts,
+            feedbackHistory.Select(snapshot => snapshot.Bytes).ToArray());
+        foreach (var snapshot in feedbackHistory)
+        {
+            snapshot.EnsureUnchanged();
+        }
         EnsureUnchanged(
             options,
             inventoryBytes,
@@ -134,18 +143,24 @@ public static class LibraryCommand
 
     private static int Validate(IReadOnlyList<string> args)
     {
-        var options = CommandOptions.Parse(args, "--root", "--inventory", "--run-manifest");
+        var options = CommandOptions.Parse(args, "--root", "--inventory", "--run-manifest", "--feedback-history");
         var initial = LoadInventory(options);
         using var runLock = LibraryRunLock.Acquire(initial.Root, initial.Inventory.RunId!);
         var (root, inventoryBytes, inventory) = LoadInventory(options);
         EnsureLockedInventory(initial, inventoryBytes, inventory);
+        var feedbackHistory = AssessmentBindingOptions.ReadFeedbackHistory(root, options);
         var manifestBytes = InventoryCommand.ReadExact(
             root,
             options.Single("--run-manifest"),
             "run-manifest.json",
             "run manifest");
         var manifest = LibraryService.Parse(manifestBytes);
-        _ = LibraryService.Validate(root, inventory, inventoryBytes, manifest);
+        _ = LibraryService.Validate(root, inventory, inventoryBytes, manifest,
+            feedbackHistory.Select(snapshot => snapshot.Bytes).ToArray());
+        foreach (var snapshot in feedbackHistory)
+        {
+            snapshot.EnsureUnchanged();
+        }
         LibraryIndexPublicationService.RecoverCurrent(root);
         return ExitCodes.Success;
     }
@@ -157,19 +172,22 @@ public static class LibraryCommand
             "--root",
             "--inventory",
             "--run-manifest",
+            "--feedback-history",
             "--json",
             "--markdown");
         var initial = LoadInventory(options);
         using var runLock = LibraryRunLock.Acquire(initial.Root, initial.Inventory.RunId!);
         var (root, inventoryBytes, inventory) = LoadInventory(options);
         EnsureLockedInventory(initial, inventoryBytes, inventory);
+        var feedbackHistory = AssessmentBindingOptions.ReadFeedbackHistory(root, options);
         var manifestBytes = InventoryCommand.ReadExact(
             root,
             options.Single("--run-manifest"),
             "run-manifest.json",
             "run manifest");
         var manifest = LibraryService.Parse(manifestBytes);
-        var validated = LibraryService.Validate(root, inventory, inventoryBytes, manifest);
+        var validated = LibraryService.Validate(root, inventory, inventoryBytes, manifest,
+            feedbackHistory.Select(snapshot => snapshot.Bytes).ToArray());
         var canonicalManifestBytes = LibraryService.Serialize(validated);
         var index = LibraryService.CreateIndex(
             inventory,
@@ -190,6 +208,10 @@ public static class LibraryCommand
             Path.Combine(root, "run-manifest.json"),
             manifestBytes,
             "index");
+        foreach (var snapshot in feedbackHistory)
+        {
+            snapshot.EnsureUnchanged();
+        }
         _ = LibraryIndexPublicationService.Publish(
             root,
             json,

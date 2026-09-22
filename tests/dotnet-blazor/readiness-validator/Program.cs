@@ -15,7 +15,7 @@ var core = rubric.GetProperty("core").GetProperty("requirements").EnumerateArray
 var overlays = rubric.GetProperty("overlays").EnumerateArray().ToArray();
 
 AssertEqual(2, rubric.GetProperty("schema_version").GetInt32(), "rubric schema version");
-AssertEqual("2.0.1", rubric.GetProperty("rubric_version").GetString(), "rubric version");
+AssertEqual("2.1.0", rubric.GetProperty("rubric_version").GetString(), "rubric version");
 AssertEqual(2, rubric.GetProperty("scope_schema_version").GetInt32(), "scope schema version");
 AssertEqual(
     "A versioned operational crosswalk to the bundled partner quality bar. Baseline obligations and unapproved operational extensions are distinct. Structural validation is not certification or Microsoft approval.",
@@ -32,6 +32,10 @@ var expectedStatuses = new[]
 };
 AssertSequence(expectedStatuses, Strings(rubric.GetProperty("statuses")), "status vocabulary");
 
+var removedComponentIds = new HashSet<string>(StringComparer.Ordinal)
+{
+    "CI-02", "CI-03", "CI-04", "CI-09", "CI-10", "PERF-07", "PERF-08", "PERF-09", "PERF-10"
+};
 var expectedCoreIds = Expand(
     ("LP", 10),
     ("PI", 12),
@@ -43,9 +47,9 @@ var expectedCoreIds = Expand(
     ("CI", 11),
     ("SUP", 10),
     ("SCF", 6),
-    ("AI", 6));
-AssertSequence(expectedCoreIds, core.Select(Id), "121 core IDs and canonical order");
-AssertEqual(121, core.Length, "core requirement count");
+    ("AI", 6)).Where(id => !removedComponentIds.Contains(id)).ToArray();
+AssertSequence(expectedCoreIds, core.Select(Id), "112 core IDs and canonical order");
+AssertEqual(112, core.Length, "core requirement count");
 
 var expectedRepositoryWide = new HashSet<string>(StringComparer.Ordinal)
 {
@@ -73,10 +77,10 @@ var actualComponentSpecific = core
     .Where(requirement => Scope(requirement) == "component-specific")
     .Select(Id)
     .ToHashSet(StringComparer.Ordinal);
-AssertSet(expectedComponentSpecific, actualComponentSpecific, "61 component-specific IDs");
-AssertEqual(61, actualComponentSpecific.Count, "component-specific requirement count");
+AssertSet(expectedComponentSpecific, actualComponentSpecific, "52 component-specific IDs");
+AssertEqual(52, actualComponentSpecific.Count, "component-specific requirement count");
 AssertEqual(
-    "d48756ed60c90b510b215e8dcdcb28523c0aca6de2a8a1d01368e31dbd45022d",
+    "2edf382ccaa972a3f15ce1122a51499ef06ef0d1a948e116447853e9eb7bae3e",
     RequirementDigest(core),
     "core ID, wording, and scope digest");
 
@@ -231,6 +235,7 @@ var testGroups = new Dictionary<string, Action>(StringComparer.Ordinal)
     ["release-facts"] = () => ReleaseFactsTests.Run(root, plugin),
     ["evidence"] = () => EvidenceTests.Run(root, plugin),
     ["assessment"] = () => AssessmentTests.Run(root, plugin),
+    ["separation"] = () => SeparationTests.Run(root, plugin),
     ["normative"] = () => NormativeContractTests.Run(root, plugin),
     ["authorized-scope"] = () => AuthorizedScopeTests.Run(root, plugin),
     ["scoped-component"] = () => ScopedComponentTests.Run(root, plugin),

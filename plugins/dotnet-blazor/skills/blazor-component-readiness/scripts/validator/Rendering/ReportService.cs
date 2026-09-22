@@ -28,20 +28,18 @@ public static class ReportService
         string? root = null,
         ScopedPackageContextBinding? scopedPackageContext = null)
     {
-        var profile = ScopedComponentProfile.Load(root, input);
-        if (profile is not null)
-        {
-            InputManifestService.Validate(input, root!, requireConfirmed: true);
-            AssessmentService.Validate(root!, assessment, AssessmentService.Serialize(assessment),
-                input, InputManifestService.Serialize(input), evidence, scopedPackageContext: scopedPackageContext);
-            profile.RejectDisclosure(AssessmentService.Serialize(assessment), json: true);
-        }
-        else if (scopedPackageContext is not null)
-            throw new DeterministicValidationException("Ordinary reports cannot use scoped package context.");
-        else
-            ScopedComponentProfile.RejectUnboundComponent(assessment);
+        var rubric = AssessmentService.RequireCurrentContract(assessment);
+        AssessmentService.RejectScopedContext(scopedPackageContext);
+        AssessmentService.ValidateInputIdentity(assessment.Identity, input, InputManifestService.Serialize(input));
+        AssessmentService.ValidateEvidenceIdentity(assessment, evidence);
+        var profile = ComponentReportScope.For(assessment);
+        profile?.ValidateEvidence(evidence);
         var authorizedScope = AuthorizedPackageScope.Load(root, input);
         authorizedScope?.Validate(assessment, input, evidence);
+        AssessmentService.ValidateSelection(assessment,
+            authorizedScope?.Select(rubric, assessment.AssessmentKind) ??
+            RubricLoader.Select(rubric, assessment.AssessmentKind, []));
+        profile?.RejectDisclosure(AssessmentService.Serialize(assessment), json: true);
         var provenance = evidence.SourceLedgers
             .SelectMany(ledger => ledger.Ledger.Records)
             .ToDictionary(record => record.StableId, record => record.Provenance.Kind, StringComparer.Ordinal);
@@ -69,7 +67,7 @@ public static class ReportService
             lines.InsertRange(7, [authorizedScope.Declaration, ""]);
         }
         if (profile is not null)
-            lines.InsertRange(7, [profile.Declaration, "", ScopedComponentProfile.ExportNotice, ""]);
+            lines.InsertRange(7, [profile.Declaration, "", ComponentReportScope.ExportNotice, ""]);
 
         if (input.Source.RepositoryUri is not null)
         {
@@ -217,33 +215,32 @@ public static class ReportService
         string? root = null,
         ScopedPackageContextBinding? scopedPackageContext = null)
     {
-        var profile = ScopedComponentProfile.Load(root, input);
+        var rubric = AssessmentService.RequireCurrentContract(assessment);
+        AssessmentService.RejectScopedContext(scopedPackageContext);
+        AssessmentService.ValidateInputIdentity(assessment.Identity, input, inputBytes);
+        AssessmentService.ValidateEvidenceIdentity(assessment, evidence);
+        ContractJson.RequireCanonical(inputBytes, InputManifestService.Serialize(input), "report input");
+        ContractJson.RequireCanonical(assessmentBytes, AssessmentService.Serialize(assessment), "report assessment");
+        ContractJson.RequireCanonical(evidenceBytes, CanonicalEvidenceJson.SerializeBundle(evidence), "report evidence");
+        var profile = ComponentReportScope.For(assessment);
+        profile?.ValidateEvidence(evidence);
         if (profile is not null)
         {
-            InputManifestService.Validate(input, root!, requireConfirmed: true);
-            AssessmentService.Validate(root!, assessment, assessmentBytes, input, inputBytes, evidence,
-                scopedPackageContext: scopedPackageContext);
-            ContractJson.RequireCanonical(inputBytes, InputManifestService.Serialize(input), "profile-bound input");
-            ContractJson.RequireCanonical(assessmentBytes, AssessmentService.Serialize(assessment), "profile-bound assessment");
-            ContractJson.RequireCanonical(evidenceBytes, CanonicalEvidenceJson.SerializeBundle(evidence), "profile-bound evidence");
+            profile.ValidateSelection(assessment);
             profile.RejectDisclosure(assessmentBytes.ToArray(), json: true);
             profile.RejectDisclosure(reportBytes.ToArray());
             if (!Encoding.UTF8.GetString(reportBytes).Contains(profile.Declaration, StringComparison.Ordinal) ||
                 feedbackDigest is null && !reportBytes.SequenceEqual(
-                    RenderMarkdown(assessment, input, evidence, root: root, scopedPackageContext: scopedPackageContext)))
-                throw new DeterministicValidationException("Profile-bound receipt requires the exact scoped component report.");
+                    RenderMarkdown(assessment, input, evidence, root: root)))
+                throw new DeterministicValidationException("Component receipt requires the exact component report.");
         }
-        else if (scopedPackageContext is not null)
-            throw new DeterministicValidationException("Ordinary validation manifests cannot use scoped package context.");
-        else
-            ScopedComponentProfile.RejectUnboundComponent(assessment);
         var authorizedScope = AuthorizedPackageScope.Load(root, input);
+        AssessmentService.ValidateSelection(assessment,
+            authorizedScope?.Select(rubric, assessment.AssessmentKind) ??
+            RubricLoader.Select(rubric, assessment.AssessmentKind, []));
         if (authorizedScope is not null)
         {
             authorizedScope.Validate(assessment, input, evidence);
-            ContractJson.RequireCanonical(inputBytes, InputManifestService.Serialize(input), "scope-bound input");
-            ContractJson.RequireCanonical(assessmentBytes, AssessmentService.Serialize(assessment), "scope-bound assessment");
-            ContractJson.RequireCanonical(evidenceBytes, CanonicalEvidenceJson.SerializeBundle(evidence), "scope-bound evidence");
             var report = Encoding.UTF8.GetString(reportBytes);
             authorizedScope.RejectDisclosure(report);
             if (!report.Contains(authorizedScope.Declaration, StringComparison.Ordinal))
@@ -284,6 +281,7 @@ public static class ReportService
 
     public static byte[] SerializeManifest(ValidationManifest manifest)
     {
+        RequireCurrentManifest(manifest);
         ValidateDeclaredChangedIds(manifest);
         var bytes = StrictJson.SerializeCanonical(writer =>
         {
@@ -383,6 +381,25 @@ public static class ReportService
             ContractJson.StringArray(root, "limitations"));
         ContractJson.RequireCanonical(bytes.Span, SerializeManifest(manifest), "validation manifest");
         return manifest;
+    }
+
+    private static void RequireCurrentManifest(ValidationManifest manifest)
+    {
+        RubricLoader.RequireSupportedKind(manifest.AssessmentKind);
+        var rubric = RubricLoader.Load(manifest.RubricVersion);
+        if (manifest.SchemaVersion != 1 ||
+            manifest.PluginVersion != ContractVersions.PluginVersion ||
+            manifest.ValidatorVersion != ContractVersions.ValidatorVersion ||
+            manifest.RendererVersion != RendererContract.Version ||
+            manifest.ScopeSchemaVersion != rubric.ScopeSchemaVersion ||
+            manifest.RubricDigest != rubric.RubricDigest ||
+            manifest.ScopeMapDigest != rubric.ScopeMapDigest ||
+            manifest.Overlays.Count != 0 ||
+            manifest.AssessmentKind == "package" && manifest.PackageReference is not null)
+        {
+            throw new DeterministicValidationException(
+                "Validation manifest does not use the current supported rubric and scope contract.");
+        }
     }
 
     public static void ValidateManifest(ValidationManifest actual, ValidationManifest expected)

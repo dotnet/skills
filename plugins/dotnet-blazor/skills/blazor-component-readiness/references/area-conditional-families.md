@@ -1,13 +1,14 @@
 # Conditional requirement families
 
-All six `SCF-*` and six `AI-*` rows are part of the 121-ID canonical inventory. Establish each
+All six `SCF-*` and six `AI-*` rows belong to the package's 60 checks within the 112-ID catalog.
+They are not selected for a component assessment. Establish each
 family's applicability from the confirmed deliverable, inspected source/documents and explicit
 support or promotion claims, not nupkg contents alone. Emit every row; use `not applicable`
 only when that inspection establishes no in-scope surface, with a concrete scope rationale.
 Missing scope confirmation stays unresolved rather than silently omitted.
 
 These families are canonical requirements, not selectable overlays. Applicability does not
-add or remove rows from the ordinary full assessment.
+add or remove rows from the ordinary full-package assessment.
 
 | Family | Decide applicability before compliance |
 |---|---|

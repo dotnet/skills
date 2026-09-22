@@ -1,4 +1,5 @@
 using System.Text;
+using BlazorComponentReadiness.Validator.Assessment;
 using BlazorComponentReadiness.Validator.Contracts;
 using BlazorComponentReadiness.Validator.IO;
 using BlazorComponentReadiness.Validator.Validation;
@@ -11,8 +12,7 @@ public static class FeedbackService
 
     public static AssessmentFeedback Parse(
         ReadOnlyMemory<byte> bytes,
-        ReadinessAssessment assessment,
-        IReadOnlyList<string>? associatedRequirementIds = null)
+        ReadinessAssessment assessment)
     {
         BoundedIO.EnsureLength(bytes.Length, ResourceLimits.SerializedArtifactBytes, "assessment feedback");
         string text;
@@ -51,20 +51,11 @@ public static class FeedbackService
                 "Feedback must contain only '# Assessment feedback' and the two-column Requirement IDs/Feedback table.");
         }
 
-        var rubric = RubricLoader.Load(assessment.RubricVersion);
+        var rubric = AssessmentService.RequireCurrentContract(assessment);
         var knownIds = rubric.CoreRequirements.Select(row => row.Id)
             .Concat(rubric.Overlays.SelectMany(overlay => overlay.Requirements).Select(row => row.Id))
             .ToHashSet(StringComparer.Ordinal);
-        if (associatedRequirementIds is not null &&
-            assessment.AssessmentKind != "component")
-        {
-            throw new DeterministicValidationException(
-                "Only component feedback may reference requirements from an associated package assessment.");
-        }
-
-        var selectedIds = assessment.SelectedIds
-            .Concat(associatedRequirementIds ?? [])
-            .ToHashSet(StringComparer.Ordinal);
+        var selectedIds = assessment.SelectedIds.ToHashSet(StringComparer.Ordinal);
         var entries = new List<AssessmentFeedbackEntry>();
         foreach (var line in lines.Skip(4))
         {
@@ -105,6 +96,29 @@ public static class FeedbackService
         }
 
         return new AssessmentFeedback(entries, ContractJson.RawDigest(bytes.Span));
+    }
+
+    internal static IReadOnlyDictionary<string, byte[]> CreateHistory(
+        byte[]? current, IReadOnlyList<byte[]> history)
+    {
+        if (history.Count + (current is null ? 0 : 1) > ResourceLimits.SupplementalInputCount)
+        {
+            throw new DeterministicValidationException("Too many historical feedback inputs.");
+        }
+
+        var result = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        long total = 0;
+        foreach (var bytes in current is null ? history : history.Prepend(current))
+        {
+            total += bytes.LongLength;
+            BoundedIO.EnsureLength(total, ResourceLimits.SupplementalInputAggregateBytes, "feedback inputs");
+            if (!result.TryAdd(ContractJson.RawDigest(bytes).Value, bytes))
+            {
+                throw new DeterministicValidationException("Duplicate feedback content was supplied.");
+            }
+        }
+
+        return result;
     }
 
     private static (string Key, string Payload) ParseRow(string line)

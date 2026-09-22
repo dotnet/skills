@@ -33,7 +33,7 @@ public static class CliApplication
           evidence ledger-validate
                              Validate canonical source-ledger bytes and identities.
           evidence bundle    Select evidence into a self-contained assessment bundle.
-          assessment init    Create canonical unified, package, or component rows.
+          assessment init    Create separate package or standalone component rows.
           assessment validate
                              Validate an assessment against inputs, rubric, and evidence.
           assessment revise  Validate an evidence-backed correction and render its next revision.

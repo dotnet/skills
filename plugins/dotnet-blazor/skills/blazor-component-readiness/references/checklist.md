@@ -1,7 +1,7 @@
 <!-- Generated from rubric.json. Do not edit by hand. -->
 # Blazor component readiness checklist
 
-**Rubric version:** 2.0.1
+**Rubric version:** 2.1.0
 
 **Scope schema version:** 2
 
@@ -14,8 +14,9 @@ does not establish certification, factual truth, or Microsoft approval.
 
 ## Inventory and assessment rules
 
-There are **121 canonical IDs: 60 package/conditional and 61 component rows**.
-Every ID appears exactly once across the split assessment. The twelve conditional
+There are **112 canonical IDs: 60 package/conditional and 52 component rows**.
+Package and component assessments remain independent; never produce a combined
+scorecard or require package assessment before component work. The twelve conditional
 rows are always present in the package assessment: score them, or record `not
 applicable` with a substantive rationale. Absence is never completion. Repository
 templates require a deliberate scaffolder-scope decision; no AI deliverable normally
@@ -111,7 +112,7 @@ the stronger control. Exact operational basis is versioned in rubric.json.
 | BEQ-02 | Component | 4.2 | E | Explicit supported render modes. |
 | BEQ-03 | Component | 4.2 | E | Document supported modes and clear error elsewhere. |
 | BEQ-04 | Component | 4.2 | E | Prerendering must not throw. |
-| BEQ-05 | Component | 4.2 | X | Separate SSR usefulness contract. |
+| BEQ-05 | Component | 4.2 | E | Correct supported static SSR behavior. |
 | BEQ-06 | Component | 4.2 | E | Correct supported Interactive Server behavior. |
 | BEQ-07 | Component | 4.2 | E | Correct supported Interactive WebAssembly behavior. |
 | BEQ-08 | Component | 4.2 | E | Correct supported Auto transitions. |
@@ -154,25 +155,16 @@ the stronger control. Exact operational basis is versioned in rubric.json.
 | PERF-04 | Component | 5.4 | D | Virtualize or document consumer virtualization. |
 | PERF-05 | Component | 5.5 | D | Narrow cascading values or IsFixed. |
 | PERF-06 | Component | 5.6 | D | Small per-circuit state, no large retained graphs. |
-| PERF-07 | Component | 5.6 | X | Payload/allocation/copy measurements. |
-| PERF-08 | Component | 5.7 | X | Measured WASM size budget, beyond normative trimming guidance. |
-| PERF-09 | Component | 5.1 | X | Published performance targets. |
-| PERF-10 | Component | 5.1 | X | Representative benchmark evidence matrix. |
 
 ## CI, documentation, and release validation
 
 | ID | Ledger | Clause | Basis | Requirement |
 |---|---|---|---|---|
 | CI-01 | Package | 8.3 | X | PR restore/build/test/package CI. |
-| CI-02 | Component | 8.3 | X | Per-defect regression tests. |
-| CI-03 | Component | 4.2 | X | Automated browser tests. |
-| CI-04 | Component | 3.3 | X | Additional agreed accessibility CI cadence. |
 | CI-05 | Package | 2.9 | X | Enforced scan/release gates. |
 | CI-06 | Package | 8.3 | X | Branch protection and review checks. |
 | CI-07 | Package | 2.3 | X | Untrusted-build/privileged-publish separation. |
 | CI-08 | Package | 2.2 | X | Immutable artifact promotion. |
-| CI-09 | Component | 4.12 | X | Executable documentation behavior assertions. |
-| CI-10 | Component | 8.3 | X | Probe prerequisite audit. |
 | CI-11 | Component | 8.3 | E | Recheck applicable release requirements. |
 
 ## Support, servicing, and lifecycle
@@ -215,7 +207,7 @@ the stronger control. Exact operational basis is versioned in rubric.json.
 ## Outside the canonical count
 
 The supplementary trim-analysis audit ID in rubric.json's `extensions` array is
-separate from these 121 rows. Its old equivalent-configuration wording is not a
+separate from these 112 catalog entries. Its old equivalent-configuration wording is not a
 waiver of the baseline IsTrimmable requirement. Stronger CI/provenance/performance
 controls already occupying canonical slots remain in those slots with X labels.
 Do not add a supplementary row to canonical assessments or remove X rows.

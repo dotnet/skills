@@ -16,8 +16,9 @@ compatibility: Requires an active .NET 11 SDK; full-library mode requires top-le
 
 Produce a bounded, evidence-backed self-assessment of an exact released or release-candidate
 Blazor package against the **bundled partner-readiness baseline**, not a universal engineering
-or adoption standard for every Blazor library. Its 121-ID operational crosswalk is not
-certification or a Microsoft acceptance decision.
+or adoption standard for every Blazor library. Assess one selected component's 52 checks or
+the package's separate 60 checks. These are not certification or a Microsoft acceptance decision.
+Never combine them into a unified assessment or start package assessment as a component prerequisite.
 Read local inputs and retrieve public inputs when needed; write only beneath the
 user-approved local output root. Never modify the reviewed source tree or any remote system.
 
@@ -76,8 +77,9 @@ advice-only or reader-only rendering or override the selected route's prerequisi
 ## Canonical contract
 
 - [rubric.json](references/rubric.json) owns current IDs, wording, order and the
-  60 `repository-wide` / 61 `component-specific` split. `2.0.1` is the sole executable
-  assessment contract (121 rows); version provenance is validator-owned, not user-selected.
+  60 `repository-wide` / 52 `component-specific` split. `2.1.0` is the sole executable
+  assessment contract (112 catalog entries, never one combined assessment); version provenance
+  is validator-owned, not user-selected.
   [The crosswalk](references/requirement-basis.json) binds clause/basis; read its
   [interpretation rules](references/requirement-basis.md) when adjudicating those bindings.
   Each canonical ID occurs once across the pair; `TA-08` is noncanonical. Do not change frozen
@@ -85,9 +87,10 @@ advice-only or reader-only rendering or override the selected route's prerequisi
 - [checklist.md](references/checklist.md) is only the generated view, not an independent ID source.
 - Use exactly `verified`, `gap`, `owner evidence required`, `not tested`, `not applicable`;
   read [status boundaries](references/status-boundaries.md) before classifying.
-- For full current coverage, retain all twelve conditional scaffolder/AI rows and explicitly
+- For full package coverage, retain all twelve conditional scaffolder/AI rows and explicitly
   declare each family's applicability. An omitted family is incomplete, not an automatic defect.
-  The explicit scoped profile below is a separate closed selection, not an arbitrary subset.
+  These are package checks, not component prerequisites. An explicitly authorized package scope
+  is a separate closed selection, not an arbitrary subset.
 - JSON is canonical; reports/readers are deterministic derivatives. No generation authorizes
   publication. Input changes require fresh confirmation and producer-derived identity/bindings.
 
@@ -134,20 +137,20 @@ route's required references before its actions, not every linked file in advance
 back to an already read owner are navigation, not mandatory reread cycles. Area playbooks are
 conditional on the requested rows/surfaces. Acquisition/document discovery may be skipped when
 validated, sufficient confirmed inputs already exist; retain any prerequisite the evidence owner
-requires. A task's profile exceptions take precedence over generic initialization and examples.
+requires. Confirm the requested unit before collection; shared source or package identity is
+component input, not permission to score package-wide criteria.
 
 | Task | Required route and boundaries |
 |---|---|
-| **scoped component** | Only an explicit request for all 51 current requirement-backed non-extension component checks. Read [the complete V1 profile](references/scoped-component-profile.md) **before generic initialization**, then the shared assessment route below. Its distinct immutable 48-check package context uses `--package-context-revision`, not ordinary `--package-revision`. It is neither component evidence nor a full-package prerequisite, and cannot complete a library. Metadata selects policy, not execution authority. |
+| **Single component** | Read [component scope](references/scoped-component-profile.md), then [shared assessment workflow](references/assessment-workflow.md) and only relevant component areas. Use `assessment init --kind component` for the selected component's 52 checks. No package assessment, package context, sibling assessment or library orchestration is a prerequisite. |
 | **Package-only** | Read [shared assessment workflow](references/assessment-workflow.md), then its stage-specific input/status/provenance/report/reader owners. Use `assessment init --kind package`; `components: []` is valid. No component worker, component runtime/accessibility/lifecycle procedure, or library inventory/index. |
-| **Single component, unified** | Read [shared assessment workflow](references/assessment-workflow.md) and selected component areas below. Default to all 121 rows in one bounded context when there is no validated package revision. No library orchestration merely because a component exists. |
-| **Single package, split / ordinary bound component** | Read [shared assessment workflow](references/assessment-workflow.md) and [ordinary package binding](references/report-contract.md#ordinary-component-binding). Preserve 60+61 and exact package binding; never substitute unified or cite sibling evidence. Coordinators read [split coordination](references/library-assessment.md#split-coordination) and [worker execution](references/worker-execution.md) when separate execution is required. |
+| **Explicit package and component request** | Produce separate package and component revisions/readers. A current package revision may be [optionally bound](references/report-contract.md#ordinary-component-binding) only when explicitly supplied; never infer or create it for component work. Coordinators use [split coordination](references/library-assessment.md#split-coordination) only for the explicitly requested units. |
 | **Full library** | Before inventory confirmation or launch, read [library assessment](references/library-assessment.md) and [worker execution](references/worker-execution.md), then each assigned unit's route. Requires isolated top-level writable workers; stop with `unsupported host: full-library assessment requires isolated workers` when unavailable; never use a shared-context or serialized fallback. Preserve completed revisions after interruption and reconcile only unfinished units. |
 | **Targeted follow-up / worksheet** | Read [targeted profiles](references/targeted-profiles.md), [status boundaries](references/status-boundaries.md) and only named areas. Not a complete assessment or arbitrary canonical row filter. Use canonical correction steps only when requested. |
 | **Offline release facts / authorized identity-only handoff** | Read [offline release facts](references/offline-release-facts.md), then [input/confirmation/identity/evidence producers](references/input-candidates.md). No shared full-assessment workflow, component/runtime/library procedures, row scoring, report or reader production. Acquisition is separate and requires authorization. |
-| **Optional scoped-package preparation** | Read [package preparation](references/package-preparation.md) and [typed input candidates](references/input-candidates.md) only for operator-invoked collection under the existing `authorized-package-48/1.0.0` profile. This is optional, not a prerequisite for ordinary package or unified reports, and does not assign statuses. |
-| **Existing reader, feedback or correction** | Read [report contract](references/report-contract.md) and [reader/delivery](references/partner-preview.md); read [feedback contract](references/feedback-contract.md) when feedback exists. Read the dedicated profile first when bound. Rendering alone does not require reacquisition/retesting. Factual corrections additionally use the shared assessment, targeted and applicable evidence routes. A factual-only request creates no decision guidance. |
-| **Recommendations, examples, remediation or next steps** | Read [remediation guidance](references/remediation-guidance.md) and [the companion contract](references/report-contract.md#decision-guidance). The ordinary request opts into `decision-guidance.md`; no filename request or second confirmation is needed. Use the existing validated revision, only requested unresolved findings, and local reads/writes. Do not rerun the assessment, probes or network research, or change canonical artifacts. |
+| **Optional scoped-package preparation** | Read [package preparation](references/package-preparation.md) and [typed input candidates](references/input-candidates.md) only for operator-invoked collection under the existing `authorized-package-48/1.0.0` profile. This is optional, not a component or package-assessment prerequisite, and does not assign statuses. |
+| **Existing reader, feedback or correction** | Read [report contract](references/report-contract.md) and [reader/delivery](references/partner-preview.md); read [feedback contract](references/feedback-contract.md) when feedback exists. Read [component scope](references/scoped-component-profile.md) for a component revision. Rendering alone does not require reacquisition/retesting. Factual corrections additionally use the shared assessment, targeted and applicable evidence routes. A factual-only request creates no decision guidance. |
+| **Requested recommendations or troubleshooting** | Read [remediation guidance](references/remediation-guidance.md). An explicit request opts into scoped advice, not execution. Questions about documentation testing or data-transfer costs need no failed criterion or new assessment. Reuse available context; preserve existing statuses and artifacts. Factual-only assessment does not trigger this route. |
 | **Explicit blinded comparison** | Read [blinded input gate](references/blinded-comparison.md) before raw inputs or delegation. Freeze/validate the conclusion-free input set first; [worker execution](references/worker-execution.md) applies only to an approved launch, followed by the selected unit route. Not an ordinary assessment prerequisite. |
 
 ## Conditional evidence and operation owners

@@ -1,12 +1,18 @@
 # Requested remediation guidance
 
-Use this route for recommendations, implementation examples, remediation, practical guidance or
-next steps about an existing validated assessment. The ordinary request is the opt-in: do not
+Use this route for explicitly requested recommendations, implementation examples,
+remediation, documentation-testing help or data-transfer troubleshooting. The request is the opt-in: do not
 require the filename or a second confirmation. Factual-report-only requests create no companion.
+
+For a general documentation-testing or data-transfer question, use the requested
+help sections below before the revision-specific procedure. An assessment or
+failed row is not a prerequisite. Use supplied context, explain limitations,
+and answer inline when no verified report exists. Do not create an assessment
+or a source-validation digest to make such advice possible.
 
 ## Read, advise, preserve
 
-Read the selected revision's assessment, report, evidence and validation manifest, plus relevant
+For advice about an existing assessment, read its assessment, report, evidence and validation manifest, plus relevant
 retained inputs and the requested area guidance. Confirm the source validation-manifest SHA-256
 locally. If the existing validated revision or necessary context is unavailable, report that
 limitation; do not create an assessment to make advice possible.
@@ -19,11 +25,51 @@ or perform network research to produce this companion. Use the verified referenc
 already supplied sources; additional research or implementation needs a separate specific request.
 Keep canonical bytes, statuses, evidence, counts, reports and manifests unchanged.
 
-Cover only requested unresolved findings (`gap`, `owner evidence required`, or `not tested`).
+For finding-specific remediation, cover only requested unresolved findings
+(`gap`, `owner evidence required`, or `not tested`).
 Group related rows when useful; do not automatically advise on every row or on verified/N/A rows.
 Carry supported partial facts and their exact limits forward. Missing evidence is not an
 implementation diagnosis: request the missing record, owner decision or diagnostic result rather
 than prescribing a tool/workflow when the cause is unknown.
+
+General documentation-testing or data-transfer questions do not need a failed
+row or an existing assessment. Answer from relevant supplied context and the
+references below, with explicit limits. Do not create an assessment, invent a
+finding, add a criterion, demand an evidence matrix or change a status to enable
+advice. If no validated report is available, give clearly unbound explanatory
+guidance inline rather than fabricating a source-validation digest or companion.
+For an existing report, a requested general topic may be discussed even when its
+related DOCX check is verified; label it as advice, not an unresolved finding.
+These exceptions do not authorize probes, installation, external research or execution.
+
+## Requested documentation-testing help
+
+BEQ-23 already covers locating public samples and their supported-mode coverage.
+Do not automatically compile every example or require assertions in vendor
+documentation. When asked how to check an example, suggest using its exact
+package/API and documented context, then checking both compilation and the
+specific observable behavior it promises. An unknown attribute can compile
+without configuring the intended parameter. Explain that risk without assuming
+every sample is defective or requiring a new testing framework.
+Actual compilation or browser exercise is separate authorized work; describing
+a recipe is not evidence that it ran.
+
+## Requested data-transfer troubleshooting
+
+Start with the concrete interaction, workload and available source or trace.
+Inspect relevant serialization/send paths and, when captured, call frequency,
+payload sizes and repeated transmission. Distinguish application payload bytes
+from framing/compression and total app traffic. A full-dataset transfer may be
+intentional; source alone does not establish excessive cost or a defect.
+
+Explain candidate causes, what the available observations establish, and the
+smallest additional evidence needed. Allocation/copy attribution across .NET,
+serialization and browser code may need profiling and may remain incomplete.
+Do not promise a diagnosis, invent a performance threshold or request a general
+vendor performance dossier. No measurement campaign starts merely because the
+component is data-heavy. Reproduction/profiling requires separate authorization
+and required isolation. This does not disable normal work needed for PERF-06
+or another actual DOCX requirement.
 
 ## Per-finding shape
 

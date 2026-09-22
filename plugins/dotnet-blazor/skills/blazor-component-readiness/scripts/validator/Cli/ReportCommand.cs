@@ -19,9 +19,10 @@ public static class ReportCommand
           readiness-validator report render --root <input-root> --input <confirmed> --assessment <json> --evidence <bundle> --output <revisions-root> [--feedback <markdown>] [--predecessor <digest>] [--changed-ids <id,id>] [--package-revision <dir>] [--package-feedback <markdown>]
           readiness-validator report verify --root <input-root> --revision <revision-directory> [--feedback <markdown>] [--package-revision <dir>] [--package-feedback <markdown>]
 
-        Scoped-component V1 requires --package-context-revision <dir> instead of the ordinary
-        --package-revision. Context feedback uses --package-context-feedback <markdown>.
-        Context locators do not authorize a profile or replace its confirmed input bindings.
+        Package and component revisions are separate. A component needs no package assessment.
+        An explicitly declared package relationship requires its exact --package-revision.
+        Unified, retired component-profile/context and noncurrent contracts are rejected.
+        Repeat --feedback-history <markdown> to supply exact feedback retained for predecessors.
         """;
 
     public static int Run(IReadOnlyList<string> args, TextWriter output)
@@ -56,12 +57,14 @@ public static class ReportCommand
             "--evidence",
             "--output",
             "--feedback",
+            "--feedback-history",
             "--predecessor",
             "--changed-ids",
             "--package-revision",
             "--package-feedback",
             "--package-context-revision",
             "--package-context-feedback");
+        AssessmentBindingOptions.RejectRetiredOptions(options);
         var root = Path.GetFullPath(options.Single("--root"));
         var inputSnapshot = ImmutableInputSnapshot.Capture(
             Path.GetFullPath(options.Single("--input")),
@@ -73,6 +76,10 @@ public static class ReportCommand
             Path.GetFullPath(options.Single("--evidence")),
             "evidence bundle");
         var feedbackSnapshot = CaptureOptional(options.Optional("--feedback"), "assessment feedback");
+        var feedbackHistory = AssessmentBindingOptions.ReadFeedbackHistory(root, options);
+        var availableFeedback = feedbackHistory.Select(snapshot => snapshot.Bytes)
+            .Concat(feedbackSnapshot is null ? [] : [feedbackSnapshot.Bytes]).ToArray();
+        _ = FeedbackService.CreateHistory(null, availableFeedback);
         var packageFeedbackSnapshot = CaptureOptional(
             options.Optional("--package-feedback"),
             "package assessment feedback");
@@ -108,12 +115,13 @@ public static class ReportCommand
             scopedPackageContext);
         var feedback = feedbackSnapshot is null
             ? null
-            : FeedbackService.Parse(
-                feedbackSnapshot.Bytes,
-                assessment,
-                packageBinding?.Assessment.SelectedIds);
+            : FeedbackService.Parse(feedbackSnapshot.Bytes, assessment);
         var outputRoot = Path.GetFullPath(options.Single("--output"));
         EnsureFeedbackOutsideRevisions(feedbackSnapshot, outputRoot);
+        foreach (var historicalFeedback in feedbackHistory)
+        {
+            EnsureFeedbackOutsideRevisions(historicalFeedback, outputRoot);
+        }
         if (options.Optional("--package-revision") is { } packageRevision)
         {
             EnsureFeedbackOutsideRevisions(
@@ -156,7 +164,8 @@ public static class ReportCommand
                 packageBinding,
                 validateChain: true,
                 allowMissingFeedback: true,
-                scopedPackageContext);
+                scopedPackageContext,
+                feedbackHistory: availableFeedback);
             if (ContractJson.RawDigest(predecessor.ManifestBytes) != predecessorDigest)
             {
                 throw new DeterministicValidationException(
@@ -231,6 +240,10 @@ public static class ReportCommand
             assessmentSnapshot.EnsureUnchanged();
             evidenceSnapshot.EnsureUnchanged();
             feedbackSnapshot?.EnsureUnchanged();
+            foreach (var historicalFeedback in feedbackHistory)
+            {
+                historicalFeedback.EnsureUnchanged();
+            }
             packageFeedbackSnapshot?.EnsureUnchanged();
             contextFeedbackSnapshot?.EnsureUnchanged();
             foreach (var snapshot in referencedSnapshots)
@@ -274,7 +287,8 @@ public static class ReportCommand
                     packageBinding,
                     validateChain: true,
                     allowMissingFeedback: true,
-                    scopedPackageContext);
+                    scopedPackageContext,
+                    feedbackHistory: availableFeedback);
                 if (ContractJson.RawDigest(currentPredecessor.ManifestBytes) != predecessorDigest)
                 {
                     throw new DeterministicValidationException(
@@ -298,13 +312,16 @@ public static class ReportCommand
             "--root",
             "--revision",
             "--feedback",
+            "--feedback-history",
             "--package-revision",
             "--package-feedback",
             "--package-context-revision",
             "--package-context-feedback");
+        AssessmentBindingOptions.RejectRetiredOptions(options);
         var root = Path.GetFullPath(options.Single("--root"));
         var revision = Path.GetFullPath(options.Single("--revision"));
         var feedbackBytes = ReadOptional(options.Optional("--feedback"), "assessment feedback");
+        var feedbackHistory = AssessmentBindingOptions.ReadFeedbackHistory(root, options);
         var packageFeedbackBytes = ReadOptional(
             options.Optional("--package-feedback"),
             "package assessment feedback");
@@ -313,6 +330,10 @@ public static class ReportCommand
         EnsureFeedbackOutsideRevisions(
             options.Optional("--feedback"),
             Path.GetDirectoryName(revision)!);
+        foreach (var historicalFeedback in feedbackHistory)
+        {
+            EnsureFeedbackOutsideRevisions(historicalFeedback, Path.GetDirectoryName(revision)!);
+        }
         if (options.Optional("--package-revision") is { } packageRevision)
         {
             EnsureFeedbackOutsideRevisions(
@@ -339,7 +360,12 @@ public static class ReportCommand
             feedbackBytes,
             bindings.Package,
             validateChain: true,
-            scopedPackageContext: bindings.Context);
+            scopedPackageContext: bindings.Context,
+            feedbackHistory: feedbackHistory.Select(snapshot => snapshot.Bytes).ToArray());
+        foreach (var historicalFeedback in feedbackHistory)
+        {
+            historicalFeedback.EnsureUnchanged();
+        }
         return ExitCodes.Success;
     }
 

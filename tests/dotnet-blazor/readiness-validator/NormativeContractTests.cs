@@ -42,20 +42,22 @@ internal static class NormativeContractTests
     private static void TestInventoryAndBasis(string skillRoot)
     {
         var rubric = RubricLoader.Load();
-        Assert(rubric.RubricVersion == "2.0.1", "new initialization defaults to normative v2");
-        Assert(rubric.CoreRequirements.Count == 121, "121 canonical rows");
+        Assert(rubric.RubricVersion == "2.1.0", "new initialization defaults to normative v2");
+        Assert(rubric.CoreRequirements.Count == 112, "112 canonical rows");
         var package = RubricLoader.Select(rubric, "package", []);
         var component = RubricLoader.Select(rubric, "component", []);
-        Assert(package.Count == 60 && component.Count == 61, "60/61 ownership partition");
+        Assert(package.Count == 60 && component.Count == 52, "separate 60/52 ownership inventories");
+        string[] retired = ["CI-02", "CI-03", "CI-04", "CI-09", "CI-10", "PERF-07", "PERF-08", "PERF-09", "PERF-10"];
         var expectedIds = new[] {
             ("LP", 10), ("PI", 12), ("SEC", 13), ("A11Y", 12), ("BEQ", 24),
             ("TA", 7), ("PERF", 10), ("CI", 11), ("SUP", 10), ("SCF", 6), ("AI", 6)
-        }.SelectMany(group => Enumerable.Range(1, group.Item2).Select(n => $"{group.Item1}-{n:00}")).ToArray();
+        }.SelectMany(group => Enumerable.Range(1, group.Item2).Select(n => $"{group.Item1}-{n:00}"))
+            .Where(id => !retired.Contains(id, StringComparer.Ordinal)).ToArray();
         Assert(rubric.CoreRequirements.Select(row => row.Id).SequenceEqual(expectedIds), "canonical IDs and order");
-        Assert(package.Concat(component).Select(row => row.Id).Distinct().Count() == 121, "exactly once across split");
+        Assert(package.Concat(component).Select(row => row.Id).Distinct().Count() == 112, "exactly once across separate scopes");
         Assert(rubric.Overlays.Count == 0, "conditional rows are not optional overlays");
         Assert(rubric.Extensions is [{ Id: "TA-08", Basis.RequiresPolicyApproval: true }], "TA-08 outside canonical inventory");
-        Assert(rubric.CoreRequirements.All(row => row.Basis is { Quotation.Length: > 20 }), "all121 exact quotation bindings");
+        Assert(rubric.CoreRequirements.All(row => row.Basis is { Quotation.Length: > 20 }), "all112 exact quotation bindings");
         Assert(rubric.CoreRequirements.All(row => row.Basis!.SemanticScope == row.Scope), "one scope axis for all canonical rows");
         Assert(rubric.CoreRequirements.Count(row => row.Basis?.ConditionalFamily is not null) == 12, "12 explicit conditional IDs");
         var rows = rubric.CoreRequirements.ToDictionary(row => row.Id);
@@ -80,24 +82,29 @@ internal static class NormativeContractTests
             Assert(rows[id].Requirement.Contains(term, StringComparison.Ordinal), $"named obligation {id}: {term}");
         }
 
-        foreach (var id in new[] { "PI-04", "PI-10", "PI-11", "PI-12", "CI-01", "CI-02", "CI-03",
-            "CI-04", "CI-05", "CI-06", "CI-07", "CI-08", "CI-09", "CI-10", "PERF-07", "PERF-08", "PERF-09", "PERF-10", "SUP-05" })
+        foreach (var id in new[] { "PI-04", "PI-10", "PI-11", "PI-12", "CI-01",
+            "CI-05", "CI-06", "CI-07", "CI-08", "SUP-05" })
         {
             Assert(rows[id].Basis is { Classification: "versioned extension", RequiresPolicyApproval: true, ExtensionBasis.Length: > 20 },
                 $"{id} retains canonical slot without becoming a baseline defect");
         }
 
-        Assert(rubric.CrosswalkDigest?.Value == "b987b982163f2253a28d9d46e85073ceec8e48f4755bd45c35d96e4bc68a94ad",
+        Assert(rubric.CrosswalkDigest?.Value == "5f39232d19fce5c5ea40e3f6949b3b4f695fed616a75446e3a42e8015c05cd5e",
             "frozen crosswalk digest");
         var checklist = File.ReadAllText(Path.Combine(skillRoot, "references", "checklist.md"));
         var listedIds = Regex.Matches(checklist, @"(?m)^\| ([A-Z0-9]+-\d{2}) \|")
             .Select(match => match.Groups[1].Value);
-        Assert(listedIds.SequenceEqual(expectedIds), "human checklist exact121 inventory");
-        Assert(RubricLoader.Load("2.0.1").RubricDigest == rubric.RubricDigest,
+        Assert(listedIds.SequenceEqual(expectedIds), "human checklist exact112 inventory");
+        Assert(rows["BEQ-05"].Requirement == "Static SSR works correctly when supported." &&
+            rows["BEQ-05"].Basis is { Classification: "decomposition evidence check", RequiresPolicyApproval: false },
+            "BEQ-05 checks the existing static-SSR behavior obligation");
+        Assert(component.All(row => row.Basis?.RequiresPolicyApproval == false), "no component operational extensions remain");
+        Assert(RubricLoader.Load("2.1.0").RubricDigest == rubric.RubricDigest,
             "persisted current version validates against the sole bundled rubric");
-        foreach (var version in new[] { "1.3.0", "2.0.0", "9.9.9" })
+        foreach (var version in new[] { "1.3.0", "2.0.0", "2.0.1", "9.9.9" })
             Reject(() => RubricLoader.Load(version), $"unsupported rubric version {version}");
-        Reject(() => RubricLoader.Select(rubric, "unified", ["scaffolder"]), "new overlay selection cannot alter inventory");
+        Reject(() => RubricLoader.Select(rubric, "component", ["scaffolder"]), "overlay selection cannot alter inventory");
+        Reject(() => RubricLoader.Select(rubric, "unified", []), "unified scope is retired");
     }
 
     private static void TestCrosswalkTampering(string root, string skillRoot)
@@ -129,11 +136,11 @@ internal static class NormativeContractTests
 
     private static void TestConditionalInventory(AssessmentTests.Fixture fixture)
     {
-        foreach (var kind in new[] { "unified", "package" })
+        foreach (var kind in new[] { "package" })
         {
             var initialized = AssessmentService.Initialize(kind, fixture.Root, fixture.Confirmed,
-                fixture.ConfirmedBytes, kind == "unified" ? "fancy-tree" : null);
-            Assert(initialized.Rows.Count == (kind == "package" ? 60 : 121), "current init includes all conditional rows");
+                fixture.ConfirmedBytes, null);
+            Assert(initialized.Rows.Count == 60, "package init includes all conditional rows");
             var assessment = CompleteNotTested(initialized, scaffolderInScope: false);
             var evidence = RetainedEvidence(assessment);
             Validate(fixture, assessment, evidence);
@@ -181,7 +188,7 @@ internal static class NormativeContractTests
         var component = CompleteNotTested(AssessmentService.Initialize("component", fixture.Root, fixture.Confirmed,
             fixture.ConfirmedBytes, "fancy-tree", binding), false);
         Validate(fixture, component, RetainedEvidence(component), binding);
-        Assert(component.Rows.Count == 61 &&
+        Assert(component.Rows.Count == 52 &&
             component.Rows.All(row => row.Id is not ("SEC-01" or "SEC-02" or "SEC-03")),
             "component assessment has no duplicate or pointer rows for package security");
         Assert(new[] { "SEC-10", "SEC-11", "SEC-12", "SEC-13" }
@@ -265,8 +272,8 @@ internal static class NormativeContractTests
         Assert(CliApplication.Run(["assessment", "canonicalize", "--assessment", componentDraftPath,
             "--output", componentCanonicalPath], output, error) == ExitCodes.Success,
             $"current component canonicalize: {error}");
-        Assert(AssessmentService.Parse(File.ReadAllBytes(componentCanonicalPath)).Rows.Count == 61,
-            "current component canonical output retains 61 rows");
+        Assert(AssessmentService.Parse(File.ReadAllBytes(componentCanonicalPath)).Rows.Count == 52,
+            "current component canonical output retains 52 rows");
         Assert(File.ReadAllBytes(componentPath).SequenceEqual(File.ReadAllBytes(componentCanonicalPath)),
             "current component canonicalize restores exact bytes");
         var unknownDraft = JsonNode.Parse(File.ReadAllBytes(componentPath))!.AsObject();
@@ -338,15 +345,15 @@ internal static class NormativeContractTests
 
     private static void TestCurrentContractRejections(AssessmentTests.Fixture fixture)
     {
-        foreach (var kind in new[] { "unified", "package" })
+        foreach (var kind in new[] { "component", "package" })
         {
             var current = CompleteNotTested(AssessmentService.Initialize(kind, fixture.Root,
-                fixture.Confirmed, fixture.ConfirmedBytes, kind == "unified" ? "fancy-tree" : null), false);
+                fixture.Confirmed, fixture.ConfirmedBytes, kind == "component" ? "fancy-tree" : null), false);
             var evidence = RetainedEvidence(current);
             Validate(fixture, current, evidence);
-            Assert(current.SchemaVersion == 2 && current.RubricVersion == "2.0.1" &&
+            Assert(current.SchemaVersion == 2 && current.RubricVersion == "2.1.0" &&
                 current.Overlays.Count == 0, "current artifact identity has no author-selected options");
-            foreach (var version in new[] { "1.3.0", "2.0.0", "9.9.9" })
+            foreach (var version in new[] { "1.3.0", "2.0.0", "2.0.1", "9.9.9" })
             {
                 var unsupported = current with { RubricVersion = version };
                 Reject(() => Validate(fixture, unsupported, evidence), $"persisted {kind} rubric {version}");
@@ -361,7 +368,18 @@ internal static class NormativeContractTests
             })
             {
                 Reject(() => Validate(fixture, unsupported, evidence), "unsupported assessment schema or overlays");
-                var bytes = AssessmentService.Serialize(unsupported);
+                Reject(() => AssessmentService.Serialize(unsupported), "producer rejects unsupported contract");
+                var node = JsonNode.Parse(AssessmentService.Serialize(current))!.AsObject();
+                node["schema_version"] = unsupported.SchemaVersion;
+                if (unsupported.Overlays.Count != 0)
+                {
+                    node["overlays"] = new JsonArray(new JsonObject
+                    {
+                        ["id"] = "scaffolder", ["version"] = "1.0.0",
+                        ["sha256"] = new JsonObject { ["algorithm"] = "sha256", ["value"] = current.RubricDigest.Value }
+                    });
+                }
+                var bytes = Encoding.UTF8.GetBytes(node.ToJsonString());
                 Reject(() => AssessmentService.Parse(bytes), "strict parsing rejects unsupported contract");
                 Reject(() => AssessmentService.Parse(bytes, requireCanonical: false),
                     "canonicalization cannot migrate an unsupported contract");
@@ -377,7 +395,7 @@ internal static class NormativeContractTests
                 current with { SelectedIds = ["UNKNOWN-01", .. current.SelectedIds.Skip(1)] },
                 current with { Rows = current.Rows.Reverse().ToArray() },
                 current with { Rows = [current.Rows[0] with { Requirement = "Altered requirement." }, .. current.Rows.Skip(1)] },
-                current with { Rows = [current.Rows[0] with { Scope = "component-specific" }, .. current.Rows.Skip(1)] },
+                current with { Rows = [current.Rows[0] with { Scope = kind == "package" ? "component-specific" : "repository-wide" }, .. current.Rows.Skip(1)] },
                 current with { Rows = [current.Rows[0] with { Area = "Altered area" }, .. current.Rows.Skip(1)] }
             })
                 Reject(() => Validate(fixture, altered, evidence), "frozen digest, selection, ordering, wording or ownership");
@@ -388,7 +406,7 @@ internal static class NormativeContractTests
             "current initialization help");
         foreach (var (option, value) in new[]
         {
-            ("--rubric-version", "2.0.1"),
+            ("--rubric-version", "2.1.0"),
             ("--rubric-version", "1.3.0"),
             ("--overlays", "scaffolder")
         })

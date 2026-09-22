@@ -11,13 +11,13 @@ using BlazorComponentReadiness.Validator.IO;
 internal static class EvidenceTests
 {
     private const string KnownEvidenceId =
-        "EV1-fdcf80cd04ab59269765ea79b7ccb8e9240596c5974f5221e90069fc015555cb";
+        "EV1-5c7c1a7dbb67cbf6d09204e450ee10cb2ab796053196628b4a14a25655634e50";
     private const string KnownLedgerSha256 =
-        "7fcada16a9a7cd2e2ac4de7fe73452d4edf98b7c1ac28e88e09c17094852965a";
+        "4824862951da5d57626fb33e9d061c7710f6295bc4eecc34a4229e5b970bf5e8";
     private const string KnownAssessmentJson =
-        """{"assessment_kind":"unified","package":{"package_id":"sample.widgets","version":"1.2.3","nupkg_sha256":{"algorithm":"sha256","value":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}},"input_manifest_sha256":{"algorithm":"sha256","value":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},"component_id":"Tree"}""";
+        """{"assessment_kind":"package","package":{"package_id":"sample.widgets","version":"1.2.3","nupkg_sha256":{"algorithm":"sha256","value":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}},"input_manifest_sha256":{"algorithm":"sha256","value":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},"component_id":null}""";
     private const string KnownLedgerJson =
-        """{"schema_version":1,"ledger_kind":"repository","repository_subject":{"assessment_kind":"unified","package":{"package_id":"sample.widgets","version":"1.2.3","nupkg_sha256":{"algorithm":"sha256","value":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}},"input_manifest_sha256":{"algorithm":"sha256","value":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},"component_id":"Tree"},"component_subject":null,"records":[{"stable_id":"EV1-fdcf80cd04ab59269765ea79b7ccb8e9240596c5974f5221e90069fc015555cb","claim":"Vendor documentation states keyboard support.","applicability":{"scope":"repository-wide","component_id":null},"provenance":{"kind":"vendor-public-documentation","locator":"https://docs.example.com/widgets","method":"Captured official documentation.","captured_at_utc":"2026-09-02T20:00:00Z","content_sha256":{"algorithm":"sha256","value":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"retention":"commitment-only"},"supersedes":[]}]}""";
+        """{"schema_version":1,"ledger_kind":"repository","repository_subject":{"assessment_kind":"package","package":{"package_id":"sample.widgets","version":"1.2.3","nupkg_sha256":{"algorithm":"sha256","value":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}},"input_manifest_sha256":{"algorithm":"sha256","value":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},"component_id":null},"component_subject":null,"records":[{"stable_id":"EV1-5c7c1a7dbb67cbf6d09204e450ee10cb2ab796053196628b4a14a25655634e50","claim":"Vendor documentation states keyboard support.","applicability":{"scope":"repository-wide","component_id":null},"provenance":{"kind":"vendor-public-documentation","locator":"https://docs.example.com/widgets","method":"Captured official documentation.","captured_at_utc":"2026-09-02T20:00:00Z","content_sha256":{"algorithm":"sha256","value":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"retention":"commitment-only"},"supersedes":[]}]}""";
 
     public static void Run(string repositoryRoot, string pluginRoot)
     {
@@ -266,17 +266,8 @@ internal static class EvidenceTests
 
     private static void TestAssessmentKindsAndManifestBinding()
     {
-        var unified = KnownAssessment();
-        var package = unified with
-        {
-            AssessmentKind = "package",
-            ComponentId = null
-        };
-        var component = unified with
-        {
-            AssessmentKind = "component"
-        };
-        EvidenceIdentity.ValidateAssessment(unified);
+        var package = KnownAssessment();
+        var component = KnownComponentAssessment();
         EvidenceIdentity.ValidateAssessment(package);
         EvidenceIdentity.ValidateAssessment(component);
 
@@ -286,14 +277,14 @@ internal static class EvidenceTests
             "package assessment component ID");
         ExpectValidation(
             () => EvidenceIdentity.ValidateAssessment(
-                unified with { ComponentId = null }),
-            "unified assessment missing component ID");
+                component with { AssessmentKind = "unified" }),
+            "retired unified assessment identity");
         ExpectValidation(
             () => EvidenceIdentity.ValidateAssessment(
                 component with { ComponentId = null }),
             "component assessment missing component ID");
 
-        var unifiedSubject = KnownRepositorySubject();
+        var repositorySubject = KnownRepositorySubject();
         var packageSubject = new RepositoryLedgerSubject(
             "package",
             package.Package,
@@ -303,20 +294,22 @@ internal static class EvidenceTests
             EvidenceIdentity.VendorPublicDocumentation,
             "https://docs.example.com/identity",
             "Assessment identity is bound.");
-        var unifiedId = EvidenceLedgerBuilder.BuildRepositoryLedger(
-            unifiedSubject,
-            [draft]).Records.Single().StableId;
+        var componentId = EvidenceLedgerBuilder.BuildComponentLedger(
+            component,
+            [draft with { Applicability = new("component-specific", "Tree") }]).Records.Single().StableId;
         var packageId = EvidenceLedgerBuilder.BuildRepositoryLedger(
             packageSubject,
             [draft]).Records.Single().StableId;
         var changedManifestId = EvidenceLedgerBuilder.BuildRepositoryLedger(
-            unifiedSubject with
+            repositorySubject with
             {
                 InputManifestDigest = new Sha256Digest("sha256", new string('d', 64))
             },
             [draft]).Records.Single().StableId;
-        Assert(unifiedId != packageId, "assessment_kind participates in stable ID preimage");
-        Assert(unifiedId != changedManifestId, "input manifest digest participates in stable ID preimage");
+        Assert(componentId != packageId, "package and component subjects have distinct stable IDs");
+        Assert(packageId != changedManifestId, "input manifest digest participates in stable ID preimage");
+        AssertEqual("Tree", CanonicalEvidenceJson.ParseAssessment(
+            CanonicalEvidenceJson.SerializeAssessment(component)).ComponentId, "component identity preserves spelling");
         var packageLedger = EvidenceLedgerBuilder.BuildRepositoryLedger(
             packageSubject,
             [draft]);
@@ -343,11 +336,11 @@ internal static class EvidenceTests
             "component assessment repository ledger");
 
         var repositoryLedger = EvidenceLedgerBuilder.BuildRepositoryLedger(
-            unifiedSubject,
+            repositorySubject,
             [draft]);
         ExpectValidation(
             () => EvidenceLedgerBuilder.BuildBundle(
-                unified with
+                package with
                 {
                     InputManifestDigest = new Sha256Digest("sha256", new string('d', 64))
                 },
@@ -1281,7 +1274,7 @@ internal static class EvidenceTests
 
     private static void TestScopeAndExactIdentity()
     {
-        var assessment = KnownAssessment();
+        var assessment = KnownComponentAssessment();
         var repositoryDraft = RepositoryDraft(
             EvidenceIdentity.PackageArtifactMetadata,
             "package:entry/Sample.Widgets.nuspec",
@@ -1311,13 +1304,17 @@ internal static class EvidenceTests
             assessment,
             [componentDraft]);
         AssertEqual(
-            2,
+            1,
             EvidenceLedgerBuilder.BuildBundle(
                 assessment,
-                [repositoryLedger, componentLedger],
-                [repositoryLedger.Records[0].StableId, componentLedger.Records[0].StableId])
+                [componentLedger],
+                [componentLedger.Records[0].StableId])
                 .Selection.Count,
-            "compatible package/component bundle");
+            "standalone component bundle");
+        ExpectValidation(() => EvidenceLedgerBuilder.BuildBundle(
+            assessment, [repositoryLedger, componentLedger],
+            [repositoryLedger.Records[0].StableId, componentLedger.Records[0].StableId]),
+            "package and component evidence must not be unified");
 
         foreach (var mismatch in new[]
         {
@@ -1558,10 +1555,10 @@ internal static class EvidenceTests
             var package = EvidenceIdentity.FromInspectedPackage(inspected);
             var manifestDigest = new Sha256Digest("sha256", new string('9', 64));
             var subject = new RepositoryLedgerSubject(
-                "unified",
+                "package",
                 package,
                 manifestDigest,
-                "Tree");
+                null);
             var subjectPath = Path.Combine(root, "subject.json");
             File.WriteAllBytes(
                 subjectPath,
@@ -1792,15 +1789,15 @@ internal static class EvidenceTests
                 NupkgInspector.Inspect(packagePath));
             var inputManifestDigest = new Sha256Digest("sha256", new string('7', 64));
             var subject = new RepositoryLedgerSubject(
-                "unified",
+                "package",
                 inspected,
                 inputManifestDigest,
-                "Tree");
+                null);
             var assessment = new ExactAssessmentIdentity(
-                "unified",
+                "package",
                 inspected,
                 inputManifestDigest,
-                "Tree");
+                null);
             var subjectPath = Path.Combine(root, "repository-subject.json");
             var assessmentPath = Path.Combine(root, "assessment.json");
             var repositoryDraftPath = Path.Combine(root, "repository-draft.json");
@@ -1905,6 +1902,9 @@ internal static class EvidenceTests
                 repositoryRoot,
                 environment,
                 expectedExitCode: 0);
+            var componentIdentityPath = Path.Combine(root, "component.identity.json");
+            File.WriteAllBytes(componentIdentityPath, CanonicalEvidenceJson.SerializeAssessment(
+                assessment with { AssessmentKind = "component", ComponentId = "Tree" }));
             RunProcess(
                 "dotnet",
                 [
@@ -1914,7 +1914,7 @@ internal static class EvidenceTests
                     "--kind",
                     "component",
                     "--subject",
-                    assessmentPath,
+                    componentIdentityPath,
                     "--draft",
                     componentDraftPath,
                     "--nupkg",
@@ -2166,10 +2166,23 @@ internal static class EvidenceTests
                     AssertBytes(selectionLedgerBytes, File.ReadAllBytes(selectionLedgerPath), "negative handoffs preserve ledger");
                 }
             }
+            var independentLedger = EvidenceLedgerBuilder.BuildRepositoryLedger(subject,
+                [RepositoryDraft(EvidenceIdentity.VendorPublicDocumentation,
+                    "https://docs.example.com/independent", "An independent document records a different fact.")]);
+            var independentLedgerPath = Path.Combine(root, "independent.ledger.json");
+            File.WriteAllBytes(independentLedgerPath, CanonicalEvidenceJson.SerializeSourceLedger(independentLedger));
             var selected = string.Join(
                 ',',
                 repositoryLedger.Records[0].StableId,
-                componentLedger.Records[0].StableId);
+                independentLedger.Records[0].StableId);
+            var mixedOutput = Path.Combine(root, "forbidden-mixed.bundle.json");
+            RunProcess("dotnet",
+                [validatorDll, "evidence", "bundle", "--assessment", assessmentPath,
+                    "--source-ledger", componentLedgerPath, "--source-ledger", repositoryLedgerPath,
+                    "--ids", repositoryLedger.Records[0].StableId + "," + componentLedger.Records[0].StableId,
+                    "--output", mixedOutput],
+                repositoryRoot, environment, expectedExitCode: ExitCodes.ValidationFailure);
+            Assert(!File.Exists(mixedOutput), "mixed package/component evidence publishes no bundle");
             RunProcess(
                 "dotnet",
                 [
@@ -2179,7 +2192,7 @@ internal static class EvidenceTests
                     "--assessment",
                     assessmentPath,
                     "--source-ledger",
-                    componentLedgerPath,
+                    independentLedgerPath,
                     "--source-ledger",
                     repositoryLedgerPath,
                     "--ids",
@@ -2405,6 +2418,9 @@ internal static class EvidenceTests
 
     private static ExactAssessmentIdentity KnownAssessment() =>
         CanonicalEvidenceJson.ParseAssessment(Encoding.UTF8.GetBytes(KnownAssessmentJson));
+
+    private static ExactAssessmentIdentity KnownComponentAssessment() =>
+        KnownAssessment() with { AssessmentKind = "component", ComponentId = "Tree" };
 
     private static RepositoryLedgerSubject KnownRepositorySubject() =>
         new(

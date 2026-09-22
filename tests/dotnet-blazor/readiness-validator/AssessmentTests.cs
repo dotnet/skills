@@ -913,8 +913,12 @@ internal static class AssessmentTests
         {
             var identity = assessment.Identity with { AssessmentKind = kind, ComponentId = "fancy-tree" };
             var invalidAssessment = assessment with { AssessmentKind = kind, Identity = identity };
-            var invalidEvidence = BuildEvidence(identity);
-            var invalidBytes = CurrentAssessmentService.Serialize(invalidAssessment);
+            var invalidEvidence = BuildEvidence(kind == "unified" ? assessment.Identity : identity);
+            var invalidNode = JsonNode.Parse(CurrentAssessmentService.Serialize(assessment))!.AsObject();
+            invalidNode["assessment_kind"] = kind;
+            invalidNode["identity"]!["assessment_kind"] = kind;
+            invalidNode["identity"]!["component_id"] = "fancy-tree";
+            var invalidBytes = Encoding.UTF8.GetBytes(invalidNode.ToJsonString());
             var invalidRoot = Path.Combine(fixture.Root, $"package-only-invalid-{kind}");
             var invalidRevision = Path.Combine(invalidRoot, "0001");
             var invalidReader = Path.Combine(fixture.Root, $"package-only-invalid-{kind}.reader");
@@ -952,9 +956,10 @@ internal static class AssessmentTests
                     $"{kind} cannot consume empty-component input through {command[0]} {command[1]}");
                 Assert(
                     failure.ToString().Contains(
-                        "Assessment component must be present in the confirmed input manifest.",
+                        kind == "unified" ? "unified" :
+                            "Assessment component must be present in the confirmed input manifest.",
                         StringComparison.Ordinal),
-                    $"{kind} fails at component membership, not an incidental hash or row mismatch: {failure}");
+                    $"{kind} fails at the applicable kind/membership boundary: {failure}");
             }
 
             Assert(!Directory.Exists(Path.Combine(invalidRoot, "rejected-output")), "invalid scope publishes no revision");
@@ -1196,12 +1201,12 @@ internal static class AssessmentTests
     private static void TestRubricAndInputContracts(Fixture fixture, string pluginRoot)
     {
         var rubric = RubricLoader.Load();
-        AssertEqual(121, rubric.CoreRequirements.Count, "rubric core count");
+        AssertEqual(112, rubric.CoreRequirements.Count, "rubric core count");
         AssertEqual(60, RubricLoader.Select(rubric, "package", []).Count, "package row count");
-        AssertEqual(61, RubricLoader.Select(rubric, "component", []).Count, "component row count");
+        AssertEqual(52, RubricLoader.Select(rubric, "component", []).Count, "component row count");
         AssertEqual(0, rubric.Overlays.Count, "no optional overlay inventory");
         AssertEqual(
-            "6e949e7018070880972909990f685bc048cc5f4f391024fc0ff4e224aeba4c0a",
+            "f324b3db1217d7aade766fad3ce983c96fdf88182f35c26ac314d4672c79e13e",
             rubric.ScopeMapDigest.Value,
             "scope digest");
         var validatorSource = Directory.GetFiles(
@@ -1559,8 +1564,11 @@ internal static class AssessmentTests
     {
         var output = new StringWriter();
         var error = new StringWriter();
-        var unified = AssessmentService.Initialize(
-            "unified", fixture.Root, fixture.Confirmed, fixture.ConfirmedBytes, "Fancy Tree");
+        var standalone = AssessmentService.Initialize(
+            "component", fixture.Root, fixture.Confirmed, fixture.ConfirmedBytes, "Fancy Tree");
+        ExpectValidation(() => AssessmentService.Initialize(
+            "unified", fixture.Root, fixture.Confirmed, fixture.ConfirmedBytes, "Fancy Tree"),
+            "unified initialization is retired");
         var package = AssessmentService.Initialize(
             "package", fixture.Root, fixture.Confirmed, fixture.ConfirmedBytes, null);
         var component = AssessmentService.Initialize(
@@ -1587,16 +1595,16 @@ internal static class AssessmentTests
                 error),
             "component init binds package revision");
         AssertEqual(
-            61,
+            52,
             AssessmentService.Parse(File.ReadAllBytes(cliComponentPath)).Rows.Count,
-            "component init CLI exact 61 rows");
+            "component init CLI exact 52 rows");
         TestIdentityExport(fixture, cliComponentPath);
-        var unifiedPath = Path.Combine(fixture.Root, "identity-export.unified.assessment.json");
-        File.WriteAllBytes(unifiedPath, AssessmentService.Serialize(unified));
-        TestIdentityExport(fixture, unifiedPath);
+        var standalonePath = Path.Combine(fixture.Root, "identity-export.component.assessment.json");
+        File.WriteAllBytes(standalonePath, AssessmentService.Serialize(standalone));
+        TestIdentityExport(fixture, standalonePath);
         var unboundCliComponent = Path.Combine(fixture.Root, "cli-unbound.component.assessment.json");
         AssertEqual(
-            ExitCodes.ValidationFailure,
+            ExitCodes.Success,
             CliApplication.Run(
                 [
                     "assessment", "init",
@@ -1608,23 +1616,24 @@ internal static class AssessmentTests
                 ],
                 output,
                 error),
-            "component init CLI requires package revision");
-        Assert(!File.Exists(unboundCliComponent), "unbound component init writes no output");
-        AssertEqual(121, unified.Rows.Count, "unified exact rows");
+            "component init CLI is independent of package assessment");
+        Assert(AssessmentService.Parse(File.ReadAllBytes(unboundCliComponent)).PackageReference is null,
+            "standalone component declares no inferred package binding");
+        AssertEqual(52, standalone.Rows.Count, "standalone component exact rows");
         AssertEqual(60, package.Rows.Count, "package exact rows");
-        AssertEqual(61, component.Rows.Count, "component exact rows");
-        Assert(unified.Rows.All(row => row.Status is null), "init placeholders are null, not legacy tokens");
+        AssertEqual(52, component.Rows.Count, "bound component exact rows");
+        Assert(standalone.Rows.All(row => row.Status is null), "init placeholders are null, not legacy tokens");
         Assert(package.Rows.All(row => row.Scope == "repository-wide"), "package ownership");
         Assert(component.Rows.All(row => row.Scope == "component-specific"), "component ownership");
         Assert(component.PackageReference is not null, "component exact package reference");
         AssertEqual(
             ContractJson.RawDigest(fixture.ConfirmedBytes),
-            unified.Identity.InputManifestDigest,
+            standalone.Identity.InputManifestDigest,
             "evidence identity uses exact confirmed input-manifest bytes");
-        var unifiedEvidence = BuildEvidence(unified.Identity);
+        var standaloneEvidence = BuildEvidence(standalone.Identity);
         var packageEvidence = BuildEvidence(package.Identity);
         var componentEvidence = BuildEvidence(component.Identity);
-        Validate(fixture, Complete(unified, unifiedEvidence, "gap"), unifiedEvidence);
+        Validate(fixture, Complete(standalone, standaloneEvidence, "gap"), standaloneEvidence);
         Validate(fixture, Complete(package, packageEvidence, "gap"), packageEvidence);
         var completedComponent = Complete(component, componentEvidence, "gap");
         Validate(fixture, completedComponent, componentEvidence, packageBinding);
@@ -1671,40 +1680,42 @@ internal static class AssessmentTests
                 componentReport).PackageReference is not null,
             "component validation manifest carries optional exact package reference");
 
-        Assert(unified.Overlays.Count == 0 &&
-            unified.Rows.Count(row => row.Id.StartsWith("AI-", StringComparison.Ordinal)) == 6 &&
-            unified.Rows.Count(row => row.Id.StartsWith("SCF-", StringComparison.Ordinal)) == 6,
-            "conditional families are canonical rows, not selected overlays");
+        Assert(package.Overlays.Count == 0 &&
+            package.Rows.Count(row => row.Id.StartsWith("AI-", StringComparison.Ordinal)) == 6 &&
+            package.Rows.Count(row => row.Id.StartsWith("SCF-", StringComparison.Ordinal)) == 6 &&
+            standalone.Rows.All(row => !row.Id.StartsWith("AI-", StringComparison.Ordinal) &&
+                !row.Id.StartsWith("SCF-", StringComparison.Ordinal)),
+            "package conditional families never enter component assessment");
 
-        var reordered = Complete(unified, BuildEvidence(unified.Identity), "gap") with
+        var reordered = Complete(standalone, BuildEvidence(standalone.Identity), "gap") with
         {
-            Rows = Complete(unified, BuildEvidence(unified.Identity), "gap").Rows.Reverse().ToArray()
+            Rows = Complete(standalone, BuildEvidence(standalone.Identity), "gap").Rows.Reverse().ToArray()
         };
         ExpectValidation(
-            () => Validate(fixture, reordered, BuildEvidence(unified.Identity)),
+            () => Validate(fixture, reordered, BuildEvidence(standalone.Identity)),
             "reordered rows");
-        var unknownRows = unified.Rows.ToArray();
+        var unknownRows = standalone.Rows.ToArray();
         unknownRows[0] = unknownRows[0] with { Id = "OLD-01" };
         ExpectValidation(
             () => Validate(
                 fixture,
-                unified with { Rows = unknownRows },
-                BuildEvidence(unified.Identity)),
+                standalone with { Rows = unknownRows },
+                BuildEvidence(standalone.Identity)),
             "unknown row");
-        var duplicateRows = unified.Rows.ToArray();
+        var duplicateRows = standalone.Rows.ToArray();
         duplicateRows[1] = duplicateRows[0];
         ExpectValidation(
             () => Validate(
                 fixture,
-                unified with { Rows = duplicateRows },
-                BuildEvidence(unified.Identity)),
+                standalone with { Rows = duplicateRows },
+                BuildEvidence(standalone.Identity)),
             "duplicate row");
     }
 
     private static void TestStatusAndEvidenceBoundaries(Fixture fixture)
     {
         var initialized = AssessmentService.Initialize(
-            "unified", fixture.Root, fixture.Confirmed, fixture.ConfirmedBytes, "fancy-tree");
+            "component", fixture.Root, fixture.Confirmed, fixture.ConfirmedBytes, "fancy-tree");
         foreach (var status in new[]
                  {
                      "verified",
@@ -1827,7 +1838,7 @@ internal static class AssessmentTests
     private static void TestEvidenceInputBinding(Fixture fixture)
     {
         var unified = AssessmentService.Initialize(
-            "unified",
+            "component",
             fixture.Root,
             fixture.Confirmed,
             fixture.ConfirmedBytes,
@@ -1857,7 +1868,7 @@ internal static class AssessmentTests
             [
                 new EvidenceRecordDraft(
                     "The confirmed source capture establishes this synthetic component fact.",
-                    new EvidenceApplicability("repository-wide", null),
+                    new EvidenceApplicability("component-specific", unified.Identity.ComponentId),
                     new EvidenceProvenance(
                         EvidenceIdentity.VendorSourceRepository,
                         $"source:{sourceArtifact.SourcePath}",
@@ -1917,7 +1928,7 @@ internal static class AssessmentTests
         };
         var publicBytes = InputManifestService.Serialize(publicInput);
         var publicAssessment = AssessmentService.Initialize(
-            "unified",
+            "component",
             fixture.Root,
             publicInput,
             publicBytes,
@@ -1927,7 +1938,7 @@ internal static class AssessmentTests
             [
                 new EvidenceRecordDraft(
                     "The public owner record establishes this synthetic component fact.",
-                    new EvidenceApplicability("repository-wide", null),
+                    new EvidenceApplicability("component-specific", publicAssessment.Identity.ComponentId),
                     new EvidenceProvenance(
                         EvidenceIdentity.OwnerSuppliedPublicEvidence,
                         publicInput.OwnerInputs.Single().Basename,
@@ -2016,13 +2027,13 @@ internal static class AssessmentTests
                 output,
                 error),
             "inputs validate CLI");
-        var cliAssessment = Path.Combine(fixture.Root, "cli-unified.assessment.json");
+        var cliAssessment = Path.Combine(fixture.Root, "cli-standalone.assessment.json");
         AssertEqual(
             ExitCodes.Success,
             CliApplication.Run(
                 [
                     "assessment", "init",
-                    "--kind", "unified",
+                    "--kind", "component",
                     "--root", fixture.Root,
                     "--input", cliConfirmed,
                     "--output", cliAssessment,
@@ -2032,7 +2043,7 @@ internal static class AssessmentTests
                 error),
             "assessment init CLI");
         AssertEqual(
-            121,
+            52,
             AssessmentService.Parse(File.ReadAllBytes(cliAssessment)).Rows.Count,
             "assessment init CLI exact selected rows");
         var draftAssessment = Path.Combine(fixture.Root, "cli-unordered.assessment.json");
@@ -2066,18 +2077,18 @@ internal static class AssessmentTests
             File.ReadAllBytes(canonicalAssessment),
             "canonicalize restores validator-owned assessment bytes");
         AssertEqual(
-            121,
+            52,
             AssessmentService.Parse(File.ReadAllBytes(canonicalAssessment)).Rows.Count,
             "canonicalize output remains strict and complete");
 
         var initialized = AssessmentService.Initialize(
-            "unified", fixture.Root, fixture.Confirmed, fixture.ConfirmedBytes, "fancy-tree");
+            "component", fixture.Root, fixture.Confirmed, fixture.ConfirmedBytes, "fancy-tree");
         var evidence = BuildEvidence(initialized.Identity);
         var assessment = Complete(initialized, evidence, "gap");
         var assessmentBytes = AssessmentService.Serialize(assessment);
         var evidenceBytes = CanonicalEvidenceJson.SerializeBundle(evidence);
-        var assessmentPath = Path.Combine(fixture.Root, "unified.assessment.json");
-        var evidencePath = Path.Combine(fixture.Root, "unified.evidence.json");
+        var assessmentPath = Path.Combine(fixture.Root, "component.assessment.json");
+        var evidencePath = Path.Combine(fixture.Root, "component.evidence.json");
         File.WriteAllBytes(assessmentPath, assessmentBytes);
         File.WriteAllBytes(evidencePath, evidenceBytes);
         AssertEqual(
@@ -2102,42 +2113,19 @@ internal static class AssessmentTests
                 NupkgDigest = new Sha256Digest("sha256", new string('a', 64))
             }
         };
-        var fixedEvidenceId = "EV1-" + new string('c', 64);
-        var goldenAssessment = assessment with
+        var goldenIdentity = assessment.Identity with
         {
-            Rows =
-            [
-                assessment.Rows[0] with { EvidenceIds = [fixedEvidenceId] },
-                .. assessment.Rows.Skip(1)
-            ]
+            Package = assessment.Identity.Package with { NupkgDigest = goldenInput.Package.NupkgDigest },
+            InputManifestDigest = ContractJson.RawDigest(InputManifestService.Serialize(goldenInput))
         };
-        var embedded = evidence.SourceLedgers.Single();
-        var goldenEvidence = evidence with
-        {
-            SourceLedgers =
-            [
-                embedded with
-                {
-                    Ledger = embedded.Ledger with
-                    {
-                        Records =
-                        [
-                            embedded.Ledger.Records.Single() with { StableId = fixedEvidenceId }
-                        ]
-                    }
-                }
-            ],
-            Selection =
-            [
-                evidence.Selection.Single() with { EvidenceId = fixedEvidenceId }
-            ]
-        };
+        var goldenEvidence = BuildEvidence(goldenIdentity);
+        var goldenAssessment = Complete(initialized with { Identity = goldenIdentity }, goldenEvidence, "gap");
         var firstMarkdown = ReportService.RenderMarkdown(goldenAssessment, goldenInput, goldenEvidence);
         var secondMarkdown = ReportService.RenderMarkdown(goldenAssessment, goldenInput, goldenEvidence);
         AssertEqual(
-            "755c845ab21ee0b4d07176874bb6bf9ee2562fdf7f4851b4c2a4756bcaac4437",
+            "2f1b50e15dd865a11afaccdad34747394658e0b01b8d62cbefb9ac984caed420",
             ContractJson.RawDigest(firstMarkdown).Value,
-            "current 121-row deterministic report golden digest");
+            "current 52-row deterministic report golden digest");
         AssertBytes(firstMarkdown, secondMarkdown, "same inputs byte-identical Markdown");
         var markdown = Encoding.UTF8.GetString(firstMarkdown);
         Assert(markdown.Contains("## Assessment inputs", StringComparison.Ordinal), "readable inputs section");
@@ -2147,7 +2135,12 @@ internal static class AssessmentTests
         Assert(markdown.Contains("[vendor-public-documentation]", StringComparison.Ordinal), "provenance labels");
         Assert(!markdown.Contains("verdict", StringComparison.OrdinalIgnoreCase), "no default verdict");
         Assert(!markdown.Contains("priority", StringComparison.OrdinalIgnoreCase), "no ranked remediation");
-        AssertEqual(121, markdown.Split('\n').Count(line => line.StartsWith("| `", StringComparison.Ordinal)), "all rows rendered");
+        AssertEqual(52, markdown.Split('\n').Count(line => line.StartsWith("| `", StringComparison.Ordinal)), "only component rows rendered");
+        AssertSequence(
+            RubricLoader.Select(RubricLoader.Load(), "component", []).Select(row => row.Id),
+            markdown.Split('\n').Where(line => line.StartsWith("| `", StringComparison.Ordinal))
+                .Select(line => line.Split('`')[1]),
+            "deterministic report preserves exact current component ID order");
 
         var revisions = Path.Combine(fixture.Root, "revisions");
         AssertEqual(
@@ -2173,9 +2166,9 @@ internal static class AssessmentTests
                 error),
             "report verify CLI");
         Assert(File.Exists(Path.Combine(revision, "input-manifest.json")), "input snapshot");
-        Assert(File.Exists(Path.Combine(revision, "unified.validation.json")), "validation manifest");
+        Assert(File.Exists(Path.Combine(revision, "component.validation.json")), "validation manifest");
         var renderedManifest = ReportService.ParseManifest(
-            File.ReadAllBytes(Path.Combine(revision, "unified.validation.json")));
+            File.ReadAllBytes(Path.Combine(revision, "component.validation.json")));
         using (var pluginManifest = JsonDocument.Parse(File.ReadAllBytes(
                    Path.Combine(
                        Environment.GetEnvironmentVariable("READINESS_SKILL_ROOT")!,
@@ -2262,7 +2255,7 @@ internal static class AssessmentTests
             "0001 predecessor refusal");
         Assert(!Directory.Exists(Path.Combine(predecessorOutput, "0001")), "no output on predecessor validation failure");
 
-        var reportPath = Path.Combine(revision, "unified.report.md");
+        var reportPath = Path.Combine(revision, "component.report.md");
         File.AppendAllText(reportPath, "x", new UTF8Encoding(false));
         AssertEqual(
             ExitCodes.ValidationFailure,
@@ -2280,7 +2273,7 @@ internal static class AssessmentTests
                 error),
             "report restored");
 
-        var manifestPath = Path.Combine(revision, "unified.validation.json");
+        var manifestPath = Path.Combine(revision, "component.validation.json");
         var manifestBytes = File.ReadAllBytes(manifestPath);
         manifestBytes[^1] = (byte)'\n';
         File.WriteAllBytes(manifestPath, manifestBytes);
@@ -2320,14 +2313,9 @@ internal static class AssessmentTests
     {
         var output = new StringWriter();
         var error = new StringWriter();
-        ExpectValidation(
-            () => AssessmentService.Initialize(
-                "component",
-                fixture.Root,
-                fixture.Confirmed,
-                fixture.ConfirmedBytes,
-                "fancy-tree"),
-            "component requires validated package revision");
+        var standalone = AssessmentService.Initialize(
+            "component", fixture.Root, fixture.Confirmed, fixture.ConfirmedBytes, "fancy-tree");
+        Assert(standalone.PackageReference is null, "component does not require a package revision");
         var component = AssessmentService.Initialize(
             "component",
             fixture.Root,
@@ -2337,7 +2325,7 @@ internal static class AssessmentTests
             packageBinding);
         var evidence = BuildEvidence(component.Identity);
         var assessment = Complete(component, evidence, "gap");
-        AssertEqual(61, assessment.Rows.Count, "component exact 61 rows");
+        AssertEqual(52, assessment.Rows.Count, "component exact 52 rows");
         Assert(
             assessment.Rows.All(row => row.Scope == "component-specific"),
             "component cannot copy package rows");
@@ -2510,35 +2498,6 @@ internal static class AssessmentTests
         ExpectValidation(
             () => FeedbackService.Parse(mixedFeedbackBytes, assessment),
             "component feedback requires exact package association for package IDs");
-        var mixedFeedback = FeedbackService.Parse(
-            mixedFeedbackBytes,
-            assessment,
-            packageBinding.Assessment.SelectedIds);
-        AssertSequence(
-            new[] { componentId, packageId }.Order(StringComparer.Ordinal),
-            mixedFeedback.Entries.Single().RequirementIds,
-            "mixed package component feedback normalized ID set");
-        AssertEqual(
-            mixedPayload,
-            mixedFeedback.Entries.Single().RawPayload,
-            "mixed package component feedback raw payload");
-        var mixedFeedbackReport = Encoding.UTF8.GetString(
-            ReportService.RenderMarkdown(
-                assessment,
-                fixture.Confirmed,
-                evidence,
-                mixedFeedback));
-        Assert(
-            mixedFeedbackReport.Contains(
-                $"| `{string.Join("`, `", new[] { componentId, packageId }.Order(StringComparer.Ordinal))}` |{mixedPayload}|",
-                StringComparison.Ordinal),
-            "mixed package component feedback renders without copying package rows");
-        AssertEqual(
-            61,
-            mixedFeedbackReport.Split('\n').Count(line =>
-                line.StartsWith("| `", StringComparison.Ordinal) &&
-                line.Contains("| `component-specific` |", StringComparison.Ordinal)),
-            "mixed feedback does not duplicate package rows in component report");
         foreach (var invalid in new Dictionary<string, string>
                  {
                      ["unknown"] = "| `UNKNOWN-01` | unknown requirement |\n",
@@ -2657,6 +2616,8 @@ internal static class AssessmentTests
         var feedbackBytes2 = Encoding.UTF8.GetBytes(
             "# Assessment feedback\n\n| Requirement IDs | Feedback |\n|---|---|\n" +
             $"| `{ids[0]}` |  Updated feedback only.  |\n");
+        var feedbackHistoryPath = Path.Combine(fixture.Root, "component.feedback-0001.md");
+        File.WriteAllBytes(feedbackHistoryPath, feedbackBytes);
         File.WriteAllBytes(feedbackPath, feedbackBytes2);
         var predecessor1 = ContractJson.RawDigest(manifest1Bytes).Value;
         AssertEqual(
@@ -2688,6 +2649,7 @@ internal static class AssessmentTests
                     "--output", revisions,
                     "--feedback", feedbackPath,
                     "--package-revision", packageRevision,
+                    "--feedback-history", feedbackHistoryPath,
                     "--predecessor", predecessor1
                 ],
                 output,
@@ -2714,6 +2676,7 @@ internal static class AssessmentTests
                     "--root", fixture.Root,
                     "--revision", Path.Combine(revisions, "0002"),
                     "--feedback", feedbackPath,
+                    "--feedback-history", feedbackHistoryPath,
                     "--package-revision", packageRevision
                 ],
                 output,
@@ -2764,7 +2727,8 @@ internal static class AssessmentTests
             assessment.Rows[0].Id,
             "status-only correction",
             output,
-            error);
+            error,
+            feedbackHistoryPath);
         var driftedPath = Path.Combine(fixture.Root, "drifted.component.assessment.json");
         File.WriteAllBytes(
             driftedPath,
@@ -2786,11 +2750,12 @@ internal static class AssessmentTests
             assessment.Rows[0].Id,
             "identity drift",
             output,
-            error);
+            error,
+            feedbackHistoryPath);
         var rubricDriftPath = Path.Combine(fixture.Root, "rubric-drift.component.assessment.json");
-        File.WriteAllBytes(
-            rubricDriftPath,
-            AssessmentService.Serialize(corrected with { RubricVersion = "9.9.9" }));
+        var rubricDrift = JsonNode.Parse(AssessmentService.Serialize(corrected))!;
+        rubricDrift["rubric_version"] = "9.9.9";
+        File.WriteAllText(rubricDriftPath, rubricDrift.ToJsonString());
         AssertCorrectionFails(
             fixture,
             revisions,
@@ -2802,7 +2767,8 @@ internal static class AssessmentTests
             assessment.Rows[0].Id,
             "rubric drift",
             output,
-            error);
+            error,
+            feedbackHistoryPath);
         AssertCorrectionFails(
             fixture,
             revisions,
@@ -2814,7 +2780,8 @@ internal static class AssessmentTests
             assessment.Rows[1].Id,
             "undeclared row change",
             output,
-            error);
+            error,
+            feedbackHistoryPath);
         AssertCorrectionFails(
             fixture,
             revisions,
@@ -2826,7 +2793,8 @@ internal static class AssessmentTests
             assessment.Rows[0].Id,
             "no-op declaration",
             output,
-            error);
+            error,
+            feedbackHistoryPath);
 
         var replacementOnly = BuildEvidence(component.Identity, alternate: true);
         var replacementOnlyId = replacementOnly.Selection.Single().EvidenceId;
@@ -2856,7 +2824,8 @@ internal static class AssessmentTests
             assessment.Rows[0].Id,
             "removed evidence",
             output,
-            error);
+            error,
+            feedbackHistoryPath);
 
         AssertEqual(
             ExitCodes.Success,
@@ -2870,6 +2839,7 @@ internal static class AssessmentTests
                     "--output", revisions,
                     "--feedback", feedbackPath,
                     "--package-revision", packageRevision,
+                    "--feedback-history", feedbackHistoryPath,
                     "--predecessor", predecessor2,
                     "--changed-ids", assessment.Rows[0].Id
                 ],
@@ -2884,6 +2854,7 @@ internal static class AssessmentTests
                     "--root", fixture.Root,
                     "--revision", Path.Combine(revisions, "0003"),
                     "--feedback", feedbackPath,
+                    "--feedback-history", feedbackHistoryPath,
                     "--package-revision", packageRevision
                 ],
                 output,
@@ -2902,6 +2873,7 @@ internal static class AssessmentTests
                     "--output", revisions,
                     "--feedback", feedbackPath,
                     "--package-revision", packageRevision,
+                    "--feedback-history", feedbackHistoryPath,
                     "--predecessor", predecessor1
                 ],
                 output,
@@ -2942,7 +2914,8 @@ internal static class AssessmentTests
         string changedId,
         string name,
         StringWriter output,
-        StringWriter error)
+        StringWriter error,
+        params string[] feedbackHistory)
     {
         AssertEqual(
             ExitCodes.ValidationFailure,
@@ -2957,7 +2930,8 @@ internal static class AssessmentTests
                     "--feedback", feedbackPath,
                     "--package-revision", packageRevision,
                     "--predecessor", predecessor,
-                    "--changed-ids", changedId
+                    "--changed-ids", changedId,
+                    .. feedbackHistory.SelectMany(path => new[] { "--feedback-history", path })
                 ],
                 output,
                 error),
@@ -3499,7 +3473,7 @@ internal static class AssessmentTests
     private static void TestReportInputMutationRaces(Fixture fixture)
     {
         var initialized = AssessmentService.Initialize(
-            "unified",
+            "component",
             fixture.Root,
             fixture.Confirmed,
             fixture.ConfirmedBytes,
@@ -3565,7 +3539,7 @@ internal static class AssessmentTests
     private static void TestRevisionPublishMutationRaces(Fixture fixture)
     {
             var initialized = AssessmentService.Initialize(
-                "unified",
+                "component",
                 fixture.Root,
                 fixture.Confirmed,
                 fixture.ConfirmedBytes,
@@ -3594,10 +3568,10 @@ internal static class AssessmentTests
                     error),
                 $"publish-race predecessor render: {error}");
             var predecessorBytes = File.ReadAllBytes(
-                Path.Combine(revisions, "0001", "unified.validation.json"));
+                Path.Combine(revisions, "0001", "component.validation.json"));
             var predecessor = ContractJson.RawDigest(predecessorBytes).Value;
 
-            foreach (var name in new[] { "unified.validation.json", "unified.report.md" })
+            foreach (var name in new[] { "component.validation.json", "component.report.md" })
             {
                 var path = Path.Combine(revisions, "0001", name);
                 var original = File.ReadAllBytes(path);
@@ -3753,6 +3727,14 @@ internal static class AssessmentTests
         var evidenceIds = evidence.Selection.Select(selection => selection.EvidenceId).ToArray();
         var rows = initialized.Rows.Select((row, index) =>
         {
+            if (row.Id == "BEQ-05")
+            {
+                return row with
+                {
+                    Status = "not tested",
+                    AssessmentFollowUp = "The synthetic fixture does not exercise claimed static SSR."
+                };
+            }
             if (index != 0)
             {
                 return row with

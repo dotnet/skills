@@ -71,12 +71,14 @@ or weaken an independently proved conflict.
   evidence; missing SBOM bytes alone do not prove those rows.
 - Direct absence of a required published/public/documented commitment is a `gap` only when the
   confirmed owner-controlled public corpus is complete for that surface. An incomplete or blocked
-  corpus is `not tested`. For `SUP-03`, `SUP-05`, `SUP-06`, `BEQ-05`, and `CI-09`, a direct
+  corpus is `not tested`. For `SUP-03`, `SUP-05`, and `SUP-06`, a direct
   absence gap in a new schema-v2 assessment uses `public-absence-v1` bound to the accepted typed
-  corpus. `CI-09` may instead use `direct-failure-v1` when behavioral assertions are present but
-  exact sample compilation fails.
-- A row may cite only one directed-gap protocol family. In particular, `CI-09` cannot claim both
-  that behavioral assertions are absent and that they are present but compilation failed.
+  corpus. BEQ-05 now concerns observed static-SSR behavior, not absence of a
+  special documentation contract. Documentation-testing advice is request-only,
+  not a separate scored obligation.
+- A row may cite only one directed-gap protocol family. A directed-gap protocol must be
+  cited by its matching requirement with `gap` status; it is
+  not generic proof for another row.
 - Do not treat every word `documented` as `public`. Missing private review, retention, approval,
   staffing, or release-governance records is `owner evidence required`.
 - If an owner must first define acceptable licenses, representative scenarios, targets, or accepted

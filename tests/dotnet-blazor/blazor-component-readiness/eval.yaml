@@ -7,6 +7,51 @@ defaults:
 scoring:
   threshold: 1.0
 stimuli:
+  - name: Give documentation-testing advice without a readiness finding
+    prompt: |
+      We're discussing follow-up advice for a Blazor component readiness review, but no assessment
+      report exists yet. Our public samples already exist. How should we check a few examples for
+      accuracy, especially when a Razor attribute can compile without configuring the intended
+      component parameter? Explain a bounded approach here, not a new assessment or implementation.
+    constraints:
+      reject_tools: [execute, bash, Bash, run_shell_command, edit, Edit, Write, write_file, web_search, web_fetch]
+    graders:
+      - type: file-not-exists
+        config:
+          path: '**/*.assessment.json'
+      - type: file-not-exists
+        config:
+          path: '**/decision-guidance.md'
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - Explains why successful compilation alone may miss an ineffective parameter or promise and suggests checking the specific observable behavior.
+      - Uses the exact package and documented context without demanding that every vendor sample be compiled, requiring Copilot use, or inventing a failed readiness criterion.
+      - Answers the requested how-to question without creating a report, changing scores, executing examples, installing tools, or claiming an operation ran.
+
+  - name: Give bounded data-transfer advice without profiling
+    prompt: |
+      As optional follow-up to our Blazor component readiness discussion, help me reason about a
+      Server component that serializes its full data set on each selection change. We have source
+      showing that send path but no trace, measured payload size, timing, or evidence of a user
+      impact yet. No assessment report exists. What can we conclude now and what would help
+      determine whether anything should change?
+    constraints:
+      reject_tools: [execute, bash, Bash, run_shell_command, edit, Edit, Write, write_file, web_search, web_fetch]
+    graders:
+      - type: file-not-exists
+        config:
+          path: '**/*.assessment.json'
+      - type: file-not-exists
+        config:
+          path: '**/decision-guidance.md'
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - Treats full-data serialization as a potentially intentional pattern, not proof of a defect, excessive cost, or a missing budget.
+      - Identifies concrete evidence such as call frequency, actual payload bytes and the affected interaction while explaining the limits of allocation and copying attribution.
+      - Gives advice without launching profiling, promising a diagnosis, requiring a broad performance dossier, or creating or changing readiness results.
+
   - name: Retain excluded deliverables without inventing defects
     prompt: |
       Review fixture/library-only.json and write out/scope.md explaining how the current
@@ -177,13 +222,14 @@ stimuli:
 
   - name: Classify three different evidence boundaries
     prompt: |
-      Produce a local factual assessment for the supplied Blazor Grid package. One package fact is
-      contradicted by the artifact, one release fact can only come from the owner, and one runtime
+      Produce a local factual assessment for only the Grid component in the supplied package.
+      One implementation fact is contradicted by the source, one formal accessibility fact can
+      only come from the owner, and one static-rendering
       check was never run. Keep those three situations distinct, finish the complete report under
       ./out, and verify it without network access.
     environment:
       files:
-        - src: fixtures/unified
+        - src: fixtures/component
           dest: fixture
         - src: fixtures/fixture-tool.py
           dest: fixture/fixture-tool.py
@@ -192,24 +238,24 @@ stimuli:
     graders:
       - type: file-exists
         config:
-          path: out/revisions/0001/unified.validation.json
+          path: out/revisions/0001/component.validation.json
       - type: file-contains
         config:
-          path: out/revisions/0001/unified.assessment.json
+          path: out/revisions/0001/component.assessment.json
           value: '"status":"gap"'
       - type: file-contains
         config:
-          path: out/revisions/0001/unified.assessment.json
+          path: out/revisions/0001/component.assessment.json
           value: '"status":"owner evidence required"'
       - type: file-contains
         config:
-          path: out/revisions/0001/unified.assessment.json
+          path: out/revisions/0001/component.assessment.json
           value: '"status":"not tested"'
       - type: run-command
         config:
-          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind unified --rows 121
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind component --rows 52
           expected_exit_code: 0
-          stdout_matches: VALID unified 121
+          stdout_matches: VALID component 52
       - type: exit-success
 
   - name: Apply the four status boundaries precisely
@@ -394,11 +440,12 @@ stimuli:
   - name: Use a bounded internal owner record
     prompt: |
       The package owner supplied an internal accessibility audit alongside the exact Blazor Grid package.
-      Use it where it directly applies, label where it came from, and create and verify the complete
+      Assess only the Grid component. Use the audit where it directly applies, label where it came
+      from, and create and verify the complete
       local report under ./out. Do not publish or upload anything.
     environment:
       files:
-        - src: fixtures/unified
+        - src: fixtures/component
           dest: fixture
         - src: fixtures/fixture-tool.py
           dest: fixture/fixture-tool.py
@@ -407,25 +454,25 @@ stimuli:
     graders:
       - type: file-exists
         config:
-          path: out/revisions/0001/unified.validation.json
+          path: out/revisions/0001/component.validation.json
       - type: file-contains
         config:
-          path: out/revisions/0001/unified.assessment.json
+          path: out/revisions/0001/component.assessment.json
           value: '"status":"verified"'
       - type: file-contains
         config:
-          path: out/revisions/0001/unified.evidence.json
+          path: out/revisions/0001/component.evidence.json
           value: owner-supplied-internal-evidence
       - type: run-command
         config:
-          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind unified --rows 121
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind component --rows 52
           expected_exit_code: 0
       - type: exit-success
 
   - name: Assess a package with no public source
     prompt: |
       We ship this Blazor control as binaries and do not publish its source. Produce a bounded
-      vendor assessment from the exact local package and official captured documentation, writing
+      assessment of only the closed-grid component from the exact local package and captured documentation, writing
       and verifying the complete report under ./out. Do not treat missing source as a failed fetch.
     environment:
       files:
@@ -442,10 +489,10 @@ stimuli:
           value: '"availability":"closed-source"'
       - type: file-exists
         config:
-          path: out/revisions/0001/unified.validation.json
+          path: out/revisions/0001/component.validation.json
       - type: run-command
         config:
-          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind unified --rows 121
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind component --rows 52
           expected_exit_code: 0
       - type: output-not-matches
         config:
@@ -454,12 +501,13 @@ stimuli:
 
   - name: Produce one complete component record
     prompt: |
-      Create the complete factual record for the supplied Blazor Grid package as one component-level
-      assessment. Use every core requirement exactly once, render the local report under ./out,
+      Create the complete factual record for only the Grid component in the supplied package.
+      No package assessment has been performed or is requested. Cover the component checks,
+      render the local report under ./out,
       and verify the result. No external services are available.
     environment:
       files:
-        - src: fixtures/unified
+        - src: fixtures/component
           dest: fixture
         - src: fixtures/fixture-tool.py
           dest: fixture/fixture-tool.py
@@ -468,15 +516,22 @@ stimuli:
     graders:
       - type: file-exists
         config:
-          path: out/revisions/0001/unified.report.md
+          path: out/revisions/0001/component.report.md
       - type: file-exists
         config:
-          path: out/revisions/0001/unified.validation.json
+          path: out/revisions/0001/component.validation.json
       - type: run-command
         config:
-          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind unified --rows 121
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind component --rows 52
           expected_exit_code: 0
-          stdout_matches: VALID unified 121
+          stdout_matches: VALID component 52
+      - type: file-contains
+        config:
+          path: out/revisions/0001/component.assessment.json
+          value: '"package_reference":null'
+      - type: file-not-exists
+        config:
+          path: '**/package.assessment.json'
       - type: exit-success
 
   - name: Bind package and component records
@@ -505,7 +560,7 @@ stimuli:
           expected_exit_code: 0
       - type: run-command
         config:
-          command: python3 fixture/fixture-tool.py verify-revision --revision out/grid-revisions/0001 --kind component --rows 61
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/grid-revisions/0001 --kind component --rows 52
           expected_exit_code: 0
       - type: file-contains
         config:
@@ -515,7 +570,7 @@ stimuli:
 
   - name: Preserve supplied candidate identity
     prompt: |
-      Evaluate the unpublished Blazor package file in the fixture as the release candidate it is. Preserve
+      Evaluate only candidate-grid in the unpublished Blazor package file as the release candidate it is. Preserve
       the exact package identity and bytes, create the complete local assessment under ./out, and
       verify it. Do not substitute a published or rebuilt package.
     environment:
@@ -541,7 +596,7 @@ stimuli:
           value: '"version":"3.0.0-rc.1"'
       - type: run-command
         config:
-          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind unified --rows 121
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind component --rows 52
           expected_exit_code: 0
       - type: exit-success
 
@@ -621,12 +676,12 @@ stimuli:
 
   - name: Keep the generated output factual
     prompt: |
-      Generate and verify the complete local report for the supplied Blazor Grid package. I only want the
+      Generate and verify the complete local report for only the Grid component in the supplied package. I only want the
       factual record and status counts this time, not a ship decision, ranking, or remediation
       priorities. Write everything under ./out and remain offline.
     environment:
       files:
-        - src: fixtures/unified
+        - src: fixtures/component
           dest: fixture
         - src: fixtures/fixture-tool.py
           dest: fixture/fixture-tool.py
@@ -635,7 +690,7 @@ stimuli:
     graders:
       - type: file-exists
         config:
-          path: out/revisions/0001/unified.report.md
+          path: out/revisions/0001/component.report.md
       - type: file-not-exists
         config:
           path: '**/decision-guidance.md'
@@ -644,7 +699,7 @@ stimuli:
           pattern: (?i)(release verdict|ship decision|priority ranking)
       - type: run-command
         config:
-          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind unified --rows 121
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind component --rows 52
           expected_exit_code: 0
       - type: exit-success
 
@@ -707,7 +762,7 @@ stimuli:
                      "SUP-01 SUP-02 SUP-03 SUP-04 SUP-05 SUP-06 SUP-07 SUP-08 SUP-10 "
                      "SCF-01 SCF-02 SCF-03 SCF-04 SCF-05 SCF-06 AI-01 AI-02 AI-03 AI-04 AI-05 AI-06").split()
               assert type(assessment["schema_version"]) is int and assessment["schema_version"] == 2
-              assert assessment["rubric_version"] == "2.0.1" and assessment["scope_schema_version"] == 2
+              assert assessment["rubric_version"] == "2.1.0" and assessment["scope_schema_version"] == 2
               assert assessment["assessment_kind"] == "package" and assessment["completion_state"] == "complete" and assessment["overlays"] == []
               assert assessment["selected_ids"] == ids and assessment["package_reference"] is None
               rows = assessment["rows"]
@@ -737,7 +792,7 @@ stimuli:
               reader = revision.parent.parent / "readable"
               projection = read(reader / "reader.validation.json")
               assert set(projection) == {"reader_version", "source_validation_sha256", "rubric_sha256", "package_validation_sha256", "files"}
-              assert projection["reader_version"] in ["1.0.0", "1.0.1"]
+              assert projection["reader_version"] == "1.1.0"
               assert digest(projection["source_validation_sha256"]) and digest(projection["rubric_sha256"]) and projection["package_validation_sha256"] is None
               files = projection["files"]
               assert isinstance(files, dict) and {"report.md", "evidence.md", "mapping.json"} | {"technical/" + name for name in canonical} <= set(files)
@@ -851,7 +906,7 @@ stimuli:
             - &guidance_program |
               import hashlib, pathlib, runpy, sys
               path = pathlib.Path(".grading/guidance-tool.py")
-              expected = "3776c40919d34992e01077ebb1619666f202113190de7d16cd2eb61b6327474a"
+              expected = "a1e6a9d36bed82bafd975f7c4a58976dd2c04bacd2ddd441809fad61a5da6b79"
               if hashlib.sha256(path.read_bytes()).hexdigest() != expected:
                   raise SystemExit("INVALID grader helper differs from trusted config")
               sys.argv = [str(path), *sys.argv[1:]]
@@ -860,7 +915,7 @@ stimuli:
             - --snapshot
             - .grading/retained-hashes.json
             - --snapshot-sha256
-            - &guidance_established_digest 28c94b0f6458b45140fd2c01f3b8857231563dec77b4d5d7a4191dfa0b0b00a2
+            - &guidance_established_digest 090784289e3897358249d20770bd3167da5a9ac294f2ff370f754664966858c4
             - --case
             - established
             - --mode
@@ -939,7 +994,7 @@ stimuli:
       - type: program
         config:
           program: python
-          args: [-I, -c, *guidance_program, grade-guidance, --snapshot, .grading/retained-hashes.json, --snapshot-sha256, &guidance_insufficient_digest fd00105e3f30b46730f640f8a24ecdc15b584f5984a9c3ab93248621a5dfcb56, --case, insufficient, --mode, recommendations]
+          args: [-I, -c, *guidance_program, grade-guidance, --snapshot, .grading/retained-hashes.json, --snapshot-sha256, &guidance_insufficient_digest 0b5689f7dbc41bd22343dced5f4123274054e6fb0c9f3618511d0f8d672c4866, --case, insufficient, --mode, recommendations]
       - type: prompt
         config: *guidance_judge
       - type: exit-success
@@ -1018,7 +1073,7 @@ stimuli:
     graders:
       - type: file-exists
         config:
-          path: out/revisions/0001/unified.validation.json
+          path: out/revisions/0001/component.validation.json
       - type: run-command
         config:
           command: python3 fixture/fixture-tool.py verify-dynamic --root out

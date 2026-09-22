@@ -7,7 +7,7 @@ explicitly requests a blinded accuracy, replay, or oracle comparison.
 
 Create a conclusion-free draft that contains:
 
-- the selected assessment kinds (`unified`, `package`, `component`, or package plus component);
+- the selected assessment kinds (`package`, `component`, or both as separate units);
 - exact package ID/version and the allowed nupkg input;
 - every exact source snapshot identity, including availability, repository, commit, and source
   archive input when source is available;
@@ -27,7 +27,7 @@ Schema version 2 requires these fixed vendor-neutral coverage surfaces:
   `signing-sbom-provenance`, `support-and-lifecycle`;
 - component: `component-api-and-base-source`, `browser-interop-and-style-assets`,
   `tests-and-samples`, `claimed-mode-runtime`, `accessibility-and-localization`,
-  `trim-aot-toolchains`, `performance-measurements`, `regression-and-release-mapping`.
+  `trim-aot-toolchains`, `performance-measurements`, `release-revalidation`.
 
 An available surface must bind every typed role below to an allowed input with the exact accepted
 kind. Each binding also records `origin_kind` and `origin_id`; the validator requires the input to
@@ -54,7 +54,7 @@ digest across roles is rejected until a future schema defines an explicit safe a
 | `accessibility-and-localization` | `accessibility-observations` -> `accessibility-observation`; `localization-claims` -> `localization-claim-corpus` |
 | `trim-aot-toolchains` | `toolchain-identities` -> `toolchain-identity`; `trim-aot-observations` -> `toolchain-probe` |
 | `performance-measurements` | `performance-scenarios` -> `performance-scenario`; `performance-results` -> `performance-result` |
-| `regression-and-release-mapping` | `defect-regression-map` -> `regression-map`; `release-revalidation` -> `release-revalidation` |
+| `release-revalidation` | `release-revalidation` -> `release-revalidation` |
 
 For source-available components, `component-source-closure` covers the public wrapper and inherited
 base/runtime paths, while `browser-interop-source` and `style-asset-inventory` cover the browser and

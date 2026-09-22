@@ -12,11 +12,11 @@ environment:
 stimuli:
   - name: Select the explicit coordinator for a vendor assessment
     prompt: |
-      We own the supplied Blazor Grid package and need a local readiness self-assessment before release.
+      We own the supplied Blazor package and need a local readiness self-assessment of only its Grid component.
       Coordinate the work, keep it offline, and report the deterministic artifact paths.
     environment:
       files:
-        - src: ../blazor-component-readiness/fixtures/unified
+        - src: ../blazor-component-readiness/fixtures/component
           dest: fixture
         - src: ../blazor-component-readiness/fixtures/fixture-tool.py
           dest: fixture/fixture-tool.py
@@ -34,11 +34,11 @@ stimuli:
 
   - name: Use the registered portable dependency
     prompt: |
-      Produce the complete verified local record for the supplied Blazor Grid package under ./out. Use the
+      Produce the complete verified local record for only the Grid component in the supplied package under ./out. Use the
       packaged deterministic tooling and do not contact external services.
     environment:
       files:
-        - src: ../blazor-component-readiness/fixtures/unified
+        - src: ../blazor-component-readiness/fixtures/component
           dest: fixture
         - src: ../blazor-component-readiness/fixtures/fixture-tool.py
           dest: fixture/fixture-tool.py
@@ -47,10 +47,10 @@ stimuli:
     graders:
       - type: file-exists
         config:
-          path: out/revisions/0001/unified.validation.json
+          path: out/revisions/0001/component.validation.json
       - type: run-command
         config:
-          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind unified --rows 121
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind component --rows 52
           expected_exit_code: 0
       - type: exit-success
       - type: prompt
@@ -112,7 +112,8 @@ stimuli:
       - type: prompt
     rubric:
       - Assigns every confirmed package and control unit exactly once
-      - Keeps Grid and Chart evidence isolated and binds both controls to the same exact package revision
+      - Keeps Grid and Chart evidence isolated and leaves their package relationships absent because the task does not request bindings
+      - Validates an exact package binding only when the task explicitly requests that relationship, without inferring one from library membership
       - Produces a complete factual local index only after validating all handoffs
 
   - name: Reconcile after an interrupted library run
@@ -195,12 +196,12 @@ stimuli:
 
   - name: Keep coordination local and factual
     prompt: |
-      Create the verified local assessment for the supplied Blazor Grid package. Do not push, comment,
+      Create the verified local assessment for only the Grid component in the supplied package. Do not push, comment,
       upload, rank fixes, or issue a release decision. Return only factual limitations and local
       artifact paths.
     environment:
       files:
-        - src: ../blazor-component-readiness/fixtures/unified
+        - src: ../blazor-component-readiness/fixtures/component
           dest: fixture
         - src: ../blazor-component-readiness/fixtures/fixture-tool.py
           dest: fixture/fixture-tool.py

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using BlazorComponentReadiness.Validator.Contracts;
 using BlazorComponentReadiness.Validator.Evidence;
+using BlazorComponentReadiness.Validator.Inputs;
 using BlazorComponentReadiness.Validator.IO;
 using BlazorComponentReadiness.Validator.Validation;
 
@@ -15,8 +16,12 @@ public static class EvidenceProtocolValidator
     public const string ToolchainMethod = "protocol:toolchain-probe-v1";
     public const string SourceProofMethod = "protocol:source-proof-v1";
     public const string PublicAbsenceMethod = "protocol:public-absence-v1";
-    public const string DirectFailureMethod = "protocol:direct-failure-v1";
     public const string AutoTransitionMethod = "protocol:auto-renderer-transition-v1";
+
+    /// <summary>
+    /// Identifies a component-bound static-SSR outcome linked to retained observation bytes.
+    /// </summary>
+    public const string StaticSsrMethod = "protocol:static-ssr-behavior-v1";
 
     private static readonly string[] LifecycleOperations =
     [
@@ -71,25 +76,13 @@ public static class EvidenceProtocolValidator
         {
             ["SUP-03"] = new("public-support-corpus", "support-response-sla"),
             ["SUP-05"] = new("public-support-corpus", "security-patch-cadence"),
-            ["SUP-06"] = new("public-support-corpus", "eol-advance-notice"),
-            ["BEQ-05"] = new("public-document-corpus", "static-ssr-contract"),
-            ["CI-09"] = new("sample-inventory", "behavioral-assertions")
+            ["SUP-06"] = new("public-support-corpus", "eol-advance-notice")
         };
-    private static readonly IReadOnlyDictionary<string, DirectFailureRequirement> DirectFailureRequirements =
-        new Dictionary<string, DirectFailureRequirement>(StringComparer.Ordinal)
-        {
-            ["CI-09"] = new(
-                "sample-compilation-failed",
-                "sample-compilation-result")
-        };
-
     public static void Validate(
         string root,
         ReadinessAssessment assessment,
         InputManifest input,
-        EvidenceBundle evidence,
-        bool enforceCurrentProtocols,
-        bool enforceAutoTransitionProtocol = true)
+        EvidenceBundle evidence)
     {
         var selected = evidence.Selection
             .Select(selection => selection.EvidenceId)
@@ -113,17 +106,13 @@ public static class EvidenceProtocolValidator
         }
 
         ValidateDirectedGapProtocols(assessment, protocols);
-        if (enforceCurrentProtocols)
-        {
-            RequireTypedProtocolForGapRows(assessment, protocols);
-        }
+        RequireTypedProtocolForGapRows(assessment, protocols);
 
         ValidateLifecycle(
             assessment,
             input,
             records,
-            protocols,
-            enforceCurrentProtocols);
+            protocols);
         RequireProtocolForOutcomeRow(
             assessment,
             records,
@@ -147,10 +136,8 @@ public static class EvidenceProtocolValidator
             "SUP-01",
             SupportOwnershipMethod);
         ValidateToolchainRows(assessment, input, records, protocols);
-        if (enforceAutoTransitionProtocol)
-        {
-            RequireAutoTransitionProtocol(root, assessment, input, protocols);
-        }
+        ValidateStaticSsrRow(assessment, input, protocols);
+        RequireAutoTransitionProtocol(root, assessment, input, protocols);
     }
 
     private static ParsedProtocol ParseProtocol(
@@ -173,20 +160,120 @@ public static class EvidenceProtocolValidator
                 assessmentIdentity,
                 record),
             PublicAbsenceMethod => ParsePublicAbsence(root, bytes, input),
-            DirectFailureMethod => ParseDirectFailure(
-                root,
-                bytes,
-                input,
-                assessmentIdentity,
-                record),
             AutoTransitionMethod => ParseAutoTransition(
                 root,
                 bytes,
                 input,
                 assessmentIdentity),
+            StaticSsrMethod => ParseStaticSsr(root, bytes, input, assessmentIdentity),
             _ => throw new DeterministicValidationException(
                 $"Evidence '{record.StableId}' uses unknown structured method '{record.Provenance.Method}'.")
         };
+    }
+
+    private static void ValidateStaticSsrRow(
+        ReadinessAssessment assessment,
+        InputManifest input,
+        IReadOnlyDictionary<string, ParsedProtocol> protocols)
+    {
+        var row = assessment.Rows.SingleOrDefault(item => item.Id == "BEQ-05");
+        if (row?.Status is null)
+        {
+            return;
+        }
+
+        var component = input.Components.Single(item => item.Id == assessment.Identity.ComponentId);
+        var supported = component.RenderModes.Contains("static-ssr", StringComparer.Ordinal);
+        if (!supported)
+        {
+            if (row.Status is "verified" or "gap")
+            {
+                throw new DeterministicValidationException(
+                    "BEQ-05 cannot require static SSR outside the confirmed component support claims.");
+            }
+
+            return;
+        }
+
+        if (row.Status == "not applicable")
+        {
+            throw new DeterministicValidationException("Claimed static SSR cannot be marked not applicable.");
+        }
+
+        if (row.Status is "verified" or "gap")
+        {
+            var expected = row.Status == "verified" ? "passed" : "failed";
+            if (!row.EvidenceIds.Any(id => protocols.TryGetValue(id, out var protocol) &&
+                    protocol.Method == StaticSsrMethod && protocol.Result == expected))
+            {
+                throw new DeterministicValidationException(
+                    "BEQ-05 requires the matching digest-bound static-SSR behavior observation, not documentation alone.");
+            }
+        }
+    }
+
+    private static ParsedProtocol ParseStaticSsr(
+        string root, ReadOnlyMemory<byte> bytes, InputManifest input, ExactAssessmentIdentity identity)
+    {
+        using var document = StrictJson.Parse(bytes, ResourceLimits.SupplementalInputAggregateBytes,
+            "static-SSR behavior protocol");
+        var value = document.RootElement;
+        ContractJson.RequireProperties(value, "schema_version", "protocol", "component_id", "result",
+            "raw_observation_sha256");
+        RequireProtocolHeader(value, "static-ssr-behavior");
+        var component = ContractJson.String(value, "component_id");
+        var result = ContractJson.String(value, "result");
+        var digest = ContractJson.Digest(ContractJson.Object(value, "raw_observation_sha256"));
+        if (component != identity.ComponentId || result is not ("passed" or "failed"))
+        {
+            throw new DeterministicValidationException("Static-SSR observation identity or result is invalid.");
+        }
+
+        var captures = input.EvidenceInputs.Where(item =>
+            item.Kind == "raw-observation" && item.ContentDigest == digest).ToArray();
+        if (captures.Length != 1)
+        {
+            throw new DeterministicValidationException("Static SSR requires exactly one retained raw-observation input.");
+        }
+        var capture = captures[0];
+        var rawBytes = BoundedIO.ReadAllBytes(
+            SafePath.ResolveUnderRoot(root, capture.Basename, true, true),
+            ResourceLimits.SupplementalInputAggregateBytes, "static-SSR raw observation");
+        if (ContractJson.RawDigest(rawBytes) != digest || rawBytes.LongLength != capture.Size)
+        {
+            throw new DeterministicValidationException("Static-SSR raw observation differs from its confirmed bytes.");
+        }
+
+        using var rawDocument = StrictJson.Parse(rawBytes, ResourceLimits.SupplementalInputAggregateBytes,
+            "static-SSR raw observation");
+        var raw = rawDocument.RootElement;
+        ContractJson.RequireProperties(raw, "schema_version", "observation", "component_id", "mode",
+            "observed_identity", "expected_behavior", "observed_behavior", "result");
+        if (ContractJson.Int32(raw, "schema_version") != 1 ||
+            ContractJson.String(raw, "observation") != "static-ssr-behavior" ||
+            ContractJson.String(raw, "component_id") != component ||
+            ContractJson.String(raw, "mode") != "static-ssr" ||
+            ContractJson.String(raw, "observed_identity") != "static" ||
+            ContractJson.String(raw, "result") != result)
+        {
+            throw new DeterministicValidationException(
+                "Static-SSR raw observation must match its component, actual static configuration and outcome.");
+        }
+
+        _ = ContractJson.NormalizeText(ContractJson.String(raw, "expected_behavior"), "expected behavior", 4096);
+        _ = ContractJson.NormalizeText(ContractJson.String(raw, "observed_behavior"), "observed behavior", 4096);
+        var canonical = StrictJson.SerializeCanonical(writer =>
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("schema_version", 1);
+            writer.WriteString("protocol", "static-ssr-behavior");
+            writer.WriteString("component_id", component);
+            writer.WriteString("result", result);
+            WriteDigest(writer, "raw_observation_sha256", digest);
+            writer.WriteEndObject();
+        });
+        ContractJson.RequireCanonical(bytes.Span, canonical, "static-SSR behavior protocol");
+        return new ParsedProtocol(StaticSsrMethod, null, result);
     }
 
     private static byte[] ReadProtocolBytes(
@@ -325,16 +412,16 @@ public static class EvidenceProtocolValidator
         var component = input.Components.SingleOrDefault(item => item.Id == componentId)
             ?? throw new DeterministicValidationException(
                 "Source proof protocol component is absent from the confirmed input.");
+        InputManifestService.ValidateDynamicChildLifecycle(component.DynamicChildLifecycle);
         if (!input.SourceArtifacts.Any(item =>
                 item.SourcePath == sourcePath &&
                 item.ContentDigest == sourceDigest) ||
             !component.AllowedSourcePaths.Contains(sourcePath, StringComparer.Ordinal) ||
-            component.DynamicChildLifecycle.Applicability != "required" ||
             record.Applicability.Scope != "component-specific" ||
             record.Applicability.ComponentId != componentId)
         {
             throw new DeterministicValidationException(
-                "Source proof protocol must bind the assessed lifecycle-required component and one of its allowed confirmed source artifacts.");
+                "Source proof protocol must bind the assessed component and one of its allowed confirmed source artifacts.");
         }
 
         var canonical = StrictJson.SerializeCanonical(writer =>
@@ -412,175 +499,6 @@ public static class EvidenceProtocolValidator
         return new ParsedProtocol(PublicAbsenceMethod, null, "absent", requirementId);
     }
 
-    private static ParsedProtocol ParseDirectFailure(
-        string root,
-        ReadOnlyMemory<byte> bytes,
-        InputManifest input,
-        ExactAssessmentIdentity assessmentIdentity,
-        EvidenceRecord record)
-    {
-        using var document = StrictJson.Parse(
-            bytes,
-            ResourceLimits.SupplementalInputAggregateBytes,
-            "direct failure protocol");
-        var value = document.RootElement;
-        ContractJson.RequireProperties(
-            value,
-            "schema_version",
-            "protocol",
-            "requirement_id",
-            "cause_kind",
-            "result",
-            "evidence_sha256");
-        RequireProtocolHeader(value, "direct-failure");
-        var requirementId = ContractJson.String(value, "requirement_id");
-        var causeKind = ContractJson.String(value, "cause_kind");
-        if (!DirectFailureRequirements.TryGetValue(requirementId, out var requirement) ||
-            causeKind != requirement.CauseKind ||
-            ContractJson.String(value, "result") != "failed")
-        {
-            throw new DeterministicValidationException(
-                "Direct failure protocol has an unsupported requirement, cause kind, or result.");
-        }
-
-        var evidenceDigest = ContractJson.Digest(
-            ContractJson.Object(value, "evidence_sha256"));
-        var evidenceInputs = input.EvidenceInputs.Where(item =>
-                item.Kind == requirement.EvidenceKind &&
-                item.ContentDigest == evidenceDigest)
-            .ToArray();
-        if (evidenceInputs.Length != 1)
-        {
-            throw new DeterministicValidationException(
-                "Direct failure protocol must bind exactly one confirmed typed failure artifact.");
-        }
-
-        ValidateDirectFailureArtifact(
-            root,
-            evidenceInputs[0],
-            input,
-            assessmentIdentity,
-            record,
-            requirementId,
-            causeKind);
-        var canonical = StrictJson.SerializeCanonical(writer =>
-        {
-            writer.WriteStartObject();
-            writer.WriteNumber("schema_version", 1);
-            writer.WriteString("protocol", "direct-failure");
-            writer.WriteString("requirement_id", requirementId);
-            writer.WriteString("cause_kind", causeKind);
-            writer.WriteString("result", "failed");
-            ContractJson.WriteDigest(writer, "evidence_sha256", evidenceDigest);
-            writer.WriteEndObject();
-        });
-        ContractJson.RequireCanonical(bytes.Span, canonical, "direct failure protocol");
-        return new ParsedProtocol(DirectFailureMethod, null, "failed", requirementId);
-    }
-
-    private static void ValidateDirectFailureArtifact(
-        string root,
-        InputEvidenceArtifact evidenceInput,
-        InputManifest input,
-        ExactAssessmentIdentity assessmentIdentity,
-        EvidenceRecord record,
-        string requirementId,
-        string causeKind)
-    {
-        var bytes = BoundedIO.ReadAllBytes(
-            SafePath.ResolveUnderRoot(
-                root,
-                evidenceInput.Basename,
-                requireExisting: true,
-                requireFile: true),
-            ResourceLimits.SupplementalInputAggregateBytes,
-            "typed direct failure artifact");
-        using var document = StrictJson.Parse(
-            bytes,
-            ResourceLimits.SupplementalInputAggregateBytes,
-            "typed direct failure artifact");
-        var value = document.RootElement;
-        ContractJson.RequireProperties(
-            value,
-            "schema_version",
-            "evidence_kind",
-            "package_sha256",
-            "component_id",
-            "requirement_id",
-            "cause_kind",
-            "sample_source_path",
-            "sample_source_sha256",
-            "toolchain_sha256",
-            "raw_log_sha256",
-            "required_surface_present",
-            "outcome");
-        var componentId = assessmentIdentity.ComponentId;
-        var samplePath = Canonicalization.RelativePath(
-            ContractJson.String(value, "sample_source_path"),
-            "direct failure sample source path");
-        var sampleDigest = ContractJson.Digest(
-            ContractJson.Object(value, "sample_source_sha256"));
-        var toolchainDigest = ContractJson.Digest(
-            ContractJson.Object(value, "toolchain_sha256"));
-        var rawLogDigest = ContractJson.Digest(
-            ContractJson.Object(value, "raw_log_sha256"));
-        var component = componentId is null
-            ? null
-            : input.Components.SingleOrDefault(item => item.Id == componentId);
-        if (ContractJson.Int32(value, "schema_version") != 1 ||
-            ContractJson.String(value, "evidence_kind") != evidenceInput.Kind ||
-            ContractJson.Digest(
-                ContractJson.Object(value, "package_sha256")) !=
-                assessmentIdentity.Package.NupkgDigest ||
-            ContractJson.NullableString(value, "component_id") != componentId ||
-            ContractJson.String(value, "requirement_id") != requirementId ||
-            ContractJson.String(value, "cause_kind") != causeKind ||
-            value.GetProperty("required_surface_present").ValueKind != JsonValueKind.True ||
-            ContractJson.String(value, "outcome") != "failed" ||
-            component is null ||
-            !component.AllowedSourcePaths.Contains(samplePath, StringComparer.Ordinal) ||
-            !input.SourceArtifacts.Any(item =>
-                item.SourcePath == samplePath &&
-                item.ContentDigest == sampleDigest) ||
-            input.EvidenceInputs.Count(item =>
-                item.Kind == "toolchain-identity" &&
-                item.ContentDigest == toolchainDigest) != 1 ||
-            input.EvidenceInputs.Count(item =>
-                item.Kind == "sample-compilation-log" &&
-                item.ContentDigest == rawLogDigest) != 1 ||
-            record.Applicability.Scope != "component-specific" ||
-            record.Applicability.ComponentId != componentId)
-        {
-            throw new DeterministicValidationException(
-                "Typed direct failure artifact does not match the assessed component, package, input, sample, toolchain, raw log, requirement, and cause.");
-        }
-
-        var canonical = StrictJson.SerializeCanonical(writer =>
-        {
-            writer.WriteStartObject();
-            writer.WriteNumber("schema_version", 1);
-            writer.WriteString("evidence_kind", evidenceInput.Kind);
-            ContractJson.WriteDigest(
-                writer,
-                "package_sha256",
-                assessmentIdentity.Package.NupkgDigest);
-            writer.WriteString("component_id", componentId);
-            writer.WriteString("requirement_id", requirementId);
-            writer.WriteString("cause_kind", causeKind);
-            writer.WriteString("sample_source_path", samplePath);
-            ContractJson.WriteDigest(writer, "sample_source_sha256", sampleDigest);
-            ContractJson.WriteDigest(writer, "toolchain_sha256", toolchainDigest);
-            ContractJson.WriteDigest(writer, "raw_log_sha256", rawLogDigest);
-            writer.WriteBoolean("required_surface_present", true);
-            writer.WriteString("outcome", "failed");
-            writer.WriteEndObject();
-        });
-        ContractJson.RequireCanonical(
-            bytes.AsSpan(),
-            canonical,
-            "typed direct failure artifact");
-    }
-
     private static void ValidatePublicCorpus(
         string root,
         InputEvidenceArtifact corpusInput,
@@ -650,7 +568,7 @@ public static class EvidenceProtocolValidator
         IReadOnlyDictionary<string, ParsedProtocol> protocols)
     {
         foreach (var (evidenceId, protocol) in protocols.Where(item =>
-                     item.Value.Method is SourceProofMethod or PublicAbsenceMethod or DirectFailureMethod))
+                     item.Value.Method is SourceProofMethod or PublicAbsenceMethod))
         {
             var row = assessment.Rows.SingleOrDefault(item =>
                 item.Id == protocol.RequirementId);
@@ -666,8 +584,7 @@ public static class EvidenceProtocolValidator
                      .Where(item =>
                          item.Value.Method is
                              SourceProofMethod or
-                             PublicAbsenceMethod or
-                             DirectFailureMethod)
+                             PublicAbsenceMethod)
                      .GroupBy(item => item.Value.RequirementId, StringComparer.Ordinal))
         {
             var citedFamilies = group
@@ -701,13 +618,11 @@ public static class EvidenceProtocolValidator
             if (!row.EvidenceIds.Any(id =>
                     protocols.TryGetValue(id, out var protocol) &&
                     protocol.RequirementId == requirementId &&
-                    (protocol.Method == PublicAbsenceMethod &&
-                     protocol.Result == "absent" ||
-                     protocol.Method == DirectFailureMethod &&
-                     protocol.Result == "failed")))
+                    protocol.Method == PublicAbsenceMethod &&
+                    protocol.Result == "absent"))
             {
                 throw new DeterministicValidationException(
-                    $"Schema-v2 row '{requirementId}' gap requires a matching typed public-absence or direct-failure protocol.");
+                    $"Schema-v2 row '{requirementId}' gap requires a matching typed public-absence protocol.");
             }
         }
     }
@@ -1237,8 +1152,7 @@ public static class EvidenceProtocolValidator
         ReadinessAssessment assessment,
         InputManifest input,
         IReadOnlyDictionary<string, EvidenceRecord> records,
-        IReadOnlyDictionary<string, ParsedProtocol> protocols,
-        bool enforceCurrentProtocols)
+        IReadOnlyDictionary<string, ParsedProtocol> protocols)
     {
         if (assessment.Identity.ComponentId is null)
         {
@@ -1306,7 +1220,7 @@ public static class EvidenceProtocolValidator
                         $"Lifecycle row '{rowId}' source gap contradicts a passed mapped lifecycle operation.");
                 case "gap" when !relevant.Any(item =>
                     item.Disposition == "observed" && item.Outcome == "failed") &&
-                    (!enforceCurrentProtocols || !hasSourceProof):
+                    !hasSourceProof:
                     throw new DeterministicValidationException(
                         $"Lifecycle row '{rowId}' cannot be a gap without an observed failed operation or matching source-proof protocol.");
                 case "not tested" when !relevant.Any(item =>
@@ -1566,7 +1480,4 @@ public static class EvidenceProtocolValidator
         string CorpusKind,
         string RequiredMarker);
 
-    private sealed record DirectFailureRequirement(
-        string CauseKind,
-        string EvidenceKind);
 }

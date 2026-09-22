@@ -224,9 +224,9 @@ an old identity or mutate a manifest to resolve stale bindings.
 
 ## Canonical identity and ledger sequence
 
-For an explicitly selected scoped component, read [the complete profile](scoped-component-profile.md)
-before initialization: it uses `--package-context-revision` and, when bound,
-`--package-context-feedback`, not the ordinary package binding below.
+For a component, read [component scope](scoped-component-profile.md) before initialization.
+Use `--kind component` and the selected component ID; no package assessment or context is required.
+Only an explicitly supplied current full-package revision may be bound.
 An authorized identity-only handoff may retain an unscored skeleton; it does not require
 row scoring, assessment validation or report/reader production.
 
@@ -316,11 +316,12 @@ If `jq` is unavailable, record that this optional example could not run; do not 
 claim the handoff succeeded. Preserve any partial output on failure and follow the run's recovery
 policy. Canonical ledgers, identities, and accepted reports remain unchanged.
 
-For unified or component scope, use that scope's existing `assessment init` options
-(including the selected component and required ordinary package or scoped-context revision), then export its identity
-the same way. A component ledger uses:
+For component scope, initialize with the selected component and export its identity the same way.
+Do not create or infer a package revision. A component ledger uses:
 
 ```text
+<launcher> assessment init --kind component --component <component-id> --root <output> --input <input.confirmed.json> --output <assessment.json>
+<launcher> assessment export-identity --assessment <assessment.json> --output <assessment-identity.json>
 <launcher> evidence ledger-build --kind component --subject <assessment-identity.json> --draft <evidence-draft.json> --nupkg <exact.nupkg> --output <component-ledger.json>
 ```
 

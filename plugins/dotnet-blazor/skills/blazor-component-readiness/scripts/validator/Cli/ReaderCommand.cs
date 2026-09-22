@@ -22,24 +22,27 @@ public static class ReaderCommand
                 Paths resolve beneath --root, independently of the current working directory.
                 The output must be outside all source revision lineages. Verification recomputes
                 every byte from the verified source, rubric, feedback and retained evidence.
-                Render uses reader 1.0.1; verify regenerates the declared 1.0.0 or 1.0.1 version.
+                Render and verify support only reader 1.1.0 and the current assessment contract.
                 This local preview is not publication or permission to share private inputs.
-                Scoped-component V1 requires --package-context-revision <directory> instead of
-                --package-revision; context feedback uses --package-context-feedback <file>.
-                This scoped export omits raw inputs and is not a self-contained validation bundle.
+                A component needs no package assessment; only declared package relationships
+                require --package-revision and any bound --package-feedback.
+                Component exports omit raw inputs and are not self-contained validation bundles.
+                Repeat --feedback-history <file> for exact predecessor feedback. It is not exported.
                 """);
             return ExitCodes.Success;
         }
         if (args[0] is not ("render" or "verify")) throw new UsageException("Unknown reader operation.");
         var options = CommandOptions.Parse(args.Skip(1).ToArray(), "--root", "--revision", "--output",
-            "--feedback", "--package-revision", "--package-feedback",
+            "--feedback", "--feedback-history", "--package-revision", "--package-feedback",
             "--package-context-revision", "--package-context-feedback");
+        AssessmentBindingOptions.RejectRetiredOptions(options);
         var root = Path.GetFullPath(options.Single("--root"));
         var revisionPath = Resolve(root, options.Single("--revision"), true);
         var outputPath = Resolve(root, options.Single("--output"), args[0] == "verify");
         var packagePath = options.Optional("--package-revision") is { } packageValue ? Resolve(root, packageValue, true) : null;
         var contextPath = options.Optional("--package-context-revision") is { } contextValue ? Resolve(root, contextValue, true) : null;
         var feedback = Snapshot(root, options.Optional("--feedback"));
+        var feedbackHistory = AssessmentBindingOptions.ReadFeedbackHistory(root, options);
         var packageFeedback = Snapshot(root, options.Optional("--package-feedback"));
         var contextFeedback = Snapshot(root, options.Optional("--package-context-feedback"));
         var existingReaderManifest = args[0] == "verify"
@@ -60,7 +63,8 @@ public static class ReaderCommand
         RejectOverlap(outputPath, Path.GetDirectoryName(revisionPath)!);
         if (packagePath is not null) RejectOverlap(outputPath, Path.GetDirectoryName(packagePath)!);
         if (contextPath is not null) RejectOverlap(outputPath, Path.GetDirectoryName(contextPath)!);
-        foreach (var snapshot in new[] { feedback, packageFeedback, contextFeedback }.OfType<ImmutableInputSnapshot>())
+        foreach (var snapshot in new[] { feedback, packageFeedback, contextFeedback }
+            .OfType<ImmutableInputSnapshot>().Concat(feedbackHistory))
         {
             if (Within(snapshot.Path, Path.GetDirectoryName(revisionPath)!) ||
                 packagePath is not null && Within(snapshot.Path, Path.GetDirectoryName(packagePath)!) ||
@@ -73,6 +77,10 @@ public static class ReaderCommand
         {
             existingReaderManifest?.EnsureUnchanged();
             feedback?.EnsureUnchanged();
+            foreach (var historicalFeedback in feedbackHistory)
+            {
+                historicalFeedback.EnsureUnchanged();
+            }
             packageFeedback?.EnsureUnchanged();
             contextFeedback?.EnsureUnchanged();
             var input = AssessmentBindingOptions.ReadRevisionInput(root, revisionPath);
@@ -81,9 +89,10 @@ public static class ReaderCommand
             var package = packagePath is null ? null : RevisionService.VerifyRevision(root, packagePath,
                 packageFeedback?.Bytes, null, validateChain: true);
             var source = RevisionService.VerifyRevision(root, revisionPath, feedback?.Bytes, bindings.Package,
-                validateChain: true, scopedPackageContext: bindings.Context);
+                validateChain: true, scopedPackageContext: bindings.Context,
+                feedbackHistory: feedbackHistory.Select(snapshot => snapshot.Bytes).ToArray());
             var parsedFeedback = feedback is null ? null :
-                FeedbackService.Parse(feedback.Bytes, source.Assessment, package?.Assessment.SelectedIds);
+                FeedbackService.Parse(feedback.Bytes, source.Assessment);
             return ReaderService.Build(root, source, parsedFeedback, feedback?.Bytes, package, bindings.Context, readerVersion);
         }
 

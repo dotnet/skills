@@ -121,7 +121,7 @@ internal static class EvidenceHandoffTests
         Failure([.. f.BundleArguments(f.Identity with { Package = f.Identity.Package with { Version = "9.9.9" } },
             [f.Record(EvidenceIdentity.ReviewerGeneratedAnalysis, ResultName)]),
             "--root", f.Root, "--manifest", f.PostInput], 1, "identity");
-        var nonexistentComponent = f.Identity with { AssessmentKind = "unified", ComponentId = "Absent" };
+        var nonexistentComponent = f.Identity with { AssessmentKind = "component", ComponentId = "Absent" };
         Failure([.. f.BundleArguments(nonexistentComponent, [f.Record(EvidenceIdentity.ReviewerGeneratedAnalysis, ResultName)]),
             "--root", f.Root, "--manifest", f.PostInput], 1, "component");
     }

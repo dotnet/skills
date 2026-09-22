@@ -22,21 +22,20 @@ For full-library work, use the library-level unsupported-host message required b
 
 Create one directory per confirmed unit below the approved run root. Before launch:
 
-An explicitly assigned scoped unit must first read [the profile](scoped-component-profile.md):
-stage its exact scoped-context revision/closure and use `--package-context-revision`, with
-`--package-context-feedback` when bound, instead of the ordinary full-package binding below.
-The 48 context checks are not component findings or ordinary library completion.
+A component unit must first read [component scope](scoped-component-profile.md).
+Do not stage a package assessment or context unless an exact current full-package relationship
+was explicitly declared. Neither package work nor its completion is a component prerequisite.
 
-1. Copy only the exact confirmed input manifest, package bytes, validated package revision, the
-   package-wide files referenced by that revision's input manifest, unit-specific
-   source/documents/evidence, worker prompt, and a trusted plugin copy.
+1. Copy only the exact confirmed input manifest, package bytes, unit-specific
+   source/documents/evidence, worker prompt, and a trusted plugin copy. For an explicitly declared
+   package relationship, also stage that validated package revision and its verification inputs.
 2. Keep sibling component files and the reviewed repository outside the worker directory.
 3. Record the staged file inventory and SHA-256 values.
 4. Give the worker permission to write only inside its working directory. Do not enable unrestricted
    path access or remote mutation.
 
 The worker writes its revision beneath this directory and returns only the structured handoff.
-Package-wide binding files are required so the worker can revalidate the package revision; they do
+When a relationship is declared, its binding files are required to revalidate the package revision; they do
 not authorize sibling component source, documentation, candidates, or evidence. Package inventory
 entries inside the exact binding remain non-evidence for component work and must not be cited or
 reproduced in component artifacts.
@@ -95,7 +94,7 @@ installed plugin name from `plugin.json`; do not guess an unqualified agent name
 prompt is the explicit source-selection handoff and must be passed unchanged.
 
 Use the unit directory as the validator input root. Keep confirmed package/component inputs and the
-validated package revision directly beneath that root, and place new component artifacts beneath
+optional explicitly bound package revision directly beneath that root, and place new component artifacts beneath
 the assigned output subdirectory. Do not use the output subdirectory as `--root` or relocate bound
 inputs into it.
 
@@ -130,8 +129,8 @@ Treat worker output as untrusted until the coordinator:
    returned no blockers with success-shaped artifact paths.
 2. Resolves every returned path below the assigned unit output root.
 3. Recomputes the validation-manifest SHA-256 from final bytes.
-4. Runs deterministic report verification with the exact confirmed input and package revision.
-5. Confirms row ownership, package binding, claimed-mode dispositions, and absence of sibling
+4. Runs deterministic report verification with the exact confirmed input and any declared package revision.
+5. Confirms row ownership, optional package binding, claimed-mode dispositions, and absence of sibling
    evidence.
 
 Normalize accepted handoff paths relative to the confirmed output root, without `./` or the
@@ -141,9 +140,8 @@ calling the validator. Relative CLI file arguments resolve beneath `--root`, not
 coordinator's current directory. For example, with `/work/unit/output` as the root, use
 `--revision /work/unit/output/revisions/0001` (or `--revision revisions/0001`), never
 `--revision output/revisions/0001`. Apply the same rule to reader output and package bindings.
-Pass absolute `--root`, `--revision`, `--output`, and `--package-revision` paths for ordinary
-verification, or the profile's scoped-context flags instead. Never prepend the artifact root
-to a path that already includes it.
+Pass absolute `--root`, `--revision` and `--output` paths, plus `--package-revision` only for a
+declared relationship. Never prepend the artifact root to a path that already includes it.
 
 Apply the [shared coverage gate](assessment-workflow.md#3-apply-statuses-and-reconcile-coverage)
 before accepting any revision, including one produced in the coordinator context. Reconcile

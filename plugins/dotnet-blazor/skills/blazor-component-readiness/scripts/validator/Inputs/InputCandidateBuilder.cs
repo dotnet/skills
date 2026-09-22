@@ -1,5 +1,6 @@
 using System.Text.Json;
 using BlazorComponentReadiness.Validator.Contracts;
+using BlazorComponentReadiness.Validator.Assessment;
 using BlazorComponentReadiness.Validator.IO;
 
 namespace BlazorComponentReadiness.Validator.Inputs;
@@ -103,6 +104,11 @@ internal static class InputCandidateBuilder
         foreach (var owner in facts.OwnerInputs)
         {
             _ = InputManifestService.CanonicalOwnerInputProvenance(owner.KindOrProvenance);
+        }
+
+        foreach (var item in facts.EvidenceInputs)
+        {
+            ComponentReportScope.RejectRetiredInput(item.KindOrProvenance, Path.GetFileName(item.Path));
         }
 
         foreach (var component in facts.Components)
@@ -227,6 +233,11 @@ internal static class InputCandidateBuilder
         return value.EnumerateArray().Select(item =>
         {
             ContractJson.RequirePropertiesUnordered(item, "path", property);
+            if (property == "kind")
+            {
+                ComponentReportScope.RejectRetiredInput(
+                    ContractJson.String(item, property), Path.GetFileName(ContractJson.String(item, "path")));
+            }
             return new CandidateSupplementalInputFact(
                 ContractJson.String(item, "path"),
                 ContractJson.String(item, property));

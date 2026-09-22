@@ -353,13 +353,11 @@ public static partial class EvidenceIdentity
         return assessmentKind switch
         {
             "package" when componentId is null => ("package", null),
-            "unified" when componentId is not null =>
-                ("unified", NormalizeText(componentId, "component_id", 256)),
             "component" when componentId is not null =>
                 ("component", NormalizeText(componentId, "component_id", 256)),
             "package" => throw new DeterministicValidationException(
                 "EVID006: package assessment identity requires component_id null."),
-            "unified" or "component" => throw new DeterministicValidationException(
+            "component" => throw new DeterministicValidationException(
                 $"EVID006: {assessmentKind} assessment identity requires component_id."),
             _ => throw new DeterministicValidationException(
                 $"EVID006: invalid assessment_kind '{assessmentKind}'.")

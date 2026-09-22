@@ -49,24 +49,8 @@ public static class RevisionService
     public static ScopedPackageContextBinding LoadScopedPackageContextBinding(
         string root, string revisionDirectory, byte[]? feedbackBytes)
     {
-        var revision = VerifyRevision(root, revisionDirectory, feedbackBytes, packageBinding: null,
-            validateChain: true);
-        var scope = AuthorizedPackageScope.Load(root, revision.Input);
-        var rubric = RubricLoader.Load();
-        var expected = rubric.CoreRequirements
-            .Where(row => row.Scope == "repository-wide" && row.Basis is { RequiresPolicyApproval: false })
-            .Select(row => row.Id).ToArray();
-        if (scope is null || revision.Kind != "package" ||
-            revision.Assessment.CompletionState != "complete" || revision.Manifest.CompletionState != "complete" ||
-            revision.Assessment.RubricVersion != rubric.RubricVersion ||
-            revision.Assessment.RubricDigest != rubric.RubricDigest ||
-            revision.Assessment.ScopeSchemaVersion != rubric.ScopeSchemaVersion ||
-            revision.Assessment.ScopeMapDigest != rubric.ScopeMapDigest ||
-            revision.Assessment.Overlays.Count != 0 ||
-            !revision.Assessment.SelectedIds.SequenceEqual(expected, StringComparer.Ordinal))
-            throw new DeterministicValidationException(
-                "Scoped package context requires a complete, verified requirement-backed package scope and its full declared validation closure, not an ordinary package prerequisite.");
-        return new ScopedPackageContextBinding(revision);
+        throw new DeterministicValidationException(
+            "Scoped package contexts are retired. Use a standalone component assessment.");
     }
 
     public static PackageRevisionBinding LoadPackageBinding(
@@ -81,13 +65,39 @@ public static class RevisionService
             packageBinding: null,
             validateChain: true,
             allowMissingFeedback: true);
+        return CreatePackageBinding(revision);
+    }
+
+    internal static PackageRevisionBinding CreatePackageBinding(RevisionArtifacts revision)
+    {
+        var rubric = AssessmentService.RequireCurrentContract(revision.Assessment);
+        ContractJson.RequireCanonical(revision.ManifestBytes,
+            ReportService.SerializeManifest(revision.Manifest), "package validation manifest");
         if (revision.Kind != "package" ||
+            revision.Assessment.AssessmentKind != "package" ||
+            revision.Manifest.AssessmentKind != "package" ||
             revision.Assessment.CompletionState != "complete" ||
             revision.Manifest.CompletionState != "complete" ||
             AuthorizedPackageScope.IsRequested(revision.Input))
         {
             throw new DeterministicValidationException(
                 "Package binding requires a complete validated package assessment revision.");
+        }
+
+        AssessmentService.ValidateSelection(revision.Assessment, RubricLoader.Select(rubric, "package", []));
+        ContractJson.RequireCanonical(revision.InputBytes, InputManifestService.Serialize(revision.Input), "package input");
+        ContractJson.RequireCanonical(revision.AssessmentBytes,
+            AssessmentService.Serialize(revision.Assessment), "package assessment");
+        ContractJson.RequireCanonical(revision.EvidenceBytes,
+            CanonicalEvidenceJson.SerializeBundle(revision.Evidence), "package evidence");
+        AssessmentService.ValidateInputIdentity(revision.Assessment.Identity, revision.Input, revision.InputBytes);
+        if (revision.Evidence.Assessment != revision.Assessment.Identity ||
+            revision.Manifest.InputManifestDigest != InputManifestService.Digest(revision.InputBytes) ||
+            revision.Manifest.AssessmentDigest != ContractJson.RawDigest(revision.AssessmentBytes) ||
+            revision.Manifest.EvidenceDigest != ContractJson.RawDigest(revision.EvidenceBytes) ||
+            revision.Manifest.ReportDigest != ContractJson.RawDigest(revision.ReportBytes))
+        {
+            throw new DeterministicValidationException("Package binding artifacts differ from their declared exact digests.");
         }
 
         var reference = new PackageAssessmentReference(
@@ -110,9 +120,11 @@ public static class RevisionService
         PackageRevisionBinding? packageBinding,
         bool validateChain,
         bool allowMissingFeedback = false,
-        ScopedPackageContextBinding? scopedPackageContext = null) =>
+        ScopedPackageContextBinding? scopedPackageContext = null,
+        IReadOnlyList<byte[]>? feedbackHistory = null) =>
         VerifyRevisionCore(root, revisionDirectory, feedbackBytes, packageBinding, validateChain,
-            allowMissingFeedback, scopedPackageContext, feedbackBytes);
+            allowMissingFeedback, scopedPackageContext,
+            FeedbackService.CreateHistory(feedbackBytes, feedbackHistory ?? []));
 
     private static RevisionArtifacts VerifyRevisionCore(
         string root,
@@ -122,9 +134,10 @@ public static class RevisionService
         bool validateChain,
         bool allowMissingFeedback,
         ScopedPackageContextBinding? scopedPackageContext,
-        byte[]? availableFeedbackBytes)
+        IReadOnlyDictionary<string, byte[]> availableFeedback)
     {
         var revision = SafePath.ResolveExistingDirectoryUnderRoot(root, revisionDirectory);
+        AssessmentService.RejectScopedContext(scopedPackageContext);
         var sequence = ParseSequence(revision);
         var validationFiles = Directory.GetFiles(
             revision,
@@ -145,10 +158,7 @@ public static class RevisionService
         }
 
         var kind = Path.GetFileName(validationFiles[0]).Split('.')[0];
-        if (kind is not ("unified" or "package" or "component"))
-        {
-            throw new DeterministicValidationException("Revision validation filename has an invalid assessment kind.");
-        }
+        RubricLoader.RequireSupportedKind(kind);
 
         var expectedFiles = new HashSet<string>(StringComparer.Ordinal)
         {
@@ -199,6 +209,12 @@ public static class RevisionService
                 "Revision filenames, assessment kind, and validation manifest kind must match.");
         }
 
+        if (feedbackBytes is null && allowMissingFeedback && manifest.FeedbackDigest is { } feedbackDigest &&
+            availableFeedback.TryGetValue(feedbackDigest.Value, out var historicalFeedback))
+        {
+            feedbackBytes = historicalFeedback;
+        }
+
         AssessmentFeedback? feedback = null;
         if (manifest.FeedbackDigest is null)
         {
@@ -210,22 +226,18 @@ public static class RevisionService
         }
         else if (feedbackBytes is null)
         {
-            if (!allowMissingFeedback || AuthorizedPackageScope.IsRequested(input) ||
-                ScopedComponentProfile.IsRequested(input))
+            if (!allowMissingFeedback || AuthorizedPackageScope.IsRequested(input) || kind == "component")
             {
                 throw new DeterministicValidationException(
-                    ScopedComponentProfile.IsRequested(input)
-                        ? $"Scoped-component revision '{Path.GetFileName(revision)}' requires its exact bound assessment feedback " +
+                    kind == "component"
+                        ? $"Component revision '{Path.GetFileName(revision)}' requires its exact bound assessment feedback " +
                             $"(SHA-256 '{manifest.FeedbackDigest.Value}'); missing or different historical feedback cannot be skipped."
                         : "Revision verification requires the exact bound assessment feedback file.");
             }
         }
         else
         {
-            feedback = FeedbackService.Parse(
-                feedbackBytes,
-                assessment,
-                packageBinding?.Assessment.SelectedIds);
+            feedback = FeedbackService.Parse(feedbackBytes, assessment);
             if (feedback.Digest != manifest.FeedbackDigest)
             {
                 throw new DeterministicValidationException(
@@ -306,25 +318,15 @@ public static class RevisionService
                 "Revision chain has a missing or skipped immediate predecessor.");
         }
 
-        byte[]? predecessorFeedback = null;
-        if (ScopedComponentProfile.IsRequested(input) && availableFeedbackBytes is not null)
-        {
-            var predecessorPath = SafePath.ResolveExistingDirectoryUnderRoot(root, predecessorDirectory);
-            var predecessorManifest = ReportService.ParseManifest(Read(
-                predecessorPath, $"{kind}.validation.json", "predecessor validation manifest"));
-            if (predecessorManifest.FeedbackDigest == ContractJson.RawDigest(availableFeedbackBytes))
-                predecessorFeedback = availableFeedbackBytes;
-        }
-
         var predecessor = VerifyRevisionCore(
             root,
             predecessorDirectory,
-            predecessorFeedback,
+            feedbackBytes: null,
             packageBinding,
             validateChain: true,
             allowMissingFeedback: true,
             scopedPackageContext,
-            availableFeedbackBytes);
+            availableFeedback);
         if (ContractJson.RawDigest(predecessor.ManifestBytes) != manifest.PredecessorManifestDigest)
         {
             throw new DeterministicValidationException(
@@ -409,11 +411,11 @@ public static class RevisionService
             var before = beforeRows[id];
             var after = afterRows[id];
             if ((before.Status != after.Status || AuthorizedPackageScope.IsRequested(predecessor.Input) ||
-                 ScopedComponentProfile.IsRequested(predecessor.Input)) &&
+                 predecessor.Kind == "component") &&
                 !after.EvidenceIds.Except(predecessorSelectedEvidence, StringComparer.Ordinal).Any())
             {
                 var changeKind = AuthorizedPackageScope.IsRequested(predecessor.Input) ? "Authorized-scope finding" :
-                    ScopedComponentProfile.IsRequested(predecessor.Input) ? "Scoped finding" : "Status";
+                    predecessor.Kind == "component" ? "Component finding" : "Status";
                 throw new DeterministicValidationException(
                     $"{changeKind} change for '{id}' requires evidence absent from the predecessor's entire selected-evidence set.");
             }
@@ -491,6 +493,9 @@ public static class RevisionService
         before.Provenance == after.Provenance &&
         before.Supersedes.SequenceEqual(after.Supersedes, StringComparer.Ordinal);
 
+    /// <summary>
+    /// Detects a supported revision kind from its canonical validation-manifest filename.
+    /// </summary>
     public static string DetectKind(string root, string revisionDirectory)
     {
         var revision = SafePath.ResolveExistingDirectoryUnderRoot(root, revisionDirectory);
@@ -506,7 +511,14 @@ public static class RevisionService
             Path.GetFileName(files[0]),
             requireExisting: true,
             requireFile: true);
-        return Path.GetFileName(file).Split('.')[0];
+        var kind = Path.GetFileName(file).Split('.')[0];
+        RubricLoader.RequireSupportedKind(kind);
+        if (Path.GetFileName(file) != $"{kind}.validation.json")
+        {
+            throw new DeterministicValidationException("Revision validation-manifest filename is not canonical.");
+        }
+
+        return kind;
     }
 
     private static byte[] Read(string revision, string filename, string resource)

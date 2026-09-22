@@ -3,10 +3,9 @@
 Feedback is user-owned Markdown beside the applicable package/component `revisions` directory. The
 validator may read it but never creates, rewrites, normalizes, or deletes it.
 
-For an explicitly profile-bound component, read [the scoped profile](scoped-component-profile.md)
-before the ordinary relationship/key and package-feedback rules below. Use its scoped-context
-flags, exact predecessor feedback and narrower disclosure contract; ordinary missing-feedback
-fallback and `--package-feedback` do not apply.
+For a component, read [component scope](scoped-component-profile.md) before the key and
+package-feedback rules below. Preserve exact predecessor feedback and component-only disclosure;
+missing declared component feedback cannot be ignored.
 
 The user may identify feedback in files, supplied exports, or authorized sources through available
 read-only tools; no particular tracker is required. A GitHub issue URL is one optional source:
@@ -42,11 +41,10 @@ Rules:
 - IDs are canonical, backticked, comma-separated, unique, and resolve to one normalized sorted set.
 - Unknown IDs, IDs outside the applicable assessment relationship, duplicate sets, and overlapping
   sets fail.
-- Package and unified feedback keys resolve only against that assessment's selected IDs.
-- Component feedback keys may resolve against the component's 61 selected IDs and the 60 IDs from
-  its exact bound package revision. One feedback key may intentionally cross that ownership
-  boundary. This does not copy package rows into the component assessment; the feedback table is
-  commentary attached to the package/component relationship.
+- Feedback keys resolve only against that assessment's selected IDs: 60 for a full package,
+  52 for a component, or the exact authorized package selection.
+- An optional package relationship does not add package IDs to component feedback. Keep package
+  commentary with the package revision; do not copy package findings into component output.
 - The raw feedback cell payload is rendered verbatim.
 - Feedback is commentary, not evidence; it never changes status or factual observation.
 - Requirement objections, evidence disputes, and skill-UX feedback remain distinct. Unmatched,
@@ -59,8 +57,16 @@ Rules:
 - Keep feedback outside immutable revision directories.
 
 To apply feedback, validate the file by rendering the next revision with `--feedback`, then verify
-that revision with the same feedback path. If package feedback is used by a component assessment,
-pass the same `--package-feedback` path while validating and verifying the component.
+that revision with the same feedback path. If an explicitly bound package revision requires feedback,
+pass its exact `--package-feedback` path while validating and verifying the component. This
+verifies the relationship; it does not export package feedback into the component report.
+
+Keep earlier feedback files when changing commentary. Component revision and reader operations
+accept repeatable `--feedback-history <file>` paths for exact predecessor feedback. Pass current
+commentary through `--feedback`; supply older bytes by their retained paths, not a reconstructed
+table. Missing or mismatched predecessor feedback blocks the chain. These files stay outside
+immutable revisions and derived readers; historical feedback is not exported.
+Current and historical commentary share the existing 32-file / 64 MiB aggregate input limits.
 
 Decision guidance is separate from feedback. Create it only on explicit request, beside this file,
 and follow `report-contract.md`; never place guidance text in the feedback table automatically.

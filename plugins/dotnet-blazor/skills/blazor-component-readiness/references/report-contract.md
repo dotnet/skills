@@ -3,10 +3,8 @@
 JSON is canonical. Markdown is generated only by the bundled validator and an earlier revision is
 never overwritten.
 
-For an explicitly bound scoped component, read [the V1 profile](scoped-component-profile.md)
-before any generic binding, feedback, verification or export step below. Its scoped context,
-feedback lineage and disclosure restrictions take precedence; a failed scoped reader is blocked,
-not permission for an unscoped fallback.
+For component work, read [standalone component scope](scoped-component-profile.md).
+A scope or disclosure failure blocks publication; it never permits a package-wide fallback.
 
 ## Revision layout
 
@@ -18,7 +16,8 @@ Use `revisions/0001`, `0002`, and so on. Each directory contains exactly:
 - `<kind>.report.md`
 - `<kind>.validation.json`
 
-`<kind>` is `unified`, `package`, or `component`. Revision `0001` has no predecessor. Each later
+`<kind>` is `package` or `component`. Unified and noncurrent contracts are rejected,
+including historical verification; existing files remain untouched. Revision `0001` has no predecessor. Each later
 revision binds the immediately preceding validation-manifest digest and cannot skip or reuse a
 sequence. A package/version or confirmed-inventory change starts a new root.
 
@@ -37,8 +36,8 @@ Do not invent an implementation cause or perform new research/probes merely to p
 Preserve existing useful actions; extended examples belong in requested guidance. This authoring
 rule adds no validation requirement and does not invalidate retained current-format revisions.
 
-Only assessment schema 2 and rubric 2.0.1 are accepted, always with the current typed
-public-absence/source-proof and Auto-transition rules. Unsupported assessment schemas or rubric
+Only assessment schema 2 and rubric 2.1.0 are accepted, always with the current typed
+public-absence/source-proof, static-SSR behavior and Auto-transition rules. Unsupported assessment schemas or rubric
 identities are rejected, not migrated, reinterpreted or rendered. `rubric_version` is persisted
 provenance, not an initialization choice; the canonical `overlays` array must remain empty.
 Unrelated schema-1 evidence, inventory, comparison and library-state formats retain their own
@@ -84,7 +83,7 @@ canonical local report with the reader limitation explicitly reported, never an 
 
 The manifest binds plugin/validator/renderer versions; rubric and scope-map digests with an empty
 overlays array; input, assessment, evidence, and report digests; selected evidence IDs; assessment kind and
-completion state; package assessment/report bindings for component work; optional feedback digest;
+completion state; an optional explicit package binding for component work; optional feedback digest;
 and optional predecessor plus declared changed IDs.
 
 It is tamper-evident but unsigned. It proves byte correspondence, not authorship, factual accuracy,
@@ -92,18 +91,22 @@ approval, certification, or suitability.
 
 ## Ordinary component binding
 
-An ordinary component revision binds the exact validated full-package revision, not a sibling
-assessment or the separate 48-check scoped recovery. For scoped work use the dedicated
-[profile](scoped-component-profile.md) instead of this command and these ordinary flags.
+A component revision is standalone by default. It needs no full-package assessment
+or scoped package context. Only an explicitly supplied current full-package revision
+may be bound; neither sibling assessments nor the separate 48-check package scope
+can substitute for that declared binding.
 
 ```text
-<launcher> assessment init --kind component --root <output> --input <input> --component <id> --package-revision <revision> --output <assessment>
+<launcher> assessment init --kind component --root <output> --input <input> --component <id> --output <assessment>
 ```
 
-Ordinary component initialization, validation, report render/verify and reader render/verify
-require `--package-revision <package-revision>` and, when used,
-`--package-feedback <package.feedback.md>`. Verify exact package/source/input binding; package
-findings and sibling component evidence cannot become this component's evidence.
+When a package reference is deliberately declared, initialization, validation,
+report render/verify and reader render/verify use the exact `--package-revision`
+and its `--package-feedback` when required. Missing, wrong-identity, stale or
+digest-mismatched declared bindings fail without fallback. An older immutable
+revision is not stale merely because a newer one exists: compare the declared
+reference. Never infer an unrelated package assessment or create one to fill a
+missing binding. Package findings and sibling evidence cannot become component evidence.
 
 Run `assessment validate` before `report render`, then `report verify` on the created revision.
 Reject an extra byte, stale feedback, wrong package binding, missing selected evidence, changed
@@ -142,8 +145,8 @@ selection, evidence identity, report/receipt hashes and reader file hashes. Ever
 the manifest and checks those bindings. The report declares the frozen bundled basis and scope identities;
 the reader also retains the canonical scope manifest. The frozen rubric scope-map digest keeps its
 original meaning and is not replaced by the selected-set digest. Completion refers only to the
-authorized selection; it does not establish ordinary full-package coverage or satisfy a component
-assessment's full-package prerequisite.
+authorized selection; it does not establish ordinary full-package coverage.
+Component assessment has no package-assessment prerequisite.
 
 The authorized evidence companion must contain only selected records. Preserve full historical
 ledgers separately; do not crop and relabel an original ledger. A new confirmed input changes
@@ -160,19 +163,24 @@ human/agent usefulness review must additionally detect paraphrased or semantical
 content. Missing bound feedback cannot bypass scoped report verification. A failed scoped reader
 is a blocked deliverable, not authorization to publish an unscoped fallback.
 
-### Scoped component profile (V1)
+### Component scope and disclosure
 
-Read the complete [scoped component profile](scoped-component-profile.md) before initialization,
-ordinary binding examples, feedback, verification or reader export. This compatibility landing
-section does not replace the V1 contract or authorize ordinary full-package fallback.
+Read [standalone component scope](scoped-component-profile.md) before initialization,
+optional binding, feedback, verification or reader export. The retired component profile and
+package-context descriptors are rejected, not migrated. Preserve selected-only evidence exports
+and exact feedback lineage in the normal component path.
 
 ## Feedback and corrections
 
 When feedback exists, read [the feedback contract](feedback-contract.md). The CLI reads but never
 rewrites the user-owned file. Render a new revision with `--feedback`, preserving input,
 assessment and evidence bytes exactly. Verify using the same exact feedback and binding inputs.
-For a profile-bound revision, apply [the profile's feedback/lineage rules](scoped-component-profile.md)
-before any ordinary fallback or package-feedback recipe.
+For a component revision, apply [the component feedback/lineage rules](scoped-component-profile.md).
+Missing declared feedback or binding inputs cannot fall back to an unbound verification.
+Preserve prior feedback files and supply them through repeatable `--feedback-history <file>`
+options on `report render/verify`, `assessment revise` and `reader render/verify` when a component
+predecessor binds different commentary. Resolution is by the declared digest, not directory
+discovery or reconstruction. Historical feedback is verification input, not reader content.
 
 A factual correction requires new evidence, the immediate predecessor digest and declared IDs.
 Read [targeted profiles](targeted-profiles.md) and the [shared assessment workflow](assessment-workflow.md)
@@ -183,7 +191,7 @@ draft, change only declared IDs, canonicalize to a new file and run:
 <launcher> assessment revise --root <output> --input <input.confirmed.json> --assessment <replacement.json> --evidence <replacement.evidence.json> --output <revisions> --predecessor <sha256> --changed-ids <id,id>
 ```
 
-Pass the applicable ordinary or scoped-context binding and exact feedback flags. Do not edit
+Pass any explicitly declared package binding and exact feedback flags. Do not edit
 prior revisions or claim unselected rows were reverified.
 
 ## Decision guidance
@@ -193,13 +201,16 @@ remediation, practical guidance or next steps opt into `decision-guidance.md`; v
 requests remain supported. No filename request or second confirmation is needed. Read
 [remediation guidance](remediation-guidance.md) before authoring.
 
-Use the existing validated revision and only requested unresolved findings. Do not rerun the
-assessment, collect evidence, execute probes or perform network research to create guidance.
+For revision-specific guidance, use the existing validated revision and requested unresolved
+findings. General documentation-testing or payload/serialization questions may be answered
+inline without a report or failed criterion. Do not create an assessment, finding, status change
+or invented validation digest to unlock advice. Do not rerun the assessment, collect evidence,
+execute probes or perform network research to create guidance.
 When the cause is not established, request the exact missing evidence or owner decision instead
 of inventing a workflow/tool prescription. Local reads, digest checks and the companion write
 are sufficient; factual corrections remain a separate task.
 
-Place the companion under the confirmed output root and outside `revisions/`, beside relevant
+For a revision-specific request, place the companion under the confirmed output root and outside `revisions/`, beside relevant
 feedback when that location is permitted, otherwise at `<output>/decision-guidance.md`.
 No feedback file is required. Do not put it inside a deterministic reader directory.
 
@@ -209,9 +220,11 @@ Its first metadata block must include:
 Source validation manifest SHA-256: <64-lowercase-hex>
 ```
 
-Guidance is an unbound, regenerable derivative of exactly that validated revision. It may state the
+Revision-specific guidance is an unbound, regenerable derivative of exactly that validated revision. It may state the
 requested verdict and priorities, but cannot change or supplement canonical facts, rows, evidence,
 counts, reports, or manifests. Replace it only after another explicit guidance request.
 Use the [per-finding shape](remediation-guidance.md#per-finding-shape), preserve baseline versus
 versioned-extension classifications, and link the companion in the final handoff without editing
-the canonical report or reader. A factual-only request creates no companion.
+the canonical report or reader. General requested advice has no source-validation metadata
+requirement and does not mutate any existing artifacts. Advice alone grants no execution
+permission. A factual-only request creates no companion.

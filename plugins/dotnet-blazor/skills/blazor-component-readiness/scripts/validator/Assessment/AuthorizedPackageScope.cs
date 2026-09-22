@@ -98,7 +98,7 @@ internal sealed class AuthorizedPackageScope
     {
         InputManifestService.Validate(input, root, requireConfirmed: true);
         if (input.SchemaVersion != InputManifestService.SchemaVersion ||
-            IsRequested(input) || ScopedComponentProfile.IsRequested(input))
+            IsRequested(input))
         {
             throw new DeterministicValidationException(
                 "Create a package scope from unscoped confirmed inputs, then register and confirm the new descriptor.");
@@ -213,7 +213,7 @@ internal sealed class AuthorizedPackageScope
         if (assessmentKind != "package" || rubric.RubricVersion != RubricLoader.CurrentVersion)
         {
             throw new DeterministicValidationException(
-                "Authorized package scope cannot be applied to a component, unified assessment, or another rubric.");
+                "Authorized package scope cannot be applied to a component assessment or another rubric.");
         }
 
         return Requirements;
@@ -274,7 +274,7 @@ internal sealed class AuthorizedPackageScope
         if (_excludedIds.IsMatch(decoded) ||
             decoded.Contains("versioned extension", StringComparison.OrdinalIgnoreCase) ||
             Regex.IsMatch(decoded,
-                @"\b(?:60|121)\s*[- ]\s*(?:canonical\s+)?(?:package\s+)?(?:rows?|checks?|requirements?|findings?)\b|\b12\s*[- ]\s*(?:excluded\s+)?extensions?\b",
+                @"\b(?:60|112|121)\s*[- ]\s*(?:canonical\s+)?(?:package\s+)?(?:rows?|checks?|requirements?|findings?)\b|\b12\s*[- ]\s*(?:excluded\s+)?extensions?\b",
                 RegexOptions.CultureInvariant | RegexOptions.IgnoreCase))
         {
             throw new DeterministicValidationException("Internal extension material cannot appear in authorized partner output.");

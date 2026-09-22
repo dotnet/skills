@@ -59,10 +59,10 @@ def command(argv, cwd, log, environment):
 
 
 def check_fixture_and_spec(spec):
-    require(len(spec["stimuli"]) == 36, "expected the original 34 stimuli plus two")
+    require(len(spec["stimuli"]) == 38, "expected the existing 36 stimuli plus two source-discovery cases")
     require(spec["defaults"] == {"runs": 1, "timeout": "20m"}, "defaults changed")
     require(spec["scoring"] == {"threshold": 1.0}, "threshold changed")
-    require(len({s["name"] for s in spec["stimuli"]}) == 36, "duplicate stimulus name")
+    require(len({s["name"] for s in spec["stimuli"]}) == 38, "duplicate stimulus name")
     selected = spec["stimuli"][-2:]
     require(tuple(s["name"] for s in selected) == NAMES, "new stimulus identity changed")
     require(selected[0]["prompt"] == selected[1]["prompt"], "prompts must be identical")
