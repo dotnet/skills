@@ -250,8 +250,8 @@
 
     const rows = [];
     for (const g of groups.values()) {
-      // Trailing window: most-recent runs only.
-      const runs = g.runs.sort((a, b) => b.date - a.date).slice(0, TRAILING_RUNS);
+      // Latest run plus up to TRAILING_RUNS earlier runs.
+      const runs = g.runs.sort((a, b) => b.date - a.date).slice(0, TRAILING_RUNS + 1);
       const latest = runs[0];
       const earlierRuns = runs.slice(1);
       const base = newArm();
