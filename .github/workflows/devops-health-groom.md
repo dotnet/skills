@@ -4,12 +4,24 @@ description: >
   Runs ~3 hours after the daily health check to groom the pinned health
   dashboard issue: links investigation results into the issue body and
   marks resolved findings.
+run-name: "${{ inputs.canary_id != '' && format('DevOps Health Groom Canary — {0}', inputs.canary_id) || 'DevOps Health — Groom Dashboard' }}"
 
 on:
   permissions: {}
   schedule:
     - cron: "0 6 * * *"  # 06:00 UTC daily (3h after health check)
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Exercise grooming and safe outputs without updating issue 695"
+        required: false
+        type: boolean
+        default: false
+      canary_id:
+        description: "Unique canary dispatch identifier"
+        required: false
+        type: string
+        default: ""
 
 # Don't run scheduled triggers on forked repositories — forks lack the
 # secrets and context required, and scheduled runs would consume the
@@ -17,9 +29,10 @@ on:
 if: ${{ (!(github.event_name == 'schedule' && github.event.repository.fork)) }}
 
 concurrency:
-  group: gh-aw-devops-health-dashboard
+  group: ${{ inputs.dry_run && format('gh-aw-devops-health-dashboard-canary-{0}', inputs.canary_id) || 'gh-aw-devops-health-dashboard' }}
   cancel-in-progress: false
   queue: max
+  job-discriminator: ${{ github.run_id }}
 
 model: ${{ vars.GH_AW_MODEL_AGENT_COPILOT || vars.GH_AW_DEFAULT_MODEL_COPILOT || 'gpt-5.6-sol' }}
 
@@ -38,6 +51,7 @@ tools:
     allowed-repos: public
 
 safe-outputs:
+  staged: ${{ inputs.dry_run }}
   report-failure-as-issue: false
   report-incomplete: false
   jobs:
@@ -47,6 +61,7 @@ safe-outputs:
         needs.agent.result == 'success' &&
         needs.detection.result == 'success' &&
         needs.detection.outputs.detection_success == 'true' &&
+        inputs.dry_run != true &&
         contains(needs.agent.outputs.output_types, 'publish_groomed_dashboard')
       runs-on: ubuntu-latest
       permissions:
@@ -810,6 +825,10 @@ You are a dashboard grooming agent. You run after the daily health check and its
 
 1. **Link investigation results** into the issue body so the description is self-contained
 2. **Mark resolved investigations** so readers know what's still relevant
+
+When `dry_run` is true, perform the same reads, validation, and output choice.
+Safe-output staging and the privileged publisher prevent repository mutation.
+Do not change the output type only because the run is a dry run.
 
 ---
 

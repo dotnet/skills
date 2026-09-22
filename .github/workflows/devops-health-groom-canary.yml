@@ -1,0 +1,157 @@
+name: DevOps Health groom canary
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/devops-health-groom.md"
+      - ".github/workflows/devops-health-groom.lock.yml"
+      - ".github/workflows/devops-health-groom-canary.yml"
+      - ".github/workflows/shared/pat_pool.md"
+      - ".github/aw/actions-lock.json"
+      - ".github/aw/shared/devops-health.lock.md"
+      - ".github/workflows/copilot-setup-steps.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: devops-health-groom-canary-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  canary:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        contains(
+          fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+          github.event.pull_request.author_association
+        )
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      CANARY_ID: canary-${{ github.run_id }}-${{ github.run_attempt }}
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      TARGET_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
+      TARGET_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Dispatch dry-run groom workflow
+        env:
+          WORKFLOW: devops-health-groom.lock.yml
+        run: |
+          set -euo pipefail
+          gh workflow run "$WORKFLOW" \
+            --repo "$REPOSITORY" \
+            --ref "$TARGET_REF" \
+            -f dry_run=true \
+            -f canary_id="$CANARY_ID"
+
+      - name: Find dispatched run
+        id: run
+        env:
+          WORKFLOW: devops-health-groom.lock.yml
+        run: |
+          set -euo pipefail
+          run_id=""
+          display_title="DevOps Health Groom Canary — ${CANARY_ID}"
+          for attempt in $(seq 1 30); do
+            run_id="$(
+              gh api \
+                --method GET \
+                "repos/${REPOSITORY}/actions/workflows/${WORKFLOW}/runs" \
+                -f event=workflow_dispatch \
+                -f branch="$TARGET_REF" \
+                -f per_page=20 |
+              jq --raw-output \
+                --arg head_sha "$TARGET_SHA" \
+                --arg display_title "$display_title" \
+                '
+                  [
+                    .workflow_runs[]
+                    | select(
+                        .head_sha == $head_sha and
+                        .display_title == $display_title
+                      )
+                  ]
+                  | sort_by(.created_at)
+                  | last
+                  | .id // empty
+                '
+            )"
+            if [ -n "$run_id" ]; then
+              echo "run_id=${run_id}" >> "$GITHUB_OUTPUT"
+              echo "Found run ${run_id} for ${TARGET_SHA}"
+              exit 0
+            fi
+            echo "Waiting for dispatched run (${attempt}/30)"
+            sleep 5
+          done
+          echo "::error::No dispatched groom run appeared for ${TARGET_SHA}"
+          exit 1
+
+      - name: Wait for groom workflow
+        env:
+          RUN_ID: ${{ steps.run.outputs.run_id }}
+        run: gh run watch "$RUN_ID" --repo "$REPOSITORY" --exit-status
+
+      - name: Download agent output
+        env:
+          RUN_ID: ${{ steps.run.outputs.run_id }}
+        run: >-
+          gh run download "$RUN_ID" --repo "$REPOSITORY"
+          --name agent-output-fallback --dir canary-artifact
+
+      - name: Require exactly one valid safe output
+        run: |
+          set -euo pipefail
+          mapfile -t outputs < <(find canary-artifact -type f -name agent_output.json -print)
+          if [ "${#outputs[@]}" -ne 1 ]; then
+            echo "::error::Expected one agent_output.json, found ${#outputs[@]}"
+            exit 1
+          fi
+          AGENT_OUTPUT="${outputs[0]}" node <<'NODE'
+          const fs = require("fs");
+
+          const output = JSON.parse(
+            fs.readFileSync(process.env.AGENT_OUTPUT, "utf8")
+          );
+          const errors = Array.isArray(output.errors) ? output.errors : [];
+          const items = Array.isArray(output.items) ? output.items : [];
+          if (errors.length !== 0) {
+            throw new Error(`Expected no safe-output errors, got ${errors.length}`);
+          }
+          if (items.length !== 1) {
+            throw new Error(`Expected exactly one safe-output item, got ${items.length}`);
+          }
+
+          const item = items[0];
+          if (item.type === "noop") {
+            if (
+              typeof item.message !== "string" ||
+              item.message.trim().length === 0 ||
+              item.message.length > 2000
+            ) {
+              throw new Error("noop must contain a non-empty bounded message");
+            }
+          } else if (item.type === "publish_groomed_dashboard") {
+            const fenced =
+              typeof item.rows_json === "string" &&
+              /^```json\r?\n([\s\S]*)\r?\n```$/.exec(item.rows_json);
+            if (!fenced || item.rows_json.length > 100000) {
+              throw new Error("publish_groomed_dashboard rows_json is not a bounded JSON fence");
+            }
+            const rows = JSON.parse(fenced[1]);
+            if (!Array.isArray(rows)) {
+              throw new Error("publish_groomed_dashboard rows_json must contain an array");
+            }
+          } else {
+            throw new Error(`Unexpected safe-output type: ${String(item.type)}`);
+          }
+
+          console.log(`Validated one ${item.type} safe-output item`);
+          NODE

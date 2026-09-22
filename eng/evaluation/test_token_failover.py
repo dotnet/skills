@@ -22,6 +22,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-run.yml"
 CALLER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation.yml"
 TEST_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-workflow-tests.yml"
+GROOM_CANARY_WORKFLOW = (
+    REPO_ROOT / ".github" / "workflows" / "devops-health-groom-canary.yml"
+)
 DASHBOARD_GENERATOR = REPO_ROOT / "eng" / "dashboard" / "generate-benchmark-data.ps1"
 PATH_SAFETY_SCRIPT = REPO_ROOT / "eng" / "evaluation" / "path-safety.ps1"
 FIND_TARGETS_SCRIPT = REPO_ROOT / "eng" / "evaluation" / "find-targets.ps1"
@@ -786,6 +789,10 @@ class TokenFailoverTests(unittest.TestCase):
             ["github", "safeoutputs"],
         )
         self.assertNotIn("update-issue", groom_frontmatter["safe-outputs"])
+        self.assertEqual(
+            groom_frontmatter["safe-outputs"]["staged"],
+            "${{ inputs.dry_run }}",
+        )
         groom_job = groom_frontmatter["safe-outputs"]["jobs"][
             "publish-groomed-dashboard"
         ]
@@ -797,6 +804,43 @@ class TokenFailoverTests(unittest.TestCase):
         self.assertIn(
             "needs.detection.outputs.detection_success == 'true'",
             groom_job["if"],
+        )
+        self.assertIn("inputs.dry_run != true", groom_job["if"])
+        groom_trigger = groom_frontmatter.get("on", groom_frontmatter.get(True))
+        groom_inputs = groom_trigger["workflow_dispatch"]["inputs"]
+        dry_run = groom_inputs["dry_run"]
+        self.assertEqual(
+            dry_run,
+            {
+                "description": (
+                    "Exercise grooming and safe outputs without updating issue 695"
+                ),
+                "required": False,
+                "type": "boolean",
+                "default": False,
+            },
+        )
+        self.assertEqual(groom_inputs["canary_id"]["default"], "")
+        self.assertFalse(groom_frontmatter["concurrency"]["cancel-in-progress"])
+        self.assertIn(
+            "gh-aw-devops-health-dashboard-canary-{0}",
+            groom_frontmatter["concurrency"]["group"],
+        )
+        self.assertIn(
+            "inputs.canary_id",
+            groom_frontmatter["concurrency"]["group"],
+        )
+        self.assertEqual(
+            groom_frontmatter["concurrency"]["job-discriminator"],
+            "${{ github.run_id }}",
+        )
+        self.assertIn(
+            "DevOps Health Groom Canary",
+            groom_frontmatter["run-name"],
+        )
+        self.assertIn(
+            "Do not change the output type only because the run is a dry run.",
+            groom,
         )
         self.assertFalse(
             groom_frontmatter["safe-outputs"]["report-failure-as-issue"]
@@ -832,6 +876,52 @@ class TokenFailoverTests(unittest.TestCase):
             groom_lock_text,
         )
         self.assertIn("expectedSeverityForFingerprint", groom_lock_text)
+
+        canary_text = GROOM_CANARY_WORKFLOW.read_text(encoding="utf-8")
+        canary = yaml.safe_load(canary_text)
+        canary_trigger = canary.get("on", canary.get(True))
+        self.assertEqual(
+            set(canary_trigger["pull_request"]["paths"]),
+            {
+                ".github/workflows/devops-health-groom.md",
+                ".github/workflows/devops-health-groom.lock.yml",
+                ".github/workflows/devops-health-groom-canary.yml",
+                ".github/workflows/shared/pat_pool.md",
+                ".github/aw/actions-lock.json",
+                ".github/aw/shared/devops-health.lock.md",
+                ".github/workflows/copilot-setup-steps.yml",
+            },
+        )
+        self.assertEqual(
+            canary["permissions"],
+            {"actions": "write", "contents": "read"},
+        )
+        canary_job = canary["jobs"]["canary"]
+        self.assertIn(
+            "github.event.pull_request.head.repo.full_name == github.repository",
+            canary_job["if"],
+        )
+        self.assertIn("OWNER", canary_job["if"])
+        self.assertIn("MEMBER", canary_job["if"])
+        self.assertIn("COLLABORATOR", canary_job["if"])
+        self.assertIn("-f dry_run=true", canary_text)
+        self.assertIn('-f canary_id="$CANARY_ID"', canary_text)
+        self.assertIn(".head_sha == $head_sha", canary_text)
+        self.assertIn(".display_title == $display_title", canary_text)
+        self.assertNotIn(".created_at >= $dispatched_at", canary_text)
+        self.assertTrue(canary["concurrency"]["cancel-in-progress"])
+        self.assertIn(
+            "github.event.pull_request.number",
+            canary["concurrency"]["group"],
+        )
+        self.assertIn("--name agent-output-fallback", canary_text)
+        self.assertNotIn("--name agent --dir canary-artifact", canary_text)
+        self.assertIn("Expected exactly one safe-output item", canary_text)
+        self.assertIn('item.type === "noop"', canary_text)
+        self.assertIn(
+            'item.type === "publish_groomed_dashboard"',
+            canary_text,
+        )
         self.assertIn(
             "url.pathname === `/${owner}/${repo}/issues/695`",
             groom_lock_text,
@@ -959,13 +1049,21 @@ class TokenFailoverTests(unittest.TestCase):
         )
         self.assertEqual(health_frontmatter["concurrency"]["queue"], "max")
         self.assertEqual(health_lock["concurrency"]["queue"], "max")
-        self.assertEqual(
-            groom_frontmatter["concurrency"],
-            health_frontmatter["concurrency"],
+        self.assertFalse(
+            groom_frontmatter["concurrency"]["cancel-in-progress"]
         )
+        self.assertEqual(groom_frontmatter["concurrency"]["queue"], "max")
         self.assertEqual(
             groom_lock["concurrency"],
-            health_lock["concurrency"],
+            {
+                "cancel-in-progress": False,
+                "group": groom_frontmatter["concurrency"]["group"],
+                "queue": "max",
+            },
+        )
+        self.assertIn(
+            '"gh-aw-conclusion-devops-health-groom-${{ github.run_id }}"',
+            groom_lock_text,
         )
         self.assertNotIn("cache-memory", health_frontmatter["tools"])
         self.assertNotIn("--allow-all-tools", health_lock_text)
