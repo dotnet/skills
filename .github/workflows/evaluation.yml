@@ -46,7 +46,7 @@ name: evaluation
 # Actions UI) can tell the per-day model profiles apart; each cron runs a
 # different profile and must not suppress the others. For all other events the
 # expression yields '' and GitHub uses the default name.
-run-name: "${{ inputs.pr_number != '' && format('Evaluate PR #{0} @ {1}', inputs.pr_number, inputs.head_sha) || (github.event.schedule == '0 7 * * 1,3,5' && 'schedule: default') || (github.event.schedule == '0 7 * * 2,6' && 'schedule: mid') || (github.event.schedule == '0 7 * * 4' && 'schedule: opus48') || (github.event.schedule == '0 7 * * 0' && 'schedule: newer') || '' }}"
+run-name: "${{ inputs.pr_number != '' && format('Evaluate PR #{0} @ {1}', inputs.pr_number, inputs.head_sha) || (github.event.schedule == '0 7 * * 1,3,5' && 'schedule: default') || (github.event.schedule == '0 7 * * 2,6' && 'schedule: mid') || (github.event.schedule == '0 7 * * 4' && 'schedule: sol') || (github.event.schedule == '0 7 * * 0' && 'schedule: newer') || '' }}"
 
 on:
   # Manual trigger for one-off deploys (e.g., AGENTVIZ SPA update),
@@ -70,14 +70,14 @@ on:
         type: string
         required: false
       matrix_profile:
-        description: "Cross-family model matrix (IMPACT-ANALYSIS.md §10). default = 2 default models (sonnet-5 + gpt-5.6-luna); mid = 3 cheap models; opus48 = opus-4.8 only; full = defaults + mid + opus48 (6, expensive — use sparingly); newer = frontier models."
+        description: "Cross-family model matrix (IMPACT-ANALYSIS.md §10). default = claude-sonnet-5 + gpt-5.6-luna; mid = claude-haiku-4.5 + mai-code-1.1-flash + gpt-5.3-codex; sol = gpt-5.6-sol only; full = default + mid (5 models); newer = gpt-6-astra + claude-opus-5."
         type: choice
         required: false
         default: default
         options:
           - default
           - mid
-          - opus48
+          - sol
           - full
           - newer
       publish_eval_data:
@@ -117,14 +117,14 @@ on:
 
   # Weekly cadence — one profile per day, keyed off the exact cron string via
   # github.event.schedule (see the find-skills step). Deterministic on re-run.
-  #   Mon/Wed/Fri -> default (sonnet-5 + gpt-5.6-luna)
-  #   Tue/Sat     -> mid     (haiku-4.5, mai, gpt-5.3-codex)
-  #   Thu         -> opus48  (opus-4.8 only)
-  #   Sun         -> newer   (gpt-5.6-sol, opus-5, sonnet-5)
+  #   Mon/Wed/Fri -> default (claude-sonnet-5 + gpt-5.6-luna)
+  #   Tue/Sat     -> mid     (claude-haiku-4.5, mai-code-1.1-flash, gpt-5.3-codex)
+  #   Thu         -> sol      (gpt-5.6-sol only)
+  #   Sun         -> newer    (gpt-6-astra, claude-opus-5)
   schedule:
     - cron: '0 7 * * 1,3,5'  # default models (Mon/Wed/Fri)
     - cron: '0 7 * * 2,6'    # cheap/mid models (Tue/Sat)
-    - cron: '0 7 * * 4'      # opus-4.8 (Thu)
+    - cron: '0 7 * * 4'      # gpt-5.6-sol (Thu)
     - cron: '0 7 * * 0'      # frontier/newer models (Sun)
 
 concurrency:
@@ -762,16 +762,16 @@ jobs:
 
           # Determine whether a new evaluation is needed by inspecting the most
           # recent completed scheduled run OF THE SAME PROFILE. Each cron entry
-          # runs a different model profile (default/mid/opus48/newer) and tags its
+          # runs a different model profile (default/mid/sol/newer) and tags its
           # run-name "schedule: <profile>". A scheduled run is only suppressed by
           # a prior SUCCESSFUL run of its OWN profile at the same commit —
           # otherwise the first profile to fire each week would skip-guard all the
-          # other profiles (and starve the judge experiment) whenever no new
+          # other profiles whenever no new
           # commit had landed between them.
           case "${{ github.event.schedule }}" in
             "0 7 * * 1,3,5") PROFILE="default" ;;
             "0 7 * * 2,6")   PROFILE="mid" ;;
-            "0 7 * * 4")     PROFILE="opus48" ;;
+            "0 7 * * 4")     PROFILE="sol" ;;
             "0 7 * * 0")     PROFILE="newer" ;;
             *)               PROFILE="default" ;;
           esac
@@ -1167,7 +1167,7 @@ jobs:
             }
 
             $parsed = @($resultFiles | ForEach-Object { Get-Content $_.FullName -Raw | ConvertFrom-Json })
-            # One group per executor model. For a one-model profile (e.g. opus48)
+            # One group per executor model. For a one-model profile (e.g. sol)
             # every file shares one model, so this yields exactly one group.
             $modelGroups = @($parsed | Group-Object -Property { "$($_.model)" })
             foreach ($mg in $modelGroups) {
@@ -1400,18 +1400,6 @@ jobs:
           merge-multiple: false
         continue-on-error: ${{ needs.evaluate.result != 'success' }}
 
-      - name: Download second-judge (crossjudge) artifacts
-        # GPT-executor dual-judge comparison (§10.6): the optional second
-        # judge re-scores each opus-judged leg and uploads under vally-crossjudge-*.
-        # Pull them so the comparison step can pair them with the primary verdicts.
-        # Absent on non-dual-judge runs — the comparison step no-ops if empty.
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          pattern: vally-crossjudge-*
-          path: all-crossjudge/
-          merge-multiple: false
-        continue-on-error: true
-
       - name: Fetch existing eval data from dashboard-eval-data
         run: |
           git fetch --depth=1 origin dashboard-eval-data:dashboard-eval-data 2>/dev/null || true
@@ -1419,6 +1407,8 @@ jobs:
           git checkout dashboard-eval-data -- data/ 2>/dev/null && \
             cp -r data/* /tmp/eval-data/data/ && \
             git checkout HEAD -- . || true
+          # The completed Opus-vs-Haiku experiment is no longer updated.
+          rm -f /tmp/eval-data/data/judge-comparison.json
 
       - name: Generate benchmark data
         run: |
@@ -1467,22 +1457,8 @@ jobs:
             }
 
             # Parse once, then group by the (executor model, judge model) pair
-            # recorded inside each results.json. Grouping by model ALONE collapsed
-            # every judge of one executor into a single entry stamped with the first
-            # file's judgeModel — so a dual-judge run mislabelled the second judge and
-            # concatenated both judges' verdicts under one label. Keying on model+judge
-            # keeps each judge's verdicts and its correct judgeModel, which is exactly
-            # the dimension the Skill Value view keys on. For a single-judge profile
-            # all files share one judge, so this still yields one group per model.
-            #
-            # Scope note: only the PRIMARY judge's results.json (vally-results-*) feed
-            # this benchmark data. The scheduled dual-judge cadence re-scores the same
-            # executor trajectories and uploads under vally-crossjudge-* (see the
-            # "Download second-judge" step), which only feeds judge-comparison.json —
-            # never this loop. So Skill Value and Quality/Efficiency both reflect the
-            # primary judge, and each executor model here carries a single judge.
-            # (The model+judge key and -SkillValueOnly dedup below stay correct even
-            # if a future change ever routes two primary judges into this set.)
+            # recorded inside each results.json. The model+judge key keeps the
+            # published dimensions correct if judge routing changes again.
             $parsed = @($resultsFiles | Sort-Object | ForEach-Object {
               [pscustomobject]@{ File = $_; Json = (Get-Content $_ -Raw | ConvertFrom-Json) }
             })
@@ -1558,113 +1534,6 @@ jobs:
             ForEach-Object { $_.BaseName }
           @($plugins) | ConvertTo-Json -AsArray | Out-File -FilePath "/tmp/eval-data/data/components.json" -Encoding utf8
         shell: pwsh
-
-      - name: Generate judge-comparison data
-        # GPT-executor dual-judge comparison (§10.6). Pair each skill's PRIMARY
-        # verdict (claude-opus-4.8 judge) with its SECOND-judge verdict (claude-haiku-4.5) by
-        # (executor model, skill) and record the SAME stat set for both judges
-        # (state, preferenceRegressed, passed, conclusive, underpowered,
-        # meanScore, winRate, stimulus-vote count in legacy field `trialCount`) plus an
-        # agreement flag, appending to an isolated
-        # judge-comparison.json. This is experiment-only data: it runs ONLY on the
-        # scheduled dual-judge cadence (no crossjudge artifacts exist on PR runs, so
-        # this step no-ops there), it is deliberately NOT listed in components.json
-        # so it never renders as a dashboard plugin, and it is never posted to any
-        # PR comment. It exists purely to decide whether to switch the primary judge.
-        shell: pwsh
-        run: |
-          if (-not (Test-Path "all-crossjudge")) {
-            Write-Host "No crossjudge artifacts this run; skipping judge comparison."
-            exit 0
-          }
-          $sha  = "${{ github.sha }}"
-          $date = (Get-Date).ToUniversalTime().ToString("o")
-
-          function Read-Verdicts([string]$root) {
-            $map = @{}
-            Get-ChildItem -Path $root -Recurse -Filter results.json -File -ErrorAction SilentlyContinue | ForEach-Object {
-              # results.json lives at <artifact>/<plugin>/<skill>/results.json, so
-              # its directory is the skill and that directory's parent
-              # (_.Directory.Parent) is the plugin. Qualify the pairing
-              # key with it: two plugins can share a skill name, and keying on
-              # model|skill alone would let the second overwrite the first and drop
-              # it from the comparison (and the agreement denominator).
-              $plugin = $_.Directory.Parent.Name
-              $j = Get-Content $_.FullName -Raw | ConvertFrom-Json
-              foreach ($v in @($j.verdicts)) {
-                if (-not $v.skillName) { continue }
-                $state = if ($v.state) {
-                  [string]$v.state
-                } elseif (-not [bool]$v.conclusive -or [bool]$v.underpowered) {
-                  "INVALID_INCONCLUSIVE"
-                } elseif ([bool]$v.passed) {
-                  "VALID_PASS"
-                } else {
-                  "VALID_NO_CHANGE"
-                }
-                $preferenceRegressed = [bool]$v.preferenceRegressed -or
-                  ($state -eq "VALID_NO_CHANGE" -and [bool]$v.regressed)
-                # Capture the SAME stat set for whichever judge produced this file,
-                # so the primary and second judge are compared apples-to-apples
-                # (not just on the pass/fail decision but on the underlying score,
-                # win rate, and power flags too).
-                $map["$plugin|$($j.model)|$($v.skillName)"] = [pscustomobject]@{
-                  plugin = "$plugin"; model = "$($j.model)"; judge = "$($j.judgeModel)"; skill = "$($v.skillName)"
-                  state = $state; preferenceRegressed = $preferenceRegressed
-                  passed = [bool]$v.passed; regressed = [bool]$v.regressed
-                  conclusive = [bool]$v.conclusive; underpowered = [bool]$v.underpowered
-                  meanScore = $v.meanScore; winRate = $v.winRate; trialCount = $v.trialCount
-                }
-              }
-            }
-            return $map
-          }
-
-          $primary = Read-Verdicts "all-results"
-          $second  = Read-Verdicts "all-crossjudge"
-
-          $outFile = "/tmp/eval-data/data/judge-comparison.json"
-          $existing = @()
-          if (Test-Path $outFile) {
-            $prev = Get-Content $outFile -Raw | ConvertFrom-Json
-            if ($prev.entries) { $existing = @($prev.entries) }
-          }
-
-          $new = @()
-          foreach ($key in $second.Keys) {
-            if (-not $primary.ContainsKey($key)) { continue }
-            $p = $primary[$key]; $s = $second[$key]
-            $new += [pscustomobject]@{
-              date = $date; commit = $sha; plugin = $p.plugin; model = $p.model; skill = $p.skill
-              primaryState = $p.state; primaryPreferenceRegressed = $p.preferenceRegressed
-              primaryJudge = $p.judge; primaryPassed = $p.passed; primaryRegressed = $p.regressed
-              primaryConclusive = $p.conclusive; primaryUnderpowered = $p.underpowered
-              primaryMeanScore = $p.meanScore; primaryWinRate = $p.winRate; primaryTrialCount = $p.trialCount
-              secondState = $s.state; secondPreferenceRegressed = $s.preferenceRegressed
-              secondJudge  = $s.judge; secondPassed  = $s.passed; secondRegressed  = $s.regressed
-              secondConclusive = $s.conclusive; secondUnderpowered = $s.underpowered
-              secondMeanScore = $s.meanScore; secondWinRate = $s.winRate; secondTrialCount = $s.trialCount
-              agree = (($p.state -eq $s.state) -and ($p.preferenceRegressed -eq $s.preferenceRegressed))
-            }
-          }
-          Write-Host "Paired $($new.Count) skill verdict(s) across both judges this run."
-
-          $all = @($existing) + @($new)
-          # Keep only entries inside the retention window.
-          $cutoff = (Get-Date).ToUniversalTime().AddDays(-1 * [int]$env:DASHBOARD_RETENTION_DAYS)
-          $all = @($all | Where-Object {
-            try { [datetime]::Parse($_.date).ToUniversalTime() -ge $cutoff } catch { $true }
-          })
-          $agree = @($all | Where-Object { $_.agree }).Count
-          $rate  = if ($all.Count -gt 0) { [math]::Round($agree / $all.Count, 4) } else { 0 }
-
-          [pscustomobject]@{
-            experiment = "opus-4.8-vs-haiku-4.5"
-            lastUpdate = $date
-            summary    = [pscustomobject]@{ pairs = $all.Count; agree = $agree; agreementRate = $rate }
-            entries    = $all
-          } | ConvertTo-Json -Depth 20 | Out-File -FilePath $outFile -Encoding utf8
-          Write-Host "judge-comparison.json: $($all.Count) pairs, agreementRate=$rate"
 
       - name: Push to dashboard-eval-data branch
         run: |

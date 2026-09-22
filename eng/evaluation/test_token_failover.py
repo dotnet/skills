@@ -378,20 +378,21 @@ class TokenFailoverTests(unittest.TestCase):
             ("issue_comment", "/evaluate", "", "", ["claude-sonnet-5", "gpt-5.6-luna"]),
             ("pull_request_review", "/evaluate --full", "", "", [
                 "claude-sonnet-5", "gpt-5.6-luna", "claude-haiku-4.5",
-                "mai-code-1.1-flash", "gpt-5.3-codex", "claude-opus-4.8",
+                "mai-code-1.1-flash", "gpt-5.3-codex",
             ]),
             ("workflow_dispatch", "", "newer", "", [
-                "gpt-5.6-sol", "claude-opus-5", "claude-sonnet-5",
+                "gpt-6-astra", "claude-opus-5",
             ]),
             ("schedule", "", "", "0 7 * * 1,3,5", ["claude-sonnet-5", "gpt-5.6-luna"]),
             ("schedule", "", "", "0 7 * * 2,6", [
                 "claude-haiku-4.5", "mai-code-1.1-flash", "gpt-5.3-codex",
             ]),
             ("schedule", "", "", "0 7 * * 0", [
-                "gpt-5.6-sol", "claude-opus-5", "claude-sonnet-5",
+                "gpt-6-astra", "claude-opus-5",
             ]),
-            ("schedule", "", "", "0 7 * * 4", ["claude-opus-4.8"]),
-            ("workflow_dispatch", "", "opus48", "", ["claude-opus-4.8"]),
+            ("schedule", "", "", "0 7 * * 4", ["gpt-5.6-sol"]),
+            ("issue_comment", "/evaluate --sol", "", "", ["gpt-5.6-sol"]),
+            ("workflow_dispatch", "", "sol", "", ["gpt-5.6-sol"]),
         ]
         for event, body, profile, schedule, models in cases:
             with self.subTest(event=event, profile=profile, schedule=schedule):
@@ -408,11 +409,8 @@ class TokenFailoverTests(unittest.TestCase):
                 self.assertEqual([entry["model"] for entry in entries], models)
                 for entry in entries:
                     is_gpt = entry["model"].startswith("gpt-")
-                    self.assertEqual(entry["judge"], "claude-opus-4.8" if is_gpt else "gpt-5.6-terra")
-                    self.assertEqual(
-                        entry["judge2"],
-                        "claude-haiku-4.5" if is_gpt and event == "schedule" else "",
-                    )
+                    self.assertEqual(entry["judge"], "claude-haiku-4.5" if is_gpt else "gpt-5.6-terra")
+                    self.assertNotIn("judge2", entry)
                     self.assertNotEqual(entry["judge"], entry["model"])
 
     def test_health_and_triage_models_are_separate_from_evaluation(self) -> None:
@@ -1739,9 +1737,20 @@ case "$COPILOT_GITHUB_TOKEN" in
   status-429) echo "Request failed with status code 429" >&2; exit 1 ;;
   too-many-requests) echo "Too Many Requests" >&2; exit 1 ;;
   weekly-message) echo "You have reached your weekly rate limit" >&2; exit 1 ;;
+  quota-exceeded) echo '{"type":"session.error","data":{"errorType":"quota","message":"You have exceeded your monthly quota","statusCode":402,"errorCode":"quota_exceeded"}}' >&2; exit 1 ;;
+  status-402) echo "Request failed with status code 402" >&2; exit 1 ;;
   timed-out) exit 124 ;;
   unauthorized) echo "401 Unauthorized" >&2; exit 7 ;;
   unauthorized-after-effort) echo "401 Unauthorized after effort retry" >&2; exit 7 ;;
+  no-auth-guidance)
+    echo "To authenticate, you can use any of the following methods:" >&2
+    echo "  • Start 'copilot' and run the '/login' command" >&2
+    echo "  • Set the COPILOT_GITHUB_TOKEN, GH_TOKEN, or GITHUB_TOKEN environment variable" >&2
+    echo "  • Run 'gh auth login' to authenticate with the GitHub CLI" >&2
+    exit 1
+    ;;
+  auth-heading-only) echo "To authenticate, you can use any of the following methods:" >&2; exit 9 ;;
+  auth-env-only) echo "Set the COPILOT_GITHUB_TOKEN, GH_TOKEN, or GITHUB_TOKEN environment variable" >&2; exit 9 ;;
   disabled) echo "This organization has been disabled" >&2; exit 8 ;;
   service-error) echo "Unexpected internal service failure" >&2; exit 9 ;;
   model-error) echo "Model gpt-401 not found" >&2; exit 10 ;;
@@ -1822,6 +1831,8 @@ esac
             "status-429",
             "too-many-requests",
             "weekly-message",
+            "quota-exceeded",
+            "status-402",
         ):
             with self.subTest(limited_token=limited_token):
                 result = self.run_selector({0: limited_token, 1: "healthy"})
@@ -1899,7 +1910,11 @@ esac
         self.assertIn("401 Unauthorized after effort retry", result.stdout)
 
     def test_unavailable_candidate_fails_over_to_healthy_candidate(self) -> None:
-        for unavailable_token in ("unauthorized", "disabled"):
+        for unavailable_token in (
+            "unauthorized",
+            "no-auth-guidance",
+            "disabled",
+        ):
             with self.subTest(unavailable_token=unavailable_token):
                 result = self.run_selector(
                     {0: unavailable_token, 1: "healthy"}
@@ -1915,7 +1930,12 @@ esac
                 )
 
     def test_unrelated_failure_does_not_try_another_candidate(self) -> None:
-        for failing_token in ("service-error", "model-error"):
+        for failing_token in (
+            "service-error",
+            "model-error",
+            "auth-heading-only",
+            "auth-env-only",
+        ):
             with self.subTest(failing_token=failing_token):
                 result = self.run_selector(
                     {0: failing_token, 1: "healthy"}
@@ -2010,6 +2030,9 @@ esac
             "user_weekly_rate_limited",
             "Too Many Requests",
             "You have reached your weekly rate limit",
+            '"errorCode":"quota_exceeded"',
+            "You have exceeded your monthly quota",
+            "Request failed with status code 402",
         ):
             env = os.environ.copy()
             env.update({"PATTERN": pattern, "MESSAGE": message})
@@ -2450,7 +2473,7 @@ esac
             run_script.count(
                 '--expected-evals "$RUNNER_TEMP/evaluation-expected-evals.txt"'
             ),
-            3,
+            2,
         )
         self.assertIn(
             'if [ "$PRODUCED" -ne "$EXPECTED_EVAL_COUNT" ]',
@@ -3038,11 +3061,9 @@ esac
         self.assertIn("v.state == null", summary_script)
 
         caller_text = CALLER_WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("primaryState = $p.state", caller_text)
-        self.assertIn(
-            "$p.preferenceRegressed -eq $s.preferenceRegressed",
-            caller_text,
-        )
+        self.assertNotIn("Generate judge-comparison data", caller_text)
+        self.assertNotIn("all-crossjudge", caller_text)
+        self.assertIn('Group-Object -Property { "$($_.Json.model)|$($_.Json.judgeModel)" }', caller_text)
 
 
 if __name__ == "__main__":

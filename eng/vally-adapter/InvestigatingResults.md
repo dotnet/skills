@@ -17,9 +17,9 @@ When an evaluation has a non-pass or warning, the PR comment includes a ready-to
 ## Quick start
 
 The default PR evaluation profile uses `claude-sonnet-5` and `gpt-5.6-luna`.
-Sonnet is judged by `gpt-5.6-terra`; Luna is judged by `claude-opus-4.8`.
+Sonnet is judged by `gpt-5.6-terra`; Luna is judged by `claude-haiku-4.5`.
 The `full` profile includes those defaults. Explicit profile selections still
-apply, and scheduled runs use their configured profile and optional second judge.
+apply, and scheduled runs use their configured profile.
 Read the model and judge fields in each result, rather than assuming that an
 older run used the current defaults. The separate health and issue-triage
 workflows default to `gpt-5.6-sol`; they do not choose the PR evaluation models.
@@ -289,6 +289,20 @@ For comparison-judge failures, inspect `errors[].code`. Known codes include
 successful first-attempt judgment fixed and replaces only errored slots. A
 recovered transient appears in `recoveredErrors[]`; an unresolved failure stays
 in `errors[]` and makes the state invalid.
+
+For native-agent results, `RunMetrics.errorCount` is diagnostic. Failed or
+retried tool calls can coexist with completed output and a valid pairwise
+judgment, so that counter alone does not invalidate a measurement. The adapter
+fails closed only on terminal evidence: `scenario.executionError`, a missing
+required arm, a timed-out arm, `failedRunCount > 0`, or a missing pairwise
+result.
+
+The workflow token preflight treats HTTP 429 and 402 quota exhaustion
+(`quota_exceeded` or a monthly-quota message) as pool-candidate exhaustion and
+tries another token. It also quarantines credentials when the Copilot CLI emits
+the paired heading and token-environment lines from its no-authentication setup
+block. Other service or configuration
+failures remain terminal so token failover cannot hide them.
 
 At the workflow level, exit code 124 with `Vally comparison watchdog expired`
 means the remote comparison phase exceeded its 60-minute recovery budget.
