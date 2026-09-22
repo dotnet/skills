@@ -234,6 +234,17 @@ test('value assessment uses preference evidence and treats pass telemetry as irr
   const expensive = valueAssessment(row(120, 1100));
   assert.equal(expensive.status, 'tradeoff');
 
+  const underSampledCost = {
+    ...row(80, 900),
+    baseline: { n: 4, tokens: 100, timeMs: 1000 },
+    treatment: { n: 4, tokens: 80, timeMs: 900 },
+  };
+  assert.equal(costMultiplier(underSampledCost), null);
+  assert.equal(valueAssessment(underSampledCost).status, 'preference-only');
+  assert.match(valueSentence(underSampledCost).text, /Looks helpful/);
+  assert.match(valueSentence(underSampledCost).text, /cost information is unavailable/);
+  assert.doesNotMatch(valueSentence(underSampledCost).text, /Insufficient signal/);
+
   const inconclusive = valueAssessment(row(80, 900, {
     ...credibleWin,
     wins: 4,
@@ -251,6 +262,20 @@ test('value assessment uses preference evidence and treats pass telemetry as irr
     direction: 'worse',
   }));
   assert.equal(regression.status, 'regression');
+  const underSampledRegression = {
+    ...row(80, 900, {
+      ...credibleWin,
+      wins: 0,
+      ties: 1,
+      losses: 7,
+      direction: 'worse',
+    }),
+    baseline: { n: 4, tokens: 100, timeMs: 1000 },
+    treatment: { n: 4, tokens: 80, timeMs: 900 },
+  };
+  assert.equal(valueAssessment(underSampledRegression).status, 'regression');
+  assert.match(valueSentence(underSampledRegression).text, /Not recommended/);
+  assert.match(valueSentence(underSampledRegression).text, /cost information is unavailable/);
 
   const underpowered = valueAssessment(row(80, 900, {
     ...credibleWin,
@@ -380,8 +405,10 @@ test('headline and recommendation use only the latest run', (t) => {
   assert.equal(rows[0].activation, 0);
   assert.equal(rows[0].treatment.tokens, 200);
   assert.equal(rows[0].treatment.timeMs, 2000);
-  assert.equal(rows[0].history.activation, 0.5);
-  assert.equal(rows[0].history.treatment.tokens, 125);
+  assert.equal(rows[0].runCount, 2);
+  assert.equal(rows[0].earlierRunCount, 1);
+  assert.equal(rows[0].history.activation, 1);
+  assert.equal(rows[0].history.treatment.tokens, 50);
   const description = valueSentence(rows[0]);
   assert.equal(description.status, 'insufficient');
   assert.doesNotMatch(description.text, /Worth installing|fewer tokens|faster/);

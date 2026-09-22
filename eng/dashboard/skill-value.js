@@ -105,6 +105,7 @@
 
   function costMultiplier(row) {
     if (!row.baseline || !row.treatment) return null;
+    if (!gated(row.baseline.n) || !gated(row.treatment.n)) return null;
     if (row.baseline.tokens <= 0 || row.treatment.tokens <= 0
         || row.baseline.timeMs <= 0 || row.treatment.timeMs <= 0) {
       return null;
@@ -252,6 +253,7 @@
       // Trailing window: most-recent runs only.
       const runs = g.runs.sort((a, b) => b.date - a.date).slice(0, TRAILING_RUNS);
       const latest = runs[0];
+      const earlierRuns = runs.slice(1);
       const base = newArm();
       const treat = newArm();
       let actExpected = 0, actFired = 0;
@@ -259,7 +261,7 @@
       let bothPass = 0, bothFail = 0, baselineOnlyPass = 0, treatmentOnlyPass = 0;
       let hasPass = false;
       let timedOutRuns = 0, baseAvail = 0, treatAvail = 0;
-      for (const { s } of runs) {
+      for (const { s } of earlierRuns) {
         addArm(base, s.baseline);
         addArm(treat, s.treatment);
         actExpected += s.activationExpected || 0;
@@ -276,20 +278,23 @@
         baseAvail += s.baseAvailable || 0;
         treatAvail += s.treatAvailable || 0;
       }
-      const history = {
-        baseline: meanArm(base), treatment: meanArm(treat),
-        activation: actExpected > 0 ? actFired / actExpected : null,
-        activationExpected: actExpected, activationFired: actFired,
-        passTotal, baseFail, treatFail, hasPass,
-        bothPass, bothFail, baselineOnlyPass, treatmentOnlyPass,
-        timedOutRuns, baseAvail, treatAvail,
-      };
+      const history = earlierRuns.length > 0
+        ? {
+            baseline: meanArm(base), treatment: meanArm(treat),
+            activation: actExpected > 0 ? actFired / actExpected : null,
+            activationExpected: actExpected, activationFired: actFired,
+            passTotal, baseFail, treatFail, hasPass,
+            bothPass, bothFail, baselineOnlyPass, treatmentOnlyPass,
+            timedOutRuns, baseAvail, treatAvail,
+          }
+        : null;
       const s = latest.s;
       const latestActExpected = s.activationExpected || 0;
       const latestActFired = s.activationFired || 0;
       rows.push({
         skill: g.skill, plugin: g.plugin, model: g.model, judge: g.judge,
         runCount: runs.length,
+        earlierRunCount: earlierRuns.length,
         date: latest.date,
         commit: latest.commit,
         baseline: s.baseline || null,
@@ -366,7 +371,7 @@
         status: initialAssessment.status,
       };
     }
-    if (!gated(pairedN) && initialAssessment.status !== 'preference-only') {
+    if (!initialAssessment.evidence && !gated(pairedN)) {
       return { text: `Insufficient signal (n=${pairedN} paired, need ≥${MIN_SAMPLES})`, cls: 'sv-insufficient', status: 'insufficient' };
     }
     // Activation contamination guard. If the skill is not confirmed to fire in
@@ -531,13 +536,13 @@
         'Completion rates provide supporting context, and time/tokens show whether the skill costs more to use.</div>';
     }
     let history = '';
-    if (row.history && row.runCount > 1) {
+    if (row.history && row.earlierRunCount > 0) {
       const h = row.history;
       const hActivation = h.activation == null ? 'unknown' : fmtPct(h.activation);
       const hPass = h.hasPass && h.passTotal > 0
         ? `${fmtPct((h.passTotal - h.baseFail) / h.passTotal)} → ${fmtPct((h.passTotal - h.treatFail) / h.passTotal)}`
         : 'unavailable';
-      history = `<div class="sv-sub" style="margin-top:8px;"><b>Earlier-run context (${row.runCount} runs; not used for the headline):</b> ` +
+      history = `<div class="sv-sub" style="margin-top:8px;"><b>Earlier-run context (${row.earlierRunCount} run(s); not used for the headline):</b> ` +
         `activation ${hActivation} · pass rate ${hPass}</div>` +
         arm(h.baseline, 'Historical average without skill') +
         arm(h.treatment, 'Historical average with skill');
