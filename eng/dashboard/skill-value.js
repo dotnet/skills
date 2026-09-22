@@ -161,7 +161,7 @@
   // explicitly diagnostic value signal from reliability CI + measured cost, but
   // never promote that signal to the authoritative install/reject labels above.
   function provisionalReliabilityAssessment(row) {
-    if (row.activationContract && row.activationContract.passed === false) return null;
+if (row.activationContract && (row.activationContract.evaluated !== true || row.activationContract.passed !== true)) return null;
     const evidence = reliabilityEvidence(row);
     const cost = costMultiplier(row);
     if (!evidence) return null;
