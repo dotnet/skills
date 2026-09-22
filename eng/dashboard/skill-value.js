@@ -243,7 +243,7 @@
         // grouped Plugin -> Skill -> Model, so their histories must never blend.
         const key = `${e.plugin}\u0000${s.skill}\u0000${model}\u0000${judge}`;
         if (!groups.has(key)) groups.set(key, { skill: s.skill, plugin: e.plugin, model, judge, runs: [] });
-        groups.get(key).runs.push({ date: e.date || 0, s });
+        groups.get(key).runs.push({ date: e.date || 0, commit: e.commit || null, s });
       }
     }
 
@@ -251,17 +251,13 @@
     for (const g of groups.values()) {
       // Trailing window: most-recent runs only.
       const runs = g.runs.sort((a, b) => b.date - a.date).slice(0, TRAILING_RUNS);
+      const latest = runs[0];
       const base = newArm();
       const treat = newArm();
       let actExpected = 0, actFired = 0;
       let passTotal = 0, baseFail = 0, treatFail = 0;
       let bothPass = 0, bothFail = 0, baselineOnlyPass = 0, treatmentOnlyPass = 0;
       let hasPass = false;
-      // Recommendation evidence is strictly the newest run's value, including
-      // null. Falling through to an older non-null result would let a legacy or
-      // incomplete latest run retain a stale "worth installing" assessment.
-      const preference = runs.length > 0 ? (runs[0].s.preference ?? null) : null;
-      const activationContract = runs.length > 0 ? (runs[0].s.activationContract ?? null) : null;
       let timedOutRuns = 0, baseAvail = 0, treatAvail = 0;
       for (const { s } of runs) {
         addArm(base, s.baseline);
@@ -280,16 +276,41 @@
         baseAvail += s.baseAvailable || 0;
         treatAvail += s.treatAvailable || 0;
       }
-      rows.push({
-        skill: g.skill, plugin: g.plugin, model: g.model, judge: g.judge,
-        runCount: runs.length,
+      const history = {
         baseline: meanArm(base), treatment: meanArm(treat),
         activation: actExpected > 0 ? actFired / actExpected : null,
         activationExpected: actExpected, activationFired: actFired,
         passTotal, baseFail, treatFail, hasPass,
         bothPass, bothFail, baselineOnlyPass, treatmentOnlyPass,
-        preference, activationContract,
         timedOutRuns, baseAvail, treatAvail,
+      };
+      const s = latest.s;
+      const latestActExpected = s.activationExpected || 0;
+      const latestActFired = s.activationFired || 0;
+      rows.push({
+        skill: g.skill, plugin: g.plugin, model: g.model, judge: g.judge,
+        runCount: runs.length,
+        date: latest.date,
+        commit: latest.commit,
+        baseline: s.baseline || null,
+        treatment: s.treatment || null,
+        activation: latestActExpected > 0 ? latestActFired / latestActExpected : null,
+        activationExpected: latestActExpected,
+        activationFired: latestActFired,
+        passTotal: s.passTotal || 0,
+        baseFail: s.baselineFail || 0,
+        treatFail: s.treatmentFail || 0,
+        hasPass: s.hasPassData === true,
+        bothPass: s.bothPass || 0,
+        bothFail: s.bothFail || 0,
+        baselineOnlyPass: s.baselineOnlyPass || 0,
+        treatmentOnlyPass: s.treatmentOnlyPass || 0,
+        preference: s.preference ?? null,
+        activationContract: s.activationContract ?? null,
+        timedOutRuns: s.timedOut ? 1 : 0,
+        baseAvail: s.baseAvailable || 0,
+        treatAvail: s.treatAvailable || 0,
+        history,
       });
     }
     rows.sort((a, b) => a.skill.localeCompare(b.skill) || a.model.localeCompare(b.model) || a.judge.localeCompare(b.judge));
@@ -492,11 +513,15 @@
         `(in ${fmtK(a.tokensIn)} / out ${fmtK(a.tokensOut)}) · ` +
         `cache read ${fmtK(a.cacheRead)} / write ${fmtK(a.cacheWrite)} · n=${a.n}</div>`;
     };
+    const commitId = typeof row.commit === 'string'
+      ? row.commit
+      : row.commit?.id || row.commit?.sha || '';
+    const commitText = commitId ? ` · commit <b>${escapeHtml(commitId.slice(0, 8))}</b>` : '';
     const pairedN = Math.min(row.baseline ? row.baseline.n : 0, row.treatment ? row.treatment.n : 0);
     // Surface how many scenarios each arm measured on its own vs. the paired set,
     // and any timed-out runs — both indicate selective missingness that could bias
     // an unpaired reading (e.g. treatment timeouts dropping the slowest cases).
-    let notes = `<div class="sv-sub" style="margin-top:6px;">Paired observations n=${pairedN}` +
+    let notes = `<div class="sv-sub" style="margin-top:6px;">Latest run paired observations n=${pairedN}` +
       ` · measured alone: baseline ${row.baseAvail}, treatment ${row.treatAvail}`;
     if (row.timedOutRuns > 0) notes += ` · ⚠ ${row.timedOutRuns} run(s) had a timed-out scenario`;
     notes += '</div>';
@@ -505,10 +530,22 @@
       notes += '<div class="sv-sub">How this guidance is chosen: the latest side-by-side task comparison determines the result. ' +
         'Completion rates provide supporting context, and time/tokens show whether the skill costs more to use.</div>';
     }
+    let history = '';
+    if (row.history && row.runCount > 1) {
+      const h = row.history;
+      const hActivation = h.activation == null ? 'unknown' : fmtPct(h.activation);
+      const hPass = h.hasPass && h.passTotal > 0
+        ? `${fmtPct((h.passTotal - h.baseFail) / h.passTotal)} → ${fmtPct((h.passTotal - h.treatFail) / h.passTotal)}`
+        : 'unavailable';
+      history = `<div class="sv-sub" style="margin-top:8px;"><b>Earlier-run context (${row.runCount} runs; not used for the headline):</b> ` +
+        `activation ${hActivation} · pass rate ${hPass}</div>` +
+        arm(h.baseline, 'Historical average without skill') +
+        arm(h.treatment, 'Historical average with skill');
+    }
     return `<div class="sv-drill">` +
-      `<div class="sv-sub" style="margin-bottom:6px;">${escapeHtml(row.plugin)} · executor <b>${escapeHtml(row.model)}</b> · judge <b>${escapeHtml(row.judge)}</b> · ${row.runCount} run(s) in window</div>` +
-      arm(row.baseline, 'Without skill') + arm(row.treatment, 'With skill') +
-      notes +
+      `<div class="sv-sub" style="margin-bottom:6px;">${escapeHtml(row.plugin)} · executor <b>${escapeHtml(row.model)}</b> · judge <b>${escapeHtml(row.judge)}</b>${commitText}</div>` +
+      arm(row.baseline, 'Latest run without skill') + arm(row.treatment, 'Latest run with skill') +
+      notes + history +
       `</div>`;
   }
 
@@ -600,7 +637,7 @@
       `<label>Judge model <select id="sv-judge"><option value="">All</option>${judges.map(m => `<option>${escapeHtml(m)}</option>`).join('')}</select></label>` +
       `<button type="button" id="sv-expand" class="sv-btn">Expand all</button>` +
       `<button type="button" id="sv-collapse" class="sv-btn">Collapse all</button>` +
-      `<span class="sv-sub">Grouped Plugin → Skill → Model. Costs and reliability use a trailing window of ${TRAILING_RUNS} runs. Reliability N / CI shows the number of runs and the likely range of the pass-rate difference. When side-by-side comparison results are unavailable, the last column gives cautious guidance from completion rate and cost, and says when more data is needed. Strong install or avoid recommendations require consistent side-by-side task results. Tokens = input+output. ≈ marks a diluted (low-activation) delta. Models are never blended.</span>` +
+      `<span class="sv-sub">Grouped Plugin → Skill → Model. Every headline value and suggestion comes from the same latest run and commit. Up to ${TRAILING_RUNS} earlier runs appear only as separate context in the drilldown. Reliability N / CI shows the number of runs and the likely range of the pass-rate difference for the latest run. Strong install or avoid recommendations require consistent side-by-side task results. Tokens = input+output. Models and commits are never blended.</span>` +
       `</div>` +
       `<div id="sv-table-wrap"></div>`;
 

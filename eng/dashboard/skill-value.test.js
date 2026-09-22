@@ -276,7 +276,7 @@ test('aggregation preserves a null preference from the newest run', (t) => {
     delete require.cache[modulePath];
   });
 
-  const skill = (preference, activationContract = null) => ({
+  const skill = (preference, activationContract = null, overrides = {}) => ({
     skill: 'skill',
     baseline: { n: 5, timeMs: 1000, tokens: 100 },
     treatment: { n: 5, timeMs: 900, tokens: 90 },
@@ -284,6 +284,7 @@ test('aggregation preserves a null preference from the newest run', (t) => {
     activationFired: 5,
     preference,
     activationContract,
+    ...overrides,
   });
   const crediblePreference = {
     count: 8,
@@ -317,6 +318,73 @@ test('aggregation preserves a null preference from the newest run', (t) => {
     violated: 1,
   });
   assert.equal(valueAssessment(rows[0]).status, 'activation-contract-failed');
+});
+
+test('headline and recommendation use only the latest run', (t) => {
+  const previousWindow = globalThis.window;
+  const hadWindow = Object.hasOwn(globalThis, 'window');
+  const modulePath = require.resolve('./skill-value.js');
+  globalThis.window = {};
+  delete require.cache[modulePath];
+  const { aggregate, valueSentence } = require(modulePath);
+
+  t.after(() => {
+    if (hadWindow) globalThis.window = previousWindow;
+    else delete globalThis.window;
+    delete require.cache[modulePath];
+  });
+
+  const crediblePreference = {
+    count: 8,
+    wins: 8,
+    ties: 0,
+    losses: 0,
+    direction: 'better',
+    pValue: 0.00390625,
+    alpha: 0.05,
+    underpowered: false,
+    conclusive: true,
+    practicalPassed: true,
+  };
+  const contract = { evaluated: true, passed: true, count: 1, violated: 0 };
+  const skill = (activationFired, treatmentTokens) => ({
+    skill: 'skill',
+    baseline: { n: 5, timeMs: 1000, tokens: 100 },
+    treatment: { n: 5, timeMs: treatmentTokens * 10, tokens: treatmentTokens },
+    activationExpected: 5,
+    activationFired,
+    preference: crediblePreference,
+    activationContract: contract,
+  });
+  const rows = aggregate([
+    {
+      plugin: 'plugin',
+      model: 'model',
+      judgeModel: 'judge',
+      commit: { id: 'old-commit' },
+      date: 1,
+      skills: [skill(5, 50)],
+    },
+    {
+      plugin: 'plugin',
+      model: 'model',
+      judgeModel: 'judge',
+      commit: { id: 'new-commit' },
+      date: 2,
+      skills: [skill(0, 200)],
+    },
+  ]);
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].commit.id, 'new-commit');
+  assert.equal(rows[0].activation, 0);
+  assert.equal(rows[0].treatment.tokens, 200);
+  assert.equal(rows[0].treatment.timeMs, 2000);
+  assert.equal(rows[0].history.activation, 0.5);
+  assert.equal(rows[0].history.treatment.tokens, 125);
+  const description = valueSentence(rows[0]);
+  assert.equal(description.status, 'insufficient');
+  assert.doesNotMatch(description.text, /Worth installing|fewer tokens|faster/);
 });
 
 test('rollups preserve regression and preference-only leaf guidance', (t) => {
