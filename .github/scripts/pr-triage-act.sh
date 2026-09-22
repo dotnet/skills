@@ -113,6 +113,7 @@ apply_label() {
   fi
   if [ "$DRY_RUN" = "true" ]; then
     log "[DRY_RUN] would add label '$label'"
+    cache_label "$label"
     return
   fi
   gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "$label" >/dev/null
@@ -125,6 +126,7 @@ remove_label() {
   if ! has_label "$label"; then return; fi
   if [ "$DRY_RUN" = "true" ]; then
     log "[DRY_RUN] would remove label '$label'"
+    uncache_label "$label"
     return
   fi
   gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "$label" >/dev/null
