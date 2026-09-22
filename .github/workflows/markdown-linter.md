@@ -183,7 +183,7 @@ Use format: "Markdown Quality Report - [Date] - [X] issues found"
 ## 🔗 References
 
 - [Link to workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-- [Super Linter Documentation](https://github.com/super-linter/super-linter)
+- [markdownlint-cli2 Documentation](https://github.com/DavidAnson/markdownlint-cli2)
 ```
 
 ## Important Guidelines
