@@ -28,6 +28,7 @@ jobs:
       candidate: ${{ steps.plan.outputs.candidate }}
       gateway_image: ${{ steps.plan.outputs.gateway_image }}
       compat_sha: ${{ steps.compat-ref.outputs.compat_sha }}
+      canary_protocol: ${{ steps.mcp-canary.outputs.protocol_version }}
     steps:
       - name: Checkout trusted main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
@@ -158,6 +159,7 @@ jobs:
           set -euo pipefail
           python -m pip install --quiet pyyaml
           python -m unittest eng/devops-health/test_copilot_pin.py
+          node --test eng/devops-health/test_mcp_canary_server.mjs
           python -m unittest \
             eng.evaluation.test_token_failover.TokenFailoverTests.test_gh_aw_runtime_upgrade_is_complete
 
@@ -172,43 +174,54 @@ jobs:
           bash "$RUNNER_TEMP/gh-aw/actions/install_copilot_cli.sh" "$CANDIDATE"
           test "$(copilot --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)" = "$CANDIDATE"
 
-      - name: Run non-mutating Copilot canary
+      - name: Run end-to-end Copilot and MCP Gateway canary
+        id: mcp-canary
         if: steps.plan.outputs.stale == 'true'
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT_0 || secrets.COPILOT_PAT_1 || secrets.COPILOT_PAT_2 || secrets.COPILOT_PAT_3 || secrets.COPILOT_PAT_4 || secrets.COPILOT_PAT_5 || secrets.COPILOT_PAT_6 || secrets.COPILOT_PAT_7 || secrets.COPILOT_PAT_8 || secrets.COPILOT_PAT_9 }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -z "$COPILOT_GITHUB_TOKEN" ]]; then
-            echo "::error::No Copilot PAT is available for the safe canary"
-            exit 1
-          fi
-          output=$(timeout 60 copilot \
-            --prompt "Reply exactly OK" \
-            --available-tools="" \
-            --silent \
-            --effort=low)
-          if [[ "$output" != *"OK"* ]]; then
-            echo "::error::Copilot canary did not return the expected marker"
-            exit 1
-          fi
-
-      - name: Run non-mutating MCP Gateway canary
-        if: steps.plan.outputs.stale == 'true'
-        env:
           GATEWAY_IMAGE: ${{ steps.plan.outputs.gateway_image }}
         shell: bash
         run: |
           set -euo pipefail
           name="devops-health-pin-canary-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           gateway_pid=""
+          backend_pid=""
           cleanup() {
             docker rm --force "$name" >/dev/null 2>&1 || true
             if [[ -n "$gateway_pid" ]]; then
               wait "$gateway_pid" 2>/dev/null || true
             fi
+            if [[ -n "$backend_pid" ]]; then
+              kill "$backend_pid" 2>/dev/null || true
+              wait "$backend_pid" 2>/dev/null || true
+            fi
           }
           trap cleanup EXIT
+          if [[ -z "$COPILOT_GITHUB_TOKEN" ]]; then
+            echo "::error::No Copilot PAT is available for the compatibility canary"
+            exit 1
+          fi
+          : > "$RUNNER_TEMP/mcp-canary-evidence.jsonl"
+          CANARY_PORT=18081 \
+          CANARY_EVIDENCE="$RUNNER_TEMP/mcp-canary-evidence.jsonl" \
+            node eng/devops-health/mcp_canary_server.mjs \
+            > "$RUNNER_TEMP/mcp-canary-backend.log" 2>&1 &
+          backend_pid=$!
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:18081/health >/dev/null; then
+              break
+            fi
+            if ! kill -0 "$backend_pid" 2>/dev/null; then
+              cat "$RUNNER_TEMP/mcp-canary-backend.log"
+              echo "::error::Trusted MCP canary backend exited during startup"
+              exit 1
+            fi
+            if [[ "$attempt" == "20" ]]; then
+              echo "::error::Trusted MCP canary backend did not become healthy"
+              exit 1
+            fi
+            sleep 1
+          done
           cat > "$RUNNER_TEMP/gateway-config.json" <<'JSON'
           {
             "mcpServers": {
@@ -228,27 +241,110 @@ jobs:
           docker run --rm --interactive --name "$name" \
             --add-host host.docker.internal:host-gateway \
             --publish 127.0.0.1:18080:18080 \
+            --volume /var/run/docker.sock:/var/run/docker.sock \
             --env MCP_GATEWAY_PORT=18080 \
             --env MCP_GATEWAY_DOMAIN=localhost \
             --env MCP_GATEWAY_AGENT_ID=devops-health-pin-canary \
+            --env DOCKER_HOST=unix:///var/run/docker.sock \
             "$GATEWAY_IMAGE" \
             < "$RUNNER_TEMP/gateway-config.json" \
             > "$RUNNER_TEMP/gateway.log" 2>&1 &
           gateway_pid=$!
           for attempt in $(seq 1 20); do
             if curl --fail --silent http://127.0.0.1:18080/health >/dev/null; then
-              exit 0
+              break
             fi
             if ! kill -0 "$gateway_pid" 2>/dev/null; then
               cat "$RUNNER_TEMP/gateway.log"
               echo "::error::MCP Gateway exited before its health check passed"
               exit 1
             fi
+            if [[ "$attempt" == "20" ]]; then
+              cat "$RUNNER_TEMP/gateway.log"
+              echo "::error::MCP Gateway health canary failed"
+              exit 1
+            fi
             sleep 1
           done
-          cat "$RUNNER_TEMP/gateway.log"
-          echo "::error::MCP Gateway health canary failed"
-          exit 1
+          for authorization in "" "wrong-canary-agent"; do
+            auth_header=()
+            if [[ -n "$authorization" ]]; then
+              auth_header=(--header "Authorization: $authorization")
+            fi
+            status=$(
+              curl --silent --show-error \
+                --output /dev/null \
+                --write-out "%{http_code}" \
+                "${auth_header[@]}" \
+                --header "content-type: application/json" \
+                --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"unauthorized-canary","version":"1"}}}' \
+                http://127.0.0.1:18080/mcp/canary
+            )
+            if [[ "$status" != "401" && "$status" != "403" ]]; then
+              echo "::error::MCP Gateway accepted invalid authorization (HTTP $status)"
+              exit 1
+            fi
+          done
+          if [[ -s "$RUNNER_TEMP/mcp-canary-evidence.jsonl" ]]; then
+            echo "::error::Unauthorized requests reached the MCP backend"
+            exit 1
+          fi
+          mkdir -p "$HOME/.copilot"
+          cat > "$HOME/.copilot/mcp-config.json" <<'JSON'
+          {
+            "mcpServers": {
+              "canary": {
+                "type": "http",
+                "url": "http://127.0.0.1:18080/mcp/canary",
+                "headers": {
+                  "Authorization": "devops-health-pin-canary"
+                },
+                "tools": ["*"]
+              }
+            }
+          }
+          JSON
+          chmod 600 "$HOME/.copilot/mcp-config.json"
+          export XDG_CONFIG_HOME="$HOME"
+          timeout 90 copilot \
+            --prompt "Call the canary read_canary tool exactly once, then reply with its result." \
+            --disable-builtin-mcps \
+            --no-ask-user \
+            --allow-tool canary \
+            --silent \
+            --effort=low \
+            > "$RUNNER_TEMP/copilot-canary.log"
+          jq -s -e '
+            [.[] | .method] as $methods |
+            ($methods | index("initialize")) as $initialize |
+            ($methods | index("notifications/initialized")) as $initialized |
+            ($methods | index("tools/list")) as $list |
+            ($methods | index("tools/call")) as $call |
+            $initialize != null and
+            $initialized != null and
+            $list != null and
+            $call != null and
+            $initialize < $initialized and
+            $initialized < $list and
+            $list < $call and
+            any(.[]; .method == "initialize" and
+              (.protocolVersion | type == "string") and
+              (.protocolVersion | length > 0)) and
+            any(.[]; .method == "tools/call" and
+              .toolName == "read_canary")
+          ' "$RUNNER_TEMP/mcp-canary-evidence.jsonl" >/dev/null
+          protocol=$(
+            jq -r 'select(.method == "initialize") | .protocolVersion' \
+              "$RUNNER_TEMP/mcp-canary-evidence.jsonl" |
+              tail -1
+          )
+          if ! grep -q "DEVOPS_HEALTH_MCP_CANARY_OK" \
+            "$RUNNER_TEMP/copilot-canary.log"; then
+            cat "$RUNNER_TEMP/copilot-canary.log"
+            echo "::error::Copilot did not return the MCP tool result"
+            exit 1
+          fi
+          echo "protocol_version=$protocol" >> "$GITHUB_OUTPUT"
 
       - name: Record validated candidate
         if: steps.plan.outputs.stale == 'true'
@@ -257,6 +353,7 @@ jobs:
           CANDIDATE: ${{ steps.plan.outputs.candidate }}
           COMPILER: ${{ steps.plan.outputs.compiler }}
           GATEWAY_IMAGE: ${{ steps.plan.outputs.gateway_image }}
+          CANARY_PROTOCOL: ${{ steps.mcp-canary.outputs.protocol_version }}
         shell: bash
         run: |
           {
@@ -266,7 +363,8 @@ jobs:
             echo "- gh-aw compiler: \`$COMPILER\`"
             echo "- MCP Gateway: \`$GATEWAY_IMAGE\`"
             echo "- Strict compile: all three DevOps Health workflows"
-            echo "- Canaries: Copilot read-only prompt and MCP Gateway health"
+            echo "- End-to-end MCP canary protocol: \`$CANARY_PROTOCOL\`"
+            echo "- MCP flow: candidate CLI -> pinned Gateway -> read-only tool"
           } >> "$GITHUB_STEP_SUMMARY"
 
   propose:
@@ -370,6 +468,7 @@ jobs:
             devops-health-investigate
           python -m pip install --quiet pyyaml
           python -m unittest eng/devops-health/test_copilot_pin.py
+          node --test eng/devops-health/test_mcp_canary_server.mjs
           python -m unittest \
             eng.evaluation.test_token_failover.TokenFailoverTests.test_gh_aw_runtime_upgrade_is_complete
           python eng/devops-health/copilot_pin.py plan \
@@ -394,6 +493,7 @@ jobs:
           CANDIDATE: ${{ steps.plan.outputs.candidate }}
           COMPILER: ${{ steps.plan.outputs.compiler }}
           GATEWAY_IMAGE: ${{ steps.plan.outputs.gateway_image }}
+          CANARY_PROTOCOL: ${{ needs.validate.outputs.canary_protocol }}
         shell: bash
         run: |
           set -euo pipefail
@@ -445,8 +545,9 @@ jobs:
 
           - Strictly compiled all three workflows with gh-aw \`$COMPILER\`
           - Ran the targeted pin and DevOps Health workflow tests
-          - Ran a non-mutating Copilot prompt canary with no tools
-          - Started the digest-pinned MCP Gateway and passed its health canary
+          - Routed the candidate CLI through the digest-pinned MCP Gateway
+          - Completed MCP initialize, tools/list, and read-only tools/call using
+            protocol \`$CANARY_PROTOCOL\`
           EOF
 
           if [[ -z "$existing_number" ]]; then

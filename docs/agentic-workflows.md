@@ -77,9 +77,11 @@ generated lock files.
 The same generated lock manifests own the selected MCP Gateway image and
 digest. A candidate is eligible only when all three sources, compiler metadata,
 setup action SHAs, and gateway images agree. Before a draft update is proposed,
-the workflow strictly compiles all three sources, runs targeted tests, runs a
-Copilot canary with no tools, and starts the digest-pinned MCP Gateway for a
-health canary. The workflow fails closed if any owned input differs.
+the workflow strictly compiles all three sources, runs targeted tests, and
+routes the candidate CLI through the digest-pinned MCP Gateway to a trusted
+local read-only MCP tool. It requires successful `initialize`, `tools/list`,
+and `tools/call` evidence before it can update a branch. The workflow fails
+closed if any owned input differs.
 
 ## File Structure
 

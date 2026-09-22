@@ -116,7 +116,9 @@ jobs:
           persist-credentials: false
 
       - name: Test Copilot pin maintenance
-        run: python -m unittest eng/devops-health/test_copilot_pin.py
+        run: |
+          python -m unittest eng/devops-health/test_copilot_pin.py
+          node --test eng/devops-health/test_mcp_canary_server.mjs
 
   token-failover:
     runs-on: ubuntu-latest
