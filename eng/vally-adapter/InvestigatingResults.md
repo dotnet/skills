@@ -266,6 +266,14 @@ runs that also fail their graders are surfaced as warnings.
 ### 1. Errored or missing trials (`state == "INVALID_INCONCLUSIVE"`)
 The agent crashed, the model was unavailable, evidence was missing, or the comparison judge failed. Check `stateReason`, `errors[]`, `adapter-summary.json`, and the variant's `results.jsonl`/session logs. These are invalid measurements, not skill regressions. If a required variant produced no records, the adapter writes an explicit invalid result with `missing_baseline_records` or `missing_skilled_records`.
 
+For native custom-agent results, `baseline.metrics.errorCount`,
+`skilledIsolated.metrics.errorCount`, and `skilledPlugin.metrics.errorCount`
+include recoverable failed tool calls. They remain quality and efficiency
+telemetry and do not by themselves make a completed scenario invalid. Actual
+execution failures are represented by `scenario.executionError`,
+`scenario.failedRunCount`, a timeout, a missing required arm, or a missing
+pairwise result.
+
 The workflow retries only required baseline or isolated-skilled executor records
 whose exact failure is a `session.idle` timeout. It reruns the affected eval and
 variant once, preserves all successful first-attempt slots, and replaces only

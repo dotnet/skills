@@ -174,7 +174,7 @@ Each of `baseline`, `skilledIsolated`, and `skilledPlugin` contains a `metrics` 
 | `turnCount` | Number of agent turns |
 | `toolCallCount` | Number of tool calls |
 | `toolCallBreakdown` | Tool call counts by tool name |
-| `errorCount` | Number of errors during the run |
+| `errorCount` | Number of runner/session errors and unsuccessful tool completions observed during the run. Recoverable failed tool calls remain quality telemetry and do not by themselves mean the scenario failed to execute. |
 | `assertionResults[]` | Per-assertion pass/fail with messages |
 | `agentOutput` | The agent's final text output |
 
