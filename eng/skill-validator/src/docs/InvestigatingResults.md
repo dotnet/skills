@@ -11,9 +11,18 @@
 > `session.idle` timeouts before adaptation. See
 > `executor-retry-summary.json` in the result artifact and the current guide for
 > the bounded retry and fail-closed rules.
+> Native-agent `RunMetrics.errorCount` is diagnostic and may include recovered
+> tool-call failures. Adaptation invalidates a scenario only for terminal
+> evidence: an explicit execution error, a missing or timed-out required arm, a
+> failed run, or a missing pairwise result.
+
+> The workflow token preflight tries another pool candidate for HTTP 429 or 402
+> quota exhaustion and for the paired heading and token-environment lines in
+> the Copilot CLI's no-authentication setup block. Unrelated service and
+> configuration failures remain terminal.
 
 > Current Vally PR evaluations default to `claude-sonnet-5` and `gpt-5.6-luna`,
-> with primary judges `gpt-5.6-terra` and `claude-opus-4.8`, respectively.
+> with judges `gpt-5.6-terra` and `claude-haiku-4.5`, respectively.
 > Explicit profiles and the scheduled cadence can select other models.
 > These defaults do not change the model fields in historical results or the
 > legacy schema below. Health and issue-triage workflow models are separate.
