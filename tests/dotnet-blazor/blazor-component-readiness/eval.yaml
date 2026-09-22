@@ -1215,3 +1215,221 @@ stimuli:
     rubric:
       - The readiness skill stayed dormant and did not perform a package or component readiness assessment
       - The response directly addresses ordinary NuGet package creation
+
+  - name: Assess a local selection component
+    prompt: &beq09_source_prompt |
+      Review the complete component-owned source in fixture/component against the requirement
+      and status definitions in fixture/criterion.json. Make a source-backed decision for that
+      requirement, not a full readiness report. Keep the supplied files unchanged, stay offline,
+      and do not build, restore, execute code or delegate this review.
+
+      Write one UTF-8 JSON object to out/beq09-decision.json with exactly these five fields:
+      - requirement_id: the string "BEQ-09".
+      - status: "verified", "gap", "owner evidence required", "not tested" or "not applicable".
+      - ownership: "public-parameter", "internal-state" or "unresolved", classifying the cited
+        update target, not the entire component. A gap or verified decision cannot be unresolved.
+      - citations: an array of objects with exactly path, start_line, end_line and fact. Paths
+        must name supplied files relative to fixture/component, never absolute or traversal
+        paths. Line numbers must be integers with 1 <= start_line <= end_line <= file length.
+        Each fact must be a nonempty, non-whitespace string. Include at least one citation for
+        gap or verified, and ground the requirement and ownership decision in the relevant source.
+      - explanation: a nonempty, non-whitespace string explaining the complete decision.
+      Do not substitute null or add fields. Source inspection does not establish runtime behavior.
+    environment:
+      files:
+        - src: fixtures/beq09-source-discovery/case-a/SelectionToggle.csproj
+          dest: fixture/component/SelectionToggle.csproj
+        - src: fixtures/beq09-source-discovery/case-a/SelectionStateBase.cs
+          dest: fixture/component/SelectionStateBase.cs
+        - src: fixtures/beq09-source-discovery/case-a/SelectionToggle.razor
+          dest: fixture/component/SelectionToggle.razor
+        - src: fixtures/beq09-source-discovery/case-a/SelectionToggle.razor.cs
+          dest: fixture/component/SelectionToggle.razor.cs
+        - src: fixtures/beq09-source-discovery/criterion.json
+          dest: fixture/criterion.json
+    graders:
+      - type: file-exists
+        config: &beq09_output
+          path: out/beq09-decision.json
+      # Only this controller-side spec holds expectations. Do not stage this code or its
+      # configuration. JSON-result mode keeps broken instruments errored, not merely failed.
+      # Fixed hashes/anchors bind this reviewed pair; they are not a general semantic analyzer.
+      - type: program
+        config:
+          program: python
+          args:
+            - -I
+            - -c
+            - &beq09_program |
+              import hashlib, json, sys
+              from pathlib import Path, PurePosixPath, PureWindowsPath
+
+              def emit_result(status, passed, evidence):
+                  print(json.dumps({"name": "beq09-source-discovery", "kind": "code",
+                                    "passed": passed, "score": 1 if passed else 0,
+                                    "evidence": evidence, "status": status}))
+                  raise SystemExit(0)
+
+              def invalid(message):
+                  emit_result("error", False, "INVALID fixture/grader: " + message)
+
+              def reject(message):
+                  emit_result("success", False, "FAIL assessor output: " + message)
+
+              def unique_object(pairs):
+                  result = {}
+                  for key, value in pairs:
+                      if key in result:
+                          raise ValueError("duplicate JSON property")
+                      result[key] = value
+                  return result
+
+              def no_constant(value):
+                  raise ValueError("non-JSON numeric constant")
+
+              def load_json(text):
+                  return json.loads(text, object_pairs_hook=unique_object, parse_constant=no_constant)
+
+              def source_text(path):
+                  text = path.read_bytes().decode("utf-8").replace("\r\n", "\n")
+                  if "\r" in text:
+                      raise ValueError("unexpected source line ending")
+                  return text
+
+              try:
+                  expected = load_json(sys.argv[1])
+                  assert set(expected) == {"status", "ownership", "files", "criterion_sha256", "anchors"}
+                  assert (expected["status"], expected["ownership"]) in {
+                      ("gap", "public-parameter"), ("verified", "internal-state")}
+                  files = expected["files"]
+                  assert files and all(PurePosixPath(p).name == p and "\\" not in p for p in files)
+                  root = Path("fixture")
+                  component = root / "component"
+                  assert root.is_dir() and component.is_dir(), "missing staged source"
+                  assert not root.is_symlink() and not component.is_symlink(), "linked input root"
+                  entries = list(root.rglob("*"))
+                  assert not any(p.is_symlink() for p in entries), "linked staged input"
+                  assert {p.relative_to(root).as_posix() for p in entries if p.is_dir()} == {"component"}
+                  actual = {p.relative_to(root).as_posix() for p in entries if p.is_file()}
+                  assert actual == {"criterion.json"} | {"component/" + p for p in files}, "staged inventory differs"
+                  sources = {name: source_text(component / name) for name in files}
+                  for name, text in sources.items():
+                      assert hashlib.sha256(text.encode("utf-8")).hexdigest() == files[name], "source digest differs"
+                  criterion = source_text(root / "criterion.json")
+                  assert hashlib.sha256(criterion.encode("utf-8")).hexdigest() == expected["criterion_sha256"], "criterion digest differs"
+                  assert load_json(criterion)["requirement_id"] == "BEQ-09"
+                  assert expected["anchors"], "missing expected source anchors"
+                  for anchor in expected["anchors"]:
+                      assert set(anchor) == {"path", "start_line", "end_line", "text"}
+                      lines = sources[anchor["path"]].splitlines()
+                      start, end = anchor["start_line"], anchor["end_line"]
+                      assert type(start) is int and type(end) is int and 1 <= start <= end <= len(lines)
+                      assert "\n".join(lines[start - 1:end]) == anchor["text"], "expected source anchor differs"
+              except (AssertionError, IndexError, KeyError, TypeError, ValueError, OSError) as error:
+                  invalid(str(error) or "invalid controller configuration")
+
+              try:
+                  answer = load_json(Path("out/beq09-decision.json").read_bytes().decode("utf-8"))
+              except FileNotFoundError:
+                  reject("missing decision file")
+              except (UnicodeError, ValueError):
+                  reject("decision must be one strict UTF-8 JSON object with unique keys")
+              except OSError as error:
+                  invalid("cannot read decision file: " + type(error).__name__)
+              fields = {"requirement_id", "status", "ownership", "citations", "explanation"}
+              if not isinstance(answer, dict) or set(answer) != fields:
+                  reject("decision requires exactly the five declared fields")
+              if answer["requirement_id"] != "BEQ-09":
+                  reject("wrong requirement_id")
+              statuses = ("verified", "gap", "owner evidence required", "not tested", "not applicable")
+              if answer["status"] not in statuses:
+                  reject("unknown status")
+              if answer["ownership"] not in ("public-parameter", "internal-state", "unresolved"):
+                  reject("unknown ownership")
+              if answer["status"] in ("gap", "verified") and answer["ownership"] == "unresolved":
+                  reject("decisive status requires resolved ownership")
+              if not isinstance(answer["explanation"], str) or not answer["explanation"].strip():
+                  reject("explanation must be nonempty text")
+              citations = answer["citations"]
+              if not isinstance(citations, list) or (answer["status"] in ("gap", "verified") and not citations):
+                  reject("decisive status requires citations")
+              locations = []
+              for citation in citations:
+                  if not isinstance(citation, dict) or set(citation) != {"path", "start_line", "end_line", "fact"}:
+                      reject("citation requires exactly path, start_line, end_line and fact")
+                  name = citation["path"]
+                  if not isinstance(name, str) or not name or name.endswith(("/", "\\")):
+                      reject("citation path must name a supplied file")
+                  path = PurePosixPath(name.replace("\\", "/"))
+                  if path.is_absolute() or PureWindowsPath(name).drive or ".." in path.parts or path.as_posix() not in sources:
+                      reject("citation path is outside supplied source")
+                  start, end = citation["start_line"], citation["end_line"]
+                  if type(start) is not int or type(end) is not int or not 1 <= start <= end <= len(sources[path.as_posix()].splitlines()):
+                      reject("citation line range is invalid")
+                  if not isinstance(citation["fact"], str) or not citation["fact"].strip():
+                      reject("citation fact must be nonempty text")
+                  locations.append((path.as_posix(), start, end))
+              if answer["status"] != expected["status"] or answer["ownership"] != expected["ownership"]:
+                  reject("decision does not match the reviewed source ownership")
+              for anchor in expected["anchors"]:
+                  if not any(p == anchor["path"] and start <= anchor["start_line"] and end >= anchor["end_line"]
+                             for p, start, end in locations):
+                      reject("citations do not connect the decision to the required source anchors")
+              emit_result("success", True, "VALID BEQ-09 source-bound worksheet")
+            - >-
+              {"status":"gap","ownership":"public-parameter",
+              "files":{"SelectionToggle.csproj":"93202fc34fad55c1740d70002685e4cea19cbf0bd45beab98b38ed01eea8fa3b",
+              "SelectionStateBase.cs":"0494b2acca29e04e7c21342c87bea995bad2f2cc82e9940c14e51f52547ade0f",
+              "SelectionToggle.razor":"a4fa093aabef2a64222435da2734ec50c06b9df3f89c365b0510c42e8a6630ba",
+              "SelectionToggle.razor.cs":"0644411cc9957c974393d3102e31646f22ef4a99606f405aac38de120b18e3cb"},
+              "criterion_sha256":"26d779a5f32f266a85bdf5cc21fe8654cc0b46a5e7e98267750e6c608f303291",
+              "anchors":[
+              {"path":"SelectionToggle.razor.cs","start_line":15,"end_line":15,"text":"            Value = nextValue;"},
+              {"path":"SelectionStateBase.cs","start_line":7,"end_line":8,"text":"    [Parameter]\n    public bool Value { get; set; }"},
+              {"path":"SelectionToggle.razor","start_line":2,"end_line":2,"text":"@inherits SelectionStateBase"}]}
+    rubric:
+      - The decision connects the component-owned write to its public parameter declaration through the owned inheritance chain.
+      - Evidence of a conflicting path is not cancelled by other paths or a paired callback; no runtime success is inferred.
+
+  - name: Assess a separate local selection component
+    prompt: *beq09_source_prompt
+    environment:
+      files:
+        - src: fixtures/beq09-source-discovery/case-b/SelectionToggle.csproj
+          dest: fixture/component/SelectionToggle.csproj
+        - src: fixtures/beq09-source-discovery/case-b/SelectionStateBase.cs
+          dest: fixture/component/SelectionStateBase.cs
+        - src: fixtures/beq09-source-discovery/case-b/SelectionToggle.razor
+          dest: fixture/component/SelectionToggle.razor
+        - src: fixtures/beq09-source-discovery/case-b/SelectionToggle.razor.cs
+          dest: fixture/component/SelectionToggle.razor.cs
+        - src: fixtures/beq09-source-discovery/criterion.json
+          dest: fixture/criterion.json
+    graders:
+      - type: file-exists
+        config: *beq09_output
+      - type: program
+        config:
+          program: python
+          args:
+            - -I
+            - -c
+            - *beq09_program
+            - >-
+              {"status":"verified","ownership":"internal-state",
+              "files":{"SelectionToggle.csproj":"93202fc34fad55c1740d70002685e4cea19cbf0bd45beab98b38ed01eea8fa3b",
+              "SelectionStateBase.cs":"0494b2acca29e04e7c21342c87bea995bad2f2cc82e9940c14e51f52547ade0f",
+              "SelectionToggle.razor":"a4fa093aabef2a64222435da2734ec50c06b9df3f89c365b0510c42e8a6630ba",
+              "SelectionToggle.razor.cs":"1c8e04918e1a7f85b8a88edfe939cf82d32b04b60117b9cefafe460c42076421"},
+              "criterion_sha256":"26d779a5f32f266a85bdf5cc21fe8654cc0b46a5e7e98267750e6c608f303291",
+              "anchors":[
+              {"path":"SelectionToggle.razor.cs","start_line":15,"end_line":15,"text":"            CurrentValue = nextValue;"},
+              {"path":"SelectionStateBase.cs","start_line":16,"end_line":16,"text":"    protected bool CurrentValue;"},
+              {"path":"SelectionStateBase.cs","start_line":7,"end_line":14,"text":"    [Parameter]\n    public bool Value { get; set; }\n\n    [Parameter]\n    public bool AllowChange { get; set; }\n\n    [Parameter]\n    public EventCallback<bool> ValueChanged { get; set; }"},
+              {"path":"SelectionStateBase.cs","start_line":20,"end_line":20,"text":"        CurrentValue = Value;"},
+              {"path":"SelectionToggle.razor.cs","start_line":18,"end_line":18,"text":"        await ValueChanged.InvokeAsync(nextValue);"},
+              {"path":"SelectionToggle.razor","start_line":2,"end_line":2,"text":"@inherits SelectionStateBase"},
+              {"path":"SelectionToggle.razor","start_line":5,"end_line":5,"text":"<button type=\"button\" aria-pressed=\"@CurrentValue\" disabled=\"@(!AllowChange)\" @onclick=\"HandleToggleAsync\">"}]}
+    rubric:
+      - The internal-state ownership decision is supported by its declaration and update paths, not merely by the absence of a reported defect.
+      - All public parameter declarations and owned source paths satisfy the complete source-level requirement; no runtime success is inferred.
