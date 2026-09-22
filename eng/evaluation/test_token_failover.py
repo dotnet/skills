@@ -378,20 +378,21 @@ class TokenFailoverTests(unittest.TestCase):
             ("issue_comment", "/evaluate", "", "", ["claude-sonnet-5", "gpt-5.6-luna"]),
             ("pull_request_review", "/evaluate --full", "", "", [
                 "claude-sonnet-5", "gpt-5.6-luna", "claude-haiku-4.5",
-                "mai-code-1.1-flash", "gpt-5.3-codex", "claude-opus-4.8",
+                "mai-code-1.1-flash", "gpt-5.3-codex",
             ]),
             ("workflow_dispatch", "", "newer", "", [
-                "gpt-5.6-sol", "claude-opus-5", "claude-sonnet-5",
+                "gpt-6-astra", "claude-opus-5",
             ]),
             ("schedule", "", "", "0 7 * * 1,3,5", ["claude-sonnet-5", "gpt-5.6-luna"]),
             ("schedule", "", "", "0 7 * * 2,6", [
                 "claude-haiku-4.5", "mai-code-1.1-flash", "gpt-5.3-codex",
             ]),
             ("schedule", "", "", "0 7 * * 0", [
-                "gpt-5.6-sol", "claude-opus-5", "claude-sonnet-5",
+                "gpt-6-astra", "claude-opus-5",
             ]),
-            ("schedule", "", "", "0 7 * * 4", ["claude-opus-4.8"]),
-            ("workflow_dispatch", "", "opus48", "", ["claude-opus-4.8"]),
+            ("schedule", "", "", "0 7 * * 4", ["gpt-5.6-sol"]),
+            ("issue_comment", "/evaluate --sol", "", "", ["gpt-5.6-sol"]),
+            ("workflow_dispatch", "", "sol", "", ["gpt-5.6-sol"]),
         ]
         for event, body, profile, schedule, models in cases:
             with self.subTest(event=event, profile=profile, schedule=schedule):
@@ -408,11 +409,8 @@ class TokenFailoverTests(unittest.TestCase):
                 self.assertEqual([entry["model"] for entry in entries], models)
                 for entry in entries:
                     is_gpt = entry["model"].startswith("gpt-")
-                    self.assertEqual(entry["judge"], "claude-opus-4.8" if is_gpt else "gpt-5.6-terra")
-                    self.assertEqual(
-                        entry["judge2"],
-                        "claude-haiku-4.5" if is_gpt and event == "schedule" else "",
-                    )
+                    self.assertEqual(entry["judge"], "claude-haiku-4.5" if is_gpt else "gpt-5.6-terra")
+                    self.assertNotIn("judge2", entry)
                     self.assertNotEqual(entry["judge"], entry["model"])
 
     def test_health_and_triage_models_are_separate_from_evaluation(self) -> None:
@@ -2475,7 +2473,7 @@ esac
             run_script.count(
                 '--expected-evals "$RUNNER_TEMP/evaluation-expected-evals.txt"'
             ),
-            3,
+            2,
         )
         self.assertIn(
             'if [ "$PRODUCED" -ne "$EXPECTED_EVAL_COUNT" ]',
@@ -3063,11 +3061,9 @@ esac
         self.assertIn("v.state == null", summary_script)
 
         caller_text = CALLER_WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("primaryState = $p.state", caller_text)
-        self.assertIn(
-            "$p.preferenceRegressed -eq $s.preferenceRegressed",
-            caller_text,
-        )
+        self.assertNotIn("Generate judge-comparison data", caller_text)
+        self.assertNotIn("all-crossjudge", caller_text)
+        self.assertIn('Group-Object -Property { "$($_.Json.model)|$($_.Json.judgeModel)" }', caller_text)
 
 
 if __name__ == "__main__":
