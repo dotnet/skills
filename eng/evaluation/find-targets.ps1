@@ -368,8 +368,7 @@ $plugins = @($entries | ForEach-Object { $_.plugin } | Sort-Object -Unique)
 # Resolve a matrix profile, then expand each plugin/shard entry across
 # the selected executor models, attaching a cross-family primary judge
 # (judge is never the same MODEL as the executor, and cross-family
-# where possible) plus, for the scheduled dual-judge cadence, an
-# optional within-family second judge. Every trigger resolves to a
+# where possible). Every trigger resolves to a
 # cross-family profile: the two DEFAULT models are the floor (every PR
 # gate and every scheduled day a heavier tier does not occupy), and
 # heavier profiles are opt-in via a workflow_dispatch matrix_profile,
@@ -378,7 +377,6 @@ $plugins = @($entries | ForEach-Object { $_.plugin } | Sort-Object -Unique)
 # Event bodies arrive via env (never inline interpolation) and are only
 # regex-matched here, never executed — no command-injection surface.
 $matrixProfile = 'default'
-$dualJudge = $false
 $evt = "$env:EVAL_EVENT_NAME"
 $evalBody = @("$env:EVAL_COMMENT_BODY", "$env:EVAL_REVIEW_BODY") |
   Where-Object { $_ -match '(^|\s)/evaluate(\s|$)' } | Select-Object -First 1
@@ -387,25 +385,25 @@ if ($evt -eq 'workflow_dispatch') {
   # input, a PR-gate auto-dispatch, or a whole-repo sweep) falls through
   # to the two DEFAULT cross-family models set above.
   $mp = "$env:MATRIX_PROFILE_INPUT"
-  if ($mp -and $mp -in @('default','mid','opus48','full','newer')) {
+  if ($mp -and $mp -in @('default','mid','sol','full','newer')) {
     $matrixProfile = $mp
   }
 } elseif ($evalBody) {
   # PR gate: the DEFAULT models run on every authorized /evaluate. Flags
-  # opt into heavier coverage: --mid (cheap models), --opus48 (opus-4.8),
+  # opt into heavier coverage: --mid (cheap models), --sol (gpt-5.6-sol),
   # --newer (frontier), --full (the expensive super-set). --full is
   # intentionally under-advertised; warn when it is used so it stays rare.
   # Anchor each flag on token boundaries ((?:^|\s) before, (?=\s|$)
-  # after) so a malformed near-miss like --fuller, --opus480, or
+  # after) so a malformed near-miss like --fuller, --solar, or
   # --midnight does NOT silently select an expensive profile — it falls
   # through to the default. \s boundaries also match newlines, so a flag
   # anywhere in a multi-line review body is still recognized.
   if ($evalBody -match '(?:^|\s)--full(?:-matrix)?(?=\s|$)') {
     $matrixProfile = 'full'
-    Write-Host "::warning::/evaluate --full requested: runs defaults + haiku + mai + gpt-5.3-codex + opus-4.8. This is expensive — exercise sparingly."
+    Write-Host "::warning::/evaluate --full requested: runs defaults + haiku + mai + gpt-5.3-codex. This is expensive — exercise sparingly."
   }
   elseif ($evalBody -match '(?:^|\s)--newer(?=\s|$)') { $matrixProfile = 'newer' }
-  elseif ($evalBody -match '(?:^|\s)--opus48(?=\s|$)') { $matrixProfile = 'opus48' }
+  elseif ($evalBody -match '(?:^|\s)--sol(?=\s|$)') { $matrixProfile = 'sol' }
   elseif ($evalBody -match '(?:^|\s)--mid(?=\s|$)') { $matrixProfile = 'mid' }
   else { $matrixProfile = 'default' }
 } elseif ($evt -in @('pull_request','pull_request_target')) {
@@ -422,58 +420,49 @@ if ($evt -eq 'workflow_dispatch') {
   #
   #   Mon/Wed/Fri -> default  (the 2 default models; the daily floor)
   #   Tue/Sat     -> mid      (cheap models, lower-cadence signal)
-  #   Thu         -> opus48   (opus-4.8 alone; no defaults that day)
+  #   Thu         -> sol      (gpt-5.6-sol alone; no defaults that day)
   #   Sun         -> newer    (frontier models alone; no defaults)
   #
-  # Heavy tiers (opus48, newer) deliberately REPLACE the defaults on their
+  # Heavy tiers (sol, newer) deliberately REPLACE the defaults on their
   # day rather than co-run them, to cap spend on the expensive models.
   $sched = "$env:EVAL_SCHEDULE"
   switch ($sched) {
     '0 7 * * 1,3,5' { $matrixProfile = 'default' }
     '0 7 * * 2,6'   { $matrixProfile = 'mid' }
-    '0 7 * * 4'     { $matrixProfile = 'opus48' }
+    '0 7 * * 4'     { $matrixProfile = 'sol' }
     '0 7 * * 0'     { $matrixProfile = 'newer' }
     default         { $matrixProfile = 'default' }
   }
-  # Judge-comparison experiment: run the optional second judge on every
-  # scheduled run for the comparison window, so claude-opus-4.8 (primary)
-  # and claude-haiku-4.5 (judge2) score the same GPT-executor transcripts
-  # and can be compared before switching the primary judge to the cheaper model.
-  $dualJudge = $true
 }
 
-if ($matrixProfile -in @('default','mid','opus48','full','newer')) {
+if ($matrixProfile -in @('default','mid','sol','full','newer')) {
   # §10.2 model tiers. Cost-optimized cadence: the two DEFAULT models
-  # ({sonnet-5, gpt-5.6-luna}) carry every PR and every scheduled day that
+  # ({claude-sonnet-5, gpt-5.6-luna}) carry every PR and every scheduled day that
   # no heavier tier occupies. The cheap MID models run at a lower cadence
-  # for periodic signal. The expensive OPUS48 and frontier NEWER tiers run
+  # for periodic signal. The SOL and frontier NEWER tiers run
   # once a week and DO NOT co-run the defaults (they replace them that
-  # day). FULL is the opt-in PR super-set (defaults + mid + opus48); it is
+  # day). FULL is the opt-in PR super-set (defaults + mid); it is
   # expensive and deliberately under-advertised — use sparingly.
   $profileModels = @{
     'default' = @('claude-sonnet-5', 'gpt-5.6-luna')
     'mid'     = @('claude-haiku-4.5', 'mai-code-1.1-flash', 'gpt-5.3-codex')
-    'opus48'  = @('claude-opus-4.8')
-    'full'    = @('claude-sonnet-5', 'gpt-5.6-luna', 'claude-haiku-4.5', 'mai-code-1.1-flash', 'gpt-5.3-codex', 'claude-opus-4.8')
-    'newer'   = @('gpt-5.6-sol', 'claude-opus-5', 'claude-sonnet-5')
+    'sol'     = @('gpt-5.6-sol')
+    'full'    = @('claude-sonnet-5', 'gpt-5.6-luna', 'claude-haiku-4.5', 'mai-code-1.1-flash', 'gpt-5.3-codex')
+    'newer'   = @('gpt-6-astra', 'claude-opus-5')
   }
   # §10.5 judge routing. Primary = cross-family (never the same model, and
-  # a different family in every case here). judge2 is the OPTIONAL second
-  # judge used only on the scheduled dual-judge cadence.
-  #   - Non-GPT executor legs (Claude/MAI) are judged by gpt-5.6-terra with
-  #     NO second judge (judge2 = '').
-  #   - GPT executor legs are judged primarily by claude-opus-4.8 and carry
-  #     judge2 = claude-haiku-4.5, so the same transcripts are scored by
-  #     both judges on the scheduled dual-judge cadence and can be compared.
+  # a different family in every case here).
+  #   - Non-GPT executor legs (Claude/MAI) are judged by gpt-5.6-terra.
+  #   - GPT executor legs are judged by claude-haiku-4.5.
   $judgeRoutes = @{
-    'claude-opus-4.8'         = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
-    'gpt-5.6-luna'            = @{ judge = 'claude-opus-4.8'; judge2 = 'claude-haiku-4.5' }
-    'claude-haiku-4.5'        = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
-    'mai-code-1.1-flash'       = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
-    'gpt-5.3-codex'           = @{ judge = 'claude-opus-4.8'; judge2 = 'claude-haiku-4.5' }
-    'gpt-5.6-sol'             = @{ judge = 'claude-opus-4.8'; judge2 = 'claude-haiku-4.5' }
-    'claude-sonnet-5'         = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
-    'claude-opus-5'           = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
+    'gpt-5.6-luna'            = @{ judge = 'claude-haiku-4.5' }
+    'claude-haiku-4.5'        = @{ judge = 'gpt-5.6-terra' }
+    'mai-code-1.1-flash'      = @{ judge = 'gpt-5.6-terra' }
+    'gpt-5.3-codex'           = @{ judge = 'claude-haiku-4.5' }
+    'gpt-5.6-sol'             = @{ judge = 'claude-haiku-4.5' }
+    'gpt-6-astra'             = @{ judge = 'claude-haiku-4.5' }
+    'claude-sonnet-5'         = @{ judge = 'gpt-5.6-terra' }
+    'claude-opus-5'           = @{ judge = 'gpt-5.6-terra' }
   }
   $models = $profileModels[$matrixProfile]
   $expanded = @()
@@ -481,7 +470,6 @@ if ($matrixProfile -in @('default','mid','opus48','full','newer')) {
     foreach ($m in $models) {
       $route = $judgeRoutes[$m]
       if (-not $route) { throw "No judge route defined for model '$m'" }
-      $j2 = if ($dualJudge) { "$($route.judge2)" } else { '' }
       $expanded += @{
         name        = "$($e.name)--$m"
         plugin      = $e.plugin
@@ -491,12 +479,11 @@ if ($matrixProfile -in @('default','mid','opus48','full','newer')) {
         eval_path   = $e.eval_path
         model       = $m
         judge       = $route.judge
-        judge2      = if ($e.target_kind -eq "agent") { "" } else { $j2 }
       }
     }
   }
   $entries = $expanded
-  Write-Host "Cross-family profile '$matrixProfile' (dualJudge=$dualJudge): expanded to $($entries.Count) entries across $($models.Count) model(s)"
+  Write-Host "Cross-family profile '$matrixProfile': expanded to $($entries.Count) entries across $($models.Count) model(s)"
 }
 
 # Validate every entry against a strict allowlist before it enters
@@ -517,10 +504,9 @@ foreach ($e in $entries) {
   if ("$($e.target_kind)" -notin @('skill', 'agent')) {
     throw "Refusing unsafe matrix entry: target_kind '$($e.target_kind)' must be 'skill' or 'agent'"
   }
-  # model/judge are always present; judge2 is optional (empty unless the
-  # scheduled dual-judge cadence sets it). All flow into CLI args in the
-  # runner, so hold them to the same strict allowlist as names.
-  foreach ($mk in @('model', 'judge', 'judge2')) {
+  # Model and judge flow into CLI args in the runner, so hold them to the
+  # same strict allowlist as names.
+  foreach ($mk in @('model', 'judge')) {
     $mv = "$($e[$mk])"
     if ($mv -ne '' -and ($mv -notmatch $namePattern -or $mv -match '\.\.' -or $mv -eq '.')) {
       throw "Refusing unsafe matrix entry: $mk '$mv' for entry '$($e.name)' must match $namePattern, not be '.', and not contain '..'"
