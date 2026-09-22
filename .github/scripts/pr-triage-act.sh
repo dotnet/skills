@@ -82,6 +82,29 @@ has_label() {
   [[ ",$LABELS," == *",$needle,"* ]]
 }
 
+cache_label() {
+  local label="$1"
+  if [ -z "$LABELS" ]; then
+    LABELS="$label"
+  else
+    LABELS="$LABELS,$label"
+  fi
+}
+
+uncache_label() {
+  local label="$1"
+  local existing_label
+  local existing_labels=()
+  local kept=()
+  IFS=',' read -ra existing_labels <<<"$LABELS"
+  for existing_label in "${existing_labels[@]}"; do
+    if [ "$existing_label" != "$label" ]; then
+      kept+=("$existing_label")
+    fi
+  done
+  LABELS=$(IFS=,; echo "${kept[*]}")
+}
+
 apply_label() {
   local label="$1"
   if has_label "$label"; then
@@ -93,6 +116,7 @@ apply_label() {
     return
   fi
   gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "$label" >/dev/null
+  cache_label "$label"
   log "added label '$label'"
 }
 
@@ -104,6 +128,7 @@ remove_label() {
     return
   fi
   gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "$label" >/dev/null
+  uncache_label "$label"
   log "removed label '$label'"
 }
 
