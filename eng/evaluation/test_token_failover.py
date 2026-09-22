@@ -779,9 +779,12 @@ class TokenFailoverTests(unittest.TestCase):
             "Any failure throws and stops",
             health_lock_text,
         )
-        self.assertFalse(groom_frontmatter["tools"]["cli-proxy"])
+        self.assertTrue(groom_frontmatter["tools"]["cli-proxy"])
         self.assertFalse(groom_frontmatter["tools"]["edit"])
-        self.assertFalse(groom_frontmatter["tools"]["bash"])
+        self.assertEqual(
+            groom_frontmatter["tools"]["bash"],
+            ["github", "safeoutputs"],
+        )
         self.assertNotIn("update-issue", groom_frontmatter["safe-outputs"])
         groom_job = groom_frontmatter["safe-outputs"]["jobs"][
             "publish-groomed-dashboard"
@@ -868,17 +871,14 @@ class TokenFailoverTests(unittest.TestCase):
         self.assertNotIn('"update_issue":', groom_lock_text)
         self.assertNotIn("--allow-all-tools", groom_lock_text)
         self.assertNotIn("--allow-tool write", groom_lock_text)
-        self.assertNotIn("shell(yq)", groom_lock_text)
-        self.assertNotIn("shell(github:*)", groom_lock_text)
-        self.assertNotIn("shell(safeoutputs:*)", groom_lock_text)
+        self.assertIn("shell(github:*)", groom_lock_text)
+        self.assertIn("shell(safeoutputs:*)", groom_lock_text)
         self.assertNotRegex(groom_lock_text, r"shell\(gh(?::|\s)[^)]*\)")
-        self.assertIn("--allow-tool github", groom_lock_text)
-        self.assertIn("--allow-tool safeoutputs", groom_lock_text)
         self.assertIn("as untrusted data", normalized_groom)
         self.assertIn("Bind outputs to verified data", normalized_groom)
         self.assertIn("/issues/695", groom)
         self.assertIn("issue_number: 695", groom)
-        self.assertIn("perPage: 20, page: 1", groom)
+        self.assertIn("--perPage 20 --page 1", groom)
         self.assertIn("Continue with page 2", groom)
         self.assertIn("GitHub returns issue comments oldest first", groom)
         self.assertIn(
@@ -887,7 +887,7 @@ class TokenFailoverTests(unittest.TestCase):
         )
         self.assertIn("do not stop based on comment age", normalized_groom)
         self.assertIn(
-            "If absent, call `noop` with a state-not-initialized message",
+            "If absent, call `safeoutputs noop` with a state-not-initialized message",
             groom,
         )
         self.assertIn("Integrity filtering can remove items", groom)
@@ -1077,9 +1077,12 @@ class TokenFailoverTests(unittest.TestCase):
             "If the marker is present but duplicated, malformed, or schema-invalid",
             normalized_groom,
         )
-        self.assertIn("call `noop` with a state-corruption error", normalized_groom)
         self.assertIn(
-            "If the marker is absent, call `noop` and stop without publication",
+            "call `safeoutputs noop` with a state-corruption error",
+            normalized_groom,
+        )
+        self.assertIn(
+            "If the marker is absent, call `safeoutputs noop` and stop without publication",
             normalized_groom,
         )
         self.assertIn(
@@ -1091,7 +1094,13 @@ class TokenFailoverTests(unittest.TestCase):
             groom,
         )
         self.assertNotIn("marker was absent or invalid", groom)
-        self.assertIn("intentionally exposes no shell or CLI proxy", normalized_groom)
+        self.assertIn(
+            "Use only these two MCP CLIs for repository reads",
+            normalized_groom,
+        )
+        self.assertNotIn("No shell or intermediate files", groom)
+        self.assertNotIn("Use the GitHub MCP `issue_read` tool", groom)
+        self.assertIn("Run `github issue_read`", groom)
         self.assertIn("Never use ordinary `gh`", normalized_groom)
         self.assertIn(
             "The safe-output issue update is the only persistence operation",
