@@ -821,6 +821,15 @@ class TokenFailoverTests(unittest.TestCase):
             },
         )
         self.assertEqual(groom_inputs["canary_id"]["default"], "")
+        self.assertEqual(groom_trigger["roles"], "all")
+        self.assertEqual(
+            groom_trigger["steps"][0]["name"],
+            "Initialize trusted groom dispatch",
+        )
+        self.assertEqual(
+            groom_trigger["steps"][0]["uses"],
+            "actions/github-script@v9",
+        )
         self.assertFalse(groom_frontmatter["concurrency"]["cancel-in-progress"])
         self.assertIn(
             "gh-aw-devops-health-dashboard-canary-{0}",

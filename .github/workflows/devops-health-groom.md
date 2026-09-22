@@ -22,6 +22,12 @@ on:
         required: false
         type: string
         default: ""
+  roles: all
+  steps:
+    - name: Initialize trusted groom dispatch
+      uses: actions/github-script@v9
+      with:
+        script: core.info("Starting validated dashboard grooming")
 
 # Don't run scheduled triggers on forked repositories — forks lack the
 # secrets and context required, and scheduled runs would consume the
