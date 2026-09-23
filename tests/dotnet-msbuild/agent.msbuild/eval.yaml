@@ -134,9 +134,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: (PackageReference|TargetFramework|property|item|condition|target)
-      - type: output-matches
-        config:
-          pattern: (risk|issue|recommend|improv)
       - type: prompt
     rubric:
       - Grounded findings in the supplied project file rather than giving generic MSBuild advice

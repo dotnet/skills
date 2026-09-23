@@ -1,6 +1,6 @@
 ---
 name: msbuild-antipatterns
-description: "NEVER INVOKE for converting or migrating a legacy project to SDK style, even when legacy MSBuild patterns are visible; use msbuild-modernization. Detect and fix MSBuild anti-patterns in project and build files. USE WHEN asked to review, audit, lint, clean up, or code-review a .csproj/.vbproj/.fsproj/.props/.targets/.proj (or Directory.Build.props/.targets) file, when asked 'is this project file correct?' or 'what's wrong with my build file?', or when hunting subtle build bugs caused by how a project is authored. Each anti-pattern has a symptom and a concrete BAD→GOOD fix. DO NOT USE for non-MSBuild build systems such as npm, Maven, or CMake."
+description: "Detect and fix discrete MSBuild authoring anti-patterns in project and build files. USE FOR: audit, lint, cleanup, code review, or correctness checks of .csproj/.vbproj/.fsproj/.props/.targets/.proj and Directory.Build files; F# compile ordering; cross-platform path separators; and safe NuGet build/buildTransitive imports. Each finding has a symptom and concrete BAD→GOOD fix. NEVER USE when the primary goal is to convert, migrate, modernize, or rewrite a legacy project to SDK style, even if this is the only available skill or legacy smells are mentioned; use msbuild-modernization when available. DO NOT USE for non-MSBuild build systems such as npm, Maven, or CMake."
 license: MIT
 ---
 
