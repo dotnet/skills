@@ -1759,6 +1759,65 @@ test("too many stranded comparison slots are treated as a systemic failure", () 
   assert.match(result.retrySummary.targetedRecovery.skippedReason, /systemic judge failure/);
 });
 
+test("a missing slot trajectory is distinguished from an ambiguous one", () => {
+  const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
+  const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-missing-"));
+  let calls = 0;
+  try {
+    const result = recoverTransientComparisonSlots(primary, {
+      // No baseline trajectory survives for the stranded slot, so there is
+      // nothing to re-judge. That is a different fault from two trajectories
+      // claiming the slot, and it needs its own code to be investigable.
+      baselineRecords: executorRecordsFor(primary, "baseline").filter(
+        (record) => !record.shardKey.endsWith("::trial-2"),
+      ),
+      skilledRecords: executorRecordsFor(primary, "skilled"),
+      workDir,
+      filePrefix: "missing",
+      compare: () => {
+        calls++;
+        return null;
+      },
+    });
+
+    assert.equal(calls, 0);
+    assert.equal(result.summary.erroredCount, 1);
+    const failure = result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory[1];
+    assert.equal(failure.code, "targeted_slot_trajectory_missing");
+    assert.match(failure.message, /0 baseline and 1 treatment/);
+  } finally {
+    rmSync(workDir, { recursive: true, force: true });
+  }
+});
+
+test("a slot trajectory is matched through the canonical stimulus accessor", () => {
+  const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
+  const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-canonical-"));
+  // Vally records do not all carry a top-level `stimulus`; some expose it only
+  // under `gradeResult.stimulusName`. The slot lookup must read both the same
+  // way the rest of the adapter does, or a recoverable slot looks like missing
+  // evidence.
+  const viaGradeResult = (variant) =>
+    executorRecordsFor(primary, variant).map(({ stimulus, ...record }) => ({
+      ...record,
+      gradeResult: { stimulusName: stimulus },
+    }));
+  try {
+    const result = recoverTransientComparisonSlots(primary, {
+      baselineRecords: viaGradeResult("baseline"),
+      skilledRecords: viaGradeResult("skilled"),
+      workDir,
+      filePrefix: "canonical",
+      compare: () => reportFromScores([0.62]),
+    });
+
+    assert.equal(result.summary.erroredCount, 0);
+    assert.equal(result.retrySummary.targetedRecovery.recoveredSlotCount, 1);
+  } finally {
+    rmSync(workDir, { recursive: true, force: true });
+  }
+});
+
 test("an ambiguous slot-to-trajectory mapping is never re-judged", () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
   const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-dup-"));

@@ -135,6 +135,13 @@ function newestDirectory(root) {
 }
 
 function findResultsFile(root) {
+  const found = findResultsFiles(root);
+  // Prefer the newest aggregate so a rerun inside an existing retry root cannot
+  // resurrect a stale scenario record.
+  return found.sort((left, right) => statSync(right).mtimeMs - statSync(left).mtimeMs)[0] ?? null;
+}
+
+function findResultsFiles(root) {
   const stack = [root];
   const found = [];
   while (stack.length > 0) {
@@ -146,9 +153,23 @@ function findResultsFile(root) {
       else if (entry.name === "results.json") found.push(path);
     }
   }
-  // Prefer the newest aggregate so a rerun inside an existing retry root cannot
-  // resurrect a stale scenario record.
-  return found.sort((left, right) => statSync(right).mtimeMs - statSync(left).mtimeMs)[0] ?? null;
+  return found;
+}
+
+/**
+ * Rename the retry's own aggregates so no recursive collector counts them.
+ *
+ * The retry tree lives under the uploaded results directory so its sessions and
+ * logs are available for audit, but it holds a second, narrower copy of one
+ * scenario in the native schema. Downstream jobs gather every `results.json`
+ * they can find, so leaving that name in place would double-count a scenario
+ * and mix an unadapted record into the schema-v5 set. The content is kept under
+ * a name nothing collects.
+ */
+function quarantineRetryResults(root) {
+  for (const path of findResultsFiles(root)) {
+    renameSync(path, path.replace(/results\.json$/, "results.retry.json"));
+  }
 }
 
 /**
@@ -195,6 +216,17 @@ function retryScenario(target, index, config) {
     );
   }
 
+  try {
+    return inspectRetryEvidence(attemptRoot, target, exitCode);
+  } finally {
+    // Always quarantine, including on a failed retry: the tree stays for audit
+    // but must never be picked up by a recursive results.json collector.
+    quarantineRetryResults(attemptRoot);
+  }
+}
+
+/** Read the one scenario record the retry was asked to produce. */
+function inspectRetryEvidence(attemptRoot, target, exitCode) {
   const retryRoot = newestDirectory(attemptRoot) ?? attemptRoot;
   const retryResultsFile = findResultsFile(retryRoot) ?? findResultsFile(attemptRoot);
   if (!retryResultsFile) {
@@ -242,6 +274,101 @@ function writeAtomic(path, content) {
   renameSync(temporary, path);
 }
 
+/** Bare agent name behind a verdict's `agent.`-prefixed skill name. */
+function agentNameOf(verdict) {
+  return String(verdict?.skillName ?? "").replace(/^agent\./, "");
+}
+
+/**
+ * True when this scenario is objective evidence of a task-completion regression.
+ *
+ * Mirrors the evaluator's own predicate, but also counts a plugin-arm regression
+ * that the agent verdict treats as diagnostic. Widening the predicate can only
+ * make the aggregate below survive more often, never less, so it cannot erase a
+ * real regression.
+ */
+function scenarioRegressedOnCompletion(scenario) {
+  if (scenario?.expectActivation === false) return false;
+  if (scenario?.baseline?.metrics?.taskCompleted !== true) return false;
+  return (
+    scenario.skilledIsolated?.metrics?.taskCompleted !== true ||
+    (Boolean(scenario.skilledPlugin) &&
+      scenario.skilledPlugin?.metrics?.taskCompleted !== true)
+  );
+}
+
+/**
+ * True when this scenario is objective evidence that the agent did not activate.
+ *
+ * Only a recorded activation probe counts. A scenario with no probe at all says
+ * nothing either way and must not be read as activation.
+ */
+function scenarioMissedActivation(scenario, agentName) {
+  if (scenario?.expectActivation === false) return false;
+  const invokedIn = (probe) =>
+    (probe?.invokedAgents ?? []).some(
+      (name) => String(name).toLowerCase() === agentName.toLowerCase(),
+    );
+  for (const probe of [scenario?.subagentActivationIsolated, scenario?.subagentActivationPlugin]) {
+    if (probe && !invokedIn(probe)) return true;
+  }
+  return false;
+}
+
+/**
+ * Re-derive the verdict-level aggregates that a swapped-in scenario can change.
+ *
+ * The first attempt computed `failureKind`, `skillNotActivated` and the
+ * confidence interval while one required arm was still timed out. A timed-out
+ * arm reports no completed task and no activation, so those aggregates can
+ * assert a completion regression or an activation failure that the recovered
+ * evidence contradicts — a false conclusive regression, which is worse than the
+ * invalid measurement it replaced.
+ *
+ * An aggregate is cleared only when NO surviving scenario supports it, so a real
+ * regression or a real activation failure in any scenario keeps failing. The
+ * confidence interval was bootstrapped over per-run scores that included the
+ * timed-out run, so it is dropped rather than approximated; it is reported, not
+ * gated. `overfittingResult` is kept: it analyses the agent and eval text rather
+ * than run outcomes, and the scenario-filtered retry would only see a narrower
+ * slice of the eval.
+ */
+function refreshVerdictAggregates(verdict) {
+  const cleared = [];
+  const scenarios = verdict?.scenarios ?? [];
+  const agentName = agentNameOf(verdict);
+
+  if (
+    verdict.failureKind === "completion_regression" &&
+    !scenarios.some(scenarioRegressedOnCompletion)
+  ) {
+    verdict.failureKind = null;
+    cleared.push("failureKind=completion_regression");
+  }
+
+  const claimsNoActivation =
+    verdict.skillNotActivated === true || verdict.failureKind === "skill_not_activated";
+  if (
+    claimsNoActivation &&
+    !scenarios.some((scenario) => scenarioMissedActivation(scenario, agentName))
+  ) {
+    if (verdict.skillNotActivated === true) {
+      verdict.skillNotActivated = false;
+      cleared.push("skillNotActivated");
+    }
+    if (verdict.failureKind === "skill_not_activated") {
+      verdict.failureKind = null;
+      cleared.push("failureKind=skill_not_activated");
+    }
+  }
+
+  if (verdict.confidenceInterval != null) {
+    verdict.confidenceInterval = null;
+    cleared.push("confidenceInterval");
+  }
+  return cleared;
+}
+
 function retryAgentTimeouts(config) {
   const results = JSON.parse(readFileSync(config.resultsFile, "utf8"));
   const targets = findTimedOutScenarios(results);
@@ -270,8 +397,19 @@ function retryAgentTimeouts(config) {
       summary.attemptedScenarioCount++;
       const outcome = retryScenario(target, index, config);
       if (outcome.ok) {
-        results.verdicts[target.verdictIndex].scenarios[target.scenarioIndex] = outcome.scenario;
+        const verdict = results.verdicts[target.verdictIndex];
+        verdict.scenarios[target.scenarioIndex] = outcome.scenario;
+        const cleared = refreshVerdictAggregates(verdict);
+        if (cleared.length > 0) {
+          console.log(
+            `Stale aggregate(s) no longer supported by the recovered evidence: ${cleared.join(", ")}`,
+          );
+        }
         summary.recoveredScenarioCount++;
+        summary.clearedAggregates = [
+          ...(summary.clearedAggregates ?? []),
+          ...cleared.map((field) => ({ skillName: target.skillName, field })),
+        ];
         // Persist after every recovery so a later attempt that is killed by an
         // outer wall-clock budget cannot discard evidence already recovered.
         writeAtomic(config.resultsFile, `${JSON.stringify(results, null, 2)}\n`);
@@ -286,9 +424,9 @@ function retryAgentTimeouts(config) {
         retryExitCode: outcome.exitCode,
       });
     }
-    // Aggregate verdict fields (failureKind, confidenceInterval) are left as the
-    // first attempt recorded them: they can only keep a verdict from passing, so
-    // a stale one is fail-closed, never a hidden pass.
+    // `overfittingResult` is deliberately kept: it analyses the agent and eval
+    // text rather than run outcomes, and a scenario-filtered retry would only
+    // ever see a narrower slice of the eval than the original analysis did.
   }
 
   mkdirSync(dirname(config.summary), { recursive: true });
@@ -323,4 +461,12 @@ if (isMain) {
   }
 }
 
-export { findTimedOutScenarios, isRetryableTimeout, requiredArmTimedOut, retryAgentTimeouts };
+export {
+  findTimedOutScenarios,
+  isRetryableTimeout,
+  refreshVerdictAggregates,
+  requiredArmTimedOut,
+  retryAgentTimeouts,
+  scenarioMissedActivation,
+  scenarioRegressedOnCompletion,
+};

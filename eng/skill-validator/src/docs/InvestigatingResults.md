@@ -301,8 +301,25 @@ scenario's sole defect; an `executionError`, `failedRunCount > 0`, a missing
 arm, or a scenario the agent simply lost is never retried. A second timeout,
 more than two timed-out scenarios, or any unexpected retry shape leaves the
 original measurement in place and keeps the eval invalid. Check
-`_agent-timeout-retry-summary.json` in the leg artifact for
-`recoveredScenarioCount`, `unresolvedScenarioCount`, and a per-scenario reason.
+`agent-timeout-retry-summary.json` in the leg artifact for
+`recoveredScenarioCount`, `unresolvedScenarioCount`, `clearedAggregates`, and a
+per-scenario reason.
+
+Because a timed-out arm reports no completed task and no activation, the first
+attempt's verdict-level aggregates may claim a completion regression or an
+activation failure that the recovered scenario contradicts. After a swap the
+retry re-derives those aggregates from the surviving scenarios and clears
+`failureKind=completion_regression`, `failureKind=skill_not_activated`, and
+`skillNotActivated` only when no scenario still supports them — a genuine
+regression or activation failure in any scenario keeps failing. The bootstrapped
+confidence interval is dropped rather than approximated because it covered the
+timed-out run; `overfittingResult` is kept, since it analyses agent and eval
+text rather than run outcomes.
+
+The retry directory lives under the leg's results directory so its sessions
+stay available for audit, but its own `results.json` files are renamed to
+`results.retry.json` so no recursive collector counts the narrower retry copy as
+a second native result.
 
 `--scenario` is repeatable, matches scenario names case-insensitively, and exits
 `1` when a name matches nothing, so a typo can never quietly evaluate an empty

@@ -318,9 +318,12 @@ ambiguous trajectories for the slot (`targeted_slot_trajectory_ambiguous`), a
 retry that returns the wrong number of trials
 (`targeted_retry_result_ambiguous`), a failed invocation
 (`targeted_retry_invocation_failed`), or a repeat timeout — leaves the slot
-errored and the eval measurement-invalid. More than `maxSlots` stranded slots is
-read as a judge outage: the pass is skipped entirely, `skippedReason` explains
-why, and every slot counts as unresolved.
+errored and the eval measurement-invalid. `targeted_slot_trajectory_missing`
+and `targeted_slot_trajectory_ambiguous` are separate codes on purpose: the
+first means no preserved trajectory survives for the slot, the second means more
+than one claims it, and they need different investigation. More than `maxSlots`
+stranded slots is read as a judge outage: the pass is skipped entirely,
+`skippedReason` explains why, and every slot counts as unresolved.
 
 For native-agent results, `RunMetrics.errorCount` is diagnostic. Failed or
 retried tool calls can coexist with completed output and a valid pairwise
@@ -335,14 +338,32 @@ evaluator's `--scenario` filter, into its own results directory, then swaps the
 fresh scenario record into the native results file. Session databases are never
 merged, so every role/session record stays unique and the rejudge pairing rules
 that reject duplicate completed roles are unaffected. Read
-`_agent-timeout-retry-summary.json` for `recoveredScenarioCount`,
-`unresolvedScenarioCount`, and a per-scenario reason. A scenario is retried only
+`agent-timeout-retry-summary.json` for `recoveredScenarioCount`,
+`unresolvedScenarioCount`, `clearedAggregates`, and a per-scenario reason. A scenario is retried only
 when a timeout is its sole defect: an `executionError`, a failed run, a missing
 arm, or a scenario the agent simply lost is never retried. More than two
 timed-out scenarios is read as a systemic capacity problem and nothing is
-retried. Aggregate verdict fields such as `failureKind` and the confidence
-interval keep the values the first attempt recorded; a stale aggregate can only
-hold a verdict back, never turn a failure into a pass.
+retried.
+
+A timed-out arm reports no completed task and no activation, so the first
+attempt's verdict-level aggregates can assert a completion regression or an
+activation failure that the recovered evidence contradicts. After a swap the
+retry re-derives those aggregates from the surviving scenarios: `failureKind`
+`completion_regression` and `skill_not_activated`, and `skillNotActivated`, are
+cleared only when NO scenario still supports them, so a real regression or a
+real activation failure in any scenario keeps failing. Cleared fields are listed
+in the summary's `clearedAggregates`. The confidence interval was bootstrapped
+over per-run scores that included the timed-out run, so it is dropped rather
+than approximated; it is reported, not gated. `overfittingResult` is kept,
+because it analyses the agent and eval text rather than run outcomes and the
+scenario-filtered retry would only see a narrower slice of the eval.
+
+The retry tree lives under the leg's results directory so its sessions and logs
+are available for audit, but its own `results.json` files are renamed to
+`results.retry.json`. Downstream jobs gather every `results.json` they can find,
+and the retry holds a second, narrower copy of one scenario in the native
+schema; renaming keeps that evidence readable without letting any collector
+count it or mix it into the schema-v5 set.
 
 The workflow token preflight treats HTTP 429 and 402 quota exhaustion
 (`quota_exceeded` or a monthly-quota message) as pool-candidate exhaustion and

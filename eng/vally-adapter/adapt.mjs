@@ -941,13 +941,14 @@ function recordTrialIndex(record) {
 /**
  * The completed executor trajectories behind one comparison slot.
  *
- * Returns the matching records only when the slot maps to exactly one record in
- * the variant; anything else is ambiguous and must not be re-judged.
+ * Uses the same canonical stimulus accessor as the rest of the adapter, so a
+ * record that carries its stimulus under `gradeResult.stimulusName` or
+ * `stimulusName` is matched exactly as it is everywhere else.
  */
 function recordsForComparisonSlot(records, stimulusName, trialIndex) {
   return (records ?? []).filter(
     (record) =>
-      record?.stimulus === stimulusName && recordTrialIndex(record) === trialIndex,
+      stimulusOf(record) === stimulusName && recordTrialIndex(record) === trialIndex,
   );
 }
 
@@ -999,15 +1000,22 @@ function recoverComparisonSlot(slot, config) {
     slot.trialIndex,
   );
   if (baselineSlot.length !== 1 || skilledSlot.length !== 1) {
+    // Missing evidence and duplicate evidence are different faults: the first
+    // means the slot has no preserved trajectory to re-judge, the second means
+    // the slot does not identify a single trajectory. Both are fail-closed, but
+    // they need different investigation, so they must not share one code.
+    const missing = baselineSlot.length === 0 || skilledSlot.length === 0;
     return {
       ok: false,
       error: {
         phase: "comparison_pairing",
         kind: "permanent",
-        code: "targeted_slot_trajectory_ambiguous",
+        code: missing
+          ? "targeted_slot_trajectory_missing"
+          : "targeted_slot_trajectory_ambiguous",
         message:
           `Expected exactly one preserved baseline and treatment trajectory for the slot, ` +
-          `found ${baselineSlot.length} and ${skilledSlot.length}`,
+          `found ${baselineSlot.length} baseline and ${skilledSlot.length} treatment record(s)`,
       },
     };
   }

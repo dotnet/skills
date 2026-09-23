@@ -878,11 +878,15 @@ jobs:
             # out again, fails for any other reason, or simply lost is left exactly
             # as measured and still fails the accounting gate below. The bound
             # keeps a systemic capacity problem from being retried at all.
+            # Keep the retry's sessions and raw output inside RESULTS_DIR so the
+            # uploaded artifact carries an audit trail of what was re-run. Its
+            # results.json files are excluded from the produced-result count
+            # below; only the adapted schema-v5 output is authoritative.
             if ! timeout --signal=TERM --kill-after=30s 45m \
               node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/retry-agent-timeouts.mjs" \
                 --results-file "${AGENT_RESULTS[0]}" \
-                --retry-results-dir "$RUNNER_TEMP/agent-timeout-retry" \
-                --summary "$RESULTS_DIR/_agent-timeout-retry-summary.json" \
+                --retry-results-dir "$RESULTS_DIR/_agent-timeout-retry" \
+                --summary "$RESULTS_DIR/agent-timeout-retry-summary.json" \
                 --validator "$RUNNER_TEMP/trusted-validator/skill-validator" \
                 --tests-dir "tests/$PLUGIN" \
                 --model "$MODEL" \
@@ -1115,8 +1119,10 @@ jobs:
 
           fi
 
-          # Surface how many verdicts were produced.
-          PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$RESULTS_DIR/_experiment/*" -not -path "$RESULTS_DIR/_agent-evaluation/*" | wc -l | tr -d ' ')
+          # Surface how many verdicts were produced. Raw evaluator trees are
+          # excluded: only the adapted schema-v5 results are authoritative, and
+          # the timeout-retry tree holds a second raw copy of one scenario.
+          PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$RESULTS_DIR/_experiment/*" -not -path "$RESULTS_DIR/_agent-evaluation/*" -not -path "$RESULTS_DIR/_agent-timeout-retry/*" | wc -l | tr -d ' ')
           echo "Produced $PRODUCED of $EXPECTED_EVAL_COUNT expected target verdict(s) for $PLUGIN"
           if [ "$PRODUCED" -ne "$EXPECTED_EVAL_COUNT" ]; then
             echo "::error::vally produced $PRODUCED result file(s), but the pre-run manifest required $EXPECTED_EVAL_COUNT. The result set is incomplete or contains an unexpected eval."
