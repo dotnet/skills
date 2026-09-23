@@ -934,7 +934,7 @@ class TokenFailoverTests(unittest.TestCase):
         )
         self.assertEqual(
             canary["permissions"],
-            {"actions": "write", "contents": "read", "issues": "write"},
+            {"actions": "read", "contents": "read", "issues": "read"},
         )
         canary_job = canary["jobs"]["groom"]
         self.assertIn(
@@ -943,12 +943,20 @@ class TokenFailoverTests(unittest.TestCase):
         )
         self.assertIn("OWNER", canary_job["if"])
         self.assertIn("MEMBER", canary_job["if"])
-        self.assertIn("COLLABORATOR", canary_job["if"])
+        self.assertNotIn("COLLABORATOR", canary_job["if"])
         self.assertEqual(
             canary_job["uses"],
             "./.github/workflows/devops-health-groom.lock.yml",
         )
         self.assertEqual(canary_job["with"], {"dry_run": True})
+        self.assertEqual(
+            set(canary_job["secrets"]),
+            {f"COPILOT_PAT_{index}" for index in range(10)},
+        )
+        self.assertNotIn("secrets: inherit", canary_text)
+        self.assertNotIn("GH_AW_GITHUB_TOKEN", canary_text)
+        self.assertNotIn("actions: write", canary_text)
+        self.assertNotIn("issues: write", canary_text)
         self.assertNotIn("gh workflow run", canary_text)
         self.assertTrue(canary["concurrency"]["cancel-in-progress"])
         self.assertIn(
@@ -963,7 +971,6 @@ class TokenFailoverTests(unittest.TestCase):
             "actions/download-artifact@"
             "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
         )
-        self.assertEqual(canary_job["secrets"], "inherit")
         self.assertEqual(
             download_step["with"]["pattern"],
             "*-agent-output-fallback",

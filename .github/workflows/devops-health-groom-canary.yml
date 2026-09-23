@@ -13,9 +13,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  actions: write
+  actions: read
   contents: read
-  issues: write
+  issues: read
 
 concurrency:
   group: devops-health-groom-canary-${{ github.event.pull_request.number || github.ref }}
@@ -28,14 +28,24 @@ jobs:
       (
         github.event.pull_request.head.repo.full_name == github.repository &&
         contains(
-          fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+          fromJSON('["OWNER","MEMBER"]'),
           github.event.pull_request.author_association
         )
       )
     uses: ./.github/workflows/devops-health-groom.lock.yml
     with:
       dry_run: true
-    secrets: inherit
+    secrets:
+      COPILOT_PAT_0: ${{ secrets.COPILOT_PAT_0 }}
+      COPILOT_PAT_1: ${{ secrets.COPILOT_PAT_1 }}
+      COPILOT_PAT_2: ${{ secrets.COPILOT_PAT_2 }}
+      COPILOT_PAT_3: ${{ secrets.COPILOT_PAT_3 }}
+      COPILOT_PAT_4: ${{ secrets.COPILOT_PAT_4 }}
+      COPILOT_PAT_5: ${{ secrets.COPILOT_PAT_5 }}
+      COPILOT_PAT_6: ${{ secrets.COPILOT_PAT_6 }}
+      COPILOT_PAT_7: ${{ secrets.COPILOT_PAT_7 }}
+      COPILOT_PAT_8: ${{ secrets.COPILOT_PAT_8 }}
+      COPILOT_PAT_9: ${{ secrets.COPILOT_PAT_9 }}
 
   validate:
     needs: groom
