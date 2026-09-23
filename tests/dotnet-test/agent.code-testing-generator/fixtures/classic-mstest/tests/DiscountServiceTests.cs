@@ -20,8 +20,8 @@ namespace Contoso.Discounts.Tests
         public void Apply_ZeroPercent_ReturnsOriginalPrice()
         {
             Product product = Builder<Product>.CreateNew()
-                .With(x => x.Id = 42)
-                .With(x => x.Price = 25m)
+                .With(x => x.Id, 42)
+                .With(x => x.Price, 25m)
                 .Build();
             _repository.Setup(x => x.Get(42)).Returns(product);
 
