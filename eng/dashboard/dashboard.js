@@ -234,7 +234,10 @@
     });
   }
   function legendLabelsWithModelMarker(chart) {
-    return Chart.defaults.plugins.legend.labels.generateLabels(chart).map(function(l) {
+    return Chart.defaults.plugins.legend.labels.generateLabels(chart).filter(function(l) {
+      const ds = chart.data.datasets[l.datasetIndex];
+      return ds && !ds.hidden;
+    }).map(function(l) {
       const ds = chart.data.datasets[l.datasetIndex];
       const seriesColor = ds && ds.borderColor ? ds.borderColor : l.strokeStyle;
       const marker = ds && ds.modelMarker ? ds.modelMarker : { style: 'rect', rotation: 0 };
@@ -1101,6 +1104,9 @@
           effChart.data.datasets.forEach((dataset, index) => {
             applyDatasetIndexes(dataset, datasetSources[index], indexes);
           });
+          div.style.display = effChart.data.datasets.some(dataset =>
+            dataset.data.some(value => value != null)
+          ) ? '' : 'none';
           refreshLegendNotes(issueNotes, combineIssueFlags(entryLegendFlags, indexes));
           effChart.update('none');
         };
@@ -1322,6 +1328,7 @@
 
     const issueNotes = document.createElement('div');
     refreshLegendNotes(issueNotes, legendFlags);
+    let visibleModels = new Set(models);
     chart.applyModelFilter = (activeModels) => {
       const indexes = [];
       entries.forEach((entry, index) => {
@@ -1332,12 +1339,21 @@
       chart.data.labels = indexes.map(index => sourceLabels[index]);
       chart.data.datasets.forEach((dataset, index) => {
         applyDatasetIndexes(dataset, datasetSources[index], indexes);
-        dataset.hidden = !activeModels.has(datasetModels[index]);
+        const model = datasetModels[index];
+        const modelVisible = activeModels.has(model);
+        dataset.hidden = !modelVisible;
+        if (modelVisible !== visibleModels.has(model)) {
+          chart.setDatasetVisibility(index, modelVisible);
+        }
       });
       const visibleDatasetCount = datasetModels.filter(model => activeModels.has(model)).length;
       chart.options.plugins.legend.display = visibleDatasetCount <= MAX_INLINE_LEGEND_SERIES;
+      div.style.display = chart.data.datasets.some(dataset =>
+        !dataset.hidden && dataset.data.some(value => value != null)
+      ) ? '' : 'none';
       refreshLegendNotes(issueNotes, combineIssueFlags(entryLegendFlags, indexes));
       chart.update('none');
+      visibleModels = new Set(activeModels);
     };
 
     const dashName = d => (!d || !d.length) ? 'solid' : (d[0] >= 6 ? 'dashed' : 'dotted');

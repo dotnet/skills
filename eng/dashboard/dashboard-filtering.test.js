@@ -118,7 +118,11 @@ class FakeChart {
     plugins: {
       legend: {
         labels: {
-          generateLabels: () => [],
+          generateLabels: chart => chart.data.datasets.map((dataset, datasetIndex) => ({
+            datasetIndex,
+            hidden: !!dataset.hidden,
+            strokeStyle: dataset.borderColor,
+          })),
         },
       },
     },
@@ -130,7 +134,16 @@ class FakeChart {
     this.options = config.options;
     this.updateCalls = [];
     this.destroyCalls = 0;
+    this.metas = this.data.datasets.map(() => ({ hidden: null }));
     FakeChart.instances.push(this);
+  }
+
+  getDatasetMeta(index) {
+    return this.metas[index];
+  }
+
+  setDatasetVisibility(index, visible) {
+    this.metas[index].hidden = !visible;
   }
 
   update(mode) {
@@ -303,4 +316,97 @@ test('efficiency legend gives high overfitting precedence per entry without losi
   assert.ok(notes.some(note => note.includes('High eval overfitting')));
   assert.ok(notes.every(note => !note.includes('Moderate eval overfitting')));
   assert.ok(notes.some(note => note.includes('Multiple issues')));
+});
+
+test('model filtering limits legend items and resets visibility metadata for the toggled model', async (t) => {
+  const models = Array.from({ length: 10 }, (_, index) => `model-${index + 1}`);
+  const pluginData = {
+    entries: {
+      Quality: models.map((model, index) =>
+        qualityEntry(model, `2026-09-${String(index + 1).padStart(2, '0')}T00:00:00Z`, 8)
+      ),
+      Efficiency: [],
+    },
+  };
+  const { animationFrames, document } = await renderDashboard(t, pluginData, 1);
+  const qualityChart = FakeChart.instances[0];
+  const checkboxes = document.getElementById('model-filter-sample').querySelectorAll('input');
+
+  assert.equal(qualityChart.options.plugins.legend.display, false);
+  qualityChart.setDatasetVisibility(0, false);
+  checkboxes.slice(1).forEach(checkbox => {
+    checkbox.checked = false;
+    checkbox.dispatch('change');
+  });
+  assert.equal(animationFrames.length, 1);
+  animationFrames.shift()();
+
+  assert.equal(qualityChart.options.plugins.legend.display, true);
+  assert.equal(
+    qualityChart.options.plugins.legend.labels.generateLabels(qualityChart).length,
+    2,
+    'only the selected model variants appear in the legend'
+  );
+  assert.equal(
+    qualityChart.getDatasetMeta(0).hidden,
+    true,
+    'filtering unrelated models preserves a user-hidden active series'
+  );
+
+  checkboxes[1].checked = true;
+  checkboxes[1].dispatch('change');
+  animationFrames.shift()();
+  checkboxes[0].checked = false;
+  checkboxes[0].dispatch('change');
+  animationFrames.shift()();
+  checkboxes[0].checked = true;
+  checkboxes[0].dispatch('change');
+  checkboxes[1].checked = false;
+  checkboxes[1].dispatch('change');
+  animationFrames.shift()();
+
+  assert.equal(
+    qualityChart.getDatasetMeta(0).hidden,
+    false,
+    'toggling a model off and on resets its Chart.js visibility override'
+  );
+});
+
+test('model filtering hides and restores chart containers without selected measurements', async (t) => {
+  const pluginData = {
+    entries: {
+      Quality: [
+        qualityEntry('model-a', '2026-09-20T00:00:00Z', 8, ['Test A']),
+        qualityEntry('model-b', '2026-09-21T00:00:00Z', 7, ['Test B']),
+      ],
+      Efficiency: [
+        efficiencyEntry('model-a', '2026-09-20T00:00:00Z', 10, ['Test A']),
+        efficiencyEntry('model-b', '2026-09-21T00:00:00Z', 12, ['Test B']),
+      ],
+    },
+  };
+  const { animationFrames, document } = await renderDashboard(t, pluginData, 4);
+  const checkboxes = document.getElementById('model-filter-sample').querySelectorAll('input');
+  const testAContainers = FakeChart.instances
+    .filter(chart => chart.canvas.parentElement.innerHTML.includes('<h3>Test A</h3>'))
+    .map(chart => chart.canvas.parentElement);
+  const testBContainers = FakeChart.instances
+    .filter(chart => chart.canvas.parentElement.innerHTML.includes('<h3>Test B</h3>'))
+    .map(chart => chart.canvas.parentElement);
+
+  assert.equal(testAContainers.length, 2);
+  assert.equal(testBContainers.length, 2);
+  checkboxes[0].checked = false;
+  checkboxes[0].dispatch('change');
+  animationFrames.shift()();
+
+  assert.ok(testAContainers.every(container => container.style.display === 'none'));
+  assert.ok(testBContainers.every(container => container.style.display === ''));
+
+  checkboxes[0].checked = true;
+  checkboxes[0].dispatch('change');
+  animationFrames.shift()();
+
+  assert.ok(testAContainers.every(container => container.style.display === ''));
+  assert.ok(testBContainers.every(container => container.style.display === ''));
 });
