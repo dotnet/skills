@@ -152,17 +152,9 @@ function recomputeNativeAggregate(verdict) {
       && targetAgentActivated(scenario.subagentActivationIsolated, agentName),
   );
   const skillNotActivated = scenarios.some(
-    (scenario) =>
-      scenario?.expectActivation !== false
-      && scenario?.subagentActivationIsolated
-      && !targetAgentActivated(scenario.subagentActivationIsolated, agentName),
+    (scenario) => scenarioMissedActivation(scenario, agentName),
   );
-  const completionRegressed = scenarios.some(
-    (scenario) =>
-      scenario?.expectActivation !== false
-      && scenario?.baseline?.metrics?.taskCompleted === true
-      && scenario?.skilledIsolated?.metrics?.taskCompleted !== true,
-  );
+  const completionRegressed = scenarios.some(scenarioRegressedOnIsolatedCompletion);
 
   const recomputedFailureKind = hasExecutionFailure
     ? "execution_error"
@@ -224,6 +216,7 @@ function durationSeconds(value) {
 function findAgentEvalFile(testsDir, skillName) {
   const agentName = String(skillName).replace(/^agent\./, "");
   const candidates = [
+    join(testsDir, `agent.${agentName}`, "eval.yaml"),
     join(testsDir, skillName, "eval.yaml"),
     join(testsDir, agentName, "eval.yaml"),
   ];
@@ -231,6 +224,7 @@ function findAgentEvalFile(testsDir, skillName) {
     for (const entry of readdirSync(testsDir, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
       candidates.push(
+        join(testsDir, entry.name, `agent.${agentName}`, "eval.yaml"),
         join(testsDir, entry.name, skillName, "eval.yaml"),
         join(testsDir, entry.name, agentName, "eval.yaml"),
       );
@@ -463,24 +457,6 @@ function writeAtomic(path, content) {
 }
 
 /**
- * True when this scenario is objective evidence of a task-completion regression.
- *
- * Mirrors the evaluator's own predicate, but also counts a plugin-arm regression
- * that the agent verdict treats as diagnostic. Widening the predicate can only
- * make the aggregate below survive more often, never less, so it cannot erase a
- * real regression.
- */
-function scenarioRegressedOnCompletion(scenario) {
-  if (scenario?.expectActivation === false) return false;
-  if (scenario?.baseline?.metrics?.taskCompleted !== true) return false;
-  return (
-    scenario.skilledIsolated?.metrics?.taskCompleted !== true ||
-    (Boolean(scenario.skilledPlugin) &&
-      scenario.skilledPlugin?.metrics?.taskCompleted !== true)
-  );
-}
-
-/**
  * The evaluator's exact completion-regression predicate for an agent scenario.
  *
  * `ComputeAgentVerdict` passes `pluginIsDiagnosticOnly: true`, so the plugin arm
@@ -500,19 +476,14 @@ function scenarioRegressedOnIsolatedCompletion(scenario) {
 /**
  * True when this scenario is objective evidence that the agent did not activate.
  *
- * Only a recorded activation probe counts. A scenario with no probe at all says
- * nothing either way and must not be read as activation.
+ * Only the isolated-arm probe participates in the native agent verdict. A
+ * scenario with no isolated probe says nothing either way, and a plugin-only
+ * miss remains diagnostic instead of becoming a gate failure.
  */
 function scenarioMissedActivation(scenario, agentName) {
   if (scenario?.expectActivation === false) return false;
-  const invokedIn = (probe) =>
-    (probe?.invokedAgents ?? []).some(
-      (name) => String(name).toLowerCase() === agentName.toLowerCase(),
-    );
-  for (const probe of [scenario?.subagentActivationIsolated, scenario?.subagentActivationPlugin]) {
-    if (probe && !invokedIn(probe)) return true;
-  }
-  return false;
+  const probe = scenario?.subagentActivationIsolated;
+  return Boolean(probe) && !targetAgentActivated(probe, agentName);
 }
 
 /**
@@ -714,6 +685,5 @@ export {
   requiredArmTimedOut,
   retryAgentTimeouts,
   scenarioMissedActivation,
-  scenarioRegressedOnCompletion,
   scenarioRegressedOnIsolatedCompletion,
 };

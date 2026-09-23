@@ -20,14 +20,30 @@ WINDOWS_GIT_BASH = (
 BASH = str(WINDOWS_GIT_BASH) if WINDOWS_GIT_BASH.exists() else shutil.which("bash")
 
 
-def bash_path(path: pathlib.Path) -> str:
-    resolved = path.resolve()
+def resolved_bash_path(resolved: pathlib.PurePath, platform: str = os.name) -> str:
+    if platform != "nt":
+        return resolved.as_posix()
     drive = resolved.drive.rstrip(":").lower()
+    if not drive:
+        return resolved.as_posix()
     remainder = resolved.as_posix().split(":", 1)[1]
     return f"/{drive}{remainder}"
 
 
+def bash_path(path: pathlib.Path) -> str:
+    return resolved_bash_path(path.resolve())
+
+
 class GitHubApiRetryTests(unittest.TestCase):
+    def test_posix_paths_are_returned_unchanged(self) -> None:
+        self.assertEqual(
+            resolved_bash_path(
+                pathlib.PurePosixPath("/tmp/retry-tests/helper.sh"),
+                platform="posix",
+            ),
+            "/tmp/retry-tests/helper.sh",
+        )
+
     def run_helper(
         self,
         failures: list[str],

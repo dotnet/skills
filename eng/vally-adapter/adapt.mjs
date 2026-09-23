@@ -928,6 +928,62 @@ function recordsForComparisonSlot(records, stimulusName, trialIndex) {
   );
 }
 
+function trialIndexSetForStimulus(records, stimulusName) {
+  return new Set(
+    (records ?? [])
+      .filter((record) => record != null && stimulusOf(record) === stimulusName)
+      .map(recordTrialIndex)
+      .filter((trialIndex) => Number.isInteger(trialIndex) && trialIndex >= 0),
+  );
+}
+
+function sameIntegerSet(left, right) {
+  return left.size === right.size && [...left].every((value) => right.has(value));
+}
+
+function targetedSlotIdentityErrors(report, baselineRecords, skilledRecords) {
+  const errors = new Map();
+  for (const stimulus of report?.stimuli ?? []) {
+    const stimulusName = stimulus?.stimulusName;
+    if (!stimulusName) continue;
+    const comparisonIndices = new Set(
+      (stimulus.trials ?? [])
+        .map((trial) => trial?.trialIndex)
+        .filter((trialIndex) => Number.isInteger(trialIndex) && trialIndex >= 0),
+    );
+    const baselineIndices = trialIndexSetForStimulus(
+      baselineRecords,
+      stimulusName,
+    );
+    const skilledIndices = trialIndexSetForStimulus(
+      skilledRecords,
+      stimulusName,
+    );
+    const baselineIdentityDrift =
+      baselineIndices.size >= comparisonIndices.size &&
+      !sameIntegerSet(comparisonIndices, baselineIndices);
+    const skilledIdentityDrift =
+      skilledIndices.size >= comparisonIndices.size &&
+      !sameIntegerSet(comparisonIndices, skilledIndices);
+    if (
+      baselineIdentityDrift ||
+      skilledIdentityDrift
+    ) {
+      const values = (set) => `[${[...set].sort((a, b) => a - b).join(", ")}]`;
+      errors.set(stimulusName, {
+        phase: "comparison_pairing",
+        kind: "permanent",
+        code: "targeted_slot_trial_identity_mismatch",
+        message:
+          `Comparison/executor trial-index sets differ for "${stimulusName}": ` +
+          `comparison=${values(comparisonIndices)}, ` +
+          `baseline=${values(baselineIndices)}, skilled=${values(skilledIndices)}`,
+      });
+    }
+  }
+  return errors;
+}
+
 /**
  * Slots that are still errored after the slice-level retry and whose latest
  * failure is a transient judge fault (session.idle timeout, throttling, 5xx).
@@ -1084,6 +1140,11 @@ function recoverTransientComparisonSlots(primaryReport, config) {
   const compare = config.compare ?? runCompare;
   const maxSlots = config.maxSlots ?? MAX_TARGETED_COMPARISON_SLOTS;
   const slots = transientComparisonSlots(primaryReport);
+  const identityErrors = targetedSlotIdentityErrors(
+    primaryReport,
+    config.baselineRecords,
+    config.skilledRecords,
+  );
   const targeted = {
     maxSlots,
     plannedSlotCount: slots.length,
@@ -1113,11 +1174,14 @@ function recoverTransientComparisonSlots(primaryReport, config) {
         `(${slot.error.code}) from preserved executor trajectories`,
     );
     targeted.attemptedSlotCount++;
-    const outcome = recoverComparisonSlot(slot, {
-      ...config,
-      compare,
-      slotOrdinal: index + 1,
-    });
+    const identityError = identityErrors.get(slot.stimulusName);
+    const outcome = identityError
+      ? { ok: false, error: identityError }
+      : recoverComparisonSlot(slot, {
+          ...config,
+          compare,
+          slotOrdinal: index + 1,
+        });
     if (outcome.ok) {
       recovered.set(slot.key, { slot, trial: outcome.trial });
       targeted.recoveredSlotCount++;

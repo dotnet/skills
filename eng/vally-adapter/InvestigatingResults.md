@@ -330,7 +330,8 @@ carry the expected variants. A recovered trial carries `targetedRecovery: true`
 and `recoveredFrom`. Anything unexpected — no trajectory for either arm
 (`targeted_slot_trajectory_missing`), duplicate trajectories
 (`targeted_slot_trajectory_ambiguous`), incorrect variant pairing
-(`targeted_slot_variant_mismatch`), a retry that returns the wrong number of trials
+(`targeted_slot_variant_mismatch`), executor/comparison trial-index set drift
+(`targeted_slot_trial_identity_mismatch`), a retry that returns the wrong number of trials
 (`targeted_retry_result_ambiguous`), a failed invocation
 (`targeted_retry_invocation_failed`), or a repeat timeout — leaves the slot
 errored and the eval measurement-invalid. `targeted_slot_trajectory_missing`

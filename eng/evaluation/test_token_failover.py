@@ -3249,23 +3249,15 @@ class AgentTimeoutRetryQuarantineTests(unittest.TestCase):
         )
         self.assertNotIn('--retry-results-dir "$RESULTS_DIR', script)
 
-    def test_killed_retry_leaves_no_collectable_native_results(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            results_dir = Path(tmp) / "results"
-            retry_temp = Path(tmp) / "runner-temp" / "agent-timeout-retry"
-            killed = retry_temp / "1-agent.x" / "20260101-000000"
-            killed.mkdir(parents=True)
-            (killed / "results.json").write_text('{"verdicts":[]}', encoding="utf-8")
-            adapted = results_dir / "dotnet-test" / "some-skill"
-            adapted.mkdir(parents=True)
-            (adapted / "results.json").write_text('{"verdicts":[]}', encoding="utf-8")
-
-            survivors = sorted(
-                str(path.relative_to(results_dir)).replace("\\", "/")
-                for path in results_dir.rglob("results.json")
-            )
-            self.assertEqual(survivors, ["dotnet-test/some-skill/results.json"])
-            self.assertTrue((killed / "results.json").is_file())
+    def test_retry_budget_is_wired_to_the_outer_watchdog(self) -> None:
+        script = self._run_script()
+        self.assertIn(
+            "timeout --signal=TERM --kill-after=30s 45m",
+            script,
+        )
+        self.assertIn("--max-scenarios 2", script)
+        self.assertIn("--max-scenario-seconds 1200", script)
+        self.assertIn("--scenario-overhead-seconds 300", script)
 
     def test_recursive_collectors_exclude_the_retry_tree(self) -> None:
         # Scan the whole workflow: the produced-result count and the per-skill

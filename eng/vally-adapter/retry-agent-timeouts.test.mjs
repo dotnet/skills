@@ -8,8 +8,9 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   findTimedOutScenarios,
@@ -19,10 +20,11 @@ import {
   requiredArmTimedOut,
   retryAgentTimeouts,
   scenarioMissedActivation,
-  scenarioRegressedOnCompletion,
   scenarioRegressedOnIsolatedCompletion,
 } from "./retry-agent-timeouts.mjs";
 import { legacyToVerdict } from "./adapt-agent-results.mjs";
+
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 function runResult(overrides = {}) {
   return {
@@ -75,7 +77,7 @@ function resultsWith(scenarios, verdictOverrides = {}) {
     judgeModel: "gpt-5.6-luna",
     verdicts: [
       {
-        skillName: "agent.code-testing-generator",
+        skillName: "code-testing-generator",
         skillPath: "plugins/dotnet-test/agents/code-testing-generator.agent.md",
         failureKind: null,
         scenarios,
@@ -85,8 +87,13 @@ function resultsWith(scenarios, verdictOverrides = {}) {
   };
 }
 
-function writeAgentEval(root, scenarioCount = 5, timeout = "5m") {
-  const evalDir = join(root, "tests", "dotnet-test", "agent.code-testing-generator");
+function writeAgentEval(
+  root,
+  scenarioCount = 5,
+  timeout = "5m",
+  agentDir = "agent.code-testing-generator",
+) {
+  const evalDir = join(root, "tests", "dotnet-test", agentDir);
   mkdirSync(evalDir, { recursive: true });
   const stimuli = Array.from({ length: scenarioCount }, (_, index) => `
   - name: Scenario ${index + 1}
@@ -131,7 +138,7 @@ function stubRun(scenarioByName) {
       JSON.stringify({
         verdicts: [
           {
-            skillName: "agent.code-testing-generator",
+            skillName: "code-testing-generator",
             scenarios: produced ? [produced] : [],
           },
         ],
@@ -149,7 +156,7 @@ function baseConfig(paths, run) {
     summary: paths.summary,
     validator: "skill-validator",
     agents: ["plugins/dotnet-test/agents/code-testing-generator.agent.md"],
-    testsDir: "tests/dotnet-test",
+    testsDir: join(repoRoot, "tests", "dotnet-test"),
     model: "gpt-5.6-luna",
     judgeModel: "gpt-5.6-luna",
     maxScenarios: 2,
@@ -195,7 +202,7 @@ test("findTimedOutScenarios records the owning verdict and position", () => {
     {
       verdictIndex: 0,
       scenarioIndex: 1,
-      skillName: "agent.code-testing-generator",
+      skillName: "code-testing-generator",
       scenarioName: "second",
     },
   ]);
@@ -227,7 +234,7 @@ test("a required-arm timeout is recovered by a targeted scenario retry", () => {
   ]);
   assert.deepEqual(calls[0].slice(calls[0].indexOf("--target"), calls[0].indexOf("--target") + 2), [
     "--target",
-    "agent.code-testing-generator",
+    "code-testing-generator",
   ]);
 
   const merged = JSON.parse(readFileSync(paths.resultsFile, "utf8"));
@@ -331,6 +338,35 @@ test("a retry whose declared three-arm cost exceeds the budget is skipped", () =
   assert.equal(summary.attempts[0].armTimeoutSeconds, 3600);
   assert.equal(summary.attempts[0].estimatedSeconds, 11100);
   assert.match(summary.attempts[0].reason, /above the 1200s/);
+});
+
+test("a bare agent name resolves a nested agent-prefixed eval directory", () => {
+  const paths = workspace(resultsWith([timedOutScenario("flaky")]));
+  writeAgentEval(
+    paths.root,
+    1,
+    "5m",
+    join("nested", "agent.code-testing-generator"),
+  );
+  const { run, calls } = stubRun({ flaky: scenario("flaky") });
+  const config = {
+    ...baseConfig(paths, run),
+    testsDir: join(paths.root, "tests", "dotnet-test"),
+    maxScenarioSeconds: 1200,
+    scenarioOverheadSeconds: 300,
+  };
+
+  const summary = retryAgentTimeouts(config);
+
+  assert.equal(summary.recoveredScenarioCount, 1);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(
+    calls[0].slice(
+      calls[0].indexOf("--target"),
+      calls[0].indexOf("--target") + 2,
+    ),
+    ["--target", "code-testing-generator"],
+  );
 });
 
 test("a results file with no timeout is left byte-identical", () => {
@@ -526,7 +562,6 @@ test("a dormant scenario is never read as a regression or a missed activation", 
     subagentActivationIsolated: { invokedAgents: [] },
   });
 
-  assert.equal(scenarioRegressedOnCompletion(dormant), false);
   assert.equal(scenarioMissedActivation(dormant, "code-testing-generator"), false);
 });
 
@@ -539,6 +574,24 @@ test("a scenario with no activation probe is not read as activation evidence", (
   assert.equal(scenarioMissedActivation(noProbe, "code-testing-generator"), false);
 });
 
+test("plugin-only missed activation does not override isolated completion evidence", () => {
+  const pluginMiss = scenario("plugin-miss", {
+    subagentActivationIsolated: activated(),
+    subagentActivationPlugin: { invokedAgents: [] },
+  });
+  const verdict = resultsWith([pluginMiss]).verdicts[0];
+
+  recomputeNativeAggregate(verdict);
+
+  assert.equal(verdict.skillNotActivated, false);
+  assert.equal(verdict.failureKind, null);
+
+  pluginMiss.skilledIsolated.metrics.taskCompleted = false;
+  recomputeNativeAggregate(verdict);
+  assert.equal(verdict.skillNotActivated, false);
+  assert.equal(verdict.failureKind, "completion_regression");
+});
+
 test("the retry tree is kept for audit but never collectable as a results.json", () => {
   const paths = workspace(resultsWith([timedOutScenario("flaky")]));
   const { run } = stubRun({ flaky: scenario("flaky") });
@@ -547,7 +600,7 @@ test("the retry tree is kept for audit but never collectable as a results.json",
 
   // Downstream jobs gather every results.json they can find in the uploaded
   // artifact, so the retry's own native aggregate must not carry that name.
-  const names = readdirSync(join(paths.retryResultsDir, "1-agent.code-testing-generator"), {
+  const names = readdirSync(join(paths.retryResultsDir, "1-code-testing-generator"), {
     recursive: true,
   }).map(String);
   assert.ok(names.some((name) => name.endsWith("results.retry.json")), "evidence is kept");
@@ -561,7 +614,7 @@ test("an unresolved retry also leaves no collectable results.json behind", () =>
   const summary = retryAgentTimeouts(baseConfig(paths, run));
 
   assert.equal(summary.unresolvedScenarioCount, 1);
-  const names = readdirSync(join(paths.retryResultsDir, "1-agent.code-testing-generator"), {
+  const names = readdirSync(join(paths.retryResultsDir, "1-code-testing-generator"), {
     recursive: true,
   }).map(String);
   assert.ok(!names.some((name) => name.endsWith("results.json")));

@@ -1799,6 +1799,40 @@ test("an ambiguous slot-to-trajectory mapping is never re-judged", () => {
   }
 });
 
+test("executor and comparison trial-index set mismatch fails closed", () => {
+  const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 1);
+  const baselineRecords = executorRecordsFor(primary, "baseline").map((record) => {
+    const trialIndex = Number(/::trial-(\d+)$/.exec(record.shardKey)[1]);
+    return {
+      ...record,
+      shardKey: record.shardKey.replace(
+        /::trial-\d+$/,
+        `::trial-${trialIndex + 1}`,
+      ),
+    };
+  });
+  let calls = 0;
+
+  const result = withTargetedRecovery(
+    primary,
+    () => {
+      calls++;
+      return null;
+    },
+    { baselineRecords },
+  );
+
+  assert.equal(calls, 0);
+  assert.equal(result.summary.erroredCount, 1);
+  const failure =
+    result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1);
+  assert.equal(failure.code, "targeted_slot_trial_identity_mismatch");
+  assert.match(
+    failure.message,
+    /comparison=\[0, 1, 2\], baseline=\[1, 2, 3\], skilled=\[0, 1, 2\]/,
+  );
+});
+
 test("targeted recovery uses the canonical stimulus identity", () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
   const baselineRecords = executorRecordsFor(primary, "baseline");
