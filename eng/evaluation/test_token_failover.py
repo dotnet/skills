@@ -39,6 +39,7 @@ def run_groom_canary_validator(
     *,
     trusted_comment: bool = True,
     trusted_run: bool = True,
+    include_prior: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     node = shutil.which("node")
     if not node:
@@ -82,7 +83,16 @@ const github = {{
               }}],
               history: []
             }}),
-            "-->"
+            "-->",
+            {json.dumps(
+                "| [](https://github.com/dotnet/skills/issues/695"
+                "#investigation-fingerprint:infra%3Ano-codeowners) "
+                "[](https://github.com/dotnet/skills/issues/695"
+                "#investigation-correlation:hc-2026-09-23-123-1) "
+                "No CODEOWNERS | 🟡 warning | 🔄 Dispatched | "
+                "2026-09-23 | pending |"
+                if include_prior else ""
+            )}
           ].join("\\n")
         }}
       }}),
@@ -1070,6 +1080,14 @@ class TokenFailoverTests(unittest.TestCase):
         )
         validate_job = canary["jobs"]["validate"]
         self.assertEqual(validate_job["needs"], "groom")
+        self.assertEqual(
+            validate_job["if"],
+            "always() && needs.groom.result != 'skipped'",
+        )
+        self.assertEqual(
+            validate_job["permissions"],
+            {"actions": "read", "issues": "read"},
+        )
         download_step = validate_job["steps"][0]
         self.assertEqual(
             download_step["uses"],
@@ -1115,6 +1133,10 @@ class TokenFailoverTests(unittest.TestCase):
         )
         self.assertIn(
             "An inactive groomed row does not match a persisted investigation",
+            canary_text,
+        )
+        self.assertIn(
+            "An active persisted investigation row was omitted or changed",
             canary_text,
         )
         valid_publish = run_groom_canary_validator(
@@ -1198,6 +1220,19 @@ class TokenFailoverTests(unittest.TestCase):
         self.assertIn(
             "An inactive groomed row does not match a persisted investigation",
             unknown_publish.stderr,
+        )
+        omitted_prior = run_groom_canary_validator(
+            self,
+            {
+                "type": "publish_groomed_dashboard",
+                "rows_json": "```json\n[]\n```",
+            },
+            include_prior=True,
+        )
+        self.assertNotEqual(omitted_prior.returncode, 0)
+        self.assertIn(
+            "An active persisted investigation row was omitted or changed",
+            omitted_prior.stderr,
         )
         self.assertIn(
             "url.pathname === `/${owner}/${repo}/issues/695`",
