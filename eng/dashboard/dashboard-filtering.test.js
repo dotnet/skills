@@ -290,20 +290,25 @@ test('model filtering updates existing charts without rebuilding them', async (t
 });
 
 test('efficiency legend gives high overfitting precedence per entry without losing multi-issue detection', async (t) => {
-  const entry = efficiencyEntry('model-a', '2026-09-20T00:00:00Z', 10);
-  const timeBench = entry.benches.find(bench => bench.name === 'Example - Skilled Time');
-  const tokenBench = entry.benches.find(bench => bench.name === 'Example - Skilled Tokens In');
+  const issueEntry = efficiencyEntry('model-a', '2026-09-20T00:00:00Z', 10);
+  const timeBench = issueEntry.benches.find(bench => bench.name === 'Example - Skilled Time');
+  const tokenBench = issueEntry.benches.find(bench => bench.name === 'Example - Skilled Tokens In');
   timeBench.notActivated = true;
   timeBench.overfitting = 'high';
   tokenBench.overfitting = 'moderate';
+  const survivingEntry = efficiencyEntry('model-b', '2026-09-21T00:00:00Z', 12);
+  survivingEntry.benches.find(bench => bench.name === 'Example - Skilled Time').overfitting = 'moderate';
 
   const pluginData = {
     entries: {
-      Quality: [qualityEntry('model-a', '2026-09-20T00:00:00Z', 8)],
-      Efficiency: [entry],
+      Quality: [
+        qualityEntry('model-a', '2026-09-20T00:00:00Z', 8),
+        qualityEntry('model-b', '2026-09-21T00:00:00Z', 7),
+      ],
+      Efficiency: [issueEntry, survivingEntry],
     },
   };
-  await renderDashboard(t, pluginData, 2);
+  const { animationFrames, document } = await renderDashboard(t, pluginData, 2);
 
   assert.equal(FakeChart.instances.length, 2);
   const efficiencyChart = FakeChart.instances.find(chart =>
@@ -314,8 +319,24 @@ test('efficiency legend gives high overfitting precedence per entry without losi
     .querySelectorAll('.not-activated-legend')
     .map(note => note.innerHTML);
   assert.ok(notes.some(note => note.includes('High eval overfitting')));
-  assert.ok(notes.every(note => !note.includes('Moderate eval overfitting')));
+  assert.ok(notes.some(note => note.includes('Moderate eval overfitting')));
   assert.ok(notes.some(note => note.includes('Multiple issues')));
+
+  const checkboxes = document.getElementById('model-filter-sample').querySelectorAll('input');
+  checkboxes[0].checked = false;
+  checkboxes[0].dispatch('change');
+  animationFrames.shift()();
+
+  const filteredNotes = efficiencyChart.canvas.parentElement
+    .querySelectorAll('.not-activated-legend')
+    .map(note => note.innerHTML);
+  assert.ok(filteredNotes.every(note => !note.includes('High eval overfitting')));
+  assert.ok(filteredNotes.some(note => note.includes('Moderate eval overfitting')));
+  assert.ok(filteredNotes.every(note => !note.includes('Multiple issues')));
+
+  const tooltip = efficiencyChart.options.plugins.tooltip.callbacks.afterTitle([{ dataIndex: 0 }]);
+  assert.match(tooltip, /Model: model-b/);
+  assert.match(tooltip, /model-b efficiency/);
 });
 
 test('model filtering limits legend items and resets visibility metadata for the toggled model', async (t) => {
