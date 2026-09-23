@@ -443,7 +443,7 @@ stimuli:
       - Returned memory no longer aliases storage after that storage has been returned to the pool
       - The rented buffer is returned on success and failure rather than leaked to preserve the result
       - The method retains its existing signature and returns exactly the bytes read
-      - The project builds and the executable prints pooled-buffer-lifetime-ok
+      - The project builds and the verifier prints pooled-buffer-verifier-ok.
   - name: Leave a simple asynchronous API in its safe form
     tags:
       capability: async-api-design
