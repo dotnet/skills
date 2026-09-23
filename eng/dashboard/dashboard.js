@@ -308,41 +308,18 @@
       return { label: 'Preference loss (report only)', cls: 'warning' };
     }
     if (verdict && verdict.passed) return { label: 'Improved (legacy)', cls: 'pass' };
-    const gate = verdict && verdict.gateEvidence;
-    if (verdict && verdict.state === 'VALID_NO_CHANGE' && gate) {
-      const wins = gate.wins || 0;
-      const ties = gate.ties || 0;
-      const losses = gate.losses || 0;
-      const discordant = Number.isFinite(gate.discordant) ? gate.discordant : wins + losses;
-      const minimumDiscordant = Number.isFinite(gate.minimumCredibleStimuli)
-        ? gate.minimumCredibleStimuli
-        : 5;
-      if (reasonCode === 'practical_effect_below_floor') {
-        if (wins > losses) return { label: 'Improvement too sparse', cls: 'neutral' };
-        if (losses > wins) return { label: 'Baseline signal too sparse', cls: 'neutral' };
-      }
-      if (wins === 0 && losses === 0 && ties > 0) {
-        return { label: 'No preference', cls: 'neutral' };
-      }
-      if (wins === losses && wins > 0) {
-        return { label: 'Mixed evidence', cls: 'neutral' };
-      }
-      if (wins > losses) {
-        return {
-          label: discordant < minimumDiscordant
-            ? 'Improvement signal, tie-limited'
-            : 'Improvement signal, unproven',
-          cls: 'neutral',
-        };
-      }
-      if (losses > wins) {
-        return {
-          label: discordant < minimumDiscordant
-            ? 'Baseline signal, tie-limited'
-            : 'Baseline signal, unproven',
-          cls: 'neutral',
-        };
-      }
+    if (verdict && verdict.state === 'VALID_NO_CHANGE') {
+      const label = ({
+        all_ties: 'No preference',
+        mixed: 'Mixed evidence',
+        positive_tie_limited: 'Improvement signal, tie-limited',
+        positive_unproven: 'Improvement signal, unproven',
+        negative_tie_limited: 'Baseline signal, tie-limited',
+        negative_unproven: 'Baseline signal, unproven',
+        positive_sparse: 'Improvement too sparse',
+        negative_sparse: 'Baseline signal too sparse',
+      })[verdict.noChangeDiagnosis];
+      if (label) return { label, cls: 'neutral' };
     }
     return { label: 'Not proven improved', cls: 'neutral' };
   }

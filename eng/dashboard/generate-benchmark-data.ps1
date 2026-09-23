@@ -613,7 +613,7 @@ foreach ($verdict in $results.verdicts) {
             alpha             = $verdict.signTest.alpha
             netWin            = $verdict.netWin
             minimumNetWin     = $verdict.practicalSignificance.minimum
-            minimumCredibleStimuli = if ($verdict.PSObject.Properties['minCredibleStimuli']) {
+            minCredibleStimuli = if ($verdict.PSObject.Properties['minCredibleStimuli']) {
                 [int]$verdict.minCredibleStimuli
             } else {
                 5
@@ -679,6 +679,11 @@ foreach ($verdict in $results.verdicts) {
         regressed          = $verdict.regressed -eq $true
         preferenceRegressed = $verdict.preferenceRegressed -eq $true
         reason             = $verdict.reason
+        noChangeDiagnosis  = if ($verdict.PSObject.Properties['noChangeDiagnosis']) {
+            $verdict.noChangeDiagnosis
+        } else {
+            $null
+        }
         gateEvidence       = $gateEvidence
         activationContract = if ($verdict.PSObject.Properties['activationContract']) { $verdict.activationContract } else { $null }
         activationScenarios = $activationScenarios.ToArray()

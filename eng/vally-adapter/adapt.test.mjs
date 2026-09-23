@@ -1223,6 +1223,7 @@ test("a tie-starved record says no record could have passed, not that none did",
   assert.equal(v.signTest.discordant, 1);
   assert.equal(v.passed, false);
   assert.equal(v.regressed, false);
+  assert.equal(v.noChangeDiagnosis, "positive_tie_limited");
   assert.match(v.reason, /4 of 5 preference-eligible stimulus vote\(s\) tied, leaving only 1 discordant preference vote\(s\)/);
   assert.match(v.reason, /no record could have passed here — this is not a measured null/);
   assert.match(v.reason, /inert/);
@@ -1232,6 +1233,7 @@ test("a tie-starved record says no record could have passed, not that none did",
   const four = gate([0.4, 0.4, 0.4, 0.4, 0]);
   assert.equal(four.signTest.discordant, 4);
   assert.equal(four.passed, false);
+  assert.equal(four.noChangeDiagnosis, "positive_tie_limited");
   assert.match(four.reason, /no record could have passed here/);
 
   // Five discordant stimulus votes is where the test becomes winnable, so a record that
@@ -1239,6 +1241,7 @@ test("a tie-starved record says no record could have passed, not that none did",
   const winnable = gate([0.4, 0.4, 0.4, 0.4, -0.4]);
   assert.equal(winnable.signTest.discordant, 5);
   assert.equal(winnable.passed, false);
+  assert.equal(winnable.noChangeDiagnosis, "positive_unproven");
   assert.match(winnable.reason, /not credible \(sign test p=/);
   assert.doesNotMatch(winnable.reason, /no record could have passed/);
 });
@@ -1264,7 +1267,12 @@ test("the gate ignores the statistics vally reports", () => {
 });
 
 test("losses sink a verdict, and a clean sweep of them is a credible regression", () => {
-  assert.equal(gate([0.4, 0.4, 0.4, -0.4, -0.4, -0.4]).passed, false, "even split");
+  const even = gate([0.4, 0.4, 0.4, -0.4, -0.4, -0.4]);
+  assert.equal(even.passed, false, "even split");
+  assert.equal(even.noChangeDiagnosis, "mixed");
+  const baselineLean = gate([0.4, -0.4, -0.4, -0.4, -0.4]);
+  assert.equal(baselineLean.regressed, false);
+  assert.equal(baselineLean.noChangeDiagnosis, "negative_unproven");
   const swept = gate([-0.4, -0.4, -0.4, -0.4, -0.4]);
   assert.equal(swept.passed, false);
   assert.equal(swept.regressed, true);
@@ -1385,6 +1393,11 @@ test("the practical net-win floor rejects sparse wins among many ties", () => {
   assert.equal(sparse.passed, false);
   assert.equal(sparse.state, VERDICT_STATES.VALID_NO_CHANGE);
   assert.equal(sparse.stateReason.code, "practical_effect_below_floor");
+  assert.equal(sparse.noChangeDiagnosis, "positive_sparse");
+
+  const sparseLoss = gate([...Array(95).fill(0), ...Array(5).fill(-0.4)]);
+  assert.equal(sparseLoss.stateReason.code, "practical_effect_below_floor");
+  assert.equal(sparseLoss.noChangeDiagnosis, "negative_sparse");
 
   const boundary = gate([...Array(5).fill(0.4), ...Array(20).fill(0)]);
   assert.equal(boundary.netWin, MIN_PRACTICAL_NET_WIN);

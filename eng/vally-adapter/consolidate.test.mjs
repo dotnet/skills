@@ -327,7 +327,7 @@ test("identifies a positive result whose ties make the gate unreachable", () => 
   assert.match(markdown, /tie evidence &lt;unsafe&gt;/);
 });
 
-test("distinguishes all-tie, mixed, and baseline-leaning no-change results", () => {
+test("distinguishes all no-clear-winner evidence shapes and preserves a fallback", () => {
   const markdown = render([
     {
       skillName: "all-ties",
@@ -353,6 +353,30 @@ test("distinguishes all-tie, mixed, and baseline-leaning no-change results", () 
       stimulusVoteCount: 5,
       scenarios: [],
     },
+    {
+      skillName: "positive-unproven",
+      state: "VALID_NO_CHANGE",
+      noChangeDiagnosis: "positive_unproven",
+      stateReason: { code: "no_credible_preference_change" },
+      signTest: { wins: 4, ties: 0, losses: 1, discordant: 5, pValue: 0.1875 },
+      stimulusVoteCount: 5,
+      scenarios: [],
+    },
+    {
+      skillName: "negative-unproven",
+      state: "VALID_NO_CHANGE",
+      noChangeDiagnosis: "negative_unproven",
+      stateReason: { code: "no_credible_preference_change" },
+      signTest: { wins: 1, ties: 0, losses: 4, discordant: 5, pValue: 0.1875 },
+      stimulusVoteCount: 5,
+      scenarios: [],
+    },
+    {
+      skillName: "legacy-fallback",
+      state: "VALID_NO_CHANGE",
+      stateReason: { code: "legacy_unknown_reason" },
+      scenarios: [],
+    },
   ]);
 
   assert.match(markdown, /\| all-ties \| test-model \| ➖ No preference \|/);
@@ -361,6 +385,11 @@ test("distinguishes all-tie, mixed, and baseline-leaning no-change results", () 
   assert.match(markdown, /isolate where the target helps versus hurts/);
   assert.match(markdown, /\| baseline-lean \| test-model \| ➖ Baseline signal, tie-limited \|/);
   assert.match(markdown, /Evidence leans baseline but is not credible/);
+  assert.match(markdown, /\| positive-unproven \| test-model \| ➖ Improvement signal, unproven \|/);
+  assert.match(markdown, /signal favors the target but is inconsistent/);
+  assert.match(markdown, /\| negative-unproven \| test-model \| ➖ Baseline signal, unproven \|/);
+  assert.match(markdown, /inspect losing scenarios for recurring defects/);
+  assert.match(markdown, /\| legacy-fallback \| test-model \| ➖ Not proven improved \|/);
 });
 
 test("distinguishes credible effects that miss the practical floor", () => {

@@ -10,7 +10,7 @@ import { readFileSync, writeFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 
-import { trialDirection } from "./adapt.mjs";
+import { classifyNoChangeEvidence, trialDirection } from "./adapt.mjs";
 
 const { values: opts, positionals } = parseArgs({
   options: {
@@ -330,27 +330,21 @@ function representativeEvidence(verdict) {
 }
 
 function noChangeDiagnosis(verdict) {
+  if (verdict.noChangeDiagnosis) return verdict.noChangeDiagnosis;
   const evidence = verdict.signTest ?? verdict.scenarioEvidence;
   if (!evidence) return null;
   const wins = evidence.wins ?? verdict.wins ?? 0;
   const ties = evidence.ties ?? verdict.ties ?? 0;
   const losses = evidence.losses ?? verdict.losses ?? 0;
   const discordant = evidence.discordant ?? wins + losses;
-  const minimumDiscordant = verdict.minCredibleStimuli ?? 5;
-  const reasonCode = verdict.stateReason?.code ?? "";
-
-  if (reasonCode === "practical_effect_below_floor") {
-    return wins > losses ? "positive_sparse" : losses > wins ? "negative_sparse" : "mixed";
-  }
-  if (wins === 0 && losses === 0 && ties > 0) return "all_ties";
-  if (wins === losses && wins > 0) return "mixed";
-  if (wins > losses) {
-    return discordant < minimumDiscordant ? "positive_tie_limited" : "positive_unproven";
-  }
-  if (losses > wins) {
-    return discordant < minimumDiscordant ? "negative_tie_limited" : "negative_unproven";
-  }
-  return null;
+  return classifyNoChangeEvidence({
+    wins,
+    ties,
+    losses,
+    discordant,
+    minCredibleStimuli: verdict.minCredibleStimuli,
+    reasonCode: verdict.stateReason?.code,
+  });
 }
 
 function resultLabel(verdict) {

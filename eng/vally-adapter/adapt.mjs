@@ -660,6 +660,29 @@ function trialDirection(trial) {
   return typeof score === "number" ? Math.sign(score) : 0;
 }
 
+function classifyNoChangeEvidence({
+  wins,
+  ties,
+  losses,
+  discordant,
+  minCredibleStimuli = MIN_CREDIBLE_STIMULI,
+  reasonCode,
+}) {
+  if (reasonCode === "practical_effect_below_floor") {
+    return wins > losses ? "positive_sparse" : losses > wins ? "negative_sparse" : "mixed";
+  }
+  if (reasonCode !== "no_credible_preference_change") return null;
+  if (wins === 0 && losses === 0 && ties > 0) return "all_ties";
+  if (wins === losses && wins > 0) return "mixed";
+  if (wins > losses) {
+    return discordant < minCredibleStimuli ? "positive_tie_limited" : "positive_unproven";
+  }
+  if (losses > wins) {
+    return discordant < minCredibleStimuli ? "negative_tie_limited" : "negative_unproven";
+  }
+  return null;
+}
+
 function classifyComparisonError(evidence) {
   const text = String(evidence ?? "");
   if (/session\.idle|waiting for session\.idle/i.test(text)) {
@@ -1407,6 +1430,14 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
     state = VERDICT_STATES.VALID_NO_CHANGE;
     stateReason = { code: "no_credible_preference_change", phase: "decision" };
   }
+  const noChangeDiagnosis = classifyNoChangeEvidence({
+    wins,
+    ties,
+    losses,
+    discordant,
+    minCredibleStimuli: MIN_CREDIBLE_STIMULI,
+    reasonCode: stateReason.code,
+  });
 
   return {
     skillName: identity.skill,
@@ -1414,6 +1445,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
     skillKind: targetKind,
     state,
     stateReason,
+    noChangeDiagnosis,
     conclusive,
     underpowered,
     minCredibleStimuli: MIN_CREDIBLE_STIMULI,
@@ -1958,6 +1990,7 @@ export {
   splitVallyCommand,
   signTestPValue,
   trialDirection,
+  classifyNoChangeEvidence,
   classifyComparisonError,
   mergeComparisonReports,
   loadExpectedEvalFiles,
