@@ -168,7 +168,7 @@ function efficiencyEntry(model, date, value, testNames = ['Example']) {
   };
 }
 
-test('model filtering updates existing charts without rebuilding them', async (t) => {
+async function renderDashboard(t, pluginData, expectedChartCount) {
   const previousGlobals = {
     Chart: globalThis.Chart,
     document: globalThis.document,
@@ -211,6 +211,22 @@ test('model filtering updates existing charts without rebuilding them', async (t
   };
   globalThis.Chart = FakeChart;
 
+  globalThis.fetch = async url => {
+    if (url === 'data/dashboard-meta.json') return { ok: false };
+    if (url === 'data/components.json') return { ok: true, json: async () => ['sample'] };
+    if (url === 'data/sample.json') return { ok: true, json: async () => pluginData };
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+
+  require(modulePath);
+  for (let attempt = 0; attempt < 20 && FakeChart.instances.length < expectedChartCount; attempt++) {
+    await new Promise(resolve => setImmediate(resolve));
+  }
+
+  return { animationFrames, document };
+}
+
+test('model filtering updates existing charts without rebuilding them', async (t) => {
   const testNames = Array.from({ length: 220 }, (_, index) => `Example ${index + 1}`);
   const pluginData = {
     entries: {
@@ -224,17 +240,7 @@ test('model filtering updates existing charts without rebuilding them', async (t
       ],
     },
   };
-  globalThis.fetch = async url => {
-    if (url === 'data/dashboard-meta.json') return { ok: false };
-    if (url === 'data/components.json') return { ok: true, json: async () => ['sample'] };
-    if (url === 'data/sample.json') return { ok: true, json: async () => pluginData };
-    throw new Error(`Unexpected URL: ${url}`);
-  };
-
-  require(modulePath);
-  for (let attempt = 0; attempt < 20 && FakeChart.instances.length < 440; attempt++) {
-    await new Promise(resolve => setImmediate(resolve));
-  }
+  const { animationFrames, document } = await renderDashboard(t, pluginData, 440);
 
   assert.equal(FakeChart.instances.length, 440, 'initial render matches the deployed dotnet-test chart count');
   const filterBar = document.getElementById('model-filter-sample');
@@ -268,4 +274,33 @@ test('model filtering updates existing charts without rebuilding them', async (t
 
   assert.equal(FakeChart.instances.length, 440);
   assert.ok(FakeChart.instances.every(chart => chart.updateCalls.length === 2));
+});
+
+test('efficiency legend gives high overfitting precedence per entry without losing multi-issue detection', async (t) => {
+  const entry = efficiencyEntry('model-a', '2026-09-20T00:00:00Z', 10);
+  const timeBench = entry.benches.find(bench => bench.name === 'Example - Skilled Time');
+  const tokenBench = entry.benches.find(bench => bench.name === 'Example - Skilled Tokens In');
+  timeBench.notActivated = true;
+  timeBench.overfitting = 'high';
+  tokenBench.overfitting = 'moderate';
+
+  const pluginData = {
+    entries: {
+      Quality: [qualityEntry('model-a', '2026-09-20T00:00:00Z', 8)],
+      Efficiency: [entry],
+    },
+  };
+  await renderDashboard(t, pluginData, 2);
+
+  assert.equal(FakeChart.instances.length, 2);
+  const efficiencyChart = FakeChart.instances.find(chart =>
+    chart.data.datasets.some(dataset => dataset.label === 'Isolated Time (s)')
+  );
+  assert.ok(efficiencyChart);
+  const notes = efficiencyChart.canvas.parentElement
+    .querySelectorAll('.not-activated-legend')
+    .map(note => note.innerHTML);
+  assert.ok(notes.some(note => note.includes('High eval overfitting')));
+  assert.ok(notes.every(note => !note.includes('Moderate eval overfitting')));
+  assert.ok(notes.some(note => note.includes('Multiple issues')));
 });

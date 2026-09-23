@@ -873,7 +873,6 @@
         const plugTokenName = `${test} - Plugin Tokens In`;
         const vanTimeName = `${test} - Vanilla Time`;
         const vanTokenName = `${test} - Vanilla Tokens In`;
-        const legendFlags = createIssueFlags();
         const entryLegendFlags = efficiencyEntries.map(() => createIssueFlags());
 
         const perEntryData = efficiencyEntries.map((e, entryIndex) => {
@@ -897,10 +896,10 @@
           const tokenTO = !!(tokenBench && tokenBench.timedOut);
           const timeOF = timeBench && timeBench.overfitting ? timeBench.overfitting : null;
           const tokenOF = tokenBench && tokenBench.overfitting ? tokenBench.overfitting : null;
-          recordIssueFlags(legendFlags, timeNA, timeTO, timeOF);
-          recordIssueFlags(legendFlags, tokenNA, tokenTO, tokenOF);
-          recordIssueFlags(entryLegendFlags[entryIndex], timeNA, timeTO, timeOF);
-          recordIssueFlags(entryLegendFlags[entryIndex], tokenNA, tokenTO, tokenOF);
+          const entryFlags = entryLegendFlags[entryIndex];
+          recordIssueFlags(entryFlags, timeNA, timeTO, timeOF);
+          recordIssueFlags(entryFlags, tokenNA, tokenTO, tokenOF);
+          if (entryFlags.overfittingHigh) entryFlags.overfittingModerate = false;
           return {
             timeValue: timeBench ? timeBench.value : null,
             timeNotActivated: timeNA,
@@ -916,6 +915,10 @@
             vanTokenValue: vanTokenBench ? vanTokenBench.value / 1000 : null,
           };
         });
+        const legendFlags = combineIssueFlags(
+          entryLegendFlags,
+          efficiencyEntries.map((_, index) => index)
+        );
 
         const timeData = perEntryData.map(d => d.timeValue);
         const tokenData = perEntryData.map(d => d.tokenValue);
