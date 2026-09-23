@@ -60,10 +60,15 @@ cat > "$RUNNER_TEMP/gateway-config.json" <<'JSON'
 JSON
 
 docker pull "$GATEWAY_IMAGE"
+MCP_GATEWAY_UID=$(id -u 2>/dev/null || echo "0")
+MCP_GATEWAY_GID=$(id -g 2>/dev/null || echo "0")
+source "$RUNNER_TEMP/gh-aw/actions/resolve_docker_socket_gid.sh"
 docker run --rm --interactive --name "$name" \
   --add-host host.docker.internal:host-gateway \
   --publish 127.0.0.1:18080:18080 \
-  --volume /var/run/docker.sock:/var/run/docker.sock \
+  --user "$MCP_GATEWAY_UID:$MCP_GATEWAY_GID" \
+  --group-add "$DOCKER_SOCK_GID" \
+  --volume "$DOCKER_SOCK_PATH:/var/run/docker.sock" \
   --env MCP_GATEWAY_PORT=18080 \
   --env MCP_GATEWAY_DOMAIN=localhost \
   --env MCP_GATEWAY_AGENT_ID=devops-health-pin-canary \

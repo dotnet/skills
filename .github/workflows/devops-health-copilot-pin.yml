@@ -27,6 +27,7 @@ jobs:
       current: ${{ steps.plan.outputs.current }}
       candidate: ${{ steps.plan.outputs.candidate }}
       gateway_image: ${{ steps.plan.outputs.gateway_image }}
+      setup_sha: ${{ steps.plan.outputs.setup_sha }}
       compat_sha: ${{ steps.compat-ref.outputs.compat_sha }}
       canary_protocol: ${{ steps.mcp-canary.outputs.protocol_version }}
     steps:
@@ -276,10 +277,12 @@ jobs:
           VALIDATED_CURRENT: ${{ needs.validate.outputs.current }}
           VALIDATED_CANDIDATE: ${{ needs.validate.outputs.candidate }}
           VALIDATED_GATEWAY_IMAGE: ${{ needs.validate.outputs.gateway_image }}
+          VALIDATED_SETUP_SHA: ${{ needs.validate.outputs.setup_sha }}
           PLANNED_COMPILER: ${{ steps.plan.outputs.compiler }}
           PLANNED_CURRENT: ${{ steps.plan.outputs.current }}
           PLANNED_CANDIDATE: ${{ steps.plan.outputs.candidate }}
           PLANNED_GATEWAY_IMAGE: ${{ steps.plan.outputs.gateway_image }}
+          PLANNED_SETUP_SHA: ${{ steps.plan.outputs.setup_sha }}
         shell: bash
         run: |
           set -euo pipefail
@@ -287,6 +290,7 @@ jobs:
           test "$VALIDATED_CURRENT" = "$PLANNED_CURRENT"
           test "$VALIDATED_CANDIDATE" = "$PLANNED_CANDIDATE"
           test "$VALIDATED_GATEWAY_IMAGE" = "$PLANNED_GATEWAY_IMAGE"
+          test "$VALIDATED_SETUP_SHA" = "$PLANNED_SETUP_SHA"
 
       - name: Install selected gh-aw compiler
         uses: github/gh-aw-actions/setup-cli@5e508589e03a7757a7e05b26e834292f5445bfb6 # v0.88.7

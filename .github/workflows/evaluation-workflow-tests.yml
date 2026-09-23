@@ -120,6 +120,77 @@ jobs:
           python -m unittest eng/devops-health/test_copilot_pin.py
           node --test eng/devops-health/test_mcp_canary_server.mjs
 
+  devops-health-mcp-live-canary:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'dotnet/skills' &&
+      github.actor == 'AbhitejJohn' &&
+      github.ref == 'refs/heads/abhitejjohn-devops-health-follow-up'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: copilot-pat-pool
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          persist-credentials: false
+
+      - name: Resolve owned candidate
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          compiler=$(
+            python -c '
+          import json
+          from pathlib import Path
+          line = Path(".github/workflows/devops-health-check.lock.yml").read_text().splitlines()[0]
+          print(json.loads(line.removeprefix("# gh-aw-metadata: "))["compiler_version"])
+          '
+          )
+          object=$(
+            gh api "repos/github/gh-aw/git/ref/tags/${compiler}" \
+              --jq '.object | [.type, .sha] | @tsv'
+          )
+          read -r object_type object_sha <<< "$object"
+          if [[ "$object_type" == "tag" ]]; then
+            object_sha=$(
+              gh api "repos/github/gh-aw/git/tags/${object_sha}" --jq '.object.sha'
+            )
+          elif [[ "$object_type" != "commit" ]]; then
+            echo "::error::Unexpected gh-aw tag object type: $object_type"
+            exit 1
+          fi
+          curl --fail --silent --show-error --location \
+            --output "$RUNNER_TEMP/compat.json" \
+            "https://raw.githubusercontent.com/github/gh-aw/${object_sha}/.github/aw/compat.json"
+          python eng/devops-health/copilot_pin.py plan \
+            --compat "$RUNNER_TEMP/compat.json" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Setup selected gh-aw scripts
+        uses: github/gh-aw-actions/setup@5e508589e03a7757a7e05b26e834292f5445bfb6 # v0.88.7
+        with:
+          destination: ${{ runner.temp }}/gh-aw/actions
+
+      - name: Install owned candidate Copilot CLI
+        env:
+          CANDIDATE: ${{ steps.plan.outputs.candidate }}
+          GH_HOST: github.com
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash "$RUNNER_TEMP/gh-aw/actions/install_copilot_cli.sh" "$CANDIDATE"
+          test "$(copilot --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)" = "$CANDIDATE"
+
+      - name: Run exact end-to-end MCP compatibility canary
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT_0 || secrets.COPILOT_PAT_1 || secrets.COPILOT_PAT_2 || secrets.COPILOT_PAT_3 || secrets.COPILOT_PAT_4 || secrets.COPILOT_PAT_5 || secrets.COPILOT_PAT_6 || secrets.COPILOT_PAT_7 || secrets.COPILOT_PAT_8 || secrets.COPILOT_PAT_9 }}
+          GATEWAY_IMAGE: ${{ steps.plan.outputs.gateway_image }}
+        run: bash eng/devops-health/run_mcp_canary.sh
+
   token-failover:
     runs-on: ubuntu-latest
     steps:
