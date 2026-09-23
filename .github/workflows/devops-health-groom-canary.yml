@@ -43,7 +43,7 @@ jobs:
 
   validate:
     needs: groom
-    if: always() && needs.groom.result != 'skipped'
+    if: ${{ !cancelled() && needs.groom.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

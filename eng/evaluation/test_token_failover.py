@@ -1082,7 +1082,7 @@ class TokenFailoverTests(unittest.TestCase):
         self.assertEqual(validate_job["needs"], "groom")
         self.assertEqual(
             validate_job["if"],
-            "always() && needs.groom.result != 'skipped'",
+            "${{ !cancelled() && needs.groom.result != 'skipped' }}",
         )
         self.assertEqual(
             validate_job["permissions"],
