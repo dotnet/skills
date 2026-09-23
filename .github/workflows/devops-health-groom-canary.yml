@@ -13,15 +13,16 @@ on:
   workflow_dispatch:
 
 permissions:
-  actions: write
+  actions: read
   contents: read
+  issues: read
 
 concurrency:
   group: devops-health-groom-canary-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  canary:
+  groom:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (
@@ -31,80 +32,22 @@ jobs:
           github.event.pull_request.author_association
         )
       )
+    uses: ./.github/workflows/devops-health-groom.lock.yml
+    with:
+      dry_run: true
+    secrets: inherit
+
+  validate:
+    needs: groom
     runs-on: ubuntu-latest
-    timeout-minutes: 90
-    env:
-      CANARY_ID: canary-${{ github.run_id }}-${{ github.run_attempt }}
-      GH_TOKEN: ${{ github.token }}
-      REPOSITORY: ${{ github.repository }}
-      TARGET_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
-      TARGET_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    timeout-minutes: 5
     steps:
-      - name: Dispatch dry-run groom workflow
-        env:
-          WORKFLOW: devops-health-groom.lock.yml
-        run: |
-          set -euo pipefail
-          gh workflow run "$WORKFLOW" \
-            --repo "$REPOSITORY" \
-            --ref "$TARGET_REF" \
-            -f dry_run=true \
-            -f canary_id="$CANARY_ID"
-
-      - name: Find dispatched run
-        id: run
-        env:
-          WORKFLOW: devops-health-groom.lock.yml
-        run: |
-          set -euo pipefail
-          run_id=""
-          display_title="DevOps Health Groom Canary — ${CANARY_ID}"
-          for attempt in $(seq 1 30); do
-            run_id="$(
-              gh api \
-                --method GET \
-                "repos/${REPOSITORY}/actions/workflows/${WORKFLOW}/runs" \
-                -f event=workflow_dispatch \
-                -f branch="$TARGET_REF" \
-                -f per_page=20 |
-              jq --raw-output \
-                --arg head_sha "$TARGET_SHA" \
-                --arg display_title "$display_title" \
-                '
-                  [
-                    .workflow_runs[]
-                    | select(
-                        .head_sha == $head_sha and
-                        .display_title == $display_title
-                      )
-                  ]
-                  | sort_by(.created_at)
-                  | last
-                  | .id // empty
-                '
-            )"
-            if [ -n "$run_id" ]; then
-              echo "run_id=${run_id}" >> "$GITHUB_OUTPUT"
-              echo "Found run ${run_id} for ${TARGET_SHA}"
-              exit 0
-            fi
-            echo "Waiting for dispatched run (${attempt}/30)"
-            sleep 5
-          done
-          echo "::error::No dispatched groom run appeared for ${TARGET_SHA}"
-          exit 1
-
-      - name: Wait for groom workflow
-        env:
-          RUN_ID: ${{ steps.run.outputs.run_id }}
-        run: gh run watch "$RUN_ID" --repo "$REPOSITORY" --exit-status
-
       - name: Download agent output
-        env:
-          RUN_ID: ${{ steps.run.outputs.run_id }}
-        run: >-
-          gh run download "$RUN_ID" --repo "$REPOSITORY"
-          --name agent-output-fallback --dir canary-artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: "*-agent-output-fallback"
+          merge-multiple: true
+          path: canary-artifact
 
       - name: Require exactly one valid safe output
         run: |

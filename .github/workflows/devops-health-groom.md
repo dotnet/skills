@@ -4,10 +4,10 @@ description: >
   Runs ~3 hours after the daily health check to groom the pinned health
   dashboard issue: links investigation results into the issue body and
   marks resolved findings.
-run-name: "${{ inputs.canary_id != '' && format('DevOps Health Groom Canary — {0}', inputs.canary_id) || 'DevOps Health — Groom Dashboard' }}"
 
 on:
-  permissions: {}
+  permissions:
+    contents: read
   schedule:
     - cron: "0 6 * * *"  # 06:00 UTC daily (3h after health check)
   workflow_dispatch:
@@ -17,17 +17,12 @@ on:
         required: false
         type: boolean
         default: false
-      canary_id:
-        description: "Unique canary dispatch identifier"
-        required: false
-        type: string
-        default: ""
-  roles: all
-  steps:
-    - name: Initialize trusted groom dispatch
-      uses: actions/github-script@v9
-      with:
-        script: core.info("Starting validated dashboard grooming")
+  workflow_call:
+    inputs:
+      dry_run:
+        description: "Exercise grooming and safe outputs without updating issue 695"
+        required: true
+        type: boolean
 
 # Don't run scheduled triggers on forked repositories — forks lack the
 # secrets and context required, and scheduled runs would consume the
@@ -35,7 +30,7 @@ on:
 if: ${{ (!(github.event_name == 'schedule' && github.event.repository.fork)) }}
 
 concurrency:
-  group: ${{ inputs.dry_run && format('gh-aw-devops-health-dashboard-canary-{0}', inputs.canary_id) || 'gh-aw-devops-health-dashboard' }}
+  group: ${{ inputs.dry_run && format('gh-aw-devops-health-dashboard-canary-{0}', github.run_id) || 'gh-aw-devops-health-dashboard' }}
   cancel-in-progress: false
   queue: max
   job-discriminator: ${{ github.run_id }}

@@ -360,6 +360,37 @@ def generated_safe_output_configs(workflow: object) -> list[dict[str, object]]:
 
 
 class TokenFailoverTests(unittest.TestCase):
+    def test_devops_groom_default_activation_gate(self) -> None:
+        workflows = REPO_ROOT / ".github" / "workflows"
+        source = (workflows / "devops-health-groom.md").read_text(
+            encoding="utf-8"
+        )
+        frontmatter = workflow_frontmatter(source)
+        trigger = frontmatter.get("on", frontmatter.get(True))
+        lock = yaml.safe_load(
+            (workflows / "devops-health-groom.lock.yml").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        self.assertEqual(trigger["permissions"], {"contents": "read"})
+        self.assertNotIn("roles", trigger)
+        pre_activation = lock["jobs"]["pre_activation"]
+        self.assertEqual(pre_activation["permissions"], {"contents": "read"})
+        self.assertEqual(
+            pre_activation["steps"][-1]["name"],
+            "Check team membership for workflow",
+        )
+        self.assertIn(
+            "check_membership.cjs",
+            pre_activation["steps"][-1]["with"]["script"],
+        )
+        self.assertEqual(lock["jobs"]["pat_pool"]["needs"], "pre_activation")
+        self.assertEqual(
+            set(lock["jobs"]["activation"]["needs"]),
+            {"pat_pool", "pre_activation"},
+        )
+
     def test_evaluation_model_profiles_and_judges(self) -> None:
         caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
         discover_script = workflow_step_script(
@@ -820,15 +851,18 @@ class TokenFailoverTests(unittest.TestCase):
                 "default": False,
             },
         )
-        self.assertEqual(groom_inputs["canary_id"]["default"], "")
-        self.assertEqual(groom_trigger["roles"], "all")
+        self.assertEqual(groom_trigger["permissions"], {"contents": "read"})
+        self.assertNotIn("roles", groom_trigger)
+        self.assertNotIn("steps", groom_trigger)
         self.assertEqual(
-            groom_trigger["steps"][0]["name"],
-            "Initialize trusted groom dispatch",
-        )
-        self.assertEqual(
-            groom_trigger["steps"][0]["uses"],
-            "actions/github-script@v9",
+            groom_trigger["workflow_call"]["inputs"]["dry_run"],
+            {
+                "description": (
+                    "Exercise grooming and safe outputs without updating issue 695"
+                ),
+                "required": True,
+                "type": "boolean",
+            },
         )
         self.assertFalse(groom_frontmatter["concurrency"]["cancel-in-progress"])
         self.assertIn(
@@ -836,17 +870,14 @@ class TokenFailoverTests(unittest.TestCase):
             groom_frontmatter["concurrency"]["group"],
         )
         self.assertIn(
-            "inputs.canary_id",
+            "github.run_id",
             groom_frontmatter["concurrency"]["group"],
         )
         self.assertEqual(
             groom_frontmatter["concurrency"]["job-discriminator"],
             "${{ github.run_id }}",
         )
-        self.assertIn(
-            "DevOps Health Groom Canary",
-            groom_frontmatter["run-name"],
-        )
+        self.assertNotIn("run-name", groom_frontmatter)
         self.assertIn(
             "Do not change the output type only because the run is a dry run.",
             groom,
@@ -903,9 +934,9 @@ class TokenFailoverTests(unittest.TestCase):
         )
         self.assertEqual(
             canary["permissions"],
-            {"actions": "write", "contents": "read"},
+            {"actions": "read", "contents": "read", "issues": "read"},
         )
-        canary_job = canary["jobs"]["canary"]
+        canary_job = canary["jobs"]["groom"]
         self.assertIn(
             "github.event.pull_request.head.repo.full_name == github.repository",
             canary_job["if"],
@@ -913,18 +944,32 @@ class TokenFailoverTests(unittest.TestCase):
         self.assertIn("OWNER", canary_job["if"])
         self.assertIn("MEMBER", canary_job["if"])
         self.assertIn("COLLABORATOR", canary_job["if"])
-        self.assertIn("-f dry_run=true", canary_text)
-        self.assertIn('-f canary_id="$CANARY_ID"', canary_text)
-        self.assertIn(".head_sha == $head_sha", canary_text)
-        self.assertIn(".display_title == $display_title", canary_text)
-        self.assertNotIn(".created_at >= $dispatched_at", canary_text)
+        self.assertEqual(
+            canary_job["uses"],
+            "./.github/workflows/devops-health-groom.lock.yml",
+        )
+        self.assertEqual(canary_job["with"], {"dry_run": True})
+        self.assertNotIn("actions: write", canary_text)
+        self.assertNotIn("gh workflow run", canary_text)
         self.assertTrue(canary["concurrency"]["cancel-in-progress"])
         self.assertIn(
             "github.event.pull_request.number",
             canary["concurrency"]["group"],
         )
-        self.assertIn("--name agent-output-fallback", canary_text)
-        self.assertNotIn("--name agent --dir canary-artifact", canary_text)
+        validate_job = canary["jobs"]["validate"]
+        self.assertEqual(validate_job["needs"], "groom")
+        download_step = validate_job["steps"][0]
+        self.assertEqual(
+            download_step["uses"],
+            "actions/download-artifact@"
+            "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+        )
+        self.assertEqual(canary_job["secrets"], "inherit")
+        self.assertEqual(
+            download_step["with"]["pattern"],
+            "*-agent-output-fallback",
+        )
+        self.assertTrue(download_step["with"]["merge-multiple"])
         self.assertIn("Expected exactly one safe-output item", canary_text)
         self.assertIn('item.type === "noop"', canary_text)
         self.assertIn(
@@ -1074,6 +1119,17 @@ class TokenFailoverTests(unittest.TestCase):
             '"gh-aw-conclusion-devops-health-groom-${{ github.run_id }}"',
             groom_lock_text,
         )
+        pre_activation = groom_lock["jobs"]["pre_activation"]
+        self.assertEqual(
+            pre_activation["steps"][-1]["name"],
+            "Check team membership for workflow",
+        )
+        self.assertEqual(groom_lock["jobs"]["pat_pool"]["needs"], "pre_activation")
+        self.assertEqual(
+            set(groom_lock["jobs"]["activation"]["needs"]),
+            {"pat_pool", "pre_activation"},
+        )
+        self.assertIn("check_membership.cjs", groom_lock_text)
         self.assertNotIn("cache-memory", health_frontmatter["tools"])
         self.assertNotIn("--allow-all-tools", health_lock_text)
         self.assertNotIn("--allow-tool write", health_lock_text)
