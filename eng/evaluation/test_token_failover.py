@@ -33,6 +33,47 @@ GIT_BASH = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "
 BASH = str(GIT_BASH) if os.name == "nt" and GIT_BASH.exists() else "bash"
 
 
+def run_groom_canary_validator(
+    test_case: unittest.TestCase,
+    item: dict[str, object],
+) -> subprocess.CompletedProcess[str]:
+    node = shutil.which("node")
+    if not node:
+        test_case.skipTest("Node.js is required for canary behavior tests")
+
+    canary = yaml.safe_load(GROOM_CANARY_WORKFLOW.read_text(encoding="utf-8"))
+    run_script = canary["jobs"]["validate"]["steps"][1]["run"]
+    match = re.search(
+        r'AGENT_OUTPUT="\$\{outputs\[0\]\}" node <<\'NODE\'\n'
+        r"(?P<script>[\s\S]+)\nNODE$",
+        run_script,
+    )
+    if not match:
+        raise AssertionError("Could not extract the canary validator script")
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        output_path = Path(temp_dir) / "agent_output.json"
+        output_path.write_text(
+            json.dumps({"items": [item], "errors": []}),
+            encoding="utf-8",
+        )
+        environment = os.environ.copy()
+        environment.update(
+            {
+                "AGENT_OUTPUT": str(output_path),
+                "GITHUB_REPOSITORY": "dotnet/skills",
+            }
+        )
+        return subprocess.run(
+            [node, "-e", match.group("script")],
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env=environment,
+        )
+
+
 def workflow_frontmatter(text: str) -> dict:
     match = re.match(r"\A---\r?\n(.*?)\r?\n---(?:\r?\n|\Z)", text, re.DOTALL)
     if not match:
@@ -983,6 +1024,44 @@ class TokenFailoverTests(unittest.TestCase):
         self.assertIn(
             'item.type === "publish_groomed_dashboard"',
             canary_text,
+        )
+        self.assertIn(
+            "publish_groomed_dashboard rows_json must contain at most 100 rows",
+            canary_text,
+        )
+        self.assertIn("A groomed row failed schema validation", canary_text)
+        self.assertIn(
+            "A completed groomed row has an invalid result",
+            canary_text,
+        )
+        self.assertIn(
+            "An incomplete groomed row contains result data",
+            canary_text,
+        )
+        self.assertIn("A groomed row has an invalid correlation", canary_text)
+        self.assertIn(
+            "url.pathname === `/${process.env.GITHUB_REPOSITORY}/issues/695`",
+            canary_text,
+        )
+        valid_publish = run_groom_canary_validator(
+            self,
+            {
+                "type": "publish_groomed_dashboard",
+                "rows_json": "```json\n[]\n```",
+            },
+        )
+        self.assertEqual(valid_publish.returncode, 0, valid_publish.stderr)
+        invalid_publish = run_groom_canary_validator(
+            self,
+            {
+                "type": "publish_groomed_dashboard",
+                "rows_json": '```json\n[{"status":"done"}]\n```',
+            },
+        )
+        self.assertNotEqual(invalid_publish.returncode, 0)
+        self.assertIn(
+            "A groomed row failed schema validation",
+            invalid_publish.stderr,
         )
         self.assertIn(
             "url.pathname === `/${owner}/${repo}/issues/695`",

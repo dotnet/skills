@@ -93,8 +93,97 @@ jobs:
               throw new Error("publish_groomed_dashboard rows_json is not a bounded JSON fence");
             }
             const rows = JSON.parse(fenced[1]);
-            if (!Array.isArray(rows)) {
-              throw new Error("publish_groomed_dashboard rows_json must contain an array");
+            if (!Array.isArray(rows) || rows.length > 100) {
+              throw new Error(
+                "publish_groomed_dashboard rows_json must contain at most 100 rows"
+              );
+            }
+            const exactKeys = (value, keys) =>
+              value !== null &&
+              typeof value === "object" &&
+              !Array.isArray(value) &&
+              JSON.stringify(Object.keys(value).sort()) ===
+                JSON.stringify([...keys].sort());
+            const validCommentUrl = value => {
+              if (
+                typeof value !== "string" ||
+                value.length > 500 ||
+                /[\s()[\]|<>\\]/.test(value)
+              ) {
+                return false;
+              }
+              try {
+                const url = new URL(value);
+                return (
+                  url.protocol === "https:" &&
+                  url.hostname === "github.com" &&
+                  url.username === "" &&
+                  url.password === "" &&
+                  url.port === "" &&
+                  url.pathname === `/${process.env.GITHUB_REPOSITORY}/issues/695` &&
+                  url.search === "" &&
+                  /^#issuecomment-\d+$/.test(url.hash)
+                );
+              } catch {
+                return false;
+              }
+            };
+            const seen = new Set();
+            for (const row of rows) {
+              if (
+                !exactKeys(row, [
+                  "correlation_id",
+                  "fingerprint",
+                  "result_summary",
+                  "result_url",
+                  "status",
+                ]) ||
+                typeof row.fingerprint !== "string" ||
+                ![
+                  "pending",
+                  "dispatching",
+                  "dispatched",
+                  "done",
+                  "skipped",
+                ].includes(row.status) ||
+                typeof row.correlation_id !== "string" ||
+                typeof row.result_summary !== "string" ||
+                row.result_summary.length > 300 ||
+                typeof row.result_url !== "string" ||
+                seen.has(row.fingerprint)
+              ) {
+                throw new Error("A groomed row failed schema validation");
+              }
+              seen.add(row.fingerprint);
+              if (
+                row.status === "done" &&
+                (
+                  row.result_summary.length === 0 ||
+                  !validCommentUrl(row.result_url)
+                )
+              ) {
+                throw new Error("A completed groomed row has an invalid result");
+              }
+              if (
+                row.status !== "done" &&
+                (row.result_summary !== "" || row.result_url !== "")
+              ) {
+                throw new Error("An incomplete groomed row contains result data");
+              }
+              const validCorrelation =
+                /^hc-\d{4}-\d{2}-\d{2}-\d+-\d+$/.test(row.correlation_id);
+              if (
+                (
+                  ["dispatching", "dispatched", "done"].includes(row.status) &&
+                  !validCorrelation
+                ) ||
+                (
+                  !["dispatching", "dispatched", "done"].includes(row.status) &&
+                  row.correlation_id !== ""
+                )
+              ) {
+                throw new Error("A groomed row has an invalid correlation");
+              }
             }
           } else {
             throw new Error(`Unexpected safe-output type: ${String(item.type)}`);
