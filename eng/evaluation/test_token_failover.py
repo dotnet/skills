@@ -36,41 +36,80 @@ BASH = str(GIT_BASH) if os.name == "nt" and GIT_BASH.exists() else "bash"
 def run_groom_canary_validator(
     test_case: unittest.TestCase,
     item: dict[str, object],
+    *,
+    trusted_comment: bool = True,
+    trusted_run: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     node = shutil.which("node")
     if not node:
         test_case.skipTest("Node.js is required for canary behavior tests")
 
     canary = yaml.safe_load(GROOM_CANARY_WORKFLOW.read_text(encoding="utf-8"))
-    run_script = canary["jobs"]["validate"]["steps"][1]["run"]
-    match = re.search(
-        r'AGENT_OUTPUT="\$\{outputs\[0\]\}" node <<\'NODE\'\n'
-        r"(?P<script>[\s\S]+)\nNODE$",
-        run_script,
-    )
-    if not match:
-        raise AssertionError("Could not extract the canary validator script")
+    validator_script = canary["jobs"]["validate"]["steps"][1]["with"]["script"]
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        output_path = Path(temp_dir) / "agent_output.json"
+        root = Path(temp_dir)
+        artifact_path = root / "canary-artifact"
+        artifact_path.mkdir()
+        output_path = artifact_path / "agent_output.json"
         output_path.write_text(
             json.dumps({"items": [item], "errors": []}),
             encoding="utf-8",
         )
-        environment = os.environ.copy()
-        environment.update(
-            {
-                "AGENT_OUTPUT": str(output_path),
-                "GITHUB_REPOSITORY": "dotnet/skills",
-            }
+        harness_path = root / "canary-validator.cjs"
+        harness_path.write_text(
+            f"""
+const context = {{ repo: {{ owner: "dotnet", repo: "skills" }} }};
+const github = {{
+  rest: {{
+    issues: {{
+      getComment: async () => ({{
+        data: {{
+          user: {{ login: {
+              json.dumps("github-actions[bot]" if trusted_comment else "attacker")
+          } }},
+          issue_url: "https://api.github.com/repos/dotnet/skills/issues/695",
+          html_url: "https://github.com/dotnet/skills/issues/695#issuecomment-42",
+          body: [
+            "## 🔍 Investigation: complete",
+            "**Finding ID:** `finding`",
+            "**Correlation:** hc-2026-09-23-123-1",
+            "**Executive Summary:** complete",
+            "<sub>🔍 [Investigation Run #99](https://github.com/dotnet/skills/actions/runs/99) · Dispatched by health check · hc-2026-09-23-123-1</sub>"
+          ].join("\\n")
+        }}
+      }})
+    }},
+    actions: {{
+      getWorkflowRun: async () => ({{
+        data: {{
+          event: "workflow_dispatch",
+          conclusion: {json.dumps("success" if trusted_run else "failure")},
+          display_title:
+            "DevOps Health Investigation — hc-2026-09-23-123-1",
+          path: ".github/workflows/devops-health-investigate.lock.yml@refs/heads/main",
+          head_repository: {{ full_name: "dotnet/skills" }}
+        }}
+      }})
+    }}
+  }}
+}};
+(async () => {{
+{validator_script}
+}})().catch(error => {{
+  console.error(error.message);
+  process.exitCode = 1;
+}});
+""",
+            encoding="utf-8",
         )
         return subprocess.run(
-            [node, "-e", match.group("script")],
+            [node, str(harness_path)],
             check=False,
             capture_output=True,
             text=True,
             encoding="utf-8",
-            env=environment,
+            cwd=root,
         )
 
 
@@ -1040,7 +1079,15 @@ class TokenFailoverTests(unittest.TestCase):
         )
         self.assertIn("A groomed row has an invalid correlation", canary_text)
         self.assertIn(
-            "url.pathname === `/${process.env.GITHUB_REPOSITORY}/issues/695`",
+            "url.pathname === `/${owner}/${repo}/issues/695`",
+            canary_text,
+        )
+        self.assertIn(
+            "A completed groomed row does not match its trusted comment",
+            canary_text,
+        )
+        self.assertIn(
+            "A completed groomed row does not match its trusted workflow run",
             canary_text,
         )
         valid_publish = run_groom_canary_validator(
@@ -1062,6 +1109,48 @@ class TokenFailoverTests(unittest.TestCase):
         self.assertIn(
             "A groomed row failed schema validation",
             invalid_publish.stderr,
+        )
+        completed_row = {
+            "correlation_id": "hc-2026-09-23-123-1",
+            "fingerprint": "finding",
+            "result_summary": "complete",
+            "result_url":
+                "https://github.com/dotnet/skills/issues/695#issuecomment-42",
+            "status": "done",
+        }
+        trusted_publish = run_groom_canary_validator(
+            self,
+            {
+                "type": "publish_groomed_dashboard",
+                "rows_json": f"```json\n{json.dumps([completed_row])}\n```",
+            },
+        )
+        self.assertEqual(trusted_publish.returncode, 0, trusted_publish.stderr)
+        untrusted_publish = run_groom_canary_validator(
+            self,
+            {
+                "type": "publish_groomed_dashboard",
+                "rows_json": f"```json\n{json.dumps([completed_row])}\n```",
+            },
+            trusted_comment=False,
+        )
+        self.assertNotEqual(untrusted_publish.returncode, 0)
+        self.assertIn(
+            "A completed groomed row does not match its trusted comment",
+            untrusted_publish.stderr,
+        )
+        failed_run_publish = run_groom_canary_validator(
+            self,
+            {
+                "type": "publish_groomed_dashboard",
+                "rows_json": f"```json\n{json.dumps([completed_row])}\n```",
+            },
+            trusted_run=False,
+        )
+        self.assertNotEqual(failed_run_publish.returncode, 0)
+        self.assertIn(
+            "A completed groomed row does not match its trusted workflow run",
+            failed_run_publish.stderr,
         )
         self.assertIn(
             "url.pathname === `/${owner}/${repo}/issues/695`",

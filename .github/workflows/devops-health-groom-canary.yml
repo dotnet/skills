@@ -54,140 +54,228 @@ jobs:
           path: canary-artifact
 
       - name: Require exactly one valid safe output
-        run: |
-          set -euo pipefail
-          mapfile -t outputs < <(find canary-artifact -type f -name agent_output.json -print)
-          if [ "${#outputs[@]}" -ne 1 ]; then
-            echo "::error::Expected one agent_output.json, found ${#outputs[@]}"
-            exit 1
-          fi
-          AGENT_OUTPUT="${outputs[0]}" node <<'NODE'
-          const fs = require("fs");
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require("fs");
 
-          const output = JSON.parse(
-            fs.readFileSync(process.env.AGENT_OUTPUT, "utf8")
-          );
-          const errors = Array.isArray(output.errors) ? output.errors : [];
-          const items = Array.isArray(output.items) ? output.items : [];
-          if (errors.length !== 0) {
-            throw new Error(`Expected no safe-output errors, got ${errors.length}`);
-          }
-          if (items.length !== 1) {
-            throw new Error(`Expected exactly one safe-output item, got ${items.length}`);
-          }
-
-          const item = items[0];
-          if (item.type === "noop") {
-            if (
-              typeof item.message !== "string" ||
-              item.message.trim().length === 0 ||
-              item.message.length > 2000
-            ) {
-              throw new Error("noop must contain a non-empty bounded message");
-            }
-          } else if (item.type === "publish_groomed_dashboard") {
-            const fenced =
-              typeof item.rows_json === "string" &&
-              /^```json\r?\n([\s\S]*)\r?\n```$/.exec(item.rows_json);
-            if (!fenced || item.rows_json.length > 100000) {
-              throw new Error("publish_groomed_dashboard rows_json is not a bounded JSON fence");
-            }
-            const rows = JSON.parse(fenced[1]);
-            if (!Array.isArray(rows) || rows.length > 100) {
+            const findOutputs = directory =>
+              fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+                const path = `${directory}/${entry.name}`;
+                if (entry.isDirectory()) {
+                  return findOutputs(path);
+                }
+                return entry.isFile() && entry.name === "agent_output.json"
+                  ? [path]
+                  : [];
+              });
+            const outputs = findOutputs("canary-artifact");
+            if (outputs.length !== 1) {
               throw new Error(
-                "publish_groomed_dashboard rows_json must contain at most 100 rows"
+                `Expected one agent_output.json, found ${outputs.length}`
               );
             }
-            const exactKeys = (value, keys) =>
-              value !== null &&
-              typeof value === "object" &&
-              !Array.isArray(value) &&
-              JSON.stringify(Object.keys(value).sort()) ===
-                JSON.stringify([...keys].sort());
-            const validCommentUrl = value => {
-              if (
-                typeof value !== "string" ||
-                value.length > 500 ||
-                /[\s()[\]|<>\\]/.test(value)
-              ) {
-                return false;
-              }
-              try {
-                const url = new URL(value);
-                return (
-                  url.protocol === "https:" &&
-                  url.hostname === "github.com" &&
-                  url.username === "" &&
-                  url.password === "" &&
-                  url.port === "" &&
-                  url.pathname === `/${process.env.GITHUB_REPOSITORY}/issues/695` &&
-                  url.search === "" &&
-                  /^#issuecomment-\d+$/.test(url.hash)
-                );
-              } catch {
-                return false;
-              }
-            };
-            const seen = new Set();
-            for (const row of rows) {
-              if (
-                !exactKeys(row, [
-                  "correlation_id",
-                  "fingerprint",
-                  "result_summary",
-                  "result_url",
-                  "status",
-                ]) ||
-                typeof row.fingerprint !== "string" ||
-                ![
-                  "pending",
-                  "dispatching",
-                  "dispatched",
-                  "done",
-                  "skipped",
-                ].includes(row.status) ||
-                typeof row.correlation_id !== "string" ||
-                typeof row.result_summary !== "string" ||
-                row.result_summary.length > 300 ||
-                typeof row.result_url !== "string" ||
-                seen.has(row.fingerprint)
-              ) {
-                throw new Error("A groomed row failed schema validation");
-              }
-              seen.add(row.fingerprint);
-              if (
-                row.status === "done" &&
-                (
-                  row.result_summary.length === 0 ||
-                  !validCommentUrl(row.result_url)
-                )
-              ) {
-                throw new Error("A completed groomed row has an invalid result");
-              }
-              if (
-                row.status !== "done" &&
-                (row.result_summary !== "" || row.result_url !== "")
-              ) {
-                throw new Error("An incomplete groomed row contains result data");
-              }
-              const validCorrelation =
-                /^hc-\d{4}-\d{2}-\d{2}-\d+-\d+$/.test(row.correlation_id);
-              if (
-                (
-                  ["dispatching", "dispatched", "done"].includes(row.status) &&
-                  !validCorrelation
-                ) ||
-                (
-                  !["dispatching", "dispatched", "done"].includes(row.status) &&
-                  row.correlation_id !== ""
-                )
-              ) {
-                throw new Error("A groomed row has an invalid correlation");
-              }
+            const output = JSON.parse(
+              fs.readFileSync(outputs[0], "utf8")
+            );
+            const errors = Array.isArray(output.errors) ? output.errors : [];
+            const items = Array.isArray(output.items) ? output.items : [];
+            if (errors.length !== 0) {
+              throw new Error(`Expected no safe-output errors, got ${errors.length}`);
             }
-          } else {
-            throw new Error(`Unexpected safe-output type: ${String(item.type)}`);
-          }
+            if (items.length !== 1) {
+              throw new Error(`Expected exactly one safe-output item, got ${items.length}`);
+            }
 
-          console.log(`Validated one ${item.type} safe-output item`);
-          NODE
+            const item = items[0];
+            if (item.type === "noop") {
+              if (
+                typeof item.message !== "string" ||
+                item.message.trim().length === 0 ||
+                item.message.length > 2000
+              ) {
+                throw new Error("noop must contain a non-empty bounded message");
+              }
+            } else if (item.type === "publish_groomed_dashboard") {
+              const fenced =
+                typeof item.rows_json === "string" &&
+                /^```json\r?\n([\s\S]*)\r?\n```$/.exec(item.rows_json);
+              if (!fenced || item.rows_json.length > 100000) {
+                throw new Error("publish_groomed_dashboard rows_json is not a bounded JSON fence");
+              }
+              const rows = JSON.parse(fenced[1]);
+              if (!Array.isArray(rows) || rows.length > 100) {
+                throw new Error(
+                  "publish_groomed_dashboard rows_json must contain at most 100 rows"
+                );
+              }
+              const exactKeys = (value, keys) =>
+                value !== null &&
+                typeof value === "object" &&
+                !Array.isArray(value) &&
+                JSON.stringify(Object.keys(value).sort()) ===
+                  JSON.stringify([...keys].sort());
+              const { owner, repo } = context.repo;
+              const validCommentUrl = value => {
+                if (
+                  typeof value !== "string" ||
+                  value.length > 500 ||
+                  /[\s()[\]|<>\\]/.test(value)
+                ) {
+                  return false;
+                }
+                try {
+                  const url = new URL(value);
+                  return (
+                    url.protocol === "https:" &&
+                    url.hostname === "github.com" &&
+                    url.username === "" &&
+                    url.password === "" &&
+                    url.port === "" &&
+                    url.pathname === `/${owner}/${repo}/issues/695` &&
+                    url.search === "" &&
+                    /^#issuecomment-\d+$/.test(url.hash)
+                  );
+                } catch {
+                  return false;
+                }
+              };
+              const seen = new Set();
+              for (const row of rows) {
+                if (
+                  !exactKeys(row, [
+                    "correlation_id",
+                    "fingerprint",
+                    "result_summary",
+                    "result_url",
+                    "status",
+                  ]) ||
+                  typeof row.fingerprint !== "string" ||
+                  ![
+                    "pending",
+                    "dispatching",
+                    "dispatched",
+                    "done",
+                    "skipped",
+                  ].includes(row.status) ||
+                  typeof row.correlation_id !== "string" ||
+                  typeof row.result_summary !== "string" ||
+                  row.result_summary.length > 300 ||
+                  typeof row.result_url !== "string" ||
+                  seen.has(row.fingerprint)
+                ) {
+                  throw new Error("A groomed row failed schema validation");
+                }
+                seen.add(row.fingerprint);
+                if (
+                  row.status === "done" &&
+                  (
+                    row.result_summary.length === 0 ||
+                    !validCommentUrl(row.result_url)
+                  )
+                ) {
+                  throw new Error("A completed groomed row has an invalid result");
+                }
+                if (
+                  row.status !== "done" &&
+                  (row.result_summary !== "" || row.result_url !== "")
+                ) {
+                  throw new Error("An incomplete groomed row contains result data");
+                }
+                const validCorrelation =
+                  /^hc-\d{4}-\d{2}-\d{2}-\d+-\d+$/.test(row.correlation_id);
+                if (
+                  (
+                    ["dispatching", "dispatched", "done"].includes(row.status) &&
+                    !validCorrelation
+                  ) ||
+                  (
+                    !["dispatching", "dispatched", "done"].includes(row.status) &&
+                    row.correlation_id !== ""
+                  )
+                ) {
+                  throw new Error("A groomed row has an invalid correlation");
+                }
+                if (row.status === "done") {
+                  const url = new URL(row.result_url);
+                  const commentId = Number(
+                    url.hash.slice("#issuecomment-".length)
+                  );
+                  if (!Number.isSafeInteger(commentId) || commentId <= 0) {
+                    throw new Error(
+                      "A completed groomed row has an invalid comment ID"
+                    );
+                  }
+                  const response = await github.rest.issues.getComment({
+                    owner,
+                    repo,
+                    comment_id: commentId,
+                  });
+                  const comment = response.data;
+                  const commentBody = comment.body || "";
+                  const lines = commentBody.split(/\r?\n/);
+                  const findingLine = `**Finding ID:** \`${row.fingerprint}\``;
+                  const correlationLine =
+                    `**Correlation:** ${row.correlation_id}`;
+                  const summaryLine =
+                    `**Executive Summary:** ${row.result_summary}`;
+                  const runFooterPattern = new RegExp(
+                    `^<sub>🔍 \\[Investigation Run #\\d+\\]\\(` +
+                    `https://github\\.com/${owner}/${repo}/actions/runs/(\\d+)\\)` +
+                    ` · Dispatched by health check · ${row.correlation_id}</sub>$`
+                  );
+                  const runFooterLines = lines.filter(line =>
+                    line.startsWith("<sub>🔍 [Investigation Run #")
+                  );
+                  const runFooterMatch =
+                    runFooterLines.length === 1 &&
+                    runFooterPattern.exec(runFooterLines[0]);
+                  if (
+                    comment.user?.login !== "github-actions[bot]" ||
+                    comment.issue_url !==
+                      `https://api.github.com/repos/${owner}/${repo}/issues/695` ||
+                    comment.html_url !== row.result_url ||
+                    !commentBody.startsWith("## 🔍 Investigation:") ||
+                    lines.filter(
+                      line => line.startsWith("**Finding ID:**")
+                    ).length !== 1 ||
+                    !lines.includes(findingLine) ||
+                    lines.filter(
+                      line => line.startsWith("**Correlation:**")
+                    ).length !== 1 ||
+                    !lines.includes(correlationLine) ||
+                    lines.filter(
+                      line => line.startsWith("**Executive Summary:**")
+                    ).length !== 1 ||
+                    !lines.includes(summaryLine) ||
+                    !runFooterMatch
+                  ) {
+                    throw new Error(
+                      "A completed groomed row does not match its trusted comment"
+                    );
+                  }
+                  const run = await github.rest.actions.getWorkflowRun({
+                    owner,
+                    repo,
+                    run_id: Number(runFooterMatch[1]),
+                  });
+                  if (
+                    run.data.event !== "workflow_dispatch" ||
+                    run.data.conclusion !== "success" ||
+                    run.data.display_title !==
+                      `DevOps Health Investigation — ${row.correlation_id}` ||
+                    run.data.path?.split("@")[0] !==
+                      ".github/workflows/devops-health-investigate.lock.yml" ||
+                    run.data.head_repository?.full_name !== `${owner}/${repo}`
+                  ) {
+                    throw new Error(
+                      "A completed groomed row does not match its trusted workflow run"
+                    );
+                  }
+                }
+              }
+            } else {
+              throw new Error(`Unexpected safe-output type: ${String(item.type)}`);
+            }
+
+            console.log(`Validated one ${item.type} safe-output item`);
