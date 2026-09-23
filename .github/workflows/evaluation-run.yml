@@ -870,6 +870,27 @@ jobs:
               echo "::error::Expected exactly one native agent results.json, found ${#AGENT_RESULTS[@]}"
               exit 1
             fi
+            # A wall-clock timeout on a required arm is a property of one run, not
+            # of the agent under test, yet it makes the whole eval
+            # measurement-invalid. Re-run only the affected scenario, into its own
+            # results dir so sessions never merge and role/session accounting stays
+            # unique, then swap that one scenario back in. A scenario that times
+            # out again, fails for any other reason, or simply lost is left exactly
+            # as measured and still fails the accounting gate below. The bound
+            # keeps a systemic capacity problem from being retried at all.
+            if ! timeout --signal=TERM --kill-after=30s 45m \
+              node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/retry-agent-timeouts.mjs" \
+                --results-file "${AGENT_RESULTS[0]}" \
+                --retry-results-dir "$RUNNER_TEMP/agent-timeout-retry" \
+                --summary "$RESULTS_DIR/_agent-timeout-retry-summary.json" \
+                --validator "$RUNNER_TEMP/trusted-validator/skill-validator" \
+                --tests-dir "tests/$PLUGIN" \
+                --model "$MODEL" \
+                --judge-model "$JUDGE_MODEL" \
+                --max-scenarios 2 \
+                "${AGENT_ARGS[@]/#/--agent=}"; then
+              echo "::warning::Agent timeout recovery did not complete; the original measurement stands"
+            fi
             node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/adapt-agent-results.mjs" \
               --results-file "${AGENT_RESULTS[0]}" \
               --output-root "$RESULTS_DIR" \
@@ -1020,6 +1041,9 @@ jobs:
           # trial succeeds. Retry only that eval/variant once, then replace only
           # the matching failed slots. Persistent or non-timeout failures remain
           # in the original JSONL and fail the measurement-validity gate below.
+          # A slot whose executor evidence is complete but whose comparison judge
+          # stalled is recovered later, inside adapt.mjs, by re-judging just that
+          # slot from these preserved trajectories.
           set +e
           timeout --signal=TERM --kill-after=30s 30m \
             node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/retry-executor-timeouts.mjs" \
@@ -1099,6 +1123,12 @@ jobs:
             exit 1
           fi
           ADAPTER_SUMMARY="$RESULTS_DIR/adapter-summary.json"
+          # measurementInvalidEvalCount counts evals whose evidence is unusable,
+          # which is what the two recovery passes above exist to prevent: a slot
+          # recovered from preserved evidence is a real measurement, so this count
+          # legitimately reaches zero after recovery. A slot that stayed errored is
+          # still counted and still fails here. Diagnostic errorCount is not part
+          # of this gate: it records annotations that do not invalidate a verdict.
           if [ ! -f "$ADAPTER_SUMMARY" ] || ! node -e "
             const s = JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));
             const expected = Number(process.argv[2]);

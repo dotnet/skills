@@ -13,10 +13,12 @@ import {
   mergeComparisonReports,
   postActivationFromRecords,
   readNonActivationStimuli,
+  recoverTransientComparisonSlots,
   splitVallyCommand,
   signTestPValue,
   trialDirection,
   VERDICT_STATES,
+  MAX_TARGETED_COMPARISON_SLOTS,
   MIN_CREDIBLE_STIMULI,
   MIN_PRACTICAL_NET_WIN,
   SIGN_TEST_ALPHA,
@@ -1508,4 +1510,281 @@ test("splitVallyCommand keeps quoted paths whole and passes odd input through", 
     prefix: ["/home/o'brien/vally.mjs", "--flag"],
   });
   assert.deepEqual(splitVallyCommand(""), { bin: "", prefix: [] });
+});
+
+// ---------------------------------------------------------------------------
+// Targeted comparison-slot recovery
+// ---------------------------------------------------------------------------
+
+const JUDGE_TIMEOUT_EVIDENCE =
+  "Comparison judge failed: Timeout after 120000ms waiting for session.idle";
+
+function executorRecord(variant, stimulusName, trialIndex) {
+  return {
+    type: "trial-result",
+    status: "success",
+    variant,
+    stimulus: stimulusName,
+    shardKey: `${evalFile}::${variant}::gpt-5.6-luna::${stimulusName}::trial-${trialIndex}`,
+    experiment: { evalFile },
+    trajectory: { events: [] },
+  };
+}
+
+/** Preserved executor trajectories for every trial slot the report describes. */
+function executorRecordsFor(report, variant) {
+  return (report.stimuli ?? []).flatMap((stimulus) =>
+    (stimulus.trials ?? []).map((trial) =>
+      executorRecord(variant, stimulus.stimulusName, trial.trialIndex),
+    ),
+  );
+}
+
+/** Mark one slot as an errored judge slot that already survived a slice retry. */
+function strandSlot(report, stimulusIndex, trialIndex, error) {
+  const trial = report.stimuli[stimulusIndex].trials[trialIndex];
+  trial.score = 0;
+  trial.winner = "tie";
+  trial.errored = true;
+  trial.evidence = JUDGE_TIMEOUT_EVIDENCE;
+  trial.comparisonAttempt = 2;
+  if (error) trial.retryError = error;
+  report.summary.trialCount--;
+  report.summary.erroredCount++;
+  report.retrySummary = {
+    attempts: 2,
+    retriedSlots: 1,
+    recoveredSlots: 0,
+    frozenSuccesses: report.summary.trialCount,
+    recoveredErrors: [],
+    persistentErrors: [
+      {
+        stimulusName: report.stimuli[stimulusIndex].stimulusName,
+        trialIndex: trial.trialIndex,
+        attempts: 2,
+        attemptHistory: [
+          { attempt: 1, code: "judge_session_idle_timeout", kind: "transient" },
+          { attempt: 2, code: "judge_session_idle_timeout", kind: "transient" },
+        ],
+      },
+    ],
+  };
+  return report;
+}
+
+function withTargetedRecovery(report, compare, overrides = {}) {
+  const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-"));
+  try {
+    return recoverTransientComparisonSlots(report, {
+      baselineRecords: executorRecordsFor(report, "baseline"),
+      skilledRecords: executorRecordsFor(report, "skilled"),
+      workDir,
+      filePrefix: "dotnet-test__detect-static-dependencies",
+      compare,
+      ...overrides,
+    });
+  } finally {
+    rmSync(workDir, { recursive: true, force: true });
+  }
+}
+
+test("a transient comparison-judge timeout is recovered from preserved trajectories", () => {
+  const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
+  const slices = [];
+
+  const recovered = withTargetedRecovery(primary, (baselineSlice, skilledSlice) => {
+    slices.push([readFileSync(baselineSlice, "utf8"), readFileSync(skilledSlice, "utf8")]);
+    // Vally renumbers a narrowed slice from zero; the adapter must restore the
+    // original slot identity rather than trusting the retry's trialIndex.
+    return {
+      summary: { trialCount: 1, erroredCount: 0 },
+      stimuli: [
+        {
+          stimulusName: "Scenario 1",
+          trials: [{ trialIndex: 0, score: 1, winner: "treatment", errored: false }],
+        },
+      ],
+    };
+  });
+
+  assert.equal(slices.length, 1);
+  for (const [baselineSlice, skilledSlice] of slices) {
+    assert.equal(baselineSlice.trim().split("\n").length, 1);
+    assert.equal(skilledSlice.trim().split("\n").length, 1);
+    assert.match(baselineSlice, /::trial-2/);
+    assert.match(skilledSlice, /::trial-2/);
+  }
+
+  const restored = recovered.stimuli[0].trials[2];
+  assert.equal(restored.errored, false);
+  assert.equal(restored.trialIndex, 2);
+  assert.equal(restored.comparisonAttempt, 3);
+  assert.equal(restored.targetedRecovery, true);
+  assert.equal(restored.recoveredFrom.code, "judge_session_idle_timeout");
+  assert.equal(recovered.summary.erroredCount, 0);
+  assert.equal(recovered.summary.trialCount, 3);
+  assert.equal(recovered.retrySummary.attempts, 3);
+  assert.equal(recovered.retrySummary.recoveredSlots, 1);
+  assert.deepEqual(recovered.retrySummary.persistentErrors, []);
+  assert.equal(recovered.retrySummary.targetedRecovery.recoveredSlotCount, 1);
+  assert.equal(recovered.retrySummary.targetedRecovery.unresolvedSlotCount, 0);
+
+  // Successful first-attempt judgments are never replaced by the retry.
+  assert.deepEqual(
+    recovered.stimuli[0].trials.slice(0, 2).map(trialDirection),
+    [1, 1],
+  );
+});
+
+test("a recovered comparison slot produces a conclusive verdict", () => {
+  const primary = strandSlot(reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0.4]), 5, 0);
+  assert.equal(
+    comparisonToVerdict(primary, IDENTITY, EMPTY_ROLES, new Set()).state,
+    VERDICT_STATES.INVALID_INCONCLUSIVE,
+  );
+
+  const recovered = withTargetedRecovery(primary, () => ({
+    stimuli: [
+      {
+        stimulusName: "Scenario 6",
+        trials: [{ trialIndex: 0, score: 1, winner: "treatment", errored: false }],
+      },
+    ],
+  }));
+  const verdict = comparisonToVerdict(recovered, IDENTITY, EMPTY_ROLES, new Set());
+
+  assert.equal(verdict.conclusive, true);
+  assert.equal(verdict.state, VERDICT_STATES.VALID_PASS);
+});
+
+test("a persistent comparison timeout stays measurement-invalid", () => {
+  const primary = strandSlot(reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0.4]), 5, 0);
+  const recovered = withTargetedRecovery(primary, () => ({
+    stimuli: [
+      {
+        stimulusName: "Scenario 6",
+        trials: [
+          {
+            trialIndex: 0,
+            score: 0,
+            winner: "tie",
+            errored: true,
+            evidence: JUDGE_TIMEOUT_EVIDENCE,
+          },
+        ],
+      },
+    ],
+  }));
+
+  assert.equal(recovered.summary.erroredCount, 1);
+  assert.equal(recovered.retrySummary.targetedRecovery.recoveredSlotCount, 0);
+  assert.equal(recovered.retrySummary.targetedRecovery.unresolvedSlotCount, 1);
+  assert.equal(
+    recovered.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory[1].code,
+    "judge_session_idle_timeout",
+  );
+
+  const verdict = comparisonToVerdict(recovered, IDENTITY, EMPTY_ROLES, new Set());
+  assert.equal(verdict.conclusive, false);
+  assert.equal(verdict.state, VERDICT_STATES.INVALID_INCONCLUSIVE);
+  assert.equal(verdict.stateReason.code, "comparison_judge_error");
+});
+
+test("a failed targeted retry invocation leaves the slot errored", () => {
+  const primary = strandSlot(reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0.4]), 5, 0);
+  const recovered = withTargetedRecovery(primary, () => {
+    throw new Error("vally compare exited 1");
+  });
+
+  assert.equal(recovered.summary.erroredCount, 1);
+  assert.equal(
+    recovered.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory[1].code,
+    "targeted_retry_invocation_failed",
+  );
+});
+
+test("targeted recovery never re-judges a permanent judge failure", () => {
+  const primary = strandSlot(reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0.4]), 5, 0, {
+    phase: "comparison_judge",
+    kind: "permanent",
+    code: "judge_organization_disabled",
+    message: "disabled by your organization",
+  });
+  let calls = 0;
+  const recovered = withTargetedRecovery(primary, () => {
+    calls++;
+    return null;
+  });
+
+  assert.equal(calls, 0);
+  assert.equal(recovered.summary.erroredCount, 1);
+  assert.equal(recovered.retrySummary.targetedRecovery, undefined);
+});
+
+test("targeted recovery never re-judges semantic or activation outcomes", () => {
+  // A loss, a tie and a dormancy stimulus are all decided judgments, not judge
+  // faults, so no slot is eligible and the report must pass through untouched.
+  const decided = reportFromScores([-1, 0, -0.4, 0.4]);
+  let calls = 0;
+  const result = withTargetedRecovery(decided, () => {
+    calls++;
+    return null;
+  });
+
+  assert.equal(calls, 0);
+  assert.deepEqual(result, decided);
+  assert.equal(
+    comparisonToVerdict(result, IDENTITY, EMPTY_ROLES, new Set(["Scenario 2"])).state,
+    VERDICT_STATES.INVALID_INCONCLUSIVE,
+  );
+});
+
+test("too many stranded comparison slots are treated as a systemic failure", () => {
+  const primary = reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0.4]);
+  for (let index = 0; index < MAX_TARGETED_COMPARISON_SLOTS + 1; index++) {
+    strandSlot(primary, index, 0);
+  }
+  let calls = 0;
+  const result = withTargetedRecovery(primary, () => {
+    calls++;
+    return null;
+  });
+
+  assert.equal(calls, 0);
+  assert.equal(result.summary.erroredCount, MAX_TARGETED_COMPARISON_SLOTS + 1);
+  assert.equal(
+    result.retrySummary.targetedRecovery.unresolvedSlotCount,
+    MAX_TARGETED_COMPARISON_SLOTS + 1,
+  );
+  assert.match(result.retrySummary.targetedRecovery.skippedReason, /systemic judge failure/);
+});
+
+test("an ambiguous slot-to-trajectory mapping is never re-judged", () => {
+  const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
+  const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-dup-"));
+  let calls = 0;
+  try {
+    const baselineRecords = executorRecordsFor(primary, "baseline");
+    const result = recoverTransientComparisonSlots(primary, {
+      // Two baseline trajectories claim the same slot: re-judging either one
+      // would silently pick a trajectory the first attempt may not have used.
+      baselineRecords: [...baselineRecords, executorRecord("baseline", "Scenario 1", 2)],
+      skilledRecords: executorRecordsFor(primary, "skilled"),
+      workDir,
+      filePrefix: "ambiguous",
+      compare: () => {
+        calls++;
+        return null;
+      },
+    });
+
+    assert.equal(calls, 0);
+    assert.equal(result.summary.erroredCount, 1);
+    assert.equal(
+      result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory[1].code,
+      "targeted_slot_trajectory_ambiguous",
+    );
+  } finally {
+    rmSync(workDir, { recursive: true, force: true });
+  }
 });

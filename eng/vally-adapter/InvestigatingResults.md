@@ -290,12 +290,59 @@ successful first-attempt judgment fixed and replaces only errored slots. A
 recovered transient appears in `recoveredErrors[]`; an unresolved failure stays
 in `errors[]` and makes the state invalid.
 
+That first retry re-judges the whole slice, so one unlucky judge session can
+stall on both attempts and strand a slot whose executor evidence is complete. A
+second, narrower pass then re-judges each stranded slot on its own, using the
+preserved executor trajectories for exactly that stimulus and trial. Read
+`retrySummary.targetedRecovery` in the comparison report:
+
+```json
+{
+  "maxSlots": 3,
+  "plannedSlotCount": 1,
+  "attemptedSlotCount": 1,
+  "recoveredSlotCount": 1,
+  "unresolvedSlotCount": 0,
+  "skippedReason": null,
+  "recoveredSlots": [{ "stimulusName": "...", "trialIndex": 0, "recoveredFrom": { "code": "judge_session_idle_timeout" } }],
+  "unresolvedSlots": []
+}
+```
+
+Only a slot that is still errored after the slice retry and whose latest
+classification is transient is eligible, so `judge_organization_disabled` and
+unrecognized codes are never re-judged. A decided trial is never errored, so a
+win, loss, tie, or dormancy outcome can never enter this pass. A recovered trial
+carries `targetedRecovery: true` and `recoveredFrom`. Anything unexpected —
+ambiguous trajectories for the slot (`targeted_slot_trajectory_ambiguous`), a
+retry that returns the wrong number of trials
+(`targeted_retry_result_ambiguous`), a failed invocation
+(`targeted_retry_invocation_failed`), or a repeat timeout — leaves the slot
+errored and the eval measurement-invalid. More than `maxSlots` stranded slots is
+read as a judge outage: the pass is skipped entirely, `skippedReason` explains
+why, and every slot counts as unresolved.
+
 For native-agent results, `RunMetrics.errorCount` is diagnostic. Failed or
 retried tool calls can coexist with completed output and a valid pairwise
 judgment, so that counter alone does not invalidate a measurement. The adapter
 fails closed only on terminal evidence: `scenario.executionError`, a missing
 required arm, a timed-out arm, `failedRunCount > 0`, or a missing pairwise
 result.
+
+A required arm that hit its wall-clock limit is recovered before the adapter
+runs. `retry-agent-timeouts.mjs` re-runs only that scenario, through the
+evaluator's `--scenario` filter, into its own results directory, then swaps the
+fresh scenario record into the native results file. Session databases are never
+merged, so every role/session record stays unique and the rejudge pairing rules
+that reject duplicate completed roles are unaffected. Read
+`_agent-timeout-retry-summary.json` for `recoveredScenarioCount`,
+`unresolvedScenarioCount`, and a per-scenario reason. A scenario is retried only
+when a timeout is its sole defect: an `executionError`, a failed run, a missing
+arm, or a scenario the agent simply lost is never retried. More than two
+timed-out scenarios is read as a systemic capacity problem and nothing is
+retried. Aggregate verdict fields such as `failureKind` and the confidence
+interval keep the values the first attempt recorded; a stale aggregate can only
+hold a verdict back, never turn a failure into a pass.
 
 The workflow token preflight treats HTTP 429 and 402 quota exhaustion
 (`quota_exceeded` or a monthly-quota message) as pool-candidate exhaustion and

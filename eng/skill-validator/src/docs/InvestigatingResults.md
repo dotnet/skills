@@ -284,6 +284,30 @@ Several scenario-level options in `eval.yaml` are relevant when diagnosing failu
 - **Restructure the prompt** to discourage bash exploration (e.g., "Show me the code" rather than "Create a project")
 - **Add `reject_tools: ["bash"]`** if the scenario should be answerable without shell commands
 
+**In CI:** a required arm that times out makes the whole eval
+measurement-invalid, even when every other scenario produced clean evidence. The
+evaluation workflow therefore runs `eng/vally-adapter/retry-agent-timeouts.mjs`
+before the adapter. It re-runs only the timed-out scenario, using
+`skill-validator evaluate --scenario "<name>"`, writes that retry into its own
+`--results-dir`, and replaces only that one scenario record in the native
+results file. Because the retry never shares a results directory, its sessions
+never merge with the first attempt's: every role/session record stays unique and
+the `rejudge` pairing rules that reject duplicate completed roles still apply
+unchanged. The retry judges the arms it re-runs, so no separate `rejudge` pass
+is needed.
+
+The retry is deliberately narrow. It fires only when a wall-clock timeout is the
+scenario's sole defect; an `executionError`, `failedRunCount > 0`, a missing
+arm, or a scenario the agent simply lost is never retried. A second timeout,
+more than two timed-out scenarios, or any unexpected retry shape leaves the
+original measurement in place and keeps the eval invalid. Check
+`_agent-timeout-retry-summary.json` in the leg artifact for
+`recoveredScenarioCount`, `unresolvedScenarioCount`, and a per-scenario reason.
+
+`--scenario` is repeatable, matches scenario names case-insensitively, and exits
+`1` when a name matches nothing, so a typo can never quietly evaluate an empty
+set and report a clean run.
+
 ### 2. Baseline already bad
 
 **Symptoms:**

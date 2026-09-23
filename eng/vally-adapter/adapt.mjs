@@ -923,6 +923,255 @@ function mergeComparisonReports(primaryReport, retryReport) {
 }
 
 /**
+ * A comparison retry judges the whole slice again, so one unlucky judge session
+ * can time out twice in a row and strand an otherwise-complete measurement. The
+ * targeted pass below re-judges only the individual slots that are still errored
+ * for a transient reason, which is both cheaper and far less likely to repeat
+ * the stall. Keep it small: more than a handful of stranded slots is a systemic
+ * judge outage, not bad luck, and must stay measurement-invalid.
+ */
+const MAX_TARGETED_COMPARISON_SLOTS = 3;
+
+/** Trial index encoded in a Vally executor shardKey (`...::trial-<n>`). */
+function recordTrialIndex(record) {
+  const match = /::trial-(\d+)$/.exec(String(record?.shardKey ?? ""));
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * The completed executor trajectories behind one comparison slot.
+ *
+ * Returns the matching records only when the slot maps to exactly one record in
+ * the variant; anything else is ambiguous and must not be re-judged.
+ */
+function recordsForComparisonSlot(records, stimulusName, trialIndex) {
+  return (records ?? []).filter(
+    (record) =>
+      record?.stimulus === stimulusName && recordTrialIndex(record) === trialIndex,
+  );
+}
+
+/**
+ * Slots that are still errored after the slice-level retry and whose latest
+ * failure is a transient judge fault (session.idle timeout, throttling, 5xx).
+ *
+ * Permanent and unclassifiable judge faults are never returned, and a trial that
+ * produced a verdict — including a loss or a dormancy-contract failure — is not
+ * errored at all, so it can never enter this list.
+ */
+function transientComparisonSlots(report) {
+  const keyCounts = comparisonTrialKeyCounts(report);
+  const slots = [];
+  for (const stimulus of report?.stimuli ?? []) {
+    for (const trial of stimulus.trials ?? []) {
+      if (!trial.errored) continue;
+      const key = comparisonTrialKey(stimulus.stimulusName, trial);
+      if (key === null || keyCounts.get(key) !== 1) continue;
+      const error = trial.retryError ?? classifyComparisonError(trial.evidence);
+      if (error.kind !== "transient") continue;
+      slots.push({
+        key,
+        stimulusName: stimulus.stimulusName,
+        trialIndex: trial.trialIndex,
+        error,
+      });
+    }
+  }
+  return slots;
+}
+
+/**
+ * Re-judge one comparison slot from its preserved executor trajectories.
+ *
+ * The narrowed slice holds exactly one baseline and one treatment trajectory, so
+ * the retry report must describe exactly one trial for the planned stimulus. Any
+ * other shape is ambiguous and leaves the original error in place.
+ */
+function recoverComparisonSlot(slot, config) {
+  const baselineSlot = recordsForComparisonSlot(
+    config.baselineRecords,
+    slot.stimulusName,
+    slot.trialIndex,
+  );
+  const skilledSlot = recordsForComparisonSlot(
+    config.skilledRecords,
+    slot.stimulusName,
+    slot.trialIndex,
+  );
+  if (baselineSlot.length !== 1 || skilledSlot.length !== 1) {
+    return {
+      ok: false,
+      error: {
+        phase: "comparison_pairing",
+        kind: "permanent",
+        code: "targeted_slot_trajectory_ambiguous",
+        message:
+          `Expected exactly one preserved baseline and treatment trajectory for the slot, ` +
+          `found ${baselineSlot.length} and ${skilledSlot.length}`,
+      },
+    };
+  }
+
+  const stem = `${config.filePrefix}__slot${config.slotOrdinal}`;
+  const baselineSliceFile = join(config.workDir, `${stem}__baseline.jsonl`);
+  const skilledSliceFile = join(config.workDir, `${stem}__skilled.jsonl`);
+  const outFile = join(config.workDir, `${stem}__compare.jsonl`);
+  writeFileSync(baselineSliceFile, `${JSON.stringify(baselineSlot[0])}\n`);
+  writeFileSync(skilledSliceFile, `${JSON.stringify(skilledSlot[0])}\n`);
+
+  let retryReport;
+  try {
+    retryReport = config.compare(baselineSliceFile, skilledSliceFile, outFile);
+  } catch (err) {
+    return {
+      ok: false,
+      error: {
+        phase: "comparison_judge",
+        kind: "unknown",
+        code: "targeted_retry_invocation_failed",
+        message: err instanceof Error ? err.message : String(err),
+      },
+    };
+  }
+
+  const trials = (retryReport?.stimuli ?? [])
+    .filter((stimulus) => stimulus.stimulusName === slot.stimulusName)
+    .flatMap((stimulus) => stimulus.trials ?? []);
+  if (trials.length !== 1) {
+    return {
+      ok: false,
+      error: {
+        phase: "comparison_judge",
+        kind: "unknown",
+        code: "targeted_retry_result_ambiguous",
+        message: `Targeted comparison retry returned ${trials.length} trial(s) for the planned slot`,
+      },
+    };
+  }
+  if (trials[0].errored) {
+    return { ok: false, error: classifyComparisonError(trials[0].evidence) };
+  }
+  return { ok: true, trial: trials[0] };
+}
+
+/**
+ * Bounded recovery pass for transient comparison-judge faults.
+ *
+ * Re-judges each still-errored transient slot on its own, replaces only those
+ * slots, and leaves every successful judgment frozen. Unresolved slots stay
+ * errored so the measurement-validity gate keeps failing the leg.
+ */
+function recoverTransientComparisonSlots(primaryReport, config) {
+  const compare = config.compare ?? runCompare;
+  const maxSlots = config.maxSlots ?? MAX_TARGETED_COMPARISON_SLOTS;
+  const slots = transientComparisonSlots(primaryReport);
+  const targeted = {
+    maxSlots,
+    plannedSlotCount: slots.length,
+    attemptedSlotCount: 0,
+    recoveredSlotCount: 0,
+    unresolvedSlotCount: 0,
+    skippedReason: null,
+    recoveredSlots: [],
+    unresolvedSlots: [],
+  };
+  if (slots.length === 0) return primaryReport;
+  if (slots.length > maxSlots) {
+    targeted.unresolvedSlotCount = slots.length;
+    targeted.skippedReason =
+      `${slots.length} comparison slot(s) remain transiently errored, above the ` +
+      `targeted recovery limit of ${maxSlots}; treating this as a systemic judge failure.`;
+    warn(targeted.skippedReason);
+    const skipped = structuredClone(primaryReport);
+    skipped.retrySummary = { ...(skipped.retrySummary ?? {}), targetedRecovery: targeted };
+    return skipped;
+  }
+
+  const recovered = new Map();
+  for (const [index, slot] of slots.entries()) {
+    warn(
+      `Re-judging transient comparison slot "${slot.stimulusName}" trial ${slot.trialIndex} ` +
+        `(${slot.error.code}) from preserved executor trajectories`,
+    );
+    targeted.attemptedSlotCount++;
+    const outcome = recoverComparisonSlot(slot, {
+      ...config,
+      compare,
+      slotOrdinal: index + 1,
+    });
+    if (outcome.ok) {
+      recovered.set(slot.key, { slot, trial: outcome.trial });
+      targeted.recoveredSlotCount++;
+      targeted.recoveredSlots.push({
+        stimulusName: slot.stimulusName,
+        trialIndex: slot.trialIndex,
+        recoveredFrom: slot.error,
+      });
+    } else {
+      targeted.unresolvedSlotCount++;
+      targeted.unresolvedSlots.push({
+        stimulusName: slot.stimulusName,
+        trialIndex: slot.trialIndex,
+        attemptHistory: [
+          { attempt: 2, ...slot.error },
+          { attempt: 3, ...outcome.error },
+        ],
+      });
+    }
+  }
+
+  if (recovered.size === 0) {
+    const unchanged = structuredClone(primaryReport);
+    unchanged.retrySummary = { ...(unchanged.retrySummary ?? {}), targetedRecovery: targeted };
+    return unchanged;
+  }
+
+  const report = structuredClone(primaryReport);
+  for (const stimulus of report.stimuli ?? []) {
+    stimulus.trials = (stimulus.trials ?? []).map((trial) => {
+      const key = comparisonTrialKey(stimulus.stimulusName, trial);
+      const replacement = key === null ? undefined : recovered.get(key);
+      if (!trial.errored || !replacement) return trial;
+      return {
+        ...replacement.trial,
+        trialIndex: trial.trialIndex,
+        comparisonAttempt: 3,
+        targetedRecovery: true,
+        recoveredFrom: replacement.slot.error,
+      };
+    });
+  }
+
+  const previous = report.retrySummary ?? {};
+  const recoveredKeys = new Set(
+    [...recovered.values()].map((entry) =>
+      comparisonTrialKey(entry.slot.stimulusName, { trialIndex: entry.slot.trialIndex }),
+    ),
+  );
+  report.retrySummary = {
+    ...previous,
+    attempts: 3,
+    recoveredSlots: (previous.recoveredSlots ?? 0) + recovered.size,
+    recoveredErrors: [
+      ...(previous.recoveredErrors ?? []),
+      ...[...recovered.values()].map((entry) => ({
+        stimulusName: entry.slot.stimulusName,
+        trialIndex: entry.slot.trialIndex,
+        attempts: 3,
+        targetedRecovery: true,
+        ...entry.slot.error,
+      })),
+    ],
+    persistentErrors: (previous.persistentErrors ?? []).filter(
+      (entry) =>
+        !recoveredKeys.has(comparisonTrialKey(entry.stimulusName, { trialIndex: entry.trialIndex })),
+    ),
+    targetedRecovery: targeted,
+  };
+  return summarizeComparisonTrials(report, true);
+}
+
+/**
  * Run `vally compare` in two-run mode over one eval's baseline vs skilled
  * slices and return the parsed comparison record (or null on failure).
  */
@@ -1838,6 +2087,18 @@ function main() {
       let report;
       try {
         report = runCompareWithRetry(baselineSlice, skilledSlice, compareOut);
+        if (report) {
+          // A slice-level retry re-judges every trial, so a single unlucky judge
+          // session can stall twice and strand an otherwise-complete measurement.
+          // Re-judge only the still-errored transient slots, one slot at a time,
+          // from the executor trajectories already preserved in the slices above.
+          report = recoverTransientComparisonSlots(report, {
+            baselineRecords: baseline,
+            skilledRecords: skilled,
+            workDir,
+            filePrefix: `${plugin}__${skill}`,
+          });
+        }
       } catch (err) {
         const detail = err instanceof Error ? err.message : String(err);
         const message = `${plugin}/${skill}: vally compare failed (${detail})`;
@@ -2002,6 +2263,9 @@ export {
   trialDirection,
   classifyComparisonError,
   mergeComparisonReports,
+  recoverTransientComparisonSlots,
+  transientComparisonSlots,
+  MAX_TARGETED_COMPARISON_SLOTS,
   loadExpectedEvalFiles,
   normalizeEvalFile,
   VERDICT_STATES,

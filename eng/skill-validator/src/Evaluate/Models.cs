@@ -492,6 +492,13 @@ public sealed record ValidatorConfig
     public string? BaselineFrom { get; init; }
 
     /// <summary>
+    /// When non-empty, evaluate only the named scenarios. Used to re-run a single scenario
+    /// that failed for a transient reason (such as hitting its wall-clock timeout) without
+    /// re-running, and re-charging for, the scenarios that already produced valid evidence.
+    /// </summary>
+    public IReadOnlyList<string> ScenarioFilter { get; init; } = [];
+
+    /// <summary>
     /// When set, run the requested agent arms and persist sessions/metrics but skip all judging.
     /// Judging is deferred to a later <c>rejudge</c>/<c>judge</c> step. Implies session persistence
     /// and does not require a baseline.
