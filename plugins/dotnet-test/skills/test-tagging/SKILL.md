@@ -42,7 +42,7 @@ Analyze an existing test suite in any supported language and apply a standardize
 | Input | Required | Description |
 |-------|----------|-------------|
 | Test project or files | No | Path to the test project, folder, or specific test files. Discover from the current workspace when omitted. |
-| Scope | No | `tag` (apply canonical attributes, or a confirmed project convention), `audit` (report only), or `both` (default: `both`). Frameworks declared `report-only` always emit a report; `convention-based` frameworks edit only after the user confirms the convention. |
+| Scope | No | Infer from the verb: `tag`/`apply` edits, `audit`/`classify`/`report` is report-only, and `both` applies only when both are requested. If ambiguous, default to `audit` to avoid unrequested edits. Frameworks declared `report-only` always emit a report; `convention-based` frameworks edit only after the user confirms the convention. |
 | Framework | No | Auto-detected. Override when detection fails. |
 
 ## Trait Taxonomy
@@ -108,6 +108,10 @@ from the built-in rules below:
 - **`convention-based`** — framework uses naming or file conventions for tagging (Go `//go:build integration` build tags, file-name suffixes like `*_integration_test.go`, GoogleTest `INTEGRATION_*` filter prefix). Only emit canonical edits when the user has confirmed the project convention; otherwise treat as `report-only`.
 
 Capture the capability before Step 4.
+
+Also lock the requested mode before classification. Do not turn an audit into
+source edits because canonical attributes are available; edit only for an
+explicit tagging/apply request.
 
 ### Step 2: Scan existing traits
 

@@ -263,8 +263,10 @@ internal to preserve the public API and the exact test assembly is known.
 
 ### Step 6: Verify the complete path
 
-Run the affected production build, targeted test project, and repository-level
-test command. Re-read the diff and confirm:
+Run the affected production build and the narrowest targeted test command.
+Run a repository-level test command only when the user requested broad
+validation, the repository contract requires that entry point, or the seam
+changes shared composition used beyond the target. Re-read the diff and confirm:
 
 1. every production change is required by the seam;
 2. no real ambient resource is used by the new tests;

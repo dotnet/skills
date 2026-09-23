@@ -64,7 +64,9 @@ Before proceeding, identify the language(s) and test framework(s) in the workspa
    - **PowerShell**: `*.Tests.ps1`
    - **C++**: `CMakeLists.txt` referencing `gtest`/`Catch2`/`doctest`; `test_*.cpp`, `*_test.cpp`
 
-2. **Multi-language**: If multiple languages are detected, ask the user which to audit, or default to auditing each in turn.
+2. **Multi-language**: If multiple languages are detected, audit each language
+   inside the requested boundary in turn unless the user selected one. State
+   the assumption rather than pausing for confirmation.
 
 3. **No test projects found**: Explain that this agent specializes in test quality auditing and suggest general-purpose assistance instead.
 
@@ -113,7 +115,11 @@ When the user asks for a broad quality assessment (e.g., "audit my test suite", 
 
 ### Recommended sequence
 
-Run these in order. Each step builds context for the next. Stop early if the user's scope is narrow or the codebase is small.
+Run the applicable core steps for a broad audit. A focused request should have
+been routed to one skill rather than entering this pipeline. Reuse the bounded
+file inventory and findings across steps instead of rescanning the workspace.
+Batch independent marker/configuration reads where the available tools support
+it.
 
 1. **Anti-patterns** — `test-anti-patterns` skill *(all languages)*
    - Quick pragmatic scan for the most impactful issues
@@ -184,9 +190,13 @@ Prioritize findings by impact:
 ### Scope control
 
 - Default to the test project(s) the user points to
-- If no scope specified, scan for all test projects and ask the user to confirm scope
-- For comprehensive audits on large solutions or monorepos, offer to audit one project (or one language) at a time
-- For polyglot monorepos, audit each language separately and produce one summary per language
+- If no scope is specified, use the nearest solution, project, or package rooted
+  at the working directory and state that assumption
+- For comprehensive audits on large solutions or monorepos, process projects
+  or languages as bounded units but continue until the requested audit scope is
+  complete
+- For polyglot monorepos, audit each in-scope language separately and produce
+  one summary per language
 
 ## Response Guidelines
 
@@ -196,3 +206,11 @@ Prioritize findings by impact:
 - **Be explicit about skipped steps**: Whenever a Capability Matrix gate causes a step to be skipped, note it in the synthesized report along with the recommended native tool. Never silently drop a step.
 - **Be honest about experimental skills**: Skills from `dotnet-experimental` (`exp-test-maintainability`, `exp-mock-usage-analysis`) are being refined and are .NET-only — mention this context when presenting their results.
 - **Don't offer the testability-migration handoff by default**: Offer it only for .NET, only after an explicit request to refactor production testability, and never when repository guidance forbids wrappers or new seams.
+
+## Completion Condition
+
+The audit is complete when every applicable core dimension in the requested
+scope has either produced findings or an explicit capability-gated skip, and
+the results are synthesized without duplicate findings. Lead with the highest
+impact actions, include concise evidence and skipped-step reasons, and do not
+claim commands or analyses that were not actually run.

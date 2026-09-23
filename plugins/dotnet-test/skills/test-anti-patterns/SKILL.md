@@ -78,12 +78,19 @@ Identify the language and framework. Try the matching
 
 ### Step 2: Gather the test code
 
-Read every test file in the resolved scope. Use extension discovery markers
-when loaded; otherwise use the built-in markers in this skill (attributes such
-as `[TestClass]`/`[Fact]`/`[Test]`, `test_*.py`, `*.test.*`, `*_test.go`,
-`*_spec.rb`, `#[test]`, `*.Tests.ps1`, `TEST(...)`, and `TEST_CASE(...)`).
+Inventory the resolved scope before reading bodies. For one file or class, read
+that scope directly. For a project or suite, discover test files once, batch
+independent reads where tools allow, and stop when every discovered test and
+class-level fixture has a ledger disposition.
 
-If production code is available, read it too -- this is critical for detecting tests that are coupled to implementation details rather than behavior.
+Use extension discovery markers when loaded; otherwise use the built-in markers
+in this skill (attributes such as `[TestClass]`/`[Fact]`/`[Test]`,
+`test_*.py`, `*.test.*`, `*_test.go`, `*_spec.rb`, `#[test]`,
+`*.Tests.ps1`, `TEST(...)`, and `TEST_CASE(...)`).
+
+Do not read production code wholesale. Open only the production symbols needed
+to decide whether a suspicious assertion, transformation, identity contract, or
+adjacent gap is real.
 
 ### Step 3: Scan for anti-patterns
 

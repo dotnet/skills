@@ -30,7 +30,7 @@ Choose one of two paths:
 
 - **Migration pipeline:** **Detect → Generate → Migrate → Test** for a broad or
   multi-call-site migration. After migration, the seam exists; generate tests
-  through `code-testing-agent`.
+  through `code-testing-generator`.
 - **Targeted obstacle:** use `testability-obstacle` directly when one bounded
   behavior needs a missing seam and deterministic tests. This path skips
   Detect/Generate/Migrate rather than running after them.
@@ -65,9 +65,9 @@ Use the `detect-static-dependencies` skill to:
 3. Rank by frequency and group by category
 4. Present the report to the user
 
-If the request is ambiguous or analysis-only, ask which category and scope to
-migrate. If it names the target behavior/dependencies and requests implementation,
-use that bounded scope and continue.
+For analysis-only requests, report findings and stop. For implementation
+requests, infer the narrowest safe scope from the named behavior, dependency,
+or nearest project, state the assumption, and continue without pausing.
 
 ### Phase 2: Generate
 
@@ -93,13 +93,15 @@ Use the `migrate-static-to-wrapper` skill to:
 
 ### Phase 4: Test
 
-After Phase 3, use `code-testing-agent` to:
+After Phase 3, use `code-testing-generator` to:
 
 1. Reuse the migrated seam rather than introducing another abstraction.
 2. Use `FakeTimeProvider`, an in-memory filesystem, or a hand-rolled fake.
 3. Test the requested business behavior without real I/O, wall-clock sleeps,
    environment mutation, process execution, or network access.
-4. Run the targeted test project and the repository-level test command.
+4. Run the targeted test project. Run broader repository validation only when
+   the requested migration spans multiple projects or repository guidance
+   requires it.
 5. Map each requested behavior and seam to an exact test name.
 
 Do not call the migration complete merely because production builds. The tests
@@ -114,7 +116,7 @@ Use `testability-obstacle` instead of Phases 1–4 when all are true:
 3. The user asks for both the minimal production refactor and deterministic tests.
 
 Do not first generate/migrate a wrapper and then invoke `testability-obstacle`;
-once the seam exists, test it with `code-testing-agent`.
+once the seam exists, test it with `code-testing-generator`.
 
 ## Decision Rules
 
@@ -162,16 +164,27 @@ When the user asks something specific like "replace DateTime.Now with TimeProvid
 ### Scope control
 
 Always respect scope boundaries:
-- One project or namespace per migration pass
-- Present a "Remaining" section showing what was not migrated
-- Offer to continue with the next scope
+- Work incrementally, one project or namespace at a time, until the explicitly
+  requested scope is complete
+- Present a "Remaining" section only for requested items that are blocked or
+  intentionally deferred, plus clearly out-of-scope findings
 
 ## Safety Rules
 
 1. **Never modify generated code** — skip `*.Designer.cs`, `*.g.cs`, files in `obj/`, `bin/`
 2. **Never modify test code during detection** — tests should be updated during migration only
-3. **Always build after changes** — run `dotnet build` and fix any errors before reporting success
+3. **Always build after changes** — run the narrowest build covering the
+   changed production and test projects, and fix in-scope errors before
+   reporting success
 4. **Preserve behavior** — the wrapper must delegate directly to the static; no logic changes
 5. **Incremental only** — migrate one scope at a time, never the entire solution in one pass unless it's small (< 20 files)
 6. **No real ambient resources in new tests** — use fixed or in-memory dependencies
 7. **Honor explicit implementation intent** — do not pause for confirmation when the user already asked for the bounded migration and tests
+
+## Completion Condition
+
+Do not stop at detection, a proposed seam, or a compiling production project
+when implementation and tests were requested. Complete the requested migration,
+verify the affected build and deterministic tests, and report the changed seam,
+migrated scope, validation commands/results, and any concrete blockers in a
+concise outcome-first response.
