@@ -359,9 +359,11 @@ The PR report keeps **Overfit** separate from the verdict. A result can improve
 and still be too tailored to known eval wording. A result can also have low
 overfit and fail because it did not improve.
 
-For `VALID_NO_CHANGE`, the adapter emits `noChangeDiagnosis` as the canonical
-renderer key. PR comments and dashboard evidence use that field rather than
-reimplementing the evidence classification independently.
+For newly generated `VALID_NO_CHANGE` results, the adapter emits
+`noChangeDiagnosis` as the canonical renderer key. PR comments and newly
+generated dashboard evidence use that field rather than reimplementing the
+evidence classification independently. Retained dashboard evidence created
+before this field was introduced keeps the generic `Not proven improved` label.
 
 ## Metrics that matter
 

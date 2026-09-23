@@ -292,37 +292,7 @@
     return value < 0.001 ? value.toExponential(2) : value.toFixed(3);
   }
 
-  function verdictDisplay(verdict) {
-    const reasonCode = verdict && verdict.stateReason && verdict.stateReason.code;
-    if (verdict && verdict.state === 'VALID_REGRESSION') return { label: 'Objective regression', cls: 'fail' };
-    if (verdict && verdict.state === 'INVALID_INCONCLUSIVE') return { label: 'Invalid or underpowered', cls: 'warning' };
-    if (reasonCode === 'activation_contract_failed' ||
-        (verdict && verdict.activationContract && verdict.activationContract.passed === false)) {
-      return { label: 'Activation contract failed', cls: 'fail' };
-    }
-    if (verdict && verdict.state === 'VALID_PASS') return { label: 'Improved', cls: 'pass' };
-    const legacyPreferenceLoss = verdict &&
-      (!verdict.state || verdict.state === 'VALID_NO_CHANGE') &&
-      (verdict.preferenceRegressed || verdict.regressed);
-    if (reasonCode === 'preference_regression_report_only' || legacyPreferenceLoss) {
-      return { label: 'Preference loss (report only)', cls: 'warning' };
-    }
-    if (verdict && verdict.passed) return { label: 'Improved (legacy)', cls: 'pass' };
-    if (verdict && verdict.state === 'VALID_NO_CHANGE') {
-      const label = ({
-        all_ties: 'No preference',
-        mixed: 'Mixed evidence',
-        positive_tie_limited: 'Improvement signal, tie-limited',
-        positive_unproven: 'Improvement signal, unproven',
-        negative_tie_limited: 'Baseline signal, tie-limited',
-        negative_unproven: 'Baseline signal, unproven',
-        positive_sparse: 'Improvement too sparse',
-        negative_sparse: 'Baseline signal too sparse',
-      })[verdict.noChangeDiagnosis];
-      if (label) return { label, cls: 'neutral' };
-    }
-    return { label: 'Not proven improved', cls: 'neutral' };
-  }
+  const verdictDisplay = window.VerdictDisplay.forVerdict;
 
   function activationStatusLabel(status) {
     return ({
