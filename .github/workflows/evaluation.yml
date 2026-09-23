@@ -917,7 +917,9 @@ jobs:
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           mkdir -p all-results
-          JSON_FILES=$(find all-results/ -name results.json 2>/dev/null || true)
+          # Never count the agent timeout-retry tree: it carries a second,
+          # narrower native copy of one scenario for audit, not a skill result.
+          JSON_FILES=$(find all-results/ -name results.json -not -path '*/_agent-timeout-retry/*' 2>/dev/null || true)
           MATRIX_MANIFEST_VALID=true
           if ! EXPECTED_LEG_COUNT=$(printf '%s' "$EXPECTED_ENTRIES" | jq -e 'if type == "array" then length else error("expected matrix entries must be an array") end'); then
             MATRIX_MANIFEST_VALID=false
@@ -1160,7 +1162,7 @@ jobs:
             }
             $resultFiles = @($artifactDirs | ForEach-Object {
               Get-ChildItem -Path $_.FullName -Recurse -Filter "results.json" -File -ErrorAction SilentlyContinue
-            })
+            } | Where-Object { $_.FullName -notmatch '[\\/]_agent-timeout-retry[\\/]' })
             if ($resultFiles.Count -eq 0) {
               Write-Warning "No results.json found for $plugin, skipping"
               continue
@@ -1448,6 +1450,7 @@ jobs:
 
             $resultsFiles = @($artifactDirs | ForEach-Object {
               Get-ChildItem -Path $_.FullName -Recurse -Filter "results.json" -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.FullName -notmatch '[\\/]_agent-timeout-retry[\\/]' } |
                 ForEach-Object { $_.FullName }
             })
 

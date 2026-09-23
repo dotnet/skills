@@ -12,6 +12,7 @@ import {
   retryAgentTimeouts,
   scenarioMissedActivation,
   scenarioRegressedOnCompletion,
+  scenarioRegressedOnIsolatedCompletion,
 } from "./retry-agent-timeouts.mjs";
 
 function runResult(overrides = {}) {
@@ -497,6 +498,89 @@ test("an unresolved retry also leaves no collectable results.json behind", () =>
     recursive: true,
   }).map(String);
   assert.ok(!names.some((name) => name.endsWith("results.json")));
+});
+
+test("clearing an activation failure restores the completion regression it masked", () => {
+  // The evaluator stores one FailureKind and ApplyAgentActivationGate
+  // overwrites it, so a real isolated completion regression can hide behind
+  // skill_not_activated. Clearing activation must not erase it.
+  const verdict = {
+    skillName: "agent.code-testing-generator",
+    failureKind: "skill_not_activated",
+    skillNotActivated: true,
+    scenarios: [
+      scenario("recovered"),
+      scenario("really-regressed", {
+        skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
+      }),
+    ],
+  };
+
+  const cleared = refreshVerdictAggregates(verdict);
+
+  assert.equal(verdict.failureKind, "completion_regression");
+  assert.equal(verdict.skillNotActivated, false);
+  assert.ok(cleared.includes("failureKind=skill_not_activated->completion_regression"));
+});
+
+test("clearing an activation failure yields null when no scenario regressed", () => {
+  const verdict = {
+    skillName: "agent.code-testing-generator",
+    failureKind: "skill_not_activated",
+    skillNotActivated: true,
+    scenarios: [scenario("recovered"), scenario("clean")],
+  };
+
+  const cleared = refreshVerdictAggregates(verdict);
+
+  assert.equal(verdict.failureKind, null);
+  assert.ok(cleared.includes("failureKind=skill_not_activated"));
+});
+
+test("the restored regression predicate matches the evaluator exactly", () => {
+  // ComputeAgentVerdict passes pluginIsDiagnosticOnly: true, so a plugin-only
+  // completion failure is NOT a regression the evaluator would have recorded.
+  const pluginOnly = scenario("plugin-only", {
+    skilledPlugin: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
+  });
+  assert.equal(scenarioRegressedOnIsolatedCompletion(pluginOnly), false);
+
+  const isolated = scenario("isolated", {
+    skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
+  });
+  assert.equal(scenarioRegressedOnIsolatedCompletion(isolated), true);
+
+  const baselineAlsoFailed = scenario("both-failed", {
+    baseline: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
+    skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
+  });
+  assert.equal(scenarioRegressedOnIsolatedCompletion(baselineAlsoFailed), false);
+
+  const dormant = scenario("dormant", {
+    expectActivation: false,
+    skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
+  });
+  assert.equal(scenarioRegressedOnIsolatedCompletion(dormant), false);
+});
+
+test("a masked regression survives a real end-to-end recovery", () => {
+  const regressed = scenario("really-regressed", {
+    skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
+  });
+  const paths = workspace(
+    resultsWith([timedOutScenario("flaky"), regressed], {
+      failureKind: "skill_not_activated",
+      skillNotActivated: true,
+    }),
+  );
+  const { run } = stubRun({ flaky: scenario("flaky") });
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+  const written = JSON.parse(readFileSync(paths.resultsFile, "utf8"));
+
+  assert.equal(summary.recoveredScenarioCount, 1);
+  assert.equal(written.verdicts[0].failureKind, "completion_regression");
+  assert.equal(written.verdicts[0].skillNotActivated, false);
 });
 
 test("refreshVerdictAggregates reports exactly the fields it cleared", () => {

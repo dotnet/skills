@@ -352,7 +352,16 @@ retry re-derives those aggregates from the surviving scenarios: `failureKind`
 `completion_regression` and `skill_not_activated`, and `skillNotActivated`, are
 cleared only when NO scenario still supports them, so a real regression or a
 real activation failure in any scenario keeps failing. Cleared fields are listed
-in the summary's `clearedAggregates`. The confidence interval was bootstrapped
+in the summary's `clearedAggregates`. `SkillVerdict` holds a single
+`FailureKind` and `ApplyAgentActivationGate` runs after `ComputeVerdict` and
+overwrites it, so a real completion regression can hide behind
+`skill_not_activated`. Clearing an activation failure therefore re-derives the
+evaluator's exact isolated predicate — `expectActivation !== false`,
+`baseline.taskCompleted === true`, `skilledIsolated.taskCompleted !== true`, and
+no plugin arm, because `ComputeAgentVerdict` passes `pluginIsDiagnosticOnly:
+true` — and restores `completion_regression` when any surviving scenario matches
+(`failureKind=skill_not_activated->completion_regression` in the cleared list).
+The confidence interval was bootstrapped
 over per-run scores that included the timed-out run, so it is dropped rather
 than approximated; it is reported, not gated. `overfittingResult` is kept,
 because it analyses the agent and eval text rather than run outcomes and the
@@ -363,7 +372,11 @@ are available for audit, but its own `results.json` files are renamed to
 `results.retry.json`. Downstream jobs gather every `results.json` they can find,
 and the retry holds a second, narrower copy of one scenario in the native
 schema; renaming keeps that evidence readable without letting any collector
-count it or mix it into the schema-v5 set.
+count it or mix it into the schema-v5 set. The rename happens three times over:
+the retry script renames its own output, the workflow repeats the rename
+unconditionally after the step's `timeout` (a TERM/KILL can end the script
+before its own cleanup runs), and every recursive collector excludes the
+`_agent-timeout-retry` path.
 
 The workflow token preflight treats HTTP 429 and 402 quota exhaustion
 (`quota_exceeded` or a monthly-quota message) as pool-candidate exhaustion and

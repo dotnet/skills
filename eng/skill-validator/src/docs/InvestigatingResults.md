@@ -311,7 +311,11 @@ activation failure that the recovered scenario contradicts. After a swap the
 retry re-derives those aggregates from the surviving scenarios and clears
 `failureKind=completion_regression`, `failureKind=skill_not_activated`, and
 `skillNotActivated` only when no scenario still supports them — a genuine
-regression or activation failure in any scenario keeps failing. The bootstrapped
+regression or activation failure in any scenario keeps failing. Because the
+verdict holds a single `FailureKind` and the activation gate overwrites it,
+clearing an activation failure re-derives the evaluator's exact isolated
+completion predicate and restores `completion_regression` when a surviving
+scenario still regressed. The bootstrapped
 confidence interval is dropped rather than approximated because it covered the
 timed-out run; `overfittingResult` is kept, since it analyses agent and eval
 text rather than run outcomes.
@@ -319,7 +323,9 @@ text rather than run outcomes.
 The retry directory lives under the leg's results directory so its sessions
 stay available for audit, but its own `results.json` files are renamed to
 `results.retry.json` so no recursive collector counts the narrower retry copy as
-a second native result.
+a second native result. The workflow repeats that rename unconditionally after
+the retry step, because a TERM/KILL from the step's `timeout` can end the retry
+before its own cleanup runs.
 
 `--scenario` is repeatable, matches scenario names case-insensitively, and exits
 `1` when a name matches nothing, so a typo can never quietly evaluate an empty

@@ -8,6 +8,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -3064,6 +3065,143 @@ esac
         self.assertNotIn("Generate judge-comparison data", caller_text)
         self.assertNotIn("all-crossjudge", caller_text)
         self.assertIn('Group-Object -Property { "$($_.Json.model)|$($_.Json.judgeModel)" }', caller_text)
+
+
+class AgentTimeoutRetryQuarantineTests(unittest.TestCase):
+    """The agent timeout-retry tree must never yield a collectable results.json.
+
+    retry-agent-timeouts.mjs renames its own native results, but that runs in a
+    Node ``finally`` and a TERM/KILL from the step's ``timeout`` can end the
+    process first. The workflow therefore repeats the rename unconditionally,
+    and every recursive collector excludes the retry path.
+    """
+
+    RETRY_DIR = "_agent-timeout-retry"
+
+    @staticmethod
+    def _bash_path(path: Path) -> str:
+        if os.name != "nt":
+            return str(path)
+        absolute = path.resolve()
+        return f"/{absolute.drive[0].lower()}/{absolute.as_posix()[3:]}"
+
+    def _run_script(self) -> str:
+        workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        steps = workflow["jobs"]["vally-evaluate"]["steps"]
+        return next(
+            step["run"] for step in steps if step.get("name") == "Run vally evaluations"
+        )
+
+    def _backstop_block(self, script: str) -> str:
+        """The unconditional rename, from its `if` through its closing `fi`."""
+        lines = script.splitlines()
+        start = next(
+            index
+            for index, line in enumerate(lines)
+            if f'if [ -d "$RESULTS_DIR/{self.RETRY_DIR}" ]; then' in line
+        )
+        end = next(
+            index
+            for index, line in enumerate(lines[start + 1 :], start + 1)
+            if line.strip() == "fi"
+        )
+        return textwrap.dedent("\n".join(lines[start : end + 1]))
+
+    def test_backstop_rename_runs_after_and_outside_the_retry_conditional(self) -> None:
+        script = self._run_script()
+        lines = script.splitlines()
+        warning_at = next(
+            index
+            for index, line in enumerate(lines)
+            if "Agent timeout recovery did not complete" in line
+        )
+        # The rename must sit after the retry conditional closes, so a failed or
+        # a killed retry reaches it exactly as a clean one does.
+        conditional_end = next(
+            index
+            for index, line in enumerate(lines[warning_at:], warning_at)
+            if line.strip() == "fi"
+        )
+        rename_at = next(
+            index
+            for index, line in enumerate(lines)
+            if '-exec sh -c \'mv "$1" "${1%.json}.retry.json"\'' in line
+        )
+        adapt_at = next(
+            index
+            for index, line in enumerate(lines[warning_at:], warning_at)
+            if "adapt-agent-results.mjs" in line
+        )
+
+        self.assertLess(conditional_end, rename_at)
+        self.assertLess(rename_at, adapt_at)
+        self.assertIn(f'if [ -d "$RESULTS_DIR/{self.RETRY_DIR}" ]; then', script)
+
+    def test_killed_retry_leaves_no_collectable_native_results(self) -> None:
+        backstop = self._backstop_block(self._run_script())
+
+        with tempfile.TemporaryDirectory() as tmp:
+            results_dir = Path(tmp) / "results"
+            # A retry killed mid-flight: nested native results, never renamed.
+            killed = results_dir / self.RETRY_DIR / "1-agent.x" / "20260101-000000"
+            killed.mkdir(parents=True)
+            (killed / "results.json").write_text('{"verdicts":[]}', encoding="utf-8")
+            adapted = results_dir / "dotnet-test" / "some-skill"
+            adapted.mkdir(parents=True)
+            (adapted / "results.json").write_text('{"verdicts":[]}', encoding="utf-8")
+
+            env = os.environ.copy()
+            env["RESULTS_DIR"] = self._bash_path(results_dir)
+            result = subprocess.run(
+                [BASH, "-c", f"set -euo pipefail\n{backstop}"],
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+            survivors = sorted(
+                str(path.relative_to(results_dir)).replace("\\", "/")
+                for path in results_dir.rglob("results.json")
+            )
+            self.assertEqual(survivors, ["dotnet-test/some-skill/results.json"])
+            self.assertTrue((killed / "results.retry.json").is_file())
+
+    def test_recursive_collectors_exclude_the_retry_tree(self) -> None:
+        # Scan the whole workflow: the produced-result count and the per-skill
+        # summary loop live in different steps, and both walk RESULTS_DIR.
+        workflow_text = WORKFLOW.read_text(encoding="utf-8")
+        finds = [
+            line
+            for line in workflow_text.splitlines()
+            if "find " in line and "-name results.json" in line
+        ]
+        # The AGENT_RAW_DIR probe runs before the retry directory can exist, and
+        # the backstop's own find deliberately targets the retry tree.
+        scoped = [
+            line
+            for line in finds
+            if "$RESULTS_DIR" in line and f'"$RESULTS_DIR/{self.RETRY_DIR}"' not in line
+        ]
+        self.assertGreaterEqual(len(scoped), 2)
+        for line in scoped:
+            with self.subTest(line=line.strip()):
+                self.assertIn(f'-not -path "$RESULTS_DIR/{self.RETRY_DIR}/*"', line)
+
+        caller = CALLER_WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn(
+            "find all-results/ -name results.json "
+            f"-not -path '*/{self.RETRY_DIR}/*'",
+            caller,
+        )
+        self.assertEqual(
+            caller.count(
+                r"Where-Object { $_.FullName -notmatch "
+                rf"'[\\/]{self.RETRY_DIR}[\\/]' }}"
+            ),
+            2,
+        )
 
 
 if __name__ == "__main__":

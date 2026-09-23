@@ -298,6 +298,23 @@ function scenarioRegressedOnCompletion(scenario) {
 }
 
 /**
+ * The evaluator's exact completion-regression predicate for an agent scenario.
+ *
+ * `ComputeAgentVerdict` passes `pluginIsDiagnosticOnly: true`, so the plugin arm
+ * drops out of `Comparator.cs:145-151` and only the isolated arm counts. This
+ * predicate is used where a regression is being RE-ASSERTED rather than cleared,
+ * so it must not be widened: a wider predicate here would invent a failure the
+ * evaluator never recorded.
+ */
+function scenarioRegressedOnIsolatedCompletion(scenario) {
+  return (
+    scenario?.expectActivation !== false &&
+    scenario?.baseline?.metrics?.taskCompleted === true &&
+    scenario?.skilledIsolated?.metrics?.taskCompleted !== true
+  );
+}
+
+/**
  * True when this scenario is objective evidence that the agent did not activate.
  *
  * Only a recorded activation probe counts. A scenario with no probe at all says
@@ -357,8 +374,20 @@ function refreshVerdictAggregates(verdict) {
       cleared.push("skillNotActivated");
     }
     if (verdict.failureKind === "skill_not_activated") {
-      verdict.failureKind = null;
-      cleared.push("failureKind=skill_not_activated");
+      // `SkillVerdict` holds a single `FailureKind`, and
+      // `ApplyAgentActivationGate` (EvaluateCommand.cs:726) runs after
+      // `Comparator.ComputeVerdict` and OVERWRITES it. A real completion
+      // regression can therefore be hidden behind `skill_not_activated`, so
+      // clearing activation straight to null would silently erase it. Re-derive
+      // the evaluator's exact isolated predicate over the surviving scenarios
+      // and restore the regression it had masked.
+      const masked = scenarios.some(scenarioRegressedOnIsolatedCompletion);
+      verdict.failureKind = masked ? "completion_regression" : null;
+      cleared.push(
+        masked
+          ? "failureKind=skill_not_activated->completion_regression"
+          : "failureKind=skill_not_activated",
+      );
     }
   }
 
@@ -469,4 +498,5 @@ export {
   retryAgentTimeouts,
   scenarioMissedActivation,
   scenarioRegressedOnCompletion,
+  scenarioRegressedOnIsolatedCompletion,
 };
