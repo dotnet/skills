@@ -55,6 +55,9 @@ safe-outputs:
   staged: ${{ inputs.dry_run }}
   report-failure-as-issue: false
   report-incomplete: false
+  report-failed-jobs: false
+  missing-tool:
+    create-issue: false
   jobs:
     publish-groomed-dashboard:
       description: "Replace only the validated investigation-results section"

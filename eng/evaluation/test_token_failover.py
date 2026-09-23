@@ -888,6 +888,12 @@ class TokenFailoverTests(unittest.TestCase):
         self.assertFalse(
             groom_frontmatter["safe-outputs"]["report-incomplete"]
         )
+        self.assertFalse(
+            groom_frontmatter["safe-outputs"]["report-failed-jobs"]
+        )
+        self.assertFalse(
+            groom_frontmatter["safe-outputs"]["missing-tool"]["create-issue"]
+        )
         self.assertNotIn("hide-comment", groom_frontmatter["safe-outputs"])
         groom_configs = generated_safe_output_configs(groom_lock)
         self.assertEqual(len(groom_configs), 2)
@@ -934,7 +940,7 @@ class TokenFailoverTests(unittest.TestCase):
         )
         self.assertEqual(
             canary["permissions"],
-            {"actions": "read", "contents": "read", "issues": "read"},
+            {"actions": "write", "contents": "read", "issues": "write"},
         )
         canary_job = canary["jobs"]["groom"]
         self.assertIn(
@@ -955,8 +961,6 @@ class TokenFailoverTests(unittest.TestCase):
         )
         self.assertNotIn("secrets: inherit", canary_text)
         self.assertNotIn("GH_AW_GITHUB_TOKEN", canary_text)
-        self.assertNotIn("actions: write", canary_text)
-        self.assertNotIn("issues: write", canary_text)
         self.assertNotIn("gh workflow run", canary_text)
         self.assertTrue(canary["concurrency"]["cancel-in-progress"])
         self.assertIn(
@@ -1136,6 +1140,8 @@ class TokenFailoverTests(unittest.TestCase):
             {"pat_pool", "pre_activation"},
         )
         self.assertIn("check_membership.cjs", groom_lock_text)
+        self.assertIn('GH_AW_MISSING_TOOL_CREATE_ISSUE: "false"', groom_lock_text)
+        self.assertNotIn("GH_AW_REPORT_FAILED_JOBS:", groom_lock_text)
         self.assertNotIn("cache-memory", health_frontmatter["tools"])
         self.assertNotIn("--allow-all-tools", health_lock_text)
         self.assertNotIn("--allow-tool write", health_lock_text)

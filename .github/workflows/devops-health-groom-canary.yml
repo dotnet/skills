@@ -13,9 +13,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  actions: read
+  actions: write
   contents: read
-  issues: read
+  issues: write
 
 concurrency:
   group: devops-health-groom-canary-${{ github.event.pull_request.number || github.ref }}
