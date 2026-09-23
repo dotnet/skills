@@ -596,3 +596,63 @@ test("explains that repeated runs cannot repair an underpowered eval", () => {
   assert.match(markdown, /⚠️ Underpowered/);
   assert.match(markdown, /Predeclare more independent, discriminating stimuli; repeated runs do not add power/);
 });
+
+test("the agent timeout-retry tree is never consolidated as a skill result", () => {
+  // retry-agent-timeouts.mjs keeps a narrower native copy of one scenario under
+  // _agent-timeout-retry for audit. A recursive walk must step over it, or the
+  // retry's own evidence gets rendered as a second, contradictory skill result.
+  const root = mkdtempSync(join(tmpdir(), "vally-consolidate-retry-"));
+  try {
+    const real = join(root, "dotnet-test", "some-skill");
+    mkdirSync(real, { recursive: true });
+    writeFileSync(
+      join(real, "results.json"),
+      JSON.stringify({
+        model: "test-model",
+        judgeModel: "test-judge",
+        verdicts: [
+          {
+            skillName: "adapted-skill",
+            state: "VALID_NO_CHANGE",
+            reason: "no credible change",
+            scenarios: [],
+          },
+        ],
+      }),
+    );
+
+    const retry = join(root, "_agent-timeout-retry", "1-agent.x", "20260101-000000");
+    mkdirSync(retry, { recursive: true });
+    writeFileSync(
+      join(retry, "results.json"),
+      JSON.stringify({
+        model: "test-model",
+        judgeModel: "test-judge",
+        verdicts: [
+          {
+            skillName: "retry-only-copy",
+            state: "VALID_NO_CHANGE",
+            reason: "narrower retry evidence",
+            scenarios: [],
+          },
+        ],
+      }),
+    );
+    // An adapter-summary.json under the retry tree must be skipped too.
+    writeFileSync(join(retry, "adapter-summary.json"), JSON.stringify({ evals: [] }));
+
+    const output = join(root, "summary.md");
+    const result = spawnSync(
+      process.execPath,
+      [script, "--format", "simple", "--output", output, "--root", root],
+      { encoding: "utf8" },
+    );
+    assert.equal(result.status, 0, result.stderr);
+
+    const markdown = readFileSync(output, "utf8");
+    assert.match(markdown, /adapted-skill/);
+    assert.doesNotMatch(markdown, /retry-only-copy/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

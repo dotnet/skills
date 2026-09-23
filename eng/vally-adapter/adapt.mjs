@@ -948,7 +948,12 @@ function recordTrialIndex(record) {
 function recordsForComparisonSlot(records, stimulusName, trialIndex) {
   return (records ?? []).filter(
     (record) =>
-      stimulusOf(record) === stimulusName && recordTrialIndex(record) === trialIndex,
+      // `stimulusOf` dereferences the record directly, so guard it here: a
+      // truncated or partly written trajectory file can yield a null entry, and
+      // a throw would take down the whole recovery pass.
+      record != null &&
+      stimulusOf(record) === stimulusName &&
+      recordTrialIndex(record) === trialIndex,
   );
 }
 

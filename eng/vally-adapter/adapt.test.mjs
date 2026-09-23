@@ -1818,6 +1818,28 @@ test("a slot trajectory is matched through the canonical stimulus accessor", () 
   }
 });
 
+test("a null trajectory entry never crashes the recovery pass", () => {
+  const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
+  const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-null-"));
+  // A truncated or partly written trajectory file can yield a null entry. The
+  // lookup must step over it: a throw here would abandon every other slot and
+  // turn one bad line into a whole-leg failure.
+  try {
+    const result = recoverTransientComparisonSlots(primary, {
+      baselineRecords: [null, ...executorRecordsFor(primary, "baseline")],
+      skilledRecords: [...executorRecordsFor(primary, "skilled"), null],
+      workDir,
+      filePrefix: "nullsafe",
+      compare: () => reportFromScores([0.62]),
+    });
+
+    assert.equal(result.summary.erroredCount, 0);
+    assert.equal(result.retrySummary.targetedRecovery.recoveredSlotCount, 1);
+  } finally {
+    rmSync(workDir, { recursive: true, force: true });
+  }
+});
+
 test("an ambiguous slot-to-trajectory mapping is never re-judged", () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
   const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-dup-"));
