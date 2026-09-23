@@ -16,8 +16,9 @@ public static class AssessmentCommand
           readiness-validator assessment canonicalize --assessment <json> --output <canonical-json>
           readiness-validator assessment export-identity --assessment <canonical-assessment> --output <new-identity-json>
           readiness-validator assessment validate --root <dir> --input <confirmed> --assessment <json> --evidence <bundle> [--package-revision <dir>] [--package-feedback <markdown>]
-          readiness-validator assessment revise --root <dir> --input <confirmed> --assessment <replacement-json> --evidence <replacement-bundle> --output <revisions-root> --predecessor <digest> --changed-ids <id,id> [--feedback <markdown>] [--package-revision <dir>] [--package-feedback <markdown>]
+          readiness-validator assessment revise --root <dir> --input <confirmed> --assessment <replacement-json> --evidence <replacement-bundle> --output <revisions-root> --predecessor <digest> --changed-ids <id,id> [--feedback <markdown>] [--feedback-history <markdown>] [--package-revision <dir>] [--package-feedback <markdown>]
 
+        Repeat --feedback-history <markdown> to supply exact feedback retained for predecessors.
         After init, export-identity writes the existing identity as exact canonical bytes
         for evidence ledger-build --subject and evidence bundle --assessment.
         This projects identity only; it does not validate evidence, bindings or readiness.

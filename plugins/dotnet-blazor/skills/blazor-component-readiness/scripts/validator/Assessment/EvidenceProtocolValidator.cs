@@ -209,6 +209,14 @@ public static class EvidenceProtocolValidator
                 throw new DeterministicValidationException(
                     "BEQ-05 requires the matching digest-bound static-SSR behavior observation, not documentation alone.");
             }
+
+            if (row.Status == "verified" && row.EvidenceIds.Any(id =>
+                    protocols.TryGetValue(id, out var protocol) &&
+                    protocol.Method == StaticSsrMethod && protocol.Result == "failed"))
+            {
+                throw new DeterministicValidationException(
+                    "BEQ-05 cannot be verified while citing a failed static-SSR behavior observation.");
+            }
         }
     }
 

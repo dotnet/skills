@@ -40,6 +40,7 @@ internal static class FoundationTests
             TestSafePaths(testRoot);
             TestAtomicFiles(testRoot);
             TestCli(package);
+            TestContractRunnerEnvironment(repositoryRoot, testRoot);
             TestLaunchers(pluginRoot, testRoot, package);
         }
         finally
@@ -353,6 +354,17 @@ internal static class FoundationTests
         output.GetStringBuilder().Clear();
         error.GetStringBuilder().Clear();
         AssertEqual(
+            ExitCodes.Success,
+            CliApplication.Run(["assessment", "revise", "--help"], output, error),
+            "assessment revise help exit");
+        Assert(
+            output.ToString().Contains("[--feedback-history <markdown>]", StringComparison.Ordinal) &&
+            output.ToString().Contains("Repeat --feedback-history", StringComparison.Ordinal),
+            "assessment revise help exposes repeatable predecessor feedback");
+
+        output.GetStringBuilder().Clear();
+        error.GetStringBuilder().Clear();
+        AssertEqual(
             ExitCodes.InvalidUsage,
             CliApplication.Run(["not-a-command"], output, error),
             "invalid usage exit");
@@ -390,6 +402,31 @@ internal static class FoundationTests
             ExitCodes.EnvironmentFailure,
             CliApplication.Run(["package", "inspect", "--nupkg", package + ".missing"], output, error),
             "missing package exit");
+    }
+
+    private static void TestContractRunnerEnvironment(string repositoryRoot, string testRoot)
+    {
+        foreach (var staleRoot in new[] { false, true })
+        {
+            var artifacts = Path.Combine(testRoot, staleRoot ? "runner-stale-root" : "runner-unset-root");
+            var environment = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["READINESS_REPOSITORY_ROOT"] = repositoryRoot,
+                ["READINESS_TEST_ARTIFACTS"] = artifacts
+            };
+            if (staleRoot)
+            {
+                environment["READINESS_SKILL_ROOT"] = Path.Combine(artifacts, "missing-skill");
+            }
+
+            RunProcess(
+                "dotnet",
+                [typeof(FoundationTests).Assembly.Location, "separation", "scoped-component"],
+                repositoryRoot,
+                environment,
+                expectedExitCode: 0,
+                removedEnvironmentVariables: staleRoot ? [] : ["READINESS_SKILL_ROOT"]);
+        }
     }
 
     private static void TestLaunchers(string pluginRoot, string testRoot, string package)
@@ -1317,7 +1354,8 @@ internal static class FoundationTests
         IReadOnlyList<string> arguments,
         string workingDirectory,
         IReadOnlyDictionary<string, string> environment,
-        int? expectedExitCode)
+        int? expectedExitCode,
+        IReadOnlyList<string>? removedEnvironmentVariables = null)
     {
         using var process = new Process
         {
@@ -1339,6 +1377,10 @@ internal static class FoundationTests
         foreach (var (name, value) in environment)
         {
             process.StartInfo.Environment[name] = value;
+        }
+        foreach (var name in removedEnvironmentVariables ?? [])
+        {
+            process.StartInfo.Environment.Remove(name);
         }
 
         ResolveWindowsBash(process.StartInfo);

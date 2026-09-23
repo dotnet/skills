@@ -49,6 +49,7 @@ internal static class SeparationTests
         TestInputEntrypoints(fixture);
         TestFeedbackHistory(root, inputPath, component);
         TestStaticSsr(root, input);
+        TestStaticSsrOutcomeSets(root, input);
         Console.WriteLine($"Separate assessment contracts passed. Artifacts: {root}");
     }
 
@@ -320,29 +321,15 @@ internal static class SeparationTests
 
         foreach (var result in new[] { "passed", "failed" })
         {
-            var rawName = $"static-{result}.raw.json";
-            var raw = Encoding.UTF8.GetBytes(
-                $$"""{"schema_version":1,"observation":"static-ssr-behavior","component_id":"fancy-tree","mode":"static-ssr","observed_identity":"static","expected_behavior":"The claimed static output contains the supplied content.","observed_behavior":"A synthetic retained observation of the supported configuration.","result":"{{result}}"}""");
-            File.WriteAllBytes(Path.Combine(root, rawName), raw);
-            var protocolName = $"static-{result}.protocol.json";
-            var protocol = StrictJson.SerializeCanonical(writer =>
-            {
-                writer.WriteStartObject();
-                writer.WriteNumber("schema_version", 1);
-                writer.WriteString("protocol", "static-ssr-behavior");
-                writer.WriteString("component_id", "fancy-tree");
-                writer.WriteString("result", result);
-                ContractJson.WriteDigest(writer, "raw_observation_sha256", ContractJson.RawDigest(raw));
-                writer.WriteEndObject();
-            });
-            File.WriteAllBytes(Path.Combine(root, protocolName), protocol);
+            var capture = CreateStaticSsrCapture(root, $"static-{result}", result);
+            var rawName = capture.Raw.Basename;
+            var raw = File.ReadAllBytes(Path.Combine(root, rawName));
+            var protocolName = capture.Protocol.Basename;
+            var protocol = File.ReadAllBytes(Path.Combine(root, protocolName));
             var input = initial with
             {
-                EvidenceInputs = initial.EvidenceInputs.Concat(new InputEvidenceArtifact[]
-                {
-                    new(rawName, "raw-observation", ContractJson.RawDigest(raw), raw.LongLength),
-                    new(protocolName, "static-ssr-protocol", ContractJson.RawDigest(protocol), protocol.LongLength)
-                }).OrderBy(item => item.Basename, StringComparer.Ordinal).ToArray()
+                EvidenceInputs = initial.EvidenceInputs.Concat([capture.Raw, capture.Protocol])
+                    .OrderBy(item => item.Basename, StringComparer.Ordinal).ToArray()
             };
             var assessment = Complete(AssessmentService.Initialize("component", root, input,
                 InputManifestService.Serialize(input), "fancy-tree"));
@@ -451,6 +438,119 @@ internal static class SeparationTests
                 Encoding.UTF8.GetString(raw).Replace("\"mode\":\"static-ssr\"", "\"mode\":\"interactive-server\"")));
             Reject(() => Validate(root, input, assessment, evidence), "tampered static capture");
             File.WriteAllBytes(Path.Combine(root, rawName), raw);
+        }
+    }
+
+    private static (InputEvidenceArtifact Raw, InputEvidenceArtifact Protocol) CreateStaticSsrCapture(
+        string root, string name, string result)
+    {
+        var raw = StrictJson.SerializeCanonical(writer =>
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("schema_version", 1);
+            writer.WriteString("observation", "static-ssr-behavior");
+            writer.WriteString("component_id", "fancy-tree");
+            writer.WriteString("mode", "static-ssr");
+            writer.WriteString("observed_identity", "static");
+            writer.WriteString("expected_behavior", "The claimed static output contains the supplied content.");
+            writer.WriteString("observed_behavior", $"Synthetic retained observation {name}; no runtime execution.");
+            writer.WriteString("result", result);
+            writer.WriteEndObject();
+        });
+        var protocol = StrictJson.SerializeCanonical(writer =>
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("schema_version", 1);
+            writer.WriteString("protocol", "static-ssr-behavior");
+            writer.WriteString("component_id", "fancy-tree");
+            writer.WriteString("result", result);
+            ContractJson.WriteDigest(writer, "raw_observation_sha256", ContractJson.RawDigest(raw));
+            writer.WriteEndObject();
+        });
+        var rawName = name + ".raw.json";
+        var protocolName = name + ".protocol.json";
+        File.WriteAllBytes(Path.Combine(root, rawName), raw);
+        File.WriteAllBytes(Path.Combine(root, protocolName), protocol);
+
+        return (new(rawName, "raw-observation", ContractJson.RawDigest(raw), raw.LongLength),
+            new(protocolName, "static-ssr-protocol", ContractJson.RawDigest(protocol), protocol.LongLength));
+    }
+
+    private static void TestStaticSsrOutcomeSets(string root, InputManifest initial)
+    {
+        var captures = new[]
+        {
+            CreateStaticSsrCapture(root, "outcome-pass-one", "passed"),
+            CreateStaticSsrCapture(root, "outcome-pass-two", "passed"),
+            CreateStaticSsrCapture(root, "outcome-failure", "failed"),
+            CreateStaticSsrCapture(root, "outcome-corrected-pass", "passed")
+        };
+        var input = initial with
+        {
+            EvidenceInputs = initial.EvidenceInputs.Concat(captures.SelectMany(capture =>
+                new[] { capture.Raw, capture.Protocol })).OrderBy(item => item.Basename, StringComparer.Ordinal).ToArray()
+        };
+        var initialized = AssessmentService.Initialize("component", root, input,
+            InputManifestService.Serialize(input), "fancy-tree");
+        var drafts = captures.Select(capture => new EvidenceRecordDraft(
+            "Synthetic static-SSR outcome-set control, not an executed product observation.",
+            new("component-specific", "fancy-tree"),
+            new(EvidenceIdentity.ReproducedRuntimeObservation, capture.Protocol.Basename,
+                EvidenceProtocolValidator.StaticSsrMethod, "2026-09-22T12:00:00Z",
+                capture.Protocol.ContentDigest, "commitment-only"), [])).ToArray();
+        var ledger = EvidenceLedgerBuilder.BuildComponentLedger(initialized.Identity, drafts.Take(3));
+        var records = ledger.Records.ToDictionary(record => record.Provenance.Locator, StringComparer.Ordinal);
+
+        foreach (var (name, status, selected, error) in new (string, string, int[], string?)[]
+        {
+            ("multiple passes", "verified", [0, 1], null),
+            ("mixed verification", "verified", [0, 2], "cannot be verified while citing a failed"),
+            ("mixed gap", "gap", [0, 2], null),
+            ("unselected retained failure", "verified", [0], null),
+            ("passes cannot establish gap", "gap", [0, 1], "requires the matching digest-bound"),
+            ("failure cannot verify", "verified", [2], "requires the matching digest-bound")
+        })
+        {
+            Check(ledger, selected.Select(index => records[captures[index].Protocol.Basename].StableId).ToArray(),
+                status, error, name);
+        }
+
+        var failureId = records[captures[2].Protocol.Basename].StableId;
+        var correction = drafts[3] with { Supersedes = [failureId] };
+        var history = EvidenceLedgerBuilder.BuildComponentLedger(initialized.Identity, [.. drafts.Take(3), correction]);
+        var correctionId = history.Records.Single(record =>
+            record.Provenance.Locator == captures[3].Protocol.Basename).StableId;
+        Check(history, [correctionId], "verified", null, "superseded unselected failure does not veto its successor");
+        Reject(() => EvidenceLedgerBuilder.BuildBundle(initialized.Identity, [history], [failureId, correctionId]),
+            "superseded failure and its successor cannot both be selected", "superseded ancestor");
+
+        void Check(EvidenceSourceLedger source, string[] ids, string status, string? error, string name)
+        {
+            var evidence = EvidenceLedgerBuilder.BuildBundle(initialized.Identity, [source], ids);
+            var assessment = initialized with
+            {
+                CompletionState = "complete",
+                Rows = initialized.Rows.Select(row => row.Id == "BEQ-05"
+                    ? row with
+                    {
+                        Status = status,
+                        Observation = "The cited synthetic observations cover the same supported static condition.",
+                        EvidenceIds = ids.Order(StringComparer.Ordinal).ToArray()
+                    }
+                    : row with
+                    {
+                        Status = "not tested",
+                        AssessmentFollowUp = "No product operation was performed in this contract fixture."
+                    }).ToArray()
+            };
+            if (error is null)
+            {
+                Validate(root, input, assessment, evidence);
+            }
+            else
+            {
+                Reject(() => Validate(root, input, assessment, evidence), name, error);
+            }
         }
     }
 
@@ -873,14 +973,19 @@ internal static class SeparationTests
         Assert(exit == expectedExit, $"Expected failure {expectedExit}: {string.Join(' ', arguments.Take(2))}: {error}");
     }
 
-    private static void Reject(Action action, string name)
+    private static void Reject(Action action, string name, string? expectedMessage = null)
     {
         try
         {
             action();
         }
-        catch (DeterministicValidationException)
+        catch (DeterministicValidationException exception)
         {
+            if (expectedMessage is not null)
+            {
+                Assert(exception.Message.Contains(expectedMessage, StringComparison.Ordinal),
+                    $"{name}: expected '{expectedMessage}', actual '{exception.Message}'.");
+            }
             return;
         }
 

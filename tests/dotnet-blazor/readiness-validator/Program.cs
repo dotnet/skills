@@ -255,9 +255,20 @@ if (selectedGroups.Distinct(StringComparer.Ordinal).Count() != selectedGroups.Le
         $"Test groups must be unique values from: {string.Join(", ", testGroups.Keys)}.");
 }
 
-foreach (var group in selectedGroups)
+var previousTestSkillRoot = Environment.GetEnvironmentVariable("READINESS_SKILL_ROOT");
+try
 {
-    testGroups[group]();
+    Environment.SetEnvironmentVariable(
+        "READINESS_SKILL_ROOT",
+        Path.Combine(plugin, "skills", "blazor-component-readiness"));
+    foreach (var group in selectedGroups)
+    {
+        testGroups[group]();
+    }
+}
+finally
+{
+    Environment.SetEnvironmentVariable("READINESS_SKILL_ROOT", previousTestSkillRoot);
 }
 
 Console.WriteLine("All Blazor component readiness Commit 1 through Commit 8 tests passed.");

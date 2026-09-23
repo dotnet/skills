@@ -131,7 +131,14 @@ capture's actual SHA-256 in the canonical protocol:
 {"schema_version":1,"protocol":"static-ssr-behavior","component_id":"<confirmed-id>","result":"passed","raw_observation_sha256":{"algorithm":"sha256","value":"<actual-raw-observation-sha256>"}}
 ```
 
-Both results must agree. Register the actual captured files and confirm the final
+Each protocol result must agree with its own raw observation. Multiple current
+observations may be cited: `verified` requires a passed observation and no cited
+failed observation; mixed passed/failed observations may support `gap`.
+Unselected historical records do not determine the row's status. Preserve the
+existing supersession rules rather than discarding history or selecting both
+a record and its superseded ancestor.
+
+Register the actual captured files and confirm the final
 manifest before initializing/exporting identity. These examples describe record
 shape, not executed evidence; do not fabricate renderer identity or observations.
 The validator checks correspondence, not execution authenticity, semantic truth
