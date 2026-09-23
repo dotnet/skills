@@ -63,6 +63,29 @@ const context = {{ repo: {{ owner: "dotnet", repo: "skills" }} }};
 const github = {{
   rest: {{
     issues: {{
+      get: async () => ({{
+        data: {{
+          state: "open",
+          title: "🏥 Repository Health Dashboard",
+          labels: [{{ name: "devops-health" }}],
+          body: [
+            "<!-- devops-health-state:v1",
+            JSON.stringify({{
+              active_findings: [{{
+                category: "infra",
+                fingerprint: "infra:no-codeowners",
+                first_seen: "2026-09-23",
+                occurrences: 1,
+                severity: "warning",
+                title: "No CODEOWNERS",
+                url: "https://github.com/dotnet/skills"
+              }}],
+              history: []
+            }}),
+            "-->"
+          ].join("\\n")
+        }}
+      }}),
       getComment: async () => ({{
         data: {{
           user: {{ login: {
@@ -72,7 +95,7 @@ const github = {{
           html_url: "https://github.com/dotnet/skills/issues/695#issuecomment-42",
           body: [
             "## 🔍 Investigation: complete",
-            "**Finding ID:** `finding`",
+            "**Finding ID:** `infra:no-codeowners`",
             "**Correlation:** hc-2026-09-23-123-1",
             "**Executive Summary:** complete",
             "<sub>🔍 [Investigation Run #99](https://github.com/dotnet/skills/actions/runs/99) · Dispatched by health check · hc-2026-09-23-123-1</sub>"
@@ -1090,6 +1113,10 @@ class TokenFailoverTests(unittest.TestCase):
             "A completed groomed row does not match its trusted workflow run",
             canary_text,
         )
+        self.assertIn(
+            "An inactive groomed row does not match a persisted investigation",
+            canary_text,
+        )
         valid_publish = run_groom_canary_validator(
             self,
             {
@@ -1112,7 +1139,7 @@ class TokenFailoverTests(unittest.TestCase):
         )
         completed_row = {
             "correlation_id": "hc-2026-09-23-123-1",
-            "fingerprint": "finding",
+            "fingerprint": "infra:no-codeowners",
             "result_summary": "complete",
             "result_url":
                 "https://github.com/dotnet/skills/issues/695#issuecomment-42",
@@ -1151,6 +1178,26 @@ class TokenFailoverTests(unittest.TestCase):
         self.assertIn(
             "A completed groomed row does not match its trusted workflow run",
             failed_run_publish.stderr,
+        )
+        unknown_publish = run_groom_canary_validator(
+            self,
+            {
+                "type": "publish_groomed_dashboard",
+                "rows_json": "```json\n" + json.dumps(
+                    [{
+                        "correlation_id": "",
+                        "fingerprint": "infra:no-dependabot",
+                        "result_summary": "",
+                        "result_url": "",
+                        "status": "skipped",
+                    }]
+                ) + "\n```",
+            },
+        )
+        self.assertNotEqual(unknown_publish.returncode, 0)
+        self.assertIn(
+            "An inactive groomed row does not match a persisted investigation",
+            unknown_publish.stderr,
         )
         self.assertIn(
             "url.pathname === `/${owner}/${repo}/issues/695`",
