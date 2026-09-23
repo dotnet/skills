@@ -2888,6 +2888,7 @@ esac
                     "state": "VALID_PASS",
                     "passed": True,
                     "reason": "credible preference improvement",
+                    "minCredibleStimuli": 5,
                     "signTest": {
                         "wins": 5, "ties": 0, "losses": 0,
                         "discordant": 5, "direction": "better",
@@ -2962,6 +2963,7 @@ esac
             dashboard = json.loads((output / "demo.json").read_text(encoding="utf-8-sig"))
             evidence = dashboard["entries"]["Quality"][-1]["verdictEvidence"][0]
             self.assertEqual(evidence["skillKind"], "agent")
+            self.assertEqual(evidence["gateEvidence"]["minimumCredibleStimuli"], 5)
             scenario = evidence["activationScenarios"][0]
             self.assertEqual(scenario["isolated"], "activated")
             self.assertEqual(scenario["delegatedAgents"], ["helper"])

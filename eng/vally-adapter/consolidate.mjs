@@ -329,6 +329,30 @@ function representativeEvidence(verdict) {
   return [];
 }
 
+function noChangeDiagnosis(verdict) {
+  const evidence = verdict.signTest ?? verdict.scenarioEvidence;
+  if (!evidence) return null;
+  const wins = evidence.wins ?? verdict.wins ?? 0;
+  const ties = evidence.ties ?? verdict.ties ?? 0;
+  const losses = evidence.losses ?? verdict.losses ?? 0;
+  const discordant = evidence.discordant ?? wins + losses;
+  const minimumDiscordant = verdict.minCredibleStimuli ?? 5;
+  const reasonCode = verdict.stateReason?.code ?? "";
+
+  if (reasonCode === "practical_effect_below_floor") {
+    return wins > losses ? "positive_sparse" : losses > wins ? "negative_sparse" : "mixed";
+  }
+  if (wins === 0 && losses === 0 && ties > 0) return "all_ties";
+  if (wins === losses && wins > 0) return "mixed";
+  if (wins > losses) {
+    return discordant < minimumDiscordant ? "positive_tie_limited" : "positive_unproven";
+  }
+  if (losses > wins) {
+    return discordant < minimumDiscordant ? "negative_tie_limited" : "negative_unproven";
+  }
+  return null;
+}
+
 function resultLabel(verdict) {
   if (isIndeterminate(verdict)) {
     return verdict.underpowered === true
@@ -339,6 +363,18 @@ function resultLabel(verdict) {
   if (isObjectiveRegression(verdict)) return "🔻 Objective regression";
   if (hasActivationContractFailure(verdict)) return "⛔ Activation contract failed";
   if (isPreferenceRegression(verdict)) return "📉 Preference loss (report only)";
+  if (verdictState(verdict) === STATE.NO_CHANGE) {
+    return {
+      all_ties: "➖ No preference",
+      mixed: "➖ Mixed evidence",
+      positive_tie_limited: "➖ Improvement signal, tie-limited",
+      positive_unproven: "➖ Improvement signal, unproven",
+      negative_tie_limited: "➖ Baseline signal, tie-limited",
+      negative_unproven: "➖ Baseline signal, unproven",
+      positive_sparse: "➖ Improvement too sparse",
+      negative_sparse: "➖ Baseline signal too sparse",
+    }[noChangeDiagnosis(verdict)] ?? "➖ Not proven improved";
+  }
   return "➖ Not proven improved";
 }
 
@@ -433,13 +469,28 @@ function nextAction(verdict) {
     return "Inspect losing stimuli and fix skill behavior; this is not objective completion proof.";
   }
   if (state === STATE.NO_CHANGE) {
-    if (reasonCode === "practical_effect_below_floor") {
-      return "Improve the skill across more tested tasks; the credible effect is too sparse.";
+    switch (noChangeDiagnosis(verdict)) {
+      case "all_ties":
+        return "Inspect tie rationales and arm outputs; replace inert scenarios rather than adding repeated runs.";
+      case "mixed":
+        return "Compare winning and losing scenarios to isolate where the target helps versus hurts.";
+      case "positive_tie_limited":
+        return "The signal favors the target, but ties leave too few discordant tasks; inspect ties and predeclare more discriminating breadth.";
+      case "positive_unproven":
+        return "The signal favors the target but is inconsistent; inspect tied or lost scenarios and fix weak behavior.";
+      case "negative_tie_limited":
+        return "Evidence leans baseline but is not credible; inspect losses and make tied tasks discriminate.";
+      case "negative_unproven":
+        return "Evidence leans baseline but is not credible; inspect losing scenarios for recurring defects.";
+      case "positive_sparse":
+        return "The improvement is credible but affects too few tested tasks; improve coverage across predeclared breadth.";
+      case "negative_sparse":
+        return "The baseline lean is credible but too sparse for the practical-loss floor; inspect the losses for recurring defects.";
+      default:
+        return reasonCode === "practical_effect_below_floor"
+          ? "Inspect the sparse effect before changing the target or eval."
+          : "Inspect tied or lost stimuli and fix inconsistent target behavior.";
     }
-    if ((verdict.signTest?.discordant ?? 0) < 5) {
-      return "Inspect tied or lost stimuli; predeclare added breadth before a new experiment.";
-    }
-    return "Inspect tied or lost stimuli and fix inconsistent skill behavior.";
   }
 
   const actions = [];
@@ -529,7 +580,7 @@ const lines = ["## 📊 Skill and Agent Evaluation Results", ""];
 lines.push(
   `${countNoun(verdicts.length, "model/target result")} across `
   + `${countNoun(targetCount, "target")} and ${countNoun(models.length, "model")} — `
-  + `✅ **${passedCount} improved**, ➖ **${noChangeCount} not proven improved**, `
+  + `✅ **${passedCount} improved**, ➖ **${countNoun(noChangeCount, "result")} without a clear winner**, `
   + `⚠️ **${underpoweredCount + invalidCount} invalid or underpowered**, `
   + `⛔ **${countNoun(activationContractFailureCount, "activation contract failure")}**, `
   + `📉 **${preferenceRegressedCount} preference losses (report only)**`
@@ -622,7 +673,7 @@ if (verdicts.length === 0) {
   lines.push("<details><summary>ℹ️ How to read this report</summary>");
   lines.push("");
   lines.push("- **✅ Improved** — the result passed both the statistical gate and the 20% practical net-win floor.");
-  lines.push("- **➖ Not proven improved** — the result is valid but did not pass both gates. This is not automatically a regression.");
+  lines.push("- **➖ No clear winner** — the result is valid but did not pass both gates. The label distinguishes all ties, mixed evidence, directional but unproven evidence, and credible effects below the practical floor.");
   lines.push("- **⚠️ Invalid / underpowered** — the gate withheld a quality verdict. Fix the measurement before judging the target.");
   lines.push("- **⛔ Activation contract failed** — the isolated target activated on an explicit dormancy scenario. Dormancy preference is excluded, but this routing failure still blocks a pass.");
   lines.push("- **📉 Preference loss** — the LLM judge credibly preferred baseline. It is report-only, not objective completion proof.");

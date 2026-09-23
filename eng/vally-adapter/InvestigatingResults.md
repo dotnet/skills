@@ -64,7 +64,7 @@ Its compact table has these columns:
 |--------|---------|
 | `Skill` | Skill under test |
 | `Model` | Model used for the baseline and skilled agent runs. This prevents duplicate skill rows from being ambiguous |
-| `Verdict` | ✅ Improved / ➖ Not proven improved / 📉 Preference loss (report only) / ⚠️ Invalid or underpowered / 🔻 Objective regression when that future gate is enabled |
+| `Verdict` | ✅ Improved / a cause-specific ➖ no-clear-winner label / 📉 Preference loss (report only) / ⚠️ Invalid or underpowered / 🔻 Objective regression when that future gate is enabled |
 | `Gate evidence` | `n` preference-eligible distinct-stimulus votes, stimulus W/T/L, `d` discordant votes, exact one-sided `p`, net win, and the separately retained dormancy count. A pass needs `p ≤ 0.05`, net win ≥20%, and a passing dormancy activation contract |
 | `Overfit` | Overfitting-judge severity — ✅ Low, 🟡 Moderate, 🔴 High, — none — with its score |
 | `Warnings` | Activation gaps, timeouts, recovered judge slots, and unresolved comparison errors |
@@ -338,6 +338,11 @@ Clearing the floor is necessary, not sufficient. The sign test conditions on **d
 
 ### 6. No credible or practical net win
 The judge didn't consistently prefer the skilled run over baseline.
+- **All ties** are labeled **No preference**. Inspect the tie rationales and both arm outputs. If the behavior is genuinely equivalent, replace inert scenarios rather than increasing repeated runs.
+- **Equal wins and losses** are labeled **Mixed evidence**. Compare the winning and losing scenarios to identify where the target helps versus hurts.
+- **More wins than losses** are labeled **Improvement signal**, with **tie-limited** when fewer than five discordant tasks made a passing sign test impossible and **unproven** otherwise.
+- **More losses than wins** use the corresponding **Baseline signal** labels. These are directional diagnostics, not a credible preference loss unless `preferenceRegressed` is true.
+- **Statistically credible effects below the 20% practical floor** are labeled **Improvement too sparse** or **Baseline signal too sparse** according to direction.
 - **`netWin <= 0`** — at least as many losses as wins. Either the skill isn't helping for these scenarios, or the baseline model is already strong here. If `preferenceRegressed` is `true`, the LLM judge credibly preferred baseline. This is report-only preference evidence, not an objective completion regression.
 - **`netWin > 0` but `signTest.pValue > 0.05`** — a real but inconsistent signal: the skill wins some stimuli and ties or loses others. Ties hold the discordant vote count down. Add broader stimuli and make the skill help consistently.
 - **`signTest.pValue <= 0.05` but `practicalSignificance.passed == false`** — the direction is statistically credible but too sparse to matter across tested tasks. For example, 100 distinct stimuli with `5W/95T/0L` have `p=0.03125` but only a 5% net win. Add discriminating stimuli or improve the skill.
