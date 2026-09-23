@@ -33,9 +33,11 @@ source and owner provenance fields, render modes, and lifecycle tokens. Free-for
 kinds and exclusion subjects remain descriptive text. Construction checks token validity,
 not whole-input completeness, and preserves the original valid values.
 
-Before constructing a scoped component input, compare the complete source record with its
-[bound package context](scoped-component-profile.md), including mapping
-and confidence. Rewording mapping prose changes that identity. Carry forward an unchanged,
+When an explicitly supplied current [full-package revision](report-contract.md#ordinary-component-binding)
+will be bound to a component assessment, compare the component's complete source record with the
+source record in that revision's input manifest, including mapping and confidence.
+For an unbound standalone component, skip this comparison; no package assessment or context is required.
+Rewording mapping prose changes that identity. Carry forward an unchanged,
 still-true source record and record new reuse/acquisition details separately; do not copy a
 materially false mapping merely to satisfy equality.
 

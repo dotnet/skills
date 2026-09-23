@@ -810,11 +810,29 @@ internal static class WorkflowTests
     {
         var status = File.ReadAllText(Path.Combine(referencesRoot, "status-boundaries.md"));
         var targeted = File.ReadAllText(Path.Combine(referencesRoot, "targeted-profiles.md"));
+        var candidates = File.ReadAllText(Path.Combine(referencesRoot, "input-candidates.md"));
         AssertSavedOutputBoundaries(skill);
         AssertRecordedFactBoundaries(status);
         AssertWorksheetFinalization(targeted);
+        AssertComponentIntakeBinding(candidates);
 
         // These in-memory controls test documentation guards, not evidence adjudication.
+        AssertGuidanceGuardRejects(() => AssertComponentIntakeBinding(candidates.Replace(
+            "When an explicitly supplied current", "Before constructing a component input, choose a current",
+            StringComparison.Ordinal)), "component intake guard rejects an unconditional package prerequisite");
+        AssertGuidanceGuardRejects(() => AssertComponentIntakeBinding(candidates.Replace(
+            "skip this comparison; no package assessment or context is required",
+            "require a package assessment before proceeding", StringComparison.Ordinal)),
+            "component intake guard preserves the unbound standalone route");
+        AssertGuidanceGuardRejects(() => AssertComponentIntakeBinding(candidates.Replace(
+            "report-contract.md#ordinary-component-binding", "scoped-component-profile.md", StringComparison.Ordinal)),
+            "component intake guard points explicit bindings to the ordinary binding contract");
+        AssertGuidanceGuardRejects(() => AssertComponentIntakeBinding(candidates.Replace(
+            "including mapping and confidence", "excluding mapping and confidence", StringComparison.Ordinal)),
+            "component intake guard preserves complete source identity for explicit bindings");
+        AssertGuidanceGuardRejects(() => AssertComponentIntakeBinding(candidates.Replace(
+            "do not copy a", "copy a", StringComparison.Ordinal)),
+            "component intake guard rejects inaccurate source reuse to satisfy equality");
         AssertGuidanceGuardRejects(() => AssertSavedOutputBoundaries(skill.Replace(
             "do not expand permissions", "expand permissions", StringComparison.Ordinal)),
             "saved-output guard rejects permission expansion");
@@ -840,6 +858,24 @@ internal static class WorkflowTests
         AssertGuidanceGuardRejects(() => AssertWorksheetFinalization(targeted.Replace(
             "not canonical", "require canonical", StringComparison.Ordinal)),
             "worksheet guard rejects imposing the canonical assessment schema");
+    }
+
+    private static void AssertComponentIntakeBinding(string candidates)
+    {
+        var text = NormalizeWhitespace(candidates);
+        AssertContains(text,
+            "When an explicitly supplied current [full-package revision](report-contract.md#ordinary-component-binding) " +
+            "will be bound to a component assessment, compare the component's complete source record with the " +
+            "source record in that revision's input manifest, including mapping and confidence.",
+            "component intake compares complete source identity only for an explicit package binding");
+        AssertContains(text,
+            "For an unbound standalone component, skip this comparison; no package assessment or context is required.",
+            "standalone component intake has no package prerequisite");
+        AssertContains(text, "Rewording mapping prose changes that identity.", "mapping prose remains identity-sensitive");
+        AssertContains(text, "Carry forward an unchanged, still-true source record", "source reuse remains truthful");
+        AssertContains(text, "record new reuse/acquisition details separately", "acquisition details do not rewrite source identity");
+        AssertContains(text, "do not copy a materially false mapping merely to satisfy equality",
+            "explicit binding must not force inaccurate source facts");
     }
 
     private static void AssertSavedOutputBoundaries(string skill)
