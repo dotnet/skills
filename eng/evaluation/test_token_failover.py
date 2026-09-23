@@ -947,9 +947,7 @@ class TokenFailoverTests(unittest.TestCase):
             "github.event.pull_request.head.repo.full_name == github.repository",
             canary_job["if"],
         )
-        self.assertIn("OWNER", canary_job["if"])
-        self.assertIn("MEMBER", canary_job["if"])
-        self.assertNotIn("COLLABORATOR", canary_job["if"])
+        self.assertNotIn("author_association", canary_job["if"])
         self.assertEqual(
             canary_job["uses"],
             "./.github/workflows/devops-health-groom.lock.yml",

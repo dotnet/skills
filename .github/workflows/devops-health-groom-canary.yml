@@ -25,13 +25,7 @@ jobs:
   groom:
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (
-        github.event.pull_request.head.repo.full_name == github.repository &&
-        contains(
-          fromJSON('["OWNER","MEMBER"]'),
-          github.event.pull_request.author_association
-        )
-      )
+      github.event.pull_request.head.repo.full_name == github.repository
     uses: ./.github/workflows/devops-health-groom.lock.yml
     with:
       dry_run: true
