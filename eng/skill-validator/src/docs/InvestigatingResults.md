@@ -21,6 +21,11 @@
 > the Copilot CLI's no-authentication setup block. Unrelated service and
 > configuration failures remain terminal.
 
+> PR session replay publishing is auxiliary. A `dotnet/skills-data`
+> authentication failure is shown in workflow annotations and the PR report but
+> does not override authoritative evaluation verdicts. Scheduled and main
+> session-data publishing remains strict.
+
 > Current Vally PR evaluations default to `claude-sonnet-5` and `gpt-5.6-luna`,
 > with judges `gpt-5.6-terra` and `claude-haiku-4.5`, respectively.
 > Explicit profiles and the scheduled cadence can select other models.
@@ -217,6 +222,53 @@ Several scenario-level options in `eval.yaml` are relevant when diagnosing failu
 - **Increase `timeout`** in `eval.yaml` — 180s is often not enough for scenarios that involve code generation. Try 360s.
 - **Restructure the prompt** to discourage bash exploration (e.g., "Show me the code" rather than "Create a project")
 - **Add `reject_tools: ["bash"]`** if the scenario should be answerable without shell commands
+
+**In CI:** a required arm that times out makes the whole eval
+measurement-invalid, even when every other scenario produced clean evidence. The
+evaluation workflow therefore runs `eng/vally-adapter/retry-agent-timeouts.mjs`
+before the adapter. It re-runs only the timed-out scenario, using
+`skill-validator evaluate --target "<agent>" --scenario "<name>"`, writes that
+retry into its own `--results-dir`, and replaces only that one scenario record
+in the native results file. The target filter prevents another agent with the
+same scenario name from entering the retry. Because the retry never shares a
+results directory, its sessions never merge with the first attempt's: every
+role/session record stays unique and the `rejudge` pairing rules that reject
+duplicate completed roles still apply unchanged. The retry judges the arms it
+re-runs, so no separate `rejudge` pass is needed.
+
+The retry is deliberately narrow. It fires only when a wall-clock timeout is the
+scenario's sole defect; an `executionError`, `failedRunCount > 0`, a missing
+arm, or a scenario the agent simply lost is never retried. A second timeout,
+more than two timed-out scenarios, a declared three-arm retry cost that exceeds
+the bounded recovery window, or any unexpected retry shape leaves the original
+measurement in place and keeps the eval invalid. Check
+`agent-timeout-retry-summary.json` in the leg artifact for
+`recoveredScenarioCount`, `unresolvedScenarioCount`,
+`budgetSkippedScenarioCount`, `clearedAggregates`, and a per-scenario reason.
+
+After replacement, recovery recomputes execution, isolated target-agent
+activation, unexpected activation, and completion-regression state from all
+surviving scenarios. It clears stale `failureKind`/`skillNotActivated` values
+when the evidence no longer supports them, while any true remaining failure
+stays fail-closed. If stale `skill_not_activated` masked an isolated completion
+regression, recomputation restores `completion_regression`. It also clears the
+old `confidenceInterval`,
+`isSignificant`, and `overfittingResult`; the changed sample cannot reuse the
+first attempt's aggregate statistics, and native agent evals do not produce an
+overfitting assessment. The adapter derives the completion and activation gates
+from scenarios again instead of trusting legacy aggregate flags.
+
+Retry runs first write outside `RESULTS_DIR`, so a workflow `SIGTERM` cannot
+leave a retry `results.json` where recursive discovery can count it. After a
+retry process finishes, its `sessions.db`, logs, and raw result (renamed
+`retry-results.json`) are copied under `_agent-timeout-retry/` in the main
+evaluation artifact. Workflow result counting, consolidation, summaries, and
+dashboard publication also exclude this subtree as defense in depth, so exactly
+one adapted per-agent `results.json` is authoritative.
+
+`--target` and `--scenario` are repeatable, match names case-insensitively, and
+exit `1` when a name matches nothing, so a typo can never quietly evaluate an
+empty set and report a clean run.
 
 ### 2. Baseline already bad
 

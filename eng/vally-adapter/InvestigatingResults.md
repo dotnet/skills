@@ -235,6 +235,12 @@ The adapter's `results.json` is a summary. The uploaded artifact also contains t
 
 To see exactly what the agent did for a failing scenario, open its `events.jsonl` (match on `variant` + `stimulusName` in the sibling `metadata.json`).
 
+Session replay publication is auxiliary on PR runs. If `SKILLS_DATA_TOKEN`
+cannot access `dotnet/skills-data`, the workflow emits a warning and the PR
+report states that replay telemetry is unavailable, while authoritative
+evaluation verdicts remain unchanged. Scheduled and main publishing stays
+strict: the same publisher failure fails that workflow path.
+
 ## Result patterns and fixes
 
 Work top-down; earlier categories often cause later ones.
@@ -290,12 +296,98 @@ successful first-attempt judgment fixed and replaces only errored slots. A
 recovered transient appears in `recoveredErrors[]`; an unresolved failure stays
 in `errors[]` and makes the state invalid.
 
+That first retry re-judges the whole slice, so one unlucky judge session can
+stall on both attempts and strand a slot whose executor evidence is complete. A
+second, narrower pass then re-judges each stranded slot on its own, using the
+preserved executor trajectories for exactly that stimulus and trial. Read
+`retrySummary.targetedRecovery` in the comparison report:
+
+```json
+{
+  "maxSlots": 3,
+  "plannedSlotCount": 1,
+  "attemptedSlotCount": 1,
+  "recoveredSlotCount": 1,
+  "unresolvedSlotCount": 0,
+  "skippedReason": null,
+  "recoveredSlots": [{ "stimulusName": "...", "trialIndex": 0, "recoveredFrom": { "code": "judge_session_idle_timeout" } }],
+  "unresolvedSlots": []
+}
+```
+
+Only a slot that is still errored after the slice retry and whose latest
+classification is transient is eligible, so `judge_organization_disabled` and
+unrecognized codes are never re-judged. If the coarse slice retry process
+crashed before it produced a report, the narrower pass may still use the
+original transient classification, but only when the preserved baseline and
+treatment trajectories are complete. A decided trial is never errored, so a
+win, loss, tie, or dormancy outcome can never enter this pass.
+
+Trajectory identity uses the adapter's canonical stimulus lookup
+(`stimulus`, then `gradeResult.stimulusName`, then `stimulusName`) plus the
+trial index encoded in `shardKey`. The baseline and treatment records must also
+carry the expected variants. A recovered trial carries `targetedRecovery: true`
+and `recoveredFrom`. Anything unexpected — no trajectory for either arm
+(`targeted_slot_trajectory_missing`), duplicate trajectories
+(`targeted_slot_trajectory_ambiguous`), incorrect variant pairing
+(`targeted_slot_variant_mismatch`), a retry that returns the wrong number of trials
+(`targeted_retry_result_ambiguous`), a failed invocation
+(`targeted_retry_invocation_failed`), or a repeat timeout — leaves the slot
+errored and the eval measurement-invalid. `targeted_slot_trajectory_missing`
+and `targeted_slot_trajectory_ambiguous` are separate codes on purpose: the
+first means no preserved trajectory survives for the slot, the second means more
+than one claims it, and they need different investigation. More than `maxSlots`
+stranded slots is read as a judge outage: the pass is skipped entirely,
+`skippedReason` explains why, and every slot counts as unresolved.
+
 For native-agent results, `RunMetrics.errorCount` is diagnostic. Failed or
 retried tool calls can coexist with completed output and a valid pairwise
 judgment, so that counter alone does not invalidate a measurement. The adapter
 fails closed only on terminal evidence: `scenario.executionError`, a missing
 required arm, a timed-out arm, `failedRunCount > 0`, or a missing pairwise
 result.
+
+A required arm that hit its wall-clock limit is recovered before the adapter
+runs. `retry-agent-timeouts.mjs` re-runs only that scenario, through the
+evaluator's combined `--target` and `--scenario` filters, into its own results
+directory, then swaps the fresh scenario record into the native results file.
+This prevents a same-named scenario owned by another target from entering the
+retry. Session databases are never merged, so every role/session record stays
+unique and the rejudge pairing rules that reject duplicate completed roles are
+unaffected. Read
+`agent-timeout-retry-summary.json` for `recoveredScenarioCount`,
+`unresolvedScenarioCount`, `budgetSkippedScenarioCount`, `clearedAggregates`,
+and a per-scenario reason. Before launching a retry, the tool reads the eval's
+declared arm timeout. Three arms plus setup/judge allowance must fit the
+per-scenario recovery budget; otherwise the scenario is left invalid without
+starting a retry that its outer watchdog cannot finish. A scenario is retried only
+when a timeout is its sole defect: an `executionError`, a failed run, a missing
+arm, or a scenario the agent simply lost is never retried. More than two
+timed-out scenarios is read as a systemic capacity problem and nothing is
+retried.
+
+After a scenario replacement, recovery recomputes the native completion and
+isolated target-agent activation gates from every surviving scenario. A true
+remaining execution error, unexpected activation, non-activation, or completion
+regression remains fail-closed. Stale `failureKind` and `skillNotActivated`
+values are cleared when the scenarios no longer support them. If stale
+`skill_not_activated` had masked a surviving isolated completion regression,
+recomputation restores `completion_regression`; cleared or replaced fields are
+listed in `clearedAggregates`. The old bootstrap
+`confidenceInterval`/`isSignificant` pair is cleared because the sample changed,
+and `overfittingResult` is cleared because native agent evals do not produce that
+assessment. The adapter independently derives completion and activation from the
+scenario records, so legacy aggregate flags cannot reintroduce a false
+regression.
+
+Retry runs first write outside `RESULTS_DIR`. This means a workflow `SIGTERM`
+cannot leave a retry `results.json` where a recursive collector could mistake it
+for an authoritative result. After a retry process finishes, its `sessions.db`,
+logs, and raw result (renamed `retry-results.json`) are copied under
+`_agent-timeout-retry/` in the uploaded artifact. Recursive result discovery also
+excludes that subtree as defense in depth. The single adapted
+`<plugin>/agent.<name>/results.json` remains authoritative for counting,
+consolidation, dashboard publication, and the workflow summary.
 
 The workflow token preflight treats HTTP 429 and 402 quota exhaustion
 (`quota_exceeded` or a monthly-quota message) as pool-candidate exhaustion and

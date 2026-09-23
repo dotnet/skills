@@ -1,0 +1,790 @@
+import assert from "node:assert/strict";
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { test } from "node:test";
+
+import {
+  findTimedOutScenarios,
+  isRetryableTimeout,
+  refreshVerdictAggregates,
+  recomputeNativeAggregate,
+  requiredArmTimedOut,
+  retryAgentTimeouts,
+  scenarioMissedActivation,
+  scenarioRegressedOnCompletion,
+  scenarioRegressedOnIsolatedCompletion,
+} from "./retry-agent-timeouts.mjs";
+import { legacyToVerdict } from "./adapt-agent-results.mjs";
+
+function runResult(overrides = {}) {
+  return {
+    metrics: { timedOut: false, taskCompleted: true },
+    ...overrides,
+  };
+}
+
+/** A run that hit its wall-clock limit: nothing completed, nothing activated. */
+function timedOutRun() {
+  return { metrics: { timedOut: true, taskCompleted: false } };
+}
+
+function activated(agentName = "code-testing-generator") {
+  return { invokedAgents: [agentName] };
+}
+
+function scenario(name, overrides = {}) {
+  return {
+    scenarioName: name,
+    baseline: runResult(),
+    skilledIsolated: runResult(),
+    skilledPlugin: runResult(),
+    subagentActivationIsolated: activated(),
+    subagentActivationPlugin: activated(),
+    expectActivation: true,
+    improvementScore: 0.5,
+    timedOut: false,
+    failedRunCount: 0,
+    executionError: null,
+    pairwiseResult: { winner: "skilled", reasoning: "better" },
+    ...overrides,
+  };
+}
+
+/** A scenario whose required plugin arm hit the wall-clock limit. */
+function timedOutScenario(name, overrides = {}) {
+  return scenario(name, {
+    timedOut: true,
+    skilledPlugin: timedOutRun(),
+    subagentActivationPlugin: { invokedAgents: [] },
+    improvementScore: 0,
+    ...overrides,
+  });
+}
+
+function resultsWith(scenarios, verdictOverrides = {}) {
+  return {
+    model: "gpt-5.6-luna",
+    judgeModel: "gpt-5.6-luna",
+    verdicts: [
+      {
+        skillName: "agent.code-testing-generator",
+        skillPath: "plugins/dotnet-test/agents/code-testing-generator.agent.md",
+        failureKind: null,
+        scenarios,
+        ...verdictOverrides,
+      },
+    ],
+  };
+}
+
+function writeAgentEval(root, scenarioCount = 5, timeout = "5m") {
+  const evalDir = join(root, "tests", "dotnet-test", "agent.code-testing-generator");
+  mkdirSync(evalDir, { recursive: true });
+  const stimuli = Array.from({ length: scenarioCount }, (_, index) => `
+  - name: Scenario ${index + 1}
+    prompt: Generate tests.
+    rubric:
+      - Completed the task`);
+  writeFileSync(join(evalDir, "eval.yaml"), `name: agent.code-testing-generator
+defaults:
+  timeout: ${timeout}
+stimuli:${stimuli.join("")}
+`);
+  return "tests/dotnet-test/agent.code-testing-generator/eval.yaml";
+}
+
+function workspace(results) {
+  const root = mkdtempSync(join(tmpdir(), "agent-retry-"));
+  const resultsFile = join(root, "results.json");
+  writeFileSync(resultsFile, JSON.stringify(results, null, 2));
+  return {
+    root,
+    resultsFile,
+    retryResultsDir: join(root, "retry"),
+    retryAuditDir: join(root, "results", "_agent-timeout-retry"),
+    summary: join(root, "summary.json"),
+  };
+}
+
+/** Stub validator run that writes a retry results.json for the filtered scenario. */
+function stubRun(scenarioByName) {
+  const calls = [];
+  const run = (_validator, args) => {
+    calls.push(args);
+    const scenarioName = args[args.indexOf("--scenario") + 1];
+    const resultsDir = args[args.indexOf("--results-dir") + 1];
+    const runDir = join(resultsDir, "20260101-000000");
+    mkdirSync(runDir, { recursive: true });
+    const produced = scenarioByName[scenarioName];
+    writeFileSync(join(runDir, "session.db"), "retry session");
+    writeFileSync(join(runDir, "run.log"), "retry log");
+    writeFileSync(
+      join(runDir, "results.json"),
+      JSON.stringify({
+        verdicts: [
+          {
+            skillName: "agent.code-testing-generator",
+            scenarios: produced ? [produced] : [],
+          },
+        ],
+      }),
+    );
+  };
+  return { run, calls };
+}
+
+function baseConfig(paths, run) {
+  return {
+    resultsFile: paths.resultsFile,
+    retryResultsDir: paths.retryResultsDir,
+    retryAuditDir: paths.retryAuditDir,
+    summary: paths.summary,
+    validator: "skill-validator",
+    agents: ["plugins/dotnet-test/agents/code-testing-generator.agent.md"],
+    testsDir: "tests/dotnet-test",
+    model: "gpt-5.6-luna",
+    judgeModel: "gpt-5.6-luna",
+    maxScenarios: 2,
+    maxScenarioSeconds: Number.MAX_SAFE_INTEGER,
+    scenarioOverheadSeconds: 0,
+    run,
+  };
+}
+
+test("requiredArmTimedOut sees a timeout on any required arm", () => {
+  assert.equal(requiredArmTimedOut(scenario("a")), false);
+  assert.equal(requiredArmTimedOut(scenario("a", { timedOut: true })), true);
+  assert.equal(
+    requiredArmTimedOut(scenario("a", { baseline: runResult({ metrics: { timedOut: true } }) })),
+    true,
+  );
+  assert.equal(
+    requiredArmTimedOut(
+      scenario("a", { skilledPlugin: runResult({ metrics: { timedOut: true } }) }),
+    ),
+    true,
+  );
+});
+
+test("only a clean required-arm timeout is retryable", () => {
+  assert.equal(isRetryableTimeout(scenario("a", { timedOut: true })), true);
+  // A scenario the agent simply lost is a measured outcome, not a fault.
+  assert.equal(isRetryableTimeout(scenario("a", { improvementScore: -2 })), false);
+  assert.equal(
+    isRetryableTimeout(scenario("a", { timedOut: true, executionError: "agent crashed" })),
+    false,
+  );
+  assert.equal(isRetryableTimeout(scenario("a", { timedOut: true, failedRunCount: 1 })), false);
+  assert.equal(isRetryableTimeout(scenario("a", { timedOut: true, skilledPlugin: null })), false);
+});
+
+test("findTimedOutScenarios records the owning verdict and position", () => {
+  const results = resultsWith([
+    scenario("first"),
+    scenario("second", { timedOut: true }),
+  ]);
+  assert.deepEqual(findTimedOutScenarios(results), [
+    {
+      verdictIndex: 0,
+      scenarioIndex: 1,
+      skillName: "agent.code-testing-generator",
+      scenarioName: "second",
+    },
+  ]);
+});
+
+test("a required-arm timeout is recovered by a targeted scenario retry", () => {
+  const paths = workspace(
+    resultsWith([
+      scenario("kept", { improvementScore: 1.5 }),
+      scenario("flaky", { timedOut: true, improvementScore: 0 }),
+    ]),
+  );
+  const { run, calls } = stubRun({
+    flaky: scenario("flaky", { improvementScore: 2.25 }),
+  });
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+
+  assert.equal(summary.recoveredScenarioCount, 1);
+  assert.equal(summary.unresolvedScenarioCount, 0);
+  assert.equal(summary.attemptedScenarioCount, 1);
+  assert.equal(summary.skippedReason, null);
+
+  // Only the affected scenario is re-run, never the whole eval.
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].slice(calls[0].indexOf("--scenario"), calls[0].indexOf("--scenario") + 2), [
+    "--scenario",
+    "flaky",
+  ]);
+  assert.deepEqual(calls[0].slice(calls[0].indexOf("--target"), calls[0].indexOf("--target") + 2), [
+    "--target",
+    "agent.code-testing-generator",
+  ]);
+
+  const merged = JSON.parse(readFileSync(paths.resultsFile, "utf8"));
+  const scenarios = merged.verdicts[0].scenarios;
+  assert.equal(scenarios[0].scenarioName, "kept");
+  assert.equal(scenarios[0].improvementScore, 1.5, "untouched scenario must keep its evidence");
+  assert.equal(scenarios[1].scenarioName, "flaky");
+  assert.equal(scenarios[1].timedOut, false);
+  assert.equal(scenarios[1].improvementScore, 2.25);
+  assert.equal(findTimedOutScenarios(merged).length, 0);
+
+  const written = JSON.parse(readFileSync(paths.summary, "utf8"));
+  assert.equal(written.recoveredScenarioCount, 1);
+  assert.equal(written.attempts[0].recovered, true);
+  assert.equal(existsSync(paths.retryAuditDir), true);
+  const auditFiles = readdirSync(paths.retryAuditDir, { recursive: true });
+  assert.ok(auditFiles.some((path) => path.endsWith("session.db")));
+  assert.ok(auditFiles.some((path) => path.endsWith("run.log")));
+  assert.ok(auditFiles.some((path) => path.endsWith("retry-results.json")));
+  assert.equal(
+    auditFiles.some((path) => path.endsWith("results.json") && !path.endsWith("retry-results.json")),
+    false,
+    "the audit tree must never contain an authoritative results.json",
+  );
+});
+
+test("a persistent timeout stays unresolved and keeps the eval invalid", () => {
+  const paths = workspace(resultsWith([scenario("flaky", { timedOut: true })]));
+  const { run } = stubRun({ flaky: scenario("flaky", { timedOut: true }) });
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+
+  assert.equal(summary.recoveredScenarioCount, 0);
+  assert.equal(summary.unresolvedScenarioCount, 1);
+  assert.match(summary.attempts[0].reason, /timeout again/);
+
+  const merged = JSON.parse(readFileSync(paths.resultsFile, "utf8"));
+  assert.equal(merged.verdicts[0].scenarios[0].timedOut, true);
+  assert.equal(findTimedOutScenarios(merged).length, 1);
+});
+
+test("a retry that fails for a new reason never replaces the measured scenario", () => {
+  const paths = workspace(resultsWith([scenario("flaky", { timedOut: true })]));
+  const { run } = stubRun({ flaky: scenario("flaky", { executionError: "agent crashed" }) });
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+
+  assert.equal(summary.recoveredScenarioCount, 0);
+  assert.equal(summary.unresolvedScenarioCount, 1);
+  assert.equal(summary.attempts[0].reason, "agent crashed");
+  const merged = JSON.parse(readFileSync(paths.resultsFile, "utf8"));
+  assert.equal(merged.verdicts[0].scenarios[0].timedOut, true);
+});
+
+test("a retry that returns no record for the scenario is unresolved", () => {
+  const paths = workspace(resultsWith([scenario("flaky", { timedOut: true })]));
+  const { run } = stubRun({});
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+
+  assert.equal(summary.unresolvedScenarioCount, 1);
+  assert.match(summary.attempts[0].reason, /returned 0 record/);
+});
+
+test("more timed-out scenarios than the bound is treated as systemic and skipped", () => {
+  const paths = workspace(
+    resultsWith([
+      scenario("one", { timedOut: true }),
+      scenario("two", { timedOut: true }),
+      scenario("three", { timedOut: true }),
+    ]),
+  );
+  const { run, calls } = stubRun({});
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+
+  assert.equal(calls.length, 0, "a systemic capacity problem must not be retried");
+  assert.equal(summary.attemptedScenarioCount, 0);
+  assert.equal(summary.recoveredScenarioCount, 0);
+  assert.equal(summary.unresolvedScenarioCount, 3);
+  assert.match(summary.skippedReason, /systemic/);
+});
+
+test("a retry whose declared three-arm cost exceeds the budget is skipped", () => {
+  const paths = workspace(resultsWith([timedOutScenario("flaky")]));
+  writeAgentEval(paths.root, 1, "60m");
+  const { run, calls } = stubRun({ flaky: scenario("flaky") });
+  const config = {
+    ...baseConfig(paths, run),
+    testsDir: join(paths.root, "tests", "dotnet-test"),
+    maxScenarioSeconds: 1200,
+    scenarioOverheadSeconds: 300,
+  };
+
+  const summary = retryAgentTimeouts(config);
+
+  assert.equal(calls.length, 0);
+  assert.equal(summary.attemptedScenarioCount, 0);
+  assert.equal(summary.budgetSkippedScenarioCount, 1);
+  assert.equal(summary.unresolvedScenarioCount, 1);
+  assert.equal(summary.attempts[0].armTimeoutSeconds, 3600);
+  assert.equal(summary.attempts[0].estimatedSeconds, 11100);
+  assert.match(summary.attempts[0].reason, /above the 1200s/);
+});
+
+test("a results file with no timeout is left byte-identical", () => {
+  const paths = workspace(resultsWith([scenario("clean", { improvementScore: -1 })]));
+  const before = readFileSync(paths.resultsFile, "utf8");
+  const { run, calls } = stubRun({});
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+
+  assert.equal(calls.length, 0);
+  assert.equal(summary.plannedScenarioCount, 0);
+  assert.equal(readFileSync(paths.resultsFile, "utf8"), before);
+});
+
+test("a nonzero retry exit code still recovers when the scenario evidence is clean", () => {
+  const paths = workspace(resultsWith([scenario("flaky", { timedOut: true })]));
+  const { run } = stubRun({ flaky: scenario("flaky", { improvementScore: 3 }) });
+  const failingRun = (validator, args, options) => {
+    run(validator, args, options);
+    // The evaluator exits nonzero when a verdict is unfavourable; that must not
+    // discard a scenario record that is otherwise complete.
+    const error = new Error("exit 1");
+    error.status = 1;
+    throw error;
+  };
+
+  const summary = retryAgentTimeouts(baseConfig(paths, failingRun));
+
+  assert.equal(summary.recoveredScenarioCount, 1);
+  assert.equal(summary.attempts[0].retryExitCode, 1);
+});
+
+test("each retry writes to its own results directory so sessions never merge", () => {
+  const paths = workspace(
+    resultsWith([
+      scenario("one", { timedOut: true }),
+      scenario("two", { timedOut: true }),
+    ]),
+  );
+  const { run, calls } = stubRun({
+    one: scenario("one"),
+    two: scenario("two"),
+  });
+
+  retryAgentTimeouts(baseConfig(paths, run));
+
+  const dirs = calls.map((args) => args[args.indexOf("--results-dir") + 1]);
+  assert.equal(new Set(dirs).size, 2, "retries must not share a results directory");
+  for (const args of calls) {
+    assert.ok(args.includes("--keep-sessions"));
+  }
+});
+
+// --- Verdict-level aggregates after a scenario swap ---------------------------
+// A timed-out arm reports no completed task and no activation, so the first
+// attempt's verdict aggregates can assert a completion regression or an
+// activation failure that the recovered evidence contradicts. A false
+// conclusive regression is worse than the invalid measurement it replaced.
+
+test("a completion regression caused only by the timeout is cleared after recovery", () => {
+  const paths = workspace(
+    resultsWith([scenario("kept"), timedOutScenario("flaky")], {
+      failureKind: "completion_regression",
+      passed: false,
+      confidenceInterval: { low: -0.4, high: 0.1, level: 0.95 },
+    }),
+  );
+  const { run } = stubRun({ flaky: scenario("flaky", { improvementScore: 2 }) });
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+
+  assert.equal(summary.recoveredScenarioCount, 1);
+  const verdict = JSON.parse(readFileSync(paths.resultsFile, "utf8")).verdicts[0];
+  assert.equal(verdict.failureKind, null, "stale regression must not survive the swap");
+  assert.equal(verdict.confidenceInterval, null, "a CI bootstrapped over the timed-out run is dropped");
+  assert.ok(
+    summary.clearedAggregates.some((entry) => entry.field === "failureKind=completion_regression"),
+  );
+});
+
+test("a completion regression in a surviving scenario is never cleared", () => {
+  // The recovered scenario is clean, but another scenario really did regress.
+  const regressed = scenario("real", {
+    skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
+  });
+  const paths = workspace(
+    resultsWith([regressed, timedOutScenario("flaky")], {
+      failureKind: "completion_regression",
+      passed: false,
+    }),
+  );
+  const { run } = stubRun({ flaky: scenario("flaky") });
+
+  retryAgentTimeouts(baseConfig(paths, run));
+
+  const verdict = JSON.parse(readFileSync(paths.resultsFile, "utf8")).verdicts[0];
+  assert.equal(verdict.failureKind, "completion_regression");
+});
+
+test("a regression the recovered scenario still shows is never cleared", () => {
+  const paths = workspace(
+    resultsWith([scenario("kept"), timedOutScenario("flaky")], {
+      failureKind: "completion_regression",
+    }),
+  );
+  // The retry completes inside the time budget but still fails the task.
+  const { run } = stubRun({
+    flaky: scenario("flaky", {
+      skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
+    }),
+  });
+
+  retryAgentTimeouts(baseConfig(paths, run));
+
+  const verdict = JSON.parse(readFileSync(paths.resultsFile, "utf8")).verdicts[0];
+  assert.equal(verdict.failureKind, "completion_regression");
+});
+
+test("an activation failure caused only by the timeout is cleared after recovery", () => {
+  const paths = workspace(
+    resultsWith([scenario("kept"), timedOutScenario("flaky")], {
+      failureKind: "skill_not_activated",
+      skillNotActivated: true,
+    }),
+  );
+  const { run } = stubRun({ flaky: scenario("flaky") });
+
+  retryAgentTimeouts(baseConfig(paths, run));
+
+  const verdict = JSON.parse(readFileSync(paths.resultsFile, "utf8")).verdicts[0];
+  assert.equal(verdict.skillNotActivated, false);
+  assert.equal(verdict.failureKind, null);
+});
+
+test("an activation failure in a surviving scenario is never cleared", () => {
+  const notActivated = scenario("real", {
+    subagentActivationIsolated: { invokedAgents: [] },
+  });
+  const paths = workspace(
+    resultsWith([notActivated, timedOutScenario("flaky")], {
+      failureKind: "skill_not_activated",
+      skillNotActivated: true,
+    }),
+  );
+  const { run } = stubRun({ flaky: scenario("flaky") });
+
+  retryAgentTimeouts(baseConfig(paths, run));
+
+  const verdict = JSON.parse(readFileSync(paths.resultsFile, "utf8")).verdicts[0];
+  assert.equal(verdict.skillNotActivated, true);
+  assert.equal(verdict.failureKind, "skill_not_activated");
+});
+
+test("aggregates are untouched when nothing was recovered", () => {
+  const paths = workspace(
+    resultsWith([timedOutScenario("flaky")], {
+      failureKind: "completion_regression",
+      skillNotActivated: true,
+      confidenceInterval: { low: -0.4, high: 0.1, level: 0.95 },
+    }),
+  );
+  const { run } = stubRun({ flaky: timedOutScenario("flaky") });
+
+  retryAgentTimeouts(baseConfig(paths, run));
+
+  const verdict = JSON.parse(readFileSync(paths.resultsFile, "utf8")).verdicts[0];
+  assert.equal(verdict.failureKind, "completion_regression");
+  assert.equal(verdict.skillNotActivated, true);
+  assert.deepEqual(verdict.confidenceInterval, { low: -0.4, high: 0.1, level: 0.95 });
+});
+
+test("a threshold failure survives while stale overfitting metadata is cleared", () => {
+  const overfitting = { score: 0.8, severity: "High" };
+  const paths = workspace(
+    resultsWith([scenario("kept"), timedOutScenario("flaky")], {
+      failureKind: "threshold",
+      overfittingResult: overfitting,
+    }),
+  );
+  const { run } = stubRun({ flaky: scenario("flaky") });
+
+  retryAgentTimeouts(baseConfig(paths, run));
+
+  const verdict = JSON.parse(readFileSync(paths.resultsFile, "utf8")).verdicts[0];
+  assert.equal(verdict.failureKind, "threshold", "only timeout-sensitive aggregates are re-derived");
+  assert.equal(verdict.overfittingResult, null);
+});
+
+test("a dormant scenario is never read as a regression or a missed activation", () => {
+  const dormant = scenario("dormant", {
+    expectActivation: false,
+    skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
+    subagentActivationIsolated: { invokedAgents: [] },
+  });
+
+  assert.equal(scenarioRegressedOnCompletion(dormant), false);
+  assert.equal(scenarioMissedActivation(dormant, "code-testing-generator"), false);
+});
+
+test("a scenario with no activation probe is not read as activation evidence", () => {
+  const noProbe = scenario("no-probe", {
+    subagentActivationIsolated: null,
+    subagentActivationPlugin: null,
+  });
+
+  assert.equal(scenarioMissedActivation(noProbe, "code-testing-generator"), false);
+});
+
+test("the retry tree is kept for audit but never collectable as a results.json", () => {
+  const paths = workspace(resultsWith([timedOutScenario("flaky")]));
+  const { run } = stubRun({ flaky: scenario("flaky") });
+
+  retryAgentTimeouts(baseConfig(paths, run));
+
+  // Downstream jobs gather every results.json they can find in the uploaded
+  // artifact, so the retry's own native aggregate must not carry that name.
+  const names = readdirSync(join(paths.retryResultsDir, "1-agent.code-testing-generator"), {
+    recursive: true,
+  }).map(String);
+  assert.ok(names.some((name) => name.endsWith("results.retry.json")), "evidence is kept");
+  assert.ok(!names.some((name) => name.endsWith("results.json")), "but is not collectable");
+});
+
+test("an unresolved retry also leaves no collectable results.json behind", () => {
+  const paths = workspace(resultsWith([timedOutScenario("flaky")]));
+  const { run } = stubRun({ flaky: timedOutScenario("flaky") });
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+
+  assert.equal(summary.unresolvedScenarioCount, 1);
+  const names = readdirSync(join(paths.retryResultsDir, "1-agent.code-testing-generator"), {
+    recursive: true,
+  }).map(String);
+  assert.ok(!names.some((name) => name.endsWith("results.json")));
+});
+
+test("clearing an activation failure restores the completion regression it masked", () => {
+  // The evaluator stores one FailureKind and ApplyAgentActivationGate
+  // overwrites it, so a real isolated completion regression can hide behind
+  // skill_not_activated. Clearing activation must not erase it.
+  const verdict = {
+    skillName: "agent.code-testing-generator",
+    failureKind: "skill_not_activated",
+    skillNotActivated: true,
+    scenarios: [
+      scenario("recovered"),
+      scenario("really-regressed", {
+        skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
+      }),
+    ],
+  };
+
+  const cleared = refreshVerdictAggregates(verdict);
+
+  assert.equal(verdict.failureKind, "completion_regression");
+  assert.equal(verdict.skillNotActivated, false);
+  assert.ok(cleared.includes("failureKind=skill_not_activated->completion_regression"));
+});
+
+test("clearing an activation failure yields null when no scenario regressed", () => {
+  const verdict = {
+    skillName: "agent.code-testing-generator",
+    failureKind: "skill_not_activated",
+    skillNotActivated: true,
+    scenarios: [scenario("recovered"), scenario("clean")],
+  };
+
+  const cleared = refreshVerdictAggregates(verdict);
+
+  assert.equal(verdict.failureKind, null);
+  assert.ok(cleared.includes("failureKind=skill_not_activated"));
+});
+
+test("the restored regression predicate matches the evaluator exactly", () => {
+  // ComputeAgentVerdict passes pluginIsDiagnosticOnly: true, so a plugin-only
+  // completion failure is NOT a regression the evaluator would have recorded.
+  const pluginOnly = scenario("plugin-only", {
+    skilledPlugin: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
+  });
+  assert.equal(scenarioRegressedOnIsolatedCompletion(pluginOnly), false);
+
+  const isolated = scenario("isolated", {
+    skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
+  });
+  assert.equal(scenarioRegressedOnIsolatedCompletion(isolated), true);
+
+  const baselineAlsoFailed = scenario("both-failed", {
+    baseline: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
+    skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
+  });
+  assert.equal(scenarioRegressedOnIsolatedCompletion(baselineAlsoFailed), false);
+
+  const dormant = scenario("dormant", {
+    expectActivation: false,
+    skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
+  });
+  assert.equal(scenarioRegressedOnIsolatedCompletion(dormant), false);
+});
+
+test("a masked regression survives a real end-to-end recovery", () => {
+  const regressed = scenario("really-regressed", {
+    skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
+  });
+  const paths = workspace(
+    resultsWith([timedOutScenario("flaky"), regressed], {
+      failureKind: "skill_not_activated",
+      skillNotActivated: true,
+    }),
+  );
+  const { run } = stubRun({ flaky: scenario("flaky") });
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+  const written = JSON.parse(readFileSync(paths.resultsFile, "utf8"));
+
+  assert.equal(summary.recoveredScenarioCount, 1);
+  assert.equal(written.verdicts[0].failureKind, "completion_regression");
+  assert.equal(written.verdicts[0].skillNotActivated, false);
+});
+
+test("refreshVerdictAggregates reports exactly the fields it cleared", () => {
+  const verdict = {
+    skillName: "agent.code-testing-generator",
+    failureKind: "completion_regression",
+    skillNotActivated: true,
+    confidenceInterval: { low: 0, high: 1, level: 0.95 },
+    scenarios: [scenario("clean")],
+  };
+
+  const cleared = refreshVerdictAggregates(verdict);
+
+  assert.deepEqual(cleared.sort(), [
+    "confidenceInterval",
+    "failureKind=completion_regression",
+    "skillNotActivated",
+  ]);
+  assert.equal(verdict.failureKind, null);
+  assert.equal(verdict.skillNotActivated, false);
+});
+test("recovered scenarios clear stale native aggregate failures before adaptation", () => {
+  const scenarios = [1, 2, 3, 4, 5].map((index) =>
+    scenario(`Scenario ${index}`, {
+      improvementScore: 1,
+      pairwiseResult: { overallWinner: "skill", overallMagnitude: 1, overallReasoning: "better" },
+    }));
+  scenarios[4] = scenario("Scenario 5", {
+    timedOut: true,
+    baseline: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+    skilledIsolated: runResult({ metrics: { timedOut: true, taskCompleted: false } }),
+    skilledPlugin: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+  });
+  const results = resultsWith(scenarios);
+  Object.assign(results.verdicts[0], {
+    failureKind: "completion_regression",
+    skillNotActivated: true,
+    confidenceInterval: { low: -1, high: -0.5, level: 0.95 },
+    overfittingResult: { score: 1, severity: "High" },
+  });
+  const paths = workspace(results);
+  const evalFile = writeAgentEval(paths.root);
+  const { run } = stubRun({
+    "Scenario 5": scenario("Scenario 5", {
+      improvementScore: 1,
+      baseline: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+      skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+      skilledPlugin: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+      pairwiseResult: { overallWinner: "skill", overallMagnitude: 1, overallReasoning: "better" },
+    }),
+  });
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+  assert.equal(summary.recoveredScenarioCount, 1);
+
+  const merged = JSON.parse(readFileSync(paths.resultsFile, "utf8"));
+  const nativeVerdict = merged.verdicts[0];
+  assert.equal(nativeVerdict.failureKind, null);
+  assert.equal(nativeVerdict.skillNotActivated, false);
+  assert.equal(nativeVerdict.confidenceInterval, null);
+  assert.equal(nativeVerdict.isSignificant, null);
+  assert.equal(nativeVerdict.overfittingResult, null);
+
+  const adapted = legacyToVerdict(
+    nativeVerdict,
+    evalFile,
+    paths.root,
+  );
+  assert.equal(adapted.state, "VALID_PASS");
+  assert.notEqual(adapted.stateReason?.code, "native_completion_regression");
+  assert.doesNotMatch(adapted.reason, /did not activate|completion regression/i);
+});
+
+test("aggregate recomputation preserves a completion regression in another scenario", () => {
+  const verdict = resultsWith([
+    scenario("recovered"),
+    scenario("still-regressed", {
+      baseline: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+      skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
+    }),
+  ]).verdicts[0];
+  verdict.failureKind = "skill_not_activated";
+  verdict.skillNotActivated = true;
+
+  recomputeNativeAggregate(verdict);
+
+  assert.equal(verdict.failureKind, "completion_regression");
+  assert.equal(verdict.skillNotActivated, false);
+});
+
+test("retry clears stale activation without clearing another scenario's completion regression", () => {
+  const scenarios = [1, 2, 3, 4, 5].map((index) =>
+    scenario(`Scenario ${index}`, {
+      improvementScore: 1,
+      pairwiseResult: { overallWinner: "skill", overallMagnitude: 1, overallReasoning: "better" },
+    }));
+  scenarios[0].baseline.metrics.taskCompleted = true;
+  scenarios[0].skilledIsolated.metrics.taskCompleted = false;
+  scenarios[4] = scenario("Scenario 5", {
+    timedOut: true,
+    baseline: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+    skilledIsolated: runResult({ metrics: { timedOut: true, taskCompleted: false } }),
+    skilledPlugin: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+  });
+  const results = resultsWith(scenarios);
+  Object.assign(results.verdicts[0], {
+    failureKind: "skill_not_activated",
+    skillNotActivated: true,
+  });
+  const paths = workspace(results);
+  const evalFile = writeAgentEval(paths.root);
+  const { run } = stubRun({
+    "Scenario 5": scenario("Scenario 5", {
+      improvementScore: 1,
+      baseline: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+      skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+      skilledPlugin: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+      pairwiseResult: { overallWinner: "skill", overallMagnitude: 1, overallReasoning: "better" },
+    }),
+  });
+
+  retryAgentTimeouts(baseConfig(paths, run));
+
+  const merged = JSON.parse(readFileSync(paths.resultsFile, "utf8"));
+  const nativeVerdict = merged.verdicts[0];
+  assert.equal(nativeVerdict.failureKind, "completion_regression");
+  assert.equal(nativeVerdict.skillNotActivated, false);
+  const adapted = legacyToVerdict(nativeVerdict, evalFile, paths.root);
+  assert.equal(adapted.state, "VALID_REGRESSION");
+  assert.equal(adapted.stateReason.code, "native_completion_regression");
+});
+
+test("aggregate recomputation fails closed when pairwise evidence is missing", () => {
+  const verdict = resultsWith([scenario("missing-judgment")]).verdicts[0];
+  delete verdict.scenarios[0].pairwiseResult;
+
+  recomputeNativeAggregate(verdict);
+
+  assert.equal(verdict.failureKind, "execution_error");
+});
