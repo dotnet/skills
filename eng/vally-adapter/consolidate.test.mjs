@@ -356,7 +356,6 @@ test("distinguishes all no-clear-winner evidence shapes and preserves a fallback
     {
       skillName: "positive-unproven",
       state: "VALID_NO_CHANGE",
-      noChangeDiagnosis: "positive_unproven",
       stateReason: { code: "no_credible_preference_change" },
       signTest: { wins: 4, ties: 0, losses: 1, discordant: 5, pValue: 0.1875 },
       stimulusVoteCount: 5,
@@ -365,7 +364,6 @@ test("distinguishes all no-clear-winner evidence shapes and preserves a fallback
     {
       skillName: "negative-unproven",
       state: "VALID_NO_CHANGE",
-      noChangeDiagnosis: "negative_unproven",
       stateReason: { code: "no_credible_preference_change" },
       signTest: { wins: 1, ties: 0, losses: 4, discordant: 5, pValue: 0.1875 },
       stimulusVoteCount: 5,
