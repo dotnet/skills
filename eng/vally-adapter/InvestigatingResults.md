@@ -139,9 +139,9 @@ A verdict carries **both** the head-to-head preference and absolute per-role dat
 | `netWin` | `(wins − losses) / preference-eligible stimulus votes` — the effect size the gate reads. Magnitude-free, so an identical eligible W/T/L record always yields an identical preference verdict |
 | `practicalSignificance` | `{ netWin, minimum, passed }`. The absolute directional effect must reach 20%; this blocks sparse records such as `5W/95T/0L` |
 | `signTest` | `{ wins, ties, losses, discordant, direction, pValue, alpha }` — exact one-sided binomial tail over discordant stimulus votes. **This is what decides.** Ties cannot support a win, so they hold `discordant` down |
-| `regressed` / `preferenceRegressed` | Compatibility and explicit fields for a credible LLM preference loss. In the current schema this maps to `VALID_NO_CHANGE`, not `VALID_REGRESSION`, because ordinal LLM preference is not objective completion evidence. Renderers apply the same report-only meaning to legacy records that have `regressed: true` but no `state` |
+| `regressed` / `preferenceRegressed` | `regressed: true` is reserved for an objective native-agent completion regression (`VALID_REGRESSION`). `preferenceRegressed: true` records a credible LLM preference loss and maps to `VALID_NO_CHANGE`, because ordinal preference is not objective completion evidence. Renderers apply the same report-only meaning to legacy records that have `regressed: true` but no explicit state |
 | `conclusive` | `false` when the comparison did not complete: errored runs, unmatched trajectories, or a summary that disagrees with its own `stimuli[].trials`. Integrity remains fail-closed across eligible and excluded stimuli |
-| `underpowered` | `true` when a completed, `conclusive: true` comparison counted fewer than `minCredibleStimuli` preference-eligible distinct stimuli. An independently proven `activation_contract_failed` state takes headline precedence while this field preserves the preference-power limitation |
+| `underpowered` | `true` when a completed, `conclusive: true` comparison counted fewer than `minCredibleStimuli` preference-eligible distinct stimuli. An independently proven activation-contract failure takes headline precedence. For native-agent results, an objective baseline-pass/isolated-fail completion regression also takes precedence because it does not depend on preference sample size; that state clears `underpowered` so downstream renderers cannot label the objective regression indeterminate |
 | `minCredibleStimuli` | The distinct-stimulus floor in force (5). See `eng/eval-quality/README.md` for why |
 | `minCredibleTrials` | Compatibility alias for `minCredibleStimuli` |
 | `meanScore` | Vally's magnitude-weighted mean preference over all compared stimuli, including dormancy (`much-better` ±1.0, `slightly-better` ±0.4), −1..1. **Triage only — not the gate** |
@@ -199,6 +199,12 @@ authoring floor is intentionally stricter because dormancy no longer counts
 toward five preference cases; `check_eval_quality.py` reports the eligible and
 dormancy counts separately. Historical schema-version-3 results remain
 readable and retain their original all-stimulus semantics.
+
+Dormancy excludes a stimulus only from preference inference and expected
+activation. It does not suppress objective task-completion evidence: if a
+native-agent baseline completes and the isolated target run does not, the
+adapter retains `native_completion_regression` even for
+`expect_activation: false`.
 
 The adapter's zero-dependency YAML scanner follows PyYAML's Boolean spellings
 for `false` (`false`/`False`/`FALSE`, `no`/`No`/`NO`, and
@@ -423,7 +429,7 @@ skill emitted the activity event.
 The skill was available but the agent never invoked it, so "skilled" ≈ "baseline" and no improvement is possible. Fixes: sharpen the skill's `description`/trigger phrasing in `SKILL.md` so the model recognizes when to use it, and make sure the eval prompt actually describes a task the skill targets.
 
 ### 5. Underpowered eval (`underpowered == true`)
-Not a skill problem — an eval problem. The gate gives each preference-eligible distinct stimulus one vote. Explicit dormancy stimuli do not satisfy this floor; they are activation-contract evidence. Repeated runs collapse by majority direction and remain available as reliability evidence. The exact one-sided sign test cannot reach `p ≤ 0.05` on fewer than five discordant preference votes (`0.5⁴ = 0.0625`), so below `minCredibleStimuli` (5) **no possible preference record passes**, however good the skill is. An unexpected dormancy activation is still a definitive routing failure and may take headline `stateReason` precedence while `underpowered: true` remains visible.
+Not a skill problem — an eval problem. The gate gives each preference-eligible distinct stimulus one vote. Explicit dormancy stimuli do not satisfy this floor; they are activation-contract evidence. Repeated runs collapse by majority direction and remain available as reliability evidence. The exact one-sided sign test cannot reach `p ≤ 0.05` on fewer than five discordant preference votes (`0.5⁴ = 0.0625`), so below `minCredibleStimuli` (5) **no possible preference record passes**, however good the skill is. An unexpected dormancy activation is still a definitive routing failure. A fully measured native-agent completion regression also overrides preference underpowering; timeout, execution, and comparison-invalid evidence remain `INVALID_INCONCLUSIVE`.
 
 Do not "fix" the skill or raise `defaults.runs` in response to this. Add independent, discriminating stimuli. Vally defines stimuli as test cases and uses runs for pass rate, pass@k, pass^k, and flakiness. Its scoring guide recommends 3 runs for CI and 5–10 for nightly reliability measurement, but does not prescribe a distinct-stimulus count or sign-test alpha. `eng/eval-quality/check_eval_quality.py` fails any new eval below the five-stimulus floor and tracks grandfathered debt in `eng/eval-quality/underpowered-allowlist.txt`.
 

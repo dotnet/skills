@@ -47,14 +47,18 @@ function runResult(score, taskCompleted = true) {
   };
 }
 
-function writeAgentEval(root, scenarioCount = 5) {
+function writeAgentEval(root, scenarioCount = 5, nonActivationScenarios = []) {
   const evalDir = join(root, "tests", "demo", "agent.router");
   mkdirSync(evalDir, { recursive: true });
-  const stimuli = Array.from({ length: scenarioCount }, (_, index) => `
-  - name: Scenario ${index + 1}
-    prompt: Route this request.
+  const nonActivation = new Set(nonActivationScenarios);
+  const stimuli = Array.from({ length: scenarioCount }, (_, index) => {
+    const name = `Scenario ${index + 1}`;
+    return `
+  - name: ${name}
+${nonActivation.has(name) ? "    expect_activation: false\n" : ""}    prompt: Route this request.
     rubric:
-      - Completed the task`);
+      - Completed the task`;
+  });
   const evalFile = "tests/demo/agent.router/eval.yaml";
   writeFileSync(join(root, evalFile), `name: agent.router
 defaults:
@@ -657,6 +661,75 @@ test("preserves a native completion regression over a preference win", () => {
   }
 });
 
+test("dormancy does not suppress an objective native completion regression", () => {
+  const root = mkdtempSync(join(tmpdir(), "agent-adapter-dormant-completion-"));
+  try {
+    writeAgentEval(root, 6, ["Scenario 6"]);
+    const scenarios = [1, 2, 3, 4, 5, 6].map(winningScenario);
+    scenarios[5].expectActivation = false;
+    scenarios[5].subagentActivationIsolated.invokedAgents = [];
+    scenarios[5].baseline.metrics.taskCompleted = true;
+    scenarios[5].skilledIsolated.metrics.taskCompleted = false;
+    const { output, result } = runAdapter(root, {
+      skillName: "router",
+      skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
+      skillKind: "agent",
+      passed: false,
+      failureKind: "completion_regression",
+      scenarios,
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const verdict = JSON.parse(
+      readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+    ).verdicts[0];
+    assert.equal(verdict.signTest.wins, 5);
+    assert.equal(verdict.excludedScenarioEvidence.count, 1);
+    assert.equal(verdict.state, "VALID_REGRESSION");
+    assert.equal(verdict.stateReason.code, "native_completion_regression");
+    assert.equal(verdict.passed, false);
+    assert.equal(verdict.regressed, true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+for (const scenarioCount of [1, 4]) {
+  test(`${scenarioCount}-scenario objective regression overrides preference underpowering`, () => {
+    const root = mkdtempSync(join(tmpdir(), "agent-adapter-underpowered-regression-"));
+    try {
+      writeAgentEval(root, scenarioCount);
+      const scenarios = Array.from(
+        { length: scenarioCount },
+        (_, index) => winningScenario(index + 1),
+      );
+      scenarios[0].baseline.metrics.taskCompleted = true;
+      scenarios[0].skilledIsolated.metrics.taskCompleted = false;
+      const { output, result } = runAdapter(root, {
+        skillName: "router",
+        skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
+        skillKind: "agent",
+        passed: false,
+        failureKind: "completion_regression",
+        scenarios,
+      });
+
+      assert.equal(result.status, 0, result.stderr);
+      const verdict = JSON.parse(
+        readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+      ).verdicts[0];
+      assert.equal(verdict.stimulusVoteCount, scenarioCount);
+      assert.equal(verdict.state, "VALID_REGRESSION");
+      assert.equal(verdict.stateReason.code, "native_completion_regression");
+      assert.equal(verdict.underpowered, false);
+      assert.equal(verdict.passed, false);
+      assert.equal(verdict.regressed, true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+}
+
 test("native activation-contract failure takes precedence over completion regression", () => {
   const root = mkdtempSync(join(tmpdir(), "agent-adapter-activation-completion-"));
   try {
@@ -715,7 +788,7 @@ for (const {
     const root = mkdtempSync(join(tmpdir(), "agent-adapter-invalid-completion-"));
     try {
       writeAgentEval(root);
-      const scenarios = [1, 2, 3, 4, 5].map(winningScenario);
+      const scenarios = [1, 2, 3, 4].map(winningScenario);
       invalidate(scenarios[0]);
       scenarios[1].baseline.metrics.taskCompleted = true;
       scenarios[1].skilledIsolated.metrics.taskCompleted = false;

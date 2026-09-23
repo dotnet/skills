@@ -2218,6 +2218,12 @@ esac
                 ),
                 1,
             )
+            self.assertEqual(
+                triggers[event]["paths"].count(
+                    ".github/workflows/pr-triage.yml"
+                ),
+                1,
+            )
 
         job = workflow["jobs"]["vally-adapter"]
         self.assertEqual(job["runs-on"], "ubuntu-latest")

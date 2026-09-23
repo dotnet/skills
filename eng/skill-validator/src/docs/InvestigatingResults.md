@@ -45,6 +45,10 @@
 > causes. `preferenceRegressed` is report-only LLM preference evidence and is
 > not an objective completion regression. `adapter-summary.json` reconciles the
 > exact expected-eval manifest with observed and written results.
+> Native-agent baseline-pass/isolated-fail completion evidence can produce
+> `VALID_REGRESSION` even when preference evidence has fewer than five eligible
+> stimuli, including on an `expect_activation: false` scenario. Execution,
+> timeout, missing-arm, and comparison-invalid evidence still takes precedence.
 > `practicalSignificance` adds the 20% net-win floor. Objective completion is a
 > separately defined tri-state over explicitly selected deterministic graders;
 > aggregate Vally pass booleans remain report-only. These fields do not exist

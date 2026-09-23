@@ -226,8 +226,7 @@ function scenarioTimedOut(scenario) {
 function nativeCompletionRegressed(scenarios) {
   return (scenarios ?? []).some(
     (scenario) =>
-      scenario?.expectActivation !== false
-      && !scenario?.executionError
+      !scenario?.executionError
       && (scenario?.failedRunCount ?? 0) === 0
       && !scenarioTimedOut(scenario)
       && scenario?.baseline
@@ -377,12 +376,19 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
     verdict.reason = `${verdict.reason} — native evaluator reported that the target agent did not activate`;
   } else if (completionRegressed) {
     verdict.passed = false;
-    if (verdict.state !== VERDICT_STATES.INVALID_INCONCLUSIVE) {
+    const preferenceOnlyUnderpowered =
+      verdict.state === VERDICT_STATES.INVALID_INCONCLUSIVE
+      && verdict.stateReason?.code === "underpowered";
+    if (
+      verdict.state !== VERDICT_STATES.INVALID_INCONCLUSIVE
+      || preferenceOnlyUnderpowered
+    ) {
       verdict.state = VERDICT_STATES.VALID_REGRESSION;
       verdict.stateReason = {
         code: "native_completion_regression",
         phase: "completion",
       };
+      verdict.underpowered = false;
       verdict.regressed = true;
     }
     verdict.reason = `${verdict.reason} — native evaluator reported an objective task-completion regression`;

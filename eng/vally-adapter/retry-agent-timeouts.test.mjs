@@ -555,13 +555,14 @@ test("a threshold failure survives while stale overfitting metadata is cleared",
   assert.equal(verdict.overfittingResult, null);
 });
 
-test("a dormant scenario is never read as a regression or a missed activation", () => {
+test("a dormant scenario can regress completion but not activation", () => {
   const dormant = scenario("dormant", {
     expectActivation: false,
     skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
     subagentActivationIsolated: { invokedAgents: [] },
   });
 
+  assert.equal(scenarioRegressedOnIsolatedCompletion(dormant), true);
   assert.equal(scenarioMissedActivation(dormant, "code-testing-generator"), false);
 });
 
@@ -680,7 +681,24 @@ test("the restored regression predicate matches the evaluator exactly", () => {
     expectActivation: false,
     skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
   });
-  assert.equal(scenarioRegressedOnIsolatedCompletion(dormant), false);
+  assert.equal(scenarioRegressedOnIsolatedCompletion(dormant), true);
+});
+
+test("aggregate recomputation preserves a dormant completion regression", () => {
+  const verdict = resultsWith([
+    scenario("dormant-regression", {
+      expectActivation: false,
+      subagentActivationIsolated: { invokedAgents: [] },
+      baseline: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+      skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
+    }),
+  ]).verdicts[0];
+  verdict.failureKind = "completion_regression";
+
+  recomputeNativeAggregate(verdict);
+
+  assert.equal(verdict.failureKind, "completion_regression");
+  assert.equal(verdict.skillNotActivated, false);
 });
 
 test("a masked regression survives a real end-to-end recovery", () => {

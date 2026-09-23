@@ -460,14 +460,12 @@ function writeAtomic(path, content) {
  * The evaluator's exact completion-regression predicate for an agent scenario.
  *
  * `ComputeAgentVerdict` passes `pluginIsDiagnosticOnly: true`, so the plugin arm
- * drops out of `Comparator.cs:145-151` and only the isolated arm counts. This
- * predicate is used where a regression is being RE-ASSERTED rather than cleared,
- * so it must not be widened: a wider predicate here would invent a failure the
- * evaluator never recorded.
+ * drops out of `Comparator.cs:128-131` and only the isolated arm counts.
+ * Comparator applies this completion predicate to every measured scenario,
+ * including expected-dormancy scenarios.
  */
 function scenarioRegressedOnIsolatedCompletion(scenario) {
   return (
-    scenario?.expectActivation !== false &&
     scenario?.baseline?.metrics?.taskCompleted === true &&
     scenario?.skilledIsolated?.metrics?.taskCompleted !== true
   );
