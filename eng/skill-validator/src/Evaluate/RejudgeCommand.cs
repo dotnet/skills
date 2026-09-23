@@ -499,21 +499,34 @@ public static class RejudgeCommand
         var pairs = new List<CrossDirPair>();
         var matchedBaselineIds = new HashSet<string>(StringComparer.Ordinal);
         var unmatchedTreatment = new List<string>();
+        var duplicateTreatment = new List<string>();
 
         foreach (var group in treatmentSessions.GroupBy(s => (s.SkillName, s.ScenarioName, s.RunIndex)))
         {
-            var isolated = IsolatedRoles
-                .Select(role => group.FirstOrDefault(s => s.Role == role))
-                .FirstOrDefault(s => s is not null);
+            var groupSessions = group.ToList();
+            var isolatedSessions = groupSessions
+                .Where(session => IsolatedRoles.Contains(session.Role))
+                .ToList();
+            var pluginSessions = groupSessions
+                .Where(session => PluginRoles.Contains(session.Role))
+                .ToList();
+            if (isolatedSessions.Count > 1 || pluginSessions.Count > 1)
+            {
+                duplicateTreatment.Add(FormatDuplicateRunGroupIdentity(
+                    group,
+                    isolatedSessions,
+                    pluginSessions));
+                continue;
+            }
+
+            var isolated = isolatedSessions.SingleOrDefault();
             if (isolated is null)
             {
                 unmatchedTreatment.Add(FormatRunGroupIdentity(group));
                 continue;
             }
 
-            var plugin = PluginRoles
-                .Select(role => group.FirstOrDefault(s => s.Role == role))
-                .FirstOrDefault(s => s is not null);
+            var plugin = pluginSessions.SingleOrDefault();
 
             var key = isolated.BaselineKey;
             if (string.IsNullOrEmpty(key) || !baselineByKey.TryGetValue(key, out var candidates) || candidates.Count == 0)
@@ -539,12 +552,14 @@ public static class RejudgeCommand
             .Select(FormatSessionIdentity)
             .ToList();
 
-        return new CrossDirPairing(pairs, unmatchedBaseline, unmatchedTreatment);
+        return new CrossDirPairing(pairs, unmatchedBaseline, unmatchedTreatment, duplicateTreatment);
     }
 
     internal static string? GetCrossDirPairingFailure(CrossDirPairing pairing)
     {
-        if (pairing.UnmatchedBaseline.Count == 0 && pairing.UnmatchedTreatment.Count == 0)
+        if (pairing.UnmatchedBaseline.Count == 0
+            && pairing.UnmatchedTreatment.Count == 0
+            && pairing.DuplicateTreatment.Count == 0)
         {
             return pairing.Pairs.Count == 0
                 ? "No treatment runs could be paired with a baseline."
@@ -565,6 +580,11 @@ public static class RejudgeCommand
             lines.Add("Unmatched treatment run(s):");
             lines.AddRange(pairing.UnmatchedTreatment.Select(identity => $"  - {identity}"));
         }
+        if (pairing.DuplicateTreatment.Count > 0)
+        {
+            lines.Add("Duplicate treatment role record(s):");
+            lines.AddRange(pairing.DuplicateTreatment.Select(identity => $"  - {identity}"));
+        }
 
         return string.Join(Environment.NewLine, lines);
     }
@@ -584,6 +604,26 @@ public static class RejudgeCommand
             .Select(session =>
                 $"{session.Role}:id={session.Id},baseline_key={FormatBaselineKey(session.BaselineKey)}"));
         return $"{group.Key.SkillName}/{group.Key.ScenarioName}#{group.Key.RunIndex + 1} ({sessions})";
+    }
+
+    private static string FormatDuplicateRunGroupIdentity(
+        IGrouping<(string SkillName, string ScenarioName, int RunIndex), SessionRecord> group,
+        IReadOnlyList<SessionRecord> isolatedSessions,
+        IReadOnlyList<SessionRecord> pluginSessions)
+    {
+        var duplicateArms = new List<string>();
+        if (isolatedSessions.Count > 1)
+        {
+            duplicateArms.Add("isolated=[" + string.Join(", ", isolatedSessions.Select(
+                session => $"{session.Role}:id={session.Id}")) + "]");
+        }
+        if (pluginSessions.Count > 1)
+        {
+            duplicateArms.Add("plugin=[" + string.Join(", ", pluginSessions.Select(
+                session => $"{session.Role}:id={session.Id}")) + "]");
+        }
+
+        return $"{FormatRunGroupIdentity(group)}; duplicate arms: {string.Join("; ", duplicateArms)}";
     }
 
     private static string FormatBaselineKey(string? baselineKey) =>
@@ -1129,4 +1169,5 @@ public sealed record CrossDirPair(
 public sealed record CrossDirPairing(
     IReadOnlyList<CrossDirPair> Pairs,
     IReadOnlyList<string> UnmatchedBaseline,
-    IReadOnlyList<string> UnmatchedTreatment);
+    IReadOnlyList<string> UnmatchedTreatment,
+    IReadOnlyList<string> DuplicateTreatment);

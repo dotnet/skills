@@ -309,6 +309,99 @@ public class RejudgeCommandTests
         Assert.Equal(2, pairing.Pairs.Count);
         Assert.Empty(pairing.UnmatchedBaseline);
         Assert.Empty(pairing.UnmatchedTreatment);
+        Assert.Empty(pairing.DuplicateTreatment);
+        Assert.Null(RejudgeCommand.GetCrossDirPairingFailure(pairing));
+    }
+
+    [Fact]
+    public void PairCrossDir_DuplicateIsolatedRole_FailsAccounting()
+    {
+        var baseline = new[] { Rec("b0", "baseline", 0, "K1") };
+        var treatment = new[]
+        {
+            Rec("iso-1", "with-skill-isolated", 0, "K1"),
+            Rec("iso-2", "with-skill-isolated", 0, "K1"),
+        };
+
+        var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
+
+        Assert.Empty(pairing.Pairs);
+        Assert.Contains("b0", Assert.Single(pairing.UnmatchedBaseline));
+        var duplicate = Assert.Single(pairing.DuplicateTreatment);
+        Assert.Contains("with-skill-isolated:id=iso-1", duplicate);
+        Assert.Contains("with-skill-isolated:id=iso-2", duplicate);
+        var failure = RejudgeCommand.GetCrossDirPairingFailure(pairing);
+        Assert.Contains("Duplicate treatment role record(s)", failure);
+        Assert.Contains("isolated=[", failure);
+    }
+
+    [Fact]
+    public void PairCrossDir_DuplicatePluginRole_FailsAccounting()
+    {
+        var baseline = new[] { Rec("b0", "baseline", 0, "K1") };
+        var treatment = new[]
+        {
+            Rec("iso", "with-skill-isolated", 0, "K1"),
+            Rec("plugin-1", "with-skill-plugin", 0, "K1"),
+            Rec("plugin-2", "with-skill-plugin", 0, "K1"),
+        };
+
+        var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
+
+        Assert.Empty(pairing.Pairs);
+        Assert.Contains("b0", Assert.Single(pairing.UnmatchedBaseline));
+        var duplicate = Assert.Single(pairing.DuplicateTreatment);
+        Assert.Contains("with-skill-plugin:id=plugin-1", duplicate);
+        Assert.Contains("with-skill-plugin:id=plugin-2", duplicate);
+        var failure = RejudgeCommand.GetCrossDirPairingFailure(pairing);
+        Assert.Contains("Duplicate treatment role record(s)", failure);
+        Assert.Contains("plugin=[", failure);
+    }
+
+    [Fact]
+    public void PairCrossDir_DuplicateRoleAndValidPair_FailsAllAccounting()
+    {
+        var baseline = new[]
+        {
+            Rec("b0", "baseline", 0, "K1"),
+            Rec("b1", "baseline", 1, "K2"),
+        };
+        var treatment = new[]
+        {
+            Rec("iso-1a", "with-skill-isolated", 0, "K1"),
+            Rec("iso-1b", "with-skill-isolated", 0, "K1"),
+            Rec("iso-2", "with-skill-isolated", 1, "K2"),
+            Rec("plugin-2", "with-skill-plugin", 1, "K2"),
+        };
+
+        var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
+
+        var pair = Assert.Single(pairing.Pairs);
+        Assert.Equal("iso-2", pair.Isolated.Id);
+        Assert.Equal("plugin-2", pair.Plugin!.Id);
+        Assert.Contains("b0", Assert.Single(pairing.UnmatchedBaseline));
+        Assert.Single(pairing.DuplicateTreatment);
+        Assert.NotNull(RejudgeCommand.GetCrossDirPairingFailure(pairing));
+    }
+
+    [Fact]
+    public void PairCrossDir_CompleteUniquePair_PassesAccounting()
+    {
+        var baseline = new[] { Rec("b0", "baseline", 0, "K1") };
+        var treatment = new[]
+        {
+            Rec("iso", "with-skill-isolated", 0, "K1"),
+            Rec("plugin", "with-skill-plugin", 0, "K1"),
+        };
+
+        var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
+
+        var pair = Assert.Single(pairing.Pairs);
+        Assert.Equal("iso", pair.Isolated.Id);
+        Assert.Equal("plugin", pair.Plugin!.Id);
+        Assert.Empty(pairing.UnmatchedBaseline);
+        Assert.Empty(pairing.UnmatchedTreatment);
+        Assert.Empty(pairing.DuplicateTreatment);
         Assert.Null(RejudgeCommand.GetCrossDirPairingFailure(pairing));
     }
 

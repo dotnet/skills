@@ -12,6 +12,35 @@ namespace SkillValidator.Tests;
 
 public class BuildSessionConfigTests
 {
+    private static readonly string[] ExpectedBinlogMcpTools =
+    [
+        "get_diagnostics",
+        "get_evaluation_global_properties",
+        "get_evaluation_items_by_name",
+        "get_evaluation_properties_by_name",
+        "get_expensive_analyzers",
+        "get_expensive_projects",
+        "get_expensive_targets",
+        "get_expensive_tasks",
+        "get_file_from_binlog",
+        "get_node_timeline",
+        "get_project_build_time",
+        "get_project_target_list",
+        "get_project_target_times",
+        "get_target_info_by_id",
+        "get_target_info_by_name",
+        "get_task_analyzers",
+        "get_task_info",
+        "list_evaluations",
+        "list_files_from_binlog",
+        "list_projects",
+        "list_tasks_in_target",
+        "load_binlog",
+        "search_binlog",
+        "search_targets_by_name",
+        "search_tasks_by_name",
+    ];
+
     private static readonly SkillInfo MockSkill = new(
         Name: "test-skill",
         Description: "A test skill",
@@ -727,6 +756,93 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
+    public async Task ShippedBinlogMcpManifestAllowsOnlySupportedTools()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var skillDirectory = Path.Combine(
+            repositoryRoot,
+            "plugins",
+            "dotnet-msbuild",
+            "skills",
+            "binlog-failure-analysis");
+        var mcpServers = await EvaluateCommand.FindPluginMcpServers(skillDirectory);
+        var binlog = Assert.Single(mcpServers!);
+        Assert.Equal("binlog", binlog.Key);
+        Assert.Equal(ExpectedBinlogMcpTools, binlog.Value.Tools);
+
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(
+            null,
+            null,
+            "gpt-4.1",
+            workDir,
+            mcpServers);
+
+        foreach (var tool in ExpectedBinlogMcpTools)
+        {
+            var decision = await config.OnPermissionRequest!(
+                new PermissionRequestMcp
+                {
+                    Kind = "mcp",
+                    ReadOnly = true,
+                    ServerName = "binlog",
+                    ToolCallId = $"mcp-{tool}",
+                    ToolName = tool,
+                    ToolTitle = tool,
+                },
+                null!);
+
+            Assert.Equal("approve-once", decision.Kind);
+        }
+
+        var undeclared = await config.OnPermissionRequest!(
+            new PermissionRequestMcp
+            {
+                Kind = "mcp",
+                ReadOnly = true,
+                ServerName = "binlog",
+                ToolCallId = "mcp-undeclared",
+                ToolName = "delete_binlog",
+                ToolTitle = "Delete binlog",
+            },
+            null!);
+
+        Assert.Equal("reject", undeclared.Kind);
+    }
+
+    [Fact]
+    public void McpPermissionRejectsUntrustedServerWithOmittedTools()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var allowedMcpServers = new Dictionary<string, McpServerConfig>
+        {
+            ["untrusted"] = new McpStdioServerConfig
+            {
+                Command = "custom-mcp",
+                Args = [],
+            },
+        };
+
+        var decision = AgentRunner.DecidePermissionRequest(
+            new PermissionRequestMcp
+            {
+                Kind = "mcp",
+                ReadOnly = true,
+                ServerName = "untrusted",
+                ToolCallId = "mcp-untrusted",
+                ToolName = "inspect",
+                ToolTitle = "Inspect",
+            },
+            workDir,
+            log: null,
+            runLabel: "test",
+            additionalAllowedDirs: [],
+            allowedMcpServers);
+
+        Assert.Equal("reject", decision.Kind);
+    }
+
+    [Fact]
     public async Task McpPermissionAllowsExplicitWildcard()
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
@@ -902,6 +1018,17 @@ public class BuildSessionConfigTests
         var configIndex = entry.Args.IndexOf("--configfile");
         Assert.True(configIndex >= 0);
         Assert.True(File.Exists(entry.Args[configIndex + 1]));
+    }
+
+    private static string FindRepositoryRoot(
+        [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "")
+    {
+        return Path.GetFullPath(Path.Combine(
+            Path.GetDirectoryName(sourceFilePath)!,
+            "..",
+            "..",
+            "..",
+            ".."));
     }
 
     [Fact]
