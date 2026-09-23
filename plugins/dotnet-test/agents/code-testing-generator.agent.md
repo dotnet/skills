@@ -174,6 +174,9 @@ behavior.
 1. **Pseudo-mutation check** — invoke the `test-gap-analysis` skill against the source file(s) you tested and the test file(s) you produced. The skill reasons about plausible mutations (boundary flips, dropped null checks, removed exceptions, sign flips) and reports which would slip past your tests. For every gap it flags, either strengthen the existing assertion or add a follow-up test. Re-run until no gap is reported, or until the remaining gaps are explicitly out of scope (e.g., production bugs you cannot fix in a test-only PR).
 
 2. **Assertion-depth check** — invoke the `assertion-quality` skill against the test file(s) you produced. If it flags trivial-only assertions (`IsNotNull` / `toBeDefined` / `assert x is not None`-only tests, tautological round-trip assertions, single-observable tests where the production code touches multiple observables), revise those tests — replace existence checks with concrete-value assertions, and add a secondary observable per behavior-radius guidance.
+   Add a secondary observable only when it is part of the public contract or
+   required to prove a requested interaction; do not couple tests to incidental
+   state, logs, or call counts.
 
 3. **Prompt-scenario coverage check** — when the prompt enumerates specific behaviors or scenarios to verify, map each one to a dedicated test before reporting completion. This guards against the common failure of testing an *adjacent* function and leaving the requested behavior uncovered:
    - **Target the exact function/feature named in the objective**, not a neighboring helper that merely looks related. Test the named symbol directly — do not substitute a similarly-named sibling and assume it transitively covers the target. Prefer extending the canonical existing test file for that feature over creating a new, narrower file.

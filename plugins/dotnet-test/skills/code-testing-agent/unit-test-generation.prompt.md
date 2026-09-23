@@ -34,8 +34,8 @@ Generate concise, parameterized, and effective unit tests using discovered conve
   representative neighboring test for conventions
 - **Broad scope**: inventory the requested modules first, then cover their
   non-trivial public behavior without reading unrelated code
-- Stop when every requested behavior and distinct observable partition has a
-  mutation-relevant assertion, or when a requested coverage target is met
+- Stop only when every requested behavior and distinct observable partition
+  has a mutation-relevant assertion and any requested coverage target is met
 
 ### Key Testing Goals
 

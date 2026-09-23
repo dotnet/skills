@@ -33,9 +33,10 @@ Classify scope **before editing**:
 
 For either scope, run the narrowest relevant test command to a clean exit.
 Keep the handoff proportional: for one to three focused requirements, use a
-compact bullet list that names the tests and successful command; for broader or
-multi-requirement work, use a `Requirement | Evidence` table. Each requested
-behavior must cite an exact test name.
+compact bullet list under a **Requirement coverage** label that names the tests
+and successful command; for broader or multi-requirement work, use a
+`Requirement | Evidence` table. Each requested behavior must cite an exact test
+name.
 
 Intermediate state files are internal working data, never deliverables. Keep
 `<TESTAGENT_DIR>` non-stageable, never place it or its files in
@@ -232,10 +233,11 @@ Do not report completion until all of these are true:
    the source — without spawning extra passes.
 
 The final response must provide requirement-by-requirement evidence. Use compact
-bullets for one to three focused requirements; use a `Requirement | Evidence`
-table for broader scopes. Behavioral evidence cites exact generated test names.
-Non-behavioral evidence cites the relevant project file, validation command, or
-coverage report. A generic list of tested areas is not a substitute.
+bullets under a **Requirement coverage** label for one to three focused
+requirements; use a `Requirement | Evidence` table for broader scopes.
+Behavioral evidence cites exact generated test names. Non-behavioral evidence
+cites the relevant project file, validation command, or coverage report. A
+generic list of tested areas is not a substitute.
 
 Preserve the user's exact meaning in each evidence item; quote verbatim only
 when wording distinguishes a required combination. A test that merely exercises

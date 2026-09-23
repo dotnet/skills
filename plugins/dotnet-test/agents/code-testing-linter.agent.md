@@ -34,7 +34,8 @@ If not provided, check in order:
    - `pyproject.toml` → `black .` or `ruff format`
    - `go.mod` → `go fmt ./...`
    - `Cargo.toml` → `cargo fmt`
-   - `.prettierrc` → `npx prettier --write .`
+   - `.prettierrc` → `npx prettier --write <caller-target>` when a target was
+     supplied; use `npx prettier --write .` only for an unscoped request
 
 Stop discovery once a repository-owned command is known. Prefer a scoped
 command over a workspace-wide one, batch independent manifest reads when

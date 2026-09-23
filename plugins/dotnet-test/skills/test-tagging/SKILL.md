@@ -175,9 +175,17 @@ expand into the behavioral-gap audit owned by `test-gap-analysis`.
 
 ### Step 4: Apply trait attributes (or report only)
 
-**If the resolved capability is `auto-edit`**, add the appropriate attribute to
-each test method. Place trait attributes adjacent to the existing test
-attribute. Examples:
+Resolve the mode before applying the capability:
+
+- **Audit mode** (`audit`, `classify`, `report`, or ambiguous intent): emit the
+  per-test mapping and summary without modifying source, regardless of
+  capability.
+- **Edit mode** (`tag`, `apply`, or explicitly requested `both`): continue with
+  the capability branch below.
+
+**In edit mode, if the resolved capability is `auto-edit`**, add the appropriate
+attribute to each test method. Place trait attributes adjacent to the existing
+test attribute. Examples:
 
 Apply traits at the individual test-method/case level. Do not substitute one
 class-level category for method-level classification: different methods usually
@@ -263,14 +271,14 @@ func parseNullInputThrows() throws { ... }
 TEST_CASE("Parse null input throws", "[negative][boundary]") { ... }
 ```
 
-**If the resolved capability is `report-only`** (Go standard `testing`, plain
-Jest/Vitest without convention, Rust without project-specific cfg, plain
-XCTest, plain GoogleTest, plain Mocha), do NOT modify source files. Instead emit
-a concise mapping from each test to its suggested tags. Recommend a project-wide
-convention only when the user asks how to persist or filter those tags; an
-analysis-only request should report and stop.
+**In any mode, if the resolved capability is `report-only`** (Go standard
+`testing`, plain Jest/Vitest without convention, Rust without project-specific
+cfg, plain XCTest, plain GoogleTest, plain Mocha), do NOT modify source files.
+Instead emit a concise mapping from each test to its suggested tags. Recommend a
+project-wide convention only when the user asks how to persist or filter those
+tags; an analysis-only request should report and stop.
 
-**If the resolved capability is `convention-based`** (e.g., Go
+**In edit mode, if the resolved capability is `convention-based`** (e.g., Go
 `//go:build integration`, `*_integration_test.go`, GoogleTest `INTEGRATION_*`
 prefix), only emit canonical edits when the user has confirmed the project's
 convention. Otherwise treat as `report-only`.
