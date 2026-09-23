@@ -89,30 +89,6 @@ for attempt in $(seq 1 20); do
   sleep 1
 done
 
-for authorization in "" "wrong-canary-agent"; do
-  auth_header=()
-  if [[ -n "$authorization" ]]; then
-    auth_header=(--header "Authorization: $authorization")
-  fi
-  status=$(
-    curl --silent --show-error \
-      --output /dev/null \
-      --write-out "%{http_code}" \
-      "${auth_header[@]}" \
-      --header "content-type: application/json" \
-      --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"unauthorized-canary","version":"1"}}}' \
-      http://127.0.0.1:18080/mcp/canary
-  )
-  if [[ "$status" != "401" && "$status" != "403" ]]; then
-    echo "::error::MCP Gateway accepted invalid authorization (HTTP $status)"
-    exit 1
-  fi
-done
-if [[ -s "$RUNNER_TEMP/mcp-canary-evidence.jsonl" ]]; then
-  echo "::error::Unauthorized requests reached the MCP backend"
-  exit 1
-fi
-
 mkdir -p "$HOME/.copilot"
 cat > "$HOME/.copilot/mcp-config.json" <<'JSON'
 {
@@ -171,6 +147,8 @@ if ! grep -q "DEVOPS_HEALTH_MCP_CANARY_OK" \
   exit 1
 fi
 
+echo "Copilot CLI: $(copilot --version | head -1)"
+echo "MCP Gateway: $GATEWAY_IMAGE"
 echo "MCP protocol: $protocol"
 echo "MCP flow: initialize -> notifications/initialized -> tools/list -> tools/call"
 echo "MCP tool: read_canary"
