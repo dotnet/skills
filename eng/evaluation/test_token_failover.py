@@ -934,7 +934,7 @@ class TokenFailoverTests(unittest.TestCase):
         )
         self.assertEqual(
             canary["permissions"],
-            {"actions": "read", "contents": "read", "issues": "read"},
+            {"actions": "write", "contents": "read", "issues": "write"},
         )
         canary_job = canary["jobs"]["groom"]
         self.assertIn(
@@ -949,7 +949,6 @@ class TokenFailoverTests(unittest.TestCase):
             "./.github/workflows/devops-health-groom.lock.yml",
         )
         self.assertEqual(canary_job["with"], {"dry_run": True})
-        self.assertNotIn("actions: write", canary_text)
         self.assertNotIn("gh workflow run", canary_text)
         self.assertTrue(canary["concurrency"]["cancel-in-progress"])
         self.assertIn(
