@@ -288,13 +288,14 @@ Several scenario-level options in `eval.yaml` are relevant when diagnosing failu
 measurement-invalid, even when every other scenario produced clean evidence. The
 evaluation workflow therefore runs `eng/vally-adapter/retry-agent-timeouts.mjs`
 before the adapter. It re-runs only the timed-out scenario, using
-`skill-validator evaluate --scenario "<name>"`, writes that retry into its own
-`--results-dir`, and replaces only that one scenario record in the native
-results file. Because the retry never shares a results directory, its sessions
-never merge with the first attempt's: every role/session record stays unique and
-the `rejudge` pairing rules that reject duplicate completed roles still apply
-unchanged. The retry judges the arms it re-runs, so no separate `rejudge` pass
-is needed.
+`skill-validator evaluate --target "<agent>" --scenario "<name>"`, writes that
+retry into its own `--results-dir`, and replaces only that one scenario record
+in the native results file. The target filter prevents another agent with the
+same scenario name from entering the retry. Because the retry never shares a
+results directory, its sessions never merge with the first attempt's: every
+role/session record stays unique and the `rejudge` pairing rules that reject
+duplicate completed roles still apply unchanged. The retry judges the arms it
+re-runs, so no separate `rejudge` pass is needed.
 
 The retry is deliberately narrow. It fires only when a wall-clock timeout is the
 scenario's sole defect; an `executionError`, `failedRunCount > 0`, a missing
@@ -305,31 +306,29 @@ original measurement in place and keeps the eval invalid. Check
 `recoveredScenarioCount`, `unresolvedScenarioCount`, `clearedAggregates`, and a
 per-scenario reason.
 
-Because a timed-out arm reports no completed task and no activation, the first
-attempt's verdict-level aggregates may claim a completion regression or an
-activation failure that the recovered scenario contradicts. After a swap the
-retry re-derives those aggregates from the surviving scenarios and clears
-`failureKind=completion_regression`, `failureKind=skill_not_activated`, and
-`skillNotActivated` only when no scenario still supports them — a genuine
-regression or activation failure in any scenario keeps failing. Because the
-verdict holds a single `FailureKind` and the activation gate overwrites it,
-clearing an activation failure re-derives the evaluator's exact isolated
-completion predicate and restores `completion_regression` when a surviving
-scenario still regressed. The bootstrapped
-confidence interval is dropped rather than approximated because it covered the
-timed-out run; `overfittingResult` is kept, since it analyses agent and eval
-text rather than run outcomes.
+After replacement, recovery recomputes execution, isolated target-agent
+activation, unexpected activation, and completion-regression state from all
+surviving scenarios. It clears stale `failureKind`/`skillNotActivated` values
+when the evidence no longer supports them, while any true remaining failure
+stays fail-closed. If stale `skill_not_activated` masked an isolated completion
+regression, recomputation restores `completion_regression`. It also clears the
+old `confidenceInterval`,
+`isSignificant`, and `overfittingResult`; the changed sample cannot reuse the
+first attempt's aggregate statistics, and native agent evals do not produce an
+overfitting assessment. The adapter derives the completion and activation gates
+from scenarios again instead of trusting legacy aggregate flags.
 
-The retry directory lives under the leg's results directory so its sessions
-stay available for audit, but its own `results.json` files are renamed to
-`results.retry.json` so no recursive collector counts the narrower retry copy as
-a second native result. The workflow repeats that rename unconditionally after
-the retry step, because a TERM/KILL from the step's `timeout` can end the retry
-before its own cleanup runs.
+Retry runs first write outside `RESULTS_DIR`, so a workflow `SIGTERM` cannot
+leave a retry `results.json` where recursive discovery can count it. After a
+retry process finishes, its `sessions.db`, logs, and raw result (renamed
+`retry-results.json`) are copied under `_agent-timeout-retry/` in the main
+evaluation artifact. Workflow result counting, consolidation, summaries, and
+dashboard publication also exclude this subtree as defense in depth, so exactly
+one adapted per-agent `results.json` is authoritative.
 
-`--scenario` is repeatable, matches scenario names case-insensitively, and exits
-`1` when a name matches nothing, so a typo can never quietly evaluate an empty
-set and report a clean run.
+`--target` and `--scenario` are repeatable, match names case-insensitively, and
+exit `1` when a name matches nothing, so a typo can never quietly evaluate an
+empty set and report a clean run.
 
 ### 2. Baseline already bad
 

@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -8,12 +15,14 @@ import {
   findTimedOutScenarios,
   isRetryableTimeout,
   refreshVerdictAggregates,
+  recomputeNativeAggregate,
   requiredArmTimedOut,
   retryAgentTimeouts,
   scenarioMissedActivation,
   scenarioRegressedOnCompletion,
   scenarioRegressedOnIsolatedCompletion,
 } from "./retry-agent-timeouts.mjs";
+import { legacyToVerdict } from "./adapt-agent-results.mjs";
 
 function runResult(overrides = {}) {
   return {
@@ -76,6 +85,22 @@ function resultsWith(scenarios, verdictOverrides = {}) {
   };
 }
 
+function writeAgentEval(root, scenarioCount = 5) {
+  const evalDir = join(root, "tests", "dotnet-test", "agent.code-testing-generator");
+  mkdirSync(evalDir, { recursive: true });
+  const stimuli = Array.from({ length: scenarioCount }, (_, index) => `
+  - name: Scenario ${index + 1}
+    prompt: Generate tests.
+    rubric:
+      - Completed the task`);
+  writeFileSync(join(evalDir, "eval.yaml"), `name: agent.code-testing-generator
+defaults:
+  timeout: 5m
+stimuli:${stimuli.join("")}
+`);
+  return "tests/dotnet-test/agent.code-testing-generator/eval.yaml";
+}
+
 function workspace(results) {
   const root = mkdtempSync(join(tmpdir(), "agent-retry-"));
   const resultsFile = join(root, "results.json");
@@ -84,6 +109,7 @@ function workspace(results) {
     root,
     resultsFile,
     retryResultsDir: join(root, "retry"),
+    retryAuditDir: join(root, "results", "_agent-timeout-retry"),
     summary: join(root, "summary.json"),
   };
 }
@@ -98,6 +124,8 @@ function stubRun(scenarioByName) {
     const runDir = join(resultsDir, "20260101-000000");
     mkdirSync(runDir, { recursive: true });
     const produced = scenarioByName[scenarioName];
+    writeFileSync(join(runDir, "session.db"), "retry session");
+    writeFileSync(join(runDir, "run.log"), "retry log");
     writeFileSync(
       join(runDir, "results.json"),
       JSON.stringify({
@@ -117,6 +145,7 @@ function baseConfig(paths, run) {
   return {
     resultsFile: paths.resultsFile,
     retryResultsDir: paths.retryResultsDir,
+    retryAuditDir: paths.retryAuditDir,
     summary: paths.summary,
     validator: "skill-validator",
     agents: ["plugins/dotnet-test/agents/code-testing-generator.agent.md"],
@@ -194,6 +223,10 @@ test("a required-arm timeout is recovered by a targeted scenario retry", () => {
     "--scenario",
     "flaky",
   ]);
+  assert.deepEqual(calls[0].slice(calls[0].indexOf("--target"), calls[0].indexOf("--target") + 2), [
+    "--target",
+    "agent.code-testing-generator",
+  ]);
 
   const merged = JSON.parse(readFileSync(paths.resultsFile, "utf8"));
   const scenarios = merged.verdicts[0].scenarios;
@@ -207,6 +240,16 @@ test("a required-arm timeout is recovered by a targeted scenario retry", () => {
   const written = JSON.parse(readFileSync(paths.summary, "utf8"));
   assert.equal(written.recoveredScenarioCount, 1);
   assert.equal(written.attempts[0].recovered, true);
+  assert.equal(existsSync(paths.retryAuditDir), true);
+  const auditFiles = readdirSync(paths.retryAuditDir, { recursive: true });
+  assert.ok(auditFiles.some((path) => path.endsWith("session.db")));
+  assert.ok(auditFiles.some((path) => path.endsWith("run.log")));
+  assert.ok(auditFiles.some((path) => path.endsWith("retry-results.json")));
+  assert.equal(
+    auditFiles.some((path) => path.endsWith("results.json") && !path.endsWith("retry-results.json")),
+    false,
+    "the audit tree must never contain an authoritative results.json",
+  );
 });
 
 test("a persistent timeout stays unresolved and keeps the eval invalid", () => {
@@ -435,7 +478,7 @@ test("aggregates are untouched when nothing was recovered", () => {
   assert.deepEqual(verdict.confidenceInterval, { low: -0.4, high: 0.1, level: 0.95 });
 });
 
-test("a threshold failure and the overfitting result survive a swap", () => {
+test("a threshold failure survives while stale overfitting metadata is cleared", () => {
   const overfitting = { score: 0.8, severity: "High" };
   const paths = workspace(
     resultsWith([scenario("kept"), timedOutScenario("flaky")], {
@@ -449,7 +492,7 @@ test("a threshold failure and the overfitting result survive a swap", () => {
 
   const verdict = JSON.parse(readFileSync(paths.resultsFile, "utf8")).verdicts[0];
   assert.equal(verdict.failureKind, "threshold", "only timeout-sensitive aggregates are re-derived");
-  assert.deepEqual(verdict.overfittingResult, overfitting);
+  assert.equal(verdict.overfittingResult, null);
 });
 
 test("a dormant scenario is never read as a regression or a missed activation", () => {
@@ -601,4 +644,123 @@ test("refreshVerdictAggregates reports exactly the fields it cleared", () => {
   ]);
   assert.equal(verdict.failureKind, null);
   assert.equal(verdict.skillNotActivated, false);
+});
+test("recovered scenarios clear stale native aggregate failures before adaptation", () => {
+  const scenarios = [1, 2, 3, 4, 5].map((index) =>
+    scenario(`Scenario ${index}`, {
+      improvementScore: 1,
+      pairwiseResult: { overallWinner: "skill", overallMagnitude: 1, overallReasoning: "better" },
+    }));
+  scenarios[4] = scenario("Scenario 5", {
+    timedOut: true,
+    baseline: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+    skilledIsolated: runResult({ metrics: { timedOut: true, taskCompleted: false } }),
+    skilledPlugin: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+  });
+  const results = resultsWith(scenarios);
+  Object.assign(results.verdicts[0], {
+    failureKind: "completion_regression",
+    skillNotActivated: true,
+    confidenceInterval: { low: -1, high: -0.5, level: 0.95 },
+    overfittingResult: { score: 1, severity: "High" },
+  });
+  const paths = workspace(results);
+  const evalFile = writeAgentEval(paths.root);
+  const { run } = stubRun({
+    "Scenario 5": scenario("Scenario 5", {
+      improvementScore: 1,
+      baseline: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+      skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+      skilledPlugin: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+      pairwiseResult: { overallWinner: "skill", overallMagnitude: 1, overallReasoning: "better" },
+    }),
+  });
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+  assert.equal(summary.recoveredScenarioCount, 1);
+
+  const merged = JSON.parse(readFileSync(paths.resultsFile, "utf8"));
+  const nativeVerdict = merged.verdicts[0];
+  assert.equal(nativeVerdict.failureKind, null);
+  assert.equal(nativeVerdict.skillNotActivated, false);
+  assert.equal(nativeVerdict.confidenceInterval, null);
+  assert.equal(nativeVerdict.isSignificant, null);
+  assert.equal(nativeVerdict.overfittingResult, null);
+
+  const adapted = legacyToVerdict(
+    nativeVerdict,
+    evalFile,
+    paths.root,
+  );
+  assert.equal(adapted.state, "VALID_PASS");
+  assert.notEqual(adapted.stateReason?.code, "native_completion_regression");
+  assert.doesNotMatch(adapted.reason, /did not activate|completion regression/i);
+});
+
+test("aggregate recomputation preserves a completion regression in another scenario", () => {
+  const verdict = resultsWith([
+    scenario("recovered"),
+    scenario("still-regressed", {
+      baseline: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+      skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
+    }),
+  ]).verdicts[0];
+  verdict.failureKind = "skill_not_activated";
+  verdict.skillNotActivated = true;
+
+  recomputeNativeAggregate(verdict);
+
+  assert.equal(verdict.failureKind, "completion_regression");
+  assert.equal(verdict.skillNotActivated, false);
+});
+
+test("retry clears stale activation without clearing another scenario's completion regression", () => {
+  const scenarios = [1, 2, 3, 4, 5].map((index) =>
+    scenario(`Scenario ${index}`, {
+      improvementScore: 1,
+      pairwiseResult: { overallWinner: "skill", overallMagnitude: 1, overallReasoning: "better" },
+    }));
+  scenarios[0].baseline.metrics.taskCompleted = true;
+  scenarios[0].skilledIsolated.metrics.taskCompleted = false;
+  scenarios[4] = scenario("Scenario 5", {
+    timedOut: true,
+    baseline: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+    skilledIsolated: runResult({ metrics: { timedOut: true, taskCompleted: false } }),
+    skilledPlugin: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+  });
+  const results = resultsWith(scenarios);
+  Object.assign(results.verdicts[0], {
+    failureKind: "skill_not_activated",
+    skillNotActivated: true,
+  });
+  const paths = workspace(results);
+  const evalFile = writeAgentEval(paths.root);
+  const { run } = stubRun({
+    "Scenario 5": scenario("Scenario 5", {
+      improvementScore: 1,
+      baseline: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+      skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+      skilledPlugin: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
+      pairwiseResult: { overallWinner: "skill", overallMagnitude: 1, overallReasoning: "better" },
+    }),
+  });
+
+  retryAgentTimeouts(baseConfig(paths, run));
+
+  const merged = JSON.parse(readFileSync(paths.resultsFile, "utf8"));
+  const nativeVerdict = merged.verdicts[0];
+  assert.equal(nativeVerdict.failureKind, "completion_regression");
+  assert.equal(nativeVerdict.skillNotActivated, false);
+  const adapted = legacyToVerdict(nativeVerdict, evalFile, paths.root);
+  assert.equal(adapted.state, "VALID_REGRESSION");
+  assert.equal(adapted.stateReason.code, "native_completion_regression");
+});
+
+test("aggregate recomputation fails closed when pairwise evidence is missing", () => {
+  const verdict = resultsWith([scenario("missing-judgment")]).verdicts[0];
+  delete verdict.scenarios[0].pairwiseResult;
+
+  recomputeNativeAggregate(verdict);
+
+  assert.equal(verdict.failureKind, "execution_error");
 });

@@ -11,9 +11,11 @@
  * A wall-clock timeout is a property of one run, not of the agent under test, so
  * this tool re-runs only the affected scenario — through the evaluator's
  * `--scenario` filter — and swaps the fresh scenario record into the original
- * results file. The retry writes into its own results directory, so its sessions
- * never merge with the first attempt's: every role/session stays unique and the
- * rejudge pairing rules that reject duplicate completed roles are untouched.
+ * results file. The retry writes into a temporary results directory, so its
+ * sessions never merge with the first attempt's: every role/session stays unique
+ * and the rejudge pairing rules that reject duplicate completed roles are
+ * untouched. Completed retry evidence is copied to the artifact audit directory
+ * without an authoritative-looking file named results.json.
  *
  * The retry judges the arms it re-runs, so the replaced scenario arrives with a
  * fresh pairwise judgment and no separate rejudge pass is required.
@@ -23,8 +25,17 @@
  * retried and keeps failing the measurement-validity gate.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { parseArgs } from "node:util";
 import { pathToFileURL } from "node:url";
@@ -36,6 +47,7 @@ const { values: opts } = parseArgs({
   options: {
     "results-file": { type: "string" },
     "retry-results-dir": { type: "string" },
+    "retry-audit-dir": { type: "string" },
     summary: { type: "string" },
     validator: { type: "string" },
     agent: { type: "string", multiple: true, default: [] },
@@ -53,6 +65,7 @@ if (
   (opts.help ||
     !opts["results-file"] ||
     !opts["retry-results-dir"] ||
+    !opts["retry-audit-dir"] ||
     !opts.summary ||
     !opts.validator ||
     !opts["tests-dir"] ||
@@ -60,7 +73,8 @@ if (
 ) {
   console.log(`Usage:
   node retry-agent-timeouts.mjs --results-file <native-results.json> \
-    --retry-results-dir <dir> --summary <file> --validator <path> \
+    --retry-results-dir <temp-dir> --retry-audit-dir <artifact-dir> \
+    --summary <file> --validator <path> \
     --agent <agent-path> --tests-dir <dir> [options]
 
 Re-runs only the scenarios whose required agent arm hit its wall-clock timeout,
@@ -103,6 +117,74 @@ function isRetryableTimeout(scenario) {
     Boolean(scenario.skilledIsolated) &&
     Boolean(scenario.skilledPlugin)
   );
+}
+
+function targetAgentActivated(activation, agentName) {
+  return (activation?.invokedAgents ?? []).some(
+    (name) => String(name).toLowerCase() === String(agentName).toLowerCase(),
+  );
+}
+
+function recomputeNativeAggregate(verdict) {
+  const scenarios = verdict?.scenarios ?? [];
+  const agentName = String(verdict?.skillName ?? "").replace(/^agent\./, "");
+  const hasExecutionFailure = scenarios.some(
+    (scenario) =>
+      requiredArmTimedOut(scenario)
+      || Boolean(scenario?.executionError)
+      || (scenario?.failedRunCount ?? 0) > 0
+      || !scenario?.baseline
+      || !scenario?.skilledIsolated
+      || !scenario?.skilledPlugin
+      || !scenario?.pairwiseResult,
+  );
+  const unexpectedActivation = scenarios.some(
+    (scenario) =>
+      scenario?.expectActivation === false
+      && scenario?.subagentActivationIsolated
+      && targetAgentActivated(scenario.subagentActivationIsolated, agentName),
+  );
+  const skillNotActivated = scenarios.some(
+    (scenario) =>
+      scenario?.expectActivation !== false
+      && scenario?.subagentActivationIsolated
+      && !targetAgentActivated(scenario.subagentActivationIsolated, agentName),
+  );
+  const completionRegressed = scenarios.some(
+    (scenario) =>
+      scenario?.expectActivation !== false
+      && scenario?.baseline?.metrics?.taskCompleted === true
+      && scenario?.skilledIsolated?.metrics?.taskCompleted !== true,
+  );
+
+  const recomputedFailureKind = hasExecutionFailure
+    ? "execution_error"
+    : unexpectedActivation
+      ? "unexpected_activation"
+      : skillNotActivated
+        ? "skill_not_activated"
+        : completionRegressed
+          ? "completion_regression"
+          : null;
+  const scenarioDerivedKinds = new Set([
+    "execution_error",
+    "unexpected_activation",
+    "skill_not_activated",
+    "completion_regression",
+  ]);
+  if (recomputedFailureKind || scenarioDerivedKinds.has(verdict.failureKind)) {
+    verdict.failureKind = recomputedFailureKind;
+  }
+  verdict.skillNotActivated = skillNotActivated;
+
+  // A targeted replacement changes the aggregate sample. The native bootstrap
+  // interval cannot be updated exactly without re-running its randomized
+  // computation, and native agent evals do not produce an overfitting judgment.
+  // Clear both rather than publishing statistics from the timed-out attempt.
+  verdict.confidenceInterval = null;
+  verdict.isSignificant = null;
+  verdict.overfittingResult = null;
+  return verdict;
 }
 
 /** Timed-out scenarios, paired with the verdict that owns each of them. */
@@ -159,17 +241,32 @@ function findResultsFiles(root) {
 /**
  * Rename the retry's own aggregates so no recursive collector counts them.
  *
- * The retry tree lives under the uploaded results directory so its sessions and
- * logs are available for audit, but it holds a second, narrower copy of one
- * scenario in the native schema. Downstream jobs gather every `results.json`
- * they can find, so leaving that name in place would double-count a scenario
- * and mix an unadapted record into the schema-v5 set. The content is kept under
- * a name nothing collects.
+ * The retry tree is temporary and outside the uploaded results directory.
+ * Renaming its aggregate after inspection ensures even local recursive tooling
+ * cannot mistake the narrower native retry for an authoritative result.
  */
 function quarantineRetryResults(root) {
   for (const path of findResultsFiles(root)) {
     renameSync(path, path.replace(/results\.json$/, "results.retry.json"));
   }
+}
+
+function archiveRetryEvidence(attemptRoot, retryResultsFile, retryResultsContent, target, index, config) {
+  const auditRoot = join(config.retryAuditDir, `${index + 1}-${target.skillName}`);
+  mkdirSync(dirname(auditRoot), { recursive: true });
+  cpSync(attemptRoot, auditRoot, {
+    recursive: true,
+    filter: (source) => basename(source) !== "results.json",
+  });
+  if (retryResultsFile && retryResultsContent != null) {
+    const relativeResults = relative(attemptRoot, retryResultsFile);
+    const auditResults = join(auditRoot, dirname(relativeResults), "retry-results.json");
+    mkdirSync(dirname(auditResults), { recursive: true });
+    writeAtomic(auditResults, retryResultsContent.endsWith("\n")
+      ? retryResultsContent
+      : `${retryResultsContent}\n`);
+  }
+  return auditRoot;
 }
 
 /**
@@ -187,6 +284,8 @@ function retryScenario(target, index, config) {
     config.testsDir,
     "--scenario",
     target.scenarioName,
+    "--target",
+    target.skillName,
     "--runs",
     "1",
     "--parallel-skills",
@@ -217,7 +316,7 @@ function retryScenario(target, index, config) {
   }
 
   try {
-    return inspectRetryEvidence(attemptRoot, target, exitCode);
+    return inspectRetryEvidence(attemptRoot, target, index, config, exitCode);
   } finally {
     // Always quarantine, including on a failed retry: the tree stays for audit
     // but must never be picked up by a recursive results.json collector.
@@ -226,21 +325,46 @@ function retryScenario(target, index, config) {
 }
 
 /** Read the one scenario record the retry was asked to produce. */
-function inspectRetryEvidence(attemptRoot, target, exitCode) {
+function inspectRetryEvidence(attemptRoot, target, index, config, exitCode) {
   const retryRoot = newestDirectory(attemptRoot) ?? attemptRoot;
   const retryResultsFile = findResultsFile(retryRoot) ?? findResultsFile(attemptRoot);
   if (!retryResultsFile) {
-    return { ok: false, reason: "retry produced no results.json", exitCode };
+    const auditDir = archiveRetryEvidence(
+      attemptRoot,
+      null,
+      null,
+      target,
+      index,
+      config,
+    );
+    return {
+      ok: false,
+      reason: "retry produced no results.json",
+      exitCode,
+      auditDir,
+    };
   }
 
   let retryResults;
+  let retryResultsContent;
+  let auditDir = null;
   try {
-    retryResults = JSON.parse(readFileSync(retryResultsFile, "utf8"));
+    retryResultsContent = readFileSync(retryResultsFile, "utf8");
+    auditDir = archiveRetryEvidence(
+      attemptRoot,
+      retryResultsFile,
+      retryResultsContent,
+      target,
+      index,
+      config,
+    );
+    retryResults = JSON.parse(retryResultsContent);
   } catch (error) {
     return {
       ok: false,
       reason: `retry results.json is unreadable (${error instanceof Error ? error.message : String(error)})`,
       exitCode,
+      auditDir,
     };
   }
 
@@ -253,30 +377,33 @@ function inspectRetryEvidence(attemptRoot, target, exitCode) {
       ok: false,
       reason: `retry returned ${scenarios.length} record(s) for the scenario`,
       exitCode,
+      auditDir,
     };
   }
   if (requiredArmTimedOut(scenarios[0])) {
-    return { ok: false, reason: "retry hit the scenario timeout again", exitCode };
+    return { ok: false, reason: "retry hit the scenario timeout again", exitCode, auditDir };
+  }
+  if (!scenarios[0].baseline || !scenarios[0].skilledIsolated || !scenarios[0].skilledPlugin) {
+    return { ok: false, reason: "retry is missing a required evaluation arm", exitCode, auditDir };
+  }
+  if (!scenarios[0].pairwiseResult) {
+    return { ok: false, reason: "retry is missing its pairwise judgment", exitCode, auditDir };
   }
   if (scenarios[0].executionError || (scenarios[0].failedRunCount ?? 0) > 0) {
     return {
       ok: false,
       reason: scenarios[0].executionError ?? `${scenarios[0].failedRunCount} retry run(s) failed`,
       exitCode,
+      auditDir,
     };
   }
-  return { ok: true, scenario: scenarios[0], exitCode };
+  return { ok: true, scenario: scenarios[0], exitCode, auditDir };
 }
 
 function writeAtomic(path, content) {
   const temporary = `${path}.${process.pid}.tmp`;
   writeFileSync(temporary, content);
   renameSync(temporary, path);
-}
-
-/** Bare agent name behind a verdict's `agent.`-prefixed skill name. */
-function agentNameOf(verdict) {
-  return String(verdict?.skillName ?? "").replace(/^agent\./, "");
 }
 
 /**
@@ -345,56 +472,35 @@ function scenarioMissedActivation(scenario, agentName) {
  * An aggregate is cleared only when NO surviving scenario supports it, so a real
  * regression or a real activation failure in any scenario keeps failing. The
  * confidence interval was bootstrapped over per-run scores that included the
- * timed-out run, so it is dropped rather than approximated; it is reported, not
- * gated. `overfittingResult` is kept: it analyses the agent and eval text rather
- * than run outcomes, and the scenario-filtered retry would only see a narrower
- * slice of the eval.
+ * timed-out run, so it is dropped rather than approximated. `isSignificant` and
+ * `overfittingResult` are also cleared rather than publishing stale aggregate
+ * metadata from the first attempt.
  */
 function refreshVerdictAggregates(verdict) {
+  const before = {
+    failureKind: verdict.failureKind ?? null,
+    skillNotActivated: verdict.skillNotActivated === true,
+    confidenceInterval: verdict.confidenceInterval ?? null,
+    isSignificant: verdict.isSignificant ?? null,
+    overfittingResult: verdict.overfittingResult ?? null,
+  };
+
+  recomputeNativeAggregate(verdict);
+
   const cleared = [];
-  const scenarios = verdict?.scenarios ?? [];
-  const agentName = agentNameOf(verdict);
-
-  if (
-    verdict.failureKind === "completion_regression" &&
-    !scenarios.some(scenarioRegressedOnCompletion)
-  ) {
-    verdict.failureKind = null;
-    cleared.push("failureKind=completion_regression");
+  if (before.failureKind !== verdict.failureKind) {
+    cleared.push(
+      verdict.failureKind
+        ? `failureKind=${before.failureKind}->${verdict.failureKind}`
+        : `failureKind=${before.failureKind}`,
+    );
   }
-
-  const claimsNoActivation =
-    verdict.skillNotActivated === true || verdict.failureKind === "skill_not_activated";
-  if (
-    claimsNoActivation &&
-    !scenarios.some((scenario) => scenarioMissedActivation(scenario, agentName))
-  ) {
-    if (verdict.skillNotActivated === true) {
-      verdict.skillNotActivated = false;
-      cleared.push("skillNotActivated");
-    }
-    if (verdict.failureKind === "skill_not_activated") {
-      // `SkillVerdict` holds a single `FailureKind`, and
-      // `ApplyAgentActivationGate` (EvaluateCommand.cs:726) runs after
-      // `Comparator.ComputeVerdict` and OVERWRITES it. A real completion
-      // regression can therefore be hidden behind `skill_not_activated`, so
-      // clearing activation straight to null would silently erase it. Re-derive
-      // the evaluator's exact isolated predicate over the surviving scenarios
-      // and restore the regression it had masked.
-      const masked = scenarios.some(scenarioRegressedOnIsolatedCompletion);
-      verdict.failureKind = masked ? "completion_regression" : null;
-      cleared.push(
-        masked
-          ? "failureKind=skill_not_activated->completion_regression"
-          : "failureKind=skill_not_activated",
-      );
-    }
+  if (before.skillNotActivated && verdict.skillNotActivated !== true) {
+    cleared.push("skillNotActivated");
   }
-
-  if (verdict.confidenceInterval != null) {
-    verdict.confidenceInterval = null;
-    cleared.push("confidenceInterval");
-  }
+  if (before.confidenceInterval != null) cleared.push("confidenceInterval");
+  if (before.isSignificant != null) cleared.push("isSignificant");
+  if (before.overfittingResult != null) cleared.push("overfittingResult");
   return cleared;
 }
 
@@ -451,11 +557,9 @@ function retryAgentTimeouts(config) {
         recovered: outcome.ok,
         reason: outcome.ok ? null : outcome.reason,
         retryExitCode: outcome.exitCode,
+        auditDir: outcome.auditDir ?? null,
       });
     }
-    // `overfittingResult` is deliberately kept: it analyses the agent and eval
-    // text rather than run outcomes, and a scenario-filtered retry would only
-    // ever see a narrower slice of the eval than the original analysis did.
   }
 
   mkdirSync(dirname(config.summary), { recursive: true });
@@ -476,6 +580,7 @@ if (isMain) {
     retryAgentTimeouts({
       resultsFile: resolve(opts["results-file"]),
       retryResultsDir: resolve(opts["retry-results-dir"]),
+      retryAuditDir: resolve(opts["retry-audit-dir"]),
       summary: resolve(opts.summary),
       validator: resolve(opts.validator),
       agents: opts.agent,
@@ -494,6 +599,7 @@ export {
   findTimedOutScenarios,
   isRetryableTimeout,
   refreshVerdictAggregates,
+  recomputeNativeAggregate,
   requiredArmTimedOut,
   retryAgentTimeouts,
   scenarioMissedActivation,

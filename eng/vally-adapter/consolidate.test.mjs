@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -117,6 +118,59 @@ test("renders legacy preference regressions as report-only", () => {
 
   assert.match(markdown, /\*\*1 preference losses \(report only\)\*\*/);
   assert.match(markdown, /<code>VALID_NO_CHANGE<\/code>/);
+});
+
+test("recursive discovery excludes native retry results but preserves retry audit files", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-consolidate-retry-"));
+  try {
+    const authoritativeDir = join(root, "demo", "agent.router");
+    const retryDir = join(root, "_agent-timeout-retry", "1-router", "run");
+    mkdirSync(authoritativeDir, { recursive: true });
+    mkdirSync(retryDir, { recursive: true });
+    writeFileSync(join(authoritativeDir, "results.json"), JSON.stringify({
+      model: "test-model",
+      verdicts: [{
+        skillName: "authoritative-agent",
+        state: "VALID_PASS",
+        passed: true,
+        reason: "recovered",
+        scenarios: [],
+      }],
+    }));
+    writeFileSync(join(retryDir, "results.json"), JSON.stringify({
+      model: "test-model",
+      verdicts: [{
+        skillName: "retry-only-agent",
+        state: "VALID_REGRESSION",
+        passed: false,
+        reason: "non-authoritative retry aggregate",
+        scenarios: [],
+      }],
+    }));
+    writeFileSync(join(retryDir, "sessions.db"), "audit session");
+    writeFileSync(join(retryDir, "session.log"), "audit log");
+    const output = join(root, "summary.md");
+
+    const result = spawnSync(process.execPath, [
+      script,
+      "--format",
+      "simple",
+      "--output",
+      output,
+      "--root",
+      root,
+    ], { encoding: "utf8" });
+
+    assert.equal(result.status, 0, result.stderr);
+    const markdown = readFileSync(output, "utf8");
+    assert.match(markdown, /authoritative-agent/);
+    assert.doesNotMatch(markdown, /retry-only-agent/);
+    assert.equal(existsSync(join(retryDir, "results.json")), true);
+    assert.equal(existsSync(join(retryDir, "sessions.db")), true);
+    assert.equal(existsSync(join(retryDir, "session.log")), true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("keeps routine passing details out of the PR comment but in Full Results", () => {

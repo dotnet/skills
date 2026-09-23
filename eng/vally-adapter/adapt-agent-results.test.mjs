@@ -599,6 +599,32 @@ test("preserves a native target-agent activation failure", () => {
   }
 });
 
+test("ignores stale native completion and activation flags when scenarios no longer support them", () => {
+  const root = mkdtempSync(join(tmpdir(), "agent-adapter-stale-aggregate-"));
+  try {
+    writeAgentEval(root);
+    const { output, result } = runAdapter(root, {
+      skillName: "router",
+      skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
+      skillKind: "agent",
+      passed: false,
+      failureKind: "completion_regression",
+      skillNotActivated: true,
+      scenarios: [1, 2, 3, 4, 5].map(winningScenario),
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const verdict = JSON.parse(
+      readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+    ).verdicts[0];
+    assert.equal(verdict.state, "VALID_PASS");
+    assert.notEqual(verdict.stateReason?.code, "native_completion_regression");
+    assert.doesNotMatch(verdict.reason, /target agent did not activate|completion regression/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("preserves a native completion regression over a preference win", () => {
   const root = mkdtempSync(join(tmpdir(), "agent-adapter-completion-"));
   try {
@@ -630,3 +656,92 @@ test("preserves a native completion regression over a preference win", () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("native activation-contract failure takes precedence over completion regression", () => {
+  const root = mkdtempSync(join(tmpdir(), "agent-adapter-activation-completion-"));
+  try {
+    writeAgentEval(root);
+    const scenarios = [1, 2, 3, 4, 5].map((index) => {
+      const scenario = winningScenario(index);
+      scenario.subagentActivationIsolated.invokedAgents = ["helper"];
+      return scenario;
+    });
+    scenarios[0].baseline.metrics.taskCompleted = true;
+    scenarios[0].skilledIsolated.metrics.taskCompleted = false;
+    const { output, result } = runAdapter(root, {
+      skillName: "router",
+      skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
+      skillKind: "agent",
+      passed: false,
+      failureKind: "skill_not_activated",
+      skillNotActivated: true,
+      scenarios,
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const verdict = JSON.parse(
+      readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+    ).verdicts[0];
+    assert.equal(verdict.state, "VALID_NO_CHANGE");
+    assert.equal(verdict.stateReason.code, "target_agent_not_activated");
+    assert.equal(verdict.passed, false);
+    assert.equal(verdict.regressed, false);
+    assert.match(verdict.reason, /target agent did not activate/);
+    assert.doesNotMatch(verdict.reason, /objective task-completion regression/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+for (const {
+  name,
+  invalidate,
+} of [
+  {
+    name: "execution error",
+    invalidate: (scenario) => {
+      scenario.executionError = "native executor crashed";
+    },
+  },
+  {
+    name: "persistent timeout",
+    invalidate: (scenario) => {
+      scenario.timedOut = true;
+      scenario.skilledPlugin.metrics.timedOut = true;
+    },
+  },
+]) {
+  test(`a completion regression cannot overwrite an invalid ${name}`, () => {
+    const root = mkdtempSync(join(tmpdir(), "agent-adapter-invalid-completion-"));
+    try {
+      writeAgentEval(root);
+      const scenarios = [1, 2, 3, 4, 5].map(winningScenario);
+      invalidate(scenarios[0]);
+      scenarios[1].baseline.metrics.taskCompleted = true;
+      scenarios[1].skilledIsolated.metrics.taskCompleted = false;
+      const { output, result } = runAdapter(root, {
+        skillName: "router",
+        skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
+        skillKind: "agent",
+        passed: false,
+        failureKind: "execution_error",
+        scenarios,
+      });
+
+      assert.equal(result.status, 0, result.stderr);
+      const verdict = JSON.parse(
+        readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+      ).verdicts[0];
+      assert.equal(verdict.state, "INVALID_INCONCLUSIVE");
+      assert.notEqual(verdict.stateReason.code, "native_completion_regression");
+      assert.equal(verdict.regressed, false);
+      assert.match(verdict.reason, /objective task-completion regression/);
+      const summary = JSON.parse(
+        readFileSync(join(output, "adapter-summary.json"), "utf8"),
+      );
+      assert.equal(summary.measurementInvalidEvalCount, 1);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+}

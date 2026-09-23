@@ -37,6 +37,7 @@ public static class EvaluateCommand
         var baselineFromOpt = new Option<string?>("--baseline-from") { Description = "Reuse a precomputed baseline from this file instead of re-running the no-skill/no-agent baseline arm. Must match --model, --judge-model, and each scenario's prompt, setup inputs, and evaluation criteria. Mutually exclusive with --baseline-out." };
         var noJudgeOpt = new Option<bool>("--no-judge") { Description = "Run the agent arms and persist sessions/metrics but skip all judging. Judging can be deferred to a later 'rejudge' step (optionally cross-directory). Implies session persistence and requires no baseline." };
         var scenarioOpt = new Option<string[]>("--scenario") { Description = "Evaluate only the named scenario(s). Repeatable. Use to re-run a single scenario that failed transiently without re-running the whole eval.", AllowMultipleArgumentsPerToken = true };
+        var targetOpt = new Option<string[]>("--target") { Description = "Evaluate only the named target(s). Repeatable. Use with --scenario to scope a targeted retry to its owning skill or agent.", AllowMultipleArgumentsPerToken = true };
 
         var command = new Command("evaluate", "Evaluate agent skills via LLM-based testing")
         {
@@ -67,6 +68,7 @@ public static class EvaluateCommand
             baselineFromOpt,
             noJudgeOpt,
             scenarioOpt,
+            targetOpt,
         };
 
         command.Add(RejudgeCommand.Create());
@@ -122,6 +124,7 @@ public static class EvaluateCommand
                 BaselineFrom = parseResult.GetValue(baselineFromOpt),
                 NoJudge = parseResult.GetValue(noJudgeOpt),
                 ScenarioFilter = parseResult.GetValue(scenarioOpt) ?? [],
+                TargetFilter = parseResult.GetValue(targetOpt) ?? [],
             };
 
             return await Run(config, cancellationToken);
@@ -169,6 +172,18 @@ public static class EvaluateCommand
         }
 
         var unknown = scenarioNames.Where(name => !matched.Contains(name)).Distinct().ToList();
+        return (filtered, unknown);
+    }
+
+    internal static (List<EvalTargetInfo> Targets, IReadOnlyList<string> UnknownTargets)
+        FilterTargetsByName(IReadOnlyList<EvalTargetInfo> targets, IReadOnlyList<string> targetNames)
+    {
+        var wanted = new HashSet<string>(targetNames, StringComparer.OrdinalIgnoreCase);
+        var filtered = targets.Where(target => wanted.Contains(target.Name)).ToList();
+        var matched = new HashSet<string>(
+            filtered.Select(target => target.Name),
+            StringComparer.OrdinalIgnoreCase);
+        var unknown = targetNames.Where(name => !matched.Contains(name)).Distinct().ToList();
         return (filtered, unknown);
     }
 
@@ -363,6 +378,20 @@ public static class EvaluateCommand
                 EvalConfig: evalConfig,
                 PluginRoot: pluginRoot,
                 McpServers: mcpServers));
+        }
+
+        if (config.TargetFilter.Count > 0)
+        {
+            var (filteredTargets, unknownTargets) = FilterTargetsByName(allTargets, config.TargetFilter);
+            if (unknownTargets.Count > 0)
+            {
+                Console.Error.WriteLine(
+                    $"{Ansi.Red}❌ --target matched no target named: {string.Join(", ", unknownTargets)}{Ansi.Reset}");
+                return 1;
+            }
+            allTargets = filteredTargets;
+            Console.WriteLine(
+                $"Target filter active: evaluating only {string.Join(", ", config.TargetFilter)}");
         }
 
         if (config.ScenarioFilter.Count > 0)

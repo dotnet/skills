@@ -1698,7 +1698,7 @@ test("a failed targeted retry invocation leaves the slot errored", () => {
 
   assert.equal(recovered.summary.erroredCount, 1);
   assert.equal(
-    recovered.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory[1].code,
+    recovered.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1).code,
     "targeted_retry_invocation_failed",
   );
 });
@@ -1782,7 +1782,7 @@ test("a missing slot trajectory is distinguished from an ambiguous one", () => {
 
     assert.equal(calls, 0);
     assert.equal(result.summary.erroredCount, 1);
-    const failure = result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory[1];
+    const failure = result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1);
     assert.equal(failure.code, "targeted_slot_trajectory_missing");
     assert.match(failure.message, /0 baseline and 1 treatment/);
   } finally {
@@ -1862,8 +1862,182 @@ test("an ambiguous slot-to-trajectory mapping is never re-judged", () => {
     assert.equal(calls, 0);
     assert.equal(result.summary.erroredCount, 1);
     assert.equal(
-      result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory[1].code,
+      result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1).code,
       "targeted_slot_trajectory_ambiguous",
+    );
+  } finally {
+    rmSync(workDir, { recursive: true, force: true });
+  }
+});
+
+test("targeted recovery uses the canonical stimulus identity", () => {
+  const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
+  const baselineRecords = executorRecordsFor(primary, "baseline");
+  const skilledRecords = executorRecordsFor(primary, "skilled");
+  for (const record of [...baselineRecords, ...skilledRecords]) {
+    record.gradeResult = { stimulusName: record.stimulus };
+    delete record.stimulus;
+  }
+  let calls = 0;
+
+  const recovered = withTargetedRecovery(primary, () => {
+    calls++;
+    return {
+      stimuli: [{
+        stimulusName: "Scenario 1",
+        trials: [{ trialIndex: 0, score: 1, winner: "treatment", errored: false }],
+      }],
+    };
+  }, { baselineRecords, skilledRecords });
+
+  assert.equal(calls, 1);
+  assert.equal(recovered.summary.erroredCount, 0);
+});
+
+test("targeted recovery accepts source-file variant identity when records omit variant", () => {
+  const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
+  const baselineRecords = executorRecordsFor(primary, "baseline");
+  const skilledRecords = executorRecordsFor(primary, "skilled");
+  for (const record of [...baselineRecords, ...skilledRecords]) {
+    delete record.variant;
+  }
+  let calls = 0;
+
+  const recovered = withTargetedRecovery(primary, () => {
+    calls++;
+    return {
+      stimuli: [{
+        stimulusName: "Scenario 1",
+        trials: [{ trialIndex: 0, score: 1, winner: "treatment", errored: false }],
+      }],
+    };
+  }, { baselineRecords, skilledRecords });
+
+  assert.equal(calls, 1);
+  assert.equal(recovered.summary.erroredCount, 0);
+});
+
+test("a missing targeted trajectory has a distinct fail-closed code", () => {
+  const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
+  const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-missing-"));
+  let calls = 0;
+  try {
+    const result = recoverTransientComparisonSlots(primary, {
+      baselineRecords: [],
+      skilledRecords: executorRecordsFor(primary, "skilled"),
+      workDir,
+      filePrefix: "missing",
+      compare: () => {
+        calls++;
+        return null;
+      },
+    });
+
+    assert.equal(calls, 0);
+    assert.equal(result.summary.erroredCount, 1);
+    assert.equal(
+      result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1).code,
+      "targeted_slot_trajectory_missing",
+    );
+  } finally {
+    rmSync(workDir, { recursive: true, force: true });
+  }
+});
+
+test("a targeted variant mismatch is never re-judged", () => {
+  const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
+  const skilledRecords = executorRecordsFor(primary, "skilled");
+  skilledRecords.find((record) => record.shardKey.endsWith("::trial-2")).variant = "baseline";
+  const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-variant-"));
+  let calls = 0;
+  try {
+    const result = recoverTransientComparisonSlots(primary, {
+      baselineRecords: executorRecordsFor(primary, "baseline"),
+      skilledRecords,
+      workDir,
+      filePrefix: "variant",
+      compare: () => {
+        calls++;
+        return null;
+      },
+    });
+
+    assert.equal(calls, 0);
+    assert.equal(
+      result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1).code,
+      "targeted_slot_variant_mismatch",
+    );
+  } finally {
+    rmSync(workDir, { recursive: true, force: true });
+  }
+});
+
+test("targeted recovery uses complete preserved evidence after the coarse retry crashes", () => {
+  const retryCrash = {
+    phase: "comparison_judge",
+    kind: "unknown",
+    code: "comparison_retry_invocation_failed",
+    message: "vally compare process crashed",
+  };
+  const primary = strandSlot(
+    reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0.4]),
+    5,
+    0,
+    retryCrash,
+  );
+  primary.retrySummary.persistentErrors[0].attemptHistory[1] = {
+    attempt: 2,
+    ...retryCrash,
+  };
+  let calls = 0;
+
+  const recovered = withTargetedRecovery(primary, () => {
+    calls++;
+    return {
+      stimuli: [{
+        stimulusName: "Scenario 6",
+        trials: [{ trialIndex: 0, score: 1, winner: "treatment", errored: false }],
+      }],
+    };
+  });
+
+  assert.equal(calls, 1);
+  assert.equal(recovered.summary.erroredCount, 0);
+  assert.equal(recovered.retrySummary.targetedRecovery.recoveredSlotCount, 1);
+});
+
+test("targeted recovery after a coarse retry crash requires complete source evidence", () => {
+  const retryCrash = {
+    phase: "comparison_judge",
+    kind: "unknown",
+    code: "comparison_retry_invocation_failed",
+    message: "vally compare process crashed",
+  };
+  const primary = strandSlot(
+    reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0.4]),
+    5,
+    0,
+    retryCrash,
+  );
+  const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-crash-missing-"));
+  let calls = 0;
+  try {
+    const result = recoverTransientComparisonSlots(primary, {
+      baselineRecords: [],
+      skilledRecords: executorRecordsFor(primary, "skilled"),
+      workDir,
+      filePrefix: "crash-missing",
+      compare: () => {
+        calls++;
+        return null;
+      },
+    });
+
+    assert.equal(calls, 0);
+    assert.equal(result.summary.erroredCount, 1);
+    assert.equal(
+      result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1).code,
+      "targeted_slot_trajectory_missing",
     );
   } finally {
     rmSync(workDir, { recursive: true, force: true });

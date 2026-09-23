@@ -919,6 +919,7 @@ jobs:
           mkdir -p all-results
           # Never count the agent timeout-retry tree: it carries a second,
           # narrower native copy of one scenario for audit, not a skill result.
+          # Its raw aggregate is renamed retry-results.json.
           JSON_FILES=$(find all-results/ -name results.json -not -path '*/_agent-timeout-retry/*' 2>/dev/null || true)
           MATRIX_MANIFEST_VALID=true
           if ! EXPECTED_LEG_COUNT=$(printf '%s' "$EXPECTED_ENTRIES" | jq -e 'if type == "array" then length else error("expected matrix entries must be an array") end'); then

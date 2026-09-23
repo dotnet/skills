@@ -2306,6 +2306,11 @@ esac
             "${{ needs.discover.outputs.entries }}",
         )
         script = consolidate_step["run"]
+        self.assertIn(
+            "find all-results/ -name results.json "
+            "-not -path '*/_agent-timeout-retry/*'",
+            script,
+        )
         incomplete_guard = (
             'if [[ "$MATRIX_MANIFEST_VALID" != "true" '
             '|| "$EVALUATE_RESULT" != "success" '
@@ -2480,6 +2485,10 @@ esac
             'if [ "$PRODUCED" -ne "$EXPECTED_EVAL_COUNT" ]',
             run_script,
         )
+        self.assertIn(
+            '-not -path "$RESULTS_DIR/_agent-timeout-retry/*"',
+            run_script,
+        )
         self.assertIn("s.expectedManifestProvided === true", run_script)
         self.assertIn("s.unexpectedEvalCount === 0", run_script)
         self.assertIn("s.measurementInvalidEvalCount === 0", run_script)
@@ -2540,13 +2549,47 @@ esac
         self.assertIn(f"node {trusted_adapter}gen-experiment.mjs", run_script)
         self.assertIn(f"node {trusted_adapter}adapt.mjs", run_script)
         self.assertIn(f"node {trusted_adapter}adapt-agent-results.mjs", run_script)
+        self.assertEqual(run_script.count("adapt-agent-results.mjs"), 1)
         self.assertIn('"$RUNNER_TEMP/trusted-validator/skill-validator" evaluate', run_script)
+        self.assertIn(
+            '--retry-results-dir "$RUNNER_TEMP/agent-timeout-retry"',
+            run_script,
+        )
+        self.assertIn(
+            '--retry-audit-dir "$RESULTS_DIR/_agent-timeout-retry"',
+            run_script,
+        )
+        self.assertNotIn(
+            '--retry-results-dir "$RESULTS_DIR',
+            run_script,
+        )
+        self.assertIn("raw result is renamed retry-results.json", run_script)
+        self.assertIn("--keep-sessions", run_script)
         self.assertIn('rm -f "${AGENT_RESULTS[0]}"', run_script)
         self.assertGreater(
             run_script.index('rm -f "${AGENT_RESULTS[0]}"'),
             run_script.index(f"node {trusted_adapter}adapt-agent-results.mjs"),
         )
+        self.assertNotIn('rm -rf "$RESULTS_DIR/_agent-timeout-retry"', run_script)
+        self.assertIn(
+            '-not -path "$RESULTS_DIR/_agent-timeout-retry/*"',
+            summary_script,
+        )
         self.assertNotIn("node eng/vally-adapter/", run_script)
+
+        caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        caller_scripts = "\n".join(
+            step.get("run", "")
+            for job in caller["jobs"].values()
+            for step in job.get("steps", [])
+        )
+        self.assertGreaterEqual(
+            caller_scripts.count(
+                "Where-Object { $_.FullName -notmatch "
+                "'[\\\\/]_agent-timeout-retry[\\\\/]' }"
+            ),
+            2,
+        )
 
     def test_discovery_creates_first_class_agent_matrix_entries(self) -> None:
         caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
@@ -3070,20 +3113,12 @@ esac
 class AgentTimeoutRetryQuarantineTests(unittest.TestCase):
     """The agent timeout-retry tree must never yield a collectable results.json.
 
-    retry-agent-timeouts.mjs renames its own native results, but that runs in a
-    Node ``finally`` and a TERM/KILL from the step's ``timeout`` can end the
-    process first. The workflow therefore repeats the rename unconditionally,
-    and every recursive collector excludes the retry path.
+    Retry aggregates are staged outside RESULTS_DIR, so TERM/KILL cannot leave
+    one in the uploaded tree. Completed sessions, logs, and a renamed raw result
+    are copied into the audit subtree, which every recursive collector excludes.
     """
 
     RETRY_DIR = "_agent-timeout-retry"
-
-    @staticmethod
-    def _bash_path(path: Path) -> str:
-        if os.name != "nt":
-            return str(path)
-        absolute = path.resolve()
-        return f"/{absolute.drive[0].lower()}/{absolute.as_posix()[3:]}"
 
     def _run_script(self) -> str:
         workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
@@ -3092,81 +3127,35 @@ class AgentTimeoutRetryQuarantineTests(unittest.TestCase):
             step["run"] for step in steps if step.get("name") == "Run vally evaluations"
         )
 
-    def _backstop_block(self, script: str) -> str:
-        """The unconditional rename, from its `if` through its closing `fi`."""
-        lines = script.splitlines()
-        start = next(
-            index
-            for index, line in enumerate(lines)
-            if f'if [ -d "$RESULTS_DIR/{self.RETRY_DIR}" ]; then' in line
-        )
-        end = next(
-            index
-            for index, line in enumerate(lines[start + 1 :], start + 1)
-            if line.strip() == "fi"
-        )
-        return textwrap.dedent("\n".join(lines[start : end + 1]))
-
-    def test_backstop_rename_runs_after_and_outside_the_retry_conditional(self) -> None:
+    def test_retry_results_are_staged_outside_results_dir(self) -> None:
         script = self._run_script()
-        lines = script.splitlines()
-        warning_at = next(
-            index
-            for index, line in enumerate(lines)
-            if "Agent timeout recovery did not complete" in line
+        self.assertIn(
+            '--retry-results-dir "$RUNNER_TEMP/agent-timeout-retry"',
+            script,
         )
-        # The rename must sit after the retry conditional closes, so a failed or
-        # a killed retry reaches it exactly as a clean one does.
-        conditional_end = next(
-            index
-            for index, line in enumerate(lines[warning_at:], warning_at)
-            if line.strip() == "fi"
+        self.assertIn(
+            f'--retry-audit-dir "$RESULTS_DIR/{self.RETRY_DIR}"',
+            script,
         )
-        rename_at = next(
-            index
-            for index, line in enumerate(lines)
-            if '-exec sh -c \'mv "$1" "${1%.json}.retry.json"\'' in line
-        )
-        adapt_at = next(
-            index
-            for index, line in enumerate(lines[warning_at:], warning_at)
-            if "adapt-agent-results.mjs" in line
-        )
-
-        self.assertLess(conditional_end, rename_at)
-        self.assertLess(rename_at, adapt_at)
-        self.assertIn(f'if [ -d "$RESULTS_DIR/{self.RETRY_DIR}" ]; then', script)
+        self.assertNotIn('--retry-results-dir "$RESULTS_DIR', script)
 
     def test_killed_retry_leaves_no_collectable_native_results(self) -> None:
-        backstop = self._backstop_block(self._run_script())
-
         with tempfile.TemporaryDirectory() as tmp:
             results_dir = Path(tmp) / "results"
-            # A retry killed mid-flight: nested native results, never renamed.
-            killed = results_dir / self.RETRY_DIR / "1-agent.x" / "20260101-000000"
+            retry_temp = Path(tmp) / "runner-temp" / "agent-timeout-retry"
+            killed = retry_temp / "1-agent.x" / "20260101-000000"
             killed.mkdir(parents=True)
             (killed / "results.json").write_text('{"verdicts":[]}', encoding="utf-8")
             adapted = results_dir / "dotnet-test" / "some-skill"
             adapted.mkdir(parents=True)
             (adapted / "results.json").write_text('{"verdicts":[]}', encoding="utf-8")
 
-            env = os.environ.copy()
-            env["RESULTS_DIR"] = self._bash_path(results_dir)
-            result = subprocess.run(
-                [BASH, "-c", f"set -euo pipefail\n{backstop}"],
-                env=env,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-            self.assertEqual(result.returncode, 0, result.stderr)
-
             survivors = sorted(
                 str(path.relative_to(results_dir)).replace("\\", "/")
                 for path in results_dir.rglob("results.json")
             )
             self.assertEqual(survivors, ["dotnet-test/some-skill/results.json"])
-            self.assertTrue((killed / "results.retry.json").is_file())
+            self.assertTrue((killed / "results.json").is_file())
 
     def test_recursive_collectors_exclude_the_retry_tree(self) -> None:
         # Scan the whole workflow: the produced-result count and the per-skill
@@ -3177,8 +3166,7 @@ class AgentTimeoutRetryQuarantineTests(unittest.TestCase):
             for line in workflow_text.splitlines()
             if "find " in line and "-name results.json" in line
         ]
-        # The AGENT_RAW_DIR probe runs before the retry directory can exist, and
-        # the backstop's own find deliberately targets the retry tree.
+        # The AGENT_RAW_DIR probe runs before the retry directory can exist.
         scoped = [
             line
             for line in finds

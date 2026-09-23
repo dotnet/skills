@@ -973,13 +973,27 @@ function transientComparisonSlots(report) {
       if (!trial.errored) continue;
       const key = comparisonTrialKey(stimulus.stimulusName, trial);
       if (key === null || keyCounts.get(key) !== 1) continue;
-      const error = trial.retryError ?? classifyComparisonError(trial.evidence);
-      if (error.kind !== "transient") continue;
+      const originalError = classifyComparisonError(trial.evidence);
+      const finalError = trial.retryError ?? originalError;
+      const coarseRetryCrashed =
+        finalError.code === "comparison_retry_invocation_failed";
+      if (finalError.kind !== "transient" && !(coarseRetryCrashed && originalError.kind === "transient")) {
+        continue;
+      }
       slots.push({
         key,
         stimulusName: stimulus.stimulusName,
         trialIndex: trial.trialIndex,
-        error,
+        error: finalError.kind === "transient" ? finalError : originalError,
+        priorAttemptHistory:
+          report.retrySummary?.persistentErrors?.find(
+            (entry) =>
+              entry.stimulusName === stimulus.stimulusName
+              && entry.trialIndex === trial.trialIndex,
+          )?.attemptHistory ?? [
+            { attempt: 1, ...originalError },
+            ...(trial.retryError ? [{ attempt: 2, ...trial.retryError }] : []),
+          ],
       });
     }
   }
@@ -1021,6 +1035,27 @@ function recoverComparisonSlot(slot, config) {
         message:
           `Expected exactly one preserved baseline and treatment trajectory for the slot, ` +
           `found ${baselineSlot.length} baseline and ${skilledSlot.length} treatment record(s)`,
+      },
+    };
+  }
+
+  const baselineVariant = config.baselineVariant ?? "baseline";
+  const skilledVariant = config.skilledVariant ?? "skilled";
+  const baselineRecordVariant = baselineSlot[0]?.variant;
+  const skilledRecordVariant = skilledSlot[0]?.variant;
+  if (
+    (baselineRecordVariant != null && baselineRecordVariant !== baselineVariant)
+    || (skilledRecordVariant != null && skilledRecordVariant !== skilledVariant)
+  ) {
+    return {
+      ok: false,
+      error: {
+        phase: "comparison_pairing",
+        kind: "permanent",
+        code: "targeted_slot_variant_mismatch",
+        message:
+          `Expected preserved variants ${baselineVariant}/${skilledVariant}, found ` +
+          `${baselineRecordVariant ?? "<source-file>"}/${skilledRecordVariant ?? "<source-file>"}`,
       },
     };
   }
@@ -1126,7 +1161,7 @@ function recoverTransientComparisonSlots(primaryReport, config) {
         stimulusName: slot.stimulusName,
         trialIndex: slot.trialIndex,
         attemptHistory: [
-          { attempt: 2, ...slot.error },
+          ...slot.priorAttemptHistory,
           { attempt: 3, ...outcome.error },
         ],
       });
@@ -2108,6 +2143,8 @@ function main() {
           report = recoverTransientComparisonSlots(report, {
             baselineRecords: baseline,
             skilledRecords: skilled,
+            baselineVariant: opts["baseline-variant"],
+            skilledVariant: opts["skilled-variant"],
             workDir,
             filePrefix: `${plugin}__${skill}`,
           });

@@ -499,6 +499,13 @@ public sealed record ValidatorConfig
     public IReadOnlyList<string> ScenarioFilter { get; init; } = [];
 
     /// <summary>
+    /// When non-empty, evaluate only the named targets before applying any scenario filter.
+    /// This keeps a targeted scenario retry from selecting a same-named scenario owned by
+    /// another skill or agent in the same invocation.
+    /// </summary>
+    public IReadOnlyList<string> TargetFilter { get; init; } = [];
+
+    /// <summary>
     /// When set, run the requested agent arms and persist sessions/metrics but skip all judging.
     /// Judging is deferred to a later <c>rejudge</c>/<c>judge</c> step. Implies session persistence
     /// and does not require a baseline.

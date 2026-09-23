@@ -16,6 +16,7 @@ import {
 } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { pathToFileURL } from "node:url";
 
 import {
   comparisonToVerdict,
@@ -25,7 +26,10 @@ import {
   VERDICT_STATES,
 } from "./adapt.mjs";
 
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+
 const { values: opts } = parseArgs({
+  args: isMain ? process.argv.slice(2) : [],
   options: {
     "results-file": { type: "string" },
     "output-root": { type: "string", default: "eval-results" },
@@ -38,7 +42,7 @@ const { values: opts } = parseArgs({
   strict: true,
 });
 
-if (opts.help || !opts["results-file"]) {
+if (isMain && (opts.help || !opts["results-file"])) {
   console.log(`Usage:
   node adapt-agent-results.mjs --results-file <legacy-results.json> [options]
 
@@ -219,6 +223,31 @@ function scenarioTimedOut(scenario) {
   );
 }
 
+function nativeCompletionRegressed(scenarios) {
+  return (scenarios ?? []).some(
+    (scenario) =>
+      scenario?.expectActivation !== false
+      && !scenario?.executionError
+      && (scenario?.failedRunCount ?? 0) === 0
+      && !scenarioTimedOut(scenario)
+      && scenario?.baseline
+      && scenario?.skilledIsolated
+      && scenario?.skilledPlugin
+      && scenario?.pairwiseResult
+      && scenario?.baseline?.metrics?.taskCompleted === true
+      && scenario?.skilledIsolated?.metrics?.taskCompleted !== true,
+  );
+}
+
+function nativeActivationFailed(scenarios, agentName) {
+  return (scenarios ?? []).some(
+    (scenario) =>
+      scenario?.expectActivation !== false
+      && scenario?.subagentActivationIsolated
+      && !targetAgentActivated(scenario.subagentActivationIsolated, agentName),
+  );
+}
+
 function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
   const identity = agentIdentity(evalFile);
   identity.skillPath = agentSourcePath(legacyVerdict, repoRoot) ?? identity.skillPath;
@@ -331,20 +360,12 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
   );
   verdict.evaluationLane = "native-agent-sdk";
   verdict.overfittingResult = legacyVerdict.overfittingResult ?? null;
-  const nativeCompletionRegressed =
-    legacyVerdict.failureKind === "completion_regression";
-  const nativeActivationFailed = legacyVerdict.skillNotActivated === true
-    || legacyVerdict.failureKind === "skill_not_activated";
-  if (nativeCompletionRegressed) {
-    verdict.state = VERDICT_STATES.VALID_REGRESSION;
-    verdict.stateReason = {
-      code: "native_completion_regression",
-      phase: "completion",
-    };
-    verdict.passed = false;
-    verdict.regressed = true;
-    verdict.reason = `${verdict.reason} — native evaluator reported an objective task-completion regression`;
-  } else if (nativeActivationFailed) {
+  const completionRegressed = nativeCompletionRegressed(legacyVerdict.scenarios);
+  const activationFailed = nativeActivationFailed(
+    legacyVerdict.scenarios,
+    identity.agentName,
+  );
+  if (activationFailed) {
     verdict.passed = false;
     if (verdict.state === VERDICT_STATES.VALID_PASS) {
       verdict.state = VERDICT_STATES.VALID_NO_CHANGE;
@@ -354,6 +375,17 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
       };
     }
     verdict.reason = `${verdict.reason} — native evaluator reported that the target agent did not activate`;
+  } else if (completionRegressed) {
+    verdict.passed = false;
+    if (verdict.state !== VERDICT_STATES.INVALID_INCONCLUSIVE) {
+      verdict.state = VERDICT_STATES.VALID_REGRESSION;
+      verdict.stateReason = {
+        code: "native_completion_regression",
+        phase: "completion",
+      };
+      verdict.regressed = true;
+    }
+    verdict.reason = `${verdict.reason} — native evaluator reported an objective task-completion regression`;
   }
 
   const legacyByScenario = new Map(
@@ -544,11 +576,13 @@ function main() {
   );
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
-  process.exitCode = 1;
+if (isMain) {
+  try {
+    main();
+  } catch (error) {
+    console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    process.exitCode = 1;
+  }
 }
 
 export {
@@ -556,5 +590,7 @@ export {
   agentIdentity,
   directionFromPairwise,
   legacyToVerdict,
+  nativeActivationFailed,
+  nativeCompletionRegressed,
   magnitudeFromPairwise,
 };

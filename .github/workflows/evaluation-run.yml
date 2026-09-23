@@ -872,20 +872,21 @@ jobs:
             fi
             # A wall-clock timeout on a required arm is a property of one run, not
             # of the agent under test, yet it makes the whole eval
-            # measurement-invalid. Re-run only the affected scenario, into its own
-            # results dir so sessions never merge and role/session accounting stays
-            # unique, then swap that one scenario back in. A scenario that times
-            # out again, fails for any other reason, or simply lost is left exactly
-            # as measured and still fails the accounting gate below. The bound
-            # keeps a systemic capacity problem from being retried at all.
-            # Keep the retry's sessions and raw output inside RESULTS_DIR so the
-            # uploaded artifact carries an audit trail of what was re-run. Its
-            # results.json files are excluded from the produced-result count
-            # below; only the adapted schema-v5 output is authoritative.
+            # measurement-invalid. Re-run only the affected scenario in a temporary
+            # results tree. Retry results.json files stay outside RESULTS_DIR so
+            # SIGTERM cannot leave an authoritative-looking file in the artifact
+            # tree. Completed retry sessions and logs are copied into the diagnostic
+            # subtree; the raw result is renamed retry-results.json. Recursive
+            # collectors also exclude that subtree as defense in depth. A scenario
+            # that times out again, fails for any other reason, or simply lost is
+            # left exactly as measured and
+            # still fails the accounting gate below. The bound keeps a systemic
+            # capacity problem from being retried at all.
             if ! timeout --signal=TERM --kill-after=30s 45m \
               node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/retry-agent-timeouts.mjs" \
                 --results-file "${AGENT_RESULTS[0]}" \
-                --retry-results-dir "$RESULTS_DIR/_agent-timeout-retry" \
+                --retry-results-dir "$RUNNER_TEMP/agent-timeout-retry" \
+                --retry-audit-dir "$RESULTS_DIR/_agent-timeout-retry" \
                 --summary "$RESULTS_DIR/agent-timeout-retry-summary.json" \
                 --validator "$RUNNER_TEMP/trusted-validator/skill-validator" \
                 --tests-dir "tests/$PLUGIN" \
@@ -894,17 +895,6 @@ jobs:
                 --max-scenarios 2 \
                 "${AGENT_ARGS[@]/#/--agent=}"; then
               echo "::warning::Agent timeout recovery did not complete; the original measurement stands"
-            fi
-            # Signal-safe backstop. retry-agent-timeouts.mjs renames its own
-            # native results.json files, but the timeout above can TERM/KILL it
-            # before that runs, and every recursive collector downstream matches
-            # the exact name "results.json". This rename is unconditional: it
-            # runs whatever the retry's exit status was, so a killed retry can
-            # never leave a collectable native result behind. The evidence stays
-            # in place under its .retry.json name for audit.
-            if [ -d "$RESULTS_DIR/_agent-timeout-retry" ]; then
-              find "$RESULTS_DIR/_agent-timeout-retry" -name results.json -type f \
-                -exec sh -c 'mv "$1" "${1%.json}.retry.json"' _ {} \;
             fi
             node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/adapt-agent-results.mjs" \
               --results-file "${AGENT_RESULTS[0]}" \
@@ -1246,7 +1236,6 @@ jobs:
             " "$RESULTS_JSON" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           # Exclude the agent timeout-retry tree: it holds a second, narrower
-          # native copy of one scenario, not a skill result. The retry renames
-          # its own files and the step above renames any a killed retry left
-          # behind; this path filter is the last line of defence.
+          # native copy of one scenario, not a skill result. The retry raw result
+          # is renamed, and this path filter remains defense in depth.
           done < <(find "$RESULTS_DIR" -name results.json -not -path "$RESULTS_DIR/_agent-timeout-retry/*" | sort)

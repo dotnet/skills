@@ -1044,4 +1044,35 @@ public class EvaluateCommandTests
         Assert.Empty(filtered);
         Assert.Equal("alpha", Assert.Single(unknown));
     }
+
+    [Fact]
+    public void FilterTargetsByName_ScopesSameNamedScenarioToItsOwningTarget()
+    {
+        var targets = new[]
+        {
+            TargetWithScenarios("writer", "shared"),
+            TargetWithScenarios("auditor", "shared"),
+        };
+
+        var (targetFiltered, unknownTargets) =
+            EvaluateCommand.FilterTargetsByName(targets, ["writer"]);
+        var (scenarioFiltered, unknownScenarios) =
+            EvaluateCommand.FilterTargetsByScenario(targetFiltered, ["shared"]);
+
+        Assert.Empty(unknownTargets);
+        Assert.Empty(unknownScenarios);
+        Assert.Equal("writer", Assert.Single(scenarioFiltered).Name);
+    }
+
+    [Fact]
+    public void FilterTargetsByName_ReportsNamesThatMatchNothing()
+    {
+        var targets = new[] { TargetWithScenarios("writer", "alpha") };
+
+        var (filtered, unknown) =
+            EvaluateCommand.FilterTargetsByName(targets, ["writer", "typo"]);
+
+        Assert.Equal("writer", Assert.Single(filtered).Name);
+        Assert.Equal("typo", Assert.Single(unknown));
+    }
 }
