@@ -14,7 +14,7 @@ import { isAbsolute, join, resolve } from "node:path";
 const supportedCodexVersion = "0.154.0";
 const marketplaceName = "dotnet-agent-skills";
 const expectedMcpServer = "binlog";
-const expectedMcpTool = "binlog_overview";
+const expectedMcpTools = ["load_binlog", "get_diagnostics"];
 
 const options = parseArguments(process.argv.slice(2));
 const repositoryRoot = resolve(options.repository ?? process.cwd());
@@ -136,7 +136,7 @@ try {
   await testAppServer(sampleBinlog, expectedSkills);
 
   console.log(
-    `Codex ${supportedCodexVersion} installed ${expectedPlugins.length} plugins, discovered all ${expectedSkills.size} skills and ${expectedMcpServer}, and called ${expectedMcpTool}.`,
+    `Codex ${supportedCodexVersion} installed ${expectedPlugins.length} plugins, discovered all ${expectedSkills.size} skills and ${expectedMcpServer}, and called ${expectedMcpTools.join(" then ")}.`,
   );
 } finally {
   if (process.env.CODEX_SMOKE_KEEP_HOME !== "1") {
@@ -269,18 +269,37 @@ async function testAppServer(sampleBinlog, expectedSkills) {
     });
     const threadId = thread.thread.id;
 
-    const result = await request("mcpServer/tool/call", {
+    const loaded = await request("mcpServer/tool/call", {
       threadId,
       server: expectedMcpServer,
-      tool: expectedMcpTool,
+      tool: "load_binlog",
       arguments: {
-        binlog_file: sampleBinlog,
+        path: sampleBinlog,
       },
     });
-    assert.notEqual(result.isError, true, `${expectedMcpTool} returned an error`);
+    assert.notEqual(loaded.isError, true, "load_binlog returned an error");
     assert.ok(
-      (result.content?.length ?? 0) > 0 || result.structuredContent,
-      `${expectedMcpTool} returned no build overview`,
+      (loaded.content?.length ?? 0) > 0 || loaded.structuredContent,
+      "load_binlog returned no load summary",
+    );
+
+    const diagnostics = await request("mcpServer/tool/call", {
+      threadId,
+      server: expectedMcpServer,
+      tool: "get_diagnostics",
+      arguments: {
+        binlog_file: sampleBinlog,
+        maxResults: 10,
+      },
+    });
+    assert.notEqual(
+      diagnostics.isError,
+      true,
+      "get_diagnostics returned an error",
+    );
+    assert.ok(
+      (diagnostics.content?.length ?? 0) > 0 || diagnostics.structuredContent,
+      "get_diagnostics returned no result",
     );
   } finally {
     appServer.stdin.end();
