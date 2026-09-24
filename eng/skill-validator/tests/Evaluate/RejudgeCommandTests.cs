@@ -2,6 +2,7 @@ using SkillValidator.Evaluate;
 
 namespace SkillValidator.Tests;
 
+[TestClass]
 public class RejudgeCommandTests
 {
     private static SessionRecord Rec(
@@ -32,7 +33,7 @@ public class RejudgeCommandTests
             PairwiseJson: null,
             BaselineKey: baselineKey);
 
-    [Fact]
+    [TestMethod]
     public void PairCrossDir_MatchesByBaselineKeyAndRunIndex()
     {
         var baseline = new[]
@@ -48,14 +49,14 @@ public class RejudgeCommandTests
 
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
-        Assert.Empty(pairing.Unmatched);
-        Assert.Equal(2, pairing.Pairs.Count);
-        Assert.Equal("b0", pairing.Pairs.Single(p => p.RunIndex == 0).Baseline.Id);
-        Assert.Equal("b1", pairing.Pairs.Single(p => p.RunIndex == 1).Baseline.Id);
-        Assert.Equal("t0", pairing.Pairs.Single(p => p.RunIndex == 0).Isolated.Id);
+        Assert.IsEmpty(pairing.Unmatched);
+        Assert.AreEqual(2, pairing.Pairs.Count);
+        Assert.AreEqual("b0", pairing.Pairs.Single(p => p.RunIndex == 0).Baseline.Id);
+        Assert.AreEqual("b1", pairing.Pairs.Single(p => p.RunIndex == 1).Baseline.Id);
+        Assert.AreEqual("t0", pairing.Pairs.Single(p => p.RunIndex == 0).Isolated.Id);
     }
 
-    [Fact]
+    [TestMethod]
     public void PairCrossDir_FallsBackToFirstBaseline_WhenRunIndexMissing()
     {
         var baseline = new[] { Rec("b0", "baseline", 0, "K1") };
@@ -63,12 +64,12 @@ public class RejudgeCommandTests
 
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
-        var pair = Assert.Single(pairing.Pairs);
-        Assert.Equal("b0", pair.Baseline.Id);
-        Assert.Equal(2, pair.RunIndex);
+        var pair = Assert.ContainsSingle(pairing.Pairs);
+        Assert.AreEqual("b0", pair.Baseline.Id);
+        Assert.AreEqual(2, pair.RunIndex);
     }
 
-    [Fact]
+    [TestMethod]
     public void PairCrossDir_ReportsUnmatched_WhenNoBaselineKeyMatches()
     {
         var baseline = new[] { Rec("b0", "baseline", 0, "K1") };
@@ -76,12 +77,12 @@ public class RejudgeCommandTests
 
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
-        Assert.Empty(pairing.Pairs);
-        var unmatched = Assert.Single(pairing.Unmatched);
+        Assert.IsEmpty(pairing.Pairs);
+        var unmatched = Assert.ContainsSingle(pairing.Unmatched);
         Assert.Contains("scn", unmatched);
     }
 
-    [Fact]
+    [TestMethod]
     public void PairCrossDir_IncludesPluginRole()
     {
         var baseline = new[] { Rec("b0", "baseline", 0, "K1") };
@@ -93,13 +94,13 @@ public class RejudgeCommandTests
 
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
-        var pair = Assert.Single(pairing.Pairs);
-        Assert.Equal("iso", pair.Isolated.Id);
-        Assert.NotNull(pair.Plugin);
-        Assert.Equal("plug", pair.Plugin!.Id);
+        var pair = Assert.ContainsSingle(pairing.Pairs);
+        Assert.AreEqual("iso", pair.Isolated.Id);
+        Assert.IsNotNull(pair.Plugin);
+        Assert.AreEqual("plug", pair.Plugin!.Id);
     }
 
-    [Fact]
+    [TestMethod]
     public void PairCrossDir_SupportsAgentRolesAndReusedBaseline()
     {
         var baseline = new[] { Rec("b0", "baseline-reused", 0, "K1") };
@@ -107,86 +108,86 @@ public class RejudgeCommandTests
 
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
-        var pair = Assert.Single(pairing.Pairs);
-        Assert.Equal("b0", pair.Baseline.Id);
-        Assert.Equal("a0", pair.Isolated.Id);
+        var pair = Assert.ContainsSingle(pairing.Pairs);
+        Assert.AreEqual("b0", pair.Baseline.Id);
+        Assert.AreEqual("a0", pair.Isolated.Id);
     }
 
-    [Fact]
+    [TestMethod]
     public void ValidateCrossDirCompat_RejectsModelMismatch()
     {
         var (ok, effective, error) = RejudgeCommand.ValidateCrossDirCompat(
             baselineModel: "model-a", treatmentModel: "model-b",
             baselineJudgeModel: "judge", treatmentJudgeModel: "judge", explicitJudgeModel: null);
 
-        Assert.False(ok);
-        Assert.Null(effective);
-        Assert.Contains("model-a", error);
-        Assert.Contains("model-b", error);
+        Assert.IsFalse(ok);
+        Assert.IsNull(effective);
+        Assert.Contains("model-a", error!);
+        Assert.Contains("model-b", error!);
     }
 
-    [Fact]
+    [TestMethod]
     public void ValidateCrossDirCompat_RejectsJudgeModelMismatch()
     {
         var (ok, effective, error) = RejudgeCommand.ValidateCrossDirCompat(
             "model-x", "model-x", "judge-a", "judge-b", explicitJudgeModel: null);
 
-        Assert.False(ok);
-        Assert.Null(effective);
-        Assert.Contains("judge-a", error);
-        Assert.Contains("judge-b", error);
+        Assert.IsFalse(ok);
+        Assert.IsNull(effective);
+        Assert.Contains("judge-a", error!);
+        Assert.Contains("judge-b", error!);
     }
 
-    [Fact]
+    [TestMethod]
     public void ValidateCrossDirCompat_ExplicitJudgeOverridesMismatch()
     {
         var (ok, effective, error) = RejudgeCommand.ValidateCrossDirCompat(
             "model-x", "model-x", "judge-a", "judge-b", explicitJudgeModel: "judge-c");
 
-        Assert.True(ok);
-        Assert.Equal("judge-c", effective);
-        Assert.Null(error);
+        Assert.IsTrue(ok);
+        Assert.AreEqual("judge-c", effective);
+        Assert.IsNull(error);
     }
 
-    [Fact]
+    [TestMethod]
     public void ValidateCrossDirCompat_PrefersTreatmentJudgeModel()
     {
         var (ok, effective, _) = RejudgeCommand.ValidateCrossDirCompat(
             "model-x", "model-x", baselineJudgeModel: null, treatmentJudgeModel: "judge-t", explicitJudgeModel: null);
 
-        Assert.True(ok);
-        Assert.Equal("judge-t", effective);
+        Assert.IsTrue(ok);
+        Assert.AreEqual("judge-t", effective);
     }
 
-    [Fact]
+    [TestMethod]
     public void ValidateCrossDirCompat_FallsBackToBaselineJudgeModel()
     {
         var (ok, effective, _) = RejudgeCommand.ValidateCrossDirCompat(
             "model-x", "model-x", baselineJudgeModel: "judge-b", treatmentJudgeModel: null, explicitJudgeModel: null);
 
-        Assert.True(ok);
-        Assert.Equal("judge-b", effective);
+        Assert.IsTrue(ok);
+        Assert.AreEqual("judge-b", effective);
     }
 
-    [Fact]
+    [TestMethod]
     public void ValidateCrossDirCompat_FailsWhenNoJudgeModelAvailable()
     {
         var (ok, effective, error) = RejudgeCommand.ValidateCrossDirCompat(
             "model-x", "model-x", baselineJudgeModel: null, treatmentJudgeModel: null, explicitJudgeModel: null);
 
-        Assert.False(ok);
-        Assert.Null(effective);
-        Assert.NotNull(error);
+        Assert.IsFalse(ok);
+        Assert.IsNull(effective);
+        Assert.IsNotNull(error);
     }
 
-    [Fact]
+    [TestMethod]
     public void ValidateCrossDirCompat_AcceptsMatchingJudgeModels()
     {
         var (ok, effective, error) = RejudgeCommand.ValidateCrossDirCompat(
             "model-x", "model-x", "judge", "judge", explicitJudgeModel: null);
 
-        Assert.True(ok);
-        Assert.Equal("judge", effective);
-        Assert.Null(error);
+        Assert.IsTrue(ok);
+        Assert.AreEqual("judge", effective);
+        Assert.IsNull(error);
     }
 }
