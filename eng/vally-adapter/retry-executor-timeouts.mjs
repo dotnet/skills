@@ -11,6 +11,7 @@
 import {
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   readdirSync,
   renameSync,
@@ -193,12 +194,13 @@ function newestDirectory(root) {
 }
 
 function runRetry(group, index, retryAttempt, config) {
-  const attemptRoot = join(
+  const attemptParent = join(
     config.retryOutputDir,
     `${index + 1}-${group.variant}-${basename(group.evalFile, ".yaml")}`,
     `attempt-${retryAttempt}`,
   );
-  mkdirSync(attemptRoot, { recursive: true });
+  mkdirSync(attemptParent, { recursive: true });
+  const attemptRoot = mkdtempSync(join(attemptParent, "run-"));
 
   const { bin, prefix } = splitVallyCommand(config.vally);
   const args = [

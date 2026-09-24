@@ -574,3 +574,74 @@ process.exit(1);
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("CLI never reuses stale retry output when the current invocation produces nothing", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-retry-stale-output-"));
+  try {
+    const runDir = join(root, "run");
+    const retryRoot = join(root, "retry");
+    const summaryPath = join(root, "executor-retry-summary.json");
+    const resultsFile = join(runDir, "baseline", "results.jsonl");
+    const timeout = record({
+      status: "error",
+      error: "Timeout after 300000ms waiting for session.idle",
+      shardKey: "timeout",
+      variant: "baseline",
+      stimulus: "Retry me",
+    });
+    writeJsonl(resultsFile, [timeout]);
+
+    const staleResults = join(
+      retryRoot,
+      "1-baseline-eval",
+      "attempt-2",
+      "stale-run",
+      "baseline",
+      "results.jsonl",
+    );
+    writeJsonl(staleResults, [
+      record({
+        shardKey: "timeout",
+        variant: "baseline",
+        stimulus: "Retry me",
+        runId: "stale-run",
+      }),
+    ]);
+
+    const fakeVally = join(root, "fake-vally.mjs");
+    writeFileSync(fakeVally, "process.exit(1);\n");
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        retryScript,
+        "--experiment-file",
+        join(root, "experiment.yaml"),
+        "--experiment-dir",
+        runDir,
+        "--retry-output-dir",
+        retryRoot,
+        "--summary",
+        summaryPath,
+        "--vally",
+        `"${process.execPath}" "${fakeVally}"`,
+        "--max-attempts-per-group",
+        "1",
+      ],
+      { encoding: "utf8" },
+    );
+
+    assert.equal(result.status, 0, result.stderr);
+    const merged = readFileSync(resultsFile, "utf8").trim().split("\n").map(JSON.parse);
+    assert.equal(merged[0].status, "error");
+    assert.equal(merged[0].executorRetry, undefined);
+
+    const summary = JSON.parse(readFileSync(summaryPath, "utf8"));
+    assert.equal(summary.recoveredSlotCount, 0);
+    assert.equal(summary.unresolvedSlotCount, 1);
+    assert.deepEqual(summary.attempts[0].recoveredSlots, []);
+    assert.deepEqual(summary.attempts[0].unresolvedSlots, ["timeout"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

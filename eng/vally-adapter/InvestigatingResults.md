@@ -286,7 +286,9 @@ variant up to two bounded times while exact timeout slots remain unresolved,
 preserves all successful first-attempt and recovered slots, and replaces only
 matching failed `shardKey` slots from the same normalized eval path that
 succeed. A later pass cannot overwrite evidence recovered by an earlier pass.
-Records without a `shardKey` remain invalid. Check
+Every invocation uses a fresh output directory, so a retry that produces no
+current output cannot reuse stale evidence from an earlier invocation. Records
+without a `shardKey` remain invalid. Check
 `executor-retry-summary.json` and the raw record's `executorRetry` field for
 recovered attempts. A timeout that survives both targeted passes remains
 measurement-invalid. The summary is written before and after every retry so an

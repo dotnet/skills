@@ -216,6 +216,8 @@ survives both bounded passes, or a different executor error, stays in the
 original JSONL and remains
 measurement-invalid. The optional whole-plugin telemetry arm is not retried and
 remains outside the baseline-versus-skilled measurement gate.
+Each retry invocation writes to a fresh directory, so missing current output
+cannot fall back to a stale prior run.
 The recovery summary is updated around each retry, so an outer watchdog can
 terminate a stuck pass without erasing the completed recovery audit trail.
 
