@@ -152,6 +152,15 @@ internal static class WorkflowTests
         var acquisition = File.ReadAllText(Path.Combine(referencesRoot, "artifact-acquisition.md")).ReplaceLineEndings("\n");
         var candidates = File.ReadAllText(Path.Combine(referencesRoot, "input-candidates.md")).ReplaceLineEndings("\n");
         Check(acquisition, candidates);
+        foreach (var limit in new[]
+        {
+            $"{ResourceLimits.SourceArchiveBytes / (1024 * 1024)} MiB retained archive bytes",
+            $"{ResourceLimits.SourceArchiveExpandedBytes / (1024 * 1024)} MiB aggregate expanded file bytes",
+            $"{ResourceLimits.SourceArchiveEntryCount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} reader-visible archive entries",
+            $"{ResourceLimits.SourceArchiveSelectionCount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} selected files per capture",
+            "complete decompressed TAR stream, including metadata and padding"
+        })
+            AssertContains(NormalizeWhitespace(acquisition), limit, "source-archive limits match implementation constants");
         foreach (var (name, owner, text) in new[]
         {
             ("missing directory setup", "acquisition", acquisition.Replace("create the directory named by `--source-root` if absent", "", StringComparison.Ordinal)),
@@ -162,6 +171,8 @@ internal static class WorkflowTests
             ("premature extraction step", "acquisition", MoveAfterCommand(acquisition, "After successful inventory,", "source-file selection,")),
             ("extraction after capture", "acquisition", MoveAfterCommand(acquisition, "After successful inventory,", "<launcher> source capture-inventory")),
             ("changed archive allowed", "acquisition", acquisition.Replace("same retained archive bytes", "", StringComparison.Ordinal)),
+            ("wrong eventual root", "acquisition", acquisition.Replace("record `extracted/bundle`, not `extracted/`", "", StringComparison.Ordinal)),
+            ("missing recorded-root contract", "acquisition", acquisition.Replace("reuses the root recorded by inventory", "", StringComparison.Ordinal)),
             ("missing exact origin", "candidates", candidates.Replace("subject, locator and\nmethod exactly match", "", StringComparison.Ordinal)),
             ("missing historical boundary", "candidates", candidates.Replace("never as a new public fetch", "", StringComparison.Ordinal)),
             ("lost local origin", "candidates", candidates.Replace("truthful `local-file` origin", "", StringComparison.Ordinal)),
@@ -183,7 +194,10 @@ internal static class WorkflowTests
                          "Do not extract before inventory succeeds",
                          "neither creates the directory nor extracts the archive", "Reuse an already extracted tree",
                          "same retained archive bytes", "Stop on inventory failure without expanding the archive",
-                         "Capture selected files only after their extracted contents exist" })
+                         "Capture selected files only after their extracted contents exist",
+                         "repository root the planned extraction will produce", "record `extracted/bundle`, not `extracted/`",
+                         "reuses the root recorded by inventory", "regular directory, not a link",
+                         "[source-archive limits](#source-archive-limits)" })
                 AssertContains(archive, rule, "archive prerequisite");
             AssertBefore(acquisition, "Before `source inventory-archive`,", "<launcher> source inventory-archive",
                 "directory setup precedes inventory invocation");

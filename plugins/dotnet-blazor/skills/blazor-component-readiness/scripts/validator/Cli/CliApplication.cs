@@ -213,11 +213,11 @@ public static class CliApplication
 
     private const string SourceCaptureHelp =
         """
-        Inventory and capture selected files from an already extracted source archive.
+        Inventory a retained source archive, then capture selected extracted files.
 
         Usage:
           readiness-validator source inventory-archive --root <root>
-            --archive <retained.tar.gz|zip> --source-root <extracted-repository-root>
+            --archive <retained.tar.gz|zip> --source-root <planned-repository-root>
             [--archive-prefix <directory>] --archive-format <tar.gz|zip>
             [--expected-sha256 <64-hex>] --output <new-inventory.json>
 
@@ -235,15 +235,21 @@ public static class CliApplication
             --acquisition-locator <url> --source-path <repository-path> [--source-path <path> ...]
             [--expected-sha256 <64-hex>] --output <new-receipt.json>
 
-        source-root is the actual local repository root where each repository-relative source_path
-        exists; it may be nested below the extraction destination. archive-prefix applies only to
+        inventory-archive requires an existing regular source-root directory, which may be empty.
+        Record the repository root the planned extraction will produce, not just its destination.
+        capture-inventory reuses the source-root recorded in the inventory and requires the selected
+        extracted files there. Neither operation creates the directory or extracts the archive.
+
+        source-root is the local repository root where each repository-relative source_path must
+        exist for capture; it may be nested below the extraction destination. archive-prefix applies only to
         archive entry names and never strips or changes local extraction paths. For example, after
         'tar -xzf archive.tar.gz -C extracted', use --source-root extracted/bundle with
         --archive-prefix bundle. With '--strip-components=1', use --source-root extracted but
         keep --archive-prefix bundle because the retained archive bytes are unchanged.
 
-        The operation never invokes Git or extracts an archive. It verifies selected files against
-        the retained archive and writes one deterministic, immutable receipt.
+        Neither operation invokes Git. Inventory validates archive entries and writes an immutable
+        inventory; capture verifies selected extracted files against the retained archive and writes
+        a deterministic, immutable receipt.
         """;
 
     private static int RunSource(IReadOnlyList<string> args, TextWriter output)

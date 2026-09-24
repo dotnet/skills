@@ -27,6 +27,7 @@ internal static class ArchiveCaptureTests
             TestCaptureFailures(testRoot);
             TestZipCapture(testRoot);
             TestInventoryBeforeExtraction(testRoot);
+            TestSourceHelp();
             TestInventoryCaptureBridge(testRoot);
             TestInventoryCoverage(testRoot);
             TestInventoryHazards(testRoot);
@@ -407,6 +408,24 @@ internal static class ArchiveCaptureTests
         Assert(!File.Exists(Path.Combine(root, "extracted", "escape.txt")), "unsafe entry is never extracted");
     }
 
+    private static void TestSourceHelp()
+    {
+        foreach (var command in new[] { "inventory-archive", "capture-inventory" })
+        {
+            var output = new StringWriter();
+            AssertEqual(ExitCodes.Success, CliApplication.Run(["source", command, "--help"], output, new StringWriter()),
+                $"{command} help");
+            var help = output.ToString();
+            foreach (var rule in new[] { "existing regular source-root directory, which may be empty",
+                         "repository root the planned extraction will produce",
+                         "capture-inventory reuses the source-root recorded in the inventory",
+                         "extracted files there", "--source-root extracted/bundle" })
+                Assert(help.Contains(rule, StringComparison.Ordinal), $"source help explains {rule}");
+            Assert(!help.Contains("already extracted", StringComparison.Ordinal),
+                "shared inventory help does not require prior extraction");
+        }
+    }
+
     private static void TestInventoryCaptureBridge(string testRoot)
     {
         foreach (var (rootName, sourceRoot) in new[]
@@ -417,9 +436,7 @@ internal static class ArchiveCaptureTests
         {
             var root = Path.Combine(testRoot, rootName);
             var sourceRootPath = Path.Combine(root, sourceRoot);
-            Directory.CreateDirectory(Path.Combine(sourceRootPath, "src"));
-            File.WriteAllBytes(Path.Combine(sourceRootPath, "src", "a.txt"), Encoding.UTF8.GetBytes("alpha"));
-            File.WriteAllBytes(Path.Combine(sourceRootPath, "src", "b.txt"), Encoding.UTF8.GetBytes("bravo"));
+            Directory.CreateDirectory(sourceRootPath);
             var archivePath = Path.Combine(root, "archive.tar.gz");
             CreateTarGzip(
                 archivePath,
@@ -441,8 +458,12 @@ internal static class ArchiveCaptureTests
                 CliApplication.Run(inventoryArguments, new StringWriter(), new StringWriter()),
                 $"{rootName} inventory archive");
             var inventoryBytes = File.ReadAllBytes(Path.Combine(root, "inventory.json"));
+            Assert(!Directory.EnumerateFileSystemEntries(sourceRootPath).Any(),
+                $"{rootName} inventory leaves the planned repository root empty");
             using (var inventory = JsonDocument.Parse(inventoryBytes))
             {
+                AssertEqual(sourceRoot, inventory.RootElement.GetProperty("source_root").GetString(),
+                    $"{rootName} inventory records the eventual repository root");
                 AssertEqual(2, inventory.RootElement.GetProperty("entries").GetArrayLength(), $"{rootName} inventory entry count");
                 AssertEqual(
                     "src/a.txt",
@@ -469,6 +490,38 @@ internal static class ArchiveCaptureTests
                 "--inventory", "inventory.json",
                 "--entry-id", "1"
             }.Concat(common).Concat(["--output", "bridged.json"]).ToArray();
+            if (rootName == "inventory-bridge-nested")
+            {
+                var wrongInventory = inventoryArguments.Select(value => value switch
+                {
+                    "extracted/bundle" => "extracted",
+                    "inventory.json" => "wrong-root-inventory.json",
+                    _ => value
+                }).ToArray();
+                AssertEqual(ExitCodes.Success, CliApplication.Run(wrongInventory, new StringWriter(), new StringWriter()),
+                    "parent extraction destination also passes inventory but records the wrong repository root");
+                using (var stream = File.OpenRead(archivePath))
+                using (var gzip = new GZipStream(stream, CompressionMode.Decompress))
+                    TarFile.ExtractToDirectory(gzip, Path.Combine(root, "extracted"), overwriteFiles: false);
+                var wrongCapture = bridgedArguments.Select(value => value switch
+                {
+                    "inventory.json" => "wrong-root-inventory.json",
+                    "bridged.json" => "wrong-root-receipt.json",
+                    _ => value
+                }).ToArray();
+                var wrongError = new StringWriter();
+                AssertEqual(ExitCodes.EnvironmentFailure, CliApplication.Run(wrongCapture, new StringWriter(), wrongError),
+                    $"capture reuses the wrong recorded root rather than discovering the nested repository: {wrongError}");
+                Assert(wrongError.ToString().Contains("path beneath the artifact root does not exist", StringComparison.Ordinal),
+                    "wrong recorded root reports missing selected file");
+                Assert(!File.Exists(Path.Combine(root, "wrong-root-receipt.json")), "wrong root writes no capture receipt");
+            }
+            else
+            {
+                Directory.CreateDirectory(Path.Combine(sourceRootPath, "src"));
+                File.WriteAllBytes(Path.Combine(sourceRootPath, "src", "a.txt"), Encoding.UTF8.GetBytes("alpha"));
+                File.WriteAllBytes(Path.Combine(sourceRootPath, "src", "b.txt"), Encoding.UTF8.GetBytes("bravo"));
+            }
             var bridgeError = new StringWriter();
             AssertEqual(
                 ExitCodes.Success,

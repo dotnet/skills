@@ -33,8 +33,14 @@ locator, top-level entry prefix, mapping rationale, and confidence. Inventory ac
 archive entries, then choose relevant entries by their numeric IDs; the inventory is structural
 source-file selection, not a component or library assessment inventory:
 
+`--source-root` is the repository root the planned extraction will produce. If extraction retains
+the archive's `bundle/` prefix under `extracted/`, record `extracted/bundle`, not `extracted/`.
+`capture-inventory` reuses the root recorded by inventory; a wrong root can pass inventory but
+fail capture when the selected files are not there.
+
 Before `source inventory-archive`, create the directory named by `--source-root` if absent,
-outside the reviewed repository. An empty directory is sufficient: inventory reads and validates
+outside the reviewed repository; it must be a regular directory, not a link.
+An empty directory is sufficient: inventory reads and validates
 the retained archive, not extracted contents. Do not extract before inventory succeeds.
 The command neither creates the directory nor extracts the archive.
 
@@ -45,7 +51,7 @@ The command neither creates the directory nor extracts the archive.
 ```
 
 After successful inventory, safely extract the same retained archive bytes as data, preserving
-the resource limits and path mapping below. Reuse an already extracted tree when it corresponds
+the [source-archive limits](#source-archive-limits) and path mapping below. Reuse an already extracted tree when it corresponds
 to these archive bytes; do not require duplicate extraction. Stop on inventory failure without
 expanding the archive. Capture selected files only after their extracted contents exist.
 
@@ -163,3 +169,13 @@ artifact, and at most 32 supplemental evidence inputs totaling 64 MiB.
 
 Extract and probe outside the reviewed repository. Remove disposable extraction/probe trees and raw
 logs after retaining bounded commands, results, relevant snippets, and digests.
+
+### Source-archive limits
+
+Source inventory/capture enforce 256 MiB retained archive bytes, 256 MiB aggregate expanded
+file bytes, 100,000 reader-visible archive entries, and 1,024 selected files per capture.
+For TAR.GZ, the 256 MiB expansion ceiling also bounds the complete decompressed TAR stream,
+including metadata and padding, before parsing. These are source-archive limits, not nuspec
+or NuGet package limits. They are defined by `SourceArchive*` constants in
+[ResourceLimits.cs](../scripts/validator/IO/ResourceLimits.cs) and enforced by
+[SourceArchiveCaptureService.cs](../scripts/validator/IO/SourceArchiveCaptureService.cs).
