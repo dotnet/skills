@@ -295,7 +295,11 @@
     return value < 0.001 ? value.toExponential(2) : value.toFixed(3);
   }
 
-  const verdictDisplay = window.VerdictDisplay.forVerdict;
+  const verdictDisplay = window.VerdictDisplay?.forVerdict
+    ?? (typeof require === 'function' ? require('./dashboard-verdict.js').forVerdict : null);
+  if (!verdictDisplay) {
+    throw new Error('dashboard-verdict.js must load before dashboard.js');
+  }
 
   function activationStatusLabel(status) {
     return ({
