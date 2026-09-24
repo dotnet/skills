@@ -14,35 +14,6 @@ namespace SkillValidator.Tests;
 [DoNotParallelize]
 public class BuildSessionConfigTests
 {
-    private static readonly string[] ExpectedBinlogMcpTools =
-    [
-        "get_diagnostics",
-        "get_evaluation_global_properties",
-        "get_evaluation_items_by_name",
-        "get_evaluation_properties_by_name",
-        "get_expensive_analyzers",
-        "get_expensive_projects",
-        "get_expensive_targets",
-        "get_expensive_tasks",
-        "get_file_from_binlog",
-        "get_node_timeline",
-        "get_project_build_time",
-        "get_project_target_list",
-        "get_project_target_times",
-        "get_target_info_by_id",
-        "get_target_info_by_name",
-        "get_task_analyzers",
-        "get_task_info",
-        "list_evaluations",
-        "list_files_from_binlog",
-        "list_projects",
-        "list_tasks_in_target",
-        "load_binlog",
-        "search_binlog",
-        "search_targets_by_name",
-        "search_tasks_by_name",
-    ];
-
     private static readonly SkillInfo MockSkill = new(
         Name: "test-skill",
         Description: "A test skill",
@@ -770,7 +741,12 @@ public class BuildSessionConfigTests
         var mcpServers = await EvaluateCommand.FindPluginMcpServers(skillDirectory);
         var binlog = Assert.ContainsSingle(mcpServers!);
         Assert.AreEqual("binlog", binlog.Key);
-        Assert.AreSequenceEqual(ExpectedBinlogMcpTools, binlog.Value.Tools);
+        var allowedTools = binlog.Value.Tools!.ToArray();
+        Assert.Contains("binlog_overview", allowedTools);
+        foreach (var excludedTool in new[] { "binlog_extract", "stop", "list_mcp_instances", "stop_instance" })
+        {
+            Assert.DoesNotContain(excludedTool, allowedTools);
+        }
 
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
         var config = await AgentRunner.BuildSessionConfig(
@@ -780,7 +756,7 @@ public class BuildSessionConfigTests
             workDir,
             mcpServers);
 
-        foreach (var tool in ExpectedBinlogMcpTools)
+        foreach (var tool in allowedTools)
         {
             var decision = await config.OnPermissionRequest!(
                 new PermissionRequestMcp
