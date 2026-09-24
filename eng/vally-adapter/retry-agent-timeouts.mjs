@@ -21,8 +21,9 @@
  * fresh pairwise judgment and no separate rejudge pass is required.
  *
  * Anything that is not a clean required-arm timeout — an execution error, a
- * failed run, a missing arm, or a scenario the agent simply lost — is never
- * retried and keeps failing the measurement-validity gate.
+ * failed run, a missing arm, missing completion or pairwise evidence, or a
+ * scenario the agent simply lost — is never retried and keeps failing the
+ * measurement-validity gate.
  */
 
 import {
@@ -81,7 +82,8 @@ if (
 
 Re-runs only the scenarios whose required agent arm hit its wall-clock timeout,
 then replaces those scenarios in the native results file. Every other scenario,
-including one the agent lost, is left exactly as it was measured.
+including one the agent lost or one with missing completion/pairwise evidence,
+is left exactly as it was measured.
 
 Options:
   --agent <path>          Custom-agent path to re-evaluate (repeatable)
@@ -118,6 +120,17 @@ function isRetryableTimeout(scenario) {
   return timeoutIneligibilityReason(scenario) === null;
 }
 
+function missingTaskCompletionArms(scenario) {
+  return [
+    ["baseline", scenario?.baseline],
+    ["isolated", scenario?.skilledIsolated],
+    ["plugin", scenario?.skilledPlugin],
+  ].filter(
+    ([, run]) =>
+      run && typeof run.metrics?.taskCompleted !== "boolean",
+  ).map(([name]) => name);
+}
+
 function timeoutIneligibilityReason(scenario) {
   if (!scenario?.scenarioName || !requiredArmTimedOut(scenario)) {
     return "scenario is not a named required-arm timeout";
@@ -128,6 +141,10 @@ function timeoutIneligibilityReason(scenario) {
   }
   if (!scenario.baseline || !scenario.skilledIsolated || !scenario.skilledPlugin) {
     return "scenario is missing a required evaluation arm";
+  }
+  const missingCompletion = missingTaskCompletionArms(scenario);
+  if (missingCompletion.length > 0) {
+    return `scenario is missing task-completion evidence for arm(s): ${missingCompletion.join(", ")}`;
   }
   if (!scenario.pairwiseResult) return "scenario is missing its pairwise judgment";
   return null;
@@ -558,6 +575,17 @@ function inspectRetryEvidence(attemptRoot, target, index, config, exitCode) {
   }
   if (!scenarios[0].baseline || !scenarios[0].skilledIsolated || !scenarios[0].skilledPlugin) {
     return { ok: false, reason: "retry is missing a required evaluation arm", exitCode, auditDir };
+  }
+  const missingCompletion = missingTaskCompletionArms(scenarios[0]);
+  if (missingCompletion.length > 0) {
+    return {
+      ok: false,
+      reason:
+        `retry is missing task-completion evidence for arm(s): ` +
+        missingCompletion.join(", "),
+      exitCode,
+      auditDir,
+    };
   }
   if (!scenarios[0].pairwiseResult) {
     return { ok: false, reason: "retry is missing its pairwise judgment", exitCode, auditDir };

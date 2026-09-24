@@ -608,6 +608,71 @@ test("preserves a native target-agent activation failure", () => {
   }
 });
 
+test("activation failure clears the legacy reverse-preference regressed flag", () => {
+  const root = mkdtempSync(join(tmpdir(), "agent-adapter-activation-preference-"));
+  try {
+    writeAgentEval(root);
+    const scenarios = [1, 2, 3, 4, 5].map((index) => {
+      const scenario = winningScenario(index);
+      scenario.pairwiseResult.overallWinner = "baseline";
+      scenario.pairwiseResult.overallMagnitude = -1;
+      scenario.subagentActivationIsolated.invokedAgents = ["helper"];
+      return scenario;
+    });
+    const { output, result } = runAdapter(root, {
+      skillName: "router",
+      skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
+      skillKind: "agent",
+      passed: false,
+      failureKind: "skill_not_activated",
+      skillNotActivated: true,
+      scenarios,
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const verdict = JSON.parse(
+      readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+    ).verdicts[0];
+    assert.equal(verdict.state, "VALID_NO_CHANGE");
+    assert.equal(verdict.stateReason.code, "target_agent_not_activated");
+    assert.equal(verdict.regressed, false);
+    assert.equal(verdict.preferenceRegressed, true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("activation failure does not overwrite preference underpowering", () => {
+  const root = mkdtempSync(join(tmpdir(), "agent-adapter-activation-underpowered-"));
+  try {
+    writeAgentEval(root, 4);
+    const scenarios = [1, 2, 3, 4].map((index) => {
+      const scenario = winningScenario(index);
+      scenario.subagentActivationIsolated.invokedAgents = ["helper"];
+      return scenario;
+    });
+    const { output, result } = runAdapter(root, {
+      skillName: "router",
+      skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
+      skillKind: "agent",
+      passed: false,
+      failureKind: "skill_not_activated",
+      skillNotActivated: true,
+      scenarios,
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const verdict = JSON.parse(
+      readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+    ).verdicts[0];
+    assert.equal(verdict.state, "INVALID_INCONCLUSIVE");
+    assert.equal(verdict.stateReason.code, "underpowered");
+    assert.equal(verdict.regressed, false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("ignores stale native completion and activation flags when scenarios no longer support them", () => {
   const root = mkdtempSync(join(tmpdir(), "agent-adapter-stale-aggregate-"));
   try {

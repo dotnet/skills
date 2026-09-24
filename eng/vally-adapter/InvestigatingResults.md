@@ -139,7 +139,7 @@ A verdict carries **both** the head-to-head preference and absolute per-role dat
 | `netWin` | `(wins − losses) / preference-eligible stimulus votes` — the effect size the gate reads. Magnitude-free, so an identical eligible W/T/L record always yields an identical preference verdict |
 | `practicalSignificance` | `{ netWin, minimum, passed }`. The absolute directional effect must reach 20%; this blocks sparse records such as `5W/95T/0L` |
 | `signTest` | `{ wins, ties, losses, discordant, direction, pValue, alpha }` — exact one-sided binomial tail over discordant stimulus votes. **This is what decides.** Ties cannot support a win, so they hold `discordant` down |
-| `regressed` / `preferenceRegressed` | `regressed: true` is reserved for an objective native-agent completion regression (`VALID_REGRESSION`). `preferenceRegressed: true` records a credible LLM preference loss and maps to `VALID_NO_CHANGE`, because ordinal preference is not objective completion evidence. Renderers apply the same report-only meaning to legacy records that have `regressed: true` but no explicit state |
+| `regressed` / `preferenceRegressed` | `regressed: true` is reserved for an objective native-agent completion regression (`VALID_REGRESSION`). Native adaptation clears the generic comparison layer's reverse-preference compatibility flag unless objective completion regression wins. `preferenceRegressed: true` records the credible LLM preference loss and maps to `VALID_NO_CHANGE`, because ordinal preference is not objective completion evidence. Renderers retain the report-only interpretation for historical records that have `regressed: true` but no explicit state |
 | `conclusive` | `false` when the comparison did not complete: errored runs, unmatched trajectories, or a summary that disagrees with its own `stimuli[].trials`. Integrity remains fail-closed across eligible and excluded stimuli |
 | `underpowered` | `true` when a completed, `conclusive: true` comparison counted fewer than `minCredibleStimuli` preference-eligible distinct stimuli. An independently proven activation-contract failure takes headline precedence. For native-agent results, an objective baseline-pass/isolated-fail completion regression also takes precedence because it does not depend on preference sample size; that state clears `underpowered` so downstream renderers cannot label the objective regression indeterminate |
 | `minCredibleStimuli` | The distinct-stimulus floor in force (5). See `eng/eval-quality/README.md` for why |
@@ -382,7 +382,8 @@ otherwise the eval default). Three arms plus setup/judge allowance must fit the
 per-scenario recovery budget; otherwise the scenario is left invalid without
 starting a retry that its outer watchdog cannot finish. A scenario is retried only
 when a timeout is its sole defect: an `executionError`, a failed run, a missing
-arm, or a scenario the agent simply lost is never retried. More than two
+arm, missing boolean completion evidence, missing pairwise judgment, or a
+scenario the agent simply lost is never retried. More than two
 timed-out scenarios is read as a systemic capacity problem before individual
 budget filtering; nothing is retried and every scenario receives a diagnostic
 attempt record.

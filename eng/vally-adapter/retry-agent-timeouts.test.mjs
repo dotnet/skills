@@ -219,6 +219,23 @@ test("a timeout missing pairwise evidence is reported as unresolved", () => {
   assert.match(summary.attempts[0].reason, /missing its pairwise judgment/);
 });
 
+test("a timeout missing completion evidence is reported as unresolved", () => {
+  const timedOut = timedOutScenario("flaky");
+  delete timedOut.skilledPlugin.metrics.taskCompleted;
+  const paths = workspace(resultsWith([timedOut]));
+  const { run, calls } = stubRun({ flaky: scenario("flaky") });
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+
+  assert.equal(calls.length, 0);
+  assert.equal(summary.ineligibleScenarioCount, 1);
+  assert.equal(summary.unresolvedScenarioCount, 1);
+  assert.match(
+    summary.attempts[0].reason,
+    /missing task-completion evidence for arm\(s\): plugin/,
+  );
+});
+
 test("findTimedOutScenarios records the owning verdict and position", () => {
   const results = resultsWith([
     scenario("first"),
@@ -392,6 +409,22 @@ test("a retry with extra verdict or scenario evidence is unresolved", () => {
   assert.match(
     summary.attempts[0].reason,
     /2 verdict\(s\), 1 for the target, and 2 scenario\(s\)/,
+  );
+});
+
+test("a retry missing completion evidence is unresolved", () => {
+  const paths = workspace(resultsWith([timedOutScenario("flaky")]));
+  const incomplete = scenario("flaky");
+  delete incomplete.skilledPlugin.metrics.taskCompleted;
+  const { run } = stubRun({ flaky: incomplete });
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+
+  assert.equal(summary.recoveredScenarioCount, 0);
+  assert.equal(summary.unresolvedScenarioCount, 1);
+  assert.match(
+    summary.attempts[0].reason,
+    /retry is missing task-completion evidence for arm\(s\): plugin/,
   );
 });
 

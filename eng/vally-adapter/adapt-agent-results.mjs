@@ -372,6 +372,10 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
   );
   verdict.evaluationLane = "native-agent-sdk";
   verdict.overfittingResult = legacyVerdict.overfittingResult ?? null;
+  // The generic comparison layer uses `regressed` for reverse preference.
+  // Native-agent results reserve it for objective completion regression; keep
+  // the ordinal signal in `preferenceRegressed`.
+  verdict.regressed = false;
   const completionRegressed = nativeCompletionRegressed(legacyVerdict.scenarios);
   const activationFailed = nativeActivationFailed(
     legacyVerdict.scenarios,
@@ -379,7 +383,10 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
   );
   if (activationFailed) {
     verdict.passed = false;
-    if (verdict.state === VERDICT_STATES.VALID_PASS) {
+    if (
+      verdict.state !== VERDICT_STATES.INVALID_INCONCLUSIVE
+      && verdict.stateReason?.code !== "activation_contract_failed"
+    ) {
       verdict.state = VERDICT_STATES.VALID_NO_CHANGE;
       verdict.stateReason = {
         code: "target_agent_not_activated",
