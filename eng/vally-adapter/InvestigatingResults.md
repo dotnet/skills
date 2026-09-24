@@ -423,7 +423,10 @@ Objective completion regression requires explicit
 `skilledIsolated.metrics.taskCompleted == false`; a missing completion field is
 measurement-invalid evidence, not proof of regression. A timeout with no
 pairwise judgment is also recorded as ineligible and unresolved instead of
-disappearing from retry accounting. A native retry result is accepted
+disappearing from retry accounting. When baseline and isolated arms both
+completed, this objective regression also makes a plugin-only timeout
+ineligible: recovery cannot replace the whole scenario and erase trustworthy
+completion evidence. A native retry result is accepted
 only when it contains exactly one verdict total, for the requested target, and
 exactly one requested scenario. Pairwise evidence must contain an allowed
 winner/magnitude plus rubric, reasoning, and position-swap consistency fields.

@@ -291,6 +291,31 @@ test("a timed-out scenario with a measured loss is not retried", () => {
   assert.equal(readFileSync(paths.resultsFile, "utf8"), before);
 });
 
+test("a completed objective regression is not rerolled for a plugin timeout", () => {
+  const original = resultsWith([
+    timedOutScenario("flaky", {
+      skilledIsolated: runResult({
+        metrics: { timedOut: false, taskCompleted: false },
+      }),
+      improvementScore: 0,
+    }),
+  ]);
+  const paths = workspace(original);
+  const before = readFileSync(paths.resultsFile, "utf8");
+  const { run, calls } = stubRun({ flaky: scenario("flaky") });
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+
+  assert.equal(isRetryableTimeout(original.verdicts[0].scenarios[0]), false);
+  assert.equal(calls.length, 0);
+  assert.equal(summary.recoveredScenarioCount, 0);
+  assert.equal(summary.ineligibleScenarioCount, 1);
+  assert.equal(summary.unresolvedScenarioCount, 1);
+  assert.equal(summary.attempts[0].recovered, false);
+  assert.match(summary.attempts[0].reason, /objective completion regression/);
+  assert.equal(readFileSync(paths.resultsFile, "utf8"), before);
+});
+
 test("a negative score caused by an isolated-arm timeout remains retryable", () => {
   const isolatedTimeout = scenario("flaky", {
     timedOut: true,

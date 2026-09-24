@@ -180,6 +180,12 @@ function timeoutIneligibilityReason(scenario, agentName = null) {
     scenario.skilledIsolated.metrics?.timedOut !== true;
   if (
     scoringArmsCompleted &&
+    scenarioRegressedOnIsolatedCompletion(scenario)
+  ) {
+    return "scenario has a measured objective completion regression";
+  }
+  if (
+    scoringArmsCompleted &&
     typeof scenario.improvementScore === "number" &&
     scenario.improvementScore < 0
   ) {

@@ -253,10 +253,12 @@ re-runs, so no separate `rejudge` pass is needed.
 The retry is deliberately narrow. It fires only when a wall-clock timeout is the
 scenario's sole defect; an `executionError`, `failedRunCount > 0`, a missing
 arm, missing boolean completion evidence, a missing or malformed pairwise
-judgment, or a measured negative improvement/routing failure from non-timed-out
-baseline and isolated arms is never retried. A negative score from a baseline-
-or isolated-arm timeout remains eligible because the timeout contaminated the
-score. Ineligible
+judgment, objective baseline-pass/isolated-fail completion regression, or a
+measured negative improvement/routing failure from non-timed-out baseline and
+isolated arms is never retried. In particular, a plugin-only timeout cannot
+erase a completed objective regression by replacing the whole scenario. A
+negative score from a baseline- or isolated-arm timeout remains eligible because
+the timeout contaminated the score. Ineligible
 timeout scenarios remain listed as unresolved diagnostics
 instead of disappearing from retry accounting. A second timeout,
 more than two timed-out scenarios, an effective per-scenario three-arm retry
