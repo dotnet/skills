@@ -642,20 +642,20 @@ public class EvaluateCommandTests
             PluginRoot: "plugins/demo",
             McpServers: null);
 
-    [Fact]
+    [TestMethod]
     public void FilterTargetsByScenario_KeepsOnlyTheNamedScenario()
     {
         var targets = new[] { TargetWithScenarios("writer", "alpha", "beta", "gamma") };
 
         var (filtered, unknown) = EvaluateCommand.FilterTargetsByScenario(targets, ["beta"]);
 
-        Assert.Empty(unknown);
-        var target = Assert.Single(filtered);
-        var scenario = Assert.Single(target.EvalConfig!.Scenarios);
-        Assert.Equal("beta", scenario.Name);
+        Assert.IsEmpty(unknown);
+        var target = Assert.ContainsSingle(filtered);
+        var scenario = Assert.ContainsSingle(target.EvalConfig!.Scenarios);
+        Assert.AreEqual("beta", scenario.Name);
     }
 
-    [Fact]
+    [TestMethod]
     public void FilterTargetsByScenario_DropsTargetsWithNoNamedScenario()
     {
         var targets = new[]
@@ -666,33 +666,33 @@ public class EvaluateCommandTests
 
         var (filtered, unknown) = EvaluateCommand.FilterTargetsByScenario(targets, ["beta"]);
 
-        Assert.Empty(unknown);
-        Assert.Equal("auditor", Assert.Single(filtered).Name);
+        Assert.IsEmpty(unknown);
+        Assert.AreEqual("auditor", Assert.ContainsSingle(filtered).Name);
     }
 
-    [Fact]
+    [TestMethod]
     public void FilterTargetsByScenario_ReportsNamesThatMatchNothing()
     {
         var targets = new[] { TargetWithScenarios("writer", "alpha") };
 
         var (filtered, unknown) = EvaluateCommand.FilterTargetsByScenario(targets, ["alpha", "typo"]);
 
-        Assert.Single(filtered);
-        Assert.Equal("typo", Assert.Single(unknown));
+        Assert.ContainsSingle(filtered);
+        Assert.AreEqual("typo", Assert.ContainsSingle(unknown));
     }
 
-    [Fact]
+    [TestMethod]
     public void FilterTargetsByScenario_MatchesRegardlessOfCase()
     {
         var targets = new[] { TargetWithScenarios("writer", "Generate Tests") };
 
         var (filtered, unknown) = EvaluateCommand.FilterTargetsByScenario(targets, ["generate tests"]);
 
-        Assert.Empty(unknown);
-        Assert.Single(Assert.Single(filtered).EvalConfig!.Scenarios);
+        Assert.IsEmpty(unknown);
+        Assert.ContainsSingle(Assert.ContainsSingle(filtered).EvalConfig!.Scenarios);
     }
 
-    [Fact]
+    [TestMethod]
     public void FilterTargetsByScenario_KeepsEveryNamedScenarioAcrossTargets()
     {
         var targets = new[]
@@ -703,24 +703,28 @@ public class EvaluateCommandTests
 
         var (filtered, unknown) = EvaluateCommand.FilterTargetsByScenario(targets, ["beta", "gamma"]);
 
-        Assert.Empty(unknown);
-        Assert.Equal(2, filtered.Count);
-        Assert.Equal(["beta"], filtered[0].EvalConfig!.Scenarios.Select(scenario => scenario.Name));
-        Assert.Equal(["beta", "gamma"], filtered[1].EvalConfig!.Scenarios.Select(scenario => scenario.Name));
+        Assert.IsEmpty(unknown);
+        Assert.AreEqual(2, filtered.Count);
+        CollectionAssert.AreEqual(
+            new[] { "beta" },
+            filtered[0].EvalConfig!.Scenarios.Select(scenario => scenario.Name).ToArray());
+        CollectionAssert.AreEqual(
+            new[] { "beta", "gamma" },
+            filtered[1].EvalConfig!.Scenarios.Select(scenario => scenario.Name).ToArray());
     }
 
-    [Fact]
+    [TestMethod]
     public void FilterTargetsByScenario_SkipsTargetsWithoutAnEvalConfig()
     {
         var withoutConfig = TargetWithScenarios("writer", "alpha") with { EvalConfig = null };
 
         var (filtered, unknown) = EvaluateCommand.FilterTargetsByScenario([withoutConfig], ["alpha"]);
 
-        Assert.Empty(filtered);
-        Assert.Equal("alpha", Assert.Single(unknown));
+        Assert.IsEmpty(filtered);
+        Assert.AreEqual("alpha", Assert.ContainsSingle(unknown));
     }
 
-    [Fact]
+    [TestMethod]
     public void FilterTargetsByName_ScopesSameNamedScenarioToItsOwningTarget()
     {
         var targets = new[]
@@ -734,12 +738,12 @@ public class EvaluateCommandTests
         var (scenarioFiltered, unknownScenarios) =
             EvaluateCommand.FilterTargetsByScenario(targetFiltered, ["shared"]);
 
-        Assert.Empty(unknownTargets);
-        Assert.Empty(unknownScenarios);
-        Assert.Equal("writer", Assert.Single(scenarioFiltered).Name);
+        Assert.IsEmpty(unknownTargets);
+        Assert.IsEmpty(unknownScenarios);
+        Assert.AreEqual("writer", Assert.ContainsSingle(scenarioFiltered).Name);
     }
 
-    [Fact]
+    [TestMethod]
     public void FilterTargetsByName_ReportsNamesThatMatchNothing()
     {
         var targets = new[] { TargetWithScenarios("writer", "alpha") };
@@ -747,7 +751,7 @@ public class EvaluateCommandTests
         var (filtered, unknown) =
             EvaluateCommand.FilterTargetsByName(targets, ["writer", "typo"]);
 
-        Assert.Equal("writer", Assert.Single(filtered).Name);
-        Assert.Equal("typo", Assert.Single(unknown));
+        Assert.AreEqual("writer", Assert.ContainsSingle(filtered).Name);
+        Assert.AreEqual("typo", Assert.ContainsSingle(unknown));
     }
 }
