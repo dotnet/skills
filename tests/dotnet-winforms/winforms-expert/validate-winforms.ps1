@@ -460,31 +460,49 @@ switch ($Scenario)
     {
         Assert-Matches $designer '_refreshButton\.Click\s*\+=\s*RefreshButton_Click\s*;' "The Refresh button is not wired to its named handler."
         Assert-Matches $codeBehind '\basync\s+void\s+RefreshButton_Click\s*\(' "The event handler does not await its asynchronous work."
-        Assert-Matches $codeBehind '\bawait\s+Task\.Run\s*\(' "The background refresh is not awaited."
-        $usesAwaitedMarshal = $codeBehind -match '\bawait\s+(?:\w+\.)?InvokeAsync\s*\('
-        $taskRunStart = $codeBehind.IndexOf('await Task.Run', [System.StringComparison]::Ordinal)
-        $taskRunEnd = $codeBehind.IndexOf('});', $taskRunStart, [System.StringComparison]::Ordinal)
-        $statusUpdateAfterAwait = if ($taskRunEnd -ge 0)
+        $handlerStart = [regex]::Match($codeBehind, '\basync\s+void\s+RefreshButton_Click\s*\(').Index
+        $handlerCode = $codeBehind.Substring($handlerStart)
+        $usesAwaitedMarshal = $handlerCode -match '\bawait\s+(?:\w+\.)?InvokeAsync\s*\('
+        $awaitMatch = [regex]::Match($handlerCode, '\bawait\b')
+        if (-not $awaitMatch.Success)
         {
-            $codeBehind.IndexOf(
-                '_statusLabel.Text',
-                $taskRunEnd + 3,
+            Fail "The asynchronous refresh operation is not awaited."
+        }
+        $awaitedTaskRun = [regex]::Match(
+            $handlerCode,
+            '\bawait\s+Task\.Run\s*\('
+        )
+        $completionBoundary = if ($awaitedTaskRun.Success)
+        {
+            $handlerCode.IndexOf(
+                '});',
+                $awaitedTaskRun.Index,
                 [System.StringComparison]::Ordinal
             )
         }
         else
         {
-            -1
+            $handlerCode.IndexOf(
+                ';',
+                $awaitMatch.Index,
+                [System.StringComparison]::Ordinal
+            )
         }
+        $statusUpdateAfterAwait = $handlerCode.IndexOf(
+            '_statusLabel.Text',
+            $completionBoundary + 1,
+            [System.StringComparison]::Ordinal
+        )
         $usesCapturedUiContext =
-            $codeBehind -notmatch '\.ConfigureAwait\s*\(\s*false\s*\)' -and
+            $handlerCode -notmatch '\.ConfigureAwait\s*\(\s*false\s*\)' -and
+            $completionBoundary -ge 0 -and
             $statusUpdateAfterAwait -ge 0
         if (-not $usesAwaitedMarshal -and -not $usesCapturedUiContext)
         {
             Fail "The status update is not performed on an awaited WinForms UI context."
         }
-        Assert-Matches $codeBehind '_refreshButton\.Enabled\s*=\s*true\s*;' "The Refresh button is not re-enabled."
-        Assert-NotMatches $codeBehind '_\s*=\s*Task\.Run|\.BeginInvoke\s*\(' "Fire-and-forget work remains in the refresh path."
+        Assert-Matches $handlerCode '_refreshButton\.Enabled\s*=\s*true\s*;' "The Refresh button is not re-enabled."
+        Assert-NotMatches $handlerCode '_\s*=\s*Task\.Run|\.BeginInvoke\s*\(' "Fire-and-forget work remains in the refresh path."
         Assert-NotMatches $designer '\bTask\b' "Asynchronous logic was placed in the designer file."
     }
     "vb-application-events"
