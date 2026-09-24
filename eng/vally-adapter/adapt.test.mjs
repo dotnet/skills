@@ -1037,7 +1037,12 @@ test("dormancy scenarios are retained but excluded from preference inference", (
   const verdict = comparisonToVerdict(
     report,
     IDENTITY,
-    EMPTY_ROLES,
+    {
+      ...EMPTY_ROLES,
+      skilledByStim: new Map([
+        ["Scenario 6", [{ trajectory: { events: [], metrics: {} } }]],
+      ]),
+    },
     new Set(["Scenario 6"]),
   );
 
@@ -1083,6 +1088,35 @@ test("missing dormancy stimuli fail the activation contract", () => {
     verdict.activationContract.unmatchedDormancyStimuli,
     ["Renamed scenario"],
   );
+});
+
+test("dormancy requires isolated target evidence even when other roles are observed", () => {
+  const report = reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0]);
+  const observedRun = [{ trajectory: { events: [], metrics: {} } }];
+  const roles = {
+    ...EMPTY_ROLES,
+    baselineByStim: new Map([["Scenario 6", observedRun]]),
+    pluginByStim: new Map([["Scenario 6", observedRun]]),
+  };
+
+  const verdict = comparisonToVerdict(
+    report,
+    IDENTITY,
+    roles,
+    new Set(["Scenario 6"]),
+  );
+
+  assert.equal(verdict.scenarios[5].observedInAnyRole, true);
+  assert.equal(verdict.activationContract.passed, false);
+  assert.deepEqual(verdict.activationContract.failures, [
+    {
+      scenarioName: "Scenario 6",
+      expected: "dormant",
+      observed: "missing",
+      satisfied: false,
+    },
+  ]);
+  assert.equal(verdict.stateReason.code, "activation_contract_failed");
 });
 
 test("unexpected dormancy activation blocks an otherwise passing preference verdict", () => {
@@ -1787,8 +1821,14 @@ test("targeted recovery never re-judges semantic or activation outcomes", () => 
 
   assert.equal(calls, 0);
   assert.deepEqual(result, decided);
+  const roles = {
+    ...EMPTY_ROLES,
+    skilledByStim: new Map([
+      ["Scenario 2", [{ trajectory: { events: [], metrics: {} } }]],
+    ]),
+  };
   assert.equal(
-    comparisonToVerdict(result, IDENTITY, EMPTY_ROLES, new Set(["Scenario 2"])).state,
+    comparisonToVerdict(result, IDENTITY, roles, new Set(["Scenario 2"])).state,
     VERDICT_STATES.INVALID_INCONCLUSIVE,
   );
 });

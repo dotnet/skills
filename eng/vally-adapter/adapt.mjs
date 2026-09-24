@@ -1754,22 +1754,22 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
   // not identify which sibling skill emitted the activity event.
   const activationContractScenarios = scenarios
     .filter((scenario) => scenario.expectActivation === false)
-    .map((scenario) => ({
-      scenarioName: scenario.scenarioName,
-      expected: "dormant",
-      observed: (targetKind === "agent"
+    .map((scenario) => {
+      const observedInIsolatedRole = skilledByStim.has(scenario.scenarioName);
+      const activated = targetKind === "agent"
         ? scenario.agentActivationIsolated?.activated
-        : scenario.skillActivationIsolated?.activated)
-        ? "activated"
-        : scenario.observedInAnyRole
-          ? "dormant"
-          : "missing",
-      satisfied:
-        scenario.observedInAnyRole &&
-        !(targetKind === "agent"
-          ? scenario.agentActivationIsolated?.activated
-          : scenario.skillActivationIsolated?.activated),
-    }));
+        : scenario.skillActivationIsolated?.activated;
+      return {
+        scenarioName: scenario.scenarioName,
+        expected: "dormant",
+        observed: activated
+          ? "activated"
+          : observedInIsolatedRole
+            ? "dormant"
+            : "missing",
+        satisfied: observedInIsolatedRole && !activated,
+      };
+    });
   const activationContractFailures = activationContractScenarios.filter(
     (scenario) => !scenario.satisfied,
   );

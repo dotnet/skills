@@ -13,6 +13,24 @@ $plugins = @()
 # MCP-heavy plugins like dotnet-msbuild, where cumulative runner
 # resource usage across ~90 min of continuous MCP traffic
 # consistently triggered host-level termination.
+function Get-EvalExecutionShard {
+  param([string]$evalPath)
+
+  $inTopLevelTags = $false
+  foreach ($line in Get-Content -LiteralPath $evalPath) {
+    if ($line -match '^\s*(?:#.*)?$') { continue }
+    if ($line -match '^(?<key>[A-Za-z_][\w-]*):(?:\s|$)') {
+      $inTopLevelTags = $Matches["key"] -eq "tags"
+      continue
+    }
+    if ($inTopLevelTags -and
+        $line -match '^\s+executionShard:\s*[\x27"]?([\w.\-]+)') {
+      return $Matches[1]
+    }
+  }
+  return "default"
+}
+
 function Get-PluginShardEntries {
   param(
     [string]$plugin,
@@ -48,11 +66,7 @@ function Get-PluginShardEntries {
     $evalPath = Join-Path $contentRoot "tests" $plugin $skill "eval.yaml"
     if (-not (Test-Path $evalPath)) { continue }
     $evalSkills += $skill
-    $shard = "default"
-    # Allow leading whitespace because executionShard is nested under the
-    # top-level tags mapping.
-    $m = Select-String -Path $evalPath -Pattern '^\s*executionShard:\s*[\x27"]?([\w.\-]+)' -List
-    if ($m) { $shard = $m.Matches[0].Groups[1].Value }
+    $shard = Get-EvalExecutionShard -evalPath $evalPath
     if (-not $shardGroups.ContainsKey($shard)) { $shardGroups[$shard] = @() }
     $shardGroups[$shard] += $skill
   }
