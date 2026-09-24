@@ -139,9 +139,9 @@ A verdict carries **both** the head-to-head preference and absolute per-role dat
 | `netWin` | `(wins − losses) / preference-eligible stimulus votes` — the effect size the gate reads. Magnitude-free, so an identical eligible W/T/L record always yields an identical preference verdict |
 | `practicalSignificance` | `{ netWin, minimum, passed }`. The absolute directional effect must reach 20%; this blocks sparse records such as `5W/95T/0L` |
 | `signTest` | `{ wins, ties, losses, discordant, direction, pValue, alpha }` — exact one-sided binomial tail over discordant stimulus votes. **This is what decides.** Ties cannot support a win, so they hold `discordant` down |
-| `regressed` / `preferenceRegressed` | Compatibility and explicit fields for a credible LLM preference loss. In the current schema this maps to `VALID_NO_CHANGE`, not `VALID_REGRESSION`, because ordinal LLM preference is not objective completion evidence. Renderers apply the same report-only meaning to legacy records that have `regressed: true` but no `state` |
+| `regressed` / `preferenceRegressed` | `regressed: true` is reserved for an objective native-agent completion regression (`VALID_REGRESSION`). Native adaptation clears the generic comparison layer's reverse-preference compatibility flag unless objective completion regression wins. `preferenceRegressed: true` records the credible LLM preference loss and maps to `VALID_NO_CHANGE`, because ordinal preference is not objective completion evidence. Renderers retain the report-only interpretation for historical records that have `regressed: true` but no explicit state |
 | `conclusive` | `false` when the comparison did not complete: errored runs, unmatched trajectories, or a summary that disagrees with its own `stimuli[].trials`. Integrity remains fail-closed across eligible and excluded stimuli |
-| `underpowered` | `true` when a completed, `conclusive: true` comparison counted fewer than `minCredibleStimuli` preference-eligible distinct stimuli. An independently proven `activation_contract_failed` state takes headline precedence while this field preserves the preference-power limitation |
+| `underpowered` | `true` when a completed, `conclusive: true` comparison counted fewer than `minCredibleStimuli` preference-eligible distinct stimuli. An independently proven activation-contract failure takes headline precedence. For native-agent results, an objective baseline-pass/isolated-fail completion regression also takes precedence because it does not depend on preference sample size; that state clears `underpowered` so downstream renderers cannot label the objective regression indeterminate |
 | `minCredibleStimuli` | The distinct-stimulus floor in force (5). See `eng/eval-quality/README.md` for why |
 | `minCredibleTrials` | Compatibility alias for `minCredibleStimuli` |
 | `meanScore` | Vally's magnitude-weighted mean preference over all compared stimuli, including dormancy (`much-better` ±1.0, `slightly-better` ±0.4), −1..1. **Triage only — not the gate** |
@@ -200,6 +200,12 @@ toward five preference cases; `check_eval_quality.py` reports the eligible and
 dormancy counts separately. Historical schema-version-3 results remain
 readable and retain their original all-stimulus semantics.
 
+Dormancy excludes a stimulus only from preference inference and expected
+activation. It does not suppress objective task-completion evidence: if a
+native-agent baseline completes and the isolated target run does not, the
+adapter retains `native_completion_regression` even for
+`expect_activation: false`.
+
 The adapter's zero-dependency YAML scanner follows PyYAML's Boolean spellings
 for `false` (`false`/`False`/`FALSE`, `no`/`No`/`NO`, and
 `off`/`Off`/`OFF`) and supports block and flow-mapping stimulus items.
@@ -235,6 +241,14 @@ The adapter's `results.json` is a summary. The uploaded artifact also contains t
 
 To see exactly what the agent did for a failing scenario, open its `events.jsonl` (match on `variant` + `stimulusName` in the sibling `metadata.json`).
 
+Session replay publication is auxiliary on PR runs. Before downloading or
+building replay data, the workflow performs a non-mutating `git push --dry-run`
+to verify that `SKILLS_DATA_TOKEN` can authenticate for a write to
+`dotnet/skills-data`. A missing, invalid, or read-only token emits a warning and
+the PR report states that replay telemetry is unavailable, while authoritative
+evaluation verdicts remain unchanged. Scheduled and main publishing stays
+strict: the same publisher failure fails that workflow path.
+
 ## Result patterns and fixes
 
 Work top-down; earlier categories often cause later ones.
@@ -268,12 +282,19 @@ The agent crashed, the model was unavailable, evidence was missing, or the compa
 
 The workflow retries only required baseline or isolated-skilled executor records
 whose exact failure is a `session.idle` timeout. It reruns the affected eval and
-variant once, preserves all successful first-attempt slots, and replaces only
+variant up to two bounded times while exact timeout slots remain unresolved,
+preserves all successful first-attempt and recovered slots, and replaces only
 matching failed `shardKey` slots from the same normalized eval path that
-succeed. Records without a `shardKey` remain invalid. Check
+succeed. A later pass cannot overwrite evidence recovered by an earlier pass.
+Every invocation uses a fresh output directory, so a retry that produces no
+current output cannot reuse stale evidence from an earlier invocation. Records
+without a `shardKey` remain invalid. Check
 `executor-retry-summary.json` and the raw record's `executorRetry` field for
-recovered attempts. The merged record retains the original experiment
-provenance; `executorRetry.retryRunId` identifies the successful retry run.
+recovered attempts. A timeout that survives both targeted passes remains
+measurement-invalid. The summary is written before and after every retry so an
+outer watchdog termination still leaves the active attempt and the last
+completed accounting for diagnosis. The merged record retains the original
+experiment provenance; `executorRetry.retryRunId` identifies the successful retry run.
 Persistent timeouts, other executor failures, or more than three affected
 eval/variant groups remain measurement-invalid and keep the matrix leg red. The
 optional whole-plugin arm is report-only telemetry and is not retried.
@@ -290,12 +311,138 @@ successful first-attempt judgment fixed and replaces only errored slots. A
 recovered transient appears in `recoveredErrors[]`; an unresolved failure stays
 in `errors[]` and makes the state invalid.
 
+That first retry re-judges the whole slice, so one unlucky judge session can
+stall on both attempts and strand a slot whose executor evidence is complete. A
+second, narrower pass then re-judges each stranded slot on its own, using the
+preserved executor trajectories for exactly that stimulus and trial. Read
+`retrySummary.targetedRecovery` in the comparison report:
+
+```json
+{
+  "maxSlots": 3,
+  "plannedSlotCount": 1,
+  "attemptedSlotCount": 1,
+  "recoveredSlotCount": 1,
+  "unresolvedSlotCount": 0,
+  "skippedReason": null,
+  "recoveredSlots": [{ "stimulusName": "...", "trialIndex": 0, "recoveredFrom": { "code": "judge_session_idle_timeout" } }],
+  "unresolvedSlots": []
+}
+```
+
+Only a slot that is still errored after the slice retry and whose latest
+classification is transient is eligible, so `judge_organization_disabled` and
+unrecognized codes are never re-judged. If the coarse slice retry process
+crashed before it produced a report, the narrower pass may still use the
+original transient classification, but only when the preserved baseline and
+treatment trajectories are complete. A decided trial is never errored, so a
+win, loss, tie, or dormancy outcome can never enter this pass.
+
+Trajectory identity uses the adapter's canonical stimulus lookup
+(`stimulus`, then `gradeResult.stimulusName`, then `stimulusName`) plus the
+trial index encoded in `shardKey`. The baseline and treatment records must also
+carry the expected variants across every record for the affected stimulus;
+missing top-level variants use the source file as the arm identity, but any
+explicit opposite-arm variant blocks recovery before re-judging a slot. A
+recovered trial carries `targetedRecovery: true` and `recoveredFrom`. Anything
+unexpected — no trajectory for either arm
+(`targeted_slot_trajectory_missing`), duplicate trajectories
+(`targeted_slot_trajectory_ambiguous`), an executor record that is not a
+successful complete trial (`targeted_slot_trajectory_incomplete`), incorrect variant pairing
+(`targeted_slot_variant_mismatch`), executor/comparison trial-index set drift
+or executor records with duplicate/missing/unparseable shard-key trial identity
+(`targeted_slot_trial_identity_mismatch`), a retry that returns the wrong number of trials
+(`targeted_retry_result_ambiguous`), a retry trial with no valid winner or
+numeric score (`targeted_retry_result_invalid`), a failed invocation
+(`targeted_retry_invocation_failed`), or a repeat timeout — leaves the slot
+errored and the eval measurement-invalid. `targeted_slot_trajectory_missing`
+and `targeted_slot_trajectory_ambiguous` are separate codes on purpose: the
+first means no preserved trajectory survives for the slot, the second means more
+than one claims it, and they need different investigation.
+`targeted_slot_trajectory_incomplete` means the record exists but its executor
+run was not a successful completed trajectory; inspect that variant's
+`results.jsonl` before investigating the judge. More than `maxSlots`
+stranded slots is read as a judge outage: the pass is skipped entirely,
+`skippedReason` explains why, and every slot counts as unresolved.
+
 For native-agent results, `RunMetrics.errorCount` is diagnostic. Failed or
 retried tool calls can coexist with completed output and a valid pairwise
 judgment, so that counter alone does not invalidate a measurement. The adapter
 fails closed only on terminal evidence: `scenario.executionError`, a missing
 required arm, a timed-out arm, `failedRunCount > 0`, or a missing pairwise
 result.
+
+A required arm that hit its wall-clock limit is recovered before the adapter
+runs. `retry-agent-timeouts.mjs` re-runs only that scenario, through the
+evaluator's combined `--target` and `--scenario` filters, into its own results
+directory, then swaps the fresh scenario record into the native results file.
+The native agent name is validated as a single path segment before any timeout
+lookup or retry/audit directory is created; unsafe names remain unresolved with
+no retry filesystem writes.
+This prevents a same-named scenario owned by another target from entering the
+retry. Session databases are never merged, so every role/session record stays
+unique and the rejudge pairing rules that reject duplicate completed roles are
+unaffected. Read
+`agent-timeout-retry-summary.json` for `recoveredScenarioCount`,
+`unresolvedScenarioCount`, `ineligibleScenarioCount`,
+`budgetSkippedScenarioCount`, `clearedAggregates`,
+and a per-scenario reason. `plannedScenarioCount` counts every named required-arm
+timeout before eligibility filtering; `ineligibleScenarioCount` identifies the
+subset that also had another defect. Before launching a retry, the tool reads the eval's
+effective timeout for that scenario (`constraints.max_duration` when present,
+otherwise the eval default). Three arms plus setup/judge allowance must fit the
+per-scenario recovery budget; otherwise the scenario is left invalid without
+starting a retry that its outer watchdog cannot finish. A scenario is retried only
+when a timeout is its sole defect: an `executionError`, a failed run, a missing
+arm, missing boolean completion evidence, missing or malformed pairwise
+judgment, or a measured negative improvement/routing failure from non-timed-out
+baseline and isolated arms is never retried. A negative score from a baseline-
+or isolated-arm timeout remains eligible because that score is contaminated by
+the timeout being recovered.
+More than two
+timed-out scenarios is read as a systemic capacity problem before individual
+budget filtering; nothing is retried and every scenario receives a diagnostic
+attempt record.
+
+After a scenario replacement, recovery recomputes the native completion and
+isolated target-agent activation gates from every surviving scenario. A true
+remaining execution error, unexpected activation, non-activation, or completion
+regression remains fail-closed. Stale `failureKind` and `skillNotActivated`
+values are cleared when the scenarios no longer support them. If stale
+`skill_not_activated` had masked a surviving isolated completion regression,
+recomputation restores `completion_regression`; cleared or replaced fields are
+listed in `clearedAggregates`. The old bootstrap
+`confidenceInterval`/`isSignificant` pair is cleared because the sample changed,
+and `overfittingResult` is cleared because native agent evals do not produce that
+assessment. The adapter independently derives completion and activation from the
+scenario records, so legacy aggregate flags cannot reintroduce a false
+regression.
+
+Objective completion regression requires explicit
+`baseline.metrics.taskCompleted == true` and
+`skilledIsolated.metrics.taskCompleted == false`; a missing completion field is
+measurement-invalid evidence, not proof of regression. A timeout with no
+pairwise judgment is also recorded as ineligible and unresolved instead of
+disappearing from retry accounting. When baseline and isolated arms both
+completed, this objective regression also makes a plugin-only timeout
+ineligible: recovery cannot replace the whole scenario and erase trustworthy
+completion evidence. A native retry result is accepted
+only when it contains exactly one verdict total, for the requested target, and
+exactly one requested scenario. Pairwise evidence must contain an allowed
+winner/magnitude plus rubric, reasoning, and position-swap consistency fields.
+
+Retry runs first write outside `RESULTS_DIR`. This means a workflow `SIGTERM`
+cannot leave a retry `results.json` where a recursive collector could mistake it
+for an authoritative result. Each invocation uses a unique attempt directory,
+so re-entry cannot read stale evidence from an older retry. The current attempt
+must contain exactly one native `results.json`; zero or multiple aggregates
+remain unresolved. When multiple aggregates collide, each is preserved as a
+relative `retry-results.json` in the audit tree. After a retry process finishes, its `sessions.db`,
+logs, and raw result (renamed `retry-results.json`) are copied under
+`_agent-timeout-retry/` in the uploaded artifact. Recursive result discovery also
+excludes that subtree as defense in depth. The single adapted
+`<plugin>/agent.<name>/results.json` remains authoritative for counting,
+consolidation, dashboard publication, and the workflow summary.
 
 The workflow token preflight treats HTTP 429 and 402 quota exhaustion
 (`quota_exceeded` or a monthly-quota message) as pool-candidate exhaustion and
@@ -330,7 +477,7 @@ skill emitted the activity event.
 The skill was available but the agent never invoked it, so "skilled" ≈ "baseline" and no improvement is possible. Fixes: sharpen the skill's `description`/trigger phrasing in `SKILL.md` so the model recognizes when to use it, and make sure the eval prompt actually describes a task the skill targets.
 
 ### 5. Underpowered eval (`underpowered == true`)
-Not a skill problem — an eval problem. The gate gives each preference-eligible distinct stimulus one vote. Explicit dormancy stimuli do not satisfy this floor; they are activation-contract evidence. Repeated runs collapse by majority direction and remain available as reliability evidence. The exact one-sided sign test cannot reach `p ≤ 0.05` on fewer than five discordant preference votes (`0.5⁴ = 0.0625`), so below `minCredibleStimuli` (5) **no possible preference record passes**, however good the skill is. An unexpected dormancy activation is still a definitive routing failure and may take headline `stateReason` precedence while `underpowered: true` remains visible.
+Not a skill problem — an eval problem. The gate gives each preference-eligible distinct stimulus one vote. Explicit dormancy stimuli do not satisfy this floor; they are activation-contract evidence. Repeated runs collapse by majority direction and remain available as reliability evidence. The exact one-sided sign test cannot reach `p ≤ 0.05` on fewer than five discordant preference votes (`0.5⁴ = 0.0625`), so below `minCredibleStimuli` (5) **no possible preference record passes**, however good the skill is. An unexpected dormancy activation is still a definitive routing failure. A fully measured native-agent completion regression also overrides preference underpowering; timeout, execution, and comparison-invalid evidence remain `INVALID_INCONCLUSIVE`.
 
 Do not "fix" the skill or raise `defaults.runs` in response to this. Add independent, discriminating stimuli. Vally defines stimuli as test cases and uses runs for pass rate, pass@k, pass^k, and flakiness. Its scoring guide recommends 3 runs for CI and 5–10 for nightly reliability measurement, but does not prescribe a distinct-stimulus count or sign-test alpha. `eng/eval-quality/check_eval_quality.py` fails any new eval below the five-stimulus floor and tracks grandfathered debt in `eng/eval-quality/underpowered-allowlist.txt`.
 

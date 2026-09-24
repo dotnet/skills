@@ -6,6 +6,7 @@ on:
       - ".github/workflows/evaluation.yml"
       - ".github/workflows/evaluation-run.yml"
       - ".github/workflows/evaluation-workflow-tests.yml"
+      - ".github/workflows/pr-triage.yml"
       - ".github/aw/actions-lock.json"
       - ".github/aw/shared/devops-health.lock.md"
       - ".github/aw/shared/devops-investigate.lock.md"
@@ -16,8 +17,10 @@ on:
       - ".github/workflows/devops-health-investigate.md"
       - ".github/workflows/issue-triage.md"
       - ".github/workflows/*.lock.yml"
+      - ".github/scripts/**"
       - "eng/evaluation-tools/**"
       - "eng/evaluation/test_token_failover.py"
+      - "eng/evaluation/test_pr_triage_retry.py"
       - "eng/evaluation/find-targets.ps1"
       - "eng/evaluation/path-safety.ps1"
       - "eng/dashboard/**"
@@ -29,6 +32,7 @@ on:
       - ".github/workflows/evaluation.yml"
       - ".github/workflows/evaluation-run.yml"
       - ".github/workflows/evaluation-workflow-tests.yml"
+      - ".github/workflows/pr-triage.yml"
       - ".github/aw/actions-lock.json"
       - ".github/aw/shared/devops-health.lock.md"
       - ".github/aw/shared/devops-investigate.lock.md"
@@ -39,8 +43,10 @@ on:
       - ".github/workflows/devops-health-investigate.md"
       - ".github/workflows/issue-triage.md"
       - ".github/workflows/*.lock.yml"
+      - ".github/scripts/**"
       - "eng/evaluation-tools/**"
       - "eng/evaluation/test_token_failover.py"
+      - "eng/evaluation/test_pr_triage_retry.py"
       - "eng/evaluation/find-targets.ps1"
       - "eng/evaluation/path-safety.ps1"
       - "eng/dashboard/**"
@@ -119,4 +125,6 @@ jobs:
         run: python -m pip install --quiet pyyaml
 
       - name: Test evaluation workflow behavior
-        run: python eng/evaluation/test_token_failover.py
+        run: |
+          python eng/evaluation/test_token_failover.py
+          python eng/evaluation/test_pr_triage_retry.py

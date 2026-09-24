@@ -203,17 +203,23 @@ metadata. The adapter keeps the raw report available for diagnosis. It does not
 replace Vally's evidence; it adds repository-specific validity and decision
 fields.
 
-### 5. Retry transient executor timeouts once
+### 5. Retry transient executor timeouts with a bounded second pass
 
 If a required baseline or isolated-skilled trial fails with
 `Timeout after ... waiting for session.idle`, the workflow reruns only that eval
-and variant once. The recovery step merges only successful records with matching
-stable `shardKey` values after normalizing each eval path. A record without a
-`shardKey` fails closed instead of using another field as an unproven identity.
-The recovery never replaces successful first-attempt records. A persistent
-timeout or a different executor error stays in the original JSONL and remains
+and variant. If exact timeout slots remain, it performs one final targeted pass.
+The recovery step merges only successful records with matching stable `shardKey`
+values after normalizing each eval path. A record without a `shardKey` fails
+closed instead of using another field as an unproven identity. The recovery
+never replaces successful first-attempt or recovered records. A timeout that
+survives both bounded passes, or a different executor error, stays in the
+original JSONL and remains
 measurement-invalid. The optional whole-plugin telemetry arm is not retried and
 remains outside the baseline-versus-skilled measurement gate.
+Each retry invocation writes to a fresh directory, so missing current output
+cannot fall back to a stale prior run.
+The recovery summary is updated around each retry, so an outer watchdog can
+terminate a stuck pass without erasing the completed recovery audit trail.
 
 The retry is limited to three affected eval/variant groups per matrix leg. More
 groups indicate a systemic failure, so the workflow skips recovery and fails

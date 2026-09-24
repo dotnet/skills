@@ -3,6 +3,7 @@ using SkillValidator.Shared;
 
 namespace SkillValidator.Tests;
 
+[TestClass]
 public class CompareScenarioTests
 {
     private static RunResult MakeRunResult(
@@ -44,7 +45,7 @@ public class CompareScenarioTests
         SkillMdPath: "/test/SKILL.md",
         SkillMdContent: "# Test");
 
-    [Fact]
+    [TestMethod]
     public void ShowsImprovementWhenSkillReducesTokensAndImprovesQuality()
     {
         var baseline = MakeRunResult(tokenEstimate: 1000, toolCallCount: 10, overallScore: 3,
@@ -53,32 +54,33 @@ public class CompareScenarioTests
             rubricScores: [new RubricScore("Q", 5, "")]);
 
         var result = Comparator.CompareScenario("test", baseline, withSkill);
-        Assert.True(result.ImprovementScore > 0);
-        Assert.Equal(0.5, result.Breakdown.TokenReduction);
-        Assert.Equal(0.5, result.Breakdown.ToolCallReduction);
+        Assert.IsTrue(result.ImprovementScore > 0);
+        Assert.AreEqual(0.5, result.Breakdown.TokenReduction);
+        Assert.AreEqual(0.5, result.Breakdown.ToolCallReduction);
     }
 
-    [Fact]
+    [TestMethod]
     public void ShowsNegativeScoreWhenSkillMakesThingsWorse()
     {
         var baseline = MakeRunResult(tokenEstimate: 500, toolCallCount: 5, overallScore: 4);
         var withSkill = MakeRunResult(tokenEstimate: 1000, toolCallCount: 15, overallScore: 2);
 
         var result = Comparator.CompareScenario("test", baseline, withSkill);
-        Assert.True(result.ImprovementScore < 0);
+        Assert.IsTrue(result.ImprovementScore < 0);
     }
 
-    [Fact]
+    [TestMethod]
     public void ShowsZeroImprovementWhenResultsAreIdentical()
     {
         var baseline = MakeRunResult();
         var withSkill = MakeRunResult();
 
         var result = Comparator.CompareScenario("test", baseline, withSkill);
-        Assert.Equal(0, result.ImprovementScore);
+        Assert.AreEqual(0, result.ImprovementScore);
     }
 }
 
+[TestClass]
 public class ComputeVerdictTests
 {
     private static RunResult MakeRunResult(
@@ -114,7 +116,7 @@ public class ComputeVerdictTests
         SkillMdPath: "/test/SKILL.md",
         SkillMdContent: "# Test");
 
-    [Fact]
+    [TestMethod]
     public void PassesWhenImprovementScoreMeetsThreshold()
     {
         var baseline = MakeRunResult(tokenEstimate: 1000, overallScore: 3);
@@ -122,10 +124,10 @@ public class ComputeVerdictTests
         var comparison = Comparator.CompareScenario("test", baseline, withSkill);
 
         var verdict = Comparator.ComputeVerdict(MockSkill, [comparison], 0.1, true);
-        Assert.True(verdict.Passed);
+        Assert.IsTrue(verdict.Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public void FailsWhenImprovementScoreIsBelowThreshold()
     {
         var baseline = MakeRunResult();
@@ -133,10 +135,10 @@ public class ComputeVerdictTests
         var comparison = Comparator.CompareScenario("test", baseline, withSkill);
 
         var verdict = Comparator.ComputeVerdict(MockSkill, [comparison], 0.1, true);
-        Assert.False(verdict.Passed);
+        Assert.IsFalse(verdict.Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public void FailsWhenTaskCompletionRegresses()
     {
         var baseline = MakeRunResult(taskCompleted: true, overallScore: 3);
@@ -144,11 +146,11 @@ public class ComputeVerdictTests
         var comparison = Comparator.CompareScenario("test", baseline, withSkill);
 
         var verdict = Comparator.ComputeVerdict(MockSkill, [comparison], 0.0, true);
-        Assert.False(verdict.Passed);
+        Assert.IsFalse(verdict.Passed);
         Assert.Contains("regressed", verdict.Reason);
     }
 
-    [Fact]
+    [TestMethod]
     public void PassesDespiteTaskCompletionRegressionWhenRequireCompletionIsFalse()
     {
         var baseline = MakeRunResult(taskCompleted: true, tokenEstimate: 1000, overallScore: 3,
@@ -158,18 +160,18 @@ public class ComputeVerdictTests
         var comparison = Comparator.CompareScenario("test", baseline, withSkill);
 
         var verdict = Comparator.ComputeVerdict(MockSkill, [comparison], 0.0, false);
-        Assert.True(verdict.Passed);
+        Assert.IsTrue(verdict.Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public void FailsWhenNoScenariosAreProvided()
     {
         var verdict = Comparator.ComputeVerdict(MockSkill, [], 0.1, true);
-        Assert.False(verdict.Passed);
+        Assert.IsFalse(verdict.Passed);
         Assert.Contains("No scenarios", verdict.Reason);
     }
 
-    [Fact]
+    [TestMethod]
     public void IncludesConfidenceIntervalInVerdict()
     {
         var baseline = MakeRunResult(tokenEstimate: 1000, overallScore: 3);
@@ -178,13 +180,13 @@ public class ComputeVerdictTests
         comparison.PerRunScores = [0.3, 0.25, 0.35];
 
         var verdict = Comparator.ComputeVerdict(MockSkill, [comparison], 0.1, true, 0.95);
-        Assert.NotNull(verdict.ConfidenceInterval);
-        Assert.Equal(0.95, verdict.ConfidenceInterval!.Level);
-        Assert.True(verdict.ConfidenceInterval.Low > 0);
-        Assert.True(verdict.IsSignificant!.Value);
+        Assert.IsNotNull(verdict.ConfidenceInterval);
+        Assert.AreEqual(0.95, verdict.ConfidenceInterval!.Level);
+        Assert.IsTrue(verdict.ConfidenceInterval.Low > 0);
+        Assert.IsTrue(verdict.IsSignificant!.Value);
     }
 
-    [Fact]
+    [TestMethod]
     public void MarksAsNotSignificantWhenPerRunScoresSpanZero()
     {
         var baseline = MakeRunResult();
@@ -193,11 +195,11 @@ public class ComputeVerdictTests
         comparison.PerRunScores = [-0.1, 0.2, -0.05, 0.15, -0.08];
 
         var verdict = Comparator.ComputeVerdict(MockSkill, [comparison], 0.0, true, 0.95);
-        Assert.NotNull(verdict.ConfidenceInterval);
-        Assert.False(verdict.IsSignificant!.Value);
+        Assert.IsNotNull(verdict.ConfidenceInterval);
+        Assert.IsFalse(verdict.IsSignificant!.Value);
         Assert.Contains("not statistically significant", verdict.Reason);
     }
-    [Fact]
+    [TestMethod]
     public void FailsWhenPluginRunRegressesTaskCompletion()
     {
         var baseline = MakeRunResult(taskCompleted: true, overallScore: 3);
@@ -219,11 +221,11 @@ public class ComputeVerdictTests
         };
 
         var verdict = Comparator.ComputeVerdict(MockSkill, [comparison], 0.0, true);
-        Assert.False(verdict.Passed);
+        Assert.IsFalse(verdict.Passed);
         Assert.Contains("regressed", verdict.Reason);
     }
 
-    [Fact]
+    [TestMethod]
     public void AgentVerdictUsesIsolatedArmForGateAndPluginAsDiagnostic()
     {
         var baseline = MakeRunResult(taskCompleted: true, tokenEstimate: 1000, overallScore: 3);
@@ -248,24 +250,25 @@ public class ComputeVerdictTests
 
         var verdict = Comparator.ComputeAgentVerdict(MockSkill, [comparison], 0.1, true);
 
-        Assert.True(verdict.Passed);
-        Assert.Equal(isolatedComparison.ImprovementScore, verdict.OverallImprovementScore);
-        Assert.Equal(isolatedComparison.ImprovementScore, verdict.IsolatedScore);
-        Assert.Equal(pluginComparison.ImprovementScore, verdict.PluginScore);
-        Assert.True(verdict.NormalizedGain > 0);
+        Assert.IsTrue(verdict.Passed);
+        Assert.AreEqual(isolatedComparison.ImprovementScore, verdict.OverallImprovementScore);
+        Assert.AreEqual(isolatedComparison.ImprovementScore, verdict.IsolatedScore);
+        Assert.AreEqual(pluginComparison.ImprovementScore, verdict.PluginScore);
+        Assert.IsTrue(verdict.NormalizedGain > 0);
     }
 
-    [Fact]
+    [TestMethod]
     public void CompareScenarioSetsPluginToNull()
     {
         var baseline = MakeRunResult();
         var withSkill = MakeRunResult(tokenEstimate: 500, overallScore: 5);
         var comparison = Comparator.CompareScenario("test", baseline, withSkill);
         // CompareScenario is a utility for single-run comparison; SkilledPlugin should be null
-        Assert.Null(comparison.SkilledPlugin);
+        Assert.IsNull(comparison.SkilledPlugin);
     }
 }
 
+[TestClass]
 public class CompareScenarioWithPairwiseTests
 {
     private static RunResult MakeRunResult(double overallScore = 3, IReadOnlyList<RubricScore>? rubricScores = null)
@@ -289,7 +292,7 @@ public class CompareScenarioWithPairwiseTests
                 "Acceptable"));
     }
 
-    [Fact]
+    [TestMethod]
     public void OverridesQualityScoresWithPairwiseResults()
     {
         var baseline = MakeRunResult(overallScore: 3, rubricScores: [new RubricScore("Q", 3, "")]);
@@ -297,7 +300,7 @@ public class CompareScenarioWithPairwiseTests
 
         // Without pairwise, quality should be 0
         var noPairwise = Comparator.CompareScenario("test", baseline, withSkill);
-        Assert.Equal(0, noPairwise.Breakdown.QualityImprovement);
+        Assert.AreEqual(0, noPairwise.Breakdown.QualityImprovement);
 
         // With pairwise saying skill is better
         var pairwise = new PairwiseJudgeResult(
@@ -307,8 +310,8 @@ public class CompareScenarioWithPairwiseTests
             "",
             true);
         var withPairwise = Comparator.CompareScenario("test", baseline, withSkill, pairwise);
-        Assert.Equal(1.0, withPairwise.Breakdown.QualityImprovement);
-        Assert.Equal(1.0, withPairwise.Breakdown.OverallJudgmentImprovement);
-        Assert.Equal(pairwise, withPairwise.PairwiseResult);
+        Assert.AreEqual(1.0, withPairwise.Breakdown.QualityImprovement);
+        Assert.AreEqual(1.0, withPairwise.Breakdown.OverallJudgmentImprovement);
+        Assert.AreEqual(pairwise, withPairwise.PairwiseResult);
     }
 }

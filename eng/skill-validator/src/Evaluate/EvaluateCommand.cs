@@ -36,6 +36,8 @@ public static class EvaluateCommand
         var baselineOutOpt = new Option<string?>("--baseline-out") { Description = "After running, persist each scenario's averaged baseline (no-skill/no-agent reference) to this file for later reuse with --baseline-from." };
         var baselineFromOpt = new Option<string?>("--baseline-from") { Description = "Reuse a precomputed baseline from this file instead of re-running the no-skill/no-agent baseline arm. Must match --model, --judge-model, and each scenario's prompt, setup inputs, and evaluation criteria. Mutually exclusive with --baseline-out." };
         var noJudgeOpt = new Option<bool>("--no-judge") { Description = "Run the agent arms and persist sessions/metrics but skip all judging. Judging can be deferred to a later 'rejudge' step (optionally cross-directory). Implies session persistence and requires no baseline." };
+        var scenarioOpt = new Option<string[]>("--scenario") { Description = "Evaluate only the named scenario(s). Repeatable. Use to re-run a single scenario that failed transiently without re-running the whole eval.", AllowMultipleArgumentsPerToken = true };
+        var targetOpt = new Option<string[]>("--target") { Description = "Evaluate only the named target(s). Repeatable. Use with --scenario to scope a targeted retry to its owning skill or agent.", AllowMultipleArgumentsPerToken = true };
 
         var command = new Command("evaluate", "Evaluate agent skills via LLM-based testing")
         {
@@ -65,6 +67,8 @@ public static class EvaluateCommand
             baselineOutOpt,
             baselineFromOpt,
             noJudgeOpt,
+            scenarioOpt,
+            targetOpt,
         };
 
         command.Add(RejudgeCommand.Create());
@@ -119,6 +123,8 @@ public static class EvaluateCommand
                 BaselineOut = parseResult.GetValue(baselineOutOpt),
                 BaselineFrom = parseResult.GetValue(baselineFromOpt),
                 NoJudge = parseResult.GetValue(noJudgeOpt),
+                ScenarioFilter = parseResult.GetValue(scenarioOpt) ?? [],
+                TargetFilter = parseResult.GetValue(targetOpt) ?? [],
             };
 
             return await Run(config, cancellationToken);
@@ -135,6 +141,51 @@ public static class EvaluateCommand
         "markdown" => new ReporterSpec(ReporterType.Markdown),
         _ => throw new ArgumentException($"Unknown reporter type: {value}"),
     };
+
+    /// <summary>
+    /// Restrict every target to the named scenarios, dropping targets that have none of them.
+    /// </summary>
+    /// <remarks>
+    /// Matching is ordinal and case-insensitive so a scenario name copied out of a results
+    /// file or a console report selects the same scenario the evaluator ran. Names that match
+    /// nothing are returned so the caller can fail instead of evaluating an empty set.
+    /// </remarks>
+    internal static (List<EvalTargetInfo> Targets, IReadOnlyList<string> UnknownScenarios)
+        FilterTargetsByScenario(IReadOnlyList<EvalTargetInfo> targets, IReadOnlyList<string> scenarioNames)
+    {
+        var wanted = new HashSet<string>(scenarioNames, StringComparer.OrdinalIgnoreCase);
+        var matched = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var filtered = new List<EvalTargetInfo>();
+
+        foreach (var target in targets)
+        {
+            if (target.EvalConfig is null)
+                continue;
+            var scenarios = target.EvalConfig.Scenarios
+                .Where(scenario => wanted.Contains(scenario.Name))
+                .ToList();
+            if (scenarios.Count == 0)
+                continue;
+            foreach (var scenario in scenarios)
+                matched.Add(scenario.Name);
+            filtered.Add(target with { EvalConfig = target.EvalConfig with { Scenarios = scenarios } });
+        }
+
+        var unknown = scenarioNames.Where(name => !matched.Contains(name)).Distinct().ToList();
+        return (filtered, unknown);
+    }
+
+    internal static (List<EvalTargetInfo> Targets, IReadOnlyList<string> UnknownTargets)
+        FilterTargetsByName(IReadOnlyList<EvalTargetInfo> targets, IReadOnlyList<string> targetNames)
+    {
+        var wanted = new HashSet<string>(targetNames, StringComparer.OrdinalIgnoreCase);
+        var filtered = targets.Where(target => wanted.Contains(target.Name)).ToList();
+        var matched = new HashSet<string>(
+            filtered.Select(target => target.Name),
+            StringComparer.OrdinalIgnoreCase);
+        var unknown = targetNames.Where(name => !matched.Contains(name)).Distinct().ToList();
+        return (filtered, unknown);
+    }
 
     public static async Task<int> Run(ValidatorConfig config, CancellationToken cancellationToken = default)
     {
@@ -329,9 +380,38 @@ public static class EvaluateCommand
                 McpServers: mcpServers));
         }
 
+        if (config.TargetFilter.Count > 0)
+        {
+            var (filteredTargets, unknownTargets) = FilterTargetsByName(allTargets, config.TargetFilter);
+            if (unknownTargets.Count > 0)
+            {
+                Console.Error.WriteLine(
+                    $"{Ansi.Red}❌ --target matched no target named: {string.Join(", ", unknownTargets)}{Ansi.Reset}");
+                return 1;
+            }
+            allTargets = filteredTargets;
+            Console.WriteLine(
+                $"Target filter active: evaluating only {string.Join(", ", config.TargetFilter)}");
+        }
+
+        if (config.ScenarioFilter.Count > 0)
+        {
+            var (filteredTargets, unknownScenarios) = FilterTargetsByScenario(allTargets, config.ScenarioFilter);
+            if (unknownScenarios.Count > 0)
+            {
+                // A misspelled scenario would otherwise silently evaluate nothing and
+                // report a clean run, which is exactly the shape of a hidden failure.
+                Console.Error.WriteLine(
+                    $"{Ansi.Red}❌ --scenario matched no scenario named: {string.Join(", ", unknownScenarios)}{Ansi.Reset}");
+                return 1;
+            }
+            allTargets = filteredTargets;
+            Console.WriteLine(
+                $"Scenario filter active: evaluating only {string.Join(", ", config.ScenarioFilter)}");
+        }
+
         if (config.Runs < 5)
             Console.WriteLine($"{Ansi.Yellow}⚠  Running with {config.Runs} run(s). For statistically significant results, use --runs 5 or higher.{Ansi.Reset}");
-
         bool usePairwise = config.JudgeMode is JudgeMode.Pairwise or JudgeMode.Both;
         // --no-judge defers judging to a later rejudge step, which reads sessions.db, so it
         // must persist sessions even when --keep-sessions was not passed.
