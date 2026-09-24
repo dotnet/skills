@@ -43,6 +43,16 @@ function activated(agentName = "code-testing-generator") {
   return { invokedAgents: [agentName] };
 }
 
+function pairwiseResult() {
+  return {
+    rubricResults: [],
+    overallWinner: "skill",
+    overallMagnitude: 1,
+    overallReasoning: "better",
+    positionSwapConsistent: true,
+  };
+}
+
 function scenario(name, overrides = {}) {
   return {
     scenarioName: name,
@@ -56,7 +66,7 @@ function scenario(name, overrides = {}) {
     timedOut: false,
     failedRunCount: 0,
     executionError: null,
-    pairwiseResult: { winner: "skilled", reasoning: "better" },
+    pairwiseResult: pairwiseResult(),
     ...overrides,
   };
 }
@@ -200,7 +210,28 @@ test("only a clean required-arm timeout is retryable", () => {
   assert.equal(isRetryableTimeout(scenario("a", { timedOut: true, failedRunCount: 1 })), false);
   assert.equal(isRetryableTimeout(scenario("a", { timedOut: true, skilledPlugin: null })), false);
   assert.equal(isRetryableTimeout(scenario("a", { timedOut: true, pairwiseResult: null })), false);
+  assert.equal(isRetryableTimeout(scenario("a", { timedOut: true, pairwiseResult: {} })), false);
 });
+
+for (const [name, mutate] of [
+  ["unknown winner", (pairwise) => { pairwise.overallWinner = "unknown"; }],
+  ["out-of-range numeric magnitude", (pairwise) => { pairwise.overallMagnitude = 9; }],
+  ["unknown string magnitude", (pairwise) => { pairwise.overallMagnitude = "sideways"; }],
+  ["missing rubric results", (pairwise) => { delete pairwise.rubricResults; }],
+  ["missing reasoning", (pairwise) => { pairwise.overallReasoning = null; }],
+  ["missing consistency flag", (pairwise) => { delete pairwise.positionSwapConsistent; }],
+]) {
+  test(`pairwise validation rejects ${name}`, () => {
+    const pairwise = pairwiseResult();
+    mutate(pairwise);
+    assert.equal(
+      isRetryableTimeout(
+        scenario("a", { timedOut: true, pairwiseResult: pairwise }),
+      ),
+      false,
+    );
+  });
+}
 
 test("a timeout missing pairwise evidence is reported as unresolved", () => {
   const paths = workspace(
@@ -216,7 +247,7 @@ test("a timeout missing pairwise evidence is reported as unresolved", () => {
   assert.equal(summary.plannedScenarioCount, 1);
   assert.equal(summary.ineligibleScenarioCount, 1);
   assert.equal(summary.unresolvedScenarioCount, 1);
-  assert.match(summary.attempts[0].reason, /missing its pairwise judgment/);
+  assert.match(summary.attempts[0].reason, /missing or invalid pairwise judgment/);
 });
 
 test("a timeout missing completion evidence is reported as unresolved", () => {
@@ -428,6 +459,21 @@ test("a retry missing completion evidence is unresolved", () => {
   );
 });
 
+test("a retry with invalid pairwise evidence is unresolved", () => {
+  const paths = workspace(resultsWith([timedOutScenario("flaky")]));
+  const invalid = scenario("flaky", { pairwiseResult: {} });
+  const { run } = stubRun({ flaky: invalid });
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+
+  assert.equal(summary.recoveredScenarioCount, 0);
+  assert.equal(summary.unresolvedScenarioCount, 1);
+  assert.match(
+    summary.attempts[0].reason,
+    /retry has missing or invalid pairwise judgment evidence/,
+  );
+});
+
 test("a retry with multiple results files is unresolved", () => {
   const paths = workspace(resultsWith([timedOutScenario("flaky")]));
   const run = (_validator, args) => {
@@ -542,7 +588,7 @@ test("more timed-out scenarios than the bound is treated as systemic and skipped
   assert.match(summary.skippedReason, /systemic/);
   assert.equal(summary.attempts.length, 3);
   assert.equal(summary.ineligibleScenarioCount, 1);
-  assert.match(summary.attempts[2].reason, /missing its pairwise judgment/);
+  assert.match(summary.attempts[2].reason, /missing or invalid pairwise judgment/);
   assert.ok(summary.attempts.slice(0, 2).every((attempt) => /systemic/.test(attempt.reason)));
   assert.equal(summary.budgetSkippedScenarioCount, 0);
 });
@@ -1077,7 +1123,7 @@ test("recovered scenarios clear stale native aggregate failures before adaptatio
   const scenarios = [1, 2, 3, 4, 5].map((index) =>
     scenario(`Scenario ${index}`, {
       improvementScore: 1,
-      pairwiseResult: { overallWinner: "skill", overallMagnitude: 1, overallReasoning: "better" },
+      pairwiseResult: pairwiseResult(),
     }));
   scenarios[4] = scenario("Scenario 5", {
     timedOut: true,
@@ -1100,7 +1146,7 @@ test("recovered scenarios clear stale native aggregate failures before adaptatio
       baseline: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
       skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
       skilledPlugin: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
-      pairwiseResult: { overallWinner: "skill", overallMagnitude: 1, overallReasoning: "better" },
+      pairwiseResult: pairwiseResult(),
     }),
   });
 
@@ -1146,7 +1192,7 @@ test("retry clears stale activation without clearing another scenario's completi
   const scenarios = [1, 2, 3, 4, 5].map((index) =>
     scenario(`Scenario ${index}`, {
       improvementScore: 1,
-      pairwiseResult: { overallWinner: "skill", overallMagnitude: 1, overallReasoning: "better" },
+      pairwiseResult: pairwiseResult(),
     }));
   scenarios[0].baseline.metrics.taskCompleted = true;
   scenarios[0].skilledIsolated.metrics.taskCompleted = false;
@@ -1169,7 +1215,7 @@ test("retry clears stale activation without clearing another scenario's completi
       baseline: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
       skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
       skilledPlugin: runResult({ metrics: { timedOut: false, taskCompleted: true } }),
-      pairwiseResult: { overallWinner: "skill", overallMagnitude: 1, overallReasoning: "better" },
+      pairwiseResult: pairwiseResult(),
     }),
   });
 

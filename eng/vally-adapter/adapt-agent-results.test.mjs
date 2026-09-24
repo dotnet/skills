@@ -76,9 +76,11 @@ function winningScenario(index) {
     skilledIsolated: runResult(4),
     skilledPlugin: runResult(4.5),
     pairwiseResult: {
+      rubricResults: [],
       overallWinner: "skill",
       overallMagnitude: 1,
       overallReasoning: "The registered agent completed more of the task.",
+      positionSwapConsistent: true,
     },
     subagentActivationIsolated: {
       invokedAgents: ["router"],
@@ -134,9 +136,11 @@ stimuli:${stimuli.join("")}
       skilledIsolated: runResult(4),
       skilledPlugin: runResult(4.5),
       pairwiseResult: {
+        rubricResults: [],
         overallWinner: "skill",
         overallMagnitude: 1,
         overallReasoning: "The registered agent completed more of the task.",
+        positionSwapConsistent: true,
       },
       subagentActivationIsolated: {
         invokedAgents: ["router", "helper"],
@@ -542,7 +546,14 @@ for (const {
     mutate: (scenario) => {
       delete scenario.pairwiseResult;
     },
-    evidence: /Pairwise judge did not produce a result/,
+    evidence: /Pairwise judge did not produce a valid result/,
+  },
+  {
+    name: "a malformed pairwise result",
+    mutate: (scenario) => {
+      scenario.pairwiseResult = {};
+    },
+    evidence: /Pairwise judge did not produce a valid result/,
   },
 ]) {
   test(`fails closed when a completed scenario has ${name}`, () => {
@@ -615,7 +626,7 @@ test("activation failure clears the legacy reverse-preference regressed flag", (
     const scenarios = [1, 2, 3, 4, 5].map((index) => {
       const scenario = winningScenario(index);
       scenario.pairwiseResult.overallWinner = "baseline";
-      scenario.pairwiseResult.overallMagnitude = -1;
+      scenario.pairwiseResult.overallMagnitude = 1;
       scenario.subagentActivationIsolated.invokedAgents = ["helper"];
       return scenario;
     });

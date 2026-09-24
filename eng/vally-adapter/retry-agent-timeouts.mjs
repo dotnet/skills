@@ -120,6 +120,31 @@ function isRetryableTimeout(scenario) {
   return timeoutIneligibilityReason(scenario) === null;
 }
 
+function isValidPairwiseResult(pairwiseResult) {
+  const winner = String(pairwiseResult?.overallWinner ?? "").toLowerCase();
+  const validWinner = new Set(["baseline", "skill", "tie"]).has(winner);
+  const magnitude = pairwiseResult?.overallMagnitude;
+  const normalizedMagnitude = String(magnitude ?? "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+  const validMagnitude =
+    (Number.isInteger(magnitude) && magnitude >= 0 && magnitude <= 4) ||
+    new Set([
+      "muchbetter",
+      "slightlybetter",
+      "equal",
+      "slightlyworse",
+      "muchworse",
+    ]).has(normalizedMagnitude);
+  return (
+    validWinner &&
+    validMagnitude &&
+    Array.isArray(pairwiseResult?.rubricResults) &&
+    typeof pairwiseResult?.overallReasoning === "string" &&
+    typeof pairwiseResult?.positionSwapConsistent === "boolean"
+  );
+}
+
 function missingTaskCompletionArms(scenario) {
   return [
     ["baseline", scenario?.baseline],
@@ -146,7 +171,9 @@ function timeoutIneligibilityReason(scenario) {
   if (missingCompletion.length > 0) {
     return `scenario is missing task-completion evidence for arm(s): ${missingCompletion.join(", ")}`;
   }
-  if (!scenario.pairwiseResult) return "scenario is missing its pairwise judgment";
+  if (!isValidPairwiseResult(scenario.pairwiseResult)) {
+    return "scenario has missing or invalid pairwise judgment evidence";
+  }
   return null;
 }
 
@@ -167,7 +194,7 @@ function recomputeNativeAggregate(verdict) {
       || !scenario?.baseline
       || !scenario?.skilledIsolated
       || !scenario?.skilledPlugin
-      || !scenario?.pairwiseResult
+      || !isValidPairwiseResult(scenario?.pairwiseResult)
       // All required arms must remain structurally complete, even though only
       // the isolated arm participates in objective regression.
       || [scenario?.baseline, scenario?.skilledIsolated, scenario?.skilledPlugin]
@@ -587,8 +614,13 @@ function inspectRetryEvidence(attemptRoot, target, index, config, exitCode) {
       auditDir,
     };
   }
-  if (!scenarios[0].pairwiseResult) {
-    return { ok: false, reason: "retry is missing its pairwise judgment", exitCode, auditDir };
+  if (!isValidPairwiseResult(scenarios[0].pairwiseResult)) {
+    return {
+      ok: false,
+      reason: "retry has missing or invalid pairwise judgment evidence",
+      exitCode,
+      auditDir,
+    };
   }
   if (scenarios[0].executionError || (scenarios[0].failedRunCount ?? 0) > 0) {
     return {

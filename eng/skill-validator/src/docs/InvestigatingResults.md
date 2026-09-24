@@ -240,7 +240,8 @@ same scenario name from entering the retry. The agent identity is validated as
 a safe single path segment before timeout lookup or retry/audit storage.
 The retry result must contain exactly one verdict total, for that target, and
 exactly one scenario. The original timeout must already have a pairwise
-judgment.
+judgment with valid winner/magnitude, rubric, reasoning, and position-swap
+consistency fields.
 Because the retry never shares a
 results directory, its sessions never merge with the first attempt's: every
 role/session record stays unique and the `rejudge` pairing rules that reject
@@ -249,7 +250,8 @@ re-runs, so no separate `rejudge` pass is needed.
 
 The retry is deliberately narrow. It fires only when a wall-clock timeout is the
 scenario's sole defect; an `executionError`, `failedRunCount > 0`, a missing
-arm, missing boolean completion evidence, a missing pairwise judgment, or a
+arm, missing boolean completion evidence, a missing or malformed pairwise
+judgment, or a
 scenario the agent simply lost is never retried. Ineligible timeout scenarios remain listed as unresolved diagnostics
 instead of disappearing from retry accounting. A second timeout,
 more than two timed-out scenarios, an effective per-scenario three-arm retry

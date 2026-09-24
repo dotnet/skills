@@ -338,7 +338,7 @@ and `recoveredFrom`. Anything unexpected — no trajectory for either arm
 (`targeted_slot_trajectory_ambiguous`), an executor record that is not a
 successful complete trial (`targeted_slot_trajectory_incomplete`), incorrect variant pairing
 (`targeted_slot_variant_mismatch`), executor/comparison trial-index set drift
-or executor records without a parseable shard-key trial index
+or executor records with duplicate/missing/unparseable shard-key trial identity
 (`targeted_slot_trial_identity_mismatch`), a retry that returns the wrong number of trials
 (`targeted_retry_result_ambiguous`), a retry trial with no valid winner or
 numeric score (`targeted_retry_result_invalid`), a failed invocation
@@ -382,7 +382,8 @@ otherwise the eval default). Three arms plus setup/judge allowance must fit the
 per-scenario recovery budget; otherwise the scenario is left invalid without
 starting a retry that its outer watchdog cannot finish. A scenario is retried only
 when a timeout is its sole defect: an `executionError`, a failed run, a missing
-arm, missing boolean completion evidence, missing pairwise judgment, or a
+arm, missing boolean completion evidence, missing or malformed pairwise
+judgment, or a
 scenario the agent simply lost is never retried. More than two
 timed-out scenarios is read as a systemic capacity problem before individual
 budget filtering; nothing is retried and every scenario receives a diagnostic
@@ -409,7 +410,8 @@ measurement-invalid evidence, not proof of regression. A timeout with no
 pairwise judgment is also recorded as ineligible and unresolved instead of
 disappearing from retry accounting. A native retry result is accepted
 only when it contains exactly one verdict total, for the requested target, and
-exactly one requested scenario.
+exactly one requested scenario. Pairwise evidence must contain an allowed
+winner/magnitude plus rubric, reasoning, and position-swap consistency fields.
 
 Retry runs first write outside `RESULTS_DIR`. This means a workflow `SIGTERM`
 cannot leave a retry `results.json` where a recursive collector could mistake it

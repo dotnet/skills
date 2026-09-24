@@ -938,6 +938,7 @@ function isCompleteExecutorRecord(record) {
 
 function trialIndexEvidenceForStimulus(records, stimulusName) {
   const indices = new Set();
+  const counts = new Map();
   let invalidCount = 0;
   for (const record of records ?? []) {
     if (record == null || stimulusOf(record) !== stimulusName) continue;
@@ -946,9 +947,13 @@ function trialIndexEvidenceForStimulus(records, stimulusName) {
       invalidCount++;
     } else {
       indices.add(trialIndex);
+      counts.set(trialIndex, (counts.get(trialIndex) ?? 0) + 1);
     }
   }
-  return { indices, invalidCount };
+  const duplicateIndices = [...counts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([trialIndex]) => trialIndex);
+  return { indices, invalidCount, duplicateIndices };
 }
 
 function sameIntegerSet(left, right) {
@@ -978,6 +983,8 @@ function targetedSlotIdentityErrors(report, baselineRecords, skilledRecords) {
     if (
       baselineEvidence.invalidCount > 0 ||
       skilledEvidence.invalidCount > 0 ||
+      baselineEvidence.duplicateIndices.length > 0 ||
+      skilledEvidence.duplicateIndices.length > 0 ||
       !sameIntegerSet(comparisonIndices, baselineIndices) ||
       !sameIntegerSet(comparisonIndices, skilledIndices)
     ) {
@@ -989,8 +996,10 @@ function targetedSlotIdentityErrors(report, baselineRecords, skilledRecords) {
         message:
           `Comparison/executor trial identity mismatch for "${stimulusName}": ` +
           `comparison=${values(comparisonIndices)}, ` +
-          `baseline=${values(baselineIndices)} (${baselineEvidence.invalidCount} invalid), ` +
-          `skilled=${values(skilledIndices)} (${skilledEvidence.invalidCount} invalid)`,
+          `baseline=${values(baselineIndices)} (${baselineEvidence.invalidCount} invalid, ` +
+          `${baselineEvidence.duplicateIndices.length} duplicate), ` +
+          `skilled=${values(skilledIndices)} (${skilledEvidence.invalidCount} invalid, ` +
+          `${skilledEvidence.duplicateIndices.length} duplicate)`,
       });
     }
   }

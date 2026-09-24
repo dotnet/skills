@@ -1769,7 +1769,7 @@ test("a missing executor trial fails the comparison identity check", () => {
     assert.equal(failure.code, "targeted_slot_trial_identity_mismatch");
     assert.match(
       failure.message,
-      /comparison=\[0, 1, 2\], baseline=\[0, 1\] \(0 invalid\), skilled=\[0, 1, 2\] \(0 invalid\)/,
+      /comparison=\[0, 1, 2\], baseline=\[0, 1\] \(0 invalid, 0 duplicate\), skilled=\[0, 1, 2\] \(0 invalid, 0 duplicate\)/,
     );
   } finally {
     rmSync(workDir, { recursive: true, force: true });
@@ -1849,11 +1849,35 @@ test("an ambiguous slot-to-trajectory mapping is never re-judged", () => {
     assert.equal(result.summary.erroredCount, 1);
     assert.equal(
       result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1).code,
-      "targeted_slot_trajectory_ambiguous",
+      "targeted_slot_trial_identity_mismatch",
     );
   } finally {
     rmSync(workDir, { recursive: true, force: true });
   }
+});
+
+test("a duplicate executor identity outside the stranded slot blocks recovery", () => {
+  const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
+  const baselineRecords = executorRecordsFor(primary, "baseline");
+  baselineRecords.push({
+    ...baselineRecords.find((record) => record.shardKey.endsWith("::trial-0")),
+  });
+  let calls = 0;
+
+  const result = withTargetedRecovery(
+    primary,
+    () => {
+      calls++;
+      return null;
+    },
+    { baselineRecords },
+  );
+
+  assert.equal(calls, 0);
+  const failure =
+    result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1);
+  assert.equal(failure.code, "targeted_slot_trial_identity_mismatch");
+  assert.match(failure.message, /baseline=\[0, 1, 2\] \(0 invalid, 1 duplicate\)/);
 });
 
 test("an errored executor trajectory is never re-judged", () => {
@@ -1935,7 +1959,7 @@ test("a successful trajectory paired with an errored duplicate is ambiguous", ()
   assert.equal(calls, 0);
   assert.equal(
     result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1).code,
-    "targeted_slot_trajectory_ambiguous",
+    "targeted_slot_trial_identity_mismatch",
   );
 });
 
@@ -1970,7 +1994,7 @@ test("executor and comparison trial-index set mismatch fails closed", () => {
   assert.equal(failure.code, "targeted_slot_trial_identity_mismatch");
   assert.match(
     failure.message,
-    /comparison=\[0, 1, 2\], baseline=\[1, 2, 3\] \(0 invalid\), skilled=\[0, 1, 2\] \(0 invalid\)/,
+    /comparison=\[0, 1, 2\], baseline=\[1, 2, 3\] \(0 invalid, 0 duplicate\), skilled=\[0, 1, 2\] \(0 invalid, 0 duplicate\)/,
   );
 });
 
@@ -1996,7 +2020,7 @@ test("executor records with invalid trial identities fail closed", () => {
   const failure =
     result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1);
   assert.equal(failure.code, "targeted_slot_trial_identity_mismatch");
-  assert.match(failure.message, /baseline=\[0, 1, 2\] \(1 invalid\)/);
+  assert.match(failure.message, /baseline=\[0, 1, 2\] \(1 invalid, 0 duplicate\)/);
 });
 
 test("targeted recovery uses the canonical stimulus identity", () => {

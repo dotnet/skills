@@ -132,6 +132,30 @@ function directionFromPairwise(pairwise) {
   return 0;
 }
 
+function validNativePairwiseResult(pairwise) {
+  const winner = String(pairwise?.overallWinner ?? "").toLowerCase();
+  const magnitude = pairwise?.overallMagnitude;
+  const normalizedMagnitude = String(magnitude ?? "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+  const validMagnitude =
+    (Number.isInteger(magnitude) && magnitude >= 0 && magnitude <= 4) ||
+    new Set([
+      "muchbetter",
+      "slightlybetter",
+      "equal",
+      "slightlyworse",
+      "muchworse",
+    ]).has(normalizedMagnitude);
+  return (
+    new Set(["baseline", "skill", "tie"]).has(winner) &&
+    validMagnitude &&
+    Array.isArray(pairwise?.rubricResults) &&
+    typeof pairwise?.overallReasoning === "string" &&
+    typeof pairwise?.positionSwapConsistent === "boolean"
+  );
+}
+
 function magnitudeFromPairwise(pairwise, direction) {
   const raw = pairwise?.overallMagnitude;
   const text = String(raw ?? "").toLowerCase();
@@ -232,7 +256,7 @@ function nativeCompletionRegressed(scenarios) {
       && scenario?.baseline
       && scenario?.skilledIsolated
       && scenario?.skilledPlugin
-      && scenario?.pairwiseResult
+      && validNativePairwiseResult(scenario?.pairwiseResult)
       && scenario?.baseline?.metrics?.taskCompleted === true
       && scenario?.skilledIsolated?.metrics?.taskCompleted === false,
   );
@@ -316,7 +340,9 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
       ?? (missingCompletionEvidence.length > 0
         ? `Missing task-completion evidence for required arm(s): ${missingCompletionEvidence.join(", ")}`
         : null)
-      ?? (!scenario.pairwiseResult ? "Pairwise judge did not produce a result" : null);
+      ?? (!validNativePairwiseResult(scenario.pairwiseResult)
+        ? "Pairwise judge did not produce a valid result"
+        : null);
     reportStimuli.push({
       stimulusName: scenario.scenarioName,
       meanScore: executionError ? 0 : score,
