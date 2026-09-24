@@ -233,11 +233,27 @@ function findAgentEvalFile(testsDir, skillName) {
   return candidates.find(existsSync) ?? null;
 }
 
-function declaredAgentTimeoutSeconds(testsDir, skillName) {
+function effectiveAgentTimeoutSeconds(testsDir, skillName, scenarioName) {
   const evalFile = findAgentEvalFile(testsDir, skillName);
   if (!evalFile) return null;
   const lines = readFileSync(evalFile, "utf8").split(/\r?\n/);
   let configIndent = null;
+  let defaultTimeoutSeconds = 120;
+  let stimuliIndent = null;
+  let itemIndent = null;
+  let currentScenario = null;
+  let scenarioFound = false;
+  let constraintsIndent = null;
+  const unquote = (value) => {
+    const text = value.trim();
+    if (
+      (text.startsWith('"') && text.endsWith('"')) ||
+      (text.startsWith("'") && text.endsWith("'"))
+    ) {
+      return text.slice(1, -1);
+    }
+    return text;
+  };
   for (const line of lines) {
     if (!line.trim() || /^\s*#/.test(line)) continue;
     const indent = line.length - line.trimStart().length;
@@ -245,13 +261,44 @@ function declaredAgentTimeoutSeconds(testsDir, skillName) {
       configIndent = indent;
       continue;
     }
-    if (indent === 0) configIndent = null;
+    if (indent === 0 && /^stimuli:\s*(?:#.*)?$/.test(line)) {
+      configIndent = null;
+      stimuliIndent = indent;
+      continue;
+    }
+    if (indent === 0) {
+      configIndent = null;
+      if (stimuliIndent !== null) break;
+    }
     if (configIndent !== null && indent > configIndent) {
       const match = /^\s*timeout:\s*([^#]+?)(?:\s+#.*)?$/.exec(line);
-      if (match) return durationSeconds(match[1]);
+      if (match) defaultTimeoutSeconds = durationSeconds(match[1]);
+      continue;
+    }
+    if (stimuliIndent !== null && indent > stimuliIndent) {
+      const item = /^(\s*)-\s+name:\s*(.+?)\s*(?:#.*)?$/.exec(line);
+      if (item && (itemIndent === null || indent === itemIndent)) {
+        itemIndent = indent;
+        currentScenario = unquote(item[2]);
+        if (currentScenario === scenarioName) scenarioFound = true;
+        constraintsIndent = null;
+        continue;
+      }
+      if (currentScenario !== scenarioName) continue;
+      const flow = /^\s*constraints:\s*\{[^}]*max_duration:\s*([^,}]+)[^}]*\}\s*(?:#.*)?$/.exec(line);
+      if (flow) return durationSeconds(flow[1]);
+      if (/^\s*constraints:\s*(?:#.*)?$/.test(line)) {
+        constraintsIndent = indent;
+        continue;
+      }
+      if (constraintsIndent !== null && indent > constraintsIndent) {
+        const maxDuration =
+          /^\s*max_duration:\s*([^#]+?)(?:\s+#.*)?$/.exec(line);
+        if (maxDuration) return durationSeconds(maxDuration[1]);
+      }
     }
   }
-  return 120;
+  return scenarioFound ? defaultTimeoutSeconds : null;
 }
 
 function newestDirectory(root) {
@@ -547,10 +594,37 @@ function retryAgentTimeouts(config) {
     attempts: [],
   };
 
+  if (targets.length > config.maxScenarios) {
+    summary.unresolvedScenarioCount = targets.length;
+    summary.skippedReason =
+      `Found ${targets.length} timed-out scenario(s), above the recovery limit of ` +
+      `${config.maxScenarios}; treating this as a systemic capacity problem.`;
+    summary.attempts = targets.map((target) => ({
+      skillName: target.skillName,
+      scenarioName: target.scenarioName,
+      recovered: false,
+      reason: summary.skippedReason,
+      retryExitCode: null,
+      auditDir: null,
+      armTimeoutSeconds: null,
+      estimatedSeconds: null,
+    }));
+    console.warn(summary.skippedReason);
+    mkdirSync(dirname(config.summary), { recursive: true });
+    writeAtomic(config.summary, `${JSON.stringify(summary, null, 2)}\n`);
+    console.log(
+      `Agent timeout recovery: 0 recovered, ${summary.unresolvedScenarioCount} unresolved`,
+    );
+    return summary;
+  }
+
+  const resolveScenarioTimeout =
+    config.resolveScenarioTimeout ?? effectiveAgentTimeoutSeconds;
   for (const target of targets) {
-    const armTimeoutSeconds = declaredAgentTimeoutSeconds(
+    const armTimeoutSeconds = resolveScenarioTimeout(
       config.testsDir,
       target.skillName,
+      target.scenarioName,
     );
     const estimatedSeconds =
       armTimeoutSeconds == null
@@ -585,51 +659,42 @@ function retryAgentTimeouts(config) {
     }
   }
 
-  if (eligibleTargets.length > config.maxScenarios) {
-    summary.unresolvedScenarioCount += eligibleTargets.length;
-    summary.skippedReason =
-      `Found ${eligibleTargets.length} budget-eligible timed-out scenario(s), ` +
-      `above the recovery limit of ` +
-      `${config.maxScenarios}; treating this as a systemic capacity problem.`;
-    console.warn(summary.skippedReason);
-  } else {
-    for (const [index, target] of eligibleTargets.entries()) {
-      console.log(
-        `Re-running timed-out scenario ${target.skillName}/${target.scenarioName}`,
-      );
-      summary.attemptedScenarioCount++;
-      const outcome = retryScenario(target, index, config);
-      if (outcome.ok) {
-        const verdict = results.verdicts[target.verdictIndex];
-        verdict.scenarios[target.scenarioIndex] = outcome.scenario;
-        const cleared = refreshVerdictAggregates(verdict);
-        if (cleared.length > 0) {
-          console.log(
-            `Stale aggregate(s) no longer supported by the recovered evidence: ${cleared.join(", ")}`,
-          );
-        }
-        summary.recoveredScenarioCount++;
-        summary.clearedAggregates = [
-          ...(summary.clearedAggregates ?? []),
-          ...cleared.map((field) => ({ skillName: target.skillName, field })),
-        ];
-        // Persist after every recovery so a later attempt that is killed by an
-        // outer wall-clock budget cannot discard evidence already recovered.
-        writeAtomic(config.resultsFile, `${JSON.stringify(results, null, 2)}\n`);
-      } else {
-        summary.unresolvedScenarioCount++;
+  for (const [index, target] of eligibleTargets.entries()) {
+    console.log(
+      `Re-running timed-out scenario ${target.skillName}/${target.scenarioName}`,
+    );
+    summary.attemptedScenarioCount++;
+    const outcome = retryScenario(target, index, config);
+    if (outcome.ok) {
+      const verdict = results.verdicts[target.verdictIndex];
+      verdict.scenarios[target.scenarioIndex] = outcome.scenario;
+      const cleared = refreshVerdictAggregates(verdict);
+      if (cleared.length > 0) {
+        console.log(
+          `Stale aggregate(s) no longer supported by the recovered evidence: ${cleared.join(", ")}`,
+        );
       }
-      summary.attempts.push({
-        skillName: target.skillName,
-        scenarioName: target.scenarioName,
-        recovered: outcome.ok,
-        reason: outcome.ok ? null : outcome.reason,
-        retryExitCode: outcome.exitCode,
-        auditDir: outcome.auditDir ?? null,
-        armTimeoutSeconds: target.armTimeoutSeconds,
-        estimatedSeconds: target.estimatedSeconds,
-      });
+      summary.recoveredScenarioCount++;
+      summary.clearedAggregates = [
+        ...(summary.clearedAggregates ?? []),
+        ...cleared.map((field) => ({ skillName: target.skillName, field })),
+      ];
+      // Persist after every recovery so a later attempt that is killed by an
+      // outer wall-clock budget cannot discard evidence already recovered.
+      writeAtomic(config.resultsFile, `${JSON.stringify(results, null, 2)}\n`);
+    } else {
+      summary.unresolvedScenarioCount++;
     }
+    summary.attempts.push({
+      skillName: target.skillName,
+      scenarioName: target.scenarioName,
+      recovered: outcome.ok,
+      reason: outcome.ok ? null : outcome.reason,
+      retryExitCode: outcome.exitCode,
+      auditDir: outcome.auditDir ?? null,
+      armTimeoutSeconds: target.armTimeoutSeconds,
+      estimatedSeconds: target.estimatedSeconds,
+    });
   }
 
   mkdirSync(dirname(config.summary), { recursive: true });

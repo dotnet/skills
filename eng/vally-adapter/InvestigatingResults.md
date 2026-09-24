@@ -365,13 +365,15 @@ unaffected. Read
 `agent-timeout-retry-summary.json` for `recoveredScenarioCount`,
 `unresolvedScenarioCount`, `budgetSkippedScenarioCount`, `clearedAggregates`,
 and a per-scenario reason. Before launching a retry, the tool reads the eval's
-declared arm timeout. Three arms plus setup/judge allowance must fit the
+effective timeout for that scenario (`constraints.max_duration` when present,
+otherwise the eval default). Three arms plus setup/judge allowance must fit the
 per-scenario recovery budget; otherwise the scenario is left invalid without
 starting a retry that its outer watchdog cannot finish. A scenario is retried only
 when a timeout is its sole defect: an `executionError`, a failed run, a missing
 arm, or a scenario the agent simply lost is never retried. More than two
-timed-out scenarios is read as a systemic capacity problem and nothing is
-retried.
+timed-out scenarios is read as a systemic capacity problem before individual
+budget filtering; nothing is retried and every scenario receives a diagnostic
+attempt record.
 
 After a scenario replacement, recovery recomputes the native completion and
 isolated target-agent activation gates from every surviving scenario. A true

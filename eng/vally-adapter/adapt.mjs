@@ -959,15 +959,9 @@ function targetedSlotIdentityErrors(report, baselineRecords, skilledRecords) {
       skilledRecords,
       stimulusName,
     );
-    const baselineIdentityDrift =
-      baselineIndices.size >= comparisonIndices.size &&
-      !sameIntegerSet(comparisonIndices, baselineIndices);
-    const skilledIdentityDrift =
-      skilledIndices.size >= comparisonIndices.size &&
-      !sameIntegerSet(comparisonIndices, skilledIndices);
     if (
-      baselineIdentityDrift ||
-      skilledIdentityDrift
+      !sameIntegerSet(comparisonIndices, baselineIndices) ||
+      !sameIntegerSet(comparisonIndices, skilledIndices)
     ) {
       const values = (set) => `[${[...set].sort((a, b) => a - b).join(", ")}]`;
       errors.set(stimulusName, {

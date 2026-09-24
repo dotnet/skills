@@ -243,9 +243,12 @@ re-runs, so no separate `rejudge` pass is needed.
 The retry is deliberately narrow. It fires only when a wall-clock timeout is the
 scenario's sole defect; an `executionError`, `failedRunCount > 0`, a missing
 arm, or a scenario the agent simply lost is never retried. A second timeout,
-more than two timed-out scenarios, a declared three-arm retry cost that exceeds
-the bounded recovery window, or any unexpected retry shape leaves the original
-measurement in place and keeps the eval invalid. Check
+more than two timed-out scenarios, an effective per-scenario three-arm retry
+cost (including `constraints.max_duration`) that exceeds the bounded recovery
+window, or any unexpected retry shape leaves the original measurement in place
+and keeps the eval invalid. The systemic scenario-count guard runs before
+individual budget filtering, so a widespread timeout never triggers a partial
+subset of retries. Check
 `agent-timeout-retry-summary.json` in the leg artifact for
 `recoveredScenarioCount`, `unresolvedScenarioCount`,
 `budgetSkippedScenarioCount`, `clearedAggregates`, and a per-scenario reason.

@@ -1688,7 +1688,7 @@ test("too many stranded comparison slots are treated as a systemic failure", () 
   assert.match(result.retrySummary.targetedRecovery.skippedReason, /systemic judge failure/);
 });
 
-test("a missing slot trajectory is distinguished from an ambiguous one", () => {
+test("a missing executor trial fails the comparison identity check", () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
   const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-missing-"));
   let calls = 0;
@@ -1712,8 +1712,11 @@ test("a missing slot trajectory is distinguished from an ambiguous one", () => {
     assert.equal(calls, 0);
     assert.equal(result.summary.erroredCount, 1);
     const failure = result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1);
-    assert.equal(failure.code, "targeted_slot_trajectory_missing");
-    assert.match(failure.message, /0 baseline and 1 treatment/);
+    assert.equal(failure.code, "targeted_slot_trial_identity_mismatch");
+    assert.match(
+      failure.message,
+      /comparison=\[0, 1, 2\], baseline=\[0, 1\], skilled=\[0, 1, 2\]/,
+    );
   } finally {
     rmSync(workDir, { recursive: true, force: true });
   }
@@ -1880,7 +1883,7 @@ test("targeted recovery accepts source-file variant identity when records omit v
   assert.equal(recovered.summary.erroredCount, 0);
 });
 
-test("a missing targeted trajectory has a distinct fail-closed code", () => {
+test("an empty executor arm fails the comparison identity check", () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
   const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-missing-"));
   let calls = 0;
@@ -1900,7 +1903,7 @@ test("a missing targeted trajectory has a distinct fail-closed code", () => {
     assert.equal(result.summary.erroredCount, 1);
     assert.equal(
       result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1).code,
-      "targeted_slot_trajectory_missing",
+      "targeted_slot_trial_identity_mismatch",
     );
   } finally {
     rmSync(workDir, { recursive: true, force: true });
@@ -1969,7 +1972,7 @@ test("targeted recovery uses complete preserved evidence after the coarse retry 
   assert.equal(recovered.retrySummary.targetedRecovery.recoveredSlotCount, 1);
 });
 
-test("targeted recovery after a coarse retry crash requires complete source evidence", () => {
+test("targeted recovery after a coarse retry crash requires matching source identity", () => {
   const retryCrash = {
     phase: "comparison_judge",
     kind: "unknown",
@@ -2000,7 +2003,7 @@ test("targeted recovery after a coarse retry crash requires complete source evid
     assert.equal(result.summary.erroredCount, 1);
     assert.equal(
       result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1).code,
-      "targeted_slot_trajectory_missing",
+      "targeted_slot_trial_identity_mismatch",
     );
   } finally {
     rmSync(workDir, { recursive: true, force: true });

@@ -92,14 +92,20 @@ function writeAgentEval(
   scenarioCount = 5,
   timeout = "5m",
   agentDir = "agent.code-testing-generator",
+  scenarioMaxDurations = {},
 ) {
   const evalDir = join(root, "tests", "dotnet-test", agentDir);
   mkdirSync(evalDir, { recursive: true });
-  const stimuli = Array.from({ length: scenarioCount }, (_, index) => `
-  - name: Scenario ${index + 1}
+  const stimuli = Array.from({ length: scenarioCount }, (_, index) => {
+    const name = `Scenario ${index + 1}`;
+    const maxDuration = scenarioMaxDurations[name];
+    return `
+  - name: ${name}
     prompt: Generate tests.
+${maxDuration ? `    constraints:\n      max_duration: ${maxDuration}\n` : ""}
     rubric:
-      - Completed the task`);
+      - Completed the task`;
+  });
   writeFileSync(join(evalDir, "eval.yaml"), `name: agent.code-testing-generator
 defaults:
   timeout: ${timeout}
@@ -162,6 +168,7 @@ function baseConfig(paths, run) {
     maxScenarios: 2,
     maxScenarioSeconds: Number.MAX_SAFE_INTEGER,
     scenarioOverheadSeconds: 0,
+    resolveScenarioTimeout: () => 300,
     run,
   };
 }
@@ -316,15 +323,53 @@ test("more timed-out scenarios than the bound is treated as systemic and skipped
   assert.equal(summary.recoveredScenarioCount, 0);
   assert.equal(summary.unresolvedScenarioCount, 3);
   assert.match(summary.skippedReason, /systemic/);
+  assert.equal(summary.attempts.length, 3);
+  assert.ok(summary.attempts.every((attempt) => /systemic/.test(attempt.reason)));
+  assert.equal(summary.budgetSkippedScenarioCount, 0);
 });
 
-test("a retry whose declared three-arm cost exceeds the budget is skipped", () => {
-  const paths = workspace(resultsWith([timedOutScenario("flaky")]));
-  writeAgentEval(paths.root, 1, "60m");
-  const { run, calls } = stubRun({ flaky: scenario("flaky") });
+test("systemic guard runs before scenario budget filtering", () => {
+  const paths = workspace(
+    resultsWith([
+      timedOutScenario("Scenario 1"),
+      timedOutScenario("Scenario 2"),
+      timedOutScenario("Scenario 3"),
+    ]),
+  );
+  writeAgentEval(
+    paths.root,
+    3,
+    "5m",
+    "agent.code-testing-generator",
+    { "Scenario 1": "60m" },
+  );
+  const { run, calls } = stubRun({});
   const config = {
     ...baseConfig(paths, run),
     testsDir: join(paths.root, "tests", "dotnet-test"),
+    resolveScenarioTimeout: null,
+    maxScenarios: 2,
+    maxScenarioSeconds: 1200,
+    scenarioOverheadSeconds: 300,
+  };
+
+  const summary = retryAgentTimeouts(config);
+
+  assert.equal(calls.length, 0);
+  assert.equal(summary.unresolvedScenarioCount, 3);
+  assert.equal(summary.budgetSkippedScenarioCount, 0);
+  assert.equal(summary.attempts.length, 3);
+  assert.ok(summary.attempts.every((attempt) => /systemic/.test(attempt.reason)));
+});
+
+test("a retry whose declared three-arm cost exceeds the budget is skipped", () => {
+  const paths = workspace(resultsWith([timedOutScenario("Scenario 1")]));
+  writeAgentEval(paths.root, 1, "60m");
+  const { run, calls } = stubRun({ "Scenario 1": scenario("Scenario 1") });
+  const config = {
+    ...baseConfig(paths, run),
+    testsDir: join(paths.root, "tests", "dotnet-test"),
+    resolveScenarioTimeout: null,
     maxScenarioSeconds: 1200,
     scenarioOverheadSeconds: 300,
   };
@@ -340,18 +385,45 @@ test("a retry whose declared three-arm cost exceeds the budget is skipped", () =
   assert.match(summary.attempts[0].reason, /above the 1200s/);
 });
 
+test("scenario max_duration controls retry eligibility", () => {
+  const paths = workspace(resultsWith([timedOutScenario("Scenario 1")]));
+  writeAgentEval(
+    paths.root,
+    1,
+    "1m",
+    "agent.code-testing-generator",
+    { "Scenario 1": "10m" },
+  );
+  const { run, calls } = stubRun({ "Scenario 1": scenario("Scenario 1") });
+  const config = {
+    ...baseConfig(paths, run),
+    testsDir: join(paths.root, "tests", "dotnet-test"),
+    resolveScenarioTimeout: null,
+    maxScenarioSeconds: 1200,
+    scenarioOverheadSeconds: 300,
+  };
+
+  const summary = retryAgentTimeouts(config);
+
+  assert.equal(calls.length, 0);
+  assert.equal(summary.budgetSkippedScenarioCount, 1);
+  assert.equal(summary.attempts[0].armTimeoutSeconds, 600);
+  assert.equal(summary.attempts[0].estimatedSeconds, 2100);
+});
+
 test("a bare agent name resolves a nested agent-prefixed eval directory", () => {
-  const paths = workspace(resultsWith([timedOutScenario("flaky")]));
+  const paths = workspace(resultsWith([timedOutScenario("Scenario 1")]));
   writeAgentEval(
     paths.root,
     1,
     "5m",
     join("nested", "agent.code-testing-generator"),
   );
-  const { run, calls } = stubRun({ flaky: scenario("flaky") });
+  const { run, calls } = stubRun({ "Scenario 1": scenario("Scenario 1") });
   const config = {
     ...baseConfig(paths, run),
     testsDir: join(paths.root, "tests", "dotnet-test"),
+    resolveScenarioTimeout: null,
     maxScenarioSeconds: 1200,
     scenarioOverheadSeconds: 300,
   };
