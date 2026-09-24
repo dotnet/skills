@@ -37,6 +37,14 @@ Understand what the user wants: scope (project, files, classes), priority areas,
 
 Before writing code, read the language-specific base extension. Reuse it for the whole run; sub-agents must not independently reload the same reference unless they need a section that was not captured in the research document.
 
+For Direct .NET work, inspect the repository contract and canonical test project
+to identify the test framework and installed version. When that detection
+identifies MSTest, invoke `writing-mstest-tests` exactly once before creating or
+editing an MSTest project or test source. Use it only for installed-version,
+project-shape, lifecycle, and assertion/API guidance. This generator retains
+test-case design and scenario selection. For Single pass and Iterative .NET
+work, apply the same gate in Step 3a after research reports the framework.
+
 For Single pass and Iterative strategies, resolve one absolute
 `<TESTAGENT_DIR>`
 before invoking any sub-agent:
@@ -62,38 +70,69 @@ and "cover pagination boundaries" are three independently verifiable
 requirements. Direct strategy keeps this checklist in context; delegated
 strategies record it in `<TESTAGENT_DIR>/research.md`.
 
+### Step 1a: Establish the Authoritative Scope
+
+Preserve the scope from the user's request. A project, solution, module, folder,
+or explicit file list remains authoritative even when only some files are easy
+to test.
+
+For project, solution, module, folder, or multi-file requests:
+
+1. Enumerate every non-trivial source file in the requested scope.
+2. Create `<TESTAGENT_DIR>/scope-ledger.md` with one row per source file.
+3. Mark each row `pending`, `tested`, or `deferred`.
+4. Keep every row `pending` until tests or a concrete deferral reason account
+   for it.
+
+Dependencies and testability determine phase order and test technique. They do
+not remove files from scope.
+
 ### Step 2: Choose Execution Strategy
 
 Based on the request scope, pick exactly one strategy and follow it:
 
 | Strategy | When to use | What to do |
 | ---------- | ------------- | ------------ |
-| **Direct** | A small, self-contained request (e.g., tests for a single function or class) that you can complete without sub-agents | Follow the codebase conventions on test file structure, naming, style, and testing approaches. Reuse existing test projects and test files when possible — if the code under test already has tests, add new tests to the same file or test project. Only create a new test file when no canonical file is named or discoverable for the symbol under test. Write the tests immediately. **Run them right away** — if any test fails, read the production code, fix the assertion, and re-run before writing more tests. Skip Steps 3-5 (research, plan, implement sub-agents). Then proceed to Steps 6-9 for validation and reporting — **Direct skips only the sub-agents, never the Step 7 pre-completion gate** (which still runs per its own threshold in Step 7 — i.e. for any non-trivial addition: ≥5 tests, or any request that enumerates behaviors/scenarios to verify). |
-| **Single pass** | A moderate scope (couple projects or modules) that a single Research → Plan → Implement cycle can cover | Execute Steps 3-8 once, then proceed to Step 9. |
-| **Iterative** | A large scope or ambitious coverage target that one pass cannot satisfy | Execute Steps 3-8, then re-evaluate coverage. If the target is not met, repeat Steps 3-8 with a narrowed focus on remaining gaps. Use unique names for each iteration's documents in `<TESTAGENT_DIR>` (e.g., `research-2.md`, `plan-2.md`) so earlier results are not overwritten. Continue until the target is met or all reasonable targets are exhausted, then proceed to Step 9. |
+| **Direct** | Exactly one source file, class, method, or function | Reuse the canonical test project and existing test file when available. Do not create intermediate state files or invoke worker agents. Write and run tests immediately, fixing failures before writing more. Skip only the delegated phases (Steps 3-5), never final validation, coverage review, or the Step 7 pre-completion gate. |
+| **Single pass** | An explicit scope of 2-9 non-trivial source files | Execute one complete Research → Plan → Implement cycle covering every scope-ledger row, then execute Steps 6-9. |
+| **Iterative** | A project, solution, module, folder, 10 or more source files, or an ambitious coverage target | Execute Steps 3-8, measure remaining original-scope gaps, then repeat on pending or weakly covered ledger rows. Reuse the canonical research, plan, and ledger files: append an `## Iteration N` section to research and plan, update ledger rows in place, and preserve prior evidence. Continue until the target is met or every remaining row has a concrete, evidence-backed deferral reason. |
 
-**Default to Direct** unless the user asks for a project/package-wide suite or
-the scope explicitly spans multiple files or modules. Most test generation
-requests — including "generate tests for function X", "add tests covering these
-scenarios", and "write unit tests for this class" — should use Direct strategy.
-A project-wide request remains Single pass even when the delivered workspace is
-sparse and only one source module remains. **Choosing Direct trades away only
-the sub-agent pipeline (Steps 3-5); it never trades away the Step 7
-pre-completion gate.** When a request enumerates specific behaviors/scenarios
-(e.g., "add 1 test for each of these scenarios"), treat that list as the spec:
-target the exact symbol named, cover every enumerated scenario, and run the
-Step 7 gate before reporting completion.
+Choose from the target shape and source-file count, not from whether an existing
+test project is available. A project, solution, module, or folder request can
+never use Direct, even when only one source file remains.
+
+**Direct inline execution gate:** After selecting Direct, this generator must
+personally perform every remaining action: inspect the target and conventions,
+scaffold or wire the canonical test project when needed, edit tests, build, run
+tests, diagnose and fix failures, run quality gates, and report. Never invoke a
+registered worker during Direct. Same-conversation skill calls remain guidance,
+not worker delegation.
+
+For Direct .NET work, if the canonical test project is absent or incompletely
+wired, invoke `scaffold-dotnet-test-project` inline before editing tests. Use
+one canonical project and the repository's real entry point.
+
+**Non-Direct dispatch gate:** Single pass and Iterative strategies must invoke
+the registered researcher, then planner, then one implementer per plan phase.
+Do not perform those phases inline. Before the first test-code mutation, require
+successful researcher and planner completions and their artifacts. If a required
+agent is unavailable, report the orchestration blocker and stop instead of
+silently falling back to Direct behavior.
+
+When a request enumerates specific behaviors or scenarios, treat that list as
+the spec: target the exact symbol named, cover every enumerated scenario, and
+run the Step 7 gate before reporting completion.
 
 **Strategy decision examples:**
 
 | User request | Strategy | Reasoning |
 |---|---|---|
 | "Write tests for `src/InvoiceService.cs`" | Direct | Single file, can write tests immediately without sub-agents |
-| "Generate tests for the billing module" | Single pass | Moderate scope (handful of files), one R→P→I cycle covers it |
+| "Generate tests for these six billing files" | Single pass | Explicit 2-9 file scope, one R→P→I cycle covers every ledger row |
+| "Generate tests for the billing module" | Iterative | A module remains authoritative even when it contains few files |
 | "Achieve 80% coverage across the whole solution" | Iterative | Large scope, first pass covers the obvious gaps, subsequent passes target remaining uncovered code |
 | "Add tests for this function" (with file open) | Direct | Single function is trivially small scope |
-| "Generate comprehensive tests for my ASP.NET app" | Single pass | If the app has fewer than 10 controllers/services/files in scope, one R→P→I cycle should cover it |
-| "Generate comprehensive tests for my large ASP.NET app" | Iterative | If the app has 10 or more controllers/services/files in scope, use repeated passes to close remaining gaps |
+| "Generate comprehensive tests for my ASP.NET app" | Iterative | Project scope requires delegated RPI and complete ledger closure |
 
 **All strategies MUST execute Steps 6-9** (final build validation, final test validation, coverage gap iteration, and reporting), and the Step 7 pre-completion gate within them. These steps are never skipped — including for Direct.
 
@@ -104,25 +143,59 @@ Delegate to the `code-testing-researcher` subagent with this task:
 ```text
 runSubagent({
   agent: "code-testing-researcher",
-  prompt: "Research [REQUESTED SCOPE] at [PATH] for test generation. Write the research document to <TESTAGENT_DIR>/research.md. Produce a bounded target inventory, existing test conventions, source-to-test pairs, dependencies only for those targets, and exact build/test/discovery commands. Do not inventory unrelated source files."
+  prompt: "Research Iteration N for the original requested scope at [PATH]. Use <TESTAGENT_DIR>/research.md and <TESTAGENT_DIR>/scope-ledger.md. On Iteration 1, create both files. On later iterations, read them first, append an `## Iteration N` research section, preserve prior sections and all original ledger rows, and update statuses/evidence in place without resetting tested or deferred rows. Focus new analysis on pending or weakly covered rows. Inventory every non-trivial source file without selecting only easy, leaf, mock-free, or framework-decoupled classes. Record conventions, source-to-test pairs, dependencies, testability, exact build/test/discovery commands, and for .NET the canonical test project, framework and installed version, runner contract, command mode, and repository entry point. Do not create or edit test source."
 })
 ```
 
-Output: `<TESTAGENT_DIR>/research.md`
+Outputs: `<TESTAGENT_DIR>/research.md` and
+`<TESTAGENT_DIR>/scope-ledger.md`
+
+### Step 3a: Load Detected MSTest Guidance
+
+For Single pass and Iterative .NET work, read the framework and installed
+version from `<TESTAGENT_DIR>/research.md`. When research identifies MSTest,
+invoke `writing-mstest-tests` exactly once before planning, project scaffolding,
+or test-code mutation. Record only the applicable version, project-shape,
+lifecycle, and assertion/API constraints in the research document. Do not ask
+the supporting skill to select scenarios or design test cases.
+
+Require the planner and implementers to consume the recorded guidance instead
+of invoking `writing-mstest-tests` independently.
 
 ### Step 4: Planning Phase
 
 Delegate to the `code-testing-planner` subagent with this task:
 
-> Create a test implementation plan based on `<TESTAGENT_DIR>/research.md`. Write it to `<TESTAGENT_DIR>/plan.md`. Create a phased approach with specific files and test cases.
+> Plan Iteration N in `<TESTAGENT_DIR>/plan.md` from `<TESTAGENT_DIR>/research.md` and `<TESTAGENT_DIR>/scope-ledger.md`. On Iteration 1, create the plan. On later iterations, read it first and append an `## Iteration N` section without replacing earlier phases. Assign every pending or weakly covered source file to a phase or record a concrete evidence-backed deferral. Use more phases or iterations instead of shrinking scope. Preserve the canonical test project, command mode, and entry point. Carry recorded framework-version and API constraints into the plan.
 
 Output: `<TESTAGENT_DIR>/plan.md`
+
+### Step 4a: Establish One Test Project
+
+For .NET, use the canonical test project and exact entry point recorded by
+research. Only after successful researcher and planner completions, invoke
+`scaffold-dotnet-test-project` if that project is absent or its production
+reference or entry-point registration is incomplete. Request project wiring
+only; implementers own the planned test behaviors.
+
+Record the canonical absolute project path and exact solution or repository
+entry point in research and the plan. For a new SDK-style project, require a
+glob-safe solution- or repository-level sibling outside the production project
+directory unless existing MSBuild item configuration already excludes the
+complete test tree.
+
+Every generated test file, project edit, build, and test command must use the
+recorded project. If it appears missing, inspect that exact path and repository
+root. Do not create a second same-named project as a recovery step.
 
 ### Step 5: Implementation Phase
 
 Execute each phase by delegating to the `code-testing-implementer` subagent — once per phase, sequentially. For each phase, delegate with this task:
 
-> Implement Phase N from `<TESTAGENT_DIR>/plan.md`: [phase description]. Use `<TESTAGENT_DIR>/research.md` for commands and conventions. Ensure tests compile and pass.
+> Implement Iteration I, Phase N from `<TESTAGENT_DIR>/plan.md`: [phase description]. Use the recorded canonical test project, command mode, and entry point. Honor the framework version and API guidance in research and the plan without reloading supporting skills. Update every assigned scope-ledger row. Ensure tests compile, pass, and remain discoverable through the repository entry point.
+
+Do not write phase test files from the generator conversation. The implementer
+owns phase mutations and verification.
 
 ### Step 6: Final Build Validation
 
@@ -136,7 +209,9 @@ recorded during research; do not replace a classic non-SDK build with `dotnet bu
 - **Go**: `go build ./...` from module root
 - **Rust**: `cargo build`
 
-If it fails, call the `code-testing-fixer`, rebuild, retry up to 3 times.
+For Direct, diagnose and fix failures inline, then rebuild up to 3 times. For
+Single pass and Iterative, call `code-testing-fixer` for bounded corrections,
+then rerun the build from this generator.
 
 ### Step 7: Final Test Validation
 
@@ -145,6 +220,10 @@ Run tests from the **full workspace scope** with a fresh build (never use `--no-
 - **Wrong assertions** — read production code, fix the expected value. Never `[Ignore]` or `[Skip]` a test just to pass.
 - **Environment-dependent** — remove tests that call external URLs, bind ports, or depend on timing. Prefer mocked unit tests.
 - **Pre-existing failures** — note them but don't block.
+
+For Direct, perform test execution and failure recovery inline without invoking
+workers. For Single pass and Iterative, bounded corrections may use
+`code-testing-fixer`, but this generator reruns the final build and tests.
 
 **Verify tests pin down behavior (mandatory pre-completion gate):**
 
@@ -169,67 +248,62 @@ Additional self-review heuristics (still required, even when running the skills)
 
 ### Step 8: Coverage Gap Iteration
 
-After the previous phases complete, use the target inventory already recorded in `<TESTAGENT_DIR>/research.md` and the files reported by implementers. Do not rescan or reread the workspace.
+After the previous phases complete, reconcile the requirement checklist,
+generated tests, and either the single Direct target or the delegated scope
+ledger. Do not reread unrelated workspace areas.
 
-1. Compare the requirement checklist and bounded target inventory with the implemented tests.
-2. Inspect the generated test bodies for evidence of every checklist item. A covered line does not prove that a requested collaborator was mocked, a concrete result was asserted, or a boundary/property combination was exercised.
-3. If the user requested a measurable coverage target, collect coverage once and prioritize only gaps inside the requested scope.
-4. Add tests for any unaddressed checklist item first.
-5. For Single pass and Iterative strategies, treat that checklist as the floor.
-   Sweep each bounded target API for still-unproved observable equivalence
-   partitions and invariants: identity/empty/singleton/interior inputs, exact
-   and immediately adjacent boundaries, invalid partitions, and ordering,
-   monotonicity, rollover, capacity, truncation, or state properties implied by
-   the implementation. Add one mutation-relevant case per distinct partition;
-   consolidate sibling inputs in parameterized or table-driven tests.
-6. Stop only when every feasible checklist item and distinct behavioral
-   partition is covered and the stated target is met. Do not recursively expand
-   into unrelated files or add equivalent cases merely to raise test count.
-7. If this step added or modified tests, re-run the full Step 7 pre-completion gate (`test-gap-analysis` + `assertion-quality` + prompt-scenario coverage) on those tests before reporting completion.
+1. For Direct, confirm the exact requested target remains in scope. For Single
+   pass and Iterative, re-enumerate the original scope and fail reconciliation
+   if any non-trivial source file is missing from the ledger.
+2. Inspect generated tests for concrete evidence of every checklist item and,
+   for delegated strategies, every `tested` ledger row. A matching filename or
+   covered line is not enough.
+3. If the user requested measurable coverage, collect it against the entire
+   original scope, not a selected subset.
+4. Keep a delegated row `pending` when it has no meaningful test evidence. For
+   Direct, keep the corresponding requirement unresolved.
+5. For Direct, close unresolved or weakly covered requirements inline. For
+   Single pass and Iterative, start Iteration N+1 for pending or weakly covered
+   rows. Append iteration sections to research and plan, update the existing
+   ledger in place, and preserve all prior evidence.
+6. Treat the checklist as the floor. Sweep each target API for still-unproved
+   observable equivalence partitions and invariants: identity, empty,
+   singleton, representative interior inputs, exact and adjacent boundaries,
+   invalid partitions, ordering, monotonicity, rollover, capacity, truncation,
+   and state properties. Add one mutation-relevant case per distinct partition
+   and parameterize sibling inputs.
+7. Stop only when every feasible checklist item and distinct behavioral
+   partition is covered and the stated target is met. For delegated strategies,
+   every ledger row must also be `tested` or concretely `deferred`.
+8. If tests changed, rerun the full Step 7 pre-completion gate before reporting.
+
+Never claim the target was met only "for tested units". If coverage collection
+is intentionally left to an evaluation harness, report ledger counts and
+unmeasured coverage instead of inventing a percentage.
 
 For Single pass and Iterative strategies, write `<TESTAGENT_DIR>/status.md` after
-the final review and validation. Record the completed checklist, commands and
-results, quality findings, fixes, and any explicit blockers. Direct strategy
-keeps this evidence in the final response and must not create intermediate
-state files.
+the final review and validation. Record checklist and ledger totals, observed
+agent completions, commands and outcomes, quality findings, fixes, and explicit
+blockers. Direct strategy keeps this evidence in the final response and must not
+create intermediate state files.
 
 ### Step 9: Report Results
 
-Summarize tests created, report any failures or issues, and include a compact
-**Requirement coverage** section that maps each explicit request to the test
-file or test group that satisfies it. Name concrete evidence such as the mock
-or fake used, fixed inputs and expected values, boundary combinations,
-in-memory integration fixture, and generated coverage artifact. Do not report
-a requirement as covered based only on aggregate coverage.
+Report original-scope totals: source files, tested, deferred, and pending. A
+successful broad-scope report requires zero pending rows and a successful
+implementer completion for every plan phase.
 
-**Example final report:**
+Derive project creation, registration, build, test discovery, execution, and
+coverage outcomes from actual tool results. Distinguish passed, failed, blocked,
+and not run. A green suite does not prove scope closure or an unmeasured
+coverage target.
 
-```
-## Test Generation Report
-
-**Project**: MyProject
-**Strategy**: Single pass
-
-### Results
-| Metric         | Value |
-|----------------|-------|
-| Tests created  | 24    |
-| Tests passing  | 24    |
-| Tests failing  | 0     |
-| Files created  | 3     |
-
-### Files Created
-- tests/MyProject.Tests/ServiceATests.cs (10 tests)
-- tests/MyProject.Tests/ServiceBTests.cs (8 tests)
-- tests/MyProject.Tests/HelperTests.cs (6 tests)
-
-### Build Validation
-- Scoped build: ✅ passed
-- Full solution build: ✅ passed
-
-### Next Steps
-- Consider adding integration tests for database layer
-```
+Finish with a compact `Requirement | Evidence` table that quotes each explicit
+user requirement. Behavioral rows cite exact generated test names and the
+assertion, mock, fake, fixed input, boundary combination, or in-process fixture
+that proves the requirement. Non-behavioral rows cite the relevant project
+file, artifact, or final successful command. If a requirement lacks direct
+evidence, keep implementing or report it as blocked.
 
 Use a language example from `code-testing-extensions` only when no existing tests establish a usable convention. Never load examples merely to confirm a pattern already present in the repository.
 
@@ -240,7 +314,12 @@ non-stageable `<TESTAGENT_DIR>`:
 
 - `<TESTAGENT_DIR>/research.md` — Research findings
 - `<TESTAGENT_DIR>/plan.md` — Implementation plan
+- `<TESTAGENT_DIR>/scope-ledger.md` — Every non-trivial source file in the original scope
 - `<TESTAGENT_DIR>/status.md` — Final quality review, fixes, and validation status
+
+Iterative runs keep these canonical paths. Research and plan append one
+`## Iteration N` section per cycle; the ledger is updated in place and never
+recreated.
 
 ## Rules
 
@@ -252,9 +331,13 @@ non-stageable `<TESTAGENT_DIR>`:
 6. **Scoped builds during phases, full build at the end** — build specific test projects during implementation for speed; run a full-workspace non-incremental build after all phases to catch cross-project errors
 7. **No environment-dependent tests** — mock all external dependencies; never call external URLs, bind ports, or depend on timing
 8. **Fix assertions, don't skip tests** — when tests fail, read production code and fix the expected value; never `[Ignore]` or `[Skip]`
-9. **Keep intermediate state files out of commits** — retain research, plan, and final status in `<TESTAGENT_DIR>` through completion, but never place `<TESTAGENT_DIR>` or its files in version-controlled workspace content, stage them, or modify `.gitignore` to hide them. Before reporting, inspect the working-tree changes and confirm they contain only requested deliverables and required manifest edits.
+9. **Keep intermediate state files out of commits** — retain research, plan, scope ledger, and final status in `<TESTAGENT_DIR>` through completion, but never place `<TESTAGENT_DIR>` or its files in version-controlled workspace content, stage them, or modify `.gitignore` to hide them. Before reporting, inspect the working-tree changes and confirm they contain only requested deliverables and required manifest edits.
 10. **Read language extensions first** — always call the `code-testing-extensions` skill and read the relevant extension file before writing any code; it contains critical project registration and build validation steps
 11. **Always validate** — final build, final test, coverage-gap review, and reporting are mandatory for ALL strategies including Direct; never skip final validation. The pre-completion self-review gate from Step 7 (`test-gap-analysis` + `assertion-quality` skills, plus the prompt-scenario coverage check) is mandatory for every non-trivial test addition and may be skipped only for trivially small tasks (fewer than 5 generated tests *and* no behaviors specified in the prompt), per Step 7
 12. **Preserve existing tests** — never delete or overwrite existing test files; create new files or append to existing ones
 13. **Never mutate version control** — your only outputs are additive test files plus minimal build-manifest edits to register a new test project. Any command that reverts, restores, resets, stashes, or cleans the tree, or deletes tracked files, is out of scope — even when the workspace looks broken or incomplete.
 14. **Bound context and reuse findings** — scope every search to the user's requested files/modules, read only the source and existing tests needed for the next implementation phase, and reuse `<TESTAGENT_DIR>/research.md` instead of repeating workspace discovery.
+15. **Original scope is authoritative** — every non-trivial source file remains in the scope ledger until tested or concretely deferred.
+16. **Non-Direct means delegated RPI** — require successful researcher, planner, and per-phase implementer completions; never claim RPI after inline execution.
+17. **Preserve one test-project identity** — the generator owns .NET scaffolding after planning. All workers use its canonical project and entry point, and the affected production build must not compile generated test source.
+18. **Direct remains inline end-to-end** — the generator personally performs inspection, scaffolding and wiring, test edits, builds, test runs, failure recovery, quality gates, coverage reconciliation, and reporting without invoking registered workers.
