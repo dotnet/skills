@@ -411,7 +411,7 @@ stimuli:
           timeout: 1m
       - type: run-command
         config:
-          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario vb-application-events -PreservationManifestBase64 eyJmaWxlcyI6eyJNYWluRm9ybS5EZXNpZ25lci52YiI6IjUzRUQ1RTk0MjQ3QjIzNkMzNTI0QzQ2NkUyMjRFMUQ3RDczMDlEN0ZBMEY1RDRCRTA5MUE2NTVDQjEwREE0NjciLCJNYWluRm9ybS52YiI6IjM2MUVFODNGOUU4NjE5NjkzRjAzNDM3RUEzNzMxRjcxODc2MDZCMjRFMkUzMkMyQkZCODUxMDNFMjk4NzZFNDIiLCJNeSBQcm9qZWN0L0FwcGxpY2F0aW9uLkRlc2lnbmVyLnZiIjoiQTVBQUU3OUIxMjBFRDJGMjAzREFBQzEyNzcxRUFDRkNFQkRGRUUwNUJCQkZCQTFEQzFFQzI0QzM4ODJCN0VFMCIsIk15IFByb2plY3QvQXBwbGljYXRpb25FdmVudHMudmIiOm51bGwsIldpbkZvcm1zRml4dHVyZS52YnByb2oiOiIwREJENDMxQTdBMTMwREY3RTQzRjlBQUEwM0QxNDI3QjhBQTkwMEExMDUwNzQ1RDc4NjMwNUNCRDIyNTQ1QzBCIn19
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario vb-application-events -PreservationManifestBase64 eyJmaWxlcyI6eyJNYWluRm9ybS5EZXNpZ25lci52YiI6IjUzRUQ1RTk0MjQ3QjIzNkMzNTI0QzQ2NkUyMjRFMUQ3RDczMDlEN0ZBMEY1RDRCRTA5MUE2NTVDQjEwREE0NjciLCJNYWluRm9ybS52YiI6IjM2MUVFODNGOUU4NjE5NjkzRjAzNDM3RUEzNzMxRjcxODc2MDZCMjRFMkUzMkMyQkZCODUxMDNFMjk4NzZFNDIiLCJNeSBQcm9qZWN0L0FwcGxpY2F0aW9uLkRlc2lnbmVyLnZiIjoiQkUwNjY2RUVFNDVGQUE5NUU0MkUxNUQ1Q0NGMUE3QTRGRjdEOUEwNUMzQzE0QTIzREY5MkIwRjVCQjA2RTdENSIsIk15IFByb2plY3QvQXBwbGljYXRpb25FdmVudHMudmIiOm51bGwsIldpbkZvcm1zRml4dHVyZS52YnByb2oiOiIwREJENDMxQTdBMTMwREY3RTQzRjlBQUEwM0QxNDI3QjhBQTkwMEExMDUwNzQ1RDc4NjMwNUNCRDIyNTQ1QzBCIn19
           expected_exit_code: 0
           timeout: 1m
       - type: file-exists
@@ -594,6 +594,62 @@ stimuli:
       - Keeps BeginInit/EndInit and SuspendLayout/ResumeLayout balanced in designer code
       - Does not hide the serialization defect with runtime reconstruction or code-behind initialization
       - Produces a successful build
+
+  - name: Audit and repair SQL injection risks across a WinForms solution
+    tags:
+      capability: sql-injection-repair
+      risk: high
+      journey: repair
+    prompt: |
+      # Prompt: SQL Injection Vulnerability Audit and Patch
+
+      This is a WinForms solution.
+
+      ## Task
+
+      Perform a **full SQL injection vulnerability audit** across the entire solution and patch-up, where necessary.
+
+      1. **Scan all source files in all projects** (both C# `.cs` and VB.NET `.vb`) for SQL built from non-literal values via concatenation/interpolation/`String.Format`.
+      2. For each finding, report:
+         - **File path and line number**
+         - The **vulnerable code snippet**
+         - The **injection vector** (which variable or input is untrusted)
+      3. Prioritize findings by **risk level**: direct user input is highest risk; internal runtime values (e.g., employee IDs passed between forms) are medium risk
+      4. Choose the best practize you see fit, to patch all the vulnerabilities.
+
+      ## Expected Output
+
+      A structured report, grouped by file, with findings and recommended fixes.
+      All the project-vulnerabilities patched up - best practices for approach and result as you see fit.
+    environment:
+      files:
+        - src: fixtures/TimeTracking
+          dest: .
+        - src: validate-sql-injection.ps1
+          dest: validate-sql-injection.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHMAcQBsAC0AaQBuAGoAZQBjAHQAaQBvAG4ALgBwAHMAMQAiACkALgBSAGUAcABsAGEAYwBlACgAIgBgAHIAYABuACIALAAgACIAYABuACIAKQAKACQAYgB5AHQAZQBzACAAPQAgAFsAVABlAHgAdAAuAEUAbgBjAG8AZABpAG4AZwBdADoAOgBVAFQARgA4AC4ARwBlAHQAQgB5AHQAZQBzACgAJAB0AGUAeAB0ACkACgAkAGEAYwB0AHUAYQBsACAAPQAgAFsAQwBvAG4AdgBlAHIAdABdADoAOgBUAG8ASABlAHgAUwB0AHIAaQBuAGcAKABbAFMAZQBjAHUAcgBpAHQAeQAuAEMAcgB5AHAAdABvAGcAcgBhAHAAaAB5AC4AUwBIAEEAMgA1ADYAXQA6ADoASABhAHMAaABEAGEAdABhACgAJABiAHkAdABlAHMAKQApAAoAaQBmACAAKAAkAGEAYwB0AHUAYQBsACAALQBuAGUAIAAiADgAQwA3ADAARAA4AEEARgBBAEUAQgBBADIARQBFADcAMAAzADAARABDAEIARAAxADQARABBAEMANwBBAEYAOAA5AEIAMAA3AEUAOAAxAEIARgBBADMARgAxADkAQwA0AEIARQAxADIARQAyAEUANAAwADMANgAzAEQAOQAwAEQAIgApACAAewAgAGUAeABpAHQAIAAxACAAfQA=
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-sql-injection.ps1
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build TimeTracking.slnx --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Audits both projects and identifies the direct search-text injection as higher risk than the employee-ID injection
+      - Reports each vulnerable file and location, shows the unsafe SQL construction, and names the untrusted value entering the query
+      - Replaces every dynamic SQL value with command parameters while preserving both query paths and their intended filtering behavior
+      - Keeps runtime logic out of designer-generated files and produces a successful full-solution build
 
   - name: Stay dormant for a WPF command binding request
     tags:
