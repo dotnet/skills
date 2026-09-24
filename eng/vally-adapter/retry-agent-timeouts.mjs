@@ -116,15 +116,22 @@ function requiredArmTimedOut(scenario) {
  * lost is a measured outcome rather than a fault.
  */
 function isRetryableTimeout(scenario) {
-  return (
-    Boolean(scenario?.scenarioName) &&
-    requiredArmTimedOut(scenario) &&
-    !scenario.executionError &&
-    (scenario.failedRunCount ?? 0) === 0 &&
-    Boolean(scenario.baseline) &&
-    Boolean(scenario.skilledIsolated) &&
-    Boolean(scenario.skilledPlugin)
-  );
+  return timeoutIneligibilityReason(scenario) === null;
+}
+
+function timeoutIneligibilityReason(scenario) {
+  if (!scenario?.scenarioName || !requiredArmTimedOut(scenario)) {
+    return "scenario is not a named required-arm timeout";
+  }
+  if (scenario.executionError) return `scenario has executionError: ${scenario.executionError}`;
+  if ((scenario.failedRunCount ?? 0) !== 0) {
+    return `scenario has ${scenario.failedRunCount} failed run(s)`;
+  }
+  if (!scenario.baseline || !scenario.skilledIsolated || !scenario.skilledPlugin) {
+    return "scenario is missing a required evaluation arm";
+  }
+  if (!scenario.pairwiseResult) return "scenario is missing its pairwise judgment";
+  return null;
 }
 
 function targetAgentActivated(activation, agentName) {
@@ -144,7 +151,14 @@ function recomputeNativeAggregate(verdict) {
       || !scenario?.baseline
       || !scenario?.skilledIsolated
       || !scenario?.skilledPlugin
-      || !scenario?.pairwiseResult,
+      || !scenario?.pairwiseResult
+      // All required arms must remain structurally complete, even though only
+      // the isolated arm participates in objective regression.
+      || [scenario?.baseline, scenario?.skilledIsolated, scenario?.skilledPlugin]
+        .some(
+          (run) =>
+            run && typeof run.metrics?.taskCompleted !== "boolean",
+        ),
   );
   const unexpectedActivation = scenarios.some(
     (scenario) =>
@@ -192,7 +206,7 @@ function findTimedOutScenarios(results) {
   const found = [];
   for (const [verdictIndex, verdict] of (results?.verdicts ?? []).entries()) {
     for (const [scenarioIndex, scenario] of (verdict.scenarios ?? []).entries()) {
-      if (!isRetryableTimeout(scenario)) continue;
+      if (!scenario?.scenarioName || !requiredArmTimedOut(scenario)) continue;
       found.push({
         verdictIndex,
         scenarioIndex,
@@ -507,14 +521,26 @@ function inspectRetryEvidence(attemptRoot, target, index, config, exitCode) {
     };
   }
 
-  const scenarios = (retryResults.verdicts ?? [])
-    .filter((verdict) => verdict.skillName === target.skillName)
-    .flatMap((verdict) => verdict.scenarios ?? [])
-    .filter((scenario) => scenario.scenarioName === target.scenarioName);
-  if (scenarios.length !== 1) {
+  const verdicts = retryResults.verdicts ?? [];
+  const matchingVerdicts = verdicts.filter(
+    (verdict) => verdict.skillName === target.skillName,
+  );
+  const scenarios = matchingVerdicts[0]?.scenarios ?? [];
+  if (
+    verdicts.length !== 1 ||
+    matchingVerdicts.length !== 1 ||
+    scenarios.length !== 1 ||
+    scenarios[0]?.scenarioName !== target.scenarioName
+  ) {
     return {
       ok: false,
-      reason: `retry returned ${scenarios.length} record(s) for the scenario`,
+      reason:
+        `retry returned ${verdicts.length} verdict(s), ` +
+        `${matchingVerdicts.length} for the target, and ${scenarios.length} scenario(s)` +
+        (scenarios.length === 1
+          ? `; expected scenario ${JSON.stringify(target.scenarioName)}, ` +
+            `observed ${JSON.stringify(scenarios[0]?.scenarioName ?? null)}`
+          : ""),
       exitCode,
       auditDir,
     };
@@ -556,7 +582,7 @@ function writeAtomic(path, content) {
 function scenarioRegressedOnIsolatedCompletion(scenario) {
   return (
     scenario?.baseline?.metrics?.taskCompleted === true &&
-    scenario?.skilledIsolated?.metrics?.taskCompleted !== true
+    scenario?.skilledIsolated?.metrics?.taskCompleted === false
   );
 }
 
@@ -632,6 +658,7 @@ function retryAgentTimeouts(config) {
     recoveredScenarioCount: 0,
     unresolvedScenarioCount: 0,
     budgetSkippedScenarioCount: 0,
+    ineligibleScenarioCount: 0,
     skippedReason: null,
     attempts: [],
   };
@@ -641,16 +668,22 @@ function retryAgentTimeouts(config) {
     summary.skippedReason =
       `Found ${targets.length} timed-out scenario(s), above the recovery limit of ` +
       `${config.maxScenarios}; treating this as a systemic capacity problem.`;
-    summary.attempts = targets.map((target) => ({
-      skillName: target.skillName,
-      scenarioName: target.scenarioName,
-      recovered: false,
-      reason: summary.skippedReason,
-      retryExitCode: null,
-      auditDir: null,
-      armTimeoutSeconds: null,
-      estimatedSeconds: null,
-    }));
+    summary.attempts = targets.map((target) => {
+      const scenario =
+        results.verdicts[target.verdictIndex].scenarios[target.scenarioIndex];
+      const ineligibleReason = timeoutIneligibilityReason(scenario);
+      if (ineligibleReason !== null) summary.ineligibleScenarioCount++;
+      return {
+        skillName: target.skillName,
+        scenarioName: target.scenarioName,
+        recovered: false,
+        reason: ineligibleReason ?? summary.skippedReason,
+        retryExitCode: null,
+        auditDir: null,
+        armTimeoutSeconds: null,
+        estimatedSeconds: null,
+      };
+    });
     console.warn(summary.skippedReason);
     mkdirSync(dirname(config.summary), { recursive: true });
     writeAtomic(config.summary, `${JSON.stringify(summary, null, 2)}\n`);
@@ -663,6 +696,27 @@ function retryAgentTimeouts(config) {
   const resolveScenarioTimeout =
     config.resolveScenarioTimeout ?? effectiveAgentTimeoutSeconds;
   for (const target of targets) {
+    const scenario =
+      results.verdicts[target.verdictIndex].scenarios[target.scenarioIndex];
+    const ineligibleReason = timeoutIneligibilityReason(scenario);
+    if (ineligibleReason !== null) {
+      summary.unresolvedScenarioCount++;
+      summary.ineligibleScenarioCount++;
+      summary.attempts.push({
+        skillName: target.skillName,
+        scenarioName: target.scenarioName,
+        recovered: false,
+        reason: ineligibleReason,
+        retryExitCode: null,
+        auditDir: null,
+        armTimeoutSeconds: null,
+        estimatedSeconds: null,
+      });
+      console.warn(
+        `Skipping timed-out scenario ${target.skillName}/${target.scenarioName}: ${ineligibleReason}`,
+      );
+      continue;
+    }
     let pathSegment;
     try {
       pathSegment = safeAgentPathSegment(target.skillName);

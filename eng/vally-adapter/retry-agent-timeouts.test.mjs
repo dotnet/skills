@@ -199,6 +199,24 @@ test("only a clean required-arm timeout is retryable", () => {
   );
   assert.equal(isRetryableTimeout(scenario("a", { timedOut: true, failedRunCount: 1 })), false);
   assert.equal(isRetryableTimeout(scenario("a", { timedOut: true, skilledPlugin: null })), false);
+  assert.equal(isRetryableTimeout(scenario("a", { timedOut: true, pairwiseResult: null })), false);
+});
+
+test("a timeout missing pairwise evidence is reported as unresolved", () => {
+  const paths = workspace(
+    resultsWith([
+      timedOutScenario("flaky", { pairwiseResult: null }),
+    ]),
+  );
+  const { run, calls } = stubRun({ flaky: scenario("flaky") });
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+
+  assert.equal(calls.length, 0);
+  assert.equal(summary.plannedScenarioCount, 1);
+  assert.equal(summary.ineligibleScenarioCount, 1);
+  assert.equal(summary.unresolvedScenarioCount, 1);
+  assert.match(summary.attempts[0].reason, /missing its pairwise judgment/);
 });
 
 test("findTimedOutScenarios records the owning verdict and position", () => {
@@ -338,7 +356,71 @@ test("a retry that returns no record for the scenario is unresolved", () => {
   const summary = retryAgentTimeouts(baseConfig(paths, run));
 
   assert.equal(summary.unresolvedScenarioCount, 1);
-  assert.match(summary.attempts[0].reason, /returned 0 record/);
+  assert.match(
+    summary.attempts[0].reason,
+    /1 verdict\(s\), 1 for the target, and 0 scenario\(s\)/,
+  );
+});
+
+test("a retry with extra verdict or scenario evidence is unresolved", () => {
+  const paths = workspace(resultsWith([timedOutScenario("flaky")]));
+  const run = (_validator, args) => {
+    const resultsDir = args[args.indexOf("--results-dir") + 1];
+    const runDir = join(resultsDir, "20260101-000000");
+    mkdirSync(runDir, { recursive: true });
+    writeFileSync(
+      join(runDir, "results.json"),
+      JSON.stringify({
+        verdicts: [
+          {
+            skillName: "code-testing-generator",
+            scenarios: [scenario("flaky"), scenario("extra")],
+          },
+          {
+            skillName: "unrelated-agent",
+            scenarios: [scenario("other")],
+          },
+        ],
+      }),
+    );
+  };
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+
+  assert.equal(summary.recoveredScenarioCount, 0);
+  assert.equal(summary.unresolvedScenarioCount, 1);
+  assert.match(
+    summary.attempts[0].reason,
+    /2 verdict\(s\), 1 for the target, and 2 scenario\(s\)/,
+  );
+});
+
+test("a retry with the wrong scenario name reports the mismatch", () => {
+  const paths = workspace(resultsWith([timedOutScenario("flaky")]));
+  const run = (_validator, args) => {
+    const resultsDir = args[args.indexOf("--results-dir") + 1];
+    const runDir = join(resultsDir, "20260101-000000");
+    mkdirSync(runDir, { recursive: true });
+    writeFileSync(
+      join(runDir, "results.json"),
+      JSON.stringify({
+        verdicts: [
+          {
+            skillName: "code-testing-generator",
+            scenarios: [scenario("wrong-scenario")],
+          },
+        ],
+      }),
+    );
+  };
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+
+  assert.equal(summary.recoveredScenarioCount, 0);
+  assert.match(
+    summary.attempts[0].reason,
+    /expected scenario "flaky", observed "wrong-scenario"/,
+  );
 });
 
 test("a re-entered retry never reuses stale results from an older attempt", () => {
@@ -380,7 +462,7 @@ test("more timed-out scenarios than the bound is treated as systemic and skipped
     resultsWith([
       scenario("one", { timedOut: true }),
       scenario("two", { timedOut: true }),
-      scenario("three", { timedOut: true }),
+      scenario("three", { timedOut: true, pairwiseResult: null }),
     ]),
   );
   const { run, calls } = stubRun({});
@@ -393,7 +475,9 @@ test("more timed-out scenarios than the bound is treated as systemic and skipped
   assert.equal(summary.unresolvedScenarioCount, 3);
   assert.match(summary.skippedReason, /systemic/);
   assert.equal(summary.attempts.length, 3);
-  assert.ok(summary.attempts.every((attempt) => /systemic/.test(attempt.reason)));
+  assert.equal(summary.ineligibleScenarioCount, 1);
+  assert.match(summary.attempts[2].reason, /missing its pairwise judgment/);
+  assert.ok(summary.attempts.slice(0, 2).every((attempt) => /systemic/.test(attempt.reason)));
   assert.equal(summary.budgetSkippedScenarioCount, 0);
 });
 
@@ -849,6 +933,22 @@ test("the restored regression predicate matches the evaluator exactly", () => {
     skilledIsolated: runResult({ metrics: { timedOut: false, taskCompleted: false } }),
   });
   assert.equal(scenarioRegressedOnIsolatedCompletion(dormant), true);
+
+  const missing = scenario("missing-completion");
+  delete missing.skilledIsolated.metrics.taskCompleted;
+  assert.equal(scenarioRegressedOnIsolatedCompletion(missing), false);
+});
+
+test("aggregate recomputation does not invent regression from missing completion", () => {
+  const missing = scenario("missing-completion");
+  delete missing.skilledIsolated.metrics.taskCompleted;
+  const verdict = resultsWith([missing], {
+    failureKind: "completion_regression",
+  }).verdicts[0];
+
+  recomputeNativeAggregate(verdict);
+
+  assert.equal(verdict.failureKind, "execution_error");
 });
 
 test("aggregate recomputation preserves a dormant completion regression", () => {

@@ -458,6 +458,7 @@ test("fails closed when the plugin arm times out", () => {
     writeAgentEval(root);
     const scenarios = [1, 2, 3, 4, 5].map(winningScenario);
     scenarios[0].skilledPlugin.metrics.timedOut = true;
+    delete scenarios[0].skilledPlugin.metrics.taskCompleted;
     const { output, result } = runAdapter(root, {
       skillName: "router",
       skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
@@ -474,6 +475,10 @@ test("fails closed when the plugin arm times out", () => {
     assert.equal(verdict.signTest.wins, 4);
     assert.equal(verdict.scenarios[0].timedOut, true);
     assert.equal(verdict.scenarios[0].trials[0].errored, true);
+    assert.match(
+      verdict.scenarios[0].trials[0].evidence,
+      /Required agent evaluation arm timed out/,
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -656,6 +661,38 @@ test("preserves a native completion regression over a preference win", () => {
     assert.equal(verdict.regressed, true);
     assert.equal(verdict.preferenceRegressed, false);
     assert.match(verdict.reason, /objective task-completion regression/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("missing isolated completion is not objective regression evidence", () => {
+  const root = mkdtempSync(join(tmpdir(), "agent-adapter-missing-completion-"));
+  try {
+    writeAgentEval(root);
+    const scenarios = [1, 2, 3, 4, 5].map(winningScenario);
+    scenarios[0].baseline.metrics.taskCompleted = true;
+    delete scenarios[0].skilledIsolated.metrics.taskCompleted;
+    const { output, result } = runAdapter(root, {
+      skillName: "router",
+      skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
+      skillKind: "agent",
+      passed: false,
+      failureKind: "completion_regression",
+      scenarios,
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const verdict = JSON.parse(
+      readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+    ).verdicts[0];
+    assert.equal(verdict.state, "INVALID_INCONCLUSIVE");
+    assert.notEqual(verdict.stateReason?.code, "native_completion_regression");
+    assert.match(
+      verdict.scenarios[0].trials[0].evidence,
+      /Missing task-completion evidence for required arm\(s\): isolated/,
+    );
+    assert.equal(verdict.regressed, false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

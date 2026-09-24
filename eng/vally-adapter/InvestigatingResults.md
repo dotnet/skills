@@ -368,8 +368,11 @@ retry. Session databases are never merged, so every role/session record stays
 unique and the rejudge pairing rules that reject duplicate completed roles are
 unaffected. Read
 `agent-timeout-retry-summary.json` for `recoveredScenarioCount`,
-`unresolvedScenarioCount`, `budgetSkippedScenarioCount`, `clearedAggregates`,
-and a per-scenario reason. Before launching a retry, the tool reads the eval's
+`unresolvedScenarioCount`, `ineligibleScenarioCount`,
+`budgetSkippedScenarioCount`, `clearedAggregates`,
+and a per-scenario reason. `plannedScenarioCount` counts every named required-arm
+timeout before eligibility filtering; `ineligibleScenarioCount` identifies the
+subset that also had another defect. Before launching a retry, the tool reads the eval's
 effective timeout for that scenario (`constraints.max_duration` when present,
 otherwise the eval default). Three arms plus setup/judge allowance must fit the
 per-scenario recovery budget; otherwise the scenario is left invalid without
@@ -393,6 +396,15 @@ and `overfittingResult` is cleared because native agent evals do not produce tha
 assessment. The adapter independently derives completion and activation from the
 scenario records, so legacy aggregate flags cannot reintroduce a false
 regression.
+
+Objective completion regression requires explicit
+`baseline.metrics.taskCompleted == true` and
+`skilledIsolated.metrics.taskCompleted == false`; a missing completion field is
+measurement-invalid evidence, not proof of regression. A timeout with no
+pairwise judgment is also recorded as ineligible and unresolved instead of
+disappearing from retry accounting. A native retry result is accepted
+only when it contains exactly one verdict total, for the requested target, and
+exactly one requested scenario.
 
 Retry runs first write outside `RESULTS_DIR`. This means a workflow `SIGTERM`
 cannot leave a retry `results.json` where a recursive collector could mistake it

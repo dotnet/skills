@@ -234,7 +234,7 @@ function nativeCompletionRegressed(scenarios) {
       && scenario?.skilledPlugin
       && scenario?.pairwiseResult
       && scenario?.baseline?.metrics?.taskCompleted === true
-      && scenario?.skilledIsolated?.metrics?.taskCompleted !== true,
+      && scenario?.skilledIsolated?.metrics?.taskCompleted === false,
   );
 }
 
@@ -294,6 +294,16 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
       ["isolated", scenario.skilledIsolated],
       ["plugin", scenario.skilledPlugin],
     ].filter(([, run]) => !run).map(([name]) => name);
+    // All three arms are required adapter evidence even though the plugin arm is
+    // diagnostic-only for the objective completion-regression predicate.
+    const missingCompletionEvidence = [
+      ["baseline", scenario.baseline],
+      ["isolated", scenario.skilledIsolated],
+      ["plugin", scenario.skilledPlugin],
+    ].filter(
+      ([, run]) =>
+        run && typeof run.metrics?.taskCompleted !== "boolean",
+    ).map(([name]) => name);
     const requiredTimedOut = scenarioTimedOut(scenario);
     const executionError = scenario.executionError
       ?? (missingRequiredArms.length > 0
@@ -302,6 +312,9 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
       ?? (requiredTimedOut ? "Required agent evaluation arm timed out" : null)
       ?? ((scenario.failedRunCount ?? 0) > 0
         ? `${scenario.failedRunCount} run(s) failed`
+        : null)
+      ?? (missingCompletionEvidence.length > 0
+        ? `Missing task-completion evidence for required arm(s): ${missingCompletionEvidence.join(", ")}`
         : null)
       ?? (!scenario.pairwiseResult ? "Pairwise judge did not produce a result" : null);
     reportStimuli.push({
