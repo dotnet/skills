@@ -165,7 +165,14 @@ Run tests at the same proportionate scope selected in Step 6 with a fresh build
 
 - **Wrong assertions** — read production code, fix the expected value. Never `[Ignore]` or `[Skip]` a test just to pass.
 - **Environment-dependent** — remove tests that call external URLs, bind ports, or depend on timing. Prefer mocked unit tests.
-- **Pre-existing failures** — note them but don't block.
+- **Pre-existing failures** — classify them separately only when baseline
+  evidence supports that attribution. Do not modify unrelated tests, but a
+  nonzero required final test command still blocks a success verdict.
+
+Do not continue to the success report while required final validation is
+failing. If an out-of-scope or pre-existing failure remains, report
+`PARTIAL`/blocked with the exact command and failure evidence; never describe
+the generated suite or pipeline as successfully validated.
 
 **Verify tests pin down behavior (mandatory pre-completion gate):**
 
