@@ -395,6 +395,39 @@ test("a retry with extra verdict or scenario evidence is unresolved", () => {
   );
 });
 
+test("a retry with multiple results files is unresolved", () => {
+  const paths = workspace(resultsWith([timedOutScenario("flaky")]));
+  const run = (_validator, args) => {
+    const resultsDir = args[args.indexOf("--results-dir") + 1];
+    const runDir = join(resultsDir, "20260101-000000");
+    const extraDir = join(runDir, "extra");
+    mkdirSync(extraDir, { recursive: true });
+    const content = JSON.stringify({
+      verdicts: [
+        {
+          skillName: "code-testing-generator",
+          scenarios: [scenario("flaky")],
+        },
+      ],
+    });
+    writeFileSync(join(runDir, "results.json"), content);
+    writeFileSync(join(extraDir, "results.json"), content);
+  };
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+
+  assert.equal(summary.recoveredScenarioCount, 0);
+  assert.equal(summary.unresolvedScenarioCount, 1);
+  assert.match(
+    summary.attempts[0].reason,
+    /produced 2 results\.json file\(s\): .*results\.json/,
+  );
+  const archivedResults = readdirSync(paths.retryAuditDir, {
+    recursive: true,
+  }).filter((name) => String(name).endsWith("retry-results.json"));
+  assert.equal(archivedResults.length, 2);
+});
+
 test("a retry with the wrong scenario name reports the mismatch", () => {
   const paths = workspace(resultsWith([timedOutScenario("flaky")]));
   const run = (_validator, args) => {
@@ -452,7 +485,7 @@ test("a re-entered retry never reuses stale results from an older attempt", () =
 
   assert.equal(summary.recoveredScenarioCount, 0);
   assert.equal(summary.unresolvedScenarioCount, 1);
-  assert.match(summary.attempts[0].reason, /produced no results\.json/);
+  assert.match(summary.attempts[0].reason, /produced 0 results\.json file\(s\)/);
   const merged = JSON.parse(readFileSync(paths.resultsFile, "utf8"));
   assert.equal(merged.verdicts[0].scenarios[0].timedOut, true);
 });

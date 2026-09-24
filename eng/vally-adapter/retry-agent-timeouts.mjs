@@ -33,7 +33,6 @@ import {
   readFileSync,
   readdirSync,
   renameSync,
-  statSync,
   writeFileSync,
 } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
@@ -349,25 +348,6 @@ function effectiveAgentTimeoutSeconds(testsDir, skillName, scenarioName) {
   return scenarioFound ? defaultTimeoutSeconds : null;
 }
 
-function newestDirectory(root) {
-  if (!existsSync(root)) return null;
-  const directories = readdirSync(root, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => {
-      const path = join(root, entry.name);
-      return { path, mtimeMs: statSync(path).mtimeMs };
-    })
-    .sort((left, right) => right.mtimeMs - left.mtimeMs);
-  return directories[0]?.path ?? null;
-}
-
-function findResultsFile(root) {
-  const found = findResultsFiles(root);
-  // Prefer the newest aggregate so a rerun inside an existing retry root cannot
-  // resurrect a stale scenario record.
-  return found.sort((left, right) => statSync(right).mtimeMs - statSync(left).mtimeMs)[0] ?? null;
-}
-
 function findResultsFiles(root) {
   const stack = [root];
   const found = [];
@@ -396,7 +376,15 @@ function quarantineRetryResults(root) {
   }
 }
 
-function archiveRetryEvidence(attemptRoot, retryResultsFile, retryResultsContent, target, index, config) {
+function archiveRetryEvidence(
+  attemptRoot,
+  retryResultsFile,
+  retryResultsContent,
+  target,
+  index,
+  config,
+  additionalResultsFiles = [],
+) {
   const auditRoot = join(
     config.retryAuditDir,
     `${index + 1}-${target.pathSegment}`,
@@ -414,6 +402,20 @@ function archiveRetryEvidence(attemptRoot, retryResultsFile, retryResultsContent
     writeAtomic(auditResults, retryResultsContent.endsWith("\n")
       ? retryResultsContent
       : `${retryResultsContent}\n`);
+  }
+  for (const path of additionalResultsFiles) {
+    const relativeResults = relative(attemptRoot, path);
+    const auditResults = join(
+      auditRoot,
+      dirname(relativeResults),
+      "retry-results.json",
+    );
+    mkdirSync(dirname(auditResults), { recursive: true });
+    const content = readFileSync(path, "utf8");
+    writeAtomic(
+      auditResults,
+      content.endsWith("\n") ? content : `${content}\n`,
+    );
   }
   return auditRoot;
 }
@@ -479,9 +481,8 @@ function retryScenario(target, index, config) {
 
 /** Read the one scenario record the retry was asked to produce. */
 function inspectRetryEvidence(attemptRoot, target, index, config, exitCode) {
-  const retryRoot = newestDirectory(attemptRoot) ?? attemptRoot;
-  const retryResultsFile = findResultsFile(retryRoot) ?? findResultsFile(attemptRoot);
-  if (!retryResultsFile) {
+  const retryResultsFiles = findResultsFiles(attemptRoot);
+  if (retryResultsFiles.length !== 1) {
     const auditDir = archiveRetryEvidence(
       attemptRoot,
       null,
@@ -489,14 +490,21 @@ function inspectRetryEvidence(attemptRoot, target, index, config, exitCode) {
       target,
       index,
       config,
+      retryResultsFiles,
     );
+    const relativeFiles = retryResultsFiles
+      .map((path) => relative(attemptRoot, path))
+      .sort();
     return {
       ok: false,
-      reason: "retry produced no results.json",
+      reason:
+        `retry produced ${retryResultsFiles.length} results.json file(s)` +
+        (relativeFiles.length > 0 ? `: ${relativeFiles.join(", ")}` : ""),
       exitCode,
       auditDir,
     };
   }
+  const [retryResultsFile] = retryResultsFiles;
 
   let retryResults;
   let retryResultsContent;

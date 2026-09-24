@@ -1856,6 +1856,89 @@ test("an ambiguous slot-to-trajectory mapping is never re-judged", () => {
   }
 });
 
+test("an errored executor trajectory is never re-judged", () => {
+  const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
+  const baselineRecords = executorRecordsFor(primary, "baseline");
+  baselineRecords.find((record) => record.shardKey.endsWith("::trial-2")).status = "error";
+  let calls = 0;
+
+  const result = withTargetedRecovery(
+    primary,
+    () => {
+      calls++;
+      return null;
+    },
+    { baselineRecords },
+  );
+
+  assert.equal(calls, 0);
+  const failure =
+    result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1);
+  assert.equal(
+    failure.code,
+    "targeted_slot_trajectory_incomplete",
+  );
+  assert.match(
+    failure.message,
+    /baseline type=trial-result status=error trajectory=present/,
+  );
+});
+
+test("a successful executor record without a trajectory is never re-judged", () => {
+  const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
+  const baselineRecords = executorRecordsFor(primary, "baseline");
+  baselineRecords.find(
+    (record) => record.shardKey.endsWith("::trial-2"),
+  ).trajectory = null;
+  let calls = 0;
+
+  const result = withTargetedRecovery(
+    primary,
+    () => {
+      calls++;
+      return null;
+    },
+    { baselineRecords },
+  );
+
+  assert.equal(calls, 0);
+  const failure =
+    result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1);
+  assert.equal(
+    failure.code,
+    "targeted_slot_trajectory_incomplete",
+  );
+  assert.match(
+    failure.message,
+    /baseline type=trial-result status=success trajectory=missing/,
+  );
+});
+
+test("a successful trajectory paired with an errored duplicate is ambiguous", () => {
+  const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
+  const baselineRecords = executorRecordsFor(primary, "baseline");
+  const original = baselineRecords.find(
+    (record) => record.shardKey.endsWith("::trial-2"),
+  );
+  baselineRecords.push({ ...original, status: "error" });
+  let calls = 0;
+
+  const result = withTargetedRecovery(
+    primary,
+    () => {
+      calls++;
+      return null;
+    },
+    { baselineRecords },
+  );
+
+  assert.equal(calls, 0);
+  assert.equal(
+    result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1).code,
+    "targeted_slot_trajectory_ambiguous",
+  );
+});
+
 test("executor and comparison trial-index set mismatch fails closed", () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 1);
   const baselineRecords = executorRecordsFor(primary, "baseline").map((record) => {

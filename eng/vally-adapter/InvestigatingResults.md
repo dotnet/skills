@@ -335,7 +335,8 @@ trial index encoded in `shardKey`. The baseline and treatment records must also
 carry the expected variants. A recovered trial carries `targetedRecovery: true`
 and `recoveredFrom`. Anything unexpected — no trajectory for either arm
 (`targeted_slot_trajectory_missing`), duplicate trajectories
-(`targeted_slot_trajectory_ambiguous`), incorrect variant pairing
+(`targeted_slot_trajectory_ambiguous`), an executor record that is not a
+successful complete trial (`targeted_slot_trajectory_incomplete`), incorrect variant pairing
 (`targeted_slot_variant_mismatch`), executor/comparison trial-index set drift
 or executor records without a parseable shard-key trial index
 (`targeted_slot_trial_identity_mismatch`), a retry that returns the wrong number of trials
@@ -345,7 +346,10 @@ numeric score (`targeted_retry_result_invalid`), a failed invocation
 errored and the eval measurement-invalid. `targeted_slot_trajectory_missing`
 and `targeted_slot_trajectory_ambiguous` are separate codes on purpose: the
 first means no preserved trajectory survives for the slot, the second means more
-than one claims it, and they need different investigation. More than `maxSlots`
+than one claims it, and they need different investigation.
+`targeted_slot_trajectory_incomplete` means the record exists but its executor
+run was not a successful completed trajectory; inspect that variant's
+`results.jsonl` before investigating the judge. More than `maxSlots`
 stranded slots is read as a judge outage: the pass is skipped entirely,
 `skippedReason` explains why, and every slot counts as unresolved.
 
@@ -409,7 +413,10 @@ exactly one requested scenario.
 Retry runs first write outside `RESULTS_DIR`. This means a workflow `SIGTERM`
 cannot leave a retry `results.json` where a recursive collector could mistake it
 for an authoritative result. Each invocation uses a unique attempt directory,
-so re-entry cannot read stale evidence from an older retry. After a retry process finishes, its `sessions.db`,
+so re-entry cannot read stale evidence from an older retry. The current attempt
+must contain exactly one native `results.json`; zero or multiple aggregates
+remain unresolved. When multiple aggregates collide, each is preserved as a
+relative `retry-results.json` in the audit tree. After a retry process finishes, its `sessions.db`,
 logs, and raw result (renamed `retry-results.json`) are copied under
 `_agent-timeout-retry/` in the uploaded artifact. Recursive result discovery also
 excludes that subtree as defense in depth. The single adapted

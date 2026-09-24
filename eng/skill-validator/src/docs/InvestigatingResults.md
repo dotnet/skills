@@ -279,7 +279,10 @@ from scenarios again instead of trusting legacy aggregate flags.
 Retry runs first write outside `RESULTS_DIR`, so a workflow `SIGTERM` cannot
 leave a retry `results.json` where recursive discovery can count it. Each retry
 uses a unique attempt directory, so a re-entered recovery process cannot accept
-an older attempt's result when the current attempt produced none. After a
+an older attempt's result when the current attempt produced none. The current
+attempt must contain exactly one native `results.json`; zero or multiple
+aggregates remain unresolved, and colliding aggregates are retained under their
+relative audit paths for diagnosis. After a
 retry process finishes, its `sessions.db`, logs, and raw result (renamed
 `retry-results.json`) are copied under `_agent-timeout-retry/` in the main
 evaluation artifact. Workflow result counting, consolidation, summaries, and

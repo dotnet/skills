@@ -928,6 +928,14 @@ function recordsForComparisonSlot(records, stimulusName, trialIndex) {
   );
 }
 
+function isCompleteExecutorRecord(record) {
+  return (
+    record?.type === "trial-result" &&
+    record.status === "success" &&
+    record.trajectory != null
+  );
+}
+
 function trialIndexEvidenceForStimulus(records, stimulusName) {
   const indices = new Set();
   let invalidCount = 0;
@@ -1067,6 +1075,27 @@ function recoverComparisonSlot(slot, config) {
         message:
           `Expected exactly one preserved baseline and treatment trajectory for the slot, ` +
           `found ${baselineSlot.length} baseline and ${skilledSlot.length} treatment record(s)`,
+      },
+    };
+  }
+  if (
+    !isCompleteExecutorRecord(baselineSlot[0]) ||
+    !isCompleteExecutorRecord(skilledSlot[0])
+  ) {
+    const describe = (record) =>
+      `type=${record?.type ?? "<missing>"} ` +
+      `status=${record?.status ?? "<missing>"} ` +
+      `trajectory=${record?.trajectory == null ? "missing" : "present"}`;
+    return {
+      ok: false,
+      error: {
+        phase: "comparison_pairing",
+        kind: "permanent",
+        code: "targeted_slot_trajectory_incomplete",
+        message:
+          `Expected successful complete executor trajectories, found ` +
+          `baseline ${describe(baselineSlot[0])}; ` +
+          `treatment ${describe(skilledSlot[0])}`,
       },
     };
   }
