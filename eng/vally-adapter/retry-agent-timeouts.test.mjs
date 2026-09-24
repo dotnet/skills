@@ -392,7 +392,7 @@ test("scenario max_duration controls retry eligibility", () => {
     1,
     "1m",
     "agent.code-testing-generator",
-    { "Scenario 1": "10m" },
+    { "Scenario 1": '"10m"' },
   );
   const { run, calls } = stubRun({ "Scenario 1": scenario("Scenario 1") });
   const config = {
@@ -409,6 +409,32 @@ test("scenario max_duration controls retry eligibility", () => {
   assert.equal(summary.budgetSkippedScenarioCount, 1);
   assert.equal(summary.attempts[0].armTimeoutSeconds, 600);
   assert.equal(summary.attempts[0].estimatedSeconds, 2100);
+});
+
+test("millisecond max_duration uses evaluator-compatible rounding", () => {
+  const paths = workspace(resultsWith([timedOutScenario("Scenario 1")]));
+  writeAgentEval(
+    paths.root,
+    1,
+    "1m",
+    "agent.code-testing-generator",
+    { "Scenario 1": "500ms" },
+  );
+  const { run, calls } = stubRun({ "Scenario 1": scenario("Scenario 1") });
+  const config = {
+    ...baseConfig(paths, run),
+    testsDir: join(paths.root, "tests", "dotnet-test"),
+    resolveScenarioTimeout: null,
+    maxScenarioSeconds: 1200,
+    scenarioOverheadSeconds: 300,
+  };
+
+  const summary = retryAgentTimeouts(config);
+
+  assert.equal(calls.length, 1);
+  assert.equal(summary.recoveredScenarioCount, 1);
+  assert.equal(summary.attempts[0].armTimeoutSeconds, 1);
+  assert.equal(summary.attempts[0].estimatedSeconds, 303);
 });
 
 test("a bare agent name resolves a nested agent-prefixed eval directory", () => {

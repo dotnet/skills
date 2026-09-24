@@ -2739,6 +2739,21 @@ esac
         self.assertIn('if [ "$TARGET_KIND" = "agent" ]', run)
         self.assertIn("--verdict-warn-only", run)
         self.assertIn("--keep-sessions", run)
+        native_eval = '"$RUNNER_TEMP/trusted-validator/skill-validator" evaluate'
+        agent_branch = run.index('if [ "$TARGET_KIND" = "agent" ]')
+        self.assertLess(
+            run.index("set +e", agent_branch),
+            run.index(native_eval),
+        )
+        self.assertIn("AGENT_EVAL_STATUS=$?", run)
+        self.assertIn(
+            'if [ "$AGENT_EVAL_STATUS" -ne 0 ]; then',
+            run,
+        )
+        self.assertIn(
+            "attempting bounded recovery and adapting the preserved result",
+            run,
+        )
 
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

@@ -694,6 +694,36 @@ test("dormancy does not suppress an objective native completion regression", () 
   }
 });
 
+test("dormancy activation-contract failure remains the headline over completion regression", () => {
+  const root = mkdtempSync(join(tmpdir(), "agent-adapter-dormant-activation-completion-"));
+  try {
+    writeAgentEval(root, 6, ["Scenario 6"]);
+    const scenarios = [1, 2, 3, 4, 5, 6].map(winningScenario);
+    scenarios[5].expectActivation = false;
+    scenarios[5].baseline.metrics.taskCompleted = true;
+    scenarios[5].skilledIsolated.metrics.taskCompleted = false;
+    const { output, result } = runAdapter(root, {
+      skillName: "router",
+      skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
+      skillKind: "agent",
+      passed: false,
+      failureKind: "completion_regression",
+      scenarios,
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const verdict = JSON.parse(
+      readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+    ).verdicts[0];
+    assert.equal(verdict.state, "VALID_NO_CHANGE");
+    assert.equal(verdict.stateReason.code, "activation_contract_failed");
+    assert.equal(verdict.passed, false);
+    assert.equal(verdict.regressed, false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 for (const scenarioCount of [1, 4]) {
   test(`${scenarioCount}-scenario objective regression overrides preference underpowering`, () => {
     const root = mkdtempSync(join(tmpdir(), "agent-adapter-underpowered-regression-"));

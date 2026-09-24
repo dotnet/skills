@@ -851,6 +851,7 @@ jobs:
 
             AGENT_RAW_DIR="$RESULTS_DIR/_agent-evaluation"
             mkdir -p "$AGENT_RAW_DIR"
+            set +e
             "$RUNNER_TEMP/trusted-validator/skill-validator" evaluate \
               "${AGENT_ARGS[@]}" \
               --tests-dir "tests/$PLUGIN" \
@@ -864,11 +865,19 @@ jobs:
               --keep-sessions \
               --verdict-warn-only \
               --results-dir "$AGENT_RAW_DIR"
+            AGENT_EVAL_STATUS=$?
+            set -e
 
             mapfile -d '' AGENT_RESULTS < <(find "$AGENT_RAW_DIR" -name results.json -type f -print0)
             if [ ${#AGENT_RESULTS[@]} -ne 1 ]; then
               echo "::error::Expected exactly one native agent results.json, found ${#AGENT_RESULTS[@]}"
+              if [ "$AGENT_EVAL_STATUS" -ne 0 ]; then
+                exit "$AGENT_EVAL_STATUS"
+              fi
               exit 1
+            fi
+            if [ "$AGENT_EVAL_STATUS" -ne 0 ]; then
+              echo "::warning::Native agent evaluator exited $AGENT_EVAL_STATUS; attempting bounded recovery and adapting the preserved result"
             fi
             # A wall-clock timeout on a required arm is a property of one run, not
             # of the agent under test, yet it makes the whole eval

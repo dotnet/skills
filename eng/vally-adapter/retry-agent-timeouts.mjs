@@ -205,12 +205,24 @@ function findTimedOutScenarios(results) {
 }
 
 function durationSeconds(value) {
-  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+  if (typeof value === "number" && Number.isInteger(value) && value > 0) {
     return value;
   }
-  const match = /^(\d+(?:\.\d+)?)\s*([smh]?)$/i.exec(String(value ?? "").trim());
+  let text = String(value ?? "").trim();
+  if (
+    (text.startsWith('"') && text.endsWith('"')) ||
+    (text.startsWith("'") && text.endsWith("'"))
+  ) {
+    text = text.slice(1, -1).trim();
+  }
+  const match = /^(\d+)(ms|s|m|h)?$/i.exec(text);
   if (!match) throw new Error(`Unsupported eval timeout: ${value}`);
-  return Number(match[1]) * { "": 1, s: 1, m: 60, h: 3600 }[match[2].toLowerCase()];
+  const amount = Number(match[1]);
+  if (amount <= 0) throw new Error(`Unsupported eval timeout: ${value}`);
+  const unit = (match[2] ?? "").toLowerCase();
+  return unit === "ms"
+    ? Math.max(1, Math.ceil(amount / 1000))
+    : amount * { "": 1, s: 1, m: 60, h: 3600 }[unit];
 }
 
 function findAgentEvalFile(testsDir, skillName) {

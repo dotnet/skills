@@ -379,9 +379,14 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
     const preferenceOnlyUnderpowered =
       verdict.state === VERDICT_STATES.INVALID_INCONCLUSIVE
       && verdict.stateReason?.code === "underpowered";
+    const activationContractFailed =
+      verdict.stateReason?.code === "activation_contract_failed";
     if (
-      verdict.state !== VERDICT_STATES.INVALID_INCONCLUSIVE
-      || preferenceOnlyUnderpowered
+      !activationContractFailed
+      && (
+        verdict.state !== VERDICT_STATES.INVALID_INCONCLUSIVE
+        || preferenceOnlyUnderpowered
+      )
     ) {
       verdict.state = VERDICT_STATES.VALID_REGRESSION;
       verdict.stateReason = {

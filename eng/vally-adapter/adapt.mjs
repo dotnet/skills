@@ -1103,17 +1103,21 @@ function recoverComparisonSlot(slot, config) {
     };
   }
 
+  const allTrials = (retryReport?.stimuli ?? [])
+    .flatMap((stimulus) => stimulus.trials ?? []);
   const trials = (retryReport?.stimuli ?? [])
     .filter((stimulus) => stimulus.stimulusName === slot.stimulusName)
     .flatMap((stimulus) => stimulus.trials ?? []);
-  if (trials.length !== 1) {
+  if (allTrials.length !== 1 || trials.length !== 1) {
     return {
       ok: false,
       error: {
         phase: "comparison_judge",
         kind: "unknown",
         code: "targeted_retry_result_ambiguous",
-        message: `Targeted comparison retry returned ${trials.length} trial(s) for the planned slot`,
+        message:
+          `Targeted comparison retry returned ${allTrials.length} total trial(s), ` +
+          `${trials.length} for the planned slot`,
       },
     };
   }

@@ -1632,6 +1632,37 @@ test("a failed targeted retry invocation leaves the slot errored", () => {
   );
 });
 
+test("a targeted retry report with extra evidence is rejected", () => {
+  const primary = strandSlot(
+    reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0.4]),
+    5,
+    0,
+  );
+
+  const recovered = withTargetedRecovery(primary, () => ({
+    stimuli: [
+      {
+        stimulusName: "Scenario 6",
+        trials: [
+          { trialIndex: 0, score: 1, winner: "treatment", errored: false },
+        ],
+      },
+      {
+        stimulusName: "Unexpected scenario",
+        trials: [
+          { trialIndex: 0, score: 0, winner: "tie", errored: false },
+        ],
+      },
+    ],
+  }));
+
+  assert.equal(recovered.summary.erroredCount, 1);
+  assert.equal(
+    recovered.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1).code,
+    "targeted_retry_result_ambiguous",
+  );
+});
+
 test("targeted recovery never re-judges a permanent judge failure", () => {
   const primary = strandSlot(reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0.4]), 5, 0, {
     phase: "comparison_judge",
