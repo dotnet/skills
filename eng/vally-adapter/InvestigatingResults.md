@@ -341,8 +341,11 @@ win, loss, tie, or dormancy outcome can never enter this pass.
 Trajectory identity uses the adapter's canonical stimulus lookup
 (`stimulus`, then `gradeResult.stimulusName`, then `stimulusName`) plus the
 trial index encoded in `shardKey`. The baseline and treatment records must also
-carry the expected variants. A recovered trial carries `targetedRecovery: true`
-and `recoveredFrom`. Anything unexpected — no trajectory for either arm
+carry the expected variants across every record for the affected stimulus;
+missing top-level variants use the source file as the arm identity, but any
+explicit opposite-arm variant blocks recovery before re-judging a slot. A
+recovered trial carries `targetedRecovery: true` and `recoveredFrom`. Anything
+unexpected — no trajectory for either arm
 (`targeted_slot_trajectory_missing`), duplicate trajectories
 (`targeted_slot_trajectory_ambiguous`), an executor record that is not a
 successful complete trial (`targeted_slot_trajectory_incomplete`), incorrect variant pairing

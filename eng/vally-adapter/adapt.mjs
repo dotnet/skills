@@ -936,13 +936,20 @@ function isCompleteExecutorRecord(record) {
   );
 }
 
-function trialIndexEvidenceForStimulus(records, stimulusName) {
+function trialIndexEvidenceForStimulus(records, stimulusName, expectedVariant) {
   const indices = new Set();
   const counts = new Map();
   let invalidCount = 0;
+  const variantMismatches = [];
   for (const record of records ?? []) {
     if (record == null || stimulusOf(record) !== stimulusName) continue;
     const trialIndex = recordTrialIndex(record);
+    if (record.variant != null && record.variant !== expectedVariant) {
+      variantMismatches.push({
+        trialIndex: Number.isInteger(trialIndex) ? trialIndex : null,
+        variant: record.variant,
+      });
+    }
     if (!Number.isInteger(trialIndex) || trialIndex < 0) {
       invalidCount++;
     } else {
@@ -953,14 +960,20 @@ function trialIndexEvidenceForStimulus(records, stimulusName) {
   const duplicateIndices = [...counts.entries()]
     .filter(([, count]) => count > 1)
     .map(([trialIndex]) => trialIndex);
-  return { indices, invalidCount, duplicateIndices };
+  return { indices, invalidCount, duplicateIndices, variantMismatches };
 }
 
 function sameIntegerSet(left, right) {
   return left.size === right.size && [...left].every((value) => right.has(value));
 }
 
-function targetedSlotIdentityErrors(report, baselineRecords, skilledRecords) {
+function targetedSlotIdentityErrors(
+  report,
+  baselineRecords,
+  skilledRecords,
+  baselineVariant = "baseline",
+  skilledVariant = "skilled",
+) {
   const errors = new Map();
   for (const stimulus of report?.stimuli ?? []) {
     const stimulusName = stimulus?.stimulusName;
@@ -973,13 +986,39 @@ function targetedSlotIdentityErrors(report, baselineRecords, skilledRecords) {
     const baselineEvidence = trialIndexEvidenceForStimulus(
       baselineRecords,
       stimulusName,
+      baselineVariant,
     );
     const skilledEvidence = trialIndexEvidenceForStimulus(
       skilledRecords,
       stimulusName,
+      skilledVariant,
     );
     const baselineIndices = baselineEvidence.indices;
     const skilledIndices = skilledEvidence.indices;
+    if (
+      baselineEvidence.variantMismatches.length > 0 ||
+      skilledEvidence.variantMismatches.length > 0
+    ) {
+      const describe = (mismatches) =>
+        mismatches
+          .map(
+            ({ trialIndex, variant }) =>
+              `trial ${trialIndex ?? "<invalid>"}=${JSON.stringify(variant)}`,
+          )
+          .join(", ");
+      errors.set(stimulusName, {
+        phase: "comparison_pairing",
+        kind: "permanent",
+        code: "targeted_slot_variant_mismatch",
+        message:
+          `Executor source-file variant mismatch for "${stimulusName}": ` +
+          `baseline expected ${JSON.stringify(baselineVariant)} ` +
+          `[${describe(baselineEvidence.variantMismatches)}], ` +
+          `skilled expected ${JSON.stringify(skilledVariant)} ` +
+          `[${describe(skilledEvidence.variantMismatches)}]`,
+      });
+      continue;
+    }
     if (
       baselineEvidence.invalidCount > 0 ||
       skilledEvidence.invalidCount > 0 ||
@@ -1206,6 +1245,8 @@ function recoverTransientComparisonSlots(primaryReport, config) {
     primaryReport,
     config.baselineRecords,
     config.skilledRecords,
+    config.baselineVariant ?? "baseline",
+    config.skilledVariant ?? "skilled",
   );
   const targeted = {
     maxSlots,

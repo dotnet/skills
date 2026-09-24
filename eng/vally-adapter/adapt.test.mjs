@@ -2125,6 +2125,39 @@ test("a targeted variant mismatch is never re-judged", () => {
   }
 });
 
+test("a sibling source-file variant mismatch blocks targeted recovery", () => {
+  const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
+  const baselineRecords = executorRecordsFor(primary, "baseline");
+  const skilledRecords = executorRecordsFor(primary, "skilled");
+  baselineRecords.find((record) => record.shardKey.endsWith("::trial-0")).variant =
+    "skilled";
+  skilledRecords.find((record) => record.shardKey.endsWith("::trial-1")).variant =
+    "baseline";
+  const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-sibling-variant-"));
+  let calls = 0;
+  try {
+    const result = recoverTransientComparisonSlots(primary, {
+      baselineRecords,
+      skilledRecords,
+      workDir,
+      filePrefix: "sibling-variant",
+      compare: () => {
+        calls++;
+        return null;
+      },
+    });
+
+    assert.equal(calls, 0);
+    const failure =
+      result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1);
+    assert.equal(failure.code, "targeted_slot_variant_mismatch");
+    assert.match(failure.message, /baseline expected "baseline" \[trial 0="skilled"\]/);
+    assert.match(failure.message, /skilled expected "skilled" \[trial 1="baseline"\]/);
+  } finally {
+    rmSync(workDir, { recursive: true, force: true });
+  }
+});
+
 test("targeted recovery uses complete preserved evidence after the coarse retry crashes", () => {
   const retryCrash = {
     phase: "comparison_judge",
