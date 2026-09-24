@@ -2208,6 +2208,22 @@ esac
         adapter_path = "eng/vally-adapter/**"
         for event in ("pull_request", "push"):
             self.assertEqual(triggers[event]["paths"].count(adapter_path), 1)
+            self.assertEqual(
+                triggers[event]["paths"].count(".github/scripts/**"),
+                1,
+            )
+            self.assertEqual(
+                triggers[event]["paths"].count(
+                    "eng/evaluation/test_pr_triage_retry.py"
+                ),
+                1,
+            )
+            self.assertEqual(
+                triggers[event]["paths"].count(
+                    ".github/workflows/pr-triage.yml"
+                ),
+                1,
+            )
 
         job = workflow["jobs"]["vally-adapter"]
         self.assertEqual(job["runs-on"], "ubuntu-latest")
@@ -2215,6 +2231,17 @@ esac
         self.assertIn(
             "node --test eng/vally-adapter/*.test.mjs",
             steps["Run adapter fault-injection and report tests"]["run"],
+        )
+        tools_job = workflow["jobs"]["token-failover"]
+        tools_steps = {step.get("name"): step for step in tools_job["steps"]}
+        workflow_tests = tools_steps["Test evaluation workflow behavior"]["run"]
+        self.assertIn(
+            "python eng/evaluation/test_token_failover.py",
+            workflow_tests,
+        )
+        self.assertIn(
+            "python eng/evaluation/test_pr_triage_retry.py",
+            workflow_tests,
         )
 
     def test_manual_eval_data_publish_is_explicit_and_main_only(self) -> None:
@@ -2287,6 +2314,147 @@ esac
             script,
         )
         self.assertNotIn("re-post `/evaluate`", script)
+
+    def test_pr_session_publish_failure_is_visible_but_non_authoritative(self) -> None:
+        workflow = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        publish_job = workflow["jobs"]["publish-session-data"]
+        self.assertEqual(
+            publish_job["continue-on-error"],
+            "${{ needs.gate.outputs.pr_number != '' }}",
+        )
+        self.assertEqual(
+            publish_job["outputs"]["status"],
+            "${{ steps.publish-status.outputs.status }}",
+        )
+
+        steps = {step.get("name"): step for step in publish_job["steps"]}
+        auth_script = steps["Validate session data credentials"]["run"]
+        self.assertIn('push --dry-run "$REPO_URL"', auth_script)
+        self.assertIn(
+            "Session telemetry token is missing",
+            auth_script,
+        )
+        self.assertIn(
+            "Session data token is missing",
+            auth_script,
+        )
+        self.assertIn(
+            "Session telemetry write preflight failed",
+            auth_script,
+        )
+        self.assertIn(
+            "Session data write preflight failed",
+            auth_script,
+        )
+        self.assertIn(
+            "credential-bearing remote output was suppressed",
+            auth_script,
+        )
+        self.assertIn("commit --allow-empty", auth_script)
+        self.assertIn("session-data-auth-preflight-", auth_script)
+        self.assertLess(
+            [step.get("name") for step in publish_job["steps"]].index(
+                "Validate session data credentials"
+            ),
+            [step.get("name") for step in publish_job["steps"]].index(
+                "Checkout repository"
+            ),
+        )
+        self.assertEqual(
+            steps["Validate session data credentials"]["continue-on-error"],
+            "${{ needs.gate.outputs.pr_number != '' }}",
+        )
+        self.assertEqual(
+            steps["Checkout repository"]["if"],
+            "steps.auth.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Download evaluation artifacts"]["if"],
+            "steps.auth.outcome == 'success' && steps.checkout.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Determine source metadata"]["if"],
+            "steps.download.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Build session manifest"]["if"],
+            "steps.meta.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Clone existing session data branch"]["if"],
+            "steps.build.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Merge and purge old sessions"]["if"],
+            "steps.clone.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Push to dashboard-session-data branch (dotnet/skills-data)"]["if"],
+            "steps.merge.outcome == 'success'",
+        )
+        for name in (
+            "Checkout repository",
+            "Inspect downloaded artifacts",
+            "Determine source metadata",
+            "Build session manifest",
+            "Clone existing session data branch",
+            "Merge and purge old sessions",
+            "Push to dashboard-session-data branch (dotnet/skills-data)",
+        ):
+            self.assertEqual(
+                steps[name]["continue-on-error"],
+                "${{ needs.gate.outputs.pr_number != '' }}",
+            )
+        self.assertIn(
+            "needs.gate.outputs.pr_number != '' || needs.evaluate.result != 'success'",
+            steps["Download evaluation artifacts"]["continue-on-error"],
+        )
+        status_step = steps["Report session publishing outcome"]
+        self.assertEqual(status_step["if"], "always()")
+        self.assertEqual(
+            status_step["env"]["DOWNLOAD_OUTCOME"],
+            "${{ steps.download.outcome }}",
+        )
+        status_script = status_step["run"]
+        self.assertIn('"$OUTCOMES" == *skipped*', status_script)
+        self.assertIn('echo "status=degraded"', status_script)
+        self.assertIn(
+            "Evaluation results remain authoritative",
+            status_script,
+        )
+        self.assertIn('echo "status=failed"', status_script)
+        self.assertIn(
+            "Scheduled/main publishing is strict",
+            status_script,
+        )
+
+        comment_steps = {
+            step.get("name"): step
+            for step in workflow["jobs"]["comment-on-pr"]["steps"]
+        }
+        comment_script = comment_steps["Consolidate and post results"]["run"]
+        self.assertIn(
+            'needs.publish-session-data.outputs.status',
+            comment_script,
+        )
+        self.assertIn(
+            "Session replay telemetry was not published",
+            comment_script,
+        )
+        self.assertIn(
+            'needs.publish-session-data.outputs.status }}" == "published"',
+            comment_script,
+        )
+        self.assertNotIn(
+            'needs.publish-session-data.result }}" == "success"',
+            comment_script,
+        )
+
+        deploy_condition = workflow["jobs"]["deploy-dashboard"]["if"]
+        self.assertNotIn(
+            "needs.publish-session-data.outputs.status",
+            deploy_condition,
+        )
 
     def test_partial_matrix_results_never_become_complete_verdicts(self) -> None:
         caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
@@ -2507,6 +2675,22 @@ esac
             run_script,
         )
         self.assertIn(
+            '--max-attempts-per-group 2',
+            run_script,
+        )
+        self.assertIn(
+            "timeout --signal=TERM --kill-after=30s 45m",
+            run_script,
+        )
+        self.assertIn(
+            '--max-scenario-seconds 1200',
+            run_script,
+        )
+        self.assertIn(
+            '--scenario-overhead-seconds 300',
+            run_script,
+        )
+        self.assertIn(
             'EXECUTOR_RETRY_STATUS=$?',
             run_script,
         )
@@ -2623,6 +2807,21 @@ esac
         self.assertIn('if [ "$TARGET_KIND" = "agent" ]', run)
         self.assertIn("--verdict-warn-only", run)
         self.assertIn("--keep-sessions", run)
+        native_eval = '"$RUNNER_TEMP/trusted-validator/skill-validator" evaluate'
+        agent_branch = run.index('if [ "$TARGET_KIND" = "agent" ]')
+        self.assertLess(
+            run.index("set +e", agent_branch),
+            run.index(native_eval),
+        )
+        self.assertIn("AGENT_EVAL_STATUS=$?", run)
+        self.assertIn(
+            'if [ "$AGENT_EVAL_STATUS" -ne 0 ]; then',
+            run,
+        )
+        self.assertIn(
+            "attempting bounded recovery and adapting the preserved result",
+            run,
+        )
 
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -3139,23 +3338,15 @@ class AgentTimeoutRetryQuarantineTests(unittest.TestCase):
         )
         self.assertNotIn('--retry-results-dir "$RESULTS_DIR', script)
 
-    def test_killed_retry_leaves_no_collectable_native_results(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            results_dir = Path(tmp) / "results"
-            retry_temp = Path(tmp) / "runner-temp" / "agent-timeout-retry"
-            killed = retry_temp / "1-agent.x" / "20260101-000000"
-            killed.mkdir(parents=True)
-            (killed / "results.json").write_text('{"verdicts":[]}', encoding="utf-8")
-            adapted = results_dir / "dotnet-test" / "some-skill"
-            adapted.mkdir(parents=True)
-            (adapted / "results.json").write_text('{"verdicts":[]}', encoding="utf-8")
-
-            survivors = sorted(
-                str(path.relative_to(results_dir)).replace("\\", "/")
-                for path in results_dir.rglob("results.json")
-            )
-            self.assertEqual(survivors, ["dotnet-test/some-skill/results.json"])
-            self.assertTrue((killed / "results.json").is_file())
+    def test_retry_budget_is_wired_to_the_outer_watchdog(self) -> None:
+        script = self._run_script()
+        self.assertIn(
+            "timeout --signal=TERM --kill-after=30s 45m",
+            script,
+        )
+        self.assertIn("--max-scenarios 2", script)
+        self.assertIn("--max-scenario-seconds 1200", script)
+        self.assertIn("--scenario-overhead-seconds 300", script)
 
     def test_recursive_collectors_exclude_the_retry_tree(self) -> None:
         # Scan the whole workflow: the produced-result count and the per-skill

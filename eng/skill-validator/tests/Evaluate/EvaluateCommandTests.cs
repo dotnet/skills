@@ -1033,8 +1033,12 @@ public class EvaluateCommandTests
 
         Assert.IsEmpty(unknown);
         Assert.AreEqual(2, filtered.Count);
-        Assert.AreSequenceEqual(["beta"], filtered[0].EvalConfig!.Scenarios.Select(scenario => scenario.Name));
-        Assert.AreSequenceEqual(["beta", "gamma"], filtered[1].EvalConfig!.Scenarios.Select(scenario => scenario.Name));
+        CollectionAssert.AreEqual(
+            new[] { "beta" },
+            filtered[0].EvalConfig!.Scenarios.Select(scenario => scenario.Name).ToArray());
+        CollectionAssert.AreEqual(
+            new[] { "beta", "gamma" },
+            filtered[1].EvalConfig!.Scenarios.Select(scenario => scenario.Name).ToArray());
     }
 
     [TestMethod]

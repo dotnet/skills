@@ -21,18 +21,19 @@
  * fresh pairwise judgment and no separate rejudge pass is required.
  *
  * Anything that is not a clean required-arm timeout — an execution error, a
- * failed run, a missing arm, or a scenario the agent simply lost — is never
- * retried and keeps failing the measurement-validity gate.
+ * failed run, a missing arm, missing completion or pairwise evidence, or a
+ * measured loss/routing failure from completed baseline+isolated evidence — is
+ * never retried and keeps failing the measurement-validity gate.
  */
 
 import {
   cpSync,
   existsSync,
+  mkdtempSync,
   mkdirSync,
   readFileSync,
   readdirSync,
   renameSync,
-  statSync,
   writeFileSync,
 } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
@@ -55,6 +56,8 @@ const { values: opts } = parseArgs({
     model: { type: "string" },
     "judge-model": { type: "string" },
     "max-scenarios": { type: "string", default: "2" },
+    "max-scenario-seconds": { type: "string", default: "1200" },
+    "scenario-overhead-seconds": { type: "string", default: "300" },
     help: { type: "boolean", default: false },
   },
   strict: true,
@@ -79,13 +82,20 @@ if (
 
 Re-runs only the scenarios whose required agent arm hit its wall-clock timeout,
 then replaces those scenarios in the native results file. Every other scenario,
-including one the agent lost, is left exactly as it was measured.
+including a measured loss/routing failure from non-timed-out baseline+isolated
+evidence or one with missing completion/pairwise evidence,
+is left exactly as it was measured.
 
 Options:
   --agent <path>          Custom-agent path to re-evaluate (repeatable)
   --model <model>         Executor model for the retry
   --judge-model <model>   Judge model for the retry
   --max-scenarios <n>     Maximum scenarios to retry (default: 2)
+  --max-scenario-seconds <n>
+                          Maximum declared three-arm retry cost per scenario
+                          (default: 1200)
+  --scenario-overhead-seconds <n>
+                          Fixed judge/setup allowance per scenario (default: 300)
   --help                  Show this help`);
   process.exit(opts.help ? 0 : 1);
 }
@@ -107,16 +117,97 @@ function requiredArmTimedOut(scenario) {
  * failure that a retry must not paper over, and a scenario the agent simply
  * lost is a measured outcome rather than a fault.
  */
-function isRetryableTimeout(scenario) {
+function isRetryableTimeout(scenario, agentName = null) {
+  return timeoutIneligibilityReason(scenario, agentName) === null;
+}
+
+function isValidPairwiseResult(pairwiseResult) {
+  const winner = String(pairwiseResult?.overallWinner ?? "").toLowerCase();
+  const validWinner = new Set(["baseline", "skill", "tie"]).has(winner);
+  const magnitude = pairwiseResult?.overallMagnitude;
+  const normalizedMagnitude = String(magnitude ?? "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+  const validMagnitude =
+    (Number.isInteger(magnitude) && magnitude >= 0 && magnitude <= 4) ||
+    new Set([
+      "muchbetter",
+      "slightlybetter",
+      "equal",
+      "slightlyworse",
+      "muchworse",
+    ]).has(normalizedMagnitude);
   return (
-    Boolean(scenario?.scenarioName) &&
-    requiredArmTimedOut(scenario) &&
-    !scenario.executionError &&
-    (scenario.failedRunCount ?? 0) === 0 &&
-    Boolean(scenario.baseline) &&
-    Boolean(scenario.skilledIsolated) &&
-    Boolean(scenario.skilledPlugin)
+    validWinner &&
+    validMagnitude &&
+    Array.isArray(pairwiseResult?.rubricResults) &&
+    typeof pairwiseResult?.overallReasoning === "string" &&
+    typeof pairwiseResult?.positionSwapConsistent === "boolean"
   );
+}
+
+function missingTaskCompletionArms(scenario) {
+  return [
+    ["baseline", scenario?.baseline],
+    ["isolated", scenario?.skilledIsolated],
+    ["plugin", scenario?.skilledPlugin],
+  ].filter(
+    ([, run]) =>
+      run && typeof run.metrics?.taskCompleted !== "boolean",
+  ).map(([name]) => name);
+}
+
+function timeoutIneligibilityReason(scenario, agentName = null) {
+  if (!scenario?.scenarioName || !requiredArmTimedOut(scenario)) {
+    return "scenario is not a named required-arm timeout";
+  }
+  if (scenario.executionError) return `scenario has executionError: ${scenario.executionError}`;
+  if ((scenario.failedRunCount ?? 0) !== 0) {
+    return `scenario has ${scenario.failedRunCount} failed run(s)`;
+  }
+  if (!scenario.baseline || !scenario.skilledIsolated || !scenario.skilledPlugin) {
+    return "scenario is missing a required evaluation arm";
+  }
+  const missingCompletion = missingTaskCompletionArms(scenario);
+  if (missingCompletion.length > 0) {
+    return `scenario is missing task-completion evidence for arm(s): ${missingCompletion.join(", ")}`;
+  }
+  if (!isValidPairwiseResult(scenario.pairwiseResult)) {
+    return "scenario has missing or invalid pairwise judgment evidence";
+  }
+  const scoringArmsCompleted =
+    scenario.baseline.metrics?.timedOut !== true &&
+    scenario.skilledIsolated.metrics?.timedOut !== true;
+  if (
+    scoringArmsCompleted &&
+    scenarioRegressedOnIsolatedCompletion(scenario)
+  ) {
+    return "scenario has a measured objective completion regression";
+  }
+  if (
+    scoringArmsCompleted &&
+    typeof scenario.improvementScore === "number" &&
+    scenario.improvementScore < 0
+  ) {
+    return `scenario has a measured loss (improvementScore=${scenario.improvementScore})`;
+  }
+  if (
+    scoringArmsCompleted &&
+    agentName &&
+    scenario.subagentActivationIsolated
+  ) {
+    const activated = targetAgentActivated(
+      scenario.subagentActivationIsolated,
+      String(agentName).replace(/^agent\./, ""),
+    );
+    if (scenario.expectActivation === false && activated) {
+      return "scenario has a measured unexpected isolated activation";
+    }
+    if (scenario.expectActivation !== false && !activated) {
+      return "scenario has a measured isolated activation failure";
+    }
+  }
+  return null;
 }
 
 function targetAgentActivated(activation, agentName) {
@@ -136,7 +227,14 @@ function recomputeNativeAggregate(verdict) {
       || !scenario?.baseline
       || !scenario?.skilledIsolated
       || !scenario?.skilledPlugin
-      || !scenario?.pairwiseResult,
+      || !isValidPairwiseResult(scenario?.pairwiseResult)
+      // All required arms must remain structurally complete, even though only
+      // the isolated arm participates in objective regression.
+      || [scenario?.baseline, scenario?.skilledIsolated, scenario?.skilledPlugin]
+        .some(
+          (run) =>
+            run && typeof run.metrics?.taskCompleted !== "boolean",
+        ),
   );
   const unexpectedActivation = scenarios.some(
     (scenario) =>
@@ -145,17 +243,9 @@ function recomputeNativeAggregate(verdict) {
       && targetAgentActivated(scenario.subagentActivationIsolated, agentName),
   );
   const skillNotActivated = scenarios.some(
-    (scenario) =>
-      scenario?.expectActivation !== false
-      && scenario?.subagentActivationIsolated
-      && !targetAgentActivated(scenario.subagentActivationIsolated, agentName),
+    (scenario) => scenarioMissedActivation(scenario, agentName),
   );
-  const completionRegressed = scenarios.some(
-    (scenario) =>
-      scenario?.expectActivation !== false
-      && scenario?.baseline?.metrics?.taskCompleted === true
-      && scenario?.skilledIsolated?.metrics?.taskCompleted !== true,
-  );
+  const completionRegressed = scenarios.some(scenarioRegressedOnIsolatedCompletion);
 
   const recomputedFailureKind = hasExecutionFailure
     ? "execution_error"
@@ -192,7 +282,7 @@ function findTimedOutScenarios(results) {
   const found = [];
   for (const [verdictIndex, verdict] of (results?.verdicts ?? []).entries()) {
     for (const [scenarioIndex, scenario] of (verdict.scenarios ?? []).entries()) {
-      if (!isRetryableTimeout(scenario)) continue;
+      if (!scenario?.scenarioName || !requiredArmTimedOut(scenario)) continue;
       found.push({
         verdictIndex,
         scenarioIndex,
@@ -200,27 +290,139 @@ function findTimedOutScenarios(results) {
         scenarioName: scenario.scenarioName,
       });
     }
+
   }
   return found;
 }
 
-function newestDirectory(root) {
-  if (!existsSync(root)) return null;
-  const directories = readdirSync(root, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => {
-      const path = join(root, entry.name);
-      return { path, mtimeMs: statSync(path).mtimeMs };
-    })
-    .sort((left, right) => right.mtimeMs - left.mtimeMs);
-  return directories[0]?.path ?? null;
+function durationSeconds(value) {
+  if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+  let text = String(value ?? "").trim();
+  if (
+    (text.startsWith('"') && text.endsWith('"')) ||
+    (text.startsWith("'") && text.endsWith("'"))
+  ) {
+    text = text.slice(1, -1).trim();
+  }
+  const match = /^(\d+)(ms|s|m|h)?$/i.exec(text);
+  if (!match) throw new Error(`Unsupported eval timeout: ${value}`);
+  const amount = Number(match[1]);
+  if (amount <= 0) throw new Error(`Unsupported eval timeout: ${value}`);
+  const unit = (match[2] ?? "").toLowerCase();
+  return unit === "ms"
+    ? Math.max(1, Math.ceil(amount / 1000))
+    : amount * { "": 1, s: 1, m: 60, h: 3600 }[unit];
 }
 
-function findResultsFile(root) {
-  const found = findResultsFiles(root);
-  // Prefer the newest aggregate so a rerun inside an existing retry root cannot
-  // resurrect a stale scenario record.
-  return found.sort((left, right) => statSync(right).mtimeMs - statSync(left).mtimeMs)[0] ?? null;
+function safeAgentPathSegment(skillName) {
+  const name = String(skillName ?? "");
+  if (
+    !name ||
+    name === "." ||
+    name === ".." ||
+    name.startsWith("-") ||
+    /[\/\\\0]/.test(name)
+  ) {
+    throw new Error(`Invalid agent name for retry path: ${JSON.stringify(name)}`);
+  }
+  const segment = name
+    .replace(/[^a-zA-Z0-9._-]/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (!segment || segment === "." || segment === "..") {
+    throw new Error(`Invalid agent name for retry path: ${JSON.stringify(name)}`);
+  }
+  return segment;
+}
+
+function findAgentEvalFile(testsDir, skillName) {
+  const agentName = String(skillName).replace(/^agent\./, "");
+  const candidates = [
+    join(testsDir, `agent.${agentName}`, "eval.yaml"),
+    join(testsDir, skillName, "eval.yaml"),
+    join(testsDir, agentName, "eval.yaml"),
+  ];
+  if (existsSync(testsDir)) {
+    for (const entry of readdirSync(testsDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      candidates.push(
+        join(testsDir, entry.name, `agent.${agentName}`, "eval.yaml"),
+        join(testsDir, entry.name, skillName, "eval.yaml"),
+        join(testsDir, entry.name, agentName, "eval.yaml"),
+      );
+    }
+  }
+  return candidates.find(existsSync) ?? null;
+}
+
+function effectiveAgentTimeoutSeconds(testsDir, skillName, scenarioName) {
+  const evalFile = findAgentEvalFile(testsDir, skillName);
+  if (!evalFile) return null;
+  const lines = readFileSync(evalFile, "utf8").split(/\r?\n/);
+  let configIndent = null;
+  let defaultTimeoutSeconds = 120;
+  let stimuliIndent = null;
+  let itemIndent = null;
+  let currentScenario = null;
+  let scenarioFound = false;
+  let constraintsIndent = null;
+  const unquote = (value) => {
+    const text = value.trim();
+    if (
+      (text.startsWith('"') && text.endsWith('"')) ||
+      (text.startsWith("'") && text.endsWith("'"))
+    ) {
+      return text.slice(1, -1);
+    }
+    return text;
+  };
+  for (const line of lines) {
+    if (!line.trim() || /^\s*#/.test(line)) continue;
+    const indent = line.length - line.trimStart().length;
+    if (indent === 0 && /^(?:defaults|config):\s*(?:#.*)?$/.test(line)) {
+      configIndent = indent;
+      continue;
+    }
+    if (indent === 0 && /^stimuli:\s*(?:#.*)?$/.test(line)) {
+      configIndent = null;
+      stimuliIndent = indent;
+      continue;
+    }
+    if (indent === 0) {
+      configIndent = null;
+      if (stimuliIndent !== null) break;
+    }
+    if (configIndent !== null && indent > configIndent) {
+      const match = /^\s*timeout:\s*([^#]+?)(?:\s+#.*)?$/.exec(line);
+      if (match) defaultTimeoutSeconds = durationSeconds(match[1]);
+      continue;
+    }
+    if (stimuliIndent !== null && indent > stimuliIndent) {
+      const item = /^(\s*)-\s+name:\s*(.+?)\s*(?:#.*)?$/.exec(line);
+      if (item && (itemIndent === null || indent === itemIndent)) {
+        itemIndent = indent;
+        currentScenario = unquote(item[2]);
+        if (currentScenario === scenarioName) scenarioFound = true;
+        constraintsIndent = null;
+        continue;
+      }
+      if (currentScenario !== scenarioName) continue;
+      const flow = /^\s*constraints:\s*\{[^}]*max_duration:\s*([^,}]+)[^}]*\}\s*(?:#.*)?$/.exec(line);
+      if (flow) return durationSeconds(flow[1]);
+      if (/^\s*constraints:\s*(?:#.*)?$/.test(line)) {
+        constraintsIndent = indent;
+        continue;
+      }
+      if (constraintsIndent !== null && indent > constraintsIndent) {
+        const maxDuration =
+          /^\s*max_duration:\s*([^#]+?)(?:\s+#.*)?$/.exec(line);
+        if (maxDuration) return durationSeconds(maxDuration[1]);
+      }
+    }
+  }
+  return scenarioFound ? defaultTimeoutSeconds : null;
 }
 
 function findResultsFiles(root) {
@@ -251,8 +453,20 @@ function quarantineRetryResults(root) {
   }
 }
 
-function archiveRetryEvidence(attemptRoot, retryResultsFile, retryResultsContent, target, index, config) {
-  const auditRoot = join(config.retryAuditDir, `${index + 1}-${target.skillName}`);
+function archiveRetryEvidence(
+  attemptRoot,
+  retryResultsFile,
+  retryResultsContent,
+  target,
+  index,
+  config,
+  additionalResultsFiles = [],
+) {
+  const auditRoot = join(
+    config.retryAuditDir,
+    `${index + 1}-${target.pathSegment}`,
+    basename(attemptRoot),
+  );
   mkdirSync(dirname(auditRoot), { recursive: true });
   cpSync(attemptRoot, auditRoot, {
     recursive: true,
@@ -266,6 +480,20 @@ function archiveRetryEvidence(attemptRoot, retryResultsFile, retryResultsContent
       ? retryResultsContent
       : `${retryResultsContent}\n`);
   }
+  for (const path of additionalResultsFiles) {
+    const relativeResults = relative(attemptRoot, path);
+    const auditResults = join(
+      auditRoot,
+      dirname(relativeResults),
+      "retry-results.json",
+    );
+    mkdirSync(dirname(auditResults), { recursive: true });
+    const content = readFileSync(path, "utf8");
+    writeAtomic(
+      auditResults,
+      content.endsWith("\n") ? content : `${content}\n`,
+    );
+  }
   return auditRoot;
 }
 
@@ -274,8 +502,12 @@ function archiveRetryEvidence(attemptRoot, retryResultsFile, retryResultsContent
  * not produce clean evidence for exactly that scenario.
  */
 function retryScenario(target, index, config) {
-  const attemptRoot = join(config.retryResultsDir, `${index + 1}-${target.skillName}`);
-  mkdirSync(attemptRoot, { recursive: true });
+  const attemptParent = join(
+    config.retryResultsDir,
+    `${index + 1}-${target.pathSegment}`,
+  );
+  mkdirSync(attemptParent, { recursive: true });
+  const attemptRoot = mkdtempSync(join(attemptParent, "attempt-"));
 
   const args = [
     "evaluate",
@@ -326,9 +558,8 @@ function retryScenario(target, index, config) {
 
 /** Read the one scenario record the retry was asked to produce. */
 function inspectRetryEvidence(attemptRoot, target, index, config, exitCode) {
-  const retryRoot = newestDirectory(attemptRoot) ?? attemptRoot;
-  const retryResultsFile = findResultsFile(retryRoot) ?? findResultsFile(attemptRoot);
-  if (!retryResultsFile) {
+  const retryResultsFiles = findResultsFiles(attemptRoot);
+  if (retryResultsFiles.length !== 1) {
     const auditDir = archiveRetryEvidence(
       attemptRoot,
       null,
@@ -336,14 +567,21 @@ function inspectRetryEvidence(attemptRoot, target, index, config, exitCode) {
       target,
       index,
       config,
+      retryResultsFiles,
     );
+    const relativeFiles = retryResultsFiles
+      .map((path) => relative(attemptRoot, path))
+      .sort();
     return {
       ok: false,
-      reason: "retry produced no results.json",
+      reason:
+        `retry produced ${retryResultsFiles.length} results.json file(s)` +
+        (relativeFiles.length > 0 ? `: ${relativeFiles.join(", ")}` : ""),
       exitCode,
       auditDir,
     };
   }
+  const [retryResultsFile] = retryResultsFiles;
 
   let retryResults;
   let retryResultsContent;
@@ -368,14 +606,26 @@ function inspectRetryEvidence(attemptRoot, target, index, config, exitCode) {
     };
   }
 
-  const scenarios = (retryResults.verdicts ?? [])
-    .filter((verdict) => verdict.skillName === target.skillName)
-    .flatMap((verdict) => verdict.scenarios ?? [])
-    .filter((scenario) => scenario.scenarioName === target.scenarioName);
-  if (scenarios.length !== 1) {
+  const verdicts = retryResults.verdicts ?? [];
+  const matchingVerdicts = verdicts.filter(
+    (verdict) => verdict.skillName === target.skillName,
+  );
+  const scenarios = matchingVerdicts[0]?.scenarios ?? [];
+  if (
+    verdicts.length !== 1 ||
+    matchingVerdicts.length !== 1 ||
+    scenarios.length !== 1 ||
+    scenarios[0]?.scenarioName !== target.scenarioName
+  ) {
     return {
       ok: false,
-      reason: `retry returned ${scenarios.length} record(s) for the scenario`,
+      reason:
+        `retry returned ${verdicts.length} verdict(s), ` +
+        `${matchingVerdicts.length} for the target, and ${scenarios.length} scenario(s)` +
+        (scenarios.length === 1
+          ? `; expected scenario ${JSON.stringify(target.scenarioName)}, ` +
+            `observed ${JSON.stringify(scenarios[0]?.scenarioName ?? null)}`
+          : ""),
       exitCode,
       auditDir,
     };
@@ -386,8 +636,24 @@ function inspectRetryEvidence(attemptRoot, target, index, config, exitCode) {
   if (!scenarios[0].baseline || !scenarios[0].skilledIsolated || !scenarios[0].skilledPlugin) {
     return { ok: false, reason: "retry is missing a required evaluation arm", exitCode, auditDir };
   }
-  if (!scenarios[0].pairwiseResult) {
-    return { ok: false, reason: "retry is missing its pairwise judgment", exitCode, auditDir };
+  const missingCompletion = missingTaskCompletionArms(scenarios[0]);
+  if (missingCompletion.length > 0) {
+    return {
+      ok: false,
+      reason:
+        `retry is missing task-completion evidence for arm(s): ` +
+        missingCompletion.join(", "),
+      exitCode,
+      auditDir,
+    };
+  }
+  if (!isValidPairwiseResult(scenarios[0].pairwiseResult)) {
+    return {
+      ok: false,
+      reason: "retry has missing or invalid pairwise judgment evidence",
+      exitCode,
+      auditDir,
+    };
   }
   if (scenarios[0].executionError || (scenarios[0].failedRunCount ?? 0) > 0) {
     return {
@@ -407,56 +673,31 @@ function writeAtomic(path, content) {
 }
 
 /**
- * True when this scenario is objective evidence of a task-completion regression.
- *
- * Mirrors the evaluator's own predicate, but also counts a plugin-arm regression
- * that the agent verdict treats as diagnostic. Widening the predicate can only
- * make the aggregate below survive more often, never less, so it cannot erase a
- * real regression.
- */
-function scenarioRegressedOnCompletion(scenario) {
-  if (scenario?.expectActivation === false) return false;
-  if (scenario?.baseline?.metrics?.taskCompleted !== true) return false;
-  return (
-    scenario.skilledIsolated?.metrics?.taskCompleted !== true ||
-    (Boolean(scenario.skilledPlugin) &&
-      scenario.skilledPlugin?.metrics?.taskCompleted !== true)
-  );
-}
-
-/**
  * The evaluator's exact completion-regression predicate for an agent scenario.
  *
  * `ComputeAgentVerdict` passes `pluginIsDiagnosticOnly: true`, so the plugin arm
- * drops out of `Comparator.cs:145-151` and only the isolated arm counts. This
- * predicate is used where a regression is being RE-ASSERTED rather than cleared,
- * so it must not be widened: a wider predicate here would invent a failure the
- * evaluator never recorded.
+ * drops out of `Comparator.cs:128-131` and only the isolated arm counts.
+ * Comparator applies this completion predicate to every measured scenario,
+ * including expected-dormancy scenarios.
  */
 function scenarioRegressedOnIsolatedCompletion(scenario) {
   return (
-    scenario?.expectActivation !== false &&
     scenario?.baseline?.metrics?.taskCompleted === true &&
-    scenario?.skilledIsolated?.metrics?.taskCompleted !== true
+    scenario?.skilledIsolated?.metrics?.taskCompleted === false
   );
 }
 
 /**
  * True when this scenario is objective evidence that the agent did not activate.
  *
- * Only a recorded activation probe counts. A scenario with no probe at all says
- * nothing either way and must not be read as activation.
+ * Only the isolated-arm probe participates in the native agent verdict. A
+ * scenario with no isolated probe says nothing either way, and a plugin-only
+ * miss remains diagnostic instead of becoming a gate failure.
  */
 function scenarioMissedActivation(scenario, agentName) {
   if (scenario?.expectActivation === false) return false;
-  const invokedIn = (probe) =>
-    (probe?.invokedAgents ?? []).some(
-      (name) => String(name).toLowerCase() === agentName.toLowerCase(),
-    );
-  for (const probe of [scenario?.subagentActivationIsolated, scenario?.subagentActivationPlugin]) {
-    if (probe && !invokedIn(probe)) return true;
-  }
-  return false;
+  const probe = scenario?.subagentActivationIsolated;
+  return Boolean(probe) && !targetAgentActivated(probe, agentName);
 }
 
 /**
@@ -507,13 +748,18 @@ function refreshVerdictAggregates(verdict) {
 function retryAgentTimeouts(config) {
   const results = JSON.parse(readFileSync(config.resultsFile, "utf8"));
   const targets = findTimedOutScenarios(results);
+  const eligibleTargets = [];
   const summary = {
     schemaVersion: 1,
     maxScenarios: config.maxScenarios,
+    maxScenarioSeconds: config.maxScenarioSeconds,
+    scenarioOverheadSeconds: config.scenarioOverheadSeconds,
     plannedScenarioCount: targets.length,
     attemptedScenarioCount: 0,
     recoveredScenarioCount: 0,
     unresolvedScenarioCount: 0,
+    budgetSkippedScenarioCount: 0,
+    ineligibleScenarioCount: 0,
     skippedReason: null,
     attempts: [],
   };
@@ -523,43 +769,161 @@ function retryAgentTimeouts(config) {
     summary.skippedReason =
       `Found ${targets.length} timed-out scenario(s), above the recovery limit of ` +
       `${config.maxScenarios}; treating this as a systemic capacity problem.`;
-    console.warn(summary.skippedReason);
-  } else {
-    for (const [index, target] of targets.entries()) {
-      console.log(
-        `Re-running timed-out scenario ${target.skillName}/${target.scenarioName}`,
+    summary.attempts = targets.map((target) => {
+      const scenario =
+        results.verdicts[target.verdictIndex].scenarios[target.scenarioIndex];
+      const ineligibleReason = timeoutIneligibilityReason(
+        scenario,
+        target.skillName,
       );
-      summary.attemptedScenarioCount++;
-      const outcome = retryScenario(target, index, config);
-      if (outcome.ok) {
-        const verdict = results.verdicts[target.verdictIndex];
-        verdict.scenarios[target.scenarioIndex] = outcome.scenario;
-        const cleared = refreshVerdictAggregates(verdict);
-        if (cleared.length > 0) {
-          console.log(
-            `Stale aggregate(s) no longer supported by the recovered evidence: ${cleared.join(", ")}`,
-          );
-        }
-        summary.recoveredScenarioCount++;
-        summary.clearedAggregates = [
-          ...(summary.clearedAggregates ?? []),
-          ...cleared.map((field) => ({ skillName: target.skillName, field })),
-        ];
-        // Persist after every recovery so a later attempt that is killed by an
-        // outer wall-clock budget cannot discard evidence already recovered.
-        writeAtomic(config.resultsFile, `${JSON.stringify(results, null, 2)}\n`);
-      } else {
-        summary.unresolvedScenarioCount++;
-      }
+      if (ineligibleReason !== null) summary.ineligibleScenarioCount++;
+      return {
+        skillName: target.skillName,
+        scenarioName: target.scenarioName,
+        recovered: false,
+        reason: ineligibleReason ?? summary.skippedReason,
+        retryExitCode: null,
+        auditDir: null,
+        armTimeoutSeconds: null,
+        estimatedSeconds: null,
+      };
+    });
+    console.warn(summary.skippedReason);
+    mkdirSync(dirname(config.summary), { recursive: true });
+    writeAtomic(config.summary, `${JSON.stringify(summary, null, 2)}\n`);
+    console.log(
+      `Agent timeout recovery: 0 recovered, ${summary.unresolvedScenarioCount} unresolved`,
+    );
+    return summary;
+  }
+
+  const resolveScenarioTimeout =
+    config.resolveScenarioTimeout ?? effectiveAgentTimeoutSeconds;
+  for (const target of targets) {
+    let pathSegment;
+    try {
+      pathSegment = safeAgentPathSegment(target.skillName);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      summary.unresolvedScenarioCount++;
       summary.attempts.push({
         skillName: target.skillName,
         scenarioName: target.scenarioName,
-        recovered: outcome.ok,
-        reason: outcome.ok ? null : outcome.reason,
-        retryExitCode: outcome.exitCode,
-        auditDir: outcome.auditDir ?? null,
+        recovered: false,
+        reason,
+        retryExitCode: null,
+        auditDir: null,
+        armTimeoutSeconds: null,
+        estimatedSeconds: null,
+      });
+      console.warn(
+        `Skipping timed-out scenario ${target.skillName}/${target.scenarioName}: ${reason}`,
+      );
+      continue;
+    }
+    const scenario =
+      results.verdicts[target.verdictIndex].scenarios[target.scenarioIndex];
+    const ineligibleReason = timeoutIneligibilityReason(
+      scenario,
+      target.skillName,
+    );
+    if (ineligibleReason !== null) {
+      summary.unresolvedScenarioCount++;
+      summary.ineligibleScenarioCount++;
+      summary.attempts.push({
+        skillName: target.skillName,
+        scenarioName: target.scenarioName,
+        recovered: false,
+        reason: ineligibleReason,
+        retryExitCode: null,
+        auditDir: null,
+        armTimeoutSeconds: null,
+        estimatedSeconds: null,
+      });
+      console.warn(
+        `Skipping timed-out scenario ${target.skillName}/${target.scenarioName}: ${ineligibleReason}`,
+      );
+      continue;
+    }
+    const armTimeoutSeconds = resolveScenarioTimeout(
+      config.testsDir,
+      target.skillName,
+      target.scenarioName,
+    );
+    const estimatedSeconds =
+      armTimeoutSeconds == null
+        ? null
+        : armTimeoutSeconds * 3 + config.scenarioOverheadSeconds;
+    if (
+      estimatedSeconds == null ||
+      estimatedSeconds > config.maxScenarioSeconds
+    ) {
+      const reason =
+        estimatedSeconds == null
+          ? "Eval timeout declaration could not be resolved; retry budget is unknown."
+          : `Declared three-arm retry cost is ${estimatedSeconds}s, above the ` +
+            `${config.maxScenarioSeconds}s per-scenario recovery budget.`;
+      summary.unresolvedScenarioCount++;
+      summary.budgetSkippedScenarioCount++;
+      summary.attempts.push({
+        skillName: target.skillName,
+        scenarioName: target.scenarioName,
+        recovered: false,
+        reason,
+        retryExitCode: null,
+        auditDir: null,
+        armTimeoutSeconds,
+        estimatedSeconds,
+      });
+      console.warn(
+        `Skipping timed-out scenario ${target.skillName}/${target.scenarioName}: ${reason}`,
+      );
+    } else {
+      eligibleTargets.push({
+        ...target,
+        pathSegment,
+        armTimeoutSeconds,
+        estimatedSeconds,
       });
     }
+  }
+
+  for (const [index, target] of eligibleTargets.entries()) {
+    console.log(
+      `Re-running timed-out scenario ${target.skillName}/${target.scenarioName}`,
+    );
+    summary.attemptedScenarioCount++;
+    const outcome = retryScenario(target, index, config);
+    if (outcome.ok) {
+      const verdict = results.verdicts[target.verdictIndex];
+      verdict.scenarios[target.scenarioIndex] = outcome.scenario;
+      const cleared = refreshVerdictAggregates(verdict);
+      if (cleared.length > 0) {
+        console.log(
+          `Stale aggregate(s) no longer supported by the recovered evidence: ${cleared.join(", ")}`,
+        );
+      }
+      summary.recoveredScenarioCount++;
+      summary.clearedAggregates = [
+        ...(summary.clearedAggregates ?? []),
+        ...cleared.map((field) => ({ skillName: target.skillName, field })),
+      ];
+      // Persist after every recovery so a later attempt that is killed by an
+      // outer wall-clock budget cannot discard evidence already recovered.
+      writeAtomic(config.resultsFile, `${JSON.stringify(results, null, 2)}\n`);
+    } else {
+      summary.unresolvedScenarioCount++;
+    }
+    summary.attempts.push({
+      skillName: target.skillName,
+      scenarioName: target.scenarioName,
+      recovered: outcome.ok,
+      reason: outcome.ok ? null : outcome.reason,
+      retryExitCode: outcome.exitCode,
+      auditDir: outcome.auditDir ?? null,
+      armTimeoutSeconds: target.armTimeoutSeconds,
+      estimatedSeconds: target.estimatedSeconds,
+    });
   }
 
   mkdirSync(dirname(config.summary), { recursive: true });
@@ -577,6 +941,14 @@ if (isMain) {
     if (!Number.isInteger(maxScenarios) || maxScenarios < 1) {
       throw new Error("--max-scenarios must be a positive integer");
     }
+    const maxScenarioSeconds = Number(opts["max-scenario-seconds"]);
+    if (!Number.isInteger(maxScenarioSeconds) || maxScenarioSeconds < 1) {
+      throw new Error("--max-scenario-seconds must be a positive integer");
+    }
+    const scenarioOverheadSeconds = Number(opts["scenario-overhead-seconds"]);
+    if (!Number.isInteger(scenarioOverheadSeconds) || scenarioOverheadSeconds < 0) {
+      throw new Error("--scenario-overhead-seconds must be a non-negative integer");
+    }
     retryAgentTimeouts({
       resultsFile: resolve(opts["results-file"]),
       retryResultsDir: resolve(opts["retry-results-dir"]),
@@ -588,6 +960,8 @@ if (isMain) {
       model: opts.model,
       judgeModel: opts["judge-model"],
       maxScenarios,
+      maxScenarioSeconds,
+      scenarioOverheadSeconds,
     });
   } catch (error) {
     console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
@@ -603,6 +977,6 @@ export {
   requiredArmTimedOut,
   retryAgentTimeouts,
   scenarioMissedActivation,
-  scenarioRegressedOnCompletion,
   scenarioRegressedOnIsolatedCompletion,
+  safeAgentPathSegment,
 };

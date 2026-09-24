@@ -957,6 +957,123 @@ function recordsForComparisonSlot(records, stimulusName, trialIndex) {
   );
 }
 
+function isCompleteExecutorRecord(record) {
+  return (
+    record?.type === "trial-result" &&
+    record.status === "success" &&
+    record.trajectory != null
+  );
+}
+
+function trialIndexEvidenceForStimulus(records, stimulusName, expectedVariant) {
+  const indices = new Set();
+  const counts = new Map();
+  let invalidCount = 0;
+  const variantMismatches = [];
+  for (const record of records ?? []) {
+    if (record == null || stimulusOf(record) !== stimulusName) continue;
+    const trialIndex = recordTrialIndex(record);
+    if (record.variant != null && record.variant !== expectedVariant) {
+      variantMismatches.push({
+        trialIndex: Number.isInteger(trialIndex) ? trialIndex : null,
+        variant: record.variant,
+      });
+    }
+    if (!Number.isInteger(trialIndex) || trialIndex < 0) {
+      invalidCount++;
+    } else {
+      indices.add(trialIndex);
+      counts.set(trialIndex, (counts.get(trialIndex) ?? 0) + 1);
+    }
+  }
+  const duplicateIndices = [...counts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([trialIndex]) => trialIndex);
+  return { indices, invalidCount, duplicateIndices, variantMismatches };
+}
+
+function sameIntegerSet(left, right) {
+  return left.size === right.size && [...left].every((value) => right.has(value));
+}
+
+function targetedSlotIdentityErrors(
+  report,
+  baselineRecords,
+  skilledRecords,
+  baselineVariant = "baseline",
+  skilledVariant = "skilled",
+) {
+  const errors = new Map();
+  for (const stimulus of report?.stimuli ?? []) {
+    const stimulusName = stimulus?.stimulusName;
+    if (!stimulusName) continue;
+    const comparisonIndices = new Set(
+      (stimulus.trials ?? [])
+        .map((trial) => trial?.trialIndex)
+        .filter((trialIndex) => Number.isInteger(trialIndex) && trialIndex >= 0),
+    );
+    const baselineEvidence = trialIndexEvidenceForStimulus(
+      baselineRecords,
+      stimulusName,
+      baselineVariant,
+    );
+    const skilledEvidence = trialIndexEvidenceForStimulus(
+      skilledRecords,
+      stimulusName,
+      skilledVariant,
+    );
+    const baselineIndices = baselineEvidence.indices;
+    const skilledIndices = skilledEvidence.indices;
+    if (
+      baselineEvidence.variantMismatches.length > 0 ||
+      skilledEvidence.variantMismatches.length > 0
+    ) {
+      const describe = (mismatches) =>
+        mismatches
+          .map(
+            ({ trialIndex, variant }) =>
+              `trial ${trialIndex ?? "<invalid>"}=${JSON.stringify(variant)}`,
+          )
+          .join(", ");
+      errors.set(stimulusName, {
+        phase: "comparison_pairing",
+        kind: "permanent",
+        code: "targeted_slot_variant_mismatch",
+        message:
+          `Executor source-file variant mismatch for "${stimulusName}": ` +
+          `baseline expected ${JSON.stringify(baselineVariant)} ` +
+          `[${describe(baselineEvidence.variantMismatches)}], ` +
+          `skilled expected ${JSON.stringify(skilledVariant)} ` +
+          `[${describe(skilledEvidence.variantMismatches)}]`,
+      });
+      continue;
+    }
+    if (
+      baselineEvidence.invalidCount > 0 ||
+      skilledEvidence.invalidCount > 0 ||
+      baselineEvidence.duplicateIndices.length > 0 ||
+      skilledEvidence.duplicateIndices.length > 0 ||
+      !sameIntegerSet(comparisonIndices, baselineIndices) ||
+      !sameIntegerSet(comparisonIndices, skilledIndices)
+    ) {
+      const values = (set) => `[${[...set].sort((a, b) => a - b).join(", ")}]`;
+      errors.set(stimulusName, {
+        phase: "comparison_pairing",
+        kind: "permanent",
+        code: "targeted_slot_trial_identity_mismatch",
+        message:
+          `Comparison/executor trial identity mismatch for "${stimulusName}": ` +
+          `comparison=${values(comparisonIndices)}, ` +
+          `baseline=${values(baselineIndices)} (${baselineEvidence.invalidCount} invalid, ` +
+          `${baselineEvidence.duplicateIndices.length} duplicate), ` +
+          `skilled=${values(skilledIndices)} (${skilledEvidence.invalidCount} invalid, ` +
+          `${skilledEvidence.duplicateIndices.length} duplicate)`,
+      });
+    }
+  }
+  return errors;
+}
+
 /**
  * Slots that are still errored after the slice-level retry and whose latest
  * failure is a transient judge fault (session.idle timeout, throttling, 5xx).
@@ -1038,6 +1155,27 @@ function recoverComparisonSlot(slot, config) {
       },
     };
   }
+  if (
+    !isCompleteExecutorRecord(baselineSlot[0]) ||
+    !isCompleteExecutorRecord(skilledSlot[0])
+  ) {
+    const describe = (record) =>
+      `type=${record?.type ?? "<missing>"} ` +
+      `status=${record?.status ?? "<missing>"} ` +
+      `trajectory=${record?.trajectory == null ? "missing" : "present"}`;
+    return {
+      ok: false,
+      error: {
+        phase: "comparison_pairing",
+        kind: "permanent",
+        code: "targeted_slot_trajectory_incomplete",
+        message:
+          `Expected successful complete executor trajectories, found ` +
+          `baseline ${describe(baselineSlot[0])}; ` +
+          `treatment ${describe(skilledSlot[0])}`,
+      },
+    };
+  }
 
   const baselineVariant = config.baselineVariant ?? "baseline";
   const skilledVariant = config.skilledVariant ?? "skilled";
@@ -1082,22 +1220,41 @@ function recoverComparisonSlot(slot, config) {
     };
   }
 
+  const allTrials = (retryReport?.stimuli ?? [])
+    .flatMap((stimulus) => stimulus.trials ?? []);
   const trials = (retryReport?.stimuli ?? [])
     .filter((stimulus) => stimulus.stimulusName === slot.stimulusName)
     .flatMap((stimulus) => stimulus.trials ?? []);
-  if (trials.length !== 1) {
+  if (allTrials.length !== 1 || trials.length !== 1) {
     return {
       ok: false,
       error: {
         phase: "comparison_judge",
         kind: "unknown",
         code: "targeted_retry_result_ambiguous",
-        message: `Targeted comparison retry returned ${trials.length} trial(s) for the planned slot`,
+        message:
+          `Targeted comparison retry returned ${allTrials.length} total trial(s), ` +
+          `${trials.length} for the planned slot`,
       },
     };
   }
   if (trials[0].errored) {
     return { ok: false, error: classifyComparisonError(trials[0].evidence) };
+  }
+  const validWinner = new Set(["treatment", "baseline", "tie"]).has(
+    trials[0].winner,
+  );
+  if (!validWinner && !Number.isFinite(trials[0].score)) {
+    return {
+      ok: false,
+      error: {
+        phase: "comparison_judge",
+        kind: "permanent",
+        code: "targeted_retry_result_invalid",
+        message:
+          "Targeted comparison retry returned a trial without a valid winner or numeric score",
+      },
+    };
   }
   return { ok: true, trial: trials[0] };
 }
@@ -1113,6 +1270,13 @@ function recoverTransientComparisonSlots(primaryReport, config) {
   const compare = config.compare ?? runCompare;
   const maxSlots = config.maxSlots ?? MAX_TARGETED_COMPARISON_SLOTS;
   const slots = transientComparisonSlots(primaryReport);
+  const identityErrors = targetedSlotIdentityErrors(
+    primaryReport,
+    config.baselineRecords,
+    config.skilledRecords,
+    config.baselineVariant ?? "baseline",
+    config.skilledVariant ?? "skilled",
+  );
   const targeted = {
     maxSlots,
     plannedSlotCount: slots.length,
@@ -1142,11 +1306,14 @@ function recoverTransientComparisonSlots(primaryReport, config) {
         `(${slot.error.code}) from preserved executor trajectories`,
     );
     targeted.attemptedSlotCount++;
-    const outcome = recoverComparisonSlot(slot, {
-      ...config,
-      compare,
-      slotOrdinal: index + 1,
-    });
+    const identityError = identityErrors.get(slot.stimulusName);
+    const outcome = identityError
+      ? { ok: false, error: identityError }
+      : recoverComparisonSlot(slot, {
+          ...config,
+          compare,
+          slotOrdinal: index + 1,
+        });
     if (outcome.ok) {
       recovered.set(slot.key, { slot, trial: outcome.trial });
       targeted.recoveredSlotCount++;
