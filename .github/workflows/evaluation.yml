@@ -1290,24 +1290,68 @@ jobs:
       group: publish-session-data
       cancel-in-progress: false
     steps:
+      - name: Validate session data credentials
+        id: auth
+        continue-on-error: ${{ needs.gate.outputs.pr_number != '' }}
+        env:
+          # Cross-repo PAT with contents:write on dotnet/skills-data.
+          # GITHUB_TOKEN cannot push to a different repo, so a fine-grained PAT is required.
+          SKILLS_DATA_TOKEN: ${{ secrets.SKILLS_DATA_TOKEN }}
+          IS_PR: ${{ needs.gate.outputs.pr_number != '' }}
+        run: |
+          if [ -z "$SKILLS_DATA_TOKEN" ]; then
+            if [ "$IS_PR" = "true" ]; then
+              echo "::warning title=Session telemetry token is missing::SKILLS_DATA_TOKEN is not configured. Session replay publishing is degraded for this PR; evaluation verdicts remain authoritative."
+            else
+              echo "::error title=Session data token is missing::SKILLS_DATA_TOKEN is not configured. Add or rotate the repository secret before scheduled/main publishing can succeed."
+            fi
+            exit 2
+          fi
+          set +e
+          REPO_URL="https://x-access-token:${SKILLS_DATA_TOKEN}@github.com/dotnet/skills-data.git"
+          AUTH_DIR="$RUNNER_TEMP/session-data-auth-preflight"
+          rm -rf "$AUTH_DIR"
+          git init --quiet "$AUTH_DIR"
+          git -C "$AUTH_DIR" config user.name "github-actions[bot]"
+          git -C "$AUTH_DIR" config user.email "github-actions[bot]@users.noreply.github.com"
+          git -C "$AUTH_DIR" commit --allow-empty --quiet -m "Session data write preflight"
+          AUTH_REF="session-data-auth-preflight-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git -C "$AUTH_DIR" push --dry-run "$REPO_URL" "HEAD:refs/heads/$AUTH_REF" > /dev/null 2>&1
+          AUTH_STATUS=$?
+          rm -rf "$AUTH_DIR"
+          set -e
+          if [ "$AUTH_STATUS" -ne 0 ]; then
+            if [ "$IS_PR" = "true" ]; then
+              echo "::warning title=Session telemetry write preflight failed::SKILLS_DATA_TOKEN could not authenticate for a dry-run write to dotnet/skills-data. Session replay publishing is degraded for this PR; evaluation verdicts remain authoritative."
+            else
+              echo "::error title=Session data write preflight failed::SKILLS_DATA_TOKEN could not authenticate for a dry-run write to dotnet/skills-data. Rotate or repair the repository secret before scheduled/main publishing can succeed."
+            fi
+            echo "git push --dry-run preflight exited $AUTH_STATUS; credential-bearing remote output was suppressed." >&2
+            exit "$AUTH_STATUS"
+          fi
+
       - name: Checkout repository
         id: checkout
+        if: steps.auth.outcome == 'success'
+        continue-on-error: ${{ needs.gate.outputs.pr_number != '' }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           persist-credentials: false
 
       - name: Download evaluation artifacts
         id: download
+        if: steps.auth.outcome == 'success' && steps.checkout.outcome == 'success'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: vally-results-*
           path: all-results/
           merge-multiple: false
-        continue-on-error: ${{ needs.evaluate.result != 'success' }}
+        continue-on-error: ${{ needs.gate.outputs.pr_number != '' || needs.evaluate.result != 'success' }}
 
       - name: Inspect downloaded artifacts
         id: inspect
         if: always()
+        continue-on-error: ${{ needs.gate.outputs.pr_number != '' }}
         run: |
           echo "=== all-results/ directory listing (3 levels) ==="
           if [ -d all-results ]; then
@@ -1325,6 +1369,8 @@ jobs:
 
       - name: Determine source metadata
         id: meta
+        if: steps.download.outcome == 'success'
+        continue-on-error: ${{ needs.gate.outputs.pr_number != '' }}
         run: |
           if [ -n "${{ needs.gate.outputs.pr_number }}" ]; then
             echo "source=pr" >> "$GITHUB_OUTPUT"
@@ -1338,6 +1384,8 @@ jobs:
 
       - name: Build session manifest
         id: build
+        if: steps.meta.outcome == 'success'
+        continue-on-error: ${{ needs.gate.outputs.pr_number != '' }}
         shell: pwsh
         run: |
           ./eng/dashboard/build-replay-sessions.ps1 `
@@ -1346,39 +1394,10 @@ jobs:
             -Source ${{ steps.meta.outputs.source }} `
             -PrNumber "${{ steps.meta.outputs.pr_number }}"
 
-      - name: Validate session data credentials
-        id: auth
-        env:
-          # Cross-repo PAT with contents:write on dotnet/skills-data.
-          # GITHUB_TOKEN cannot push to a different repo, so a fine-grained PAT is required.
-          SKILLS_DATA_TOKEN: ${{ secrets.SKILLS_DATA_TOKEN }}
-          IS_PR: ${{ needs.gate.outputs.pr_number != '' }}
-        run: |
-          if [ -z "$SKILLS_DATA_TOKEN" ]; then
-            if [ "$IS_PR" = "true" ]; then
-              echo "::warning title=Session telemetry token is missing::SKILLS_DATA_TOKEN is not configured. Session replay publishing is degraded for this PR; evaluation verdicts remain authoritative."
-            else
-              echo "::error title=Session data token is missing::SKILLS_DATA_TOKEN is not configured. Add or rotate the repository secret before scheduled/main publishing can succeed."
-            fi
-            exit 2
-          fi
-          set +e
-          REPO_URL="https://x-access-token:${SKILLS_DATA_TOKEN}@github.com/dotnet/skills-data.git"
-          git ls-remote "$REPO_URL" HEAD > /dev/null 2>&1
-          AUTH_STATUS=$?
-          set -e
-          if [ "$AUTH_STATUS" -ne 0 ]; then
-            if [ "$IS_PR" = "true" ]; then
-              echo "::warning title=Session telemetry authentication failed::SKILLS_DATA_TOKEN cannot access dotnet/skills-data. Session replay publishing is degraded for this PR; evaluation verdicts remain authoritative."
-            else
-              echo "::error title=Session data authentication failed::SKILLS_DATA_TOKEN cannot access dotnet/skills-data. Rotate or repair the repository secret before scheduled/main publishing can succeed."
-            fi
-            echo "git ls-remote authentication preflight exited $AUTH_STATUS; credential-bearing remote output was suppressed." >&2
-            exit "$AUTH_STATUS"
-          fi
-
       - name: Clone existing session data branch
         id: clone
+        if: steps.build.outcome == 'success'
+        continue-on-error: ${{ needs.gate.outputs.pr_number != '' }}
         env:
           SKILLS_DATA_TOKEN: ${{ secrets.SKILLS_DATA_TOKEN }}
         run: |
@@ -1398,6 +1417,8 @@ jobs:
 
       - name: Merge and purge old sessions
         id: merge
+        if: steps.clone.outcome == 'success'
+        continue-on-error: ${{ needs.gate.outputs.pr_number != '' }}
         shell: pwsh
         run: |
           ./eng/dashboard/purge-replay-sessions.ps1 `
@@ -1408,6 +1429,8 @@ jobs:
 
       - name: Push to dashboard-session-data branch (dotnet/skills-data)
         id: push
+        if: steps.merge.outcome == 'success'
+        continue-on-error: ${{ needs.gate.outputs.pr_number != '' }}
         run: |
           cd /tmp/session-deploy
           git add data/
@@ -1431,7 +1454,7 @@ jobs:
         env:
           IS_PR: ${{ needs.gate.outputs.pr_number != '' }}
           CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}
-          DOWNLOAD_OUTCOME: ${{ steps.download.conclusion }}
+          DOWNLOAD_OUTCOME: ${{ steps.download.outcome }}
           BUILD_OUTCOME: ${{ steps.build.outcome }}
           AUTH_OUTCOME: ${{ steps.auth.outcome }}
           CLONE_OUTCOME: ${{ steps.clone.outcome }}
@@ -1440,7 +1463,7 @@ jobs:
           PUBLISHED: ${{ steps.push.outputs.published }}
         run: |
           OUTCOMES="$CHECKOUT_OUTCOME $DOWNLOAD_OUTCOME $BUILD_OUTCOME $AUTH_OUTCOME $CLONE_OUTCOME $MERGE_OUTCOME $PUSH_OUTCOME"
-          if [[ "$OUTCOMES" == *failure* || "$OUTCOMES" == *cancelled* || "$PUBLISHED" != "true" ]]; then
+          if [[ "$OUTCOMES" == *failure* || "$OUTCOMES" == *cancelled* || "$OUTCOMES" == *skipped* || "$PUBLISHED" != "true" ]]; then
             if [ "$IS_PR" = "true" ]; then
               echo "status=degraded" >> "$GITHUB_OUTPUT"
               echo "::warning title=Session replay telemetry degraded::The auxiliary session-data publisher failed. Evaluation results remain authoritative, but this PR will not include replay links."

@@ -21,10 +21,12 @@
 > the Copilot CLI's no-authentication setup block. Unrelated service and
 > configuration failures remain terminal.
 
-> PR session replay publishing is auxiliary. A `dotnet/skills-data`
-> authentication failure is shown in workflow annotations and the PR report but
-> does not override authoritative evaluation verdicts. Scheduled and main
-> session-data publishing remains strict.
+> PR session replay publishing is auxiliary. A missing or invalid
+> `SKILLS_DATA_TOKEN`, or one that cannot authenticate for a non-mutating
+> `git push --dry-run` to `dotnet/skills-data`, is detected before replay
+> artifacts are processed. The degradation is shown in workflow annotations and
+> the PR report but does not override authoritative evaluation verdicts.
+> Scheduled and main session-data publishing remains strict.
 
 > Current Vally PR evaluations default to `claude-sonnet-5` and `gpt-5.6-luna`,
 > with judges `gpt-5.6-terra` and `claude-haiku-4.5`, respectively.

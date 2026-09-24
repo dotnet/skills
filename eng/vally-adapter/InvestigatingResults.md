@@ -241,9 +241,11 @@ The adapter's `results.json` is a summary. The uploaded artifact also contains t
 
 To see exactly what the agent did for a failing scenario, open its `events.jsonl` (match on `variant` + `stimulusName` in the sibling `metadata.json`).
 
-Session replay publication is auxiliary on PR runs. If `SKILLS_DATA_TOKEN`
-cannot access `dotnet/skills-data`, the workflow emits a warning and the PR
-report states that replay telemetry is unavailable, while authoritative
+Session replay publication is auxiliary on PR runs. Before downloading or
+building replay data, the workflow performs a non-mutating `git push --dry-run`
+to verify that `SKILLS_DATA_TOKEN` can authenticate for a write to
+`dotnet/skills-data`. A missing, invalid, or read-only token emits a warning and
+the PR report states that replay telemetry is unavailable, while authoritative
 evaluation verdicts remain unchanged. Scheduled and main publishing stays
 strict: the same publisher failure fails that workflow path.
 
@@ -280,12 +282,17 @@ The agent crashed, the model was unavailable, evidence was missing, or the compa
 
 The workflow retries only required baseline or isolated-skilled executor records
 whose exact failure is a `session.idle` timeout. It reruns the affected eval and
-variant once, preserves all successful first-attempt slots, and replaces only
+variant up to two bounded times while exact timeout slots remain unresolved,
+preserves all successful first-attempt and recovered slots, and replaces only
 matching failed `shardKey` slots from the same normalized eval path that
-succeed. Records without a `shardKey` remain invalid. Check
+succeed. A later pass cannot overwrite evidence recovered by an earlier pass.
+Records without a `shardKey` remain invalid. Check
 `executor-retry-summary.json` and the raw record's `executorRetry` field for
-recovered attempts. The merged record retains the original experiment
-provenance; `executorRetry.retryRunId` identifies the successful retry run.
+recovered attempts. A timeout that survives both targeted passes remains
+measurement-invalid. The summary is written before and after every retry so an
+outer watchdog termination still leaves the active attempt and the last
+completed accounting for diagnosis. The merged record retains the original
+experiment provenance; `executorRetry.retryRunId` identifies the successful retry run.
 Persistent timeouts, other executor failures, or more than three affected
 eval/variant groups remain measurement-invalid and keep the matrix leg red. The
 optional whole-plugin arm is report-only telemetry and is not retried.

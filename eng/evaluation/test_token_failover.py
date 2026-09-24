@@ -2329,7 +2329,7 @@ esac
 
         steps = {step.get("name"): step for step in publish_job["steps"]}
         auth_script = steps["Validate session data credentials"]["run"]
-        self.assertIn('git ls-remote "$REPO_URL" HEAD', auth_script)
+        self.assertIn('push --dry-run "$REPO_URL"', auth_script)
         self.assertIn(
             "Session telemetry token is missing",
             auth_script,
@@ -2339,24 +2339,84 @@ esac
             auth_script,
         )
         self.assertIn(
-            "Session telemetry authentication failed",
+            "Session telemetry write preflight failed",
             auth_script,
         )
         self.assertIn(
-            "Session data authentication failed",
+            "Session data write preflight failed",
             auth_script,
         )
         self.assertIn(
             "credential-bearing remote output was suppressed",
             auth_script,
         )
+        self.assertIn("commit --allow-empty", auth_script)
+        self.assertIn("session-data-auth-preflight-", auth_script)
+        self.assertLess(
+            [step.get("name") for step in publish_job["steps"]].index(
+                "Validate session data credentials"
+            ),
+            [step.get("name") for step in publish_job["steps"]].index(
+                "Checkout repository"
+            ),
+        )
+        self.assertEqual(
+            steps["Validate session data credentials"]["continue-on-error"],
+            "${{ needs.gate.outputs.pr_number != '' }}",
+        )
+        self.assertEqual(
+            steps["Checkout repository"]["if"],
+            "steps.auth.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Download evaluation artifacts"]["if"],
+            "steps.auth.outcome == 'success' && steps.checkout.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Determine source metadata"]["if"],
+            "steps.download.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Build session manifest"]["if"],
+            "steps.meta.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Clone existing session data branch"]["if"],
+            "steps.build.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Merge and purge old sessions"]["if"],
+            "steps.clone.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Push to dashboard-session-data branch (dotnet/skills-data)"]["if"],
+            "steps.merge.outcome == 'success'",
+        )
+        for name in (
+            "Checkout repository",
+            "Inspect downloaded artifacts",
+            "Determine source metadata",
+            "Build session manifest",
+            "Clone existing session data branch",
+            "Merge and purge old sessions",
+            "Push to dashboard-session-data branch (dotnet/skills-data)",
+        ):
+            self.assertEqual(
+                steps[name]["continue-on-error"],
+                "${{ needs.gate.outputs.pr_number != '' }}",
+            )
+        self.assertIn(
+            "needs.gate.outputs.pr_number != '' || needs.evaluate.result != 'success'",
+            steps["Download evaluation artifacts"]["continue-on-error"],
+        )
         status_step = steps["Report session publishing outcome"]
         self.assertEqual(status_step["if"], "always()")
         self.assertEqual(
             status_step["env"]["DOWNLOAD_OUTCOME"],
-            "${{ steps.download.conclusion }}",
+            "${{ steps.download.outcome }}",
         )
         status_script = status_step["run"]
+        self.assertIn('"$OUTCOMES" == *skipped*', status_script)
         self.assertIn('echo "status=degraded"', status_script)
         self.assertIn(
             "Evaluation results remain authoritative",
@@ -2612,6 +2672,14 @@ esac
         )
         self.assertIn(
             '--max-groups 3',
+            run_script,
+        )
+        self.assertIn(
+            '--max-attempts-per-group 2',
+            run_script,
+        )
+        self.assertIn(
+            "timeout --signal=TERM --kill-after=30s 45m",
             run_script,
         )
         self.assertIn(
