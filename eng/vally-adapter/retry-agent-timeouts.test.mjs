@@ -19,6 +19,7 @@ import {
   recomputeNativeAggregate,
   requiredArmTimedOut,
   retryAgentTimeouts,
+  safeAgentPathSegment,
   scenarioMissedActivation,
   scenarioRegressedOnIsolatedCompletion,
 } from "./retry-agent-timeouts.mjs";
@@ -213,6 +214,40 @@ test("findTimedOutScenarios records the owning verdict and position", () => {
       scenarioName: "second",
     },
   ]);
+});
+
+test("retry paths reject traversal-like agent names before filesystem use", () => {
+  let timeoutLookups = 0;
+  const paths = workspace(
+    resultsWith([timedOutScenario("flaky")], {
+      skillName: "x/../../evil",
+    }),
+  );
+  const { run, calls } = stubRun({ flaky: scenario("flaky") });
+  const config = {
+    ...baseConfig(paths, run),
+    resolveScenarioTimeout: () => {
+      timeoutLookups++;
+      return 300;
+    },
+  };
+
+  const summary = retryAgentTimeouts(config);
+
+  assert.equal(calls.length, 0);
+  assert.equal(timeoutLookups, 0);
+  assert.equal(summary.unresolvedScenarioCount, 1);
+  assert.match(summary.attempts[0].reason, /Invalid agent name for retry path/);
+  assert.equal(existsSync(paths.retryResultsDir), false);
+  assert.equal(existsSync(join(paths.root, "evil")), false);
+});
+
+test("retry directory segments use Reporter-compatible slugging", () => {
+  assert.equal(safeAgentPathSegment("agent name!"), "agent-name");
+  assert.throws(() => safeAgentPathSegment(".."));
+  assert.throws(() => safeAgentPathSegment("nested/agent"));
+  assert.throws(() => safeAgentPathSegment("nested\\agent"));
+  assert.throws(() => safeAgentPathSegment("--no-judge"));
 });
 
 test("a required-arm timeout is recovered by a targeted scenario retry", () => {

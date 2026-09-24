@@ -226,6 +226,27 @@ function durationSeconds(value) {
     : amount * { "": 1, s: 1, m: 60, h: 3600 }[unit];
 }
 
+function safeAgentPathSegment(skillName) {
+  const name = String(skillName ?? "");
+  if (
+    !name ||
+    name === "." ||
+    name === ".." ||
+    name.startsWith("-") ||
+    /[\/\\\0]/.test(name)
+  ) {
+    throw new Error(`Invalid agent name for retry path: ${JSON.stringify(name)}`);
+  }
+  const segment = name
+    .replace(/[^a-zA-Z0-9._-]/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (!segment || segment === "." || segment === "..") {
+    throw new Error(`Invalid agent name for retry path: ${JSON.stringify(name)}`);
+  }
+  return segment;
+}
+
 function findAgentEvalFile(testsDir, skillName) {
   const agentName = String(skillName).replace(/^agent\./, "");
   const candidates = [
@@ -364,7 +385,7 @@ function quarantineRetryResults(root) {
 function archiveRetryEvidence(attemptRoot, retryResultsFile, retryResultsContent, target, index, config) {
   const auditRoot = join(
     config.retryAuditDir,
-    `${index + 1}-${target.skillName}`,
+    `${index + 1}-${target.pathSegment}`,
     basename(attemptRoot),
   );
   mkdirSync(dirname(auditRoot), { recursive: true });
@@ -390,7 +411,7 @@ function archiveRetryEvidence(attemptRoot, retryResultsFile, retryResultsContent
 function retryScenario(target, index, config) {
   const attemptParent = join(
     config.retryResultsDir,
-    `${index + 1}-${target.skillName}`,
+    `${index + 1}-${target.pathSegment}`,
   );
   mkdirSync(attemptParent, { recursive: true });
   const attemptRoot = mkdtempSync(join(attemptParent, "attempt-"));
@@ -642,6 +663,27 @@ function retryAgentTimeouts(config) {
   const resolveScenarioTimeout =
     config.resolveScenarioTimeout ?? effectiveAgentTimeoutSeconds;
   for (const target of targets) {
+    let pathSegment;
+    try {
+      pathSegment = safeAgentPathSegment(target.skillName);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      summary.unresolvedScenarioCount++;
+      summary.attempts.push({
+        skillName: target.skillName,
+        scenarioName: target.scenarioName,
+        recovered: false,
+        reason,
+        retryExitCode: null,
+        auditDir: null,
+        armTimeoutSeconds: null,
+        estimatedSeconds: null,
+      });
+      console.warn(
+        `Skipping timed-out scenario ${target.skillName}/${target.scenarioName}: ${reason}`,
+      );
+      continue;
+    }
     const armTimeoutSeconds = resolveScenarioTimeout(
       config.testsDir,
       target.skillName,
@@ -676,7 +718,12 @@ function retryAgentTimeouts(config) {
         `Skipping timed-out scenario ${target.skillName}/${target.scenarioName}: ${reason}`,
       );
     } else {
-      eligibleTargets.push({ ...target, armTimeoutSeconds, estimatedSeconds });
+      eligibleTargets.push({
+        ...target,
+        pathSegment,
+        armTimeoutSeconds,
+        estimatedSeconds,
+      });
     }
   }
 
@@ -770,4 +817,5 @@ export {
   retryAgentTimeouts,
   scenarioMissedActivation,
   scenarioRegressedOnIsolatedCompletion,
+  safeAgentPathSegment,
 };

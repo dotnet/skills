@@ -360,6 +360,9 @@ A required arm that hit its wall-clock limit is recovered before the adapter
 runs. `retry-agent-timeouts.mjs` re-runs only that scenario, through the
 evaluator's combined `--target` and `--scenario` filters, into its own results
 directory, then swaps the fresh scenario record into the native results file.
+The native agent name is validated as a single path segment before any timeout
+lookup or retry/audit directory is created; unsafe names remain unresolved with
+no retry filesystem writes.
 This prevents a same-named scenario owned by another target from entering the
 retry. Session databases are never merged, so every role/session record stays
 unique and the rejudge pairing rules that reject duplicate completed roles are

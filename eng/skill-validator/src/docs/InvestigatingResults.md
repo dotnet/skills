@@ -234,7 +234,9 @@ before the adapter. It re-runs only the timed-out scenario, using
 `skill-validator evaluate --target "<agent>" --scenario "<name>"`, writes that
 retry into its own `--results-dir`, and replaces only that one scenario record
 in the native results file. The target filter prevents another agent with the
-same scenario name from entering the retry. Because the retry never shares a
+same scenario name from entering the retry. The agent identity is validated as
+a safe single path segment before timeout lookup or retry/audit storage.
+Because the retry never shares a
 results directory, its sessions never merge with the first attempt's: every
 role/session record stays unique and the `rejudge` pairing rules that reject
 duplicate completed roles still apply unchanged. The retry judges the arms it
