@@ -1,6 +1,6 @@
 ---
 name: directory-build-organization
-description: "DO NOT INVOKE for one project with no repeated shared policy. This skill requires settings or build infrastructure shared across multiple MSBuild projects. USE FOR: Directory.Build.props/targets/rsp, Directory.Packages.props, central package management, duplicated settings, multi-level hierarchy and overrides, and TargetFramework conditions that must move later. Exclude non-MSBuild systems and legacy-to-SDK migration."
+description: "DO NOT INVOKE to introduce shared build files for one project with no repeated policy. Existing Directory.Build.props/targets diagnosis remains in scope even for one project when the defect is import timing or file placement. USE FOR: Directory.Build.props/targets/rsp, Directory.Packages.props, central package management, duplicated settings, multi-level hierarchy and overrides, and TargetFramework conditions that must move later. Exclude non-MSBuild systems and legacy-to-SDK migration."
 license: MIT
 ---
 
