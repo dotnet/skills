@@ -37,7 +37,8 @@ broad health check:
 | Common test anti-patterns | `test-anti-patterns` |
 | Formal smell catalogue | `test-smell-detection` |
 | Bugs or mutations the suite would miss | `test-gap-analysis` |
-| Coverage or risk metrics | `coverage-analysis` for .NET; native tooling otherwise |
+| Project-wide coverage, plateaus, or risk hotspots | `coverage-analysis` for .NET; native tooling otherwise |
+| CRAP or coverage-and-complexity risk for one named method, class, or file | `crap-score` |
 | Tags, traits, or test-type distribution | `test-tagging` |
 | Generate or repair tests | `code-testing-generator` |
 

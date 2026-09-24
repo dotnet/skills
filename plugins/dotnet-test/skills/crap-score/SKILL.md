@@ -60,10 +60,13 @@ A method with 100% coverage has CRAP = complexity (the minimum). A method with 0
 
 ### Step 1: Collect code coverage data
 
-If the user supplies a Cobertura report, use it directly and do not rerun tests.
-Otherwise invoke `run-tests` to classify the repository's test platform and
-confirm the compatible command shape, then require a command that emits
-Cobertura:
+If the user supplies a valid Cobertura report that contains the requested
+target, use it directly and do not rerun tests. If the supplied report is
+malformed, empty, internally contradictory, or missing the target, treat it as
+failed input: regenerate it with a repository-compatible command when possible,
+or request a valid report when collection is unavailable. Otherwise invoke
+`run-tests` to classify the repository's test platform and confirm the
+compatible command shape, then require a command that emits Cobertura:
 
 | Coverage provider | Cobertura command |
 |---|---|

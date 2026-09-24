@@ -32,17 +32,20 @@ Choose one of three paths:
 - **Migration pipeline:** **Detect → Generate → Migrate → Test** for a broad or
   multi-call-site migration. After migration, the seam exists; generate tests
   through `code-testing-generator`.
-- **Focused migration:** for an inventory-only request or one named dependency,
-  invoke only `detect-static-dependencies` or `migrate-static-to-wrapper` and
-  stop after the requested result.
+- **Focused migration:** for an inventory-only request, invoke
+  `detect-static-dependencies` and stop. For one named dependency, invoke
+  `migrate-static-to-wrapper`; stop after migration only when tests were not
+  requested, otherwise continue to the Test phase.
 - **Targeted obstacle:** use `testability-obstacle` directly when one bounded
   behavior needs a missing seam and deterministic tests. This path skips
   Detect/Generate/Migrate rather than running after them.
 
 If the request maps to one specialist skill, invoke it once and return its
-focused result; do not expand into the full pipeline. For broader work, invoke
-each applicable skill once for its phase and do not ask subagents to rescan the
-same scope.
+focused result unless the request also requires deterministic tests. In that
+case, reuse the migrated seam and continue directly to the Test phase without
+running unrelated detection or generation phases. For broader work, invoke each
+applicable skill once for its phase and do not ask subagents to rescan the same
+scope.
 
 For a broad analysis-only request, stop after Detect. When the user explicitly
 asks you to make the code testable or add tests, that authorizes the relevant
