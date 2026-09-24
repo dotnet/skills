@@ -3,22 +3,6 @@
   "entries": {
     "Efficiency": [
       {
-        "commit": {
-          "author": {
-            "username": "AbhitejJohn",
-            "name": "Abhitej John"
-          },
-          "message": "Merge pull request #1149 from dotnet/abhitejjohn-vally-014-ci-proof",
-          "url": "https://github.com/dotnet/skills/commit/a8fece0fce5f8b0737754a332a1a7c6487e8f927",
-          "timestamp": "2026-09-09T17:53:08+00:00",
-          "id": "a8fece0fce5f8b0737754a332a1a7c6487e8f927"
-        },
-        "model": "claude-opus-4.8",
-        "benches": [],
-        "date": 1789036360813,
-        "tool": "customSmallerIsBetter"
-      },
-      {
         "tool": "customSmallerIsBetter",
         "model": "gpt-5.6-luna",
         "benches": [
@@ -10493,247 +10477,406 @@
           "id": "4ed5f7c121da8dd31af31a35cef05070948c6556",
           "message": "Fix evaluation state label reconciliation (#1197)"
         }
+      },
+      {
+        "tool": "customSmallerIsBetter",
+        "model": "gpt-5.6-sol",
+        "commit": {
+          "timestamp": "2026-09-23T16:40:19+00:00",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Amaury Levé"
+          },
+          "url": "https://github.com/dotnet/skills/commit/e115891bd2ac3c7eefd5e30a405f7b5638f5e429",
+          "message": "Speed up dashboard model filtering (#1205)",
+          "id": "e115891bd2ac3c7eefd5e30a405f7b5638f5e429"
+        },
+        "benches": [
+          {
+            "name": "configuring-opentelemetry-dotnet/Configure all three OpenTelemetry signals with correct OTLP export - Skilled Time",
+            "overfitting": "high",
+            "overfittingScore": 0.55,
+            "value": 12.6,
+            "unit": "seconds"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Configure all three OpenTelemetry signals with correct OTLP export - Skilled Tokens In",
+            "overfitting": "high",
+            "overfittingScore": 0.55,
+            "value": 26909.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Configure all three OpenTelemetry signals with correct OTLP export - Plugin Time",
+            "overfitting": "high",
+            "overfittingScore": 0.55,
+            "value": 26.0,
+            "unit": "seconds"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Configure all three OpenTelemetry signals with correct OTLP export - Plugin Tokens In",
+            "overfitting": "high",
+            "overfittingScore": 0.55,
+            "value": 27910.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Configure all three OpenTelemetry signals with correct OTLP export - Vanilla Time",
+            "value": 20.5,
+            "unit": "seconds"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Configure all three OpenTelemetry signals with correct OTLP export - Vanilla Tokens In",
+            "value": 12617.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Propagate trace context across a message queue - Skilled Time",
+            "overfitting": "high",
+            "overfittingScore": 0.55,
+            "value": 33.0,
+            "unit": "seconds"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Propagate trace context across a message queue - Skilled Tokens In",
+            "overfitting": "high",
+            "overfittingScore": 0.55,
+            "value": 27541.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Propagate trace context across a message queue - Plugin Time",
+            "overfitting": "high",
+            "overfittingScore": 0.55,
+            "value": 27.3,
+            "unit": "seconds"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Propagate trace context across a message queue - Plugin Tokens In",
+            "overfitting": "high",
+            "overfittingScore": 0.55,
+            "value": 28296.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Propagate trace context across a message queue - Vanilla Time",
+            "value": 21.3,
+            "unit": "seconds"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Propagate trace context across a message queue - Vanilla Tokens In",
+            "value": 13014.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Set up OpenTelemetry tracing and metrics with custom spans in ASP.NET Core - Skilled Time",
+            "overfitting": "high",
+            "overfittingScore": 0.55,
+            "value": 21.3,
+            "unit": "seconds"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Set up OpenTelemetry tracing and metrics with custom spans in ASP.NET Core - Skilled Tokens In",
+            "overfitting": "high",
+            "overfittingScore": 0.55,
+            "value": 27714.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Set up OpenTelemetry tracing and metrics with custom spans in ASP.NET Core - Plugin Time",
+            "overfitting": "high",
+            "overfittingScore": 0.55,
+            "value": 13.6,
+            "unit": "seconds"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Set up OpenTelemetry tracing and metrics with custom spans in ASP.NET Core - Plugin Tokens In",
+            "overfitting": "high",
+            "overfittingScore": 0.55,
+            "value": 28108.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Set up OpenTelemetry tracing and metrics with custom spans in ASP.NET Core - Vanilla Time",
+            "value": 23.3,
+            "unit": "seconds"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Set up OpenTelemetry tracing and metrics with custom spans in ASP.NET Core - Vanilla Tokens In",
+            "value": 13096.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Time",
+            "overfitting": "moderate",
+            "overfittingScore": 0.47,
+            "value": 25.7,
+            "unit": "seconds"
+          },
+          {
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Tokens In",
+            "overfitting": "moderate",
+            "overfittingScore": 0.47,
+            "value": 30301.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Time",
+            "overfitting": "moderate",
+            "overfittingScore": 0.47,
+            "value": 27.0,
+            "unit": "seconds"
+          },
+          {
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Tokens In",
+            "overfitting": "moderate",
+            "overfittingScore": 0.47,
+            "value": 30213.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Time",
+            "value": 27.1,
+            "unit": "seconds"
+          },
+          {
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Tokens In",
+            "value": 14501.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Time",
+            "overfitting": "high",
+            "overfittingScore": 0.51,
+            "value": 22.9,
+            "unit": "seconds"
+          },
+          {
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Tokens In",
+            "overfitting": "high",
+            "overfittingScore": 0.51,
+            "value": 81584.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Time",
+            "overfitting": "high",
+            "overfittingScore": 0.51,
+            "value": 44.8,
+            "unit": "seconds"
+          },
+          {
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Tokens In",
+            "overfitting": "high",
+            "overfittingScore": 0.51,
+            "value": 82757.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Time",
+            "value": 58.9,
+            "unit": "seconds"
+          },
+          {
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Tokens In",
+            "value": 49524.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Time",
+            "overfitting": "high",
+            "overfittingScore": 0.51,
+            "value": 20.4,
+            "unit": "seconds"
+          },
+          {
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Tokens In",
+            "overfitting": "high",
+            "overfittingScore": 0.51,
+            "value": 47183.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Time",
+            "overfitting": "high",
+            "overfittingScore": 0.51,
+            "value": 21.0,
+            "unit": "seconds"
+          },
+          {
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Tokens In",
+            "overfitting": "high",
+            "overfittingScore": 0.51,
+            "value": 47887.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Time",
+            "value": 22.4,
+            "unit": "seconds"
+          },
+          {
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Tokens In",
+            "value": 12912.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Time",
+            "overfitting": "high",
+            "overfittingScore": 0.51,
+            "value": 219.7,
+            "unit": "seconds"
+          },
+          {
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Tokens In",
+            "overfitting": "high",
+            "overfittingScore": 0.51,
+            "value": 461559.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Time",
+            "overfitting": "high",
+            "overfittingScore": 0.51,
+            "value": 146.0,
+            "unit": "seconds"
+          },
+          {
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Tokens In",
+            "overfitting": "high",
+            "overfittingScore": 0.51,
+            "value": 446224.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Time",
+            "value": 305.3,
+            "unit": "seconds"
+          },
+          {
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Tokens In",
+            "value": 424406.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "minimal-api-file-upload/Implement secure file upload in ASP.NET Core 8 minimal API - Skilled Time",
+            "overfitting": "moderate",
+            "overfittingScore": 0.28,
+            "value": 34.1,
+            "unit": "seconds"
+          },
+          {
+            "name": "minimal-api-file-upload/Implement secure file upload in ASP.NET Core 8 minimal API - Skilled Tokens In",
+            "overfitting": "moderate",
+            "overfittingScore": 0.28,
+            "value": 27608.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "minimal-api-file-upload/Implement secure file upload in ASP.NET Core 8 minimal API - Plugin Time",
+            "overfitting": "moderate",
+            "overfittingScore": 0.28,
+            "value": 27.3,
+            "unit": "seconds"
+          },
+          {
+            "name": "minimal-api-file-upload/Implement secure file upload in ASP.NET Core 8 minimal API - Plugin Tokens In",
+            "overfitting": "moderate",
+            "overfittingScore": 0.28,
+            "value": 28460.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "minimal-api-file-upload/Implement secure file upload in ASP.NET Core 8 minimal API - Vanilla Time",
+            "value": 50.6,
+            "unit": "seconds"
+          },
+          {
+            "name": "minimal-api-file-upload/Implement secure file upload in ASP.NET Core 8 minimal API - Vanilla Tokens In",
+            "value": 14268.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "minimal-api-file-upload/Stream very large file uploads without buffering - Skilled Time",
+            "overfitting": "moderate",
+            "overfittingScore": 0.28,
+            "value": 26.8,
+            "unit": "seconds"
+          },
+          {
+            "name": "minimal-api-file-upload/Stream very large file uploads without buffering - Skilled Tokens In",
+            "overfitting": "moderate",
+            "overfittingScore": 0.28,
+            "value": 27580.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "minimal-api-file-upload/Stream very large file uploads without buffering - Plugin Time",
+            "overfitting": "moderate",
+            "overfittingScore": 0.28,
+            "value": 20.0,
+            "unit": "seconds"
+          },
+          {
+            "name": "minimal-api-file-upload/Stream very large file uploads without buffering - Plugin Tokens In",
+            "overfitting": "moderate",
+            "overfittingScore": 0.28,
+            "value": 28261.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "minimal-api-file-upload/Stream very large file uploads without buffering - Vanilla Time",
+            "value": 43.8,
+            "unit": "seconds"
+          },
+          {
+            "name": "minimal-api-file-upload/Stream very large file uploads without buffering - Vanilla Tokens In",
+            "value": 13456.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "minimal-api-file-upload/Upload multiple files with metadata in minimal API - Skilled Time",
+            "overfitting": "moderate",
+            "overfittingScore": 0.28,
+            "value": 21.1,
+            "unit": "seconds"
+          },
+          {
+            "name": "minimal-api-file-upload/Upload multiple files with metadata in minimal API - Skilled Tokens In",
+            "overfitting": "moderate",
+            "overfittingScore": 0.28,
+            "value": 27454.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "minimal-api-file-upload/Upload multiple files with metadata in minimal API - Plugin Time",
+            "overfitting": "moderate",
+            "overfittingScore": 0.28,
+            "value": 18.4,
+            "unit": "seconds"
+          },
+          {
+            "name": "minimal-api-file-upload/Upload multiple files with metadata in minimal API - Plugin Tokens In",
+            "overfitting": "moderate",
+            "overfittingScore": 0.28,
+            "value": 28261.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "minimal-api-file-upload/Upload multiple files with metadata in minimal API - Vanilla Time",
+            "value": 16.2,
+            "unit": "seconds"
+          },
+          {
+            "name": "minimal-api-file-upload/Upload multiple files with metadata in minimal API - Vanilla Tokens In",
+            "value": 12754.0,
+            "unit": "tokens"
+          }
+        ],
+        "date": 1790259105368
       }
     ],
     "Quality": [
-      {
-        "verdictEvidence": [
-          {
-            "skillName": "configuring-opentelemetry-dotnet",
-            "skillKind": "invocable",
-            "state": "INVALID_INCONCLUSIVE",
-            "stateReason": {
-              "code": "comparison_invocation_failed",
-              "phase": "comparison_judge"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "dotnet-aspnetcore/configuring-opentelemetry-dotnet: vally compare failed (Command failed: vally compare --baseline /tmp/vally-adapt-wW5eEw/dotnet-aspnetcore__configuring-opentelemetry-dotnet__baseline.jsonl --treatment /tmp/vally-adapt-wW5eEw/dotnet-aspnetcore__configuring-opentelemetry-dotnet__skilled.jsonl --judge-model gpt-5.6-terra --output /tmp/vally-adapt-wW5eEw/dotnet-aspnetcore__configuring-opentelemetry-dotnet__compare.jsonl)",
-            "gateEvidence": {
-              "stimulusVoteCount": 0,
-              "wins": 0,
-              "ties": 0,
-              "losses": 0,
-              "discordant": 0,
-              "direction": "none",
-              "pValue": 1,
-              "alpha": 0.05,
-              "netWin": 0,
-              "minimumNetWin": null,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": false,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "No activation contract could be evaluated",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": null,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [],
-            "judgeRationales": [],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/a8fece0fce5f8b0737754a332a1a7c6487e8f927/plugins/dotnet-aspnetcore/skills/configuring-opentelemetry-dotnet/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/a8fece0fce5f8b0737754a332a1a7c6487e8f927/tests/dotnet-aspnetcore/configuring-opentelemetry-dotnet/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/a8fece0fce5f8b0737754a332a1a7c6487e8f927"
-              }
-            ]
-          },
-          {
-            "skillName": "convert-blazor-server-to-webapp",
-            "skillKind": "invocable",
-            "state": "INVALID_INCONCLUSIVE",
-            "stateReason": {
-              "code": "comparison_invocation_failed",
-              "phase": "comparison_judge"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "dotnet-aspnetcore/convert-blazor-server-to-webapp: vally compare failed (Command failed: vally compare --baseline /tmp/vally-adapt-wW5eEw/dotnet-aspnetcore__convert-blazor-server-to-webapp__baseline.jsonl --treatment /tmp/vally-adapt-wW5eEw/dotnet-aspnetcore__convert-blazor-server-to-webapp__skilled.jsonl --judge-model gpt-5.6-terra --output /tmp/vally-adapt-wW5eEw/dotnet-aspnetcore__convert-blazor-server-to-webapp__compare.jsonl)",
-            "gateEvidence": {
-              "stimulusVoteCount": 0,
-              "wins": 0,
-              "ties": 0,
-              "losses": 0,
-              "discordant": 0,
-              "direction": "none",
-              "pValue": 1,
-              "alpha": 0.05,
-              "netWin": 0,
-              "minimumNetWin": null,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": false,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "No activation contract could be evaluated",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": null,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [],
-            "judgeRationales": [],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/a8fece0fce5f8b0737754a332a1a7c6487e8f927/plugins/dotnet-aspnetcore/skills/convert-blazor-server-to-webapp/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/a8fece0fce5f8b0737754a332a1a7c6487e8f927/tests/dotnet-aspnetcore/convert-blazor-server-to-webapp/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/a8fece0fce5f8b0737754a332a1a7c6487e8f927"
-              }
-            ]
-          },
-          {
-            "skillName": "dotnet-webapi",
-            "skillKind": "invocable",
-            "state": "INVALID_INCONCLUSIVE",
-            "stateReason": {
-              "code": "comparison_invocation_failed",
-              "phase": "comparison_judge"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "dotnet-aspnetcore/dotnet-webapi: vally compare failed (Command failed: vally compare --baseline /tmp/vally-adapt-wW5eEw/dotnet-aspnetcore__dotnet-webapi__baseline.jsonl --treatment /tmp/vally-adapt-wW5eEw/dotnet-aspnetcore__dotnet-webapi__skilled.jsonl --judge-model gpt-5.6-terra --output /tmp/vally-adapt-wW5eEw/dotnet-aspnetcore__dotnet-webapi__compare.jsonl)",
-            "gateEvidence": {
-              "stimulusVoteCount": 0,
-              "wins": 0,
-              "ties": 0,
-              "losses": 0,
-              "discordant": 0,
-              "direction": "none",
-              "pValue": 1,
-              "alpha": 0.05,
-              "netWin": 0,
-              "minimumNetWin": null,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": false,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "No activation contract could be evaluated",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": null,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [],
-            "judgeRationales": [],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/a8fece0fce5f8b0737754a332a1a7c6487e8f927/plugins/dotnet-aspnetcore/skills/dotnet-webapi/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/a8fece0fce5f8b0737754a332a1a7c6487e8f927/tests/dotnet-aspnetcore/dotnet-webapi/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/a8fece0fce5f8b0737754a332a1a7c6487e8f927"
-              }
-            ]
-          },
-          {
-            "skillName": "minimal-api-file-upload",
-            "skillKind": "invocable",
-            "state": "INVALID_INCONCLUSIVE",
-            "stateReason": {
-              "code": "comparison_invocation_failed",
-              "phase": "comparison_judge"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "dotnet-aspnetcore/minimal-api-file-upload: vally compare failed (Command failed: vally compare --baseline /tmp/vally-adapt-wW5eEw/dotnet-aspnetcore__minimal-api-file-upload__baseline.jsonl --treatment /tmp/vally-adapt-wW5eEw/dotnet-aspnetcore__minimal-api-file-upload__skilled.jsonl --judge-model gpt-5.6-terra --output /tmp/vally-adapt-wW5eEw/dotnet-aspnetcore__minimal-api-file-upload__compare.jsonl)",
-            "gateEvidence": {
-              "stimulusVoteCount": 0,
-              "wins": 0,
-              "ties": 0,
-              "losses": 0,
-              "discordant": 0,
-              "direction": "none",
-              "pValue": 1,
-              "alpha": 0.05,
-              "netWin": 0,
-              "minimumNetWin": null,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": false,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "No activation contract could be evaluated",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": null,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [],
-            "judgeRationales": [],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/a8fece0fce5f8b0737754a332a1a7c6487e8f927/plugins/dotnet-aspnetcore/skills/minimal-api-file-upload/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/a8fece0fce5f8b0737754a332a1a7c6487e8f927/tests/dotnet-aspnetcore/minimal-api-file-upload/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/a8fece0fce5f8b0737754a332a1a7c6487e8f927"
-              }
-            ]
-          }
-        ],
-        "commit": {
-          "author": {
-            "username": "AbhitejJohn",
-            "name": "Abhitej John"
-          },
-          "message": "Merge pull request #1149 from dotnet/abhitejjohn-vally-014-ci-proof",
-          "url": "https://github.com/dotnet/skills/commit/a8fece0fce5f8b0737754a332a1a7c6487e8f927",
-          "timestamp": "2026-09-09T17:53:08+00:00",
-          "id": "a8fece0fce5f8b0737754a332a1a7c6487e8f927"
-        },
-        "model": "claude-opus-4.8",
-        "tool": "customBiggerIsBetter",
-        "date": 1789036360813,
-        "benches": []
-      },
       {
         "commit": {
           "author": {
@@ -27664,150 +27807,656 @@
             ]
           }
         ]
+      },
+      {
+        "benches": [
+          {
+            "name": "configuring-opentelemetry-dotnet/Configure all three OpenTelemetry signals with correct OTLP export - Skilled Quality",
+            "overfitting": "high",
+            "overfittingScore": 0.55,
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Configure all three OpenTelemetry signals with correct OTLP export - Plugin Quality",
+            "overfitting": "high",
+            "overfittingScore": 0.55,
+            "value": 9.5,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Configure all three OpenTelemetry signals with correct OTLP export - Vanilla Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Propagate trace context across a message queue - Skilled Quality",
+            "overfitting": "high",
+            "overfittingScore": 0.55,
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Propagate trace context across a message queue - Plugin Quality",
+            "overfitting": "high",
+            "overfittingScore": 0.55,
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Propagate trace context across a message queue - Vanilla Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Set up OpenTelemetry tracing and metrics with custom spans in ASP.NET Core - Skilled Quality",
+            "overfitting": "high",
+            "overfittingScore": 0.55,
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Set up OpenTelemetry tracing and metrics with custom spans in ASP.NET Core - Plugin Quality",
+            "overfitting": "high",
+            "overfittingScore": 0.55,
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "configuring-opentelemetry-dotnet/Set up OpenTelemetry tracing and metrics with custom spans in ASP.NET Core - Vanilla Quality",
+            "value": 8.5,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Quality",
+            "overfitting": "moderate",
+            "overfittingScore": 0.47,
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Quality",
+            "overfitting": "moderate",
+            "overfittingScore": 0.47,
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Quality",
+            "value": 9.285714149475098,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Quality",
+            "overfitting": "high",
+            "overfittingScore": 0.51,
+            "value": 1.4285714626312256,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Quality",
+            "overfitting": "high",
+            "overfittingScore": 0.51,
+            "value": 1.4285714626312256,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Quality",
+            "value": 6.0714287757873535,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Quality",
+            "overfitting": "high",
+            "overfittingScore": 0.51,
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Quality",
+            "overfitting": "high",
+            "overfittingScore": 0.51,
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Quality",
+            "value": 9.5,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Quality",
+            "overfitting": "high",
+            "overfittingScore": 0.51,
+            "value": 2.692307710647583,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Quality",
+            "overfitting": "high",
+            "overfittingScore": 0.51,
+            "value": 1.923076868057251,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Quality",
+            "value": 1.923076868057251,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "minimal-api-file-upload/Implement secure file upload in ASP.NET Core 8 minimal API - Skilled Quality",
+            "overfitting": "moderate",
+            "overfittingScore": 0.28,
+            "value": 9.166666984558105,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "minimal-api-file-upload/Implement secure file upload in ASP.NET Core 8 minimal API - Plugin Quality",
+            "overfitting": "moderate",
+            "overfittingScore": 0.28,
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "minimal-api-file-upload/Implement secure file upload in ASP.NET Core 8 minimal API - Vanilla Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "minimal-api-file-upload/Stream very large file uploads without buffering - Skilled Quality",
+            "overfitting": "moderate",
+            "overfittingScore": 0.28,
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "minimal-api-file-upload/Stream very large file uploads without buffering - Plugin Quality",
+            "overfitting": "moderate",
+            "overfittingScore": 0.28,
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "minimal-api-file-upload/Stream very large file uploads without buffering - Vanilla Quality",
+            "value": 5.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "minimal-api-file-upload/Upload multiple files with metadata in minimal API - Skilled Quality",
+            "overfitting": "moderate",
+            "overfittingScore": 0.28,
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "minimal-api-file-upload/Upload multiple files with metadata in minimal API - Plugin Quality",
+            "overfitting": "moderate",
+            "overfittingScore": 0.28,
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "minimal-api-file-upload/Upload multiple files with metadata in minimal API - Vanilla Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          }
+        ],
+        "verdictEvidence": [
+          {
+            "skillName": "configuring-opentelemetry-dotnet",
+            "skillKind": "invocable",
+            "state": "INVALID_INCONCLUSIVE",
+            "stateReason": {
+              "code": "underpowered",
+              "phase": "eval_design"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +0.0% (1W/1T/1L over 3 preference-eligible stimulus vote(s), sign test p=0.750), mean preference +0.0% across 3 paired run(s) — underpowered (3 preference-eligible stimulus vote(s); a credible verdict needs at least 5) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
+            "gateEvidence": {
+              "stimulusVoteCount": 3,
+              "wins": 1,
+              "ties": 1,
+              "losses": 1,
+              "discordant": 2,
+              "direction": "none",
+              "pValue": 0.75,
+              "alpha": 0.05,
+              "netWin": 0,
+              "minimumNetWin": 0.2,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Configure all three OpenTelemetry signals with correct OTLP export",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Propagate trace context across a message queue",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Set up OpenTelemetry tracing and metrics with custom spans in ASP.NET Core",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Configure all three OpenTelemetry signals with correct OTLP export",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Propagate trace context across a message queue",
+                "direction": "worse",
+                "rationale": "Both responses correctly implement all three rubric criteria and would function properly for end-to-end distributed tracing. Response A edges ahead due to superior error handling (setting activity status, catching exceptions) and clearer timing guidance (\"Inject while the producer activity is current and extract before starting the consumer activity\"). Response B has minor advantages (more idiomatic propagator choice, practical warning about duplicate spans with instrumentation packages) but lacks the robust error handling that matters in production environments. The differences are modest, making this a close comparison, but Response A's more thorough approach to error handling tips the balance.\""
+              },
+              {
+                "scenarioName": "Set up OpenTelemetry tracing and metrics with custom spans in ASP.NET Core",
+                "direction": "better",
+                "rationale": "Response B is much better because it correctly implements criterion 4—the most critical rubric requirement—by using IMeterFactory dependency injection to manage meter lifecycle, while Response A uses a static Meter constructor which is architecturally incorrect for modern .NET OpenTelemetry applications. Additionally, Response B demonstrates better separation of concerns with a dedicated OrderMetrics class, includes the helpful dotnet add commands, and integrates logging. Both meet the other criteria equally, but the IMeterFactory DI pattern is a fundamental best practice that Response A fails to follow.\" [Magnitude reduced to \"slightly-better\": the position-swapped pass judged this \"slightly-better\", so the more confident \"much-better\" was downgraded.]"
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/e115891bd2ac3c7eefd5e30a405f7b5638f5e429/plugins/dotnet-aspnetcore/skills/configuring-opentelemetry-dotnet/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/e115891bd2ac3c7eefd5e30a405f7b5638f5e429/tests/dotnet-aspnetcore/configuring-opentelemetry-dotnet/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/e115891bd2ac3c7eefd5e30a405f7b5638f5e429"
+              }
+            ]
+          },
+          {
+            "skillName": "convert-blazor-server-to-webapp",
+            "skillKind": "invocable",
+            "state": "INVALID_INCONCLUSIVE",
+            "stateReason": {
+              "code": "underpowered",
+              "phase": "eval_design"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +0.0% (0W/1T/0L over 1 preference-eligible stimulus vote(s), sign test p=1.000), mean preference +0.0% across 1 paired run(s) — underpowered (1 preference-eligible stimulus vote(s); a credible verdict needs at least 5) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
+            "gateEvidence": {
+              "stimulusVoteCount": 1,
+              "wins": 0,
+              "ties": 1,
+              "losses": 0,
+              "discordant": 0,
+              "direction": "none",
+              "pValue": 1,
+              "alpha": 0.05,
+              "netWin": 0,
+              "minimumNetWin": 0.2,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Blazor Server app with CascadingAuthenticationState",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Blazor Server app with CascadingAuthenticationState",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/e115891bd2ac3c7eefd5e30a405f7b5638f5e429/plugins/dotnet-aspnetcore/skills/convert-blazor-server-to-webapp/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/e115891bd2ac3c7eefd5e30a405f7b5638f5e429/tests/dotnet-aspnetcore/convert-blazor-server-to-webapp/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/e115891bd2ac3c7eefd5e30a405f7b5638f5e429"
+              }
+            ]
+          },
+          {
+            "skillName": "dotnet-webapi",
+            "skillKind": "invocable",
+            "state": "INVALID_INCONCLUSIVE",
+            "stateReason": {
+              "code": "underpowered",
+              "phase": "eval_design"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +0.0% (1W/1T/1L over 3 preference-eligible stimulus vote(s), sign test p=0.750), mean preference -20.0% across 3 paired run(s) — underpowered (3 preference-eligible stimulus vote(s); a credible verdict needs at least 5) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
+            "gateEvidence": {
+              "stimulusVoteCount": 3,
+              "wins": 1,
+              "ties": 1,
+              "losses": 1,
+              "discordant": 2,
+              "direction": "none",
+              "pValue": 0.75,
+              "alpha": 0.05,
+              "netWin": 0,
+              "minimumNetWin": 0.2,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Add a new API endpoint to an existing controller-based project",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Add error handling with ProblemDetails and IExceptionHandler",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Add a new API endpoint to an existing controller-based project",
+                "direction": "worse",
+                "rationale": "Response A delivers a complete, functional implementation that addresses the core task requirements: a properly structured OrdersController following the existing pattern, with appropriate GET/POST endpoints, correct DTOs (as sealed records), proper enum definition, DateTimeOffset usage, and CreatedAtAction for 201 status. While it misses CancellationToken parameters and XML documentation (both rubric requirements), it successfully solves the task. Response B refuses to provide any implementation, incorrectly claiming the project files are missing when the task description itself provides sufficient specification via the CustomersController example. Response B's request for the actual project files to be mounted is an unnecessary escalation that fails to serve the user's clear intent.\""
+              },
+              {
+                "scenarioName": "Add error handling with ProblemDetails and IExceptionHandler",
+                "direction": "better",
+                "rationale": "Response B is slightly better overall. While both implement the core exception handling requirements correctly, Response B wins decisively on the Middleware folder placement criterion (explicitly stated in the rubric) and demonstrates slightly better security practices by not passing the Exception object to the context. Additionally, Response B shows better logging practices (differentiating error severity levels) and includes proper namespace organization. Response A is technically sound but misses an explicit structural requirement and takes a less cautious approach to exception object handling."
+              },
+              {
+                "scenarioName": "Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: tie, reverse: B). Defaulting to tie."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/e115891bd2ac3c7eefd5e30a405f7b5638f5e429/plugins/dotnet-aspnetcore/skills/dotnet-webapi/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/e115891bd2ac3c7eefd5e30a405f7b5638f5e429/tests/dotnet-aspnetcore/dotnet-webapi/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/e115891bd2ac3c7eefd5e30a405f7b5638f5e429"
+              }
+            ]
+          },
+          {
+            "skillName": "minimal-api-file-upload",
+            "skillKind": "invocable",
+            "state": "INVALID_INCONCLUSIVE",
+            "stateReason": {
+              "code": "underpowered",
+              "phase": "eval_design"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +33.3% (1W/2T/0L over 3 preference-eligible stimulus vote(s), sign test p=0.500), mean preference +33.3% across 3 paired run(s) — underpowered (3 preference-eligible stimulus vote(s); a credible verdict needs at least 5) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
+            "gateEvidence": {
+              "stimulusVoteCount": 3,
+              "wins": 1,
+              "ties": 2,
+              "losses": 0,
+              "discordant": 1,
+              "direction": "better",
+              "pValue": 0.5,
+              "alpha": 0.05,
+              "netWin": 0.3333333333333333,
+              "minimumNetWin": 0.2,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Implement secure file upload in ASP.NET Core 8 minimal API",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Stream very large file uploads without buffering",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Upload multiple files with metadata in minimal API",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Implement secure file upload in ASP.NET Core 8 minimal API",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Stream very large file uploads without buffering",
+                "direction": "better",
+                "rationale": "Response B is significantly better because it meets all three rubric criteria, while Response A objectively fails the first criterion by not using MultipartReader. Although Response A presents a valid alternative streaming approach using raw request body, it does not satisfy the specific technological requirement stated in the rubric. Response B also provides superior security guidance (file signature validation, antiforgery considerations) and handles the standard multipart/form-data format that users typically expect for file uploads.\""
+              },
+              {
+                "scenarioName": "Upload multiple files with metadata in minimal API",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/e115891bd2ac3c7eefd5e30a405f7b5638f5e429/plugins/dotnet-aspnetcore/skills/minimal-api-file-upload/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/e115891bd2ac3c7eefd5e30a405f7b5638f5e429/tests/dotnet-aspnetcore/minimal-api-file-upload/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/e115891bd2ac3c7eefd5e30a405f7b5638f5e429"
+              }
+            ]
+          }
+        ],
+        "model": "gpt-5.6-sol",
+        "commit": {
+          "timestamp": "2026-09-23T16:40:19+00:00",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Amaury Levé"
+          },
+          "url": "https://github.com/dotnet/skills/commit/e115891bd2ac3c7eefd5e30a405f7b5638f5e429",
+          "message": "Speed up dashboard model filtering (#1205)",
+          "id": "e115891bd2ac3c7eefd5e30a405f7b5638f5e429"
+        },
+        "date": 1790259105368,
+        "tool": "customBiggerIsBetter"
       }
     ],
     "SkillValue": [
-      {
-        "commit": {
-          "author": {
-            "username": "AbhitejJohn",
-            "name": "Abhitej John"
-          },
-          "message": "Merge pull request #1149 from dotnet/abhitejjohn-vally-014-ci-proof",
-          "url": "https://github.com/dotnet/skills/commit/a8fece0fce5f8b0737754a332a1a7c6487e8f927",
-          "timestamp": "2026-09-09T17:53:08+00:00",
-          "id": "a8fece0fce5f8b0737754a332a1a7c6487e8f927"
-        },
-        "model": "claude-opus-4.8",
-        "skills": [
-          {
-            "treatmentFail": 0,
-            "skill": "configuring-opentelemetry-dotnet",
-            "hasPassData": false,
-            "baseAvailable": 0,
-            "baselineFail": 0,
-            "activationFired": 0,
-            "timedOut": false,
-            "treatAvailable": 0,
-            "passTotal": 0,
-            "baseline": {
-              "cacheWrite": null,
-              "timeMs": null,
-              "n": 0,
-              "tokens": null,
-              "cacheRead": null,
-              "tokensOut": null,
-              "tokensIn": null
-            },
-            "treatment": {
-              "cacheWrite": null,
-              "timeMs": null,
-              "n": 0,
-              "tokens": null,
-              "cacheRead": null,
-              "tokensOut": null,
-              "tokensIn": null
-            },
-            "pairedN": 0,
-            "activationExpected": 0
-          },
-          {
-            "treatmentFail": 0,
-            "skill": "convert-blazor-server-to-webapp",
-            "hasPassData": false,
-            "baseAvailable": 0,
-            "baselineFail": 0,
-            "activationFired": 0,
-            "timedOut": false,
-            "treatAvailable": 0,
-            "passTotal": 0,
-            "baseline": {
-              "cacheWrite": null,
-              "timeMs": null,
-              "n": 0,
-              "tokens": null,
-              "cacheRead": null,
-              "tokensOut": null,
-              "tokensIn": null
-            },
-            "treatment": {
-              "cacheWrite": null,
-              "timeMs": null,
-              "n": 0,
-              "tokens": null,
-              "cacheRead": null,
-              "tokensOut": null,
-              "tokensIn": null
-            },
-            "pairedN": 0,
-            "activationExpected": 0
-          },
-          {
-            "treatmentFail": 0,
-            "skill": "dotnet-webapi",
-            "hasPassData": false,
-            "baseAvailable": 0,
-            "baselineFail": 0,
-            "activationFired": 0,
-            "timedOut": false,
-            "treatAvailable": 0,
-            "passTotal": 0,
-            "baseline": {
-              "cacheWrite": null,
-              "timeMs": null,
-              "n": 0,
-              "tokens": null,
-              "cacheRead": null,
-              "tokensOut": null,
-              "tokensIn": null
-            },
-            "treatment": {
-              "cacheWrite": null,
-              "timeMs": null,
-              "n": 0,
-              "tokens": null,
-              "cacheRead": null,
-              "tokensOut": null,
-              "tokensIn": null
-            },
-            "pairedN": 0,
-            "activationExpected": 0
-          },
-          {
-            "treatmentFail": 0,
-            "skill": "minimal-api-file-upload",
-            "hasPassData": false,
-            "baseAvailable": 0,
-            "baselineFail": 0,
-            "activationFired": 0,
-            "timedOut": false,
-            "treatAvailable": 0,
-            "passTotal": 0,
-            "baseline": {
-              "cacheWrite": null,
-              "timeMs": null,
-              "n": 0,
-              "tokens": null,
-              "cacheRead": null,
-              "tokensOut": null,
-              "tokensIn": null
-            },
-            "treatment": {
-              "cacheWrite": null,
-              "timeMs": null,
-              "n": 0,
-              "tokens": null,
-              "cacheRead": null,
-              "tokensOut": null,
-              "tokensIn": null
-            },
-            "pairedN": 0,
-            "activationExpected": 0
-          }
-        ],
-        "date": 1789036360813,
-        "judgeModel": "gpt-5.6-terra"
-      },
       {
         "model": "gpt-5.6-luna",
         "skills": [
@@ -31755,9 +32404,150 @@
           "id": "4ed5f7c121da8dd31af31a35cef05070948c6556",
           "message": "Fix evaluation state label reconciliation (#1197)"
         }
+      },
+      {
+        "model": "gpt-5.6-sol",
+        "commit": {
+          "timestamp": "2026-09-23T16:40:19+00:00",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Amaury Levé"
+          },
+          "url": "https://github.com/dotnet/skills/commit/e115891bd2ac3c7eefd5e30a405f7b5638f5e429",
+          "message": "Speed up dashboard model filtering (#1205)",
+          "id": "e115891bd2ac3c7eefd5e30a405f7b5638f5e429"
+        },
+        "skills": [
+          {
+            "skill": "configuring-opentelemetry-dotnet",
+            "hasPassData": true,
+            "timedOut": false,
+            "activationFired": 3,
+            "baseline": {
+              "tokensOut": 1076.0,
+              "n": 3,
+              "cacheWrite": 11830.0,
+              "tokens": 12909.0,
+              "timeMs": 21700.666666666668,
+              "tokensIn": 11833.0,
+              "cacheRead": 0.0
+            },
+            "treatAvailable": 3,
+            "treatmentFail": 0,
+            "treatment": {
+              "tokensOut": 1078.3333333333333,
+              "n": 3,
+              "cacheWrite": 14391.333333333334,
+              "tokens": 27388.0,
+              "timeMs": 22311.0,
+              "tokensIn": 26309.666666666668,
+              "cacheRead": 11912.333333333334
+            },
+            "activationExpected": 3,
+            "pairedN": 3,
+            "passTotal": 3,
+            "baselineFail": 1,
+            "baseAvailable": 3
+          },
+          {
+            "skill": "convert-blazor-server-to-webapp",
+            "hasPassData": true,
+            "timedOut": false,
+            "activationFired": 1,
+            "baseline": {
+              "tokensOut": 2146.0,
+              "n": 1,
+              "cacheWrite": 12352.0,
+              "tokens": 14501.0,
+              "timeMs": 27130.0,
+              "tokensIn": 12355.0,
+              "cacheRead": 0.0
+            },
+            "treatAvailable": 1,
+            "treatmentFail": 0,
+            "treatment": {
+              "tokensOut": 1579.0,
+              "n": 1,
+              "cacheWrite": 16163.0,
+              "tokens": 30301.0,
+              "timeMs": 25680.0,
+              "tokensIn": 28722.0,
+              "cacheRead": 12553.0
+            },
+            "activationExpected": 1,
+            "pairedN": 1,
+            "passTotal": 1,
+            "baselineFail": 0,
+            "baseAvailable": 1
+          },
+          {
+            "skill": "dotnet-webapi",
+            "hasPassData": true,
+            "timedOut": false,
+            "activationFired": 3,
+            "baseline": {
+              "tokensOut": 3870.3333333333335,
+              "n": 3,
+              "cacheWrite": 16470.666666666668,
+              "tokens": 162280.66666666666,
+              "timeMs": 128859.66666666667,
+              "tokensIn": 158410.33333333334,
+              "cacheRead": 141912.66666666666
+            },
+            "treatAvailable": 3,
+            "treatmentFail": 2,
+            "treatment": {
+              "tokensOut": 4169.666666666667,
+              "n": 3,
+              "cacheWrite": 21956.333333333332,
+              "tokens": 196775.33333333334,
+              "timeMs": 87680.33333333333,
+              "tokensIn": 192605.66666666666,
+              "cacheRead": 170622.33333333334
+            },
+            "activationExpected": 3,
+            "pairedN": 3,
+            "passTotal": 3,
+            "baselineFail": 2,
+            "baseAvailable": 3
+          },
+          {
+            "skill": "minimal-api-file-upload",
+            "hasPassData": true,
+            "timedOut": false,
+            "activationFired": 3,
+            "baseline": {
+              "tokensOut": 1659.0,
+              "n": 3,
+              "cacheWrite": 11830.666666666666,
+              "tokens": 13492.666666666666,
+              "timeMs": 36866.0,
+              "tokensIn": 11833.666666666666,
+              "cacheRead": 0.0
+            },
+            "treatAvailable": 3,
+            "treatmentFail": 0,
+            "treatment": {
+              "tokensOut": 1280.3333333333333,
+              "n": 3,
+              "cacheWrite": 14385.666666666666,
+              "tokens": 27547.333333333332,
+              "timeMs": 27348.0,
+              "tokensIn": 26267.0,
+              "cacheRead": 11875.333333333334
+            },
+            "activationExpected": 3,
+            "pairedN": 3,
+            "passTotal": 3,
+            "baselineFail": 1,
+            "baseAvailable": 3
+          }
+        ],
+        "date": 1790259105368,
+        "judgeModel": "claude-haiku-4.5"
       }
     ]
   },
-  "lastUpdate": 1790179091139,
+  "lastUpdate": 1790259105368,
   "schemaVersion": 2
 }
