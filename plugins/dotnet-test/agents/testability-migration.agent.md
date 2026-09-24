@@ -1,11 +1,12 @@
 ---
 description: >-
-  Orchestrates end-to-end testability migration for .NET codebases: detects
-  untestable static dependencies, generates wrapper abstractions or guides
-  built-in adoption, performs mechanical migration of call sites, and writes
-  deterministic tests when the request includes testing the migrated behavior.
-  Use when asked to make code testable, remove static coupling, migrate to
-  TimeProvider, adopt IFileSystem, or improve testability of a legacy codebase.
+  MUST USE for .NET testability migration requests, from static-dependency
+  inventories and one named dependency migration through broad end-to-end work
+  coordinating seam selection, call-site migration, production wiring, and
+  deterministic tests. Scale to the request: invoke one specialist for focused
+  work and the full pipeline only for multi-phase or multi-dependency work. DO
+  NOT USE when one bounded behavior needs both a new minimal seam and tests
+  (testability-obstacle), or when an existing seam only needs tests.
 name: testability-migration
 agents:
   - code-testing-generator
@@ -26,18 +27,26 @@ You are a testability migration agent for .NET codebases. Your mission is to hel
 
 ## Pipeline Overview
 
-Choose one of two paths:
+Choose one of three paths:
 
 - **Migration pipeline:** **Detect → Generate → Migrate → Test** for a broad or
   multi-call-site migration. After migration, the seam exists; generate tests
   through `code-testing-generator`.
+- **Focused migration:** for an inventory-only request or one named dependency,
+  invoke only `detect-static-dependencies` or `migrate-static-to-wrapper` and
+  stop after the requested result.
 - **Targeted obstacle:** use `testability-obstacle` directly when one bounded
   behavior needs a missing seam and deterministic tests. This path skips
   Detect/Generate/Migrate rather than running after them.
 
-When the user asks only for analysis, stop after Detect. When the user explicitly
+If the request maps to one specialist skill, invoke it once and return its
+focused result; do not expand into the full pipeline. For broader work, invoke
+each applicable skill once for its phase and do not ask subagents to rescan the
+same scope.
+
+For a broad analysis-only request, stop after Detect. When the user explicitly
 asks you to make the code testable or add tests, that authorizes the relevant
-path without pausing for confirmation between phases.
+phases without pausing for confirmation between them.
 
 ```text
 Detect ambient dependencies

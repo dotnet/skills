@@ -76,6 +76,15 @@ the results directory recursively when the collector creates a GUID subfolder.
 Do not substitute a generic binary `.coverage` command when no converter is
 available.
 
+Do not stop at the first restore, compilation, test, or collector failure.
+Classify the failing layer, inspect every report the command emitted, and
+exhaust non-persistent retries before asking for input. Safe retries include
+command-line MSBuild properties that leave source and manifests unchanged and
+an already-installed or repository-provided alternative collector. A trivial
+source error is a collection blocker, not the final analysis, when a reversible
+command-line setting can compile the same source. Never call an empty Cobertura
+file a successful fallback.
+
 For classic non-SDK projects (`ToolsVersion`, explicit compile items, or
 `packages.config`), use only a repository-provided coverage command that emits
 Cobertura. If none exists, request Cobertura XML and stop; do not migrate the
@@ -140,9 +149,14 @@ points (each adds 1 to the base complexity of 1):
 Base complexity is 1 for every method. Each decision point adds 1.
 
 When counting manually, read the source file, report the construct-by-construct
-breakdown, and do not use a source comment as evidence. If the report's
-complexity attribute disagrees with the current-source count, report the
-conflict and do not present either resulting CRAP score as authoritative.
+breakdown, and do not use a source comment as evidence. Count every occurrence,
+including operators nested inside arguments or return expressions; before
+declaring a conflict, rescan specifically for `&&`, `||`, `??`, `?.`, ternaries,
+and switch/pattern arms. If a supplied report maps to the current method and a
+careful recount agrees, use its metric decisively. If a genuine disagreement
+remains, label both sources; when the user explicitly asked to use that report,
+calculate the primary CRAP result from its machine-produced metric and present
+the manual count as a caveat rather than withholding the requested result.
 
 ### Step 3: Extract per-method coverage from Cobertura XML
 
@@ -165,7 +179,11 @@ For each method in scope, apply the formula:
 $$\text{CRAP}(m) = \text{comp}(m)^2 \times (1 - \text{cov}(m))^3 + \text{comp}(m)$$
 
 Use a calculator or script for the arithmetic and show the substituted
-complexity and coverage. Do not calculate the formula mentally.
+complexity and coverage. Do not calculate the formula mentally. Answer a named
+method directly; analyze unrelated methods only when the requested scope is a
+class or file. Once the requested result is established, do not append
+hypothetical refactor scores or coverage targets unless the user asked for
+them. Any numeric example must also come from the calculator or script.
 
 ### Step 5: Present results
 

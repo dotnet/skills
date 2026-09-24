@@ -1,8 +1,9 @@
 ---
 description: >-
-  Internal implementation agent for the code-testing-agent skill. Orchestrates
-  the Research-Plan-Implement pipeline after that public entry-point skill
-  delegates a test-generation request. Do not route user prompts here directly.
+  Required internal implementation agent for broad or comprehensive
+  code-testing-agent requests spanning a project, package, or multiple modules.
+  Orchestrates the Research-Plan-Implement pipeline after the public entry-point
+  skill delegates. Do not route user prompts here directly.
 name: code-testing-generator
 user-invocable: false
 tools: ["agent", "skill", "read", "search", "edit", "execute", "Task", "Skill", "Read", "Glob", "Grep", "Edit", "Write", "Bash", "read_file", "replace", "write_file", "glob", "grep_search", "run_shell_command"]
@@ -67,6 +68,12 @@ example, "mock the repository in service tests", "exercise SQLite in memory",
 and "cover pagination boundaries" are three independently verifiable
 requirements. Direct strategy keeps this checklist in context; delegated
 strategies record it in `<TESTAGENT_DIR>/research.md`.
+For broad or comprehensive requests, module and layer names are inventory
+headings, not single checklist items: expand each bounded target into its
+exported/public operations and distinct observable branches, validation paths,
+boundaries, and state transitions. Do not stop because one representative test,
+an end-to-end composition case, or an aggregate coverage threshold makes the
+module look covered.
 
 ### Step 2: Choose Execution Strategy
 
@@ -205,12 +212,14 @@ After the previous phases complete, use the target inventory already recorded in
 3. If the user requested a measurable coverage target, collect coverage once and prioritize only gaps inside the requested scope.
 4. Add tests for any unaddressed checklist item first.
 5. For Single pass and Iterative strategies, treat that checklist as the floor.
-   Sweep each bounded target API for still-unproved observable equivalence
-   partitions and invariants: identity/empty/singleton/interior inputs, exact
-   and immediately adjacent boundaries, invalid partitions, and ordering,
+   Expand every module or layer heading into its public operations, then sweep
+   each bounded target API for still-unproved observable equivalence partitions
+   and invariants: identity/empty/singleton/interior inputs, exact and
+   immediately adjacent boundaries, invalid partitions, and ordering,
    monotonicity, rollover, capacity, truncation, or state properties implied by
    the implementation. Add one mutation-relevant case per distinct partition;
-   consolidate sibling inputs in parameterized or table-driven tests.
+   consolidate only sibling inputs that prove the same behavior in
+   parameterized or table-driven tests.
 6. Stop only when every feasible checklist item and distinct behavioral
    partition is covered and the stated target is met. Do not recursively expand
    into unrelated files or add equivalent cases merely to raise test count.

@@ -33,7 +33,10 @@ Generate concise, parameterized, and effective unit tests using discovered conve
 - **Focused scope**: inspect the named target, its direct collaborators, and one
   representative neighboring test for conventions
 - **Broad scope**: inventory the requested modules first, then cover their
-  non-trivial public behavior without reading unrelated code
+  non-trivial public behavior without reading unrelated code. A module or layer
+  name is an inventory heading, not one test requirement: enumerate its public
+  operations and distinct validation, boundary, branch, interaction, and state
+  behavior before deciding it is covered
 - Stop only when every requested behavior and distinct observable partition
   has a mutation-relevant assertion and any requested coverage target is met
 
@@ -54,7 +57,12 @@ When the task specifies particular test scenarios or behaviors to cover:
 
 1. **Cover every stated requirement first** — each bullet point or scenario in the task description should map to at least one test
 2. **Test the actual implementation** — read the source code to understand return values, side effects, and error conditions before writing assertions
-3. **Fewer focused tests beat many shallow ones** — 5 tests that thoroughly exercise the function are better than 20 that only check surface behavior
+3. **Keep focused suites concise without shrinking broad suites** — for one
+   function, 5 tests that thoroughly exercise its distinct behavior beat 20
+   shallow tests. For broad/comprehensive work, do not optimize for fewer tests:
+   combine only equivalent sibling inputs, never separate public behaviors,
+   validation paths, boundaries, or state transitions merely because coverage
+   already passes
 4. **Every test must pass** — run tests after writing them; fix immediately if they fail
 5. **Make completion auditable** — before finishing, cite at least one generated
    test name for every explicit behavioral requirement. For scaffolding, scope,

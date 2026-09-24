@@ -2,14 +2,16 @@
 name: code-testing-agent
 description: >-
   ALWAYS USE whenever asked to write, add, or generate unit tests for existing
-  code, including one helper, function, class, or missing regression case as well
-  as project-wide suites. Also use for "cover this untested method", scaffolding
-  tests where none exist, sparse workspaces, classic packages.config MSTest, and
-  extending healthy suites. Focused requests use a proportional direct workflow;
-  broad requests use the full pipeline. DO NOT USE for only running/diagnosing
-  tests, coverage/audits, a test blocked on a missing production seam
-  (testability-obstacle), or correcting supplied MSTest assertions, attributes,
-  lifecycle, or configuration without designing new cases (writing-mstest-tests).
+  code in xUnit, MSTest, NUnit, pytest, Vitest/Jest, Go, or another framework,
+  including "tests only for" one helper, function, class, or missing regression
+  case as well as project-wide suites. Also use for "cover this untested method",
+  scaffolding tests where none exist, sparse workspaces, classic packages.config
+  MSTest, and extending healthy suites. Focused requests use a proportional
+  direct workflow; broad requests use the full pipeline. DO NOT USE for only
+  running/diagnosing tests, coverage/audits, a test blocked on a missing
+  production seam (testability-obstacle), or correcting supplied MSTest
+  assertions, attributes, lifecycle, or configuration without designing new
+  cases (writing-mstest-tests).
 license: MIT
 ---
 
@@ -24,8 +26,11 @@ Classify scope **before editing**:
 - **Broad** (a project/package-wide suite, or multiple production
   files/modules): create `research.md` and `plan.md` in a resolved
   non-stageable `<TESTAGENT_DIR>` before implementation, then `status.md` there
-  after the final test-quality review. If these files are absent, the broad
-  workflow is incomplete.
+  after the final test-quality review. When `code-testing-generator` is
+  available, invoke that named custom agent before implementing; do not replace
+  it with a generic subagent carrying the same label or implement the broad
+  request inline. If the state files are absent, the broad workflow is
+  incomplete.
 - **Focused** (the user explicitly limits work to one function/class/file or one
   missing method): do not create intermediate state files or fan out to multiple
   agents. A sparse project-wide request remains broad even when only one source
@@ -55,15 +60,20 @@ coverage. Judge breadth by the behavior matrix, never by matching or exceeding a
 raw test count.
 
 For a **broad or comprehensive** request, the explicit matrix is the floor, not
-the ceiling. After satisfying it, inspect each target API for observable
+the ceiling. Treat each requested module or layer as an inventory heading, not
+one behavior: expand it into the bounded public operations and their distinct
+validation paths, branches, boundaries, interactions, and state transitions.
+After satisfying the explicit matrix, inspect each target API for observable
 equivalence partitions and invariants that the prompt did not name: identity,
 empty, singleton and representative interior inputs; exact boundaries plus an
 immediately adjacent value; invalid partitions; and ordering, monotonicity,
 rollover, capacity, truncation, or state invariants implied by the implementation.
 Add one mutation-relevant case per distinct partition not already proved, using
-parameterized or table-driven cases for siblings. Stop when remaining inputs
-exercise the same branch and invariant, not merely when the explicit checklist
-is complete; never add cases only to raise the count.
+parameterized or table-driven cases only for siblings that prove the same
+behavior. A passing coverage threshold is validation, not a breadth stop
+condition. Stop when remaining inputs exercise the same branch and invariant,
+not merely when the explicit checklist is complete; never add cases only to
+raise the count.
 
 ## When to Use This Skill
 
@@ -150,7 +160,9 @@ Do not replace requirement-level evidence with a generic list of covered areas.
 
 ### Step 3: Invoke the Test Generator (broad scope)
 
-Start by calling the `code-testing-generator` agent with your test generation request:
+Start by invoking the named `code-testing-generator` custom agent with your test
+generation request. Do not use a generic/general-purpose subagent merely named
+`code-testing-generator`:
 
 ```text
 Generate unit tests for [path or description of what to test], following the [unit-test-generation.prompt.md](unit-test-generation.prompt.md) guidelines. Treat the current workspace as authoritative even when it is sparse, gutted-looking, synthetic, or missing tracked files; never restore or reconstruct it, including with `git checkout`, `git restore`, `git reset`, or `git clean`.
