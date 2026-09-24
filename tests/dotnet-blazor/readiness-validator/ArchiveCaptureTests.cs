@@ -26,6 +26,7 @@ internal static class ArchiveCaptureTests
             TestTarGzipCapture(testRoot);
             TestCaptureFailures(testRoot);
             TestZipCapture(testRoot);
+            TestInventoryRequiresExtractedRoot(testRoot);
             TestInventoryCaptureBridge(testRoot);
             TestInventoryCoverage(testRoot);
             TestInventoryHazards(testRoot);
@@ -351,6 +352,41 @@ internal static class ArchiveCaptureTests
                 new StringWriter(),
                 error),
             $"ZIP source capture: {error}");
+    }
+
+    private static void TestInventoryRequiresExtractedRoot(string testRoot)
+    {
+        var root = Path.Combine(testRoot, "inventory-prerequisite");
+        Directory.CreateDirectory(root);
+        var archive = Path.Combine(root, "archive.tar.gz");
+        var content = Encoding.UTF8.GetBytes("retained source");
+        CreateTarGzip(archive, "bundle/src/file.txt", content);
+        var original = File.ReadAllBytes(archive);
+        string[] arguments =
+        [
+            "source", "inventory-archive", "--root", root, "--archive", "archive.tar.gz",
+            "--source-root", "extracted/bundle", "--archive-prefix", "bundle",
+            "--archive-format", "tar.gz", "--output", "inventory.json"
+        ];
+        var error = new StringWriter();
+        AssertEqual(ExitCodes.EnvironmentFailure, CliApplication.Run(arguments, new StringWriter(), error),
+            $"inventory before extraction fails: {error}");
+        Assert(error.ToString().Contains("path beneath the artifact root does not exist", StringComparison.Ordinal),
+            "missing extracted-root prerequisite is explicit");
+        Assert(!File.Exists(Path.Combine(root, "inventory.json")), "missing root writes no inventory");
+        Assert(!Directory.Exists(Path.Combine(root, "extracted")), "inventory does not extract the archive");
+
+        var extracted = Path.Combine(root, "extracted");
+        Directory.CreateDirectory(extracted);
+        using (var stream = File.OpenRead(archive))
+        using (var gzip = new GZipStream(stream, CompressionMode.Decompress))
+            TarFile.ExtractToDirectory(gzip, extracted, overwriteFiles: false);
+        error = new StringWriter();
+        AssertEqual(ExitCodes.Success, CliApplication.Run(arguments, new StringWriter(), error),
+            $"same inventory command succeeds after extraction: {error}");
+        AssertBytes(content, File.ReadAllBytes(Path.Combine(extracted, "bundle", "src", "file.txt")),
+            "retained extraction matches source bytes");
+        AssertBytes(original, File.ReadAllBytes(archive), "intake preserves original archive bytes");
     }
 
     private static void TestInventoryCaptureBridge(string testRoot)

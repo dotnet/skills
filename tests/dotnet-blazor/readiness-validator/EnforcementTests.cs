@@ -76,7 +76,7 @@ internal static class EnforcementTests
         CopySourceFindingDirectory(pluginRoot, payload);
         var skill = Path.Combine(payload, "skills", "blazor-component-readiness");
         var originalSkill = Path.Combine(pluginRoot, "skills", "blazor-component-readiness");
-        var reference = File.ReadAllText(Path.Combine(skill, "references", "area-blazor-runtime.md"));
+        var reference = File.ReadAllText(Path.Combine(skill, "references", "source-finding-example.md"));
         const string templateRelative = "assets/source-finding/SyntheticCallbackGroup.cs.txt";
         var template = Path.GetFullPath(Path.Combine(skill, templateRelative));
         var originalTemplate = Path.GetFullPath(Path.Combine(originalSkill, templateRelative));

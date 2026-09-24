@@ -35,6 +35,7 @@ internal static class WorkflowTests
         "area-security-privacy.md",
         "area-accessibility.md",
         "area-blazor-runtime.md",
+        "source-finding-example.md",
         "area-trim-performance.md",
         "area-ci-release.md",
         "area-support-lifecycle.md",
@@ -76,6 +77,7 @@ internal static class WorkflowTests
         AssertInstructionLinks(pluginRoot, skillPath, referencesRoot);
         AssertExecutionPrerequisite(pluginRoot, skill, referencesRoot);
         AssertReadingRoutes(skill, referencesRoot);
+        AssertIntakePrerequisites(referencesRoot);
 
         AssertContains(skill, "explicit vendor self-assessment", "explicit-intent router");
         AssertContains(skill, "ordinary Blazor authoring/debugging", "ordinary-work dormancy");
@@ -145,6 +147,56 @@ internal static class WorkflowTests
         AssertSourceFindingExample(skillRoot);
     }
 
+    private static void AssertIntakePrerequisites(string referencesRoot)
+    {
+        var acquisition = File.ReadAllText(Path.Combine(referencesRoot, "artifact-acquisition.md")).ReplaceLineEndings("\n");
+        var candidates = File.ReadAllText(Path.Combine(referencesRoot, "input-candidates.md")).ReplaceLineEndings("\n");
+        Check(acquisition, candidates);
+        foreach (var (name, owner, text) in new[]
+        {
+            ("missing extraction", "acquisition", acquisition.Replace("extract the retained archive as data", "", StringComparison.Ordinal)),
+            ("missing existing root", "acquisition", acquisition.Replace("existing extracted repository root", "", StringComparison.Ordinal)),
+            ("late extraction", "acquisition", MoveAfterCommand(acquisition, "Before `source inventory-archive`,", "<launcher> source inventory-archive")),
+            ("missing exact origin", "candidates", candidates.Replace("subject, locator and\nmethod exactly match", "", StringComparison.Ordinal)),
+            ("missing historical boundary", "candidates", candidates.Replace("never as a new public fetch", "", StringComparison.Ordinal)),
+            ("lost local origin", "candidates", candidates.Replace("truthful `local-file` origin", "", StringComparison.Ordinal)),
+            ("late origin", "candidates", MoveAfterCommand(candidates, "Before discovery, separately record", "<launcher> inputs discover"))
+        })
+        {
+            var rejected = false;
+            try { Check(owner == "acquisition" ? text : acquisition, owner == "candidates" ? text : candidates); }
+            catch (InvalidOperationException) { rejected = true; }
+            Assert(rejected, $"intake prerequisite negative control: {name}");
+        }
+
+        static void Check(string acquisition, string candidates)
+        {
+            var archive = NormalizeWhitespace(acquisition);
+            var intake = NormalizeWhitespace(candidates);
+            foreach (var rule in new[] { "extract the retained archive as data", "existing extracted repository root",
+                         "neither creates it nor extracts the archive", "Reuse an already extracted tree" })
+                AssertContains(archive, rule, "archive prerequisite");
+            AssertBefore(acquisition, "Before `source inventory-archive`,", "<launcher> source inventory-archive",
+                "extraction precedes inventory invocation");
+            foreach (var rule in new[] { "successful package retrieval", "subject, locator and method exactly match",
+                         "Initialization alone does not add", "actual historical acquisition",
+                         "never as a new public fetch", "truthful `local-file` origin", "do not fabricate success" })
+                AssertContains(intake, rule, "exact-origin prerequisite");
+            AssertBefore(candidates, "Before discovery, separately record", "<launcher> inputs discover",
+                "origin completeness precedes discovery invocation");
+        }
+
+        static string MoveAfterCommand(string text, string start, string command)
+        {
+            var first = text.IndexOf(start, StringComparison.Ordinal);
+            var end = text.IndexOf("\n\n", first, StringComparison.Ordinal);
+            var paragraph = text[first..end];
+            var without = text.Remove(first, end - first);
+            var insertion = without.IndexOf(command, StringComparison.Ordinal) + command.Length;
+            return without.Insert(insertion, "\n" + paragraph + "\n");
+        }
+    }
+
     private static void AssertEvidenceTextConstraints(string skillRoot)
     {
         var reference = File.ReadAllText(Path.Combine(skillRoot, "references", "input-candidates.md"));
@@ -168,12 +220,33 @@ internal static class WorkflowTests
 
     private static void AssertSourceFindingExample(string skillRoot)
     {
-        var reference = File.ReadAllText(Path.Combine(skillRoot, "references", "area-blazor-runtime.md"));
+        var runtime = File.ReadAllText(Path.Combine(skillRoot, "references", "area-blazor-runtime.md"));
+        var reference = File.ReadAllText(Path.Combine(skillRoot, "references", "source-finding-example.md"));
+        var skill = File.ReadAllText(Path.Combine(skillRoot, "SKILL.md"));
         var candidates = File.ReadAllText(Path.Combine(skillRoot, "references", "input-candidates.md"));
         AssertContains(candidates, "area-blazor-runtime.md#synthetic-source-finding-example",
             "input owner links to complete source-finding example");
-        AssertContains(reference, "[synthetic worked example](#synthetic-source-finding-example)",
-            "source-proof boundary discovers the worked flow");
+        AssertContains(skill, "Optional [worked example](references/source-finding-example.md)",
+            "entrypoint discloses the example without requiring it for ordinary component work");
+        var landing = Regex.Match(runtime,
+            @"(?ms)^## Synthetic source-finding example\r?\n.*?(?=^## |\z)").Value;
+        AssertContains(landing, "[worked example](source-finding-example.md) only when requested",
+            "original anchor remains a conditional landing, not an ordinary prerequisite");
+        Assert(!runtime.Contains("### Validate the existing setup", StringComparison.Ordinal),
+            "ordinary runtime reading does not embed the synthetic producer walkthrough");
+        foreach (var rule in new[] { "## Conditional dynamic-child lifecycle matrix",
+                     "## Interactive Auto evidence protocol", "supported-context basis", "delivered input event",
+                     "passed mapped operation", "not-applicable", "all ten operations in canonical order",
+                     "async-callback-not-awaited", "async-cleanup-not-awaited" })
+            AssertContains(runtime, rule, "main runtime rules must not move behind the example gate");
+        AssertBefore(reference, "### Prerequisites and ownership", "### Retain the inert template",
+            "full prerequisites before example intake");
+        AssertBefore(reference, "[runtime rules](area-blazor-runtime.md)", "### Prerequisites and ownership",
+            "direct example route retains main runtime prerequisites");
+        AssertBefore(reference, "### Validate the existing setup", "### Materialize both complete protocols",
+            "setup validation before authoring protocols");
+        AssertBefore(reference, "### Reconfirm inputs and bind the evidence", "### Author only the source-backed gap",
+            "input/evidence binding before row mutation");
         const string assetLink = "../assets/source-finding/SyntheticCallbackGroup.cs.txt";
         AssertContains(reference, assetLink, "inert template has a plugin-local content link");
         var asset = Path.GetFullPath(Path.Combine(skillRoot, "references", assetLink));

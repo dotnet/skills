@@ -35,6 +35,7 @@ internal static class AssessmentTests
             var fixture = CreateInputFixture(root);
             var packageCandidates = TestCandidateBuilder(fixture);
             TestCandidateRetrievalMethods(fixture, packageCandidates);
+            TestExactOriginRetrievalPrerequisite(fixture, packageCandidates);
             TestPackageOnlyCliPath(fixture, packageCandidates);
             var packageRevision = CreatePackageRevision(fixture);
             TestRevisionPathSafety(fixture, packageRevision);
@@ -63,6 +64,64 @@ internal static class AssessmentTests
                 Directory.Delete(root, recursive: true);
             }
         }
+    }
+
+    private static void TestExactOriginRetrievalPrerequisite(Fixture fixture, string candidatePath)
+    {
+        var original = File.ReadAllBytes(candidatePath);
+        foreach (var variant in new[] { "local", "historical-public" })
+        {
+            var candidates = JsonNode.Parse(original)!.AsObject();
+            candidates["acquisition"] = "published";
+            var locator = variant == "local"
+                ? Path.GetFileName(fixture.NupkgPath)
+                : "https://packages.example.test/widgets/1.2.0";
+            var method = variant == "local" ? "local-file" : "package-feed";
+            candidates["package_origin"]!["locator"] = locator;
+            candidates["package_origin"]!["retrieval_method"] = method;
+            var attempt = new JsonObject
+            {
+                ["subject"] = "package", ["locator"] = locator, ["retrieval_method"] = method,
+                ["result"] = "succeeded", ["detail"] = "Previously recorded acquisition; current reuse is local."
+            };
+            candidates["retrieval_attempts"] = new JsonArray(attempt);
+            var valid = Encoding.UTF8.GetBytes(candidates.ToJsonString());
+            var confirmed = InputManifestService.Confirm(
+                InputManifestService.Discover(fixture.Root, fixture.NupkgPath, valid), fixture.Root);
+            AssertEqual(locator, confirmed.Package.OriginLocator, "recorded origin preserved");
+            AssertEqual(method, confirmed.Package.RetrievalMethod, "recorded origin method preserved");
+            AssertEqual("published", confirmed.Acquisition, "local reuse does not change published acquisition");
+
+            foreach (var mismatch in new[] { "absent", "subject", "locator", "retrieval_method", "result" })
+            {
+                var invalid = JsonNode.Parse(valid)!.AsObject();
+                if (mismatch == "absent")
+                    invalid["retrieval_attempts"] = new JsonArray();
+                else
+                    invalid["retrieval_attempts"]![0]![mismatch] = mismatch switch
+                    {
+                        "subject" => "source",
+                        "locator" => variant == "local" ? "other.nupkg" : "https://packages.example.test/other",
+                        "retrieval_method" => variant == "local" ? "owner-supplied" : "direct-download",
+                        _ => "network-failure"
+                    };
+                var input = Path.Combine(fixture.Root, $"origin-{variant}-{mismatch}.json");
+                var output = Path.Combine(fixture.Root, $"origin-{variant}-{mismatch}-draft.json");
+                File.WriteAllText(input, invalid.ToJsonString());
+                var error = new StringWriter();
+                AssertEqual(ExitCodes.ValidationFailure, CliApplication.Run(
+                    ["inputs", "discover", "--root", fixture.Root, "--nupkg", fixture.NupkgPath,
+                        "--candidates", input, "--output", output], new StringWriter(), error),
+                    $"{variant} mismatched origin {mismatch} fails discovery");
+                var diagnostic = mismatch == "absent"
+                    ? "Retrieval attempts require between 1 and 64 entries"
+                    : "successful acquisition of the exact package origin";
+                Assert(error.ToString().Contains(diagnostic, StringComparison.Ordinal),
+                    $"{variant} origin prerequisite diagnostic: {error}");
+                Assert(!File.Exists(output), "invalid origin writes no discovered manifest");
+            }
+        }
+        AssertBytes(original, File.ReadAllBytes(candidatePath), "origin checks preserve existing candidates");
     }
 
     private static string TestCandidateBuilder(Fixture fixture)

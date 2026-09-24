@@ -29,9 +29,14 @@ and start a distinct package root when bytes change even if the semantic version
 
 When the selected source is an already retained GitHub archive, extraction is an acquisition step,
 not a checkout. For a GitHub codeload archive, record the repository URI, exact commit, archive
-locator, top-level entry prefix, mapping rationale, and confidence. First inventory actual regular
+locator, top-level entry prefix, mapping rationale, and confidence. Inventory actual regular
 archive entries, then choose relevant entries by their numeric IDs; the inventory is structural
 source-file selection, not a component or library assessment inventory:
+
+Before `source inventory-archive`, extract the retained archive as data outside the reviewed
+repository and verify that `--source-root` names the existing extracted repository root.
+Reuse an already extracted tree when it corresponds to these archive bytes. The command
+requires that directory to exist; it neither creates it nor extracts the archive.
 
 ```text
 <launcher> source inventory-archive --root <root> --archive <root-relative.tar.gz> \

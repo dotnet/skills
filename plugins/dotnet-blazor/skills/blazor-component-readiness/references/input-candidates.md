@@ -98,6 +98,14 @@ Documentation, package-source and source-artifact content paths may remain neste
 paths. Construction validates the existing string grammar without changing valid original
 values; file existence, hashes and whole-input completeness remain discovery checks.
 
+Before discovery, separately record a successful package retrieval whose subject, locator and
+method exactly match the declared package origin. Initialization alone does not add that
+retrieval record. For retained published bytes, preserve the actual historical acquisition;
+record local reuse separately, never as a new public fetch. A truthful `local-file` origin is
+valid with its matching successful attempt; `published` does not require inventing a remote
+origin or changing the release to `release-candidate`. If the declared origin is unsupported,
+resolve that missing provenance before discovery; do not fabricate success to satisfy validation.
+
 After the complete candidate record and owner confirmation required by the skill:
 
 ```text
