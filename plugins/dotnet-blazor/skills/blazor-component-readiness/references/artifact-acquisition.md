@@ -33,10 +33,10 @@ locator, top-level entry prefix, mapping rationale, and confidence. Inventory ac
 archive entries, then choose relevant entries by their numeric IDs; the inventory is structural
 source-file selection, not a component or library assessment inventory:
 
-Before `source inventory-archive`, extract the retained archive as data outside the reviewed
-repository and verify that `--source-root` names the existing extracted repository root.
-Reuse an already extracted tree when it corresponds to these archive bytes. The command
-requires that directory to exist; it neither creates it nor extracts the archive.
+Before `source inventory-archive`, create the directory named by `--source-root` if absent,
+outside the reviewed repository. An empty directory is sufficient: inventory reads and validates
+the retained archive, not extracted contents. Do not extract before inventory succeeds.
+The command neither creates the directory nor extracts the archive.
 
 ```text
 <launcher> source inventory-archive --root <root> --archive <root-relative.tar.gz> \
@@ -44,8 +44,13 @@ requires that directory to exist; it neither creates it nor extracts the archive
   --archive-format tar.gz --output <new-inventory.json>
 ```
 
-`source-root` is the actual local repository root where each repository-relative `source_path`
-exists; it is not necessarily the extraction destination. `archive-prefix` applies only to archive
+After successful inventory, safely extract the same retained archive bytes as data, preserving
+the resource limits and path mapping below. Reuse an already extracted tree when it corresponds
+to these archive bytes; do not require duplicate extraction. Stop on inventory failure without
+expanding the archive. Capture selected files only after their extracted contents exist.
+
+For capture, `source-root` is the actual local repository root where each repository-relative
+`source_path` exists; it is not necessarily the extraction destination. `archive-prefix` applies only to archive
 entry names. For example, if the archive contains `bundle/src/a.txt`, then
 `tar -xzf archive.tar.gz -C extracted` is captured with
 `--source-root extracted/bundle --archive-prefix bundle`. If extraction uses

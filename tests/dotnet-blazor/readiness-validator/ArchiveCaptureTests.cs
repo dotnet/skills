@@ -26,7 +26,7 @@ internal static class ArchiveCaptureTests
             TestTarGzipCapture(testRoot);
             TestCaptureFailures(testRoot);
             TestZipCapture(testRoot);
-            TestInventoryRequiresExtractedRoot(testRoot);
+            TestInventoryBeforeExtraction(testRoot);
             TestInventoryCaptureBridge(testRoot);
             TestInventoryCoverage(testRoot);
             TestInventoryHazards(testRoot);
@@ -354,7 +354,7 @@ internal static class ArchiveCaptureTests
             $"ZIP source capture: {error}");
     }
 
-    private static void TestInventoryRequiresExtractedRoot(string testRoot)
+    private static void TestInventoryBeforeExtraction(string testRoot)
     {
         var root = Path.Combine(testRoot, "inventory-prerequisite");
         Directory.CreateDirectory(root);
@@ -370,23 +370,41 @@ internal static class ArchiveCaptureTests
         ];
         var error = new StringWriter();
         AssertEqual(ExitCodes.EnvironmentFailure, CliApplication.Run(arguments, new StringWriter(), error),
-            $"inventory before extraction fails: {error}");
+            $"inventory with missing directory fails: {error}");
         Assert(error.ToString().Contains("path beneath the artifact root does not exist", StringComparison.Ordinal),
-            "missing extracted-root prerequisite is explicit");
+            "missing directory prerequisite is explicit");
         Assert(!File.Exists(Path.Combine(root, "inventory.json")), "missing root writes no inventory");
         Assert(!Directory.Exists(Path.Combine(root, "extracted")), "inventory does not extract the archive");
 
-        var extracted = Path.Combine(root, "extracted");
-        Directory.CreateDirectory(extracted);
-        using (var stream = File.OpenRead(archive))
-        using (var gzip = new GZipStream(stream, CompressionMode.Decompress))
-            TarFile.ExtractToDirectory(gzip, extracted, overwriteFiles: false);
+        var sourceRoot = Path.Combine(root, "extracted", "bundle");
+        Directory.CreateDirectory(sourceRoot);
         error = new StringWriter();
         AssertEqual(ExitCodes.Success, CliApplication.Run(arguments, new StringWriter(), error),
-            $"same inventory command succeeds after extraction: {error}");
-        AssertBytes(content, File.ReadAllBytes(Path.Combine(extracted, "bundle", "src", "file.txt")),
-            "retained extraction matches source bytes");
+            $"same inventory command succeeds with an empty directory: {error}");
+        Assert(!Directory.EnumerateFileSystemEntries(sourceRoot).Any(),
+            "successful inventory leaves the source directory empty");
+        using (var inventory = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(root, "inventory.json"))))
+            AssertEqual("src/file.txt", inventory.RootElement.GetProperty("entries")[0].GetProperty("source_path").GetString(),
+                "inventory selects archive paths without extracted files");
         AssertBytes(original, File.ReadAllBytes(archive), "intake preserves original archive bytes");
+
+        var unsafeArchive = Path.Combine(root, "unsafe.tar.gz");
+        CreateTarGzip(unsafeArchive, "bundle/../escape.txt", content);
+        var unsafeArguments = arguments.Select(value => value switch
+        {
+            "archive.tar.gz" => "unsafe.tar.gz",
+            "inventory.json" => "unsafe-inventory.json",
+            _ => value
+        }).ToArray();
+        error = new StringWriter();
+        AssertEqual(ExitCodes.ValidationFailure, CliApplication.Run(unsafeArguments, new StringWriter(), error),
+            $"unsafe archive fails before extraction: {error}");
+        Assert(error.ToString().Contains("not a safe regular archive path", StringComparison.Ordinal),
+            "unsafe archive path diagnostic");
+        Assert(!File.Exists(Path.Combine(root, "unsafe-inventory.json")), "unsafe archive writes no inventory");
+        Assert(!Directory.EnumerateFileSystemEntries(sourceRoot).Any(),
+            "unsafe archive rejection leaves the source directory empty");
+        Assert(!File.Exists(Path.Combine(root, "extracted", "escape.txt")), "unsafe entry is never extracted");
     }
 
     private static void TestInventoryCaptureBridge(string testRoot)

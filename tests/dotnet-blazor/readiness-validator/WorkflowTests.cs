@@ -154,9 +154,14 @@ internal static class WorkflowTests
         Check(acquisition, candidates);
         foreach (var (name, owner, text) in new[]
         {
-            ("missing extraction", "acquisition", acquisition.Replace("extract the retained archive as data", "", StringComparison.Ordinal)),
-            ("missing existing root", "acquisition", acquisition.Replace("existing extracted repository root", "", StringComparison.Ordinal)),
-            ("late extraction", "acquisition", MoveAfterCommand(acquisition, "Before `source inventory-archive`,", "<launcher> source inventory-archive")),
+            ("missing directory setup", "acquisition", acquisition.Replace("create the directory named by `--source-root` if absent", "", StringComparison.Ordinal)),
+            ("missing empty-directory control", "acquisition", acquisition.Replace("An empty directory is sufficient", "", StringComparison.Ordinal)),
+            ("late directory setup", "acquisition", MoveAfterCommand(acquisition, "Before `source inventory-archive`,", "<launcher> source inventory-archive")),
+            ("extraction before inventory", "acquisition",
+                "Before `source inventory-archive`, extract the retained archive as data.\n\n" + acquisition),
+            ("premature extraction step", "acquisition", MoveAfterCommand(acquisition, "After successful inventory,", "source-file selection,")),
+            ("extraction after capture", "acquisition", MoveAfterCommand(acquisition, "After successful inventory,", "<launcher> source capture-inventory")),
+            ("changed archive allowed", "acquisition", acquisition.Replace("same retained archive bytes", "", StringComparison.Ordinal)),
             ("missing exact origin", "candidates", candidates.Replace("subject, locator and\nmethod exactly match", "", StringComparison.Ordinal)),
             ("missing historical boundary", "candidates", candidates.Replace("never as a new public fetch", "", StringComparison.Ordinal)),
             ("lost local origin", "candidates", candidates.Replace("truthful `local-file` origin", "", StringComparison.Ordinal)),
@@ -173,11 +178,21 @@ internal static class WorkflowTests
         {
             var archive = NormalizeWhitespace(acquisition);
             var intake = NormalizeWhitespace(candidates);
-            foreach (var rule in new[] { "extract the retained archive as data", "existing extracted repository root",
-                         "neither creates it nor extracts the archive", "Reuse an already extracted tree" })
+            foreach (var rule in new[] { "create the directory named by `--source-root` if absent",
+                         "An empty directory is sufficient", "not extracted contents",
+                         "Do not extract before inventory succeeds",
+                         "neither creates the directory nor extracts the archive", "Reuse an already extracted tree",
+                         "same retained archive bytes", "Stop on inventory failure without expanding the archive",
+                         "Capture selected files only after their extracted contents exist" })
                 AssertContains(archive, rule, "archive prerequisite");
             AssertBefore(acquisition, "Before `source inventory-archive`,", "<launcher> source inventory-archive",
-                "extraction precedes inventory invocation");
+                "directory setup precedes inventory invocation");
+            Assert(!archive.Contains("Before `source inventory-archive`, extract", StringComparison.Ordinal),
+                "reject the old extraction-before-inventory prerequisite");
+            AssertBefore(acquisition, "<launcher> source inventory-archive", "After successful inventory,",
+                "validate archive before extraction");
+            AssertBefore(acquisition, "After successful inventory,", "<launcher> source capture-inventory",
+                "extract selected contents before capture");
             foreach (var rule in new[] { "successful package retrieval", "subject, locator and method exactly match",
                          "Initialization alone does not add", "actual historical acquisition",
                          "never as a new public fetch", "truthful `local-file` origin", "do not fabricate success" })
