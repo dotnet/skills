@@ -202,7 +202,10 @@ test("requiredArmTimedOut sees a timeout on any required arm", () => {
 test("only a clean required-arm timeout is retryable", () => {
   assert.equal(isRetryableTimeout(scenario("a", { timedOut: true })), true);
   // A scenario the agent simply lost is a measured outcome, not a fault.
-  assert.equal(isRetryableTimeout(scenario("a", { improvementScore: -2 })), false);
+  assert.equal(
+    isRetryableTimeout(timedOutScenario("a", { improvementScore: -2 })),
+    false,
+  );
   assert.equal(
     isRetryableTimeout(scenario("a", { timedOut: true, executionError: "agent crashed" })),
     false,
@@ -264,6 +267,82 @@ test("a timeout missing completion evidence is reported as unresolved", () => {
   assert.match(
     summary.attempts[0].reason,
     /missing task-completion evidence for arm\(s\): plugin/,
+  );
+});
+
+test("a timed-out scenario with a measured loss is not retried", () => {
+  const original = resultsWith([
+    timedOutScenario("flaky", { improvementScore: -0.5 }),
+  ]);
+  const paths = workspace(
+    original,
+  );
+  const before = readFileSync(paths.resultsFile, "utf8");
+  const { run, calls } = stubRun({ flaky: scenario("flaky") });
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+
+  assert.equal(calls.length, 0);
+  assert.equal(summary.recoveredScenarioCount, 0);
+  assert.equal(summary.ineligibleScenarioCount, 1);
+  assert.equal(summary.unresolvedScenarioCount, 1);
+  assert.equal(summary.attempts[0].recovered, false);
+  assert.match(summary.attempts[0].reason, /measured loss/);
+  assert.equal(readFileSync(paths.resultsFile, "utf8"), before);
+});
+
+test("a negative score caused by an isolated-arm timeout remains retryable", () => {
+  const isolatedTimeout = scenario("flaky", {
+    timedOut: true,
+    skilledIsolated: timedOutRun(),
+    improvementScore: -0.5,
+  });
+  assert.equal(isRetryableTimeout(isolatedTimeout), true);
+});
+
+test("a negative score caused by a baseline-arm timeout remains retryable", () => {
+  const baselineTimeout = scenario("flaky", {
+    timedOut: true,
+    baseline: timedOutRun(),
+    improvementScore: -0.5,
+  });
+  assert.equal(isRetryableTimeout(baselineTimeout), true);
+});
+
+test("a completed isolated activation failure is not rerolled for a plugin timeout", () => {
+  const pluginTimeout = timedOutScenario("flaky", {
+    subagentActivationIsolated: { invokedAgents: [] },
+  });
+  assert.equal(
+    isRetryableTimeout(pluginTimeout, "code-testing-generator"),
+    false,
+  );
+});
+
+test("a completed unexpected activation is not rerolled for a plugin timeout", () => {
+  const pluginTimeout = timedOutScenario("flaky", {
+    expectActivation: false,
+    subagentActivationIsolated: activated(),
+  });
+  assert.equal(
+    isRetryableTimeout(pluginTimeout, "code-testing-generator"),
+    false,
+  );
+});
+
+test("structural evidence failures take precedence over measured loss", () => {
+  const invalid = timedOutScenario("flaky", {
+    pairwiseResult: null,
+    improvementScore: -0.5,
+  });
+  const paths = workspace(resultsWith([invalid]));
+  const { run } = stubRun({});
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+
+  assert.match(
+    summary.attempts[0].reason,
+    /missing or invalid pairwise judgment/,
   );
 });
 

@@ -251,8 +251,11 @@ re-runs, so no separate `rejudge` pass is needed.
 The retry is deliberately narrow. It fires only when a wall-clock timeout is the
 scenario's sole defect; an `executionError`, `failedRunCount > 0`, a missing
 arm, missing boolean completion evidence, a missing or malformed pairwise
-judgment, or a
-scenario the agent simply lost is never retried. Ineligible timeout scenarios remain listed as unresolved diagnostics
+judgment, or a measured negative improvement/routing failure from non-timed-out
+baseline and isolated arms is never retried. A negative score from a baseline-
+or isolated-arm timeout remains eligible because the timeout contaminated the
+score. Ineligible
+timeout scenarios remain listed as unresolved diagnostics
 instead of disappearing from retry accounting. A second timeout,
 more than two timed-out scenarios, an effective per-scenario three-arm retry
 cost (including `constraints.max_duration`) that exceeds the bounded recovery

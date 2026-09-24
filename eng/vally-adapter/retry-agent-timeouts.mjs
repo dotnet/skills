@@ -22,8 +22,8 @@
  *
  * Anything that is not a clean required-arm timeout — an execution error, a
  * failed run, a missing arm, missing completion or pairwise evidence, or a
- * scenario the agent simply lost — is never retried and keeps failing the
- * measurement-validity gate.
+ * measured loss/routing failure from completed baseline+isolated evidence — is
+ * never retried and keeps failing the measurement-validity gate.
  */
 
 import {
@@ -82,7 +82,8 @@ if (
 
 Re-runs only the scenarios whose required agent arm hit its wall-clock timeout,
 then replaces those scenarios in the native results file. Every other scenario,
-including one the agent lost or one with missing completion/pairwise evidence,
+including a measured loss/routing failure from non-timed-out baseline+isolated
+evidence or one with missing completion/pairwise evidence,
 is left exactly as it was measured.
 
 Options:
@@ -116,8 +117,8 @@ function requiredArmTimedOut(scenario) {
  * failure that a retry must not paper over, and a scenario the agent simply
  * lost is a measured outcome rather than a fault.
  */
-function isRetryableTimeout(scenario) {
-  return timeoutIneligibilityReason(scenario) === null;
+function isRetryableTimeout(scenario, agentName = null) {
+  return timeoutIneligibilityReason(scenario, agentName) === null;
 }
 
 function isValidPairwiseResult(pairwiseResult) {
@@ -156,7 +157,7 @@ function missingTaskCompletionArms(scenario) {
   ).map(([name]) => name);
 }
 
-function timeoutIneligibilityReason(scenario) {
+function timeoutIneligibilityReason(scenario, agentName = null) {
   if (!scenario?.scenarioName || !requiredArmTimedOut(scenario)) {
     return "scenario is not a named required-arm timeout";
   }
@@ -173,6 +174,32 @@ function timeoutIneligibilityReason(scenario) {
   }
   if (!isValidPairwiseResult(scenario.pairwiseResult)) {
     return "scenario has missing or invalid pairwise judgment evidence";
+  }
+  const scoringArmsCompleted =
+    scenario.baseline.metrics?.timedOut !== true &&
+    scenario.skilledIsolated.metrics?.timedOut !== true;
+  if (
+    scoringArmsCompleted &&
+    typeof scenario.improvementScore === "number" &&
+    scenario.improvementScore < 0
+  ) {
+    return `scenario has a measured loss (improvementScore=${scenario.improvementScore})`;
+  }
+  if (
+    scoringArmsCompleted &&
+    agentName &&
+    scenario.subagentActivationIsolated
+  ) {
+    const activated = targetAgentActivated(
+      scenario.subagentActivationIsolated,
+      String(agentName).replace(/^agent\./, ""),
+    );
+    if (scenario.expectActivation === false && activated) {
+      return "scenario has a measured unexpected isolated activation";
+    }
+    if (scenario.expectActivation !== false && !activated) {
+      return "scenario has a measured isolated activation failure";
+    }
   }
   return null;
 }
@@ -739,7 +766,10 @@ function retryAgentTimeouts(config) {
     summary.attempts = targets.map((target) => {
       const scenario =
         results.verdicts[target.verdictIndex].scenarios[target.scenarioIndex];
-      const ineligibleReason = timeoutIneligibilityReason(scenario);
+      const ineligibleReason = timeoutIneligibilityReason(
+        scenario,
+        target.skillName,
+      );
       if (ineligibleReason !== null) summary.ineligibleScenarioCount++;
       return {
         skillName: target.skillName,
@@ -764,27 +794,6 @@ function retryAgentTimeouts(config) {
   const resolveScenarioTimeout =
     config.resolveScenarioTimeout ?? effectiveAgentTimeoutSeconds;
   for (const target of targets) {
-    const scenario =
-      results.verdicts[target.verdictIndex].scenarios[target.scenarioIndex];
-    const ineligibleReason = timeoutIneligibilityReason(scenario);
-    if (ineligibleReason !== null) {
-      summary.unresolvedScenarioCount++;
-      summary.ineligibleScenarioCount++;
-      summary.attempts.push({
-        skillName: target.skillName,
-        scenarioName: target.scenarioName,
-        recovered: false,
-        reason: ineligibleReason,
-        retryExitCode: null,
-        auditDir: null,
-        armTimeoutSeconds: null,
-        estimatedSeconds: null,
-      });
-      console.warn(
-        `Skipping timed-out scenario ${target.skillName}/${target.scenarioName}: ${ineligibleReason}`,
-      );
-      continue;
-    }
     let pathSegment;
     try {
       pathSegment = safeAgentPathSegment(target.skillName);
@@ -803,6 +812,30 @@ function retryAgentTimeouts(config) {
       });
       console.warn(
         `Skipping timed-out scenario ${target.skillName}/${target.scenarioName}: ${reason}`,
+      );
+      continue;
+    }
+    const scenario =
+      results.verdicts[target.verdictIndex].scenarios[target.scenarioIndex];
+    const ineligibleReason = timeoutIneligibilityReason(
+      scenario,
+      target.skillName,
+    );
+    if (ineligibleReason !== null) {
+      summary.unresolvedScenarioCount++;
+      summary.ineligibleScenarioCount++;
+      summary.attempts.push({
+        skillName: target.skillName,
+        scenarioName: target.scenarioName,
+        recovered: false,
+        reason: ineligibleReason,
+        retryExitCode: null,
+        auditDir: null,
+        armTimeoutSeconds: null,
+        estimatedSeconds: null,
+      });
+      console.warn(
+        `Skipping timed-out scenario ${target.skillName}/${target.scenarioName}: ${ineligibleReason}`,
       );
       continue;
     }

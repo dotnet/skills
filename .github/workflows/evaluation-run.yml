@@ -887,7 +887,8 @@ jobs:
             # tree. Completed retry sessions and logs are copied into the diagnostic
             # subtree; the raw result is renamed retry-results.json. Recursive
             # collectors also exclude that subtree as defense in depth. A scenario
-            # that times out again, fails for any other reason, or simply lost is
+            # that times out again, fails for any other reason, or has a measured
+            # loss/routing failure from non-timed-out baseline+isolated evidence is
             # left exactly as measured and
             # still fails the accounting gate below. The bound keeps a systemic
             # capacity problem from being retried at all.

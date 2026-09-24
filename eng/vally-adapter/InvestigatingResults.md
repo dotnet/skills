@@ -383,8 +383,11 @@ per-scenario recovery budget; otherwise the scenario is left invalid without
 starting a retry that its outer watchdog cannot finish. A scenario is retried only
 when a timeout is its sole defect: an `executionError`, a failed run, a missing
 arm, missing boolean completion evidence, missing or malformed pairwise
-judgment, or a
-scenario the agent simply lost is never retried. More than two
+judgment, or a measured negative improvement/routing failure from non-timed-out
+baseline and isolated arms is never retried. A negative score from a baseline-
+or isolated-arm timeout remains eligible because that score is contaminated by
+the timeout being recovered.
+More than two
 timed-out scenarios is read as a systemic capacity problem before individual
 budget filtering; nothing is retried and every scenario receives a diagnostic
 attempt record.
