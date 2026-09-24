@@ -387,6 +387,8 @@ public class PluginMcpManifestTests
             File.ReadAllText(Path.Combine(pluginRoot, "plugin.json")));
         using var codex = JsonDocument.Parse(
             File.ReadAllText(Path.Combine(pluginRoot, ".codex-plugin", "plugin.json")));
+        using var claude = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(pluginRoot, ".claude-plugin", "plugin.json")));
         var standardTools = standard.RootElement
             .GetProperty("mcpServers")
             .GetProperty("binlog")
@@ -403,10 +405,27 @@ public class PluginMcpManifestTests
             .Select(tool => tool.Name)
             .Order()
             .ToArray();
+        var claudeTools = claude.RootElement
+            .GetProperty("mcpServers")
+            .GetProperty("binlog")
+            .GetProperty("tools")
+            .EnumerateArray()
+            .Select(tool => tool.GetString()!)
+            .Order()
+            .ToArray();
         CollectionAssert.AreEqual(
             standardTools,
             codexTools,
             "The Codex manifest must restrict BinlogMcp to the same tool allowlist as plugin.json.");
+        CollectionAssert.AreEqual(
+            standardTools,
+            claudeTools,
+            "The Claude manifest must restrict BinlogMcp to the same tool allowlist as plugin.json.");
+        Assert.Contains("binlog_overview", standardTools);
+        foreach (var excludedTool in new[] { "binlog_extract", "stop", "list_mcp_instances", "stop_instance" })
+        {
+            Assert.DoesNotContain(excludedTool, standardTools);
+        }
     }
 
     [TestMethod]

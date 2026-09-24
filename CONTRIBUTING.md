@@ -147,8 +147,8 @@ per-tool settings, not an allow-list array. Omit `tools` to enable all tools.
 
 The `codex-plugin-smoke` workflow pins a supported Codex CLI release and, without API credentials,
 verifies marketplace installation, skill discovery, MCP discovery, and direct MCP transport through
-real `load_binlog` and `get_diagnostics` calls against a generated binary log. It does not cover
-authentication, model inference, prompt-based skill selection, or model-driven tool selection.
+a real `binlog_overview` call against a generated binary log. It does not cover authentication,
+model inference, prompt-based skill selection, or model-driven tool selection.
 
 ## Host-specific agents
 
