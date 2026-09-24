@@ -3,7 +3,7 @@ name: winforms-expert
 description: >-
   Create, modify, debug, or review Windows Forms applications only when the request
   contains a concrete Windows Forms marker. USE FOR: WinForms, Windows Forms,
-  System.Windows.Forms, Form or UserControl designer files (*.Designer.cs or
+  System.Windows.Forms, WinForms Form or UserControl designer files (*.Designer.cs or
   *.Designer.vb), Visual Studio WinForms Designer, TableLayoutPanel, BindingSource,
   DataGridView, Control.InvokeAsync, component-tray ownership, or custom control
   serialization. DO NOT USE when none of these Windows Forms markers is present.
