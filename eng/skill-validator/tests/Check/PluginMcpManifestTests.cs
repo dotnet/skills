@@ -1,3 +1,4 @@
+using System.Text.Json;
 using SkillValidator.Check;
 using SkillValidator.Shared;
 
@@ -381,6 +382,31 @@ public class PluginMcpManifestTests
                 $"{relativePath}: {error}");
             Assert.Contains("binlog", servers);
         }
+
+        using var standard = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(pluginRoot, "plugin.json")));
+        using var codex = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(pluginRoot, ".codex-plugin", "plugin.json")));
+        var standardTools = standard.RootElement
+            .GetProperty("mcpServers")
+            .GetProperty("binlog")
+            .GetProperty("tools")
+            .EnumerateArray()
+            .Select(tool => tool.GetString()!)
+            .Order()
+            .ToArray();
+        var codexTools = codex.RootElement
+            .GetProperty("mcpServers")
+            .GetProperty("binlog")
+            .GetProperty("tools")
+            .EnumerateObject()
+            .Select(tool => tool.Name)
+            .Order()
+            .ToArray();
+        CollectionAssert.AreEqual(
+            standardTools,
+            codexTools,
+            "The Codex manifest must restrict BinlogMcp to the same tool allowlist as plugin.json.");
     }
 
     [TestMethod]
