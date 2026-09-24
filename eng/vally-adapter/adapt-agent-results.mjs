@@ -16,6 +16,7 @@ import {
 } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { pathToFileURL } from "node:url";
 
 import {
   comparisonToVerdict,
@@ -25,7 +26,10 @@ import {
   VERDICT_STATES,
 } from "./adapt.mjs";
 
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+
 const { values: opts } = parseArgs({
+  args: isMain ? process.argv.slice(2) : [],
   options: {
     "results-file": { type: "string" },
     "output-root": { type: "string", default: "eval-results" },
@@ -38,7 +42,7 @@ const { values: opts } = parseArgs({
   strict: true,
 });
 
-if (opts.help || !opts["results-file"]) {
+if (isMain && (opts.help || !opts["results-file"])) {
   console.log(`Usage:
   node adapt-agent-results.mjs --results-file <legacy-results.json> [options]
 
@@ -126,6 +130,30 @@ function directionFromPairwise(pairwise) {
   if (winner === "skill" || winner === "agent" || winner === "treatment") return 1;
   if (winner === "baseline") return -1;
   return 0;
+}
+
+function validNativePairwiseResult(pairwise) {
+  const winner = String(pairwise?.overallWinner ?? "").toLowerCase();
+  const magnitude = pairwise?.overallMagnitude;
+  const normalizedMagnitude = String(magnitude ?? "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+  const validMagnitude =
+    (Number.isInteger(magnitude) && magnitude >= 0 && magnitude <= 4) ||
+    new Set([
+      "muchbetter",
+      "slightlybetter",
+      "equal",
+      "slightlyworse",
+      "muchworse",
+    ]).has(normalizedMagnitude);
+  return (
+    new Set(["baseline", "skill", "tie"]).has(winner) &&
+    validMagnitude &&
+    Array.isArray(pairwise?.rubricResults) &&
+    typeof pairwise?.overallReasoning === "string" &&
+    typeof pairwise?.positionSwapConsistent === "boolean"
+  );
 }
 
 function magnitudeFromPairwise(pairwise, direction) {
@@ -219,6 +247,30 @@ function scenarioTimedOut(scenario) {
   );
 }
 
+function nativeCompletionRegressed(scenarios) {
+  return (scenarios ?? []).some(
+    (scenario) =>
+      !scenario?.executionError
+      && (scenario?.failedRunCount ?? 0) === 0
+      && !scenarioTimedOut(scenario)
+      && scenario?.baseline
+      && scenario?.skilledIsolated
+      && scenario?.skilledPlugin
+      && validNativePairwiseResult(scenario?.pairwiseResult)
+      && scenario?.baseline?.metrics?.taskCompleted === true
+      && scenario?.skilledIsolated?.metrics?.taskCompleted === false,
+  );
+}
+
+function nativeActivationFailed(scenarios, agentName) {
+  return (scenarios ?? []).some(
+    (scenario) =>
+      scenario?.expectActivation !== false
+      && scenario?.subagentActivationIsolated
+      && !targetAgentActivated(scenario.subagentActivationIsolated, agentName),
+  );
+}
+
 function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
   const identity = agentIdentity(evalFile);
   identity.skillPath = agentSourcePath(legacyVerdict, repoRoot) ?? identity.skillPath;
@@ -266,6 +318,16 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
       ["isolated", scenario.skilledIsolated],
       ["plugin", scenario.skilledPlugin],
     ].filter(([, run]) => !run).map(([name]) => name);
+    // All three arms are required adapter evidence even though the plugin arm is
+    // diagnostic-only for the objective completion-regression predicate.
+    const missingCompletionEvidence = [
+      ["baseline", scenario.baseline],
+      ["isolated", scenario.skilledIsolated],
+      ["plugin", scenario.skilledPlugin],
+    ].filter(
+      ([, run]) =>
+        run && typeof run.metrics?.taskCompleted !== "boolean",
+    ).map(([name]) => name);
     const requiredTimedOut = scenarioTimedOut(scenario);
     const executionError = scenario.executionError
       ?? (missingRequiredArms.length > 0
@@ -275,7 +337,12 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
       ?? ((scenario.failedRunCount ?? 0) > 0
         ? `${scenario.failedRunCount} run(s) failed`
         : null)
-      ?? (!scenario.pairwiseResult ? "Pairwise judge did not produce a result" : null);
+      ?? (missingCompletionEvidence.length > 0
+        ? `Missing task-completion evidence for required arm(s): ${missingCompletionEvidence.join(", ")}`
+        : null)
+      ?? (!validNativePairwiseResult(scenario.pairwiseResult)
+        ? "Pairwise judge did not produce a valid result"
+        : null);
     reportStimuli.push({
       stimulusName: scenario.scenarioName,
       meanScore: executionError ? 0 : score,
@@ -331,22 +398,21 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
   );
   verdict.evaluationLane = "native-agent-sdk";
   verdict.overfittingResult = legacyVerdict.overfittingResult ?? null;
-  const nativeCompletionRegressed =
-    legacyVerdict.failureKind === "completion_regression";
-  const nativeActivationFailed = legacyVerdict.skillNotActivated === true
-    || legacyVerdict.failureKind === "skill_not_activated";
-  if (nativeCompletionRegressed) {
-    verdict.state = VERDICT_STATES.VALID_REGRESSION;
-    verdict.stateReason = {
-      code: "native_completion_regression",
-      phase: "completion",
-    };
+  // The generic comparison layer uses `regressed` for reverse preference.
+  // Native-agent results reserve it for objective completion regression; keep
+  // the ordinal signal in `preferenceRegressed`.
+  verdict.regressed = false;
+  const completionRegressed = nativeCompletionRegressed(legacyVerdict.scenarios);
+  const activationFailed = nativeActivationFailed(
+    legacyVerdict.scenarios,
+    identity.agentName,
+  );
+  if (activationFailed) {
     verdict.passed = false;
-    verdict.regressed = true;
-    verdict.reason = `${verdict.reason} — native evaluator reported an objective task-completion regression`;
-  } else if (nativeActivationFailed) {
-    verdict.passed = false;
-    if (verdict.state === VERDICT_STATES.VALID_PASS) {
+    if (
+      verdict.state !== VERDICT_STATES.INVALID_INCONCLUSIVE
+      && verdict.stateReason?.code !== "activation_contract_failed"
+    ) {
       verdict.state = VERDICT_STATES.VALID_NO_CHANGE;
       verdict.stateReason = {
         code: "target_agent_not_activated",
@@ -354,6 +420,29 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
       };
     }
     verdict.reason = `${verdict.reason} — native evaluator reported that the target agent did not activate`;
+  } else if (completionRegressed) {
+    verdict.passed = false;
+    const preferenceOnlyUnderpowered =
+      verdict.state === VERDICT_STATES.INVALID_INCONCLUSIVE
+      && verdict.stateReason?.code === "underpowered";
+    const activationContractFailed =
+      verdict.stateReason?.code === "activation_contract_failed";
+    if (
+      !activationContractFailed
+      && (
+        verdict.state !== VERDICT_STATES.INVALID_INCONCLUSIVE
+        || preferenceOnlyUnderpowered
+      )
+    ) {
+      verdict.state = VERDICT_STATES.VALID_REGRESSION;
+      verdict.stateReason = {
+        code: "native_completion_regression",
+        phase: "completion",
+      };
+      verdict.underpowered = false;
+      verdict.regressed = true;
+    }
+    verdict.reason = `${verdict.reason} — native evaluator reported an objective task-completion regression`;
   }
 
   const legacyByScenario = new Map(
@@ -544,11 +633,13 @@ function main() {
   );
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
-  process.exitCode = 1;
+if (isMain) {
+  try {
+    main();
+  } catch (error) {
+    console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    process.exitCode = 1;
+  }
 }
 
 export {
@@ -556,5 +647,7 @@ export {
   agentIdentity,
   directionFromPairwise,
   legacyToVerdict,
+  nativeActivationFailed,
+  nativeCompletionRegressed,
   magnitudeFromPairwise,
 };

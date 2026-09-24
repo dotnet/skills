@@ -915,9 +915,16 @@ jobs:
         run: |
           PR_NUMBER=${{ needs.gate.outputs.pr_number }}
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          SESSION_DATA_NOTE=""
+          if [[ "${{ needs.publish-session-data.outputs.status }}" == "degraded" ]]; then
+            SESSION_DATA_NOTE="⚠️ Session replay telemetry was not published because the auxiliary dotnet/skills-data publisher failed. The evaluation verdicts above remain authoritative; maintainers must repair SKILLS_DATA_TOKEN or the publisher before replay links are available."
+          fi
 
           mkdir -p all-results
-          JSON_FILES=$(find all-results/ -name results.json 2>/dev/null || true)
+          # Never count the agent timeout-retry tree: it carries a second,
+          # narrower native copy of one scenario for audit, not a skill result.
+          # Its raw aggregate is renamed retry-results.json.
+          JSON_FILES=$(find all-results/ -name results.json -not -path '*/_agent-timeout-retry/*' 2>/dev/null || true)
           MATRIX_MANIFEST_VALID=true
           if ! EXPECTED_LEG_COUNT=$(printf '%s' "$EXPECTED_ENTRIES" | jq -e 'if type == "array" then length else error("expected matrix entries must be an array") end'); then
             MATRIX_MANIFEST_VALID=false
@@ -940,6 +947,9 @@ jobs:
             if [ -n "$JSON_FILES" ]; then
               PARTIAL_COUNT=$(printf '%s\n' "$JSON_FILES" | sed '/^$/d' | wc -l | tr -d ' ')
               BODY=$(printf '%s\n\n%s partial result file(s) were preserved for diagnosis but were not consolidated because the full matrix did not complete.' "$BODY" "$PARTIAL_COUNT")
+            fi
+            if [ -n "$SESSION_DATA_NOTE" ]; then
+              BODY=$(printf '%s\n\n%s' "$BODY" "$SESSION_DATA_NOTE")
             fi
 
             {
@@ -979,7 +989,7 @@ jobs:
             } > consolidated-comment.md
 
             # Append AGENTVIZ replay link if session data was published
-            if [[ "${{ needs.publish-session-data.result }}" == "success" ]]; then
+            if [[ "${{ needs.publish-session-data.outputs.status }}" == "published" ]]; then
               # Session data lives in the standalone dotnet/skills-data repo.
               MANIFEST_URL="https://raw.githubusercontent.com/dotnet/skills-data/dashboard-session-data/data/manifest.json"
               # Derive the Pages base URL from the repository (org.github.io/repo)
@@ -994,11 +1004,18 @@ jobs:
               FACET_ENCODED=$(printf '%s' "label:pr-${PR_NUMBER}" | jq -sRr @uri)
               ANALYTICS_URL="${ANALYTICS_BASE_URL}?facet=${FACET_ENCODED}"
               echo "**[📊 Session Analytics (preview)](${ANALYTICS_URL})** -- aggregated metrics across evaluation sessions" >> consolidated-comment.md
+            elif [ -n "$SESSION_DATA_NOTE" ]; then
+              echo "" >> consolidated-comment.md
+              echo "$SESSION_DATA_NOTE" >> consolidated-comment.md
             fi
 
             # Action summary: full table (all columns) + investigation prompt
             {
               cat summary-body.md
+              if [ -n "$SESSION_DATA_NOTE" ]; then
+                echo ""
+                echo "$SESSION_DATA_NOTE"
+              fi
               if [ -n "$INVESTIGATE_PROMPT" ]; then
                 echo "$INVESTIGATE_PROMPT"
               fi
@@ -1010,6 +1027,9 @@ jobs:
             # A successful matrix with zero verdicts is an infrastructure fault,
             # not evidence about skill quality.
             BODY=$(printf '❌ Evaluation ran but produced no results.\n\nThe evaluate job completed but no `results.json` verdicts were generated. This is usually a **transient infrastructure failure** — commonly an LLM-session auth error (`Session was not created with authentication info or custom provider`) — not a problem with your skill. Check the [workflow run](%s) logs, then comment `/evaluate %s` to retry this exact commit.' "${RUN_URL}" "${{ needs.gate.outputs.head_sha }}")
+            if [ -n "$SESSION_DATA_NOTE" ]; then
+              BODY=$(printf '%s\n\n%s' "$BODY" "$SESSION_DATA_NOTE")
+            fi
             gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"
           fi
 
@@ -1160,7 +1180,7 @@ jobs:
             }
             $resultFiles = @($artifactDirs | ForEach-Object {
               Get-ChildItem -Path $_.FullName -Recurse -Filter "results.json" -File -ErrorAction SilentlyContinue
-            })
+            } | Where-Object { $_.FullName -notmatch '[\\/]_agent-timeout-retry[\\/]' })
             if ($resultFiles.Count -eq 0) {
               Write-Warning "No results.json found for $plugin, skipping"
               continue
@@ -1250,6 +1270,12 @@ jobs:
   # ==========================================================================
   publish-session-data:
     needs: [gate, discover, evaluate]
+    # Session replay is auxiliary for PRs: a publisher failure must stay visible
+    # without overriding authoritative evaluation results. Scheduled/main
+    # publishing remains strict and still fails the workflow.
+    continue-on-error: ${{ needs.gate.outputs.pr_number != '' }}
+    outputs:
+      status: ${{ steps.publish-status.outputs.status }}
     if: >-
       always() && !cancelled() &&
       needs.discover.result == 'success' &&
@@ -1264,21 +1290,68 @@ jobs:
       group: publish-session-data
       cancel-in-progress: false
     steps:
+      - name: Validate session data credentials
+        id: auth
+        continue-on-error: ${{ needs.gate.outputs.pr_number != '' }}
+        env:
+          # Cross-repo PAT with contents:write on dotnet/skills-data.
+          # GITHUB_TOKEN cannot push to a different repo, so a fine-grained PAT is required.
+          SKILLS_DATA_TOKEN: ${{ secrets.SKILLS_DATA_TOKEN }}
+          IS_PR: ${{ needs.gate.outputs.pr_number != '' }}
+        run: |
+          if [ -z "$SKILLS_DATA_TOKEN" ]; then
+            if [ "$IS_PR" = "true" ]; then
+              echo "::warning title=Session telemetry token is missing::SKILLS_DATA_TOKEN is not configured. Session replay publishing is degraded for this PR; evaluation verdicts remain authoritative."
+            else
+              echo "::error title=Session data token is missing::SKILLS_DATA_TOKEN is not configured. Add or rotate the repository secret before scheduled/main publishing can succeed."
+            fi
+            exit 2
+          fi
+          set +e
+          REPO_URL="https://x-access-token:${SKILLS_DATA_TOKEN}@github.com/dotnet/skills-data.git"
+          AUTH_DIR="$RUNNER_TEMP/session-data-auth-preflight"
+          rm -rf "$AUTH_DIR"
+          git init --quiet "$AUTH_DIR"
+          git -C "$AUTH_DIR" config user.name "github-actions[bot]"
+          git -C "$AUTH_DIR" config user.email "github-actions[bot]@users.noreply.github.com"
+          git -C "$AUTH_DIR" commit --allow-empty --quiet -m "Session data write preflight"
+          AUTH_REF="session-data-auth-preflight-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git -C "$AUTH_DIR" push --dry-run "$REPO_URL" "HEAD:refs/heads/$AUTH_REF" > /dev/null 2>&1
+          AUTH_STATUS=$?
+          rm -rf "$AUTH_DIR"
+          set -e
+          if [ "$AUTH_STATUS" -ne 0 ]; then
+            if [ "$IS_PR" = "true" ]; then
+              echo "::warning title=Session telemetry write preflight failed::SKILLS_DATA_TOKEN could not authenticate for a dry-run write to dotnet/skills-data. Session replay publishing is degraded for this PR; evaluation verdicts remain authoritative."
+            else
+              echo "::error title=Session data write preflight failed::SKILLS_DATA_TOKEN could not authenticate for a dry-run write to dotnet/skills-data. Rotate or repair the repository secret before scheduled/main publishing can succeed."
+            fi
+            echo "git push --dry-run preflight exited $AUTH_STATUS; credential-bearing remote output was suppressed." >&2
+            exit "$AUTH_STATUS"
+          fi
+
       - name: Checkout repository
+        id: checkout
+        if: steps.auth.outcome == 'success'
+        continue-on-error: ${{ needs.gate.outputs.pr_number != '' }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           persist-credentials: false
 
       - name: Download evaluation artifacts
+        id: download
+        if: steps.auth.outcome == 'success' && steps.checkout.outcome == 'success'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: vally-results-*
           path: all-results/
           merge-multiple: false
-        continue-on-error: ${{ needs.evaluate.result != 'success' }}
+        continue-on-error: ${{ needs.gate.outputs.pr_number != '' || needs.evaluate.result != 'success' }}
 
       - name: Inspect downloaded artifacts
+        id: inspect
         if: always()
+        continue-on-error: ${{ needs.gate.outputs.pr_number != '' }}
         run: |
           echo "=== all-results/ directory listing (3 levels) ==="
           if [ -d all-results ]; then
@@ -1296,6 +1369,8 @@ jobs:
 
       - name: Determine source metadata
         id: meta
+        if: steps.download.outcome == 'success'
+        continue-on-error: ${{ needs.gate.outputs.pr_number != '' }}
         run: |
           if [ -n "${{ needs.gate.outputs.pr_number }}" ]; then
             echo "source=pr" >> "$GITHUB_OUTPUT"
@@ -1308,6 +1383,9 @@ jobs:
           fi
 
       - name: Build session manifest
+        id: build
+        if: steps.meta.outcome == 'success'
+        continue-on-error: ${{ needs.gate.outputs.pr_number != '' }}
         shell: pwsh
         run: |
           ./eng/dashboard/build-replay-sessions.ps1 `
@@ -1317,14 +1395,14 @@ jobs:
             -PrNumber "${{ steps.meta.outputs.pr_number }}"
 
       - name: Clone existing session data branch
+        id: clone
+        if: steps.build.outcome == 'success'
+        continue-on-error: ${{ needs.gate.outputs.pr_number != '' }}
         env:
-          # Cross-repo PAT with contents:write on dotnet/skills-data.
-          # GITHUB_TOKEN cannot push to a different repo, so a fine-grained PAT is required.
           SKILLS_DATA_TOKEN: ${{ secrets.SKILLS_DATA_TOKEN }}
         run: |
           cd /tmp
           REPO_URL="https://x-access-token:${SKILLS_DATA_TOKEN}@github.com/dotnet/skills-data.git"
-
           if git ls-remote --exit-code --heads "$REPO_URL" dashboard-session-data > /dev/null 2>&1; then
             git clone --depth=1 --branch dashboard-session-data --single-branch "$REPO_URL" session-deploy
           else
@@ -1338,6 +1416,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Merge and purge old sessions
+        id: merge
+        if: steps.clone.outcome == 'success'
+        continue-on-error: ${{ needs.gate.outputs.pr_number != '' }}
         shell: pwsh
         run: |
           ./eng/dashboard/purge-replay-sessions.ps1 `
@@ -1347,10 +1428,17 @@ jobs:
             -RetentionDays 7
 
       - name: Push to dashboard-session-data branch (dotnet/skills-data)
+        id: push
+        if: steps.merge.outcome == 'success'
+        continue-on-error: ${{ needs.gate.outputs.pr_number != '' }}
         run: |
           cd /tmp/session-deploy
           git add data/
-          git diff --cached --quiet && echo "No changes to deploy" && exit 0
+          if git diff --cached --quiet; then
+            echo "No changes to deploy"
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           if [[ -n "${{ needs.gate.outputs.pr_number }}" ]]; then
             git commit -m "Update session data (PR #${{ needs.gate.outputs.pr_number }})"
@@ -1358,6 +1446,34 @@ jobs:
             git commit -m "Update scheduled session data"
           fi
           git push origin dashboard-session-data
+          echo "published=true" >> "$GITHUB_OUTPUT"
+
+      - name: Report session publishing outcome
+        id: publish-status
+        if: always()
+        env:
+          IS_PR: ${{ needs.gate.outputs.pr_number != '' }}
+          CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}
+          DOWNLOAD_OUTCOME: ${{ steps.download.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          AUTH_OUTCOME: ${{ steps.auth.outcome }}
+          CLONE_OUTCOME: ${{ steps.clone.outcome }}
+          MERGE_OUTCOME: ${{ steps.merge.outcome }}
+          PUSH_OUTCOME: ${{ steps.push.outcome }}
+          PUBLISHED: ${{ steps.push.outputs.published }}
+        run: |
+          OUTCOMES="$CHECKOUT_OUTCOME $DOWNLOAD_OUTCOME $BUILD_OUTCOME $AUTH_OUTCOME $CLONE_OUTCOME $MERGE_OUTCOME $PUSH_OUTCOME"
+          if [[ "$OUTCOMES" == *failure* || "$OUTCOMES" == *cancelled* || "$OUTCOMES" == *skipped* || "$PUBLISHED" != "true" ]]; then
+            if [ "$IS_PR" = "true" ]; then
+              echo "status=degraded" >> "$GITHUB_OUTPUT"
+              echo "::warning title=Session replay telemetry degraded::The auxiliary session-data publisher failed. Evaluation results remain authoritative, but this PR will not include replay links."
+              exit 0
+            fi
+            echo "status=failed" >> "$GITHUB_OUTPUT"
+            echo "::error title=Session data publishing failed::Scheduled/main publishing is strict; repair the publisher before the workflow can succeed."
+            exit 1
+          fi
+          echo "status=published" >> "$GITHUB_OUTPUT"
 
   # ==========================================================================
   # PUBLISH EVAL DATA
@@ -1448,6 +1564,7 @@ jobs:
 
             $resultsFiles = @($artifactDirs | ForEach-Object {
               Get-ChildItem -Path $_.FullName -Recurse -Filter "results.json" -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.FullName -notmatch '[\\/]_agent-timeout-retry[\\/]' } |
                 ForEach-Object { $_.FullName }
             })
 
