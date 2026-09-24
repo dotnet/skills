@@ -9,13 +9,6 @@ description: >-
   write, generate, or fix tests; use the public code-testing-agent skill instead.
 user-invokable: true
 disable-model-invocation: false
-handoffs:
-  - label: Generate Missing Tests
-    agent: code-testing-generator
-    prompt: >-
-      Based on the audit findings above, generate tests to fill the identified
-      coverage gaps and address the weak test areas.
-    send: false
 license: MIT
 ---
 
