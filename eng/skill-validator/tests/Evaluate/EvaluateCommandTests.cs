@@ -3,43 +3,46 @@ using SkillValidator.Shared;
 
 namespace SkillValidator.Tests;
 
+[TestClass]
 public class EvaluateCommandTests
 {
+    public TestContext TestContext { get; set; } = null!;
+
     // These options are judging-dependent. Under --no-judge they cannot run, so Run must reject
     // them up front (before any model/network call) rather than silently ignoring them. Each case
     // short-circuits at the early validation, so no agent client is ever created.
 
-    [Fact]
+    [TestMethod]
     public async Task Run_RejectsNoJudgeWithNoiseSkillsDir()
     {
         var config = new ValidatorConfig { NoJudge = true, NoiseSkillsDir = "some/dir" };
 
-        var exitCode = await EvaluateCommand.Run(config, TestContext.Current.CancellationToken);
+        var exitCode = await EvaluateCommand.Run(config, TestContext.CancellationToken);
 
-        Assert.Equal(1, exitCode);
+        Assert.AreEqual(1, exitCode);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Run_RejectsNoJudgeWithOverfittingFix()
     {
         var config = new ValidatorConfig { NoJudge = true, OverfittingFix = true };
 
-        var exitCode = await EvaluateCommand.Run(config, TestContext.Current.CancellationToken);
+        var exitCode = await EvaluateCommand.Run(config, TestContext.CancellationToken);
 
-        Assert.Equal(1, exitCode);
+        Assert.AreEqual(1, exitCode);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Run_RejectsNoJudgeWithBaselineFrom()
     {
         var config = new ValidatorConfig { NoJudge = true, BaselineFrom = "baseline.json" };
 
-        var exitCode = await EvaluateCommand.Run(config, TestContext.Current.CancellationToken);
+        var exitCode = await EvaluateCommand.Run(config, TestContext.CancellationToken);
 
-        Assert.Equal(1, exitCode);
+        Assert.AreEqual(1, exitCode);
     }
 
-    [Fact]
+    [TestMethod]
     public void CreateSkillPluginRunOptionsPreservesDeclaredAgentDependencies()
     {
         var scenario = new EvalScenario("scenario", "prompt");
@@ -62,12 +65,12 @@ public class EvaluateCommandTests
             pluginSessionId: "plugin-session",
             additionalAgents: [dependency]);
 
-        Assert.Same(dependency, Assert.Single(options.AdditionalAgents!));
-        Assert.Equal("plugins/demo", options.PluginRoot);
-        Assert.Equal("plugin-session", options.SessionId);
+        Assert.AreSame(dependency, Assert.ContainsSingle(options.AdditionalAgents!));
+        Assert.AreEqual("plugins/demo", options.PluginRoot);
+        Assert.AreEqual("plugin-session", options.SessionId);
     }
 
-    [Fact]
+    [TestMethod]
     public void AgentPluginActivationIsDiagnosticOnly()
     {
         var run = new RunResult(
@@ -96,13 +99,13 @@ public class EvaluateCommandTests
 
         EvaluateCommand.ApplyAgentActivationGate(verdict, [comparison], "router", _ => { });
 
-        Assert.True(verdict.Passed);
-        Assert.False(verdict.SkillNotActivated);
-        Assert.Null(verdict.FailureKind);
+        Assert.IsTrue(verdict.Passed);
+        Assert.IsFalse(verdict.SkillNotActivated);
+        Assert.IsNull(verdict.FailureKind);
         Assert.Contains("AGENT NOT ACTIVATED (plugin)", verdict.Reason);
     }
 
-    [Fact]
+    [TestMethod]
     public void AgentIsolatedActivationRemainsAuthoritative()
     {
         var run = new RunResult(
@@ -131,13 +134,13 @@ public class EvaluateCommandTests
 
         EvaluateCommand.ApplyAgentActivationGate(verdict, [comparison], "router", _ => { });
 
-        Assert.False(verdict.Passed);
-        Assert.True(verdict.SkillNotActivated);
-        Assert.Equal(FailureKind.SkillNotActivated, verdict.FailureKind);
+        Assert.IsFalse(verdict.Passed);
+        Assert.IsTrue(verdict.SkillNotActivated);
+        Assert.AreEqual(FailureKind.SkillNotActivated, verdict.FailureKind);
         Assert.Contains("AGENT NOT ACTIVATED (isolated)", verdict.Reason);
     }
 
-    [Fact]
+    [TestMethod]
     public void AgentExpectedDormantActivationFails()
     {
         var comparison = SkillActivationComparison(
@@ -152,13 +155,13 @@ public class EvaluateCommandTests
         EvaluateCommand.ApplyAgentActivationGate(
             verdict, [comparison], "router", _ => { });
 
-        Assert.False(verdict.Passed);
-        Assert.Equal(FailureKind.UnexpectedActivation, verdict.FailureKind);
+        Assert.IsFalse(verdict.Passed);
+        Assert.AreEqual(FailureKind.UnexpectedActivation, verdict.FailureKind);
         Assert.Contains("UNEXPECTED AGENT ACTIVATION (isolated)", verdict.Reason);
-        Assert.True(Reporter.RequiresVerdictLevelFailure(verdict));
+        Assert.IsTrue(Reporter.RequiresVerdictLevelFailure(verdict));
     }
 
-    [Fact]
+    [TestMethod]
     public void SkillExpectedActiveMissingActivationFails()
     {
         var comparison = SkillActivationComparison(
@@ -170,13 +173,13 @@ public class EvaluateCommandTests
         EvaluateCommand.ApplySkillActivationGate(
             verdict, [comparison], "target", _ => { });
 
-        Assert.False(verdict.Passed);
-        Assert.True(verdict.SkillNotActivated);
-        Assert.Equal(FailureKind.SkillNotActivated, verdict.FailureKind);
+        Assert.IsFalse(verdict.Passed);
+        Assert.IsTrue(verdict.SkillNotActivated);
+        Assert.AreEqual(FailureKind.SkillNotActivated, verdict.FailureKind);
         Assert.Contains("NOT ACTIVATED (isolated)", verdict.Reason);
     }
 
-    [Fact]
+    [TestMethod]
     public void SkillExpectedActiveMissingPluginEvidenceFails()
     {
         var comparison = SkillActivationComparison(
@@ -189,13 +192,13 @@ public class EvaluateCommandTests
         EvaluateCommand.ApplySkillActivationGate(
             verdict, [comparison], "target", _ => { });
 
-        Assert.False(verdict.Passed);
-        Assert.True(verdict.SkillNotActivated);
-        Assert.Equal(FailureKind.SkillNotActivated, verdict.FailureKind);
+        Assert.IsFalse(verdict.Passed);
+        Assert.IsTrue(verdict.SkillNotActivated);
+        Assert.AreEqual(FailureKind.SkillNotActivated, verdict.FailureKind);
         Assert.Contains("NOT ACTIVATED (plugin)", verdict.Reason);
     }
 
-    [Fact]
+    [TestMethod]
     public void SkillExpectedDormantInactivePassesWithPluginDiagnostic()
     {
         var comparison = SkillActivationComparison(
@@ -207,13 +210,13 @@ public class EvaluateCommandTests
         EvaluateCommand.ApplySkillActivationGate(
             verdict, [comparison], "target", _ => { });
 
-        Assert.True(verdict.Passed);
-        Assert.False(verdict.SkillNotActivated);
-        Assert.Null(verdict.FailureKind);
+        Assert.IsTrue(verdict.Passed);
+        Assert.IsFalse(verdict.SkillNotActivated);
+        Assert.IsNull(verdict.FailureKind);
         Assert.Contains("PLUGIN ACTIVATION DIAGNOSTIC", verdict.Reason);
     }
 
-    [Fact]
+    [TestMethod]
     public void SkillExpectedDormantActivationFails()
     {
         var comparison = SkillActivationComparison(
@@ -225,13 +228,13 @@ public class EvaluateCommandTests
         EvaluateCommand.ApplySkillActivationGate(
             verdict, [comparison], "target", _ => { });
 
-        Assert.False(verdict.Passed);
-        Assert.False(verdict.SkillNotActivated);
-        Assert.Equal(FailureKind.UnexpectedActivation, verdict.FailureKind);
+        Assert.IsFalse(verdict.Passed);
+        Assert.IsFalse(verdict.SkillNotActivated);
+        Assert.AreEqual(FailureKind.UnexpectedActivation, verdict.FailureKind);
         Assert.Contains("UNEXPECTED ACTIVATION (isolated)", verdict.Reason);
     }
 
-    [Fact]
+    [TestMethod]
     public void SkillActivationContractFailureClassifiesDormantAndMissingEvidence()
     {
         var dormantActive = SkillActivationComparison(
@@ -244,11 +247,11 @@ public class EvaluateCommandTests
             pluginActivated: true);
         activeMissingPlugin.SkillActivationPlugin = null;
 
-        Assert.True(EvaluateCommand.HasSkillActivationContractFailure(dormantActive));
-        Assert.True(EvaluateCommand.HasSkillActivationContractFailure(activeMissingPlugin));
+        Assert.IsTrue(EvaluateCommand.HasSkillActivationContractFailure(dormantActive));
+        Assert.IsTrue(EvaluateCommand.HasSkillActivationContractFailure(activeMissingPlugin));
     }
 
-    [Fact]
+    [TestMethod]
     public void ReporterFormatsDormantActivationByArmContract()
     {
         var activation = new SkillActivationInfo(true, ["target"], [], 1);
@@ -264,7 +267,7 @@ public class EvaluateCommandTests
                 diagnosticOnly: true));
     }
 
-    [Fact]
+    [TestMethod]
     public void ReporterTreatsDormantQualityAsDiagnostic()
     {
         var dormantInactive = SkillActivationComparison(
@@ -278,16 +281,16 @@ public class EvaluateCommandTests
             pluginActivated: false,
             improvementScore: 1);
 
-        Assert.False(Reporter.IsScenarioFailureForReport("skill", dormantInactive));
-        Assert.True(Reporter.IsScenarioFailureForReport("skill", dormantActive));
+        Assert.IsFalse(Reporter.IsScenarioFailureForReport("skill", dormantInactive));
+        Assert.IsTrue(Reporter.IsScenarioFailureForReport("skill", dormantActive));
     }
 
-    [Fact]
+    [TestMethod]
     public void ReporterTreatsAgentSkillActivationAsDiagnostic()
     {
         var activation = new SkillActivationInfo(false, [], [], 0);
 
-        Assert.Equal(
+        Assert.AreEqual(
             "ℹ️ no skill telemetry",
             Reporter.FormatActivationCell(
                 activation,
@@ -295,7 +298,7 @@ public class EvaluateCommandTests
                 diagnosticOnly: true));
     }
 
-    [Fact]
+    [TestMethod]
     public void ReporterTreatsDormantAgentQualityAsDiagnostic()
     {
         var comparison = SkillActivationComparison(
@@ -304,10 +307,10 @@ public class EvaluateCommandTests
             pluginActivated: false,
             improvementScore: -1);
 
-        Assert.False(Reporter.IsScenarioFailureForReport("agent", comparison));
+        Assert.IsFalse(Reporter.IsScenarioFailureForReport("agent", comparison));
     }
 
-    [Fact]
+    [TestMethod]
     public void FailedScenarioPreservesDormantActivationExpectation()
     {
         var comparison = EvaluateCommand.CreateFailedScenarioComparison(
@@ -315,12 +318,12 @@ public class EvaluateCommandTests
             "runner failed",
             expectActivation: false);
 
-        Assert.False(comparison.ExpectActivation);
+        Assert.IsFalse(comparison.ExpectActivation);
     }
 
-    [Theory]
-    [InlineData(true, true)]
-    [InlineData(false, false)]
+    [TestMethod]
+    [DataRow(true, true)]
+    [DataRow(false, false)]
     public void AgentPrimarySelectionFollowsActivationExpectation(
         bool expectActivation,
         bool expectedSelection)
@@ -330,12 +333,12 @@ public class EvaluateCommandTests
             "Route this request.",
             ExpectActivation: expectActivation);
 
-        Assert.Equal(
+        Assert.AreEqual(
             expectedSelection,
             EvaluateCommand.ShouldSelectAgentAsPrimary(scenario));
     }
 
-    [Fact]
+    [TestMethod]
     public void FailedDormantScenarioFailsVerdictAndReport()
     {
         var comparison = EvaluateCommand.CreateFailedScenarioComparison(
@@ -349,13 +352,13 @@ public class EvaluateCommandTests
         EvaluateCommand.ApplyExecutionErrorGate(
             verdict, [comparison], _ => { });
 
-        Assert.False(verdict.Passed);
-        Assert.Equal(FailureKind.ExecutionError, verdict.FailureKind);
-        Assert.True(Reporter.IsScenarioFailureForReport("skill", comparison));
+        Assert.IsFalse(verdict.Passed);
+        Assert.AreEqual(FailureKind.ExecutionError, verdict.FailureKind);
+        Assert.IsTrue(Reporter.IsScenarioFailureForReport("skill", comparison));
         Assert.Contains("EXECUTION ERROR", verdict.Reason);
     }
 
-    [Fact]
+    [TestMethod]
     public void NoJudgeRejectsScenarioExecutionErrors()
     {
         var comparison = EvaluateCommand.CreateFailedScenarioComparison(
@@ -363,7 +366,7 @@ public class EvaluateCommandTests
             "runner failed",
             expectActivation: false);
 
-        var error = Assert.Throws<InvalidOperationException>(() =>
+        var error = Assert.ThrowsExactly<InvalidOperationException>(() =>
             EvaluateCommand.ThrowIfScenarioExecutionFailed(
                 [comparison],
                 "target"));
@@ -372,7 +375,7 @@ public class EvaluateCommandTests
         Assert.Contains("failed scenario", error.Message);
     }
 
-    [Fact]
+    [TestMethod]
     public void ReporterEmitsVerdictFailureForMissingAgentActivation()
     {
         var comparison = SkillActivationComparison(
@@ -392,13 +395,13 @@ public class EvaluateCommandTests
             SkillNotActivated = true,
         };
 
-        Assert.True(Reporter.RequiresVerdictLevelFailure(verdict));
+        Assert.IsTrue(Reporter.RequiresVerdictLevelFailure(verdict));
         Assert.Contains(
             "### ❌ Skill validation errors",
             Reporter.GenerateMarkdownSummary([verdict]));
     }
 
-    [Fact]
+    [TestMethod]
     public void ReporterPreservesAllDormantNoScenariosFailure()
     {
         var dormant = SkillActivationComparison(
@@ -417,7 +420,7 @@ public class EvaluateCommandTests
             FailureKind = FailureKind.NoScenarios,
         };
 
-        Assert.True(Reporter.RequiresVerdictLevelFailure(verdict));
+        Assert.IsTrue(Reporter.RequiresVerdictLevelFailure(verdict));
         Assert.Contains(
             "### ❌ Skill validation errors",
             Reporter.GenerateMarkdownSummary([verdict]));
@@ -465,7 +468,7 @@ public class EvaluateCommandTests
             Reason = "passed",
         };
 
-    [Fact]
+    [TestMethod]
     public async Task ResolveAdditionalAgentsIncludesTransitiveDeclaredDependencies()
     {
         var pluginRoot = Path.Combine(Path.GetTempPath(), $"agent-deps-{Guid.NewGuid():N}");
@@ -501,7 +504,7 @@ public class EvaluateCommandTests
             var agents = await EvaluateCommand.ResolveAdditionalAgents(
                 ["coordinator"], pluginRoot);
 
-            Assert.Equal(
+            Assert.AreSequenceEqual(
                 ["coordinator", "worker"],
                 agents!.Select(agent => agent.Name));
         }
@@ -511,7 +514,7 @@ public class EvaluateCommandTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ResolveAdditionalAgentsAcceptsAgentFilePath()
     {
         var repoRoot = Path.Combine(Path.GetTempPath(), $"agent-file-dep-{Guid.NewGuid():N}");
@@ -543,7 +546,7 @@ public class EvaluateCommandTests
             var agents = await EvaluateCommand.ResolveAdditionalAgents(
                 ["../../plugins/demo/agents/helper.agent.md"], pluginRoot, evalPath);
 
-            Assert.Equal("helper", Assert.Single(agents!).Name);
+            Assert.AreEqual("helper", Assert.ContainsSingle(agents!).Name);
         }
         finally
         {
@@ -551,7 +554,7 @@ public class EvaluateCommandTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ResolveAdditionalSkillsAcceptsTrackedStyleCrossPluginPath()
     {
         var repoRoot = Path.Combine(Path.GetTempPath(), $"skill-deps-{Guid.NewGuid():N}");
@@ -584,7 +587,7 @@ public class EvaluateCommandTests
             var skills = await EvaluateCommand.ResolveAdditionalSkills(
                 ["../../plugins/shared/skills/helper"], targetPlugin, evalPath);
 
-            Assert.Equal("helper", Assert.Single(skills!).Name);
+            Assert.AreEqual("helper", Assert.ContainsSingle(skills!).Name);
         }
         finally
         {
@@ -592,7 +595,7 @@ public class EvaluateCommandTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ResolveAdditionalSkillsDoesNotAnchorPartialPluginsSegment()
     {
         var repoRoot = Path.Combine(Path.GetTempPath(), $"partial-plugins-segment-{Guid.NewGuid():N}");
@@ -617,7 +620,7 @@ public class EvaluateCommandTests
             var evalPath = Path.Combine(evalDir, "eval.yaml");
             File.WriteAllText(evalPath, "stimuli: []");
 
-            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
                 EvaluateCommand.ResolveAdditionalSkills(
                     ["../../myplugins/shared/skills/helper"], targetPlugin, evalPath));
 
@@ -629,7 +632,7 @@ public class EvaluateCommandTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ResolveAdditionalSkillsRejectsLinkedNamedSkill()
     {
         var repoRoot = Path.Combine(Path.GetTempPath(), $"named-skill-link-{Guid.NewGuid():N}");
@@ -658,7 +661,7 @@ public class EvaluateCommandTests
 
         try
         {
-            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
                 EvaluateCommand.ResolveAdditionalSkills(["helper"], pluginRoot));
 
             Assert.Contains("name 'helper'", error.Message);
@@ -670,7 +673,7 @@ public class EvaluateCommandTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ResolveAdditionalSkillsExplainsMissingNameAndPathReferences()
     {
         var repoRoot = Path.Combine(Path.GetTempPath(), $"missing-skill-deps-{Guid.NewGuid():N}");
@@ -686,12 +689,12 @@ public class EvaluateCommandTests
             var evalPath = Path.Combine(evalDir, "eval.yaml");
             File.WriteAllText(evalPath, "stimuli: []");
 
-            var nameError = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            var nameError = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
                 EvaluateCommand.ResolveAdditionalSkills(["missing"], pluginRoot, evalPath));
             Assert.Contains("name 'missing'", nameError.Message);
             Assert.Contains("bare skill name", nameError.Message);
 
-            var pathError = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            var pathError = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
                 EvaluateCommand.ResolveAdditionalSkills(
                     ["../../plugins/demo/skills/missing"], pluginRoot, evalPath));
             Assert.Contains("path '../../plugins/demo/skills/missing'", pathError.Message);
@@ -703,7 +706,7 @@ public class EvaluateCommandTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ResolveAdditionalAgentsExplainsMissingNameAndPathReferences()
     {
         var repoRoot = Path.Combine(Path.GetTempPath(), $"missing-agent-deps-{Guid.NewGuid():N}");
@@ -719,12 +722,12 @@ public class EvaluateCommandTests
             var evalPath = Path.Combine(evalDir, "eval.yaml");
             File.WriteAllText(evalPath, "stimuli: []");
 
-            var nameError = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            var nameError = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
                 EvaluateCommand.ResolveAdditionalAgents(["missing"], pluginRoot, evalPath));
             Assert.Contains("name 'missing'", nameError.Message);
             Assert.Contains("bare agent name", nameError.Message);
 
-            var pathError = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            var pathError = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
                 EvaluateCommand.ResolveAdditionalAgents(
                     ["../../plugins/demo/agents/missing.agent.md"], pluginRoot, evalPath));
             Assert.Contains("path '../../plugins/demo/agents/missing.agent.md'", pathError.Message);
@@ -736,7 +739,7 @@ public class EvaluateCommandTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ResolveAdditionalSkillsExplainsAmbiguousDirectoryPath()
     {
         var repoRoot = Path.Combine(Path.GetTempPath(), $"ambiguous-skill-deps-{Guid.NewGuid():N}");
@@ -768,7 +771,7 @@ public class EvaluateCommandTests
             var evalPath = Path.Combine(evalDir, "eval.yaml");
             File.WriteAllText(evalPath, "stimuli: []");
 
-            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
                 EvaluateCommand.ResolveAdditionalSkills(
                     ["../../plugins/demo/skills"], pluginRoot, evalPath));
 
@@ -783,7 +786,7 @@ public class EvaluateCommandTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ResolveAdditionalAgentsExplainsAmbiguousDirectoryPath()
     {
         var repoRoot = Path.Combine(Path.GetTempPath(), $"ambiguous-agent-deps-{Guid.NewGuid():N}");
@@ -814,7 +817,7 @@ public class EvaluateCommandTests
             var evalPath = Path.Combine(evalDir, "eval.yaml");
             File.WriteAllText(evalPath, "stimuli: []");
 
-            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
                 EvaluateCommand.ResolveAdditionalAgents(
                     ["../../plugins/demo/agents"], pluginRoot, evalPath));
 
@@ -829,7 +832,7 @@ public class EvaluateCommandTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ResolveAdditionalSkillsRejectsLinkedDirectory()
     {
         var repoRoot = Path.Combine(Path.GetTempPath(), $"skill-dir-link-{Guid.NewGuid():N}");
@@ -860,7 +863,7 @@ public class EvaluateCommandTests
         File.WriteAllText(evalPath, "stimuli: []");
         try
         {
-            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
                 EvaluateCommand.ResolveAdditionalSkills(
                     ["../../plugins/shared/linked"], targetPlugin, evalPath));
         }
@@ -870,7 +873,7 @@ public class EvaluateCommandTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ResolveAdditionalSkillsRejectsLinkedSkillFile()
     {
         var repoRoot = Path.Combine(Path.GetTempPath(), $"skill-file-link-{Guid.NewGuid():N}");
@@ -901,7 +904,7 @@ public class EvaluateCommandTests
         File.WriteAllText(evalPath, "stimuli: []");
         try
         {
-            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
                 EvaluateCommand.ResolveAdditionalSkills(
                     ["../../plugins/shared/skills/helper"], targetPlugin, evalPath));
         }
@@ -911,7 +914,7 @@ public class EvaluateCommandTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ResolveAdditionalAgentsRejectsLinkedAgentFile()
     {
         var repoRoot = Path.Combine(Path.GetTempPath(), $"agent-dep-link-{Guid.NewGuid():N}");
@@ -941,7 +944,7 @@ public class EvaluateCommandTests
         File.WriteAllText(evalPath, "stimuli: []");
         try
         {
-            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
                 EvaluateCommand.ResolveAdditionalAgents(
                     ["../../plugins/demo/agents/helper.agent.md"], pluginRoot, evalPath));
         }
@@ -967,20 +970,20 @@ public class EvaluateCommandTests
             PluginRoot: "plugins/demo",
             McpServers: null);
 
-    [Fact]
+    [TestMethod]
     public void FilterTargetsByScenario_KeepsOnlyTheNamedScenario()
     {
         var targets = new[] { TargetWithScenarios("writer", "alpha", "beta", "gamma") };
 
         var (filtered, unknown) = EvaluateCommand.FilterTargetsByScenario(targets, ["beta"]);
 
-        Assert.Empty(unknown);
-        var target = Assert.Single(filtered);
-        var scenario = Assert.Single(target.EvalConfig!.Scenarios);
-        Assert.Equal("beta", scenario.Name);
+        Assert.IsEmpty(unknown);
+        var target = Assert.ContainsSingle(filtered);
+        var scenario = Assert.ContainsSingle(target.EvalConfig!.Scenarios);
+        Assert.AreEqual("beta", scenario.Name);
     }
 
-    [Fact]
+    [TestMethod]
     public void FilterTargetsByScenario_DropsTargetsWithNoNamedScenario()
     {
         var targets = new[]
@@ -991,33 +994,33 @@ public class EvaluateCommandTests
 
         var (filtered, unknown) = EvaluateCommand.FilterTargetsByScenario(targets, ["beta"]);
 
-        Assert.Empty(unknown);
-        Assert.Equal("auditor", Assert.Single(filtered).Name);
+        Assert.IsEmpty(unknown);
+        Assert.AreEqual("auditor", Assert.ContainsSingle(filtered).Name);
     }
 
-    [Fact]
+    [TestMethod]
     public void FilterTargetsByScenario_ReportsNamesThatMatchNothing()
     {
         var targets = new[] { TargetWithScenarios("writer", "alpha") };
 
         var (filtered, unknown) = EvaluateCommand.FilterTargetsByScenario(targets, ["alpha", "typo"]);
 
-        Assert.Single(filtered);
-        Assert.Equal("typo", Assert.Single(unknown));
+        Assert.ContainsSingle(filtered);
+        Assert.AreEqual("typo", Assert.ContainsSingle(unknown));
     }
 
-    [Fact]
+    [TestMethod]
     public void FilterTargetsByScenario_MatchesRegardlessOfCase()
     {
         var targets = new[] { TargetWithScenarios("writer", "Generate Tests") };
 
         var (filtered, unknown) = EvaluateCommand.FilterTargetsByScenario(targets, ["generate tests"]);
 
-        Assert.Empty(unknown);
-        Assert.Single(Assert.Single(filtered).EvalConfig!.Scenarios);
+        Assert.IsEmpty(unknown);
+        Assert.ContainsSingle(Assert.ContainsSingle(filtered).EvalConfig!.Scenarios);
     }
 
-    [Fact]
+    [TestMethod]
     public void FilterTargetsByScenario_KeepsEveryNamedScenarioAcrossTargets()
     {
         var targets = new[]
@@ -1028,24 +1031,24 @@ public class EvaluateCommandTests
 
         var (filtered, unknown) = EvaluateCommand.FilterTargetsByScenario(targets, ["beta", "gamma"]);
 
-        Assert.Empty(unknown);
-        Assert.Equal(2, filtered.Count);
-        Assert.Equal(["beta"], filtered[0].EvalConfig!.Scenarios.Select(scenario => scenario.Name));
-        Assert.Equal(["beta", "gamma"], filtered[1].EvalConfig!.Scenarios.Select(scenario => scenario.Name));
+        Assert.IsEmpty(unknown);
+        Assert.AreEqual(2, filtered.Count);
+        Assert.AreSequenceEqual(["beta"], filtered[0].EvalConfig!.Scenarios.Select(scenario => scenario.Name));
+        Assert.AreSequenceEqual(["beta", "gamma"], filtered[1].EvalConfig!.Scenarios.Select(scenario => scenario.Name));
     }
 
-    [Fact]
+    [TestMethod]
     public void FilterTargetsByScenario_SkipsTargetsWithoutAnEvalConfig()
     {
         var withoutConfig = TargetWithScenarios("writer", "alpha") with { EvalConfig = null };
 
         var (filtered, unknown) = EvaluateCommand.FilterTargetsByScenario([withoutConfig], ["alpha"]);
 
-        Assert.Empty(filtered);
-        Assert.Equal("alpha", Assert.Single(unknown));
+        Assert.IsEmpty(filtered);
+        Assert.AreEqual("alpha", Assert.ContainsSingle(unknown));
     }
 
-    [Fact]
+    [TestMethod]
     public void FilterTargetsByName_ScopesSameNamedScenarioToItsOwningTarget()
     {
         var targets = new[]
@@ -1059,12 +1062,12 @@ public class EvaluateCommandTests
         var (scenarioFiltered, unknownScenarios) =
             EvaluateCommand.FilterTargetsByScenario(targetFiltered, ["shared"]);
 
-        Assert.Empty(unknownTargets);
-        Assert.Empty(unknownScenarios);
-        Assert.Equal("writer", Assert.Single(scenarioFiltered).Name);
+        Assert.IsEmpty(unknownTargets);
+        Assert.IsEmpty(unknownScenarios);
+        Assert.AreEqual("writer", Assert.ContainsSingle(scenarioFiltered).Name);
     }
 
-    [Fact]
+    [TestMethod]
     public void FilterTargetsByName_ReportsNamesThatMatchNothing()
     {
         var targets = new[] { TargetWithScenarios("writer", "alpha") };
@@ -1072,7 +1075,7 @@ public class EvaluateCommandTests
         var (filtered, unknown) =
             EvaluateCommand.FilterTargetsByName(targets, ["writer", "typo"]);
 
-        Assert.Equal("writer", Assert.Single(filtered).Name);
-        Assert.Equal("typo", Assert.Single(unknown));
+        Assert.AreEqual("writer", Assert.ContainsSingle(filtered).Name);
+        Assert.AreEqual("typo", Assert.ContainsSingle(unknown));
     }
 }

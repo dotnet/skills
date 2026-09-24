@@ -10,6 +10,8 @@ using SkillValidator.Shared;
 
 namespace SkillValidator.Tests;
 
+[TestClass]
+[DoNotParallelize]
 public class BuildSessionConfigTests
 {
     private static readonly string[] ExpectedBinlogMcpTools =
@@ -59,20 +61,20 @@ public class BuildSessionConfigTests
             Env: env,
             Cwd: cwd);
 
-    [Fact]
+    [TestMethod]
     public async Task SetsSkillDirectoriesToStagedIsolationDir()
     {
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
-        Assert.Single(config.SkillDirectories!);
+        Assert.ContainsSingle(config.SkillDirectories!);
         // Isolated skills are now staged into a temp directory so the SDK
         // discovers only the target skill, not siblings.
         var stageDir = config.SkillDirectories![0];
         Assert.StartsWith(Path.GetTempPath(), stageDir);
         var stagedSkillDir = Path.Combine(stageDir, Path.GetFileName(MockSkill.Path));
-        Assert.True(File.Exists(Path.Combine(stagedSkillDir, "SKILL.md")));
+        Assert.IsTrue(File.Exists(Path.Combine(stagedSkillDir, "SKILL.md")));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task IsolationStageCopiesReferencesAndScripts()
     {
         // Create a real skill directory with references/ and scripts/ subdirectories
@@ -97,11 +99,11 @@ public class BuildSessionConfigTests
             var stagedSkillDir = Path.Combine(stageDir, "my-skill");
 
             // SKILL.md should use in-memory content (may be transformed)
-            Assert.Equal("# My Skill (transformed)", File.ReadAllText(Path.Combine(stagedSkillDir, "SKILL.md")));
+            Assert.AreEqual("# My Skill (transformed)", File.ReadAllText(Path.Combine(stagedSkillDir, "SKILL.md")));
             // references/ and scripts/ should be copied
-            Assert.True(File.Exists(Path.Combine(stagedSkillDir, "references", "patterns.md")));
-            Assert.Equal("# Patterns", File.ReadAllText(Path.Combine(stagedSkillDir, "references", "patterns.md")));
-            Assert.True(File.Exists(Path.Combine(stagedSkillDir, "scripts", "Run.ps1")));
+            Assert.IsTrue(File.Exists(Path.Combine(stagedSkillDir, "references", "patterns.md")));
+            Assert.AreEqual("# Patterns", File.ReadAllText(Path.Combine(stagedSkillDir, "references", "patterns.md")));
+            Assert.IsTrue(File.Exists(Path.Combine(stagedSkillDir, "scripts", "Run.ps1")));
         }
         finally
         {
@@ -110,7 +112,7 @@ public class BuildSessionConfigTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task IsolatedStagingDoesNotExposeOriginalOrSiblingSkills()
     {
         // Create a skills root with a target skill and a sibling skill
@@ -137,8 +139,8 @@ public class BuildSessionConfigTests
             var config = await AgentRunner.BuildSessionConfig(skill, null, "gpt-4.1", "C:\\tmp\\work");
 
             // Only a staged isolation directory should be exposed.
-            Assert.NotNull(config.SkillDirectories);
-            Assert.Single(config.SkillDirectories!);
+            Assert.IsNotNull(config.SkillDirectories);
+            Assert.ContainsSingle(config.SkillDirectories!);
 
             var stageDir = config.SkillDirectories![0];
             Assert.StartsWith(Path.GetTempPath(), stageDir);
@@ -147,16 +149,16 @@ public class BuildSessionConfigTests
             var stagedSiblingDir = Path.Combine(stageDir, "sibling-skill");
 
             // The target skill should be available in the staged directory.
-            Assert.True(Directory.Exists(stagedTargetDir));
+            Assert.IsTrue(Directory.Exists(stagedTargetDir));
 
             // The sibling skill from the original skills root must not be exposed in isolation.
-            Assert.False(Directory.Exists(stagedSiblingDir));
+            Assert.IsFalse(Directory.Exists(stagedSiblingDir));
 
             // Permission check should deny access to the original skill directory
             var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
             var originalSkillFilePath = Path.Combine(targetSkillDir, "SKILL.md");
             var denied = AgentRunner.CheckPermission(originalSkillFilePath, workDir, null, log: null);
-            Assert.False(denied);
+            Assert.IsFalse(denied);
         }
         finally
         {
@@ -165,7 +167,7 @@ public class BuildSessionConfigTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task AdditionalSkillsStageCopiesReferencesDir()
     {
         // Create a noise skill with references
@@ -189,9 +191,9 @@ public class BuildSessionConfigTests
 
             var noiseStageDir = config.SkillDirectories![1];
             var stagedNoiseSkill = Path.Combine(noiseStageDir, "noise-skill");
-            Assert.True(File.Exists(Path.Combine(stagedNoiseSkill, "SKILL.md")));
-            Assert.True(File.Exists(Path.Combine(stagedNoiseSkill, "references", "guide.md")));
-            Assert.Equal("# Guide", File.ReadAllText(Path.Combine(stagedNoiseSkill, "references", "guide.md")));
+            Assert.IsTrue(File.Exists(Path.Combine(stagedNoiseSkill, "SKILL.md")));
+            Assert.IsTrue(File.Exists(Path.Combine(stagedNoiseSkill, "references", "guide.md")));
+            Assert.AreEqual("# Guide", File.ReadAllText(Path.Combine(stagedNoiseSkill, "references", "guide.md")));
         }
         finally
         {
@@ -200,7 +202,7 @@ public class BuildSessionConfigTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task AdditionalSkillsStageOnlyVerifiedSkillDirs()
     {
         // Create real temp directories with SKILL.md so the staging logic finds them
@@ -228,7 +230,7 @@ public class BuildSessionConfigTests
                 additionalSkills: additionalSkills);
 
             // Primary skill staged dir + one staging directory for additional skills
-            Assert.Equal(2, config.SkillDirectories!.Count);
+            Assert.AreEqual(2, config.SkillDirectories!.Count);
             // First dir is the isolated skill staging directory
             Assert.StartsWith(Path.GetTempPath(), config.SkillDirectories[0]);
 
@@ -237,7 +239,7 @@ public class BuildSessionConfigTests
 
             // Staging dir should contain links only for directories that have SKILL.md
             var stagedEntries = Directory.GetDirectories(stageDir).Select(Path.GetFileName).OrderBy(n => n).ToArray();
-            Assert.Equal(new[] { "skill-a", "skill-b" }, stagedEntries);
+            Assert.AreSequenceEqual(new[] { "skill-a", "skill-b" }, stagedEntries);
         }
         finally
         {
@@ -246,40 +248,40 @@ public class BuildSessionConfigTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task SetsWorkingDirectoryToWorkDir()
     {
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
-        Assert.Equal("C:\\tmp\\work", config.WorkingDirectory);
+        Assert.AreEqual("C:\\tmp\\work", config.WorkingDirectory);
     }
 
-    [Fact]
+    [TestMethod]
     public void EvaluationRootIsPrivateDirectoryUnderSystemTemp()
     {
         var root = AgentRunner.GetEvaluationRoot();
         var tempPath = Path.GetFullPath(Path.GetTempPath());
         var relative = Path.GetRelativePath(root, tempPath);
 
-        Assert.True(Path.IsPathFullyQualified(root));
-        Assert.NotEqual(
+        Assert.IsTrue(Path.IsPathFullyQualified(root));
+        Assert.AreNotEqual(
             Path.TrimEndingDirectorySeparator(Path.GetPathRoot(root)!),
             Path.TrimEndingDirectorySeparator(root));
         Assert.StartsWith("..", relative, StringComparison.Ordinal);
-        Assert.False(
+        Assert.IsFalse(
             Path.GetRelativePath(tempPath, root).StartsWith("..", StringComparison.Ordinal));
 
         if (OperatingSystem.IsWindows())
         {
             using var currentIdentity = WindowsIdentity.GetCurrent();
             var currentUser = currentIdentity.User;
-            Assert.NotNull(currentUser);
+            Assert.IsNotNull(currentUser);
 
             var security = new DirectoryInfo(root).GetAccessControl(
                 AccessControlSections.Access | AccessControlSections.Owner);
-            Assert.Equal(
+            Assert.AreEqual(
                 currentUser,
                 security.GetOwner(typeof(SecurityIdentifier)));
-            Assert.True(security.AreAccessRulesProtected);
+            Assert.IsTrue(security.AreAccessRulesProtected);
 
             var rules = security
                 .GetAccessRules(
@@ -288,40 +290,40 @@ public class BuildSessionConfigTests
                     targetType: typeof(SecurityIdentifier))
                 .Cast<FileSystemAccessRule>()
                 .ToArray();
-            var ownerRule = Assert.Single(rules);
-            Assert.False(ownerRule.IsInherited);
-            Assert.Equal(currentUser, ownerRule.IdentityReference);
-            Assert.Equal(AccessControlType.Allow, ownerRule.AccessControlType);
-            Assert.Equal(FileSystemRights.FullControl, ownerRule.FileSystemRights);
-            Assert.Equal(
+            var ownerRule = Assert.ContainsSingle(rules);
+            Assert.IsFalse(ownerRule.IsInherited);
+            Assert.AreEqual(currentUser, ownerRule.IdentityReference);
+            Assert.AreEqual(AccessControlType.Allow, ownerRule.AccessControlType);
+            Assert.AreEqual(FileSystemRights.FullControl, ownerRule.FileSystemRights);
+            Assert.AreEqual(
                 InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
                 ownerRule.InheritanceFlags);
-            Assert.Equal(PropagationFlags.None, ownerRule.PropagationFlags);
+            Assert.AreEqual(PropagationFlags.None, ownerRule.PropagationFlags);
         }
         else
         {
-            Assert.Equal(
+            Assert.AreEqual(
                 UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute,
                 File.GetUnixFileMode(root));
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void PrivateWorkDirIsCreatedInsideEvaluationRoot()
     {
         var evaluationRoot = AgentRunner.GetEvaluationRoot();
         var workDir = AgentRunner.CreatePrivateWorkDir("judge-test");
         var relative = Path.GetRelativePath(evaluationRoot, workDir);
 
-        Assert.True(Directory.Exists(workDir));
-        Assert.NotEqual(
+        Assert.IsTrue(Directory.Exists(workDir));
+        Assert.AreNotEqual(
             Path.TrimEndingDirectorySeparator(evaluationRoot),
             Path.TrimEndingDirectorySeparator(workDir));
-        Assert.False(Path.IsPathFullyQualified(relative));
-        Assert.False(relative.StartsWith("..", StringComparison.Ordinal));
+        Assert.IsFalse(Path.IsPathFullyQualified(relative));
+        Assert.IsFalse(relative.StartsWith("..", StringComparison.Ordinal));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task DeniesBuiltInFileToolOutsideScenarioWorkDir()
     {
         var evaluationRoot = AgentRunner.GetEvaluationRoot();
@@ -335,10 +337,10 @@ public class BuildSessionConfigTests
             new PreToolUseHookInput { ToolName = "view", ToolArgs = args },
             null!);
 
-        Assert.Equal("deny", result!.PermissionDecision);
+        Assert.AreEqual("deny", result!.PermissionDecision);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task DeniesMultiPathFileToolWhenAnyPathIsOutsideScenarioWorkDir()
     {
         var evaluationRoot = AgentRunner.GetEvaluationRoot();
@@ -355,10 +357,10 @@ public class BuildSessionConfigTests
             new PreToolUseHookInput { ToolName = "rename", ToolArgs = args },
             null!);
 
-        Assert.Equal("deny", result!.PermissionDecision);
+        Assert.AreEqual("deny", result!.PermissionDecision);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task DeniesBuiltInFileToolAccessToReservedSessionState()
     {
         var workDir = Path.Combine(AgentRunner.GetEvaluationRoot(), "current-scenario");
@@ -369,65 +371,65 @@ public class BuildSessionConfigTests
             new PreToolUseHookInput { ToolName = "view", ToolArgs = args },
             null!);
 
-        Assert.Equal("deny", result!.PermissionDecision);
+        Assert.AreEqual("deny", result!.PermissionDecision);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task SetsConfigDirToUniqueTempDirForSkillIsolation()
     {
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
-        Assert.NotEqual("C:\\tmp\\work", config.ConfigDirectory);
+        Assert.AreNotEqual("C:\\tmp\\work", config.ConfigDirectory);
         Assert.StartsWith(Path.GetTempPath(), config.ConfigDirectory);
-        Assert.True(Directory.Exists(config.ConfigDirectory));
+        Assert.IsTrue(Directory.Exists(config.ConfigDirectory));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task SetsConfigDirToUniqueTempDirEvenWithoutSkill()
     {
         var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", "C:\\tmp\\work");
-        Assert.NotEqual("C:\\tmp\\work", config.ConfigDirectory);
+        Assert.AreNotEqual("C:\\tmp\\work", config.ConfigDirectory);
         Assert.StartsWith(Path.GetTempPath(), config.ConfigDirectory);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task EachCallGetsUniqueConfigDir()
     {
         var config1 = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", "C:\\tmp\\work");
         var config2 = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", "C:\\tmp\\work");
-        Assert.NotEqual(config1.ConfigDirectory, config2.ConfigDirectory);
+        Assert.AreNotEqual(config1.ConfigDirectory, config2.ConfigDirectory);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task SetsEmptySkillDirectoriesWhenNoSkill()
     {
         var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", "C:\\tmp\\work");
-        Assert.Empty(config.SkillDirectories!);
+        Assert.IsEmpty(config.SkillDirectories!);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PassesModelThrough()
     {
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "claude-opus-4.6", "C:\\tmp\\work");
-        Assert.Equal("claude-opus-4.6", config.Model);
+        Assert.AreEqual("claude-opus-4.6", config.Model);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task DisablesInfiniteSessions()
     {
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
-        Assert.False(config.InfiniteSessions!.Enabled);
+        Assert.IsFalse(config.InfiniteSessions!.Enabled);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task UsesPreToolUseHookForPermissionSandboxing()
     {
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
-        Assert.NotNull(config.OnPermissionRequest);
-        Assert.NotNull(config.Hooks);
-        Assert.NotNull(config.Hooks.OnPreToolUse);
+        Assert.IsNotNull(config.OnPermissionRequest);
+        Assert.IsNotNull(config.Hooks);
+        Assert.IsNotNull(config.Hooks.OnPreToolUse);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ShellToolDefersToPermissionRequestPathInspection()
     {
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
@@ -437,10 +439,10 @@ public class BuildSessionConfigTests
             new PreToolUseHookInput { ToolName = "bash", ToolArgs = args },
             null!);
 
-        Assert.Equal("ask", result!.PermissionDecision);
+        Assert.AreEqual("ask", result!.PermissionDecision);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task DeniesShellCommandWhenAnyPathIsOutsideAllowedDirectories()
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
@@ -459,10 +461,10 @@ public class BuildSessionConfigTests
 
         var decision = await config.OnPermissionRequest!(request, null!);
 
-        Assert.Equal("reject", decision.Kind);
+        Assert.AreEqual("reject", decision.Kind);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ApprovesShellCommandWhenAllPathsAreAllowed()
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
@@ -481,10 +483,10 @@ public class BuildSessionConfigTests
 
         var decision = await config.OnPermissionRequest!(request, null!);
 
-        Assert.Equal("approve-once", decision.Kind);
+        Assert.AreEqual("approve-once", decision.Kind);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task DeniesShellCommandWithUrlAndNoPaths()
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
@@ -508,10 +510,10 @@ public class BuildSessionConfigTests
 
         var decision = await config.OnPermissionRequest!(request, null!);
 
-        Assert.Equal("reject", decision.Kind);
+        Assert.AreEqual("reject", decision.Kind);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task DeniesShellCommandWhenUrlMetadataIsMissing()
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
@@ -529,10 +531,10 @@ public class BuildSessionConfigTests
 
         var decision = await config.OnPermissionRequest!(request, null!);
 
-        Assert.Equal("reject", decision.Kind);
+        Assert.AreEqual("reject", decision.Kind);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ApprovesLocalShellCommandWithoutPaths()
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
@@ -550,10 +552,10 @@ public class BuildSessionConfigTests
 
         var decision = await config.OnPermissionRequest!(request, null!);
 
-        Assert.Equal("approve-once", decision.Kind);
+        Assert.AreEqual("approve-once", decision.Kind);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task DeniesSchemeLessCurlWhenShellMetadataIsMissing()
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
@@ -571,14 +573,14 @@ public class BuildSessionConfigTests
 
         var decision = await config.OnPermissionRequest!(request, null!);
 
-        Assert.Equal("reject", decision.Kind);
+        Assert.AreEqual("reject", decision.Kind);
     }
 
-    [Theory]
-    [InlineData("python -c \"import socket; socket.create_connection(('example.com', 443))\"")]
-    [InlineData("node socket-launcher.js")]
-    [InlineData("./open-socket.sh")]
-    [InlineData("dotnet test && curl example.com")]
+    [TestMethod]
+    [DataRow("python -c \"import socket; socket.create_connection(('example.com', 443))\"")]
+    [DataRow("node socket-launcher.js")]
+    [DataRow("./open-socket.sh")]
+    [DataRow("dotnet test && curl example.com")]
     public async Task DeniesUnclassifiedPathlessShellCommands(string command)
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
@@ -596,20 +598,20 @@ public class BuildSessionConfigTests
 
         var decision = await config.OnPermissionRequest!(request, null!);
 
-        Assert.Equal("reject", decision.Kind);
+        Assert.AreEqual("reject", decision.Kind);
     }
 
-    [Theory]
-    [InlineData("dotnet test")]
-    [InlineData("  DOTNET   TEST  ")]
-    [InlineData("git status --short")]
-    [InlineData("pwd")]
+    [TestMethod]
+    [DataRow("dotnet test")]
+    [DataRow("  DOTNET   TEST  ")]
+    [DataRow("git status --short")]
+    [DataRow("pwd")]
     public void AllowsOnlyKnownPathlessShellCommands(string command)
     {
-        Assert.True(AgentRunner.IsAllowedPathlessShellCommand(command));
+        Assert.IsTrue(AgentRunner.IsAllowedPathlessShellCommand(command));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ReadPermissionRequiresAllowedPath()
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
@@ -634,11 +636,11 @@ public class BuildSessionConfigTests
             },
             null!);
 
-        Assert.Equal("approve-once", allowed.Kind);
-        Assert.Equal("reject", denied.Kind);
+        Assert.AreEqual("approve-once", allowed.Kind);
+        Assert.AreEqual("reject", denied.Kind);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task WritePermissionRejectsReservedSessionState()
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
@@ -657,10 +659,10 @@ public class BuildSessionConfigTests
             },
             null!);
 
-        Assert.Equal("reject", decision.Kind);
+        Assert.AreEqual("reject", decision.Kind);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task UrlPermissionIsDenied()
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
@@ -676,10 +678,10 @@ public class BuildSessionConfigTests
             },
             null!);
 
-        Assert.Equal("reject", decision.Kind);
+        Assert.AreEqual("reject", decision.Kind);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task McpPermissionRequiresRegisteredServerAndTool()
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
@@ -716,11 +718,11 @@ public class BuildSessionConfigTests
             },
             null!);
 
-        Assert.Equal("approve-once", allowed.Kind);
-        Assert.Equal("reject", denied.Kind);
+        Assert.AreEqual("approve-once", allowed.Kind);
+        Assert.AreEqual("reject", denied.Kind);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task McpPermissionRejectsServerWithOmittedTools()
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
@@ -736,9 +738,9 @@ public class BuildSessionConfigTests
                     Args: ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"]),
             });
 
-        var server = Assert.IsType<McpStdioServerConfig>(config.McpServers!["build-data"]);
-        Assert.NotNull(server.Tools);
-        Assert.Empty(server.Tools!);
+        var server = Assert.IsInstanceOfType<McpStdioServerConfig>(config.McpServers!["build-data"]);
+        Assert.IsNotNull(server.Tools);
+        Assert.IsEmpty(server.Tools!);
 
         var decision = await config.OnPermissionRequest!(
             new PermissionRequestMcp
@@ -752,10 +754,10 @@ public class BuildSessionConfigTests
             },
             null!);
 
-        Assert.Equal("reject", decision.Kind);
+        Assert.AreEqual("reject", decision.Kind);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ShippedBinlogMcpManifestAllowsOnlySupportedTools()
     {
         var repositoryRoot = FindRepositoryRoot();
@@ -766,9 +768,9 @@ public class BuildSessionConfigTests
             "skills",
             "binlog-failure-analysis");
         var mcpServers = await EvaluateCommand.FindPluginMcpServers(skillDirectory);
-        var binlog = Assert.Single(mcpServers!);
-        Assert.Equal("binlog", binlog.Key);
-        Assert.Equal(ExpectedBinlogMcpTools, binlog.Value.Tools);
+        var binlog = Assert.ContainsSingle(mcpServers!);
+        Assert.AreEqual("binlog", binlog.Key);
+        Assert.AreSequenceEqual(ExpectedBinlogMcpTools, binlog.Value.Tools);
 
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
         var config = await AgentRunner.BuildSessionConfig(
@@ -792,7 +794,7 @@ public class BuildSessionConfigTests
                 },
                 null!);
 
-            Assert.Equal("approve-once", decision.Kind);
+            Assert.AreEqual("approve-once", decision.Kind);
         }
 
         var undeclared = await config.OnPermissionRequest!(
@@ -807,10 +809,10 @@ public class BuildSessionConfigTests
             },
             null!);
 
-        Assert.Equal("reject", undeclared.Kind);
+        Assert.AreEqual("reject", undeclared.Kind);
     }
 
-    [Fact]
+    [TestMethod]
     public void McpPermissionRejectsUntrustedServerWithOmittedTools()
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
@@ -839,10 +841,10 @@ public class BuildSessionConfigTests
             additionalAllowedDirs: [],
             allowedMcpServers);
 
-        Assert.Equal("reject", decision.Kind);
+        Assert.AreEqual("reject", decision.Kind);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task McpPermissionAllowsExplicitWildcard()
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
@@ -868,10 +870,10 @@ public class BuildSessionConfigTests
             },
             null!);
 
-        Assert.Equal("approve-once", decision.Kind);
+        Assert.AreEqual("approve-once", decision.Kind);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task UnsupportedPermissionRequestIsDenied()
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
@@ -888,10 +890,10 @@ public class BuildSessionConfigTests
             },
             null!);
 
-        Assert.Equal("reject", decision.Kind);
+        Assert.AreEqual("reject", decision.Kind);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task SetsMcpServersWhenProvided()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
@@ -899,18 +901,18 @@ public class BuildSessionConfigTests
             ["test-mcp"] = SafeMcpServer(["load_data", "get_results"])
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
-        Assert.NotNull(config.McpServers);
-        Assert.True(config.McpServers.ContainsKey("test-mcp"));
+        Assert.IsNotNull(config.McpServers);
+        Assert.IsTrue(config.McpServers.ContainsKey("test-mcp"));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task OmitsMcpServersWhenNull()
     {
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
-        Assert.Null(config.McpServers);
+        Assert.IsNull(config.McpServers);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task BlocksDisallowedMcpCommand()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
@@ -921,10 +923,10 @@ public class BuildSessionConfigTests
                 Tools: ["exfil"])
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
-        Assert.Null(config.McpServers);
+        Assert.IsNull(config.McpServers);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task RejectsMcpCommandWithFullPath()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
@@ -936,10 +938,10 @@ public class BuildSessionConfigTests
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         // Full paths are rejected - only bare command names allowed
-        Assert.Null(config.McpServers);
+        Assert.IsNull(config.McpServers);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task IgnoresPluginMcpEnvAndUsesPrivateNugetState()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
@@ -953,18 +955,18 @@ public class BuildSessionConfigTests
                 })
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
-        Assert.NotNull(config.McpServers);
-        Assert.True(config.McpServers.ContainsKey("ok"));
+        Assert.IsNotNull(config.McpServers);
+        Assert.IsTrue(config.McpServers.ContainsKey("ok"));
         var entry = (McpStdioServerConfig)config.McpServers["ok"];
-        Assert.NotNull(entry.Env);
-        Assert.False(entry.Env.ContainsKey("NODE_OPTIONS"));
-        Assert.False(entry.Env.ContainsKey("PATH"));
-        Assert.False(entry.Env.ContainsKey("MY_SETTING"));
+        Assert.IsNotNull(entry.Env);
+        Assert.IsFalse(entry.Env.ContainsKey("NODE_OPTIONS"));
+        Assert.IsFalse(entry.Env.ContainsKey("PATH"));
+        Assert.IsFalse(entry.Env.ContainsKey("MY_SETTING"));
         Assert.StartsWith(Path.GetTempPath(), entry.Env["NUGET_PACKAGES"]);
         Assert.StartsWith(Path.GetTempPath(), entry.Env["NUGET_HTTP_CACHE_PATH"]);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task DropsMcpCwd()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
@@ -972,12 +974,12 @@ public class BuildSessionConfigTests
             ["ok"] = SafeMcpServer(cwd: "/tmp/evil")
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
-        Assert.NotNull(config.McpServers);
+        Assert.IsNotNull(config.McpServers);
         var entry = (McpStdioServerConfig)config.McpServers["ok"];
-        Assert.Null(entry.WorkingDirectory);
+        Assert.IsNull(entry.WorkingDirectory);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task FiltersOutDisallowedMcpServersButKeepsAllowed()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
@@ -986,12 +988,12 @@ public class BuildSessionConfigTests
             ["bad"] = new MCPServerDef(Command: "bash", Args: ["-c", "echo pwned"], Tools: ["*"]),
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
-        Assert.NotNull(config.McpServers);
-        Assert.True(config.McpServers.ContainsKey("good"));
-        Assert.False(config.McpServers.ContainsKey("bad"));
+        Assert.IsNotNull(config.McpServers);
+        Assert.IsTrue(config.McpServers.ContainsKey("good"));
+        Assert.IsFalse(config.McpServers.ContainsKey("bad"));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task RejectsMcpServerWithDangerousArgs()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
@@ -999,10 +1001,10 @@ public class BuildSessionConfigTests
             ["evil"] = new MCPServerDef(Command: "dotnet", Args: ["exec", "/tmp/evil.dll"], Tools: ["*"]),
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
-        Assert.Null(config.McpServers);
+        Assert.IsNull(config.McpServers);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task AllowsShippedBinlogMcpArgs()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
@@ -1010,14 +1012,14 @@ public class BuildSessionConfigTests
             ["ok"] = SafeMcpServer(),
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
-        Assert.NotNull(config.McpServers);
-        var entry = Assert.IsType<McpStdioServerConfig>(config.McpServers["ok"]);
-        Assert.NotNull(entry.Args);
+        Assert.IsNotNull(config.McpServers);
+        var entry = Assert.IsInstanceOfType<McpStdioServerConfig>(config.McpServers["ok"]);
+        Assert.IsNotNull(entry.Args);
         Assert.Contains("Microsoft.AITools.BinlogMcp@3.0.2", entry.Args!);
         Assert.Contains("--no-http-cache", entry.Args);
         var configIndex = entry.Args.IndexOf("--configfile");
-        Assert.True(configIndex >= 0);
-        Assert.True(File.Exists(entry.Args[configIndex + 1]));
+        Assert.IsTrue(configIndex >= 0);
+        Assert.IsTrue(File.Exists(entry.Args[configIndex + 1]));
     }
 
     private static string FindRepositoryRoot(
@@ -1031,7 +1033,7 @@ public class BuildSessionConfigTests
             ".."));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PluginRootWithoutPluginJsonFallsBackToEmptySkillDirs()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
@@ -1040,13 +1042,13 @@ public class BuildSessionConfigTests
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, "/plugins/dotnet", "gpt-4.1", "C:\\tmp\\work", mcpServers);
         // When pluginRoot has no plugin.json, SkillDirectories falls back to empty
-        Assert.Empty(config.SkillDirectories!);
+        Assert.IsEmpty(config.SkillDirectories!);
         // MCP servers are always passed through (no longer suppressed for plugin runs)
-        Assert.NotNull(config.McpServers);
-        Assert.True(config.McpServers.ContainsKey("test-mcp"));
+        Assert.IsNotNull(config.McpServers);
+        Assert.IsTrue(config.McpServers.ContainsKey("test-mcp"));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PluginRootWithPluginJsonResolvesSkillDirectories()
     {
         // Create a temp plugin structure
@@ -1059,13 +1061,13 @@ public class BuildSessionConfigTests
         try
         {
             var config = await AgentRunner.BuildSessionConfig(MockSkill, tempDir, "gpt-4.1", "C:\\tmp\\work");
-            Assert.Single(config.SkillDirectories!);
+            Assert.ContainsSingle(config.SkillDirectories!);
             var stagedRoot = config.SkillDirectories![0];
             Assert.StartsWith(Path.GetTempPath(), stagedRoot);
-            Assert.NotEqual(
+            Assert.AreNotEqual(
                 Path.GetFullPath(Path.Combine(tempDir, "skills")),
                 Path.TrimEndingDirectorySeparator(stagedRoot));
-            Assert.True(File.Exists(Path.Combine(stagedRoot, "my-skill", "SKILL.md")));
+            Assert.IsTrue(File.Exists(Path.Combine(stagedRoot, "my-skill", "SKILL.md")));
         }
         finally
         {
@@ -1074,16 +1076,16 @@ public class BuildSessionConfigTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PluginRootNullPreservesSkillDirectories()
     {
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
         // Without pluginRoot, SkillDirectories should contain the staged isolation dir
-        Assert.Single(config.SkillDirectories!);
+        Assert.ContainsSingle(config.SkillDirectories!);
         Assert.StartsWith(Path.GetTempPath(), config.SkillDirectories![0]);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task IsolatedAgentRegistersOnlyTargetAndDeclaredDependencies()
     {
         var target = new AgentInfo(
@@ -1107,12 +1109,12 @@ public class BuildSessionConfigTests
             agent: target,
             additionalAgents: [dependency]);
 
-        Assert.Equal(
+        Assert.AreSequenceEqual(
             ["target-agent", "dependency-agent"],
             config.CustomAgents!.Select(agent => agent.Name));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task SetupWorkDirCopiesVallyDirectoryFixture()
     {
         var evalRoot = Path.Combine(Path.GetTempPath(), $"agent-fixture-{Guid.NewGuid():N}");
@@ -1131,7 +1133,7 @@ public class BuildSessionConfigTests
 
             var workDir = await AgentRunner.SetupWorkDir(scenario, null, evalPath);
 
-            Assert.True(File.Exists(Path.Combine(workDir, "Project", "Project.csproj")));
+            Assert.IsTrue(File.Exists(Path.Combine(workDir, "Project", "Project.csproj")));
         }
         finally
         {
@@ -1140,17 +1142,17 @@ public class BuildSessionConfigTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void SetupCommandsInheritUnusedOutputStreams()
     {
         var psi = AgentRunner.CreateSetupProcessStartInfo("echo setup", Path.GetTempPath());
 
-        Assert.False(psi.RedirectStandardOutput);
-        Assert.False(psi.RedirectStandardError);
-        Assert.False(psi.UseShellExecute);
+        Assert.IsFalse(psi.RedirectStandardOutput);
+        Assert.IsFalse(psi.RedirectStandardError);
+        Assert.IsFalse(psi.UseShellExecute);
     }
 
-    [Fact]
+    [TestMethod]
     public void ResolveSourcePathAllowsSharedFixtureInsideRepository()
     {
         var repoRoot = Path.Combine(Path.GetTempPath(), $"shared-fixture-{Guid.NewGuid():N}");
@@ -1168,7 +1170,7 @@ public class BuildSessionConfigTests
             var resolved = AgentRunner.ResolveSourcePath(
                 "../shared/fixtures/input.txt", evalPath, skillPath: null);
 
-            Assert.Equal(Path.GetFullPath(source), resolved);
+            Assert.AreEqual(Path.GetFullPath(source), resolved);
         }
         finally
         {
@@ -1176,7 +1178,7 @@ public class BuildSessionConfigTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void ResolveSourcePathRejectsFileSymlinkOutsideRepository()
     {
         var root = Path.Combine(Path.GetTempPath(), $"source-file-link-{Guid.NewGuid():N}");
@@ -1198,7 +1200,7 @@ public class BuildSessionConfigTests
             var resolved = AgentRunner.ResolveSourcePath(
                 "fixtures/secret.txt", Path.Combine(evalDir, "eval.yaml"), skillPath: null);
 
-            Assert.Null(resolved);
+            Assert.IsNull(resolved);
         }
         finally
         {
@@ -1206,7 +1208,7 @@ public class BuildSessionConfigTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void ResolveSourcePathRejectsDirectorySymlinkComponentOutsideRepository()
     {
         var root = Path.Combine(Path.GetTempPath(), $"source-dir-link-{Guid.NewGuid():N}");
@@ -1229,7 +1231,7 @@ public class BuildSessionConfigTests
             var resolved = AgentRunner.ResolveSourcePath(
                 "fixtures/linked/secret.txt", Path.Combine(evalDir, "eval.yaml"), skillPath: null);
 
-            Assert.Null(resolved);
+            Assert.IsNull(resolved);
         }
         finally
         {
@@ -1237,7 +1239,7 @@ public class BuildSessionConfigTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task SetupWorkDirSkipsExplicitDirectorySymlinkSource()
     {
         var root = Path.Combine(Path.GetTempPath(), $"setup-dir-link-{Guid.NewGuid():N}");
@@ -1266,7 +1268,7 @@ public class BuildSessionConfigTests
 
             var workDir = await AgentRunner.SetupWorkDir(scenario, null, evalPath);
 
-            Assert.False(File.Exists(Path.Combine(workDir, "Fixture", "secret.txt")));
+            Assert.IsFalse(File.Exists(Path.Combine(workDir, "Fixture", "secret.txt")));
         }
         finally
         {
@@ -1275,7 +1277,7 @@ public class BuildSessionConfigTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task SetupWorkDirSkipsTopLevelSymlinkWhenCopyingTestFiles()
     {
         var root = Path.Combine(Path.GetTempPath(), $"setup-top-link-{Guid.NewGuid():N}");
@@ -1301,7 +1303,7 @@ public class BuildSessionConfigTests
 
             var workDir = await AgentRunner.SetupWorkDir(scenario, null, evalPath);
 
-            Assert.False(File.Exists(Path.Combine(workDir, "secret-link.txt")));
+            Assert.IsFalse(File.Exists(Path.Combine(workDir, "secret-link.txt")));
         }
         finally
         {
@@ -1310,7 +1312,7 @@ public class BuildSessionConfigTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PluginAgentRunRegistersCompleteProductionSurface()
     {
         var pluginRoot = Path.Combine(Path.GetTempPath(), $"agent-plugin-{Guid.NewGuid():N}");
@@ -1350,9 +1352,7 @@ public class BuildSessionConfigTests
             """);
         try
         {
-            var target = Assert.Single(
-                await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot),
-                agent => agent.Name == "target");
+            var target = Assert.ContainsSingle((await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot)).Where(agent => agent.Name == "target"));
             var workDir = Path.Combine(
                 AgentRunner.GetEvaluationRoot(),
                 $"plugin-agent-work-{Guid.NewGuid():N}");
@@ -1364,12 +1364,12 @@ public class BuildSessionConfigTests
                 workDir: workDir,
                 agent: target);
 
-            Assert.Equal(
+            Assert.AreSequenceEqual(
                 ["peer", "target"],
                 config.CustomAgents!.Select(agent => agent.Name).Order());
             var stagedRoot = config.SkillDirectories!.Single();
             Assert.StartsWith(Path.GetTempPath(), stagedRoot);
-            Assert.True(File.Exists(Path.Combine(stagedRoot, "helper-skill", "SKILL.md")));
+            Assert.IsTrue(File.Exists(Path.Combine(stagedRoot, "helper-skill", "SKILL.md")));
 
             var originalSkillPath = Path.Combine(skillsDir, "SKILL.md");
             var originalArgs = JsonDocument.Parse(
@@ -1377,7 +1377,7 @@ public class BuildSessionConfigTests
             var originalDecision = await config.Hooks!.OnPreToolUse!(
                 new PreToolUseHookInput { ToolName = "view", ToolArgs = originalArgs },
                 null!);
-            Assert.Equal("deny", originalDecision!.PermissionDecision);
+            Assert.AreEqual("deny", originalDecision!.PermissionDecision);
 
             var stagedSkillPath = Path.Combine(stagedRoot, "helper-skill", "SKILL.md");
             var stagedArgs = JsonDocument.Parse(
@@ -1385,7 +1385,7 @@ public class BuildSessionConfigTests
             var stagedDecision = await config.Hooks.OnPreToolUse!(
                 new PreToolUseHookInput { ToolName = "view", ToolArgs = stagedArgs },
                 null!);
-            Assert.Equal("allow", stagedDecision!.PermissionDecision);
+            Assert.AreEqual("allow", stagedDecision!.PermissionDecision);
 
             var shellDecision = await config.OnPermissionRequest!(
                 new PermissionRequestShell
@@ -1399,7 +1399,7 @@ public class BuildSessionConfigTests
                     PossibleUrls = [],
                 },
                 null!);
-            Assert.Equal("reject", shellDecision.Kind);
+            Assert.AreEqual("reject", shellDecision.Kind);
         }
         finally
         {
@@ -1408,7 +1408,7 @@ public class BuildSessionConfigTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PluginModeStagesOnlySafeSkillTrees()
     {
         var root = Path.Combine(Path.GetTempPath(), $"plugin-skill-link-{Guid.NewGuid():N}");
@@ -1451,10 +1451,10 @@ public class BuildSessionConfigTests
                 "gpt-4.1",
                 Path.Combine(root, "work"));
 
-            var stagedRoot = Assert.Single(config.SkillDirectories!);
-            Assert.True(File.Exists(Path.Combine(stagedRoot, "safe", "SKILL.md")));
-            Assert.False(Directory.Exists(Path.Combine(stagedRoot, "linked")));
-            Assert.False(AgentRunner.CheckPermission(
+            var stagedRoot = Assert.ContainsSingle(config.SkillDirectories!);
+            Assert.IsTrue(File.Exists(Path.Combine(stagedRoot, "safe", "SKILL.md")));
+            Assert.IsFalse(Directory.Exists(Path.Combine(stagedRoot, "linked")));
+            Assert.IsFalse(AgentRunner.CheckPermission(
                 Path.Combine(linkedSkill, "secret.txt"),
                 Path.Combine(root, "work"),
                 skillPath: null,
@@ -1468,7 +1468,7 @@ public class BuildSessionConfigTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PluginSkillRunRegistersOnlyDeclaredAgentDependencies()
     {
         var pluginRoot = Path.Combine(Path.GetTempPath(), $"skill-plugin-{Guid.NewGuid():N}");
@@ -1508,12 +1508,8 @@ public class BuildSessionConfigTests
             """);
         try
         {
-            var targetSkill = Assert.Single(
-                await SkillDiscovery.DiscoverSkills(Path.Combine(pluginRoot, "skills")),
-                skill => skill.Name == "target-skill");
-            var declaredAgent = Assert.Single(
-                await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot),
-                agent => agent.Name == "declared");
+            var targetSkill = Assert.ContainsSingle((await SkillDiscovery.DiscoverSkills(Path.Combine(pluginRoot, "skills"))).Where(skill => skill.Name == "target-skill"));
+            var declaredAgent = Assert.ContainsSingle((await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot)).Where(agent => agent.Name == "declared"));
 
             var config = await AgentRunner.BuildSessionConfig(
                 skill: targetSkill,
@@ -1522,7 +1518,7 @@ public class BuildSessionConfigTests
                 workDir: "C:\\tmp\\work",
                 additionalAgents: [declaredAgent]);
 
-            Assert.Equal("declared", Assert.Single(config.CustomAgents!).Name);
+            Assert.AreEqual("declared", Assert.ContainsSingle(config.CustomAgents!).Name);
         }
         finally
         {
@@ -1531,9 +1527,10 @@ public class BuildSessionConfigTests
     }
 }
 
+[TestClass]
 public class RunEventBufferTests
 {
-    [Fact]
+    [TestMethod]
     public void ConcurrentRecordsPreserveEventsAndOutput()
     {
         const int eventCount = 10_000;
@@ -1548,9 +1545,9 @@ public class RunEventBufferTests
 
         var (events, output) = buffer.Snapshot();
 
-        Assert.Equal(eventCount, events.Count);
-        Assert.Equal(eventCount, output.Length);
-        Assert.Equal(
+        Assert.AreEqual(eventCount, events.Count);
+        Assert.AreEqual(eventCount, output.Length);
+        Assert.AreEqual(
             eventCount,
             events.Select(agentEvent => agentEvent.Data["index"]!.GetValue<int>())
                 .Distinct()
@@ -1558,78 +1555,82 @@ public class RunEventBufferTests
     }
 }
 
+[TestClass]
 public class ExtractPathsFromToolArgsTests
 {
     private static PreToolUseHookInput MakeInput(JsonElement? toolArgs, string? toolName = null) =>
         new() { ToolArgs = toolArgs, ToolName = toolName ?? string.Empty };
 
-    [Fact]
+    [TestMethod]
     public void ExtractsPathKey()
     {
         var args = JsonDocument.Parse("""{"path": "/tmp/work/file.txt"}""").RootElement;
         var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args));
-        Assert.Equal(["/tmp/work/file.txt"], result);
+        Assert.AreSequenceEqual(["/tmp/work/file.txt"], result);
     }
 
-    [Fact]
+    [TestMethod]
     public void ExtractsFileNameKey()
     {
         var args = JsonDocument.Parse("""{"fileName": "src/Program.cs"}""").RootElement;
         var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args));
-        Assert.Equal(["src/Program.cs"], result);
+        Assert.AreSequenceEqual(["src/Program.cs"], result);
     }
 
-    [Fact]
+    [TestMethod]
     public void IgnoresFullCommandText()
     {
         var args = JsonDocument.Parse("""{"fullCommandText": "dotnet build"}""").RootElement;
         var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args));
-        Assert.Empty(result);
+        Assert.IsEmpty(result);
     }
 
-    [Fact]
+    [TestMethod]
     public void ExtractsEveryKnownPath()
     {
         var args = JsonDocument.Parse("""{"path": "/p", "source": "a.txt", "destination": "b.txt", "paths": ["c.txt", "d.txt"]}""").RootElement;
         var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args, "rename"));
-        Assert.Equal(["/p", "a.txt", "b.txt", "c.txt", "d.txt"], result.OrderBy(path => path, StringComparer.Ordinal));
+        Assert.AreSequenceEqual(["/p", "a.txt", "b.txt", "c.txt", "d.txt"], result.OrderBy(path => path, StringComparer.Ordinal));
     }
 
-    [Fact]
+    [TestMethod]
     public void ReturnsNullWhenToolArgsIsNull()
     {
         var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(null));
-        Assert.Empty(result);
+        Assert.IsEmpty(result);
     }
 
-    [Fact]
+    [TestMethod]
     public void ReturnsNullWhenToolArgsIsNotObject()
     {
         var args = JsonDocument.Parse("""42""").RootElement;
         var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args));
-        Assert.Empty(result);
+        Assert.IsEmpty(result);
     }
 
-    [Fact]
+    [TestMethod]
     public void ReturnsNullWhenNoKnownKeysPresent()
     {
         var args = JsonDocument.Parse("""{"content": "hello", "other": 123}""").RootElement;
         var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args));
-        Assert.Empty(result);
+        Assert.IsEmpty(result);
     }
 
-    [Fact]
+    [TestMethod]
     public void ReturnsNullWhenKeyIsNotString()
     {
         var args = JsonDocument.Parse("""{"path": 42}""").RootElement;
         var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args));
-        Assert.Empty(result);
+        Assert.IsEmpty(result);
     }
 }
 
+[TestClass]
 public class LocalSessionFsHandlerTests
 {
-    [Fact]
+    public TestContext TestContext { get; set; } = null!;
+
+    [TestMethod]
     public void ResolvesStateWorkspaceAndStagedPathsSeparately()
     {
         var root = Path.Combine(Path.GetTempPath(), $"session-fs-{Guid.NewGuid():N}");
@@ -1642,18 +1643,18 @@ public class LocalSessionFsHandlerTests
         {
             var handler = new LocalSessionFsHandler(stateRoot, workDir, [workDir, stagedDir]);
 
-            Assert.Equal(
+            Assert.AreEqual(
                 Path.Combine(stateRoot, "session-state", "events.jsonl"),
                 handler.ResolvePath(Path.Combine("session-state", "events.jsonl")));
-            Assert.Equal(
+            Assert.AreEqual(
                 Path.Combine(workDir, "src", "Program.cs"),
                 handler.ResolvePath(Path.Combine("src", "Program.cs")));
-            Assert.Equal(
+            Assert.AreEqual(
                 Path.Combine(stagedDir, "SKILL.md"),
                 handler.ResolvePath(Path.Combine(stagedDir, "SKILL.md")));
-            Assert.Throws<UnauthorizedAccessException>(
+            Assert.ThrowsExactly<UnauthorizedAccessException>(
                 () => handler.ResolvePath(Path.Combine(root, "other-scenario", "secret.txt")));
-            Assert.Throws<UnauthorizedAccessException>(
+            Assert.ThrowsExactly<UnauthorizedAccessException>(
                 () => handler.ResolvePath(Path.Combine(root, "..", "outside.txt")));
         }
         finally
@@ -1662,7 +1663,7 @@ public class LocalSessionFsHandlerTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void RejectsWorkspaceSymlinkThatEscapesAllowedRoot()
     {
         var root = Path.Combine(Path.GetTempPath(), $"session-fs-link-{Guid.NewGuid():N}");
@@ -1684,7 +1685,7 @@ public class LocalSessionFsHandlerTests
         {
             var handler = new LocalSessionFsHandler(stateRoot, workDir, [workDir]);
 
-            Assert.Throws<UnauthorizedAccessException>(
+            Assert.ThrowsExactly<UnauthorizedAccessException>(
                 () => handler.ResolvePath(Path.Combine("linked", "secret.txt")));
         }
         finally
@@ -1693,7 +1694,7 @@ public class LocalSessionFsHandlerTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task SecureWriteRejectsSymlinkCreatedAfterPathResolution()
     {
         var root = Path.Combine(Path.GetTempPath(), $"session-fs-write-race-{Guid.NewGuid():N}");
@@ -1713,14 +1714,14 @@ public class LocalSessionFsHandlerTests
 
         try
         {
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() =>
                 SecureFileSystem.WriteAllTextAsync(
                     workDir,
                     target,
                     "blocked",
                     append: false,
-                    TestContext.Current.CancellationToken));
-            Assert.False(File.Exists(Path.Combine(outsideDir, "escaped.txt")));
+                    TestContext.CancellationToken));
+            Assert.IsFalse(File.Exists(Path.Combine(outsideDir, "escaped.txt")));
         }
         finally
         {
@@ -1728,7 +1729,7 @@ public class LocalSessionFsHandlerTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task SecureWriteCreatesAndAppendsToNewNestedFile()
     {
         var root = Path.Combine(Path.GetTempPath(), $"session-fs-write-{Guid.NewGuid():N}");
@@ -1743,15 +1744,15 @@ public class LocalSessionFsHandlerTests
                 target,
                 "first",
                 append: false,
-                TestContext.Current.CancellationToken);
+                TestContext.CancellationToken);
             await SecureFileSystem.WriteAllTextAsync(
                 workDir,
                 target,
                 "-second",
                 append: true,
-                TestContext.Current.CancellationToken);
+                TestContext.CancellationToken);
 
-            Assert.Equal("first-second", await File.ReadAllTextAsync(target, TestContext.Current.CancellationToken));
+            Assert.AreEqual("first-second", await File.ReadAllTextAsync(target, TestContext.CancellationToken));
         }
         finally
         {
@@ -1759,7 +1760,7 @@ public class LocalSessionFsHandlerTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task SecureWriteRejectsInvalidUtf16()
     {
         var root = Path.Combine(Path.GetTempPath(), $"session-fs-encoding-{Guid.NewGuid():N}");
@@ -1768,13 +1769,13 @@ public class LocalSessionFsHandlerTests
 
         try
         {
-            await Assert.ThrowsAsync<EncoderFallbackException>(() =>
+            await Assert.ThrowsExactlyAsync<EncoderFallbackException>(() =>
                 SecureFileSystem.WriteAllTextAsync(
                     workDir,
                     Path.Combine(workDir, "invalid.txt"),
                     "\uD800",
                     append: false,
-                    TestContext.Current.CancellationToken));
+                    TestContext.CancellationToken));
         }
         finally
         {
@@ -1782,7 +1783,7 @@ public class LocalSessionFsHandlerTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task SecureWriteCannotBeRedirectedAfterParentIsOpened()
     {
         var root = Path.Combine(Path.GetTempPath(), $"session-fs-open-race-{Guid.NewGuid():N}");
@@ -1811,7 +1812,7 @@ public class LocalSessionFsHandlerTests
                     Path.Combine(parent, "safe.txt"),
                     "safe",
                     append: false,
-                    TestContext.Current.CancellationToken,
+                    TestContext.CancellationToken,
                     beforeLeafOpen: () =>
                     {
                         attemptedReplacement = true;
@@ -1843,11 +1844,11 @@ public class LocalSessionFsHandlerTests
                 // Unix can report the unlinked anchored directory as not found.
             }
 
-            Assert.True(attemptedReplacement);
-            Assert.True(replacementCreated || replacementBlocked);
+            Assert.IsTrue(attemptedReplacement);
+            Assert.IsTrue(replacementCreated || replacementBlocked);
             if (replacementCreated)
-                Assert.True((File.GetAttributes(parent) & FileAttributes.ReparsePoint) != 0);
-            Assert.False(File.Exists(Path.Combine(outsideDir, "safe.txt")));
+                Assert.IsTrue((File.GetAttributes(parent) & FileAttributes.ReparsePoint) != 0);
+            Assert.IsFalse(File.Exists(Path.Combine(outsideDir, "safe.txt")));
         }
         finally
         {
@@ -1855,7 +1856,7 @@ public class LocalSessionFsHandlerTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task SecureReadRejectsLeafSymlinkReplacement()
     {
         var root = Path.Combine(Path.GetTempPath(), $"session-fs-read-leaf-race-{Guid.NewGuid():N}");
@@ -1876,11 +1877,11 @@ public class LocalSessionFsHandlerTests
 
         try
         {
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() =>
                 SecureFileSystem.ReadAllTextAsync(
                     workDir,
                     target,
-                    TestContext.Current.CancellationToken,
+                    TestContext.CancellationToken,
                     beforeLeafOpen: () =>
                     {
                         File.Delete(target);
@@ -1888,7 +1889,7 @@ public class LocalSessionFsHandlerTests
                         replaced = true;
                     }));
 
-            Assert.True(replaced);
+            Assert.IsTrue(replaced);
         }
         finally
         {
@@ -1896,7 +1897,7 @@ public class LocalSessionFsHandlerTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task SecureReadCannotBeRedirectedAfterParentIsOpened()
     {
         var root = Path.Combine(Path.GetTempPath(), $"session-fs-read-parent-race-{Guid.NewGuid():N}");
@@ -1923,7 +1924,7 @@ public class LocalSessionFsHandlerTests
             var content = await SecureFileSystem.ReadAllTextAsync(
                 workDir,
                 Path.Combine(parent, "data.txt"),
-                TestContext.Current.CancellationToken,
+                TestContext.CancellationToken,
                 beforeLeafOpen: () =>
                 {
                     try
@@ -1942,8 +1943,8 @@ public class LocalSessionFsHandlerTests
                     }
                 });
 
-            Assert.True(replacementCreated || replacementBlocked);
-            Assert.Equal("safe", content);
+            Assert.IsTrue(replacementCreated || replacementBlocked);
+            Assert.AreEqual("safe", content);
         }
         finally
         {
@@ -1951,7 +1952,7 @@ public class LocalSessionFsHandlerTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void SecureMetadataRejectsLeafSymlinkReplacement()
     {
         var root = Path.Combine(Path.GetTempPath(), $"session-fs-stat-race-{Guid.NewGuid():N}");
@@ -1971,7 +1972,7 @@ public class LocalSessionFsHandlerTests
 
         try
         {
-            Assert.Throws<UnauthorizedAccessException>(() =>
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
                 SecureFileSystem.Exists(
                     workDir,
                     target,
@@ -1983,7 +1984,7 @@ public class LocalSessionFsHandlerTests
 
             File.Delete(target);
             File.WriteAllText(target, "safe");
-            Assert.Throws<UnauthorizedAccessException>(() =>
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
                 SecureFileSystem.GetStatus(
                     workDir,
                     target,
@@ -1999,7 +2000,7 @@ public class LocalSessionFsHandlerTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void SecureMetadataRejectsFifoWithoutBlocking()
     {
         if (OperatingSystem.IsWindows())
@@ -2016,18 +2017,18 @@ public class LocalSessionFsHandlerTests
             ArgumentList = { fifo },
         });
         process!.WaitForExit();
-        Assert.Equal(0, process.ExitCode);
+        Assert.AreEqual(0, process.ExitCode);
 
         try
         {
             var stopwatch = Stopwatch.StartNew();
 
-            Assert.Throws<UnauthorizedAccessException>(() =>
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
                 SecureFileSystem.Exists(workDir, fifo));
-            Assert.Throws<UnauthorizedAccessException>(() =>
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
                 SecureFileSystem.GetStatus(workDir, fifo));
 
-            Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(2));
+            Assert.IsTrue(stopwatch.Elapsed < TimeSpan.FromSeconds(2));
         }
         finally
         {
@@ -2036,7 +2037,7 @@ public class LocalSessionFsHandlerTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task SecureReadRejectsSymlinkRoot()
     {
         var root = Path.Combine(Path.GetTempPath(), $"session-fs-root-link-{Guid.NewGuid():N}");
@@ -2052,11 +2053,11 @@ public class LocalSessionFsHandlerTests
 
         try
         {
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() =>
                 SecureFileSystem.ReadAllTextAsync(
                     linkedRoot,
                     Path.Combine(linkedRoot, "secret.txt"),
-                    TestContext.Current.CancellationToken));
+                    TestContext.CancellationToken));
         }
         finally
         {
@@ -2064,7 +2065,7 @@ public class LocalSessionFsHandlerTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task SecureOperationsTreatNonDirectoryComponentAsNotFound()
     {
         var root = Path.Combine(Path.GetTempPath(), $"session-fs-not-dir-{Guid.NewGuid():N}");
@@ -2076,13 +2077,13 @@ public class LocalSessionFsHandlerTests
 
         try
         {
-            Assert.False(SecureFileSystem.Exists(workDir, child));
-            await Assert.ThrowsAsync<FileNotFoundException>(() =>
+            Assert.IsFalse(SecureFileSystem.Exists(workDir, child));
+            await Assert.ThrowsExactlyAsync<FileNotFoundException>(() =>
                 SecureFileSystem.ReadAllTextAsync(
                     workDir,
                     child,
-                    TestContext.Current.CancellationToken));
-            Assert.Throws<FileNotFoundException>(() =>
+                    TestContext.CancellationToken));
+            Assert.ThrowsExactly<FileNotFoundException>(() =>
                 SecureFileSystem.GetStatus(workDir, child));
         }
         finally
@@ -2091,7 +2092,7 @@ public class LocalSessionFsHandlerTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void SecureDirectoryCreateRejectsSymlinkCreatedAfterPathResolution()
     {
         var root = Path.Combine(Path.GetTempPath(), $"session-fs-mkdir-race-{Guid.NewGuid():N}");
@@ -2111,9 +2112,9 @@ public class LocalSessionFsHandlerTests
 
         try
         {
-            Assert.Throws<UnauthorizedAccessException>(() =>
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
                 SecureFileSystem.CreateDirectory(workDir, target));
-            Assert.False(Directory.Exists(Path.Combine(outsideDir, "escaped")));
+            Assert.IsFalse(Directory.Exists(Path.Combine(outsideDir, "escaped")));
         }
         finally
         {
@@ -2122,50 +2123,52 @@ public class LocalSessionFsHandlerTests
     }
 }
 
+[TestClass]
 public class IsAllowedMcpCommandTests
 {
-    [Theory]
-    [InlineData("dotnet", true)]
-    [InlineData("node", false)]
-    [InlineData("npx", false)]
-    [InlineData("python", false)]
-    [InlineData("python3", false)]
-    [InlineData("uvx", false)]
-    [InlineData("bash", false)]
-    [InlineData("sh", false)]
-    [InlineData("curl", false)]
-    [InlineData("wget", false)]
-    [InlineData("cmd", false)]
-    [InlineData("powershell", false)]
+    [TestMethod]
+    [DataRow("dotnet", true)]
+    [DataRow("node", false)]
+    [DataRow("npx", false)]
+    [DataRow("python", false)]
+    [DataRow("python3", false)]
+    [DataRow("uvx", false)]
+    [DataRow("bash", false)]
+    [DataRow("sh", false)]
+    [DataRow("curl", false)]
+    [DataRow("wget", false)]
+    [DataRow("cmd", false)]
+    [DataRow("powershell", false)]
     public void ValidatesCommand(string command, bool expected)
     {
-        Assert.Equal(expected, AgentRunner.IsAllowedMcpCommand(command));
+        Assert.AreEqual(expected, AgentRunner.IsAllowedMcpCommand(command));
     }
 
-    [Theory]
-    [InlineData("/usr/bin/dotnet", false)]
-    [InlineData("/usr/local/bin/python3", false)]
-    [InlineData("C:\\Program Files\\dotnet\\dotnet.exe", false)]
-    [InlineData("/usr/bin/curl", false)]
-    [InlineData("./dotnet", false)]
-    [InlineData("../dotnet", false)]
+    [TestMethod]
+    [DataRow("/usr/bin/dotnet", false)]
+    [DataRow("/usr/local/bin/python3", false)]
+    [DataRow("C:\\Program Files\\dotnet\\dotnet.exe", false)]
+    [DataRow("/usr/bin/curl", false)]
+    [DataRow("./dotnet", false)]
+    [DataRow("../dotnet", false)]
     public void RejectsFullPaths(string command, bool expected)
     {
-        Assert.Equal(expected, AgentRunner.IsAllowedMcpCommand(command));
+        Assert.AreEqual(expected, AgentRunner.IsAllowedMcpCommand(command));
     }
 
-    [Fact]
+    [TestMethod]
     public void AllowsDotnetExeOnlyOnWindows()
     {
-        Assert.Equal(
+        Assert.AreEqual(
             OperatingSystem.IsWindows(),
             AgentRunner.IsAllowedMcpCommand("dotnet.exe"));
     }
 }
 
+[TestClass]
 public class ScrubSensitiveEnvironmentTests
 {
-    [Fact]
+    [TestMethod]
     public void RemovesKnownSensitiveKeys()
     {
         var psi = new ProcessStartInfo();
@@ -2181,18 +2184,18 @@ public class ScrubSensitiveEnvironmentTests
 
         AgentRunner.ScrubSensitiveEnvironment(psi);
 
-        Assert.False(psi.Environment.ContainsKey("GH_TOKEN"));
-        Assert.False(psi.Environment.ContainsKey("GITHUB_TOKEN"));
-        Assert.False(psi.Environment.ContainsKey("ACTIONS_RUNTIME_TOKEN"));
-        Assert.False(psi.Environment.ContainsKey("NPM_TOKEN"));
-        Assert.False(psi.Environment.ContainsKey("NUGET_API_KEY"));
-        Assert.False(psi.Environment.ContainsKey("NUGET_PLUGIN_PATHS"));
-        Assert.False(psi.Environment.ContainsKey("NUGET_NETCORE_PLUGIN_PATHS"));
-        Assert.False(psi.Environment.ContainsKey("NUGET_PACKAGES"));
-        Assert.Equal("keep", psi.Environment["SAFE_VAR"]);
+        Assert.IsFalse(psi.Environment.ContainsKey("GH_TOKEN"));
+        Assert.IsFalse(psi.Environment.ContainsKey("GITHUB_TOKEN"));
+        Assert.IsFalse(psi.Environment.ContainsKey("ACTIONS_RUNTIME_TOKEN"));
+        Assert.IsFalse(psi.Environment.ContainsKey("NPM_TOKEN"));
+        Assert.IsFalse(psi.Environment.ContainsKey("NUGET_API_KEY"));
+        Assert.IsFalse(psi.Environment.ContainsKey("NUGET_PLUGIN_PATHS"));
+        Assert.IsFalse(psi.Environment.ContainsKey("NUGET_NETCORE_PLUGIN_PATHS"));
+        Assert.IsFalse(psi.Environment.ContainsKey("NUGET_PACKAGES"));
+        Assert.AreEqual("keep", psi.Environment["SAFE_VAR"]);
     }
 
-    [Fact]
+    [TestMethod]
     public void RemovesCopilotPrefixedKeys()
     {
         var psi = new ProcessStartInfo();
@@ -2203,13 +2206,13 @@ public class ScrubSensitiveEnvironmentTests
 
         AgentRunner.ScrubSensitiveEnvironment(psi);
 
-        Assert.False(psi.Environment.ContainsKey("COPILOT_SESSION_ID"));
-        Assert.False(psi.Environment.ContainsKey("COPILOT_TOKEN"));
-        Assert.False(psi.Environment.ContainsKey("GH_AW_SECRET"));
-        Assert.Equal("keep", psi.Environment["SAFE_VAR"]);
+        Assert.IsFalse(psi.Environment.ContainsKey("COPILOT_SESSION_ID"));
+        Assert.IsFalse(psi.Environment.ContainsKey("COPILOT_TOKEN"));
+        Assert.IsFalse(psi.Environment.ContainsKey("GH_AW_SECRET"));
+        Assert.AreEqual("keep", psi.Environment["SAFE_VAR"]);
     }
 
-    [Fact]
+    [TestMethod]
     public void PrefixMatchIsCaseInsensitive()
     {
         var psi = new ProcessStartInfo();
@@ -2219,12 +2222,12 @@ public class ScrubSensitiveEnvironmentTests
 
         AgentRunner.ScrubSensitiveEnvironment(psi);
 
-        Assert.False(psi.Environment.ContainsKey("copilot_lower"));
-        Assert.False(psi.Environment.ContainsKey("Copilot_Mixed"));
-        Assert.False(psi.Environment.ContainsKey("gh_aw_lower"));
+        Assert.IsFalse(psi.Environment.ContainsKey("copilot_lower"));
+        Assert.IsFalse(psi.Environment.ContainsKey("Copilot_Mixed"));
+        Assert.IsFalse(psi.Environment.ContainsKey("gh_aw_lower"));
     }
 
-    [Fact]
+    [TestMethod]
     public void DoesNotThrowWhenKeysAbsent()
     {
         var psi = new ProcessStartInfo();
@@ -2233,13 +2236,14 @@ public class ScrubSensitiveEnvironmentTests
         // Should not throw even though sensitive keys are not present
         AgentRunner.ScrubSensitiveEnvironment(psi);
 
-        Assert.True(psi.Environment.ContainsKey("PATH"));
+        Assert.IsTrue(psi.Environment.ContainsKey("PATH"));
     }
 }
 
+[TestClass]
 public class CaptureGitHubTokenTests
 {
-    [Fact]
+    [TestMethod]
     public void PrefersGhTokenAndRemovesBothAliases()
     {
         var values = new Dictionary<string, string?>
@@ -2253,11 +2257,11 @@ public class CaptureGitHubTokenTests
             key => values.GetValueOrDefault(key),
             removed.Add);
 
-        Assert.Equal("gh-alias", token);
-        Assert.Equal(["GH_TOKEN", "GITHUB_TOKEN"], removed);
+        Assert.AreEqual("gh-alias", token);
+        Assert.AreSequenceEqual(["GH_TOKEN", "GITHUB_TOKEN"], removed);
     }
 
-    [Fact]
+    [TestMethod]
     public void FallsBackToGitHubTokenAndStillRemovesBothAliases()
     {
         var values = new Dictionary<string, string?>
@@ -2270,26 +2274,27 @@ public class CaptureGitHubTokenTests
             key => values.GetValueOrDefault(key),
             removed.Add);
 
-        Assert.Equal("github-alias", token);
-        Assert.Equal(["GH_TOKEN", "GITHUB_TOKEN"], removed);
+        Assert.AreEqual("github-alias", token);
+        Assert.AreSequenceEqual(["GH_TOKEN", "GITHUB_TOKEN"], removed);
     }
 }
 
+[TestClass]
 public class SanitizeMcpEnvTests
 {
-    [Fact]
+    [TestMethod]
     public void ReturnsNullForNullInput()
     {
-        Assert.Null(AgentRunner.SanitizeMcpEnv(null));
+        Assert.IsNull(AgentRunner.SanitizeMcpEnv(null));
     }
 
-    [Fact]
+    [TestMethod]
     public void ReturnsNullForEmptyInput()
     {
-        Assert.Null(AgentRunner.SanitizeMcpEnv([]));
+        Assert.IsNull(AgentRunner.SanitizeMcpEnv([]));
     }
 
-    [Fact]
+    [TestMethod]
     public void StripsDangerousKeys()
     {
         var env = new Dictionary<string, string>
@@ -2303,12 +2308,12 @@ public class SanitizeMcpEnvTests
 
         var result = AgentRunner.SanitizeMcpEnv(env);
 
-        Assert.NotNull(result);
-        Assert.Single(result);
-        Assert.Equal("hello", result["MY_SAFE_VAR"]);
+        Assert.IsNotNull(result);
+        Assert.ContainsSingle(result);
+        Assert.AreEqual("hello", result["MY_SAFE_VAR"]);
     }
 
-    [Fact]
+    [TestMethod]
     public void ReturnsNullWhenAllKeysAreDangerous()
     {
         var env = new Dictionary<string, string>
@@ -2317,10 +2322,10 @@ public class SanitizeMcpEnvTests
             ["LD_PRELOAD"] = "/evil.so",
         };
 
-        Assert.Null(AgentRunner.SanitizeMcpEnv(env));
+        Assert.IsNull(AgentRunner.SanitizeMcpEnv(env));
     }
 
-    [Fact]
+    [TestMethod]
     public void IsCaseInsensitive()
     {
         var env = new Dictionary<string, string>
@@ -2332,141 +2337,144 @@ public class SanitizeMcpEnvTests
 
         var result = AgentRunner.SanitizeMcpEnv(env);
 
-        Assert.NotNull(result);
-        Assert.Single(result);
-        Assert.Equal("ok", result["safe_key"]);
+        Assert.IsNotNull(result);
+        Assert.ContainsSingle(result);
+        Assert.AreEqual("ok", result["safe_key"]);
     }
 }
 
+[TestClass]
 public class SanitizeMcpArgsTests
 {
-    [Fact]
+    [TestMethod]
     public void AllowsShippedBinlogMcpArgs()
     {
         var result = AgentRunner.SanitizeMcpArgs(
             "dotnet",
             ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"]);
 
-        Assert.NotNull(result);
-        Assert.Equal(
+        Assert.IsNotNull(result);
+        Assert.AreSequenceEqual(
             ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"],
             result);
     }
 
-    [Theory]
-    [InlineData("node", "server.js")]
-    [InlineData("node", "/tmp/evil.js")]
-    [InlineData("python", "server.py")]
-    [InlineData("python3", "../server.py")]
-    [InlineData("npx", "@modelcontextprotocol/server-filesystem")]
-    [InlineData("uvx", "server")]
+    [TestMethod]
+    [DataRow("node", "server.js")]
+    [DataRow("node", "/tmp/evil.js")]
+    [DataRow("python", "server.py")]
+    [DataRow("python3", "../server.py")]
+    [DataRow("npx", "@modelcontextprotocol/server-filesystem")]
+    [DataRow("uvx", "server")]
     public void RejectsUnsupportedRuntimeEntrypoints(string command, string argument)
     {
-        Assert.Null(AgentRunner.SanitizeMcpArgs(command, [argument]));
+        Assert.IsNull(AgentRunner.SanitizeMcpArgs(command, [argument]));
     }
 
-    [Theory]
-    [InlineData("exec", "/tmp/evil.dll")]
-    [InlineData("exec", "../evil.dll")]
-    [InlineData("run", "--project")]
-    [InlineData("dnx", "Other.Package")]
-    [InlineData("dnx", "Microsoft.AITools.BinlogMcp@latest")]
+    [TestMethod]
+    [DataRow("exec", "/tmp/evil.dll")]
+    [DataRow("exec", "../evil.dll")]
+    [DataRow("run", "--project")]
+    [DataRow("dnx", "Other.Package")]
+    [DataRow("dnx", "Microsoft.AITools.BinlogMcp@latest")]
     public void RejectsUnsupportedDotnetLaunchForms(string subcommand, string argument)
     {
-        Assert.Null(AgentRunner.SanitizeMcpArgs("dotnet", [subcommand, argument]));
+        Assert.IsNull(AgentRunner.SanitizeMcpArgs("dotnet", [subcommand, argument]));
     }
 
-    [Fact]
+    [TestMethod]
     public void RejectsModifiedBinlogMcpFlags()
     {
-        Assert.Null(AgentRunner.SanitizeMcpArgs(
+        Assert.IsNull(AgentRunner.SanitizeMcpArgs(
             "dotnet",
             ["dnx", "Microsoft.AITools.BinlogMcp", "--yes"]));
     }
 }
 
+[TestClass]
 public class CheckPermissionTests
 {
     // Use platform-appropriate paths for cross-platform test compatibility
     private static readonly string WorkDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
     private static readonly string SkillDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "skills", "test-skill"));
 
-    [Fact]
+    [TestMethod]
     public void ApprovesPathsInsideWorkDir()
     {
         var filePath = Path.Combine(WorkDir, "file.txt");
         var result = AgentRunner.CheckPermission(filePath, WorkDir, null, log: null);
-        Assert.True(result);
+        Assert.IsTrue(result);
     }
 
-    [Fact]
+    [TestMethod]
     public void ApprovesPathsInsideSkillPath()
     {
         var filePath = Path.Combine(SkillDir, "SKILL.md");
         var result = AgentRunner.CheckPermission(filePath, WorkDir, SkillDir, log: null);
-        Assert.True(result);
+        Assert.IsTrue(result);
     }
 
-    [Fact]
+    [TestMethod]
     public void ApprovesPathsInsideAdditionalAllowedDirs()
     {
         var stagingDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "sv-iso-abc123", "my-skill"));
         var refPath = Path.Combine(stagingDir, "references", "guide.md");
         var result = AgentRunner.CheckPermission(refPath, WorkDir, null, log: null,
             additionalAllowedDirs: [stagingDir]);
-        Assert.True(result);
+        Assert.IsTrue(result);
     }
 
-    [Fact]
+    [TestMethod]
     public void DeniesPathsOutsideAllowedDirectories()
     {
         var outsidePath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "secret", "config"));
         var result = AgentRunner.CheckPermission(outsidePath, WorkDir, null, log: null);
-        Assert.False(result);
+        Assert.IsFalse(result);
     }
 
-    [Fact]
+    [TestMethod]
     public void AllowsNullPath()
     {
         var result = AgentRunner.CheckPermission(null, WorkDir, null, log: null);
-        Assert.True(result);
+        Assert.IsTrue(result);
     }
 
-    [Fact]
+    [TestMethod]
     public void DeniesPathsOutsideWorkDirWhenNoSkillPath()
     {
         var outsidePath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "other"));
         var result = AgentRunner.CheckPermission(outsidePath, WorkDir, null, log: null);
-        Assert.False(result);
+        Assert.IsFalse(result);
     }
 
-    [Fact]
+    [TestMethod]
     public void DeniesPathsWithSharedPrefixButDifferentDirectory()
     {
         var attackerPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work-attacker", "evil.sh"));
         var result = AgentRunner.CheckPermission(attackerPath, WorkDir, null, log: null);
-        Assert.False(result);
+        Assert.IsFalse(result);
     }
 
-    [Fact]
+    [TestMethod]
     public void AllowsEmptyStringPath()
     {
         var result = AgentRunner.CheckPermission("", WorkDir, null, log: null);
-        Assert.True(result);
+        Assert.IsTrue(result);
     }
 
-    [Fact]
+    [TestMethod]
     public void ApprovesCommandPathInsideTempDir()
     {
         var cmdPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bin", "tool"));
         var result = AgentRunner.CheckPermission(cmdPath, Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar), null, log: null);
-        Assert.True(result);
+        Assert.IsTrue(result);
     }
 }
 
+[TestClass]
 public class ResolveSourcePathTests
 {
-    [Fact]
+    [TestMethod]
     public void ResolvesRelativeToEvalDirectory()
     {
         // Create a temp directory with a fixture file
@@ -2479,8 +2487,8 @@ public class ResolveSourcePathTests
         {
             var evalPath = Path.Combine(tmpDir, "eval.yaml");
             var result = AgentRunner.ResolveSourcePath("fixtures/test.txt", evalPath, skillPath: null);
-            Assert.NotNull(result);
-            Assert.Equal(Path.GetFullPath(fixtureFile), result);
+            Assert.IsNotNull(result);
+            Assert.AreEqual(Path.GetFullPath(fixtureFile), result);
         }
         finally
         {
@@ -2488,7 +2496,7 @@ public class ResolveSourcePathTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void FallsBackToSkillPathWhenEvalPathIsNull()
     {
         var tmpDir = Path.Combine(Path.GetTempPath(), $"sv-test-{Guid.NewGuid():N}");
@@ -2499,8 +2507,8 @@ public class ResolveSourcePathTests
         try
         {
             var result = AgentRunner.ResolveSourcePath("fixtures/data.cs", evalPath: null, skillPath: tmpDir);
-            Assert.NotNull(result);
-            Assert.Equal(Path.GetFullPath(fixtureFile), result);
+            Assert.IsNotNull(result);
+            Assert.AreEqual(Path.GetFullPath(fixtureFile), result);
         }
         finally
         {
@@ -2508,14 +2516,14 @@ public class ResolveSourcePathTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void ReturnsNullWhenBothPathsAreNull()
     {
         var result = AgentRunner.ResolveSourcePath("fixtures/test.txt", evalPath: null, skillPath: null);
-        Assert.Null(result);
+        Assert.IsNull(result);
     }
 
-    [Fact]
+    [TestMethod]
     public void RejectsPathTraversal()
     {
         var tmpDir = Path.Combine(Path.GetTempPath(), $"sv-test-{Guid.NewGuid():N}");
@@ -2524,7 +2532,7 @@ public class ResolveSourcePathTests
         {
             var evalPath = Path.Combine(tmpDir, "eval.yaml");
             var result = AgentRunner.ResolveSourcePath("../../etc/passwd", evalPath, skillPath: null);
-            Assert.Null(result);
+            Assert.IsNull(result);
         }
         finally
         {
@@ -2532,7 +2540,7 @@ public class ResolveSourcePathTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void PrefersEvalPathOverSkillPath()
     {
         var evalDir = Path.Combine(Path.GetTempPath(), $"sv-eval-{Guid.NewGuid():N}");
@@ -2545,7 +2553,7 @@ public class ResolveSourcePathTests
         {
             var evalPath = Path.Combine(evalDir, "eval.yaml");
             var result = AgentRunner.ResolveSourcePath("fixtures/f.txt", evalPath, skillPath: skillDir);
-            Assert.NotNull(result);
+            Assert.IsNotNull(result);
             // Should resolve to eval directory, not skill directory
             Assert.StartsWith(Path.GetFullPath(evalDir), result);
         }

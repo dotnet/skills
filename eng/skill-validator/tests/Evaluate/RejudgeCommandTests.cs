@@ -2,6 +2,7 @@ using SkillValidator.Evaluate;
 
 namespace SkillValidator.Tests;
 
+[TestClass]
 public class RejudgeCommandTests
 {
     private static SessionRecord Rec(
@@ -74,7 +75,7 @@ public class RejudgeCommandTests
         public void Dispose() => Directory.Delete(Root, true);
     }
 
-    [Fact]
+    [TestMethod]
     public void ResolveExpectedActivation_RecoversDormancyFromCurrentEval()
     {
         using var fixture = new EvalFixture();
@@ -84,10 +85,10 @@ public class RejudgeCommandTests
             scenario: "stay dormant", prompt: fixture.Prompt,
             expectActivation: null, skillPath: fixture.TargetPath);
 
-        Assert.False(RejudgeCommand.ResolveExpectedActivation(session, isAgent: false));
+        Assert.IsFalse(RejudgeCommand.ResolveExpectedActivation(session, isAgent: false));
     }
 
-    [Fact]
+    [TestMethod]
     public void ResolveExpectedActivation_RecoversDormancyFromCurrentAgentEval()
     {
         using var fixture = new EvalFixture(isAgent: true);
@@ -97,10 +98,10 @@ public class RejudgeCommandTests
             skill: "router", scenario: "stay dormant", prompt: fixture.Prompt,
             expectActivation: null, skillPath: fixture.TargetPath);
 
-        Assert.False(RejudgeCommand.ResolveExpectedActivation(session, isAgent: true));
+        Assert.IsFalse(RejudgeCommand.ResolveExpectedActivation(session, isAgent: true));
     }
 
-    [Fact]
+    [TestMethod]
     public void ResolveExpectedActivation_PrefersPersistedValue()
     {
         var session = Rec(
@@ -110,10 +111,10 @@ public class RejudgeCommandTests
             "K1",
             expectActivation: false);
 
-        Assert.False(RejudgeCommand.ResolveExpectedActivation(session, isAgent: false));
+        Assert.IsFalse(RejudgeCommand.ResolveExpectedActivation(session, isAgent: false));
     }
 
-    [Fact]
+    [TestMethod]
     public void ResolveExpectedActivation_RecoversFromCurrentCheckoutWhenStoredPathIsStale()
     {
         using var fixture = new EvalFixture();
@@ -129,11 +130,11 @@ public class RejudgeCommandTests
                 "skills",
                 "target"));
 
-        Assert.False(RejudgeCommand.ResolveExpectedActivation(
+        Assert.IsFalse(RejudgeCommand.ResolveExpectedActivation(
             session, isAgent: false, currentDirectory: fixture.Root));
     }
 
-    [Fact]
+    [TestMethod]
     public void ResolveExpectedActivation_UsesLegacyFallbackWhenPromptChanged()
     {
         using var fixture = new EvalFixture(prompt: "A changed prompt.");
@@ -143,10 +144,10 @@ public class RejudgeCommandTests
             scenario: "stay dormant", prompt: "The historical prompt.",
             expectActivation: null, skillPath: fixture.TargetPath);
 
-        Assert.True(RejudgeCommand.ResolveExpectedActivation(session, isAgent: false));
+        Assert.IsTrue(RejudgeCommand.ResolveExpectedActivation(session, isAgent: false));
     }
 
-    [Fact]
+    [TestMethod]
     public void ResolveExpectedActivation_UsesLegacyFallbackWhenHistoricalPromptIsMissing()
     {
         using var fixture = new EvalFixture();
@@ -156,10 +157,10 @@ public class RejudgeCommandTests
             scenario: "stay dormant", prompt: null,
             expectActivation: null, skillPath: fixture.TargetPath);
 
-        Assert.True(RejudgeCommand.ResolveExpectedActivation(session, isAgent: false));
+        Assert.IsTrue(RejudgeCommand.ResolveExpectedActivation(session, isAgent: false));
     }
 
-    [Fact]
+    [TestMethod]
     public void ResolveExpectedActivation_UsesLegacyActiveFallbackWhenUnknown()
     {
         var session = Rec(
@@ -170,10 +171,10 @@ public class RejudgeCommandTests
             expectActivation: null,
             skillPath: Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}", "target"));
 
-        Assert.True(RejudgeCommand.ResolveExpectedActivation(session, isAgent: false));
+        Assert.IsTrue(RejudgeCommand.ResolveExpectedActivation(session, isAgent: false));
     }
 
-    [Fact]
+    [TestMethod]
     public void PairCrossDir_MatchesByBaselineKeyAndRunIndex()
     {
         var baseline = new[]
@@ -189,16 +190,16 @@ public class RejudgeCommandTests
 
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
-        Assert.Empty(pairing.UnmatchedBaseline);
-        Assert.Empty(pairing.UnmatchedTreatment);
-        Assert.Equal(2, pairing.Pairs.Count);
-        Assert.Equal("b0", pairing.Pairs.Single(p => p.RunIndex == 0).Baseline.Id);
-        Assert.Equal("b1", pairing.Pairs.Single(p => p.RunIndex == 1).Baseline.Id);
-        Assert.Equal("t0", pairing.Pairs.Single(p => p.RunIndex == 0).Isolated.Id);
-        Assert.Null(RejudgeCommand.GetCrossDirPairingFailure(pairing));
+        Assert.IsEmpty(pairing.UnmatchedBaseline);
+        Assert.IsEmpty(pairing.UnmatchedTreatment);
+        Assert.AreEqual(2, pairing.Pairs.Count);
+        Assert.AreEqual("b0", pairing.Pairs.Single(p => p.RunIndex == 0).Baseline.Id);
+        Assert.AreEqual("b1", pairing.Pairs.Single(p => p.RunIndex == 1).Baseline.Id);
+        Assert.AreEqual("t0", pairing.Pairs.Single(p => p.RunIndex == 0).Isolated.Id);
+        Assert.IsNull(RejudgeCommand.GetCrossDirPairingFailure(pairing));
     }
 
-    [Fact]
+    [TestMethod]
     public void PairCrossDir_FallsBackToFirstBaseline_WhenRunIndexMissing()
     {
         var baseline = new[] { Rec("b0", "baseline", 0, "K1") };
@@ -206,12 +207,12 @@ public class RejudgeCommandTests
 
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
-        var pair = Assert.Single(pairing.Pairs);
-        Assert.Equal("b0", pair.Baseline.Id);
-        Assert.Equal(2, pair.RunIndex);
+        var pair = Assert.ContainsSingle(pairing.Pairs);
+        Assert.AreEqual("b0", pair.Baseline.Id);
+        Assert.AreEqual(2, pair.RunIndex);
     }
 
-    [Fact]
+    [TestMethod]
     public void PairCrossDir_ReportsUnmatched_WhenNoBaselineKeyMatches()
     {
         var baseline = new[] { Rec("b0", "baseline", 0, "K1") };
@@ -219,16 +220,16 @@ public class RejudgeCommandTests
 
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
-        Assert.Empty(pairing.Pairs);
-        Assert.Contains("b0", Assert.Single(pairing.UnmatchedBaseline));
-        Assert.Contains("t0", Assert.Single(pairing.UnmatchedTreatment));
+        Assert.IsEmpty(pairing.Pairs);
+        Assert.Contains("b0", Assert.ContainsSingle(pairing.UnmatchedBaseline));
+        Assert.Contains("t0", Assert.ContainsSingle(pairing.UnmatchedTreatment));
         var failure = RejudgeCommand.GetCrossDirPairingFailure(pairing);
-        Assert.Contains("No verdict was published", failure);
-        Assert.Contains("Unmatched baseline run(s)", failure);
-        Assert.Contains("Unmatched treatment run(s)", failure);
+        Assert.Contains("No verdict was published", failure!);
+        Assert.Contains("Unmatched baseline run(s)", failure!);
+        Assert.Contains("Unmatched treatment run(s)", failure!);
     }
 
-    [Fact]
+    [TestMethod]
     public void PairCrossDir_UnmatchedTreatment_FailsAccounting()
     {
         var baseline = new[] { Rec("b0", "baseline", 0, "K1") };
@@ -240,15 +241,15 @@ public class RejudgeCommandTests
 
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
-        Assert.Single(pairing.Pairs);
-        Assert.Empty(pairing.UnmatchedBaseline);
-        Assert.Contains("t1", Assert.Single(pairing.UnmatchedTreatment));
+        Assert.ContainsSingle(pairing.Pairs);
+        Assert.IsEmpty(pairing.UnmatchedBaseline);
+        Assert.Contains("t1", Assert.ContainsSingle(pairing.UnmatchedTreatment));
         var failure = RejudgeCommand.GetCrossDirPairingFailure(pairing);
-        Assert.Contains("Unmatched treatment run(s)", failure);
-        Assert.Contains("skill/scn#2/with-skill-isolated", failure);
+        Assert.Contains("Unmatched treatment run(s)", failure!);
+        Assert.Contains("skill/scn#2/with-skill-isolated", failure!);
     }
 
-    [Fact]
+    [TestMethod]
     public void PairCrossDir_UnmatchedBaseline_FailsAccounting()
     {
         var baseline = new[]
@@ -260,15 +261,15 @@ public class RejudgeCommandTests
 
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
-        Assert.Single(pairing.Pairs);
-        Assert.Contains("b1", Assert.Single(pairing.UnmatchedBaseline));
-        Assert.Empty(pairing.UnmatchedTreatment);
+        Assert.ContainsSingle(pairing.Pairs);
+        Assert.Contains("b1", Assert.ContainsSingle(pairing.UnmatchedBaseline));
+        Assert.IsEmpty(pairing.UnmatchedTreatment);
         var failure = RejudgeCommand.GetCrossDirPairingFailure(pairing);
-        Assert.Contains("Unmatched baseline run(s)", failure);
-        Assert.Contains("skill/scn#2/baseline", failure);
+        Assert.Contains("Unmatched baseline run(s)", failure!);
+        Assert.Contains("skill/scn#2/baseline", failure!);
     }
 
-    [Fact]
+    [TestMethod]
     public void PairCrossDir_MixedPairedAndUnmatched_FailsAccounting()
     {
         var baseline = new[]
@@ -284,13 +285,13 @@ public class RejudgeCommandTests
 
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
-        Assert.Single(pairing.Pairs);
-        Assert.Contains("b1", Assert.Single(pairing.UnmatchedBaseline));
-        Assert.Contains("t1", Assert.Single(pairing.UnmatchedTreatment));
-        Assert.NotNull(RejudgeCommand.GetCrossDirPairingFailure(pairing));
+        Assert.ContainsSingle(pairing.Pairs);
+        Assert.Contains("b1", Assert.ContainsSingle(pairing.UnmatchedBaseline));
+        Assert.Contains("t1", Assert.ContainsSingle(pairing.UnmatchedTreatment));
+        Assert.IsNotNull(RejudgeCommand.GetCrossDirPairingFailure(pairing));
     }
 
-    [Fact]
+    [TestMethod]
     public void PairCrossDir_CompletePairing_PassesAccounting()
     {
         var baseline = new[]
@@ -306,14 +307,14 @@ public class RejudgeCommandTests
 
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
-        Assert.Equal(2, pairing.Pairs.Count);
-        Assert.Empty(pairing.UnmatchedBaseline);
-        Assert.Empty(pairing.UnmatchedTreatment);
-        Assert.Empty(pairing.DuplicateTreatment);
-        Assert.Null(RejudgeCommand.GetCrossDirPairingFailure(pairing));
+        Assert.AreEqual(2, pairing.Pairs.Count);
+        Assert.IsEmpty(pairing.UnmatchedBaseline);
+        Assert.IsEmpty(pairing.UnmatchedTreatment);
+        Assert.IsEmpty(pairing.DuplicateTreatment);
+        Assert.IsNull(RejudgeCommand.GetCrossDirPairingFailure(pairing));
     }
 
-    [Fact]
+    [TestMethod]
     public void PairCrossDir_DuplicateIsolatedRole_FailsAccounting()
     {
         var baseline = new[] { Rec("b0", "baseline", 0, "K1") };
@@ -325,17 +326,17 @@ public class RejudgeCommandTests
 
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
-        Assert.Empty(pairing.Pairs);
-        Assert.Contains("b0", Assert.Single(pairing.UnmatchedBaseline));
-        var duplicate = Assert.Single(pairing.DuplicateTreatment);
+        Assert.IsEmpty(pairing.Pairs);
+        Assert.Contains("b0", Assert.ContainsSingle(pairing.UnmatchedBaseline));
+        var duplicate = Assert.ContainsSingle(pairing.DuplicateTreatment);
         Assert.Contains("with-skill-isolated:id=iso-1", duplicate);
         Assert.Contains("with-skill-isolated:id=iso-2", duplicate);
         var failure = RejudgeCommand.GetCrossDirPairingFailure(pairing);
-        Assert.Contains("Duplicate treatment role record(s)", failure);
-        Assert.Contains("isolated=[", failure);
+        Assert.Contains("Duplicate treatment role record(s)", failure!);
+        Assert.Contains("isolated=[", failure!);
     }
 
-    [Fact]
+    [TestMethod]
     public void PairCrossDir_DuplicatePluginRole_FailsAccounting()
     {
         var baseline = new[] { Rec("b0", "baseline", 0, "K1") };
@@ -348,17 +349,17 @@ public class RejudgeCommandTests
 
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
-        Assert.Empty(pairing.Pairs);
-        Assert.Contains("b0", Assert.Single(pairing.UnmatchedBaseline));
-        var duplicate = Assert.Single(pairing.DuplicateTreatment);
+        Assert.IsEmpty(pairing.Pairs);
+        Assert.Contains("b0", Assert.ContainsSingle(pairing.UnmatchedBaseline));
+        var duplicate = Assert.ContainsSingle(pairing.DuplicateTreatment);
         Assert.Contains("with-skill-plugin:id=plugin-1", duplicate);
         Assert.Contains("with-skill-plugin:id=plugin-2", duplicate);
         var failure = RejudgeCommand.GetCrossDirPairingFailure(pairing);
-        Assert.Contains("Duplicate treatment role record(s)", failure);
-        Assert.Contains("plugin=[", failure);
+        Assert.Contains("Duplicate treatment role record(s)", failure!);
+        Assert.Contains("plugin=[", failure!);
     }
 
-    [Fact]
+    [TestMethod]
     public void PairCrossDir_DuplicateRoleAndValidPair_FailsAllAccounting()
     {
         var baseline = new[]
@@ -376,15 +377,15 @@ public class RejudgeCommandTests
 
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
-        var pair = Assert.Single(pairing.Pairs);
-        Assert.Equal("iso-2", pair.Isolated.Id);
-        Assert.Equal("plugin-2", pair.Plugin!.Id);
-        Assert.Contains("b0", Assert.Single(pairing.UnmatchedBaseline));
-        Assert.Single(pairing.DuplicateTreatment);
-        Assert.NotNull(RejudgeCommand.GetCrossDirPairingFailure(pairing));
+        var pair = Assert.ContainsSingle(pairing.Pairs);
+        Assert.AreEqual("iso-2", pair.Isolated.Id);
+        Assert.AreEqual("plugin-2", pair.Plugin!.Id);
+        Assert.Contains("b0", Assert.ContainsSingle(pairing.UnmatchedBaseline));
+        Assert.ContainsSingle(pairing.DuplicateTreatment);
+        Assert.IsNotNull(RejudgeCommand.GetCrossDirPairingFailure(pairing));
     }
 
-    [Fact]
+    [TestMethod]
     public void PairCrossDir_CompleteUniquePair_PassesAccounting()
     {
         var baseline = new[] { Rec("b0", "baseline", 0, "K1") };
@@ -396,27 +397,27 @@ public class RejudgeCommandTests
 
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
-        var pair = Assert.Single(pairing.Pairs);
-        Assert.Equal("iso", pair.Isolated.Id);
-        Assert.Equal("plugin", pair.Plugin!.Id);
-        Assert.Empty(pairing.UnmatchedBaseline);
-        Assert.Empty(pairing.UnmatchedTreatment);
-        Assert.Empty(pairing.DuplicateTreatment);
-        Assert.Null(RejudgeCommand.GetCrossDirPairingFailure(pairing));
+        var pair = Assert.ContainsSingle(pairing.Pairs);
+        Assert.AreEqual("iso", pair.Isolated.Id);
+        Assert.AreEqual("plugin", pair.Plugin!.Id);
+        Assert.IsEmpty(pairing.UnmatchedBaseline);
+        Assert.IsEmpty(pairing.UnmatchedTreatment);
+        Assert.IsEmpty(pairing.DuplicateTreatment);
+        Assert.IsNull(RejudgeCommand.GetCrossDirPairingFailure(pairing));
     }
 
-    [Fact]
+    [TestMethod]
     public void PairCrossDir_ZeroPairs_FailsAccounting()
     {
         var pairing = RejudgeCommand.PairCrossDir([], []);
 
-        Assert.Empty(pairing.Pairs);
-        Assert.Equal(
+        Assert.IsEmpty(pairing.Pairs);
+        Assert.AreEqual(
             "No treatment runs could be paired with a baseline.",
             RejudgeCommand.GetCrossDirPairingFailure(pairing));
     }
 
-    [Fact]
+    [TestMethod]
     public void PairCrossDir_IncludesPluginRole()
     {
         var baseline = new[] { Rec("b0", "baseline", 0, "K1") };
@@ -428,13 +429,13 @@ public class RejudgeCommandTests
 
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
-        var pair = Assert.Single(pairing.Pairs);
-        Assert.Equal("iso", pair.Isolated.Id);
-        Assert.NotNull(pair.Plugin);
-        Assert.Equal("plug", pair.Plugin!.Id);
+        var pair = Assert.ContainsSingle(pairing.Pairs);
+        Assert.AreEqual("iso", pair.Isolated.Id);
+        Assert.IsNotNull(pair.Plugin);
+        Assert.AreEqual("plug", pair.Plugin!.Id);
     }
 
-    [Fact]
+    [TestMethod]
     public void PairCrossDir_SupportsAgentRolesAndReusedBaseline()
     {
         var baseline = new[] { Rec("b0", "baseline-reused", 0, "K1") };
@@ -442,12 +443,12 @@ public class RejudgeCommandTests
 
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
-        var pair = Assert.Single(pairing.Pairs);
-        Assert.Equal("b0", pair.Baseline.Id);
-        Assert.Equal("a0", pair.Isolated.Id);
+        var pair = Assert.ContainsSingle(pairing.Pairs);
+        Assert.AreEqual("b0", pair.Baseline.Id);
+        Assert.AreEqual("a0", pair.Isolated.Id);
     }
 
-    [Fact]
+    [TestMethod]
     public void SelectInlineRunGroup_SupportsAgentRoles()
     {
         var sessions = new[]
@@ -459,14 +460,14 @@ public class RejudgeCommandTests
 
         var selected = RejudgeCommand.SelectInlineRunGroup(sessions);
 
-        Assert.NotNull(selected);
-        Assert.Equal("b0", selected.Baseline.Id);
-        Assert.Equal("a0", selected.Isolated.Id);
-        Assert.Equal("p0", selected.Plugin!.Id);
-        Assert.True(selected.IsAgent);
+        Assert.IsNotNull(selected);
+        Assert.AreEqual("b0", selected.Baseline.Id);
+        Assert.AreEqual("a0", selected.Isolated.Id);
+        Assert.AreEqual("p0", selected.Plugin!.Id);
+        Assert.IsTrue(selected.IsAgent);
     }
 
-    [Fact]
+    [TestMethod]
     public void SelectInlineRunGroup_SupportsReusedSkillBaseline()
     {
         var sessions = new[]
@@ -477,14 +478,14 @@ public class RejudgeCommandTests
 
         var selected = RejudgeCommand.SelectInlineRunGroup(sessions);
 
-        Assert.NotNull(selected);
-        Assert.Equal("b0", selected.Baseline.Id);
-        Assert.Equal("s0", selected.Isolated.Id);
-        Assert.Null(selected.Plugin);
-        Assert.False(selected.IsAgent);
+        Assert.IsNotNull(selected);
+        Assert.AreEqual("b0", selected.Baseline.Id);
+        Assert.AreEqual("s0", selected.Isolated.Id);
+        Assert.IsNull(selected.Plugin);
+        Assert.IsFalse(selected.IsAgent);
     }
 
-    [Fact]
+    [TestMethod]
     public void FindIncompleteInlineRunGroups_ReportsMissingIsolatedArm()
     {
         var sessions = new[] { Rec("b0", "baseline", 0, "K1") };
@@ -492,13 +493,13 @@ public class RejudgeCommandTests
 
         var incomplete = RejudgeCommand.FindIncompleteInlineRunGroups(runGroups);
 
-        var identity = Assert.Single(incomplete);
+        var identity = Assert.ContainsSingle(incomplete);
         Assert.Contains("skill/scn#1", identity);
         Assert.Contains("baseline:id=b0", identity);
         Assert.Contains("baseline_key=K1", identity);
     }
 
-    [Fact]
+    [TestMethod]
     public void BuildScenarioComparison_PreservesAgentActivationMetadata()
     {
         var run = new RunResult(
@@ -518,12 +519,12 @@ public class RejudgeCommandTests
 
         var comparison = RejudgeCommand.BuildScenarioComparison("route work", [rejudged]);
 
-        Assert.False(comparison.ExpectActivation);
-        Assert.Equal(["router"], comparison.SubagentActivationIsolated!.InvokedAgents);
-        Assert.Equal(["router"], comparison.SubagentActivationPlugin!.InvokedAgents);
+        Assert.IsFalse(comparison.ExpectActivation);
+        Assert.AreSequenceEqual(["router"], comparison.SubagentActivationIsolated!.InvokedAgents);
+        Assert.AreSequenceEqual(["router"], comparison.SubagentActivationPlugin!.InvokedAgents);
     }
 
-    [Fact]
+    [TestMethod]
     public void BuildScenarioComparison_KeepsAgentPluginQualityDiagnostic()
     {
         var baseline = new RunResult(
@@ -550,12 +551,12 @@ public class RejudgeCommandTests
         var comparison = RejudgeCommand.BuildScenarioComparison(
             "route work", [run], isAgent: true);
 
-        Assert.Equal(comparison.IsolatedImprovementScore, comparison.ImprovementScore);
-        Assert.NotEqual(comparison.PluginImprovementScore, comparison.ImprovementScore);
-        Assert.Equal([comparison.IsolatedImprovementScore], comparison.PerRunScores);
+        Assert.AreEqual(comparison.IsolatedImprovementScore, comparison.ImprovementScore);
+        Assert.AreNotEqual(comparison.PluginImprovementScore, comparison.ImprovementScore);
+        Assert.AreSequenceEqual([comparison.IsolatedImprovementScore], comparison.PerRunScores);
     }
 
-    [Fact]
+    [TestMethod]
     public void ComputeRejudgeVerdict_AppliesAgentActivationGate()
     {
         var run = new RunResult(
@@ -585,13 +586,13 @@ public class RejudgeCommandTests
             requireCompletion: true,
             confidenceLevel: 0.95);
 
-        Assert.Equal("agent", verdict.SkillKind);
-        Assert.False(verdict.Passed);
-        Assert.True(verdict.SkillNotActivated);
-        Assert.Equal(FailureKind.SkillNotActivated, verdict.FailureKind);
+        Assert.AreEqual("agent", verdict.SkillKind);
+        Assert.IsFalse(verdict.Passed);
+        Assert.IsTrue(verdict.SkillNotActivated);
+        Assert.AreEqual(FailureKind.SkillNotActivated, verdict.FailureKind);
     }
 
-    [Fact]
+    [TestMethod]
     public void ComputeRejudgeVerdict_ExcludesDormantAgentFromScoreAndGatesActivation()
     {
         var run = new RunResult(
@@ -633,13 +634,13 @@ public class RejudgeCommandTests
             requireCompletion: true,
             confidenceLevel: 0.95);
 
-        Assert.False(verdict.Passed);
-        Assert.Equal(0.5, verdict.OverallImprovementScore);
-        Assert.Equal(FailureKind.UnexpectedActivation, verdict.FailureKind);
-        Assert.Equal(2, verdict.Scenarios.Count);
+        Assert.IsFalse(verdict.Passed);
+        Assert.AreEqual(0.5, verdict.OverallImprovementScore);
+        Assert.AreEqual(FailureKind.UnexpectedActivation, verdict.FailureKind);
+        Assert.AreEqual(2, verdict.Scenarios.Count);
     }
 
-    [Fact]
+    [TestMethod]
     public void ComputeRejudgeVerdict_AppliesDormantSkillActivationGate()
     {
         var run = new RunResult(
@@ -669,13 +670,13 @@ public class RejudgeCommandTests
             requireCompletion: true,
             confidenceLevel: 0.95);
 
-        Assert.False(verdict.Passed);
-        Assert.False(verdict.SkillNotActivated);
-        Assert.Equal(FailureKind.UnexpectedActivation, verdict.FailureKind);
+        Assert.IsFalse(verdict.Passed);
+        Assert.IsFalse(verdict.SkillNotActivated);
+        Assert.AreEqual(FailureKind.UnexpectedActivation, verdict.FailureKind);
         Assert.Contains("UNEXPECTED ACTIVATION (isolated)", verdict.Reason);
     }
 
-    [Fact]
+    [TestMethod]
     public void ComputeRejudgeVerdict_ExcludesDormantScenarioFromPreferenceScore()
     {
         var run = new RunResult(
@@ -719,86 +720,86 @@ public class RejudgeCommandTests
             requireCompletion: true,
             confidenceLevel: 0.95);
 
-        Assert.True(verdict.Passed);
-        Assert.Equal(0.5, verdict.OverallImprovementScore);
-        Assert.Equal(2, verdict.Scenarios.Count);
+        Assert.IsTrue(verdict.Passed);
+        Assert.AreEqual(0.5, verdict.OverallImprovementScore);
+        Assert.AreEqual(2, verdict.Scenarios.Count);
     }
 
-    [Fact]
+    [TestMethod]
     public void ValidateCrossDirCompat_RejectsModelMismatch()
     {
         var (ok, effective, error) = RejudgeCommand.ValidateCrossDirCompat(
             baselineModel: "model-a", treatmentModel: "model-b",
             baselineJudgeModel: "judge", treatmentJudgeModel: "judge", explicitJudgeModel: null);
 
-        Assert.False(ok);
-        Assert.Null(effective);
-        Assert.Contains("model-a", error);
-        Assert.Contains("model-b", error);
+        Assert.IsFalse(ok);
+        Assert.IsNull(effective);
+        Assert.Contains("model-a", error!);
+        Assert.Contains("model-b", error!);
     }
 
-    [Fact]
+    [TestMethod]
     public void ValidateCrossDirCompat_RejectsJudgeModelMismatch()
     {
         var (ok, effective, error) = RejudgeCommand.ValidateCrossDirCompat(
             "model-x", "model-x", "judge-a", "judge-b", explicitJudgeModel: null);
 
-        Assert.False(ok);
-        Assert.Null(effective);
-        Assert.Contains("judge-a", error);
-        Assert.Contains("judge-b", error);
+        Assert.IsFalse(ok);
+        Assert.IsNull(effective);
+        Assert.Contains("judge-a", error!);
+        Assert.Contains("judge-b", error!);
     }
 
-    [Fact]
+    [TestMethod]
     public void ValidateCrossDirCompat_ExplicitJudgeOverridesMismatch()
     {
         var (ok, effective, error) = RejudgeCommand.ValidateCrossDirCompat(
             "model-x", "model-x", "judge-a", "judge-b", explicitJudgeModel: "judge-c");
 
-        Assert.True(ok);
-        Assert.Equal("judge-c", effective);
-        Assert.Null(error);
+        Assert.IsTrue(ok);
+        Assert.AreEqual("judge-c", effective);
+        Assert.IsNull(error);
     }
 
-    [Fact]
+    [TestMethod]
     public void ValidateCrossDirCompat_PrefersTreatmentJudgeModel()
     {
         var (ok, effective, _) = RejudgeCommand.ValidateCrossDirCompat(
             "model-x", "model-x", baselineJudgeModel: null, treatmentJudgeModel: "judge-t", explicitJudgeModel: null);
 
-        Assert.True(ok);
-        Assert.Equal("judge-t", effective);
+        Assert.IsTrue(ok);
+        Assert.AreEqual("judge-t", effective);
     }
 
-    [Fact]
+    [TestMethod]
     public void ValidateCrossDirCompat_FallsBackToBaselineJudgeModel()
     {
         var (ok, effective, _) = RejudgeCommand.ValidateCrossDirCompat(
             "model-x", "model-x", baselineJudgeModel: "judge-b", treatmentJudgeModel: null, explicitJudgeModel: null);
 
-        Assert.True(ok);
-        Assert.Equal("judge-b", effective);
+        Assert.IsTrue(ok);
+        Assert.AreEqual("judge-b", effective);
     }
 
-    [Fact]
+    [TestMethod]
     public void ValidateCrossDirCompat_FailsWhenNoJudgeModelAvailable()
     {
         var (ok, effective, error) = RejudgeCommand.ValidateCrossDirCompat(
             "model-x", "model-x", baselineJudgeModel: null, treatmentJudgeModel: null, explicitJudgeModel: null);
 
-        Assert.False(ok);
-        Assert.Null(effective);
-        Assert.NotNull(error);
+        Assert.IsFalse(ok);
+        Assert.IsNull(effective);
+        Assert.IsNotNull(error);
     }
 
-    [Fact]
+    [TestMethod]
     public void ValidateCrossDirCompat_AcceptsMatchingJudgeModels()
     {
         var (ok, effective, error) = RejudgeCommand.ValidateCrossDirCompat(
             "model-x", "model-x", "judge", "judge", explicitJudgeModel: null);
 
-        Assert.True(ok);
-        Assert.Equal("judge", effective);
-        Assert.Null(error);
+        Assert.IsTrue(ok);
+        Assert.AreEqual("judge", effective);
+        Assert.IsNull(error);
     }
 }

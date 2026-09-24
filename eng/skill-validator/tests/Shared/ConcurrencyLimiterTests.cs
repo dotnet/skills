@@ -2,25 +2,28 @@ using SkillValidator.Shared;
 
 namespace SkillValidator.Tests;
 
+[TestClass]
 public class ConcurrencyLimiterTests
 {
-    [Fact]
+    public TestContext TestContext { get; set; } = null!;
+
+    [TestMethod]
     public async Task RunAsync_ReturnsResult()
     {
         using var limiter = new ConcurrencyLimiter(2);
-        var result = await limiter.RunAsync(() => Task.FromResult(42), TestContext.Current.CancellationToken);
-        Assert.Equal(42, result);
+        var result = await limiter.RunAsync(() => Task.FromResult(42), TestContext.CancellationToken);
+        Assert.AreEqual(42, result);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task RunAsync_PropagatesExceptions()
     {
         using var limiter = new ConcurrencyLimiter(2);
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            limiter.RunAsync<int>(() => throw new InvalidOperationException("boom"), TestContext.Current.CancellationToken));
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            limiter.RunAsync<int>(() => throw new InvalidOperationException("boom"), TestContext.CancellationToken));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task RunAsync_LimitsConcurrency()
     {
         using var limiter = new ConcurrencyLimiter(2);
@@ -36,47 +39,47 @@ public class ConcurrencyLimiterTests
                     concurrentCount++;
                     maxConcurrent = Math.Max(maxConcurrent, concurrentCount);
                 }
-                await Task.Delay(50, TestContext.Current.CancellationToken);
+                await Task.Delay(50, TestContext.CancellationToken);
                 lock (lockObj) { concurrentCount--; }
                 return 1;
-            }, TestContext.Current.CancellationToken));
+            }, TestContext.CancellationToken));
 
         await Task.WhenAll(tasks);
-        Assert.True(maxConcurrent <= 2, $"Max concurrency was {maxConcurrent}, expected ≤ 2");
-        Assert.True(maxConcurrent >= 1, $"Max concurrency was {maxConcurrent}, expected ≥ 1");
+        Assert.IsTrue(maxConcurrent <= 2, $"Max concurrency was {maxConcurrent}, expected ≤ 2");
+        Assert.IsTrue(maxConcurrent >= 1, $"Max concurrency was {maxConcurrent}, expected ≥ 1");
     }
 
-    [Fact]
+    [TestMethod]
     public async Task RunAsync_ConcurrentFailures_AllSurfaced()
     {
         using var limiter = new ConcurrencyLimiter(5);
         var tasks = Enumerable.Range(0, 5).Select(i =>
             limiter.RunAsync<int>(() =>
-                throw new InvalidOperationException($"fail-{i}"), TestContext.Current.CancellationToken));
+                throw new InvalidOperationException($"fail-{i}"), TestContext.CancellationToken));
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => Task.WhenAll(tasks));
+        var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => Task.WhenAll(tasks));
         Assert.Contains("fail-", ex.Message);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task RunAsync_SemaphoreReleasedOnFailure()
     {
         using var limiter = new ConcurrencyLimiter(1);
 
         // First call throws
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            limiter.RunAsync<int>(() => throw new InvalidOperationException("first"), TestContext.Current.CancellationToken));
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            limiter.RunAsync<int>(() => throw new InvalidOperationException("first"), TestContext.CancellationToken));
 
         // Second call should still work (semaphore was released in finally)
-        var result = await limiter.RunAsync(() => Task.FromResult(42), TestContext.Current.CancellationToken);
-        Assert.Equal(42, result);
+        var result = await limiter.RunAsync(() => Task.FromResult(42), TestContext.CancellationToken);
+        Assert.AreEqual(42, result);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task RunAsync_RespectsMinimumConcurrencyOfOne()
     {
         using var limiter = new ConcurrencyLimiter(0); // should clamp to 1
-        var result = await limiter.RunAsync(() => Task.FromResult("ok"), TestContext.Current.CancellationToken);
-        Assert.Equal("ok", result);
+        var result = await limiter.RunAsync(() => Task.FromResult("ok"), TestContext.CancellationToken);
+        Assert.AreEqual("ok", result);
     }
 }

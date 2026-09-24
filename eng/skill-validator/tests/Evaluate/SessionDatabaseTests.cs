@@ -5,6 +5,8 @@ using SkillValidator.Shared;
 
 namespace SkillValidator.Tests;
 
+[TestClass]
+[DoNotParallelize]
 public class SessionDatabaseTests : IDisposable
 {
     private readonly string _dbPath;
@@ -31,7 +33,7 @@ public class SessionDatabaseTests : IDisposable
         try { if (File.Exists(path)) File.Delete(path); } catch { /* best-effort cleanup */ }
     }
 
-    [Fact]
+    [TestMethod]
     public void RegisterAndComplete_RoundTrips()
     {
         var rubricJson = JsonSerializer.Serialize(new[] { "Quality", "Completeness" });
@@ -53,91 +55,91 @@ public class SessionDatabaseTests : IDisposable
         _db.CompleteSession("s1", "completed", """{"TokenEstimate":100}""");
 
         var sessions = _db.GetCompletedSessions();
-        var s = Assert.Single(sessions);
-        Assert.Equal("s1", s.Id);
-        Assert.Equal("my-skill", s.SkillName);
-        Assert.Equal("/path/to/skill", s.SkillPath);
-        Assert.Equal("scenario-a", s.ScenarioName);
-        Assert.Equal(0, s.RunIndex);
-        Assert.Equal("baseline", s.Role);
-        Assert.Equal("gpt-4.1", s.Model);
-        Assert.Equal("sessions/s1", s.ConfigDir);
-        Assert.Equal("completed", s.Status);
-        Assert.Equal("Fix the bug", s.Prompt);
-        Assert.Equal("abcdef012345", s.SkillSha);
-        Assert.Equal(rubricJson, s.RubricJson);
-        Assert.False(s.ExpectActivation);
-        Assert.Equal("""{"TokenEstimate":100}""", s.MetricsJson);
-        Assert.Null(s.JudgeJson);
-        Assert.Null(s.PairwiseJson);
+        var s = Assert.ContainsSingle(sessions);
+        Assert.AreEqual("s1", s.Id);
+        Assert.AreEqual("my-skill", s.SkillName);
+        Assert.AreEqual("/path/to/skill", s.SkillPath);
+        Assert.AreEqual("scenario-a", s.ScenarioName);
+        Assert.AreEqual(0, s.RunIndex);
+        Assert.AreEqual("baseline", s.Role);
+        Assert.AreEqual("gpt-4.1", s.Model);
+        Assert.AreEqual("sessions/s1", s.ConfigDir);
+        Assert.AreEqual("completed", s.Status);
+        Assert.AreEqual("Fix the bug", s.Prompt);
+        Assert.AreEqual("abcdef012345", s.SkillSha);
+        Assert.AreEqual(rubricJson, s.RubricJson);
+        Assert.IsFalse(s.ExpectActivation);
+        Assert.AreEqual("""{"TokenEstimate":100}""", s.MetricsJson);
+        Assert.IsNull(s.JudgeJson);
+        Assert.IsNull(s.PairwiseJson);
     }
 
-    [Fact]
+    [TestMethod]
     public void SaveJudgeResult_UpdatesExistingRow()
     {
         _db.RegisterSession("s1", "skill", "/p", "scn", 0, "baseline", "model", null, null);
         _db.CompleteSession("s1", "completed", "{}");
         _db.SaveJudgeResult("s1", """{"OverallScore":4}""");
 
-        var s = Assert.Single(_db.GetCompletedSessions());
-        Assert.Equal("""{"OverallScore":4}""", s.JudgeJson);
+        var s = Assert.ContainsSingle(_db.GetCompletedSessions());
+        Assert.AreEqual("""{"OverallScore":4}""", s.JudgeJson);
     }
 
-    [Fact]
+    [TestMethod]
     public void SavePairwiseResult_UpdatesExistingRow()
     {
         _db.RegisterSession("s1", "skill", "/p", "scn", 0, "baseline", "model", null, null);
         _db.CompleteSession("s1", "completed", "{}");
         _db.SavePairwiseResult("s1", """{"Winner":"with-skill"}""");
 
-        var s = Assert.Single(_db.GetCompletedSessions());
-        Assert.Equal("""{"Winner":"with-skill"}""", s.PairwiseJson);
+        var s = Assert.ContainsSingle(_db.GetCompletedSessions());
+        Assert.AreEqual("""{"Winner":"with-skill"}""", s.PairwiseJson);
     }
 
-    [Fact]
+    [TestMethod]
     public void RegisterWithoutPromptOrSkillSha_StoresNulls()
     {
         _db.RegisterSession("s1", "skill", "/p", "scn", 0, "baseline", "model", null, null);
         _db.CompleteSession("s1", "completed", "{}");
 
-        var s = Assert.Single(_db.GetCompletedSessions());
-        Assert.Null(s.Prompt);
-        Assert.Null(s.SkillSha);
-        Assert.Null(s.RubricJson);
+        var s = Assert.ContainsSingle(_db.GetCompletedSessions());
+        Assert.IsNull(s.Prompt);
+        Assert.IsNull(s.SkillSha);
+        Assert.IsNull(s.RubricJson);
     }
 
-    [Fact]
+    [TestMethod]
     public void GetCompletedSessions_ExcludesRunning()
     {
         _db.RegisterSession("s1", "skill", "/p", "scn", 0, "baseline", "model", null, null);
         // Never completed — should not appear
         var sessions = _db.GetCompletedSessions();
-        Assert.Empty(sessions);
+        Assert.IsEmpty(sessions);
     }
 
-    [Fact]
+    [TestMethod]
     public void GetCompletedSessions_IncludesTimedOut()
     {
         _db.RegisterSession("s1", "skill", "/p", "scn", 0, "baseline", "model", null, null);
         _db.CompleteSession("s1", "timed_out", "{}");
 
         var sessions = _db.GetCompletedSessions();
-        Assert.Single(sessions);
-        Assert.Equal("timed_out", sessions[0].Status);
+        Assert.ContainsSingle(sessions);
+        Assert.AreEqual("timed_out", sessions[0].Status);
     }
 
-    [Fact]
+    [TestMethod]
     public void GetCompletedSessions_IncludesReusedBaseline()
     {
         _db.RegisterSession("s1", "skill", "/p", "scn", 0, "baseline-reused", "model", null, null);
         _db.CompleteSession("s1", "reused", "{}");
 
-        var session = Assert.Single(_db.GetCompletedSessions());
-        Assert.Equal("baseline-reused", session.Role);
-        Assert.Equal("reused", session.Status);
+        var session = Assert.ContainsSingle(_db.GetCompletedSessions());
+        Assert.AreEqual("baseline-reused", session.Role);
+        Assert.AreEqual("reused", session.Status);
     }
 
-    [Fact]
+    [TestMethod]
     public void FailRunningSessions_PersistsTerminalFailure()
     {
         _db.RegisterSession("b", "skill", "/p", "scenario", 0, "baseline", "model", null, null);
@@ -153,17 +155,20 @@ public class SessionDatabaseTests : IDisposable
         _db.CompleteSession("b2", "completed", "{}");
         _db.CompleteSession("s2", "completed", "{}");
 
-        Assert.All(_db.GetCompletedSessions(), session => Assert.Equal(1, session.RunIndex));
-        var failed = _db.GetFailedSessions();
-        Assert.Equal(2, failed.Count);
-        Assert.All(failed, session =>
+        foreach (var session in _db.GetCompletedSessions())
         {
-            Assert.Equal("failed", session.Status);
-            Assert.Equal("""{"ErrorCount":1}""", session.MetricsJson);
-        });
+            Assert.AreEqual(1, session.RunIndex);
+        }
+        var failed = _db.GetFailedSessions();
+        Assert.AreEqual(2, failed.Count);
+        foreach (var session in failed)
+        {
+            Assert.AreEqual("failed", session.Status);
+            Assert.AreEqual("""{"ErrorCount":1}""", session.MetricsJson);
+        }
     }
 
-    [Fact]
+    [TestMethod]
     public void MultipleSessions_OrderedCorrectly()
     {
         // Register pairs for two scenarios
@@ -178,16 +183,16 @@ public class SessionDatabaseTests : IDisposable
         _db.CompleteSession("w1", "completed", "{}");
 
         var sessions = _db.GetCompletedSessions();
-        Assert.Equal(4, sessions.Count);
+        Assert.AreEqual(4, sessions.Count);
         // Ordered by skill_name, scenario_name, run_index, role
-        Assert.Equal("alpha", sessions[0].ScenarioName);
-        Assert.Equal("baseline", sessions[0].Role);
-        Assert.Equal("alpha", sessions[1].ScenarioName);
-        Assert.Equal("with-skill", sessions[1].Role);
-        Assert.Equal("beta", sessions[2].ScenarioName);
+        Assert.AreEqual("alpha", sessions[0].ScenarioName);
+        Assert.AreEqual("baseline", sessions[0].Role);
+        Assert.AreEqual("alpha", sessions[1].ScenarioName);
+        Assert.AreEqual("with-skill", sessions[1].Role);
+        Assert.AreEqual("beta", sessions[2].ScenarioName);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ConcurrentWrites_DoNotCorrupt()
     {
         const int count = 20;
@@ -202,16 +207,16 @@ public class SessionDatabaseTests : IDisposable
         await Task.WhenAll(tasks);
 
         var sessions = _db.GetCompletedSessions();
-        Assert.Equal(count, sessions.Count);
-        Assert.All(sessions, s =>
+        Assert.AreEqual(count, sessions.Count);
+        foreach (var session in sessions)
         {
-            Assert.Equal("completed", s.Status);
-            Assert.NotNull(s.MetricsJson);
-            Assert.NotNull(s.JudgeJson);
-        });
+            Assert.AreEqual("completed", session.Status);
+            Assert.IsNotNull(session.MetricsJson);
+            Assert.IsNotNull(session.JudgeJson);
+        }
     }
 
-    [Fact]
+    [TestMethod]
     public void ComputeDirectorySha_IsDeterministic()
     {
         var dir = Path.Combine(Path.GetTempPath(), $"sha-test-{Guid.NewGuid()}");
@@ -223,13 +228,13 @@ public class SessionDatabaseTests : IDisposable
 
             var sha1 = SessionDatabase.ComputeDirectorySha(dir);
             var sha2 = SessionDatabase.ComputeDirectorySha(dir);
-            Assert.Equal(sha1, sha2);
-            Assert.Equal(12, sha1.Length);
+            Assert.AreEqual(sha1, sha2);
+            Assert.AreEqual(12, sha1.Length);
 
             // Changing content produces a different SHA
             File.WriteAllText(Path.Combine(dir, "SKILL.md"), "# Modified");
             var sha3 = SessionDatabase.ComputeDirectorySha(dir);
-            Assert.NotEqual(sha1, sha3);
+            Assert.AreNotEqual(sha1, sha3);
         }
         finally
         {
@@ -237,7 +242,7 @@ public class SessionDatabaseTests : IDisposable
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void ComputeDirectorySha_DistinguishesPathAndContentBoundaries()
     {
         var dir1 = Path.Combine(Path.GetTempPath(), $"sha-boundary-a-{Guid.NewGuid()}");
@@ -252,7 +257,7 @@ public class SessionDatabaseTests : IDisposable
             File.WriteAllText(Path.Combine(dir2, "a1"), "2");
             File.WriteAllText(Path.Combine(dir2, "b"), "34");
 
-            Assert.NotEqual(
+            Assert.AreNotEqual(
                 SessionDatabase.ComputeDirectorySha(dir1),
                 SessionDatabase.ComputeDirectorySha(dir2));
         }
@@ -263,7 +268,7 @@ public class SessionDatabaseTests : IDisposable
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void SeparateDbFiles_AreIndependent()
     {
         // Simulates two concurrent eval processes using different result dirs
@@ -281,10 +286,10 @@ public class SessionDatabaseTests : IDisposable
             // Each DB has exactly one session with different skill names
             var sessions1 = _db.GetCompletedSessions();
             var sessions2 = db2.GetCompletedSessions();
-            Assert.Single(sessions1);
-            Assert.Single(sessions2);
-            Assert.Equal("skill-a", sessions1[0].SkillName);
-            Assert.Equal("skill-b", sessions2[0].SkillName);
+            Assert.ContainsSingle(sessions1);
+            Assert.ContainsSingle(sessions2);
+            Assert.AreEqual("skill-a", sessions1[0].SkillName);
+            Assert.AreEqual("skill-b", sessions2[0].SkillName);
         }
         finally
         {
@@ -295,45 +300,45 @@ public class SessionDatabaseTests : IDisposable
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void SchemaInfo_ContainsTypeAndVersion()
     {
         var info = _db.GetSchemaInfo();
-        Assert.Equal("skill-validator", info["type"]);
-        Assert.Equal("5", info["version"]);
+        Assert.AreEqual("skill-validator", info["type"]);
+        Assert.AreEqual("5", info["version"]);
     }
 
-    [Fact]
+    [TestMethod]
     public void SchemaInfo_CanPersistJudgeModel()
     {
         _db.SetSchemaInfo("judge_model", "claude-opus-4.6");
 
         var info = _db.GetSchemaInfo();
-        Assert.Equal("claude-opus-4.6", info["judge_model"]);
+        Assert.AreEqual("claude-opus-4.6", info["judge_model"]);
     }
 
-    [Fact]
+    [TestMethod]
     public void RegisterSession_RoundTripsBaselineKey()
     {
         _db.RegisterSession("s1", "my-skill", "/path", "scenario-a", 0, "baseline", "gpt-4.1",
             "sessions/s1", "/work", "Fix the bug", "abc123", null, "promptsha:targetsha");
         _db.CompleteSession("s1", "completed", "{}");
 
-        var s = Assert.Single(_db.GetCompletedSessions());
-        Assert.Equal("promptsha:targetsha", s.BaselineKey);
+        var s = Assert.ContainsSingle(_db.GetCompletedSessions());
+        Assert.AreEqual("promptsha:targetsha", s.BaselineKey);
     }
 
-    [Fact]
+    [TestMethod]
     public void RegisterSession_NullBaselineKey_RoundTrips()
     {
         _db.RegisterSession("s1", "my-skill", "/path", "scenario-a", 0, "baseline", "gpt-4.1", "sessions/s1", null);
         _db.CompleteSession("s1", "completed", "{}");
 
-        var s = Assert.Single(_db.GetCompletedSessions());
-        Assert.Null(s.BaselineKey);
+        var s = Assert.ContainsSingle(_db.GetCompletedSessions());
+        Assert.IsNull(s.BaselineKey);
     }
 
-    [Fact]
+    [TestMethod]
     public void LegacyDatabase_UpgradesBaselineKeyColumn()
     {
         var legacyDbPath = Path.Combine(Path.GetTempPath(), $"legacy-bk-sessions-{Guid.NewGuid()}.db");
@@ -384,17 +389,17 @@ public class SessionDatabaseTests : IDisposable
             }
 
             using var upgradedDb = new SessionDatabase(legacyDbPath);
-            var legacySession = Assert.Single(upgradedDb.GetCompletedSessions());
-            Assert.Null(legacySession.BaselineKey);
-            Assert.Null(legacySession.ExpectActivation);
+            var legacySession = Assert.ContainsSingle(upgradedDb.GetCompletedSessions());
+            Assert.IsNull(legacySession.BaselineKey);
+            Assert.IsNull(legacySession.ExpectActivation);
 
             upgradedDb.RegisterSession("s2", "skill", "/p", "scn", 1, "with-skill", "model",
                 null, null, "Prompt", null, null, "key-2");
             upgradedDb.CompleteSession("s2", "completed", "{}");
 
-            var upgradedSession = Assert.Single(upgradedDb.GetCompletedSessions(), s => s.Id == "s2");
-            Assert.Equal("key-2", upgradedSession.BaselineKey);
-            Assert.True(upgradedSession.ExpectActivation);
+            var upgradedSession = Assert.ContainsSingle((upgradedDb.GetCompletedSessions()).Where(s => s.Id == "s2"));
+            Assert.AreEqual("key-2", upgradedSession.BaselineKey);
+            Assert.IsTrue(upgradedSession.ExpectActivation);
         }
         finally
         {
@@ -405,7 +410,7 @@ public class SessionDatabaseTests : IDisposable
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void SchemaThreeDatabase_PreservesUnknownActivationExpectationDuringMigration()
     {
         var legacyDbPath = Path.Combine(Path.GetTempPath(), $"schema-v3-sessions-{Guid.NewGuid()}.db");
@@ -457,10 +462,10 @@ public class SessionDatabaseTests : IDisposable
             }
 
             using var upgradedDb = new SessionDatabase(legacyDbPath);
-            var session = Assert.Single(upgradedDb.GetCompletedSessions());
+            var session = Assert.ContainsSingle(upgradedDb.GetCompletedSessions());
 
-            Assert.Null(session.ExpectActivation);
-            Assert.Equal("5", upgradedDb.GetSchemaInfo()["version"]);
+            Assert.IsNull(session.ExpectActivation);
+            Assert.AreEqual("5", upgradedDb.GetSchemaInfo()["version"]);
         }
         finally
         {
@@ -471,7 +476,7 @@ public class SessionDatabaseTests : IDisposable
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void SchemaFourDatabase_PreservesExplicitActivationAndAcceptsNewSessions()
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"schema-v4-sessions-{Guid.NewGuid()}.db");
@@ -508,14 +513,13 @@ public class SessionDatabaseTests : IDisposable
 
             using (var upgradedDb = new SessionDatabase(dbPath))
             {
-                Assert.False(Assert.Single(upgradedDb.GetCompletedSessions()).ExpectActivation);
+                Assert.IsFalse(Assert.ContainsSingle(upgradedDb.GetCompletedSessions()).ExpectActivation);
                 upgradedDb.RegisterSession(
                     "s2", "skill", "/p", "active", 0, "with-skill-isolated", "model",
                     null, null);
                 upgradedDb.CompleteSession("s2", "completed", "{}");
-                Assert.True(Assert.Single(
-                    upgradedDb.GetCompletedSessions(), session => session.Id == "s2").ExpectActivation);
-                Assert.Equal("5", upgradedDb.GetSchemaInfo()["version"]);
+                Assert.IsTrue(Assert.ContainsSingle((upgradedDb.GetCompletedSessions()).Where(session => session.Id == "s2")).ExpectActivation);
+                Assert.AreEqual("5", upgradedDb.GetSchemaInfo()["version"]);
             }
 
             using var migratedConnection = new SqliteConnection($"Data Source={dbPath}");
@@ -534,8 +538,8 @@ public class SessionDatabaseTests : IDisposable
                     break;
                 }
             }
-            Assert.Equal(0, notNull);
-            Assert.Null(defaultValue);
+            Assert.AreEqual(0, notNull);
+            Assert.IsNull(defaultValue);
         }
         finally
         {
@@ -546,7 +550,7 @@ public class SessionDatabaseTests : IDisposable
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void LegacyDatabase_UpgradesRubricColumn()
     {
         var legacyDbPath = Path.Combine(Path.GetTempPath(), $"legacy-sessions-{Guid.NewGuid()}.db");
@@ -596,16 +600,16 @@ public class SessionDatabaseTests : IDisposable
             }
 
             using var upgradedDb = new SessionDatabase(legacyDbPath);
-            var legacySession = Assert.Single(upgradedDb.GetCompletedSessions());
-            Assert.Null(legacySession.RubricJson);
-            Assert.Equal("5", upgradedDb.GetSchemaInfo()["version"]);
+            var legacySession = Assert.ContainsSingle(upgradedDb.GetCompletedSessions());
+            Assert.IsNull(legacySession.RubricJson);
+            Assert.AreEqual("5", upgradedDb.GetSchemaInfo()["version"]);
 
             var rubricJson = JsonSerializer.Serialize(new[] { "Quality" });
             upgradedDb.RegisterSession("s2", "skill", "/p", "scn", 1, "with-skill", "model", null, null, "Prompt", null, rubricJson);
             upgradedDb.CompleteSession("s2", "completed", "{}");
 
-            var upgradedSession = Assert.Single(upgradedDb.GetCompletedSessions(), s => s.Id == "s2");
-            Assert.Equal(rubricJson, upgradedSession.RubricJson);
+            var upgradedSession = Assert.ContainsSingle((upgradedDb.GetCompletedSessions()).Where(s => s.Id == "s2"));
+            Assert.AreEqual(rubricJson, upgradedSession.RubricJson);
         }
         finally
         {
@@ -616,20 +620,20 @@ public class SessionDatabaseTests : IDisposable
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void CompleteSession_RequiresExistingSession()
     {
-        Assert.Throws<Microsoft.Data.Sqlite.SqliteException>(() =>
+        Assert.ThrowsExactly<Microsoft.Data.Sqlite.SqliteException>(() =>
             _db.CompleteSession("missing", "completed", "{}"));
     }
 
-    [Fact]
+    [TestMethod]
     public void ConfigDir_StoredAsRelativePath()
     {
         _db.RegisterSession("s1", "skill", "/p", "scn", 0, "baseline", "m", "sessions/s1", null);
         _db.CompleteSession("s1", "completed", "{}");
 
-        var s = Assert.Single(_db.GetCompletedSessions());
-        Assert.Equal("sessions/s1", s.ConfigDir);
+        var s = Assert.ContainsSingle(_db.GetCompletedSessions());
+        Assert.AreEqual("sessions/s1", s.ConfigDir);
     }
 }

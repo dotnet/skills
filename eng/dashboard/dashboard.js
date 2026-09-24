@@ -234,7 +234,10 @@
     });
   }
   function legendLabelsWithModelMarker(chart) {
-    return Chart.defaults.plugins.legend.labels.generateLabels(chart).map(function(l) {
+    return Chart.defaults.plugins.legend.labels.generateLabels(chart).filter(function(l) {
+      const ds = chart.data.datasets[l.datasetIndex];
+      return ds && !ds.hidden;
+    }).map(function(l) {
       const ds = chart.data.datasets[l.datasetIndex];
       const seriesColor = ds && ds.borderColor ? ds.borderColor : l.strokeStyle;
       const marker = ds && ds.modelMarker ? ds.modelMarker : { style: 'rect', rotation: 0 };
@@ -555,6 +558,69 @@
     }).join('');
   }
 
+  function createIssueFlags() {
+    return {
+      notActivated: false,
+      timedOut: false,
+      overfittingModerate: false,
+      overfittingHigh: false,
+      multiIssue: false,
+    };
+  }
+
+  function recordIssueFlags(flags, notActivated, timedOut, overfitting) {
+    if (notActivated) flags.notActivated = true;
+    if (timedOut) flags.timedOut = true;
+    if (overfitting === 'high') flags.overfittingHigh = true;
+    else if (overfitting) flags.overfittingModerate = true;
+    if ((notActivated ? 1 : 0) + (timedOut ? 1 : 0) + (overfitting ? 1 : 0) > 1) {
+      flags.multiIssue = true;
+    }
+  }
+
+  function combineIssueFlags(entryFlags, indexes) {
+    const combined = createIssueFlags();
+    indexes.forEach(index => {
+      const flags = entryFlags[index];
+      if (!flags) return;
+      combined.notActivated ||= flags.notActivated;
+      combined.timedOut ||= flags.timedOut;
+      combined.overfittingModerate ||= flags.overfittingModerate;
+      combined.overfittingHigh ||= flags.overfittingHigh;
+      combined.multiIssue ||= flags.multiIssue;
+    });
+    return combined;
+  }
+
+  function refreshLegendNotes(container, flags) {
+    container.innerHTML = '';
+    appendLegendNotes(container, flags);
+  }
+
+  const FILTERED_DATASET_PROPERTIES = [
+    'data',
+    'pointBackgroundColor',
+    'pointBorderColor',
+    'pointStyle',
+    'pointRotation',
+    'pointRadius',
+    'pointBorderWidth',
+  ];
+
+  function captureDatasetArrays(dataset) {
+    const captured = {};
+    FILTERED_DATASET_PROPERTIES.forEach(property => {
+      if (Array.isArray(dataset[property])) captured[property] = dataset[property].slice();
+    });
+    return captured;
+  }
+
+  function applyDatasetIndexes(dataset, captured, indexes) {
+    Object.entries(captured).forEach(([property, values]) => {
+      dataset[property] = indexes.map(index => values[index]);
+    });
+  }
+
   function renderPlugin(plugin, data, panel) {
     if (!data || !data.entries) {
       panel.innerHTML = '<p style="color:#8b949e;text-align:center;padding:2rem;">No data available.</p>';
@@ -575,9 +641,11 @@
     activeModelMarkers = pluginModelMarkers;
 
     // Model filter state: every model is enabled by default. The filter bar (built
-    // below) lets the viewer focus on a subset; toggling re-renders via draw().
+    // below) lets the viewer focus on a subset.
     const activeModels = new Set(allModels);
     const liveCharts = [];
+    let chartsInitialized = false;
+    let pendingDraw = false;
 
     const replayHref = `${replayBaseUrl}?manifest=${encodeURIComponent(sessionManifestUrl)}&tag=${encodeURIComponent(plugin)}`;
 
@@ -608,17 +676,16 @@
       const qualityEntries = allQualityEntries.filter(e => activeModels.has((e && e.model) ? e.model : 'unknown'));
       const efficiencyEntries = allEfficiencyEntries.filter(e => activeModels.has((e && e.model) ? e.model : 'unknown'));
 
-      // Tear down the previous render so charts don't leak and canvases aren't reused.
-      liveCharts.forEach(c => { try { c.destroy(); } catch { /* already detached */ } });
-      liveCharts.length = 0;
       const _summary = document.getElementById(`summary-${plugin}`);
       const _verdictEvidence = document.getElementById(`verdict-evidence-${plugin}`);
       const _quality = document.getElementById(`quality-${plugin}`);
       const _efficiency = document.getElementById(`efficiency-${plugin}`);
       if (_summary) _summary.innerHTML = '';
       if (_verdictEvidence) _verdictEvidence.innerHTML = '';
-      if (_quality) _quality.innerHTML = '';
-      if (_efficiency) _efficiency.innerHTML = '';
+      if (!chartsInitialized) {
+        if (_quality) _quality.innerHTML = '';
+        if (_efficiency) _efficiency.innerHTML = '';
+      }
 
     if (_verdictEvidence) {
       renderVerdictEvidence(qualityEntries, _verdictEvidence);
@@ -737,9 +804,10 @@
       }
     }
 
-    // Quality charts
-    const qualityChartsDiv = document.getElementById(`quality-${plugin}`);
-    if (qualityEntries.length > 0) {
+    if (!chartsInitialized) {
+      // Quality charts
+      const qualityChartsDiv = document.getElementById(`quality-${plugin}`);
+      if (qualityEntries.length > 0) {
       // Discover tests from all entries (not just latest, which may have partial data)
       const tests = new Set();
       let hasAnyPlugin = false;
@@ -769,11 +837,11 @@
           ));
         }
       });
-    }
+      }
 
-    // Efficiency charts
-    const efficiencyChartsDiv = document.getElementById(`efficiency-${plugin}`);
-    if (efficiencyEntries.length > 0) {
+      // Efficiency charts
+      const efficiencyChartsDiv = document.getElementById(`efficiency-${plugin}`);
+      if (efficiencyEntries.length > 0) {
       // Discover tests from all entries (not just latest, which may have partial data)
       const effTests = new Set();
       let hasAnyPluginEff = false;
@@ -808,9 +876,9 @@
         const plugTokenName = `${test} - Plugin Tokens In`;
         const vanTimeName = `${test} - Vanilla Time`;
         const vanTokenName = `${test} - Vanilla Tokens In`;
-        const legendFlags = { notActivated: false, timedOut: false, overfittingModerate: false, overfittingHigh: false, multiIssue: false };
+        const entryLegendFlags = efficiencyEntries.map(() => createIssueFlags());
 
-        const perEntryData = efficiencyEntries.map(e => {
+        const perEntryData = efficiencyEntries.map((e, entryIndex) => {
           let timeBench = undefined;
           let tokenBench = undefined;
           let plugTimeBench = undefined;
@@ -831,15 +899,10 @@
           const tokenTO = !!(tokenBench && tokenBench.timedOut);
           const timeOF = timeBench && timeBench.overfitting ? timeBench.overfitting : null;
           const tokenOF = tokenBench && tokenBench.overfitting ? tokenBench.overfitting : null;
-          if (timeNA || tokenNA) legendFlags.notActivated = true;
-          if (timeTO || tokenTO) legendFlags.timedOut = true;
-          if (timeOF || tokenOF) {
-            if (timeOF === 'high' || tokenOF === 'high') legendFlags.overfittingHigh = true;
-            else legendFlags.overfittingModerate = true;
-          }
-          const timeIssues = (timeNA ? 1 : 0) + (timeTO ? 1 : 0) + (timeOF ? 1 : 0);
-          const tokenIssues = (tokenNA ? 1 : 0) + (tokenTO ? 1 : 0) + (tokenOF ? 1 : 0);
-          if (timeIssues > 1 || tokenIssues > 1) legendFlags.multiIssue = true;
+          const entryFlags = entryLegendFlags[entryIndex];
+          recordIssueFlags(entryFlags, timeNA, timeTO, timeOF);
+          recordIssueFlags(entryFlags, tokenNA, tokenTO, tokenOF);
+          if (entryFlags.overfittingHigh) entryFlags.overfittingModerate = false;
           return {
             timeValue: timeBench ? timeBench.value : null,
             timeNotActivated: timeNA,
@@ -855,6 +918,10 @@
             vanTokenValue: vanTokenBench ? vanTokenBench.value / 1000 : null,
           };
         });
+        const legendFlags = combineIssueFlags(
+          entryLegendFlags,
+          efficiencyEntries.map((_, index) => index)
+        );
 
         const timeData = perEntryData.map(d => d.timeValue);
         const tokenData = perEntryData.map(d => d.tokenValue);
@@ -972,6 +1039,9 @@
           });
         }
 
+        let visibleEfficiencyEntries = efficiencyEntries;
+        const sourceLabels = labels.slice();
+        const datasetSources = datasets.map(captureDatasetArrays);
         const effChart = new Chart(canvas, {
           type: 'line',
           data: {
@@ -987,7 +1057,7 @@
                 callbacks: {
                   afterTitle: (items) => {
                     const idx = items[0].dataIndex;
-                    const entry = efficiencyEntries[idx];
+                    const entry = visibleEfficiencyEntries[idx];
                     const parts = [];
                     if (entry && entry.model) parts.push(`Model: ${entry.model}`);
                     if (entry && entry.commit) {
@@ -1020,14 +1090,51 @@
           }
         });
 
-        appendLegendNotes(div, legendFlags);
+        const issueNotes = document.createElement('div');
+        refreshLegendNotes(issueNotes, legendFlags);
+        div.appendChild(issueNotes);
+        effChart.applyModelFilter = (models) => {
+          const indexes = [];
+          efficiencyEntries.forEach((entry, index) => {
+            const model = (entry && entry.model) ? entry.model : 'unknown';
+            if (models.has(model)) indexes.push(index);
+          });
+          visibleEfficiencyEntries = indexes.map(index => efficiencyEntries[index]);
+          effChart.data.labels = indexes.map(index => sourceLabels[index]);
+          effChart.data.datasets.forEach((dataset, index) => {
+            applyDatasetIndexes(dataset, datasetSources[index], indexes);
+          });
+          div.style.display = effChart.data.datasets.some(dataset =>
+            dataset.data.some(value => value != null)
+          ) ? '' : 'none';
+          refreshLegendNotes(issueNotes, combineIssueFlags(entryLegendFlags, indexes));
+          effChart.update('none');
+        };
+
         liveCharts.push(effChart);
+      });
+      }
+      chartsInitialized = true;
+    } else {
+      liveCharts.forEach(chart => {
+        if (chart && chart.applyModelFilter) chart.applyModelFilter(activeModels);
       });
     }
     } // end draw()
 
+    function scheduleDraw() {
+      if (pendingDraw) return;
+      pendingDraw = true;
+      const schedule = window.requestAnimationFrame || (callback => setTimeout(callback, 0));
+      schedule(() => {
+        pendingDraw = false;
+        draw();
+      });
+    }
+
     // Per-model filter bar: all models enabled by default. Toggling a model
-    // re-renders the summary table and every chart for just the selected models.
+    // updates the existing charts for just the selected models. Changes within
+    // one browser frame are coalesced so rapid toggles only trigger one refresh.
     // Colours stay canonical (bound to full history), so hiding a model never
     // recolours the others. Only shown when there is more than one model.
     const filterBar = document.getElementById(`model-filter-${plugin}`);
@@ -1049,7 +1156,7 @@
             return;
           }
           if (cb.checked) activeModels.add(m); else activeModels.delete(m);
-          draw();
+          scheduleDraw();
         });
         const marker = document.createElement('span');
         const modelMarker = markerForModel(m, allModels);
@@ -1093,8 +1200,10 @@
     const modelOf = entries.map(e => (e && e.model) ? e.model : 'unknown');
     const allNames = variants.map(v => v.name);
 
-    const legendFlags = { notActivated: false, timedOut: false, overfittingModerate: false, overfittingHigh: false, multiIssue: false };
+    const legendFlags = createIssueFlags();
+    const entryLegendFlags = entries.map(() => createIssueFlags());
     const datasets = [];
+    const datasetModels = [];
 
     variants.forEach(v => {
       // Bench for this variant at each entry (or null when absent).
@@ -1103,13 +1212,11 @@
       // Issue legend flags come from the skilled-side variants only (matches the
       // previous behaviour where Vanilla did not raise issue markers).
       if (!v.vanilla) {
-        per.forEach(b => {
+        per.forEach((b, index) => {
           if (!b) return;
           const na = !!b.notActivated, to = !!b.timedOut, of = b.overfitting || null;
-          if (na) legendFlags.notActivated = true;
-          if (to) legendFlags.timedOut = true;
-          if (of) { if (of === 'high') legendFlags.overfittingHigh = true; else legendFlags.overfittingModerate = true; }
-          if ((na ? 1 : 0) + (to ? 1 : 0) + (of ? 1 : 0) > 1) legendFlags.multiIssue = true;
+          recordIssueFlags(legendFlags, na, to, of);
+          recordIssueFlags(entryLegendFlags[index], na, to, of);
         });
       }
 
@@ -1175,9 +1282,13 @@
           spanGaps: false,
           fill: false,
         });
+        datasetModels.push(m);
       });
     });
 
+    let visibleEntries = entries;
+    const sourceLabels = labels.slice();
+    const datasetSources = datasets.map(captureDatasetArrays);
     const chart = new Chart(canvas, {
       type: 'line',
       data: { labels, datasets },
@@ -1195,7 +1306,7 @@
             callbacks: {
               afterTitle: (items) => {
                 const idx = items[0].dataIndex;
-                const entry = entries[idx];
+                const entry = visibleEntries[idx];
                 const parts = [];
                 if (entry && entry.model) parts.push(`Model: ${entry.model}`);
                 if (entry && entry.commit) {
@@ -1215,6 +1326,36 @@
       }
     });
 
+    const issueNotes = document.createElement('div');
+    refreshLegendNotes(issueNotes, legendFlags);
+    let visibleModels = new Set(models);
+    chart.applyModelFilter = (activeModels) => {
+      const indexes = [];
+      entries.forEach((entry, index) => {
+        const model = (entry && entry.model) ? entry.model : 'unknown';
+        if (activeModels.has(model)) indexes.push(index);
+      });
+      visibleEntries = indexes.map(index => entries[index]);
+      chart.data.labels = indexes.map(index => sourceLabels[index]);
+      chart.data.datasets.forEach((dataset, index) => {
+        applyDatasetIndexes(dataset, datasetSources[index], indexes);
+        const model = datasetModels[index];
+        const modelVisible = activeModels.has(model);
+        dataset.hidden = !modelVisible;
+        if (modelVisible !== visibleModels.has(model)) {
+          chart.setDatasetVisibility(index, modelVisible);
+        }
+      });
+      const visibleDatasetCount = datasetModels.filter(model => activeModels.has(model)).length;
+      chart.options.plugins.legend.display = visibleDatasetCount <= MAX_INLINE_LEGEND_SERIES;
+      div.style.display = chart.data.datasets.some(dataset =>
+        !dataset.hidden && dataset.data.some(value => value != null)
+      ) ? '' : 'none';
+      refreshLegendNotes(issueNotes, combineIssueFlags(entryLegendFlags, indexes));
+      chart.update('none');
+      visibleModels = new Set(activeModels);
+    };
+
     const dashName = d => (!d || !d.length) ? 'solid' : (d[0] >= 6 ? 'dashed' : 'dotted');
     const cap = document.createElement('div');
     cap.className = 'not-activated-legend';
@@ -1223,8 +1364,7 @@
       : 'Line colour + point shape = model \u00B7 ';
     cap.innerHTML = colourKey + variants.map(v => `${dashName(v.dash)} = ${escapeHtml(v.label)}`).join(', ');
     div.appendChild(cap);
-
-    appendLegendNotes(div, legendFlags);
+    div.appendChild(issueNotes);
     return chart;
   }
 
