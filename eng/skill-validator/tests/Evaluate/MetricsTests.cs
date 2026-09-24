@@ -4,6 +4,7 @@ using SkillValidator.Shared;
 
 namespace SkillValidator.Tests;
 
+[TestClass]
 public class ExtractSkillActivationTests
 {
     private static AgentEvent MakeEvent(string type, Dictionary<string, JsonNode?>? data = null)
@@ -19,7 +20,7 @@ public class ExtractSkillActivationTests
         return dict;
     }
 
-    [Fact]
+    [TestMethod]
     public void DetectsActivationFromSkillSessionEvents()
     {
         var events = new List<AgentEvent>
@@ -31,13 +32,13 @@ public class ExtractSkillActivationTests
 
         var result = MetricsCollector.ExtractSkillActivation(events, new Dictionary<string, int> { ["bash"] = 1 });
 
-        Assert.True(result.Activated);
-        Assert.Equal(["my-skill"], result.DetectedSkills);
-        Assert.Equal(1, result.SkillEventCount);
-        Assert.Empty(result.ExtraTools);
+        Assert.IsTrue(result.Activated);
+        Assert.AreSequenceEqual(["my-skill"], result.DetectedSkills);
+        Assert.AreEqual(1, result.SkillEventCount);
+        Assert.IsEmpty(result.ExtraTools);
     }
 
-    [Fact]
+    [TestMethod]
     public void DetectsActivationFromInstructionEvents()
     {
         var events = new List<AgentEvent>
@@ -48,12 +49,12 @@ public class ExtractSkillActivationTests
 
         var result = MetricsCollector.ExtractSkillActivation(events, new Dictionary<string, int> { ["read"] = 1 });
 
-        Assert.True(result.Activated);
-        Assert.Equal(["build-helper"], result.DetectedSkills);
-        Assert.Equal(1, result.SkillEventCount);
+        Assert.IsTrue(result.Activated);
+        Assert.AreSequenceEqual(["build-helper"], result.DetectedSkills);
+        Assert.AreEqual(1, result.SkillEventCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void DetectsActivationFromExtraToolsNotInBaseline()
     {
         var events = new List<AgentEvent>
@@ -65,13 +66,13 @@ public class ExtractSkillActivationTests
 
         var result = MetricsCollector.ExtractSkillActivation(events, new Dictionary<string, int> { ["bash"] = 3 });
 
-        Assert.True(result.Activated);
-        Assert.Empty(result.DetectedSkills);
-        Assert.Equal(["msbuild_analyze"], result.ExtraTools);
-        Assert.Equal(0, result.SkillEventCount);
+        Assert.IsTrue(result.Activated);
+        Assert.IsEmpty(result.DetectedSkills);
+        Assert.AreSequenceEqual(["msbuild_analyze"], result.ExtraTools);
+        Assert.AreEqual(0, result.SkillEventCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void ReportsNotActivatedWhenNoSkillEventsAndNoExtraTools()
     {
         var events = new List<AgentEvent>
@@ -82,24 +83,24 @@ public class ExtractSkillActivationTests
 
         var result = MetricsCollector.ExtractSkillActivation(events, new Dictionary<string, int> { ["bash"] = 1 });
 
-        Assert.False(result.Activated);
-        Assert.Empty(result.DetectedSkills);
-        Assert.Empty(result.ExtraTools);
-        Assert.Equal(0, result.SkillEventCount);
+        Assert.IsFalse(result.Activated);
+        Assert.IsEmpty(result.DetectedSkills);
+        Assert.IsEmpty(result.ExtraTools);
+        Assert.AreEqual(0, result.SkillEventCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void HandlesEmptyEventsArray()
     {
         var result = MetricsCollector.ExtractSkillActivation([], new Dictionary<string, int>());
 
-        Assert.False(result.Activated);
-        Assert.Empty(result.DetectedSkills);
-        Assert.Empty(result.ExtraTools);
-        Assert.Equal(0, result.SkillEventCount);
+        Assert.IsFalse(result.Activated);
+        Assert.IsEmpty(result.DetectedSkills);
+        Assert.IsEmpty(result.ExtraTools);
+        Assert.AreEqual(0, result.SkillEventCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void HandlesEmptyBaselineToolBreakdown()
     {
         var events = new List<AgentEvent>
@@ -109,11 +110,11 @@ public class ExtractSkillActivationTests
 
         var result = MetricsCollector.ExtractSkillActivation(events, new Dictionary<string, int>());
 
-        Assert.True(result.Activated);
-        Assert.Equal(["bash"], result.ExtraTools);
+        Assert.IsTrue(result.Activated);
+        Assert.AreSequenceEqual(["bash"], result.ExtraTools);
     }
 
-    [Fact]
+    [TestMethod]
     public void DeduplicatesDetectedSkillNames()
     {
         var events = new List<AgentEvent>
@@ -125,11 +126,11 @@ public class ExtractSkillActivationTests
 
         var result = MetricsCollector.ExtractSkillActivation(events, new Dictionary<string, int>());
 
-        Assert.Equal(new[] { "my-skill", "other-skill" }, result.DetectedSkills);
-        Assert.Equal(3, result.SkillEventCount);
+        Assert.AreSequenceEqual(new[] { "my-skill", "other-skill" }, result.DetectedSkills);
+        Assert.AreEqual(3, result.SkillEventCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void HandlesMissingSkillNameInEventsGracefully()
     {
         var events = new List<AgentEvent>
@@ -140,12 +141,12 @@ public class ExtractSkillActivationTests
 
         var result = MetricsCollector.ExtractSkillActivation(events, new Dictionary<string, int>());
 
-        Assert.True(result.Activated);
-        Assert.Empty(result.DetectedSkills);
-        Assert.Equal(2, result.SkillEventCount);
+        Assert.IsTrue(result.Activated);
+        Assert.IsEmpty(result.DetectedSkills);
+        Assert.AreEqual(2, result.SkillEventCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void CombinesBothHeuristicsSkillEventsAndExtraTools()
     {
         var events = new List<AgentEvent>
@@ -157,13 +158,13 @@ public class ExtractSkillActivationTests
 
         var result = MetricsCollector.ExtractSkillActivation(events, new Dictionary<string, int> { ["bash"] = 2 });
 
-        Assert.True(result.Activated);
-        Assert.Equal(["build-cache"], result.DetectedSkills);
-        Assert.Equal(["msbuild_diag"], result.ExtraTools);
-        Assert.Equal(1, result.SkillEventCount);
+        Assert.IsTrue(result.Activated);
+        Assert.AreSequenceEqual(["build-cache"], result.DetectedSkills);
+        Assert.AreSequenceEqual(["msbuild_diag"], result.ExtraTools);
+        Assert.AreEqual(1, result.SkillEventCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void DoesNotCountNonSkillEventsAsSkillEvents()
     {
         var events = new List<AgentEvent>
@@ -176,11 +177,11 @@ public class ExtractSkillActivationTests
 
         var result = MetricsCollector.ExtractSkillActivation(events, new Dictionary<string, int> { ["bash"] = 1 });
 
-        Assert.False(result.Activated);
-        Assert.Equal(0, result.SkillEventCount);
+        Assert.IsFalse(result.Activated);
+        Assert.AreEqual(0, result.SkillEventCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void DetectsSkillFromSkillInvokedEvent()
     {
         // SkillInvokedEvent has type "skill.invoked" and Data with "name" property
@@ -192,14 +193,14 @@ public class ExtractSkillActivationTests
 
         var result = MetricsCollector.ExtractSkillActivation(events, new Dictionary<string, int> { ["bash"] = 1 });
 
-        Assert.True(result.Activated);
-        Assert.Equal(["binlog-failure-analysis"], result.DetectedSkills);
-        Assert.Equal(1, result.SkillEventCount);
+        Assert.IsTrue(result.Activated);
+        Assert.AreSequenceEqual(["binlog-failure-analysis"], result.DetectedSkills);
+        Assert.AreEqual(1, result.SkillEventCount);
     }
 
     // --- Targeted skill activation (targetSkillName parameter) tests ---
 
-    [Fact]
+    [TestMethod]
     public void TargetSkillName_ActivatedWhenTargetSkillDetected()
     {
         var events = new List<AgentEvent>
@@ -211,11 +212,11 @@ public class ExtractSkillActivationTests
         var result = MetricsCollector.ExtractSkillActivation(
             events, new Dictionary<string, int> { ["bash"] = 1 }, targetSkillName: "build-perf");
 
-        Assert.True(result.Activated);
-        Assert.Equal(["build-perf"], result.DetectedSkills);
+        Assert.IsTrue(result.Activated);
+        Assert.AreSequenceEqual(["build-perf"], result.DetectedSkills);
     }
 
-    [Fact]
+    [TestMethod]
     public void TargetSkillName_NotActivatedWhenSiblingSkillFires()
     {
         // In a plugin run, a sibling skill fires but not the target skill
@@ -228,12 +229,12 @@ public class ExtractSkillActivationTests
         var result = MetricsCollector.ExtractSkillActivation(
             events, new Dictionary<string, int> { ["bash"] = 1 }, targetSkillName: "build-perf");
 
-        Assert.False(result.Activated);
-        Assert.Equal(["sibling-skill"], result.DetectedSkills);
-        Assert.Equal(1, result.SkillEventCount);
+        Assert.IsFalse(result.Activated);
+        Assert.AreSequenceEqual(["sibling-skill"], result.DetectedSkills);
+        Assert.AreEqual(1, result.SkillEventCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void TargetSkillName_CaseInsensitiveMatch()
     {
         var events = new List<AgentEvent>
@@ -244,10 +245,10 @@ public class ExtractSkillActivationTests
         var result = MetricsCollector.ExtractSkillActivation(
             events, new Dictionary<string, int>(), targetSkillName: "build-perf");
 
-        Assert.True(result.Activated);
+        Assert.IsTrue(result.Activated);
     }
 
-    [Fact]
+    [TestMethod]
     public void TargetSkillName_NotActivatedEvenWithExtraToolsWhenNoTargetDetected()
     {
         // Extra tools present but target skill not detected — NOT activated.
@@ -261,11 +262,11 @@ public class ExtractSkillActivationTests
         var result = MetricsCollector.ExtractSkillActivation(
             events, new Dictionary<string, int>(), targetSkillName: "build-perf");
 
-        Assert.False(result.Activated);
-        Assert.Equal(["msbuild_analyze"], result.ExtraTools);
+        Assert.IsFalse(result.Activated);
+        Assert.AreSequenceEqual(["msbuild_analyze"], result.ExtraTools);
     }
 
-    [Fact]
+    [TestMethod]
     public void TargetSkillName_ExtraToolsIgnoredWhenSiblingSkillEventsExist()
     {
         // Sibling skill fired (skill events exist) plus extra tools — NOT activated.
@@ -280,12 +281,12 @@ public class ExtractSkillActivationTests
         var result = MetricsCollector.ExtractSkillActivation(
             events, new Dictionary<string, int>(), targetSkillName: "nuget-trusted-publishing");
 
-        Assert.False(result.Activated);
-        Assert.Equal(["sibling-skill"], result.DetectedSkills);
-        Assert.Equal(["view"], result.ExtraTools);
+        Assert.IsFalse(result.Activated);
+        Assert.AreSequenceEqual(["sibling-skill"], result.DetectedSkills);
+        Assert.AreSequenceEqual(["view"], result.ExtraTools);
     }
 
-    [Fact]
+    [TestMethod]
     public void TargetSkillName_NullBehavesAsOriginal()
     {
         // When targetSkillName is null, any skill event counts as activation (original behavior)
@@ -297,11 +298,11 @@ public class ExtractSkillActivationTests
         var result = MetricsCollector.ExtractSkillActivation(
             events, new Dictionary<string, int>(), targetSkillName: null);
 
-        Assert.True(result.Activated);
-        Assert.Equal(["sibling-skill"], result.DetectedSkills);
+        Assert.IsTrue(result.Activated);
+        Assert.AreSequenceEqual(["sibling-skill"], result.DetectedSkills);
     }
 
-    [Fact]
+    [TestMethod]
     public void TargetSkillName_NotActivatedWhenNoEventsAndNoExtraTools()
     {
         var events = new List<AgentEvent>
@@ -312,10 +313,10 @@ public class ExtractSkillActivationTests
         var result = MetricsCollector.ExtractSkillActivation(
             events, new Dictionary<string, int> { ["bash"] = 1 }, targetSkillName: "build-perf");
 
-        Assert.False(result.Activated);
+        Assert.IsFalse(result.Activated);
     }
 
-    [Fact]
+    [TestMethod]
     public void TargetSkillName_ActivatedWhenTargetAmongMultipleSkills()
     {
         // Multiple skills fire in a plugin run, including the target
@@ -329,12 +330,13 @@ public class ExtractSkillActivationTests
         var result = MetricsCollector.ExtractSkillActivation(
             events, new Dictionary<string, int>(), targetSkillName: "build-perf");
 
-        Assert.True(result.Activated);
-        Assert.Equal(3, result.SkillEventCount);
+        Assert.IsTrue(result.Activated);
+        Assert.AreEqual(3, result.SkillEventCount);
         Assert.Contains("build-perf", result.DetectedSkills);
     }
 }
 
+[TestClass]
 public class CollectMetricsTests
 {
     private static AgentEvent MakeEvent(string type, Dictionary<string, JsonNode?>? data = null)
@@ -350,7 +352,7 @@ public class CollectMetricsTests
         return dict;
     }
 
-    [Fact]
+    [TestMethod]
     public void CountsToolCallsAndBreakdown()
     {
         var events = new List<AgentEvent>
@@ -363,12 +365,12 @@ public class CollectMetricsTests
 
         var result = MetricsCollector.CollectMetrics(events, "done", 1000, "/tmp/work");
 
-        Assert.Equal(3, result.ToolCallCount);
-        Assert.Equal(2, result.ToolCallBreakdown["bash"]);
-        Assert.Equal(1, result.ToolCallBreakdown["view"]);
+        Assert.AreEqual(3, result.ToolCallCount);
+        Assert.AreEqual(2, result.ToolCallBreakdown["bash"]);
+        Assert.AreEqual(1, result.ToolCallBreakdown["view"]);
     }
 
-    [Fact]
+    [TestMethod]
     public void UsesRealTokenCountsFromAssistantUsageEvents()
     {
         var events = new List<AgentEvent>
@@ -381,10 +383,10 @@ public class CollectMetricsTests
         var result = MetricsCollector.CollectMetrics(events, "hello world", 5000, "/tmp/work");
 
         // Should use real token counts: (500+200) + (300+100) = 1100
-        Assert.Equal(1100, result.TokenEstimate);
+        Assert.AreEqual(1100, result.TokenEstimate);
     }
 
-    [Fact]
+    [TestMethod]
     public void FallsBackToCharEstimationWhenNoUsageEvents()
     {
         var events = new List<AgentEvent>
@@ -394,10 +396,10 @@ public class CollectMetricsTests
 
         var result = MetricsCollector.CollectMetrics(events, "hello world!!", 5000, "/tmp/work");
 
-        Assert.Equal((int)Math.Ceiling(13.0 / 4.0), result.TokenEstimate);
+        Assert.AreEqual((int)Math.Ceiling(13.0 / 4.0), result.TokenEstimate);
     }
 
-    [Fact]
+    [TestMethod]
     public void CountsTurnsFromAssistantMessageEvents()
     {
         var events = new List<AgentEvent>
@@ -408,10 +410,10 @@ public class CollectMetricsTests
 
         var result = MetricsCollector.CollectMetrics(events, "turn 2", 1000, "/tmp/work");
 
-        Assert.Equal(2, result.TurnCount);
+        Assert.AreEqual(2, result.TurnCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void CountsErrors()
     {
         var events = new List<AgentEvent>
@@ -422,12 +424,12 @@ public class CollectMetricsTests
 
         var result = MetricsCollector.CollectMetrics(events, "", 1000, "/tmp/work");
 
-        Assert.Equal(2, result.ErrorCount);
+        Assert.AreEqual(2, result.ErrorCount);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData("False")]
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow("False")]
     public void CountsUnsuccessfulToolCompletionsAsErrors(object success)
     {
         var successNode = success switch
@@ -444,10 +446,10 @@ public class CollectMetricsTests
 
         var result = MetricsCollector.CollectMetrics(events, "partial output", 1000, "/tmp/work");
 
-        Assert.Equal(1, result.ErrorCount);
+        Assert.AreEqual(1, result.ErrorCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void SuccessfulToolCompletionsDoNotCountAsErrors()
     {
         var events = new List<AgentEvent>
@@ -458,20 +460,20 @@ public class CollectMetricsTests
 
         var result = MetricsCollector.CollectMetrics(events, "done", 1000, "/tmp/work");
 
-        Assert.Equal(0, result.ErrorCount);
+        Assert.AreEqual(0, result.ErrorCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void PreservesWallTimeAndWorkDir()
     {
         var result = MetricsCollector.CollectMetrics([], "output", 42000, "/tmp/my-work");
 
-        Assert.Equal(42000, result.WallTimeMs);
-        Assert.Equal("/tmp/my-work", result.WorkDir);
-        Assert.Equal("output", result.AgentOutput);
+        Assert.AreEqual(42000, result.WallTimeMs);
+        Assert.AreEqual("/tmp/my-work", result.WorkDir);
+        Assert.AreEqual("output", result.AgentOutput);
     }
 
-    [Fact]
+    [TestMethod]
     public void FallbackTokenEstimationIncludesUserMessages()
     {
         var events = new List<AgentEvent>
@@ -483,10 +485,10 @@ public class CollectMetricsTests
         var result = MetricsCollector.CollectMetrics(events, "response", 1000, "/tmp/work");
 
         // Fallback estimation: ceil(4/4) + ceil(8/4) = 1 + 2 = 3
-        Assert.Equal(3, result.TokenEstimate);
+        Assert.AreEqual(3, result.TokenEstimate);
     }
 
-    [Fact]
+    [TestMethod]
     public void SetsTimedOutToTrueWhenRunnerTimeoutEventIsPresent()
     {
         var events = new List<AgentEvent>
@@ -497,11 +499,11 @@ public class CollectMetricsTests
 
         var result = MetricsCollector.CollectMetrics(events, "", 120000, "/tmp/work");
 
-        Assert.True(result.TimedOut);
-        Assert.Equal(1, result.ErrorCount);
+        Assert.IsTrue(result.TimedOut);
+        Assert.AreEqual(1, result.ErrorCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void SetsTimedOutToFalseWhenNoTimeoutEventIsPresent()
     {
         var events = new List<AgentEvent>
@@ -512,11 +514,11 @@ public class CollectMetricsTests
 
         var result = MetricsCollector.CollectMetrics(events, "", 5000, "/tmp/work");
 
-        Assert.False(result.TimedOut);
-        Assert.Equal(0, result.ErrorCount);
+        Assert.IsFalse(result.TimedOut);
+        Assert.AreEqual(0, result.ErrorCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void SetsTimedOutToFalseWhenOnlyRunnerErrorEventsArePresent()
     {
         var events = new List<AgentEvent>
@@ -526,11 +528,11 @@ public class CollectMetricsTests
 
         var result = MetricsCollector.CollectMetrics(events, "", 3000, "/tmp/work");
 
-        Assert.False(result.TimedOut);
-        Assert.Equal(1, result.ErrorCount);
+        Assert.IsFalse(result.TimedOut);
+        Assert.AreEqual(1, result.ErrorCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void CountsBothRunnerTimeoutAndRunnerErrorInErrorCount()
     {
         var events = new List<AgentEvent>
@@ -541,11 +543,12 @@ public class CollectMetricsTests
 
         var result = MetricsCollector.CollectMetrics(events, "", 120000, "/tmp/work");
 
-        Assert.True(result.TimedOut);
-        Assert.Equal(2, result.ErrorCount);
+        Assert.IsTrue(result.TimedOut);
+        Assert.AreEqual(2, result.ErrorCount);
     }
 }
 
+[TestClass]
 public class ExtractSubagentActivationTests
 {
     private static AgentEvent MakeEvent(string type, Dictionary<string, JsonNode?>? data = null)
@@ -561,7 +564,7 @@ public class ExtractSubagentActivationTests
         return dict;
     }
 
-    [Fact]
+    [TestMethod]
     public void DetectsSubagentFromStartedEvent()
     {
         var events = new List<AgentEvent>
@@ -572,11 +575,11 @@ public class ExtractSubagentActivationTests
 
         var result = MetricsCollector.ExtractSubagentActivation(events);
 
-        Assert.Equal(["build-perf"], result.InvokedAgents);
-        Assert.Equal(2, result.SubagentEventCount);
+        Assert.AreSequenceEqual(["build-perf"], result.InvokedAgents);
+        Assert.AreEqual(2, result.SubagentEventCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void DeduplicatesAgentNames()
     {
         var events = new List<AgentEvent>
@@ -589,12 +592,12 @@ public class ExtractSubagentActivationTests
 
         var result = MetricsCollector.ExtractSubagentActivation(events);
 
-        Assert.Single(result.InvokedAgents);
-        Assert.Equal("build-perf", result.InvokedAgents[0]);
-        Assert.Equal(4, result.SubagentEventCount);
+        Assert.ContainsSingle(result.InvokedAgents);
+        Assert.AreEqual("build-perf", result.InvokedAgents[0]);
+        Assert.AreEqual(4, result.SubagentEventCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void DetectsMultipleDistinctSubagents()
     {
         var events = new List<AgentEvent>
@@ -606,13 +609,13 @@ public class ExtractSubagentActivationTests
 
         var result = MetricsCollector.ExtractSubagentActivation(events);
 
-        Assert.Equal(2, result.InvokedAgents.Count);
+        Assert.AreEqual(2, result.InvokedAgents.Count);
         Assert.Contains("build-perf", result.InvokedAgents);
         Assert.Contains("msbuild-code-review", result.InvokedAgents);
-        Assert.Equal(3, result.SubagentEventCount);
+        Assert.AreEqual(3, result.SubagentEventCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void ReturnsEmptyWhenNoSubagentEvents()
     {
         var events = new List<AgentEvent>
@@ -623,20 +626,20 @@ public class ExtractSubagentActivationTests
 
         var result = MetricsCollector.ExtractSubagentActivation(events);
 
-        Assert.Empty(result.InvokedAgents);
-        Assert.Equal(0, result.SubagentEventCount);
+        Assert.IsEmpty(result.InvokedAgents);
+        Assert.AreEqual(0, result.SubagentEventCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void HandlesEmptyEventsArray()
     {
         var result = MetricsCollector.ExtractSubagentActivation([]);
 
-        Assert.Empty(result.InvokedAgents);
-        Assert.Equal(0, result.SubagentEventCount);
+        Assert.IsEmpty(result.InvokedAgents);
+        Assert.AreEqual(0, result.SubagentEventCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void HandlesSubagentEventWithEmptyName()
     {
         var events = new List<AgentEvent>
@@ -647,12 +650,12 @@ public class ExtractSubagentActivationTests
 
         var result = MetricsCollector.ExtractSubagentActivation(events);
 
-        Assert.Single(result.InvokedAgents);
-        Assert.Equal("build-perf", result.InvokedAgents[0]);
-        Assert.Equal(2, result.SubagentEventCount);
+        Assert.ContainsSingle(result.InvokedAgents);
+        Assert.AreEqual("build-perf", result.InvokedAgents[0]);
+        Assert.AreEqual(2, result.SubagentEventCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void HandlesSubagentFailedEvent()
     {
         var events = new List<AgentEvent>
@@ -663,11 +666,11 @@ public class ExtractSubagentActivationTests
 
         var result = MetricsCollector.ExtractSubagentActivation(events);
 
-        Assert.Equal(["build-perf"], result.InvokedAgents);
-        Assert.Equal(2, result.SubagentEventCount);
+        Assert.AreSequenceEqual(["build-perf"], result.InvokedAgents);
+        Assert.AreEqual(2, result.SubagentEventCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void CaseInsensitiveDeduplication()
     {
         var events = new List<AgentEvent>
@@ -678,11 +681,11 @@ public class ExtractSubagentActivationTests
 
         var result = MetricsCollector.ExtractSubagentActivation(events);
 
-        Assert.Single(result.InvokedAgents);
-        Assert.Equal(2, result.SubagentEventCount);
+        Assert.ContainsSingle(result.InvokedAgents);
+        Assert.AreEqual(2, result.SubagentEventCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void IgnoresNonSubagentEvents()
     {
         var events = new List<AgentEvent>
@@ -694,7 +697,7 @@ public class ExtractSubagentActivationTests
 
         var result = MetricsCollector.ExtractSubagentActivation(events);
 
-        Assert.Empty(result.InvokedAgents);
-        Assert.Equal(0, result.SubagentEventCount);
+        Assert.IsEmpty(result.InvokedAgents);
+        Assert.AreEqual(0, result.SubagentEventCount);
     }
 }

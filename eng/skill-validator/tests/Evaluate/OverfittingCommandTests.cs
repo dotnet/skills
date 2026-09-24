@@ -4,11 +4,12 @@ using SkillValidator.Evaluate;
 
 namespace SkillValidator.Tests;
 
+[TestClass]
 public class OverfittingCommandTests
 {
-    [Theory]
-    [InlineData("tests/dotnet-msbuild/build-perf-baseline/eval.yaml", "dotnet-msbuild", "build-perf-baseline")]
-    [InlineData("tests/dotnet/csharp-scripts/eval.yaml", "dotnet", "csharp-scripts")]
+    [TestMethod]
+    [DataRow("tests/dotnet-msbuild/build-perf-baseline/eval.yaml", "dotnet-msbuild", "build-perf-baseline")]
+    [DataRow("tests/dotnet/csharp-scripts/eval.yaml", "dotnet", "csharp-scripts")]
     public void DeriveIdentity_ExtractsPluginAndSkillFromNestedEvalPath(string evalPath, string expectedPlugin, string expectedSkill)
     {
         // Normalize to the platform separator so the test runs on Windows and Linux.
@@ -16,11 +17,11 @@ public class OverfittingCommandTests
 
         var (plugin, skill) = OverfittingCommand.DeriveIdentity(native);
 
-        Assert.Equal(expectedPlugin, plugin);
-        Assert.Equal(expectedSkill, skill);
+        Assert.AreEqual(expectedPlugin, plugin);
+        Assert.AreEqual(expectedSkill, skill);
     }
 
-    [Fact]
+    [TestMethod]
     public void OverfittingEntry_SerializesToCamelCaseWithStringSeverity()
     {
         var result = new OverfittingResult(
@@ -46,24 +47,24 @@ public class OverfittingCommandTests
         var root = doc.RootElement;
 
         // Top-level keys are camelCase.
-        Assert.Equal("dotnet-msbuild", root.GetProperty("plugin").GetString());
-        Assert.Equal("build-perf-baseline", root.GetProperty("skill").GetString());
+        Assert.AreEqual("dotnet-msbuild", root.GetProperty("plugin").GetString());
+        Assert.AreEqual("build-perf-baseline", root.GetProperty("skill").GetString());
 
         var overfit = root.GetProperty("overfittingResult");
-        Assert.Equal(0.42, overfit.GetProperty("score").GetDouble(), 3);
+        Assert.AreEqual(0.42, Math.Round(overfit.GetProperty("score").GetDouble(), 3));
 
         // Severity must serialize as a string, not a number (dashboard reads it as a string).
         var severity = overfit.GetProperty("severity");
-        Assert.Equal(JsonValueKind.String, severity.ValueKind);
-        Assert.Equal("Moderate", severity.GetString());
+        Assert.AreEqual(JsonValueKind.String, severity.ValueKind);
+        Assert.AreEqual("Moderate", severity.GetString());
 
         // Nested collections use camelCase and preserve the rubric scenario field.
         var rubric = overfit.GetProperty("rubricAssessments");
-        Assert.Equal(JsonValueKind.Array, rubric.ValueKind);
-        Assert.Equal("sc1", rubric[0].GetProperty("scenario").GetString());
+        Assert.AreEqual(JsonValueKind.Array, rubric.ValueKind);
+        Assert.AreEqual("sc1", rubric[0].GetProperty("scenario").GetString());
     }
 
-    [Fact]
+    [TestMethod]
     public void OverfittingEntryList_SerializesAsArray()
     {
         var result = new OverfittingResult(
@@ -83,12 +84,12 @@ public class OverfittingCommandTests
         var json = JsonSerializer.Serialize(list, SkillValidatorJsonContext.Default.ListOverfittingEntry);
 
         using var doc = JsonDocument.Parse(json);
-        Assert.Equal(JsonValueKind.Array, doc.RootElement.ValueKind);
-        Assert.Equal("skill-a", doc.RootElement[0].GetProperty("skill").GetString());
-        Assert.Equal("Low", doc.RootElement[0].GetProperty("overfittingResult").GetProperty("severity").GetString());
+        Assert.AreEqual(JsonValueKind.Array, doc.RootElement.ValueKind);
+        Assert.AreEqual("skill-a", doc.RootElement[0].GetProperty("skill").GetString());
+        Assert.AreEqual("Low", doc.RootElement[0].GetProperty("overfittingResult").GetProperty("severity").GetString());
     }
 
-    [Fact]
+    [TestMethod]
     public void ParseEvalConfigFlexible_ReadsVallyStimuliFormat()
     {
         // The current on-disk eval.yaml schema (Vally-native): stimuli with a
@@ -125,28 +126,28 @@ public class OverfittingCommandTests
 
         var cfg = EvalSchema.ParseEvalConfigFlexible(yaml);
 
-        Assert.NotNull(cfg);
-        Assert.Equal(2, cfg!.Scenarios.Count);
+        Assert.IsNotNull(cfg);
+        Assert.AreEqual(2, cfg!.Scenarios.Count);
 
         var first = cfg.Scenarios[0];
-        Assert.Equal("First stimulus", first.Name);
-        Assert.Equal("Do the thing without naming the skill.", first.Prompt);
+        Assert.AreEqual("First stimulus", first.Name);
+        Assert.AreEqual("Do the thing without naming the skill.", first.Prompt);
 
         // Rubric maps straight through (the judge classifies these for overfitting).
-        Assert.NotNull(first.Rubric);
-        Assert.Equal(2, first.Rubric!.Count);
+        Assert.IsNotNull(first.Rubric);
+        Assert.AreEqual(2, first.Rubric!.Count);
         Assert.Contains("The agent achieved the outcome", first.Rubric);
 
         // Output graders map to assertions; the LLM-rubric "prompt" grader is skipped.
-        Assert.NotNull(first.Assertions);
-        Assert.Equal(2, first.Assertions!.Count);
-        Assert.Equal(AssertionType.OutputContains, first.Assertions[0].Type);
-        Assert.Equal("global.json", first.Assertions[0].Value);
-        Assert.Equal(AssertionType.OutputMatches, first.Assertions[1].Type);
-        Assert.Equal("(paths|committed)", first.Assertions[1].Pattern);
+        Assert.IsNotNull(first.Assertions);
+        Assert.AreEqual(2, first.Assertions!.Count);
+        Assert.AreEqual(AssertionType.OutputContains, first.Assertions[0].Type);
+        Assert.AreEqual("global.json", first.Assertions[0].Value);
+        Assert.AreEqual(AssertionType.OutputMatches, first.Assertions[1].Type);
+        Assert.AreEqual("(paths|committed)", first.Assertions[1].Pattern);
     }
 
-    [Fact]
+    [TestMethod]
     public void ParseEvalConfigFlexible_ReturnsNullWhenNoStimuliOrScenarios()
     {
         const string yaml = """
@@ -155,6 +156,6 @@ public class OverfittingCommandTests
             type: capability
             """;
 
-        Assert.Null(EvalSchema.ParseEvalConfigFlexible(yaml));
+        Assert.IsNull(EvalSchema.ParseEvalConfigFlexible(yaml));
     }
 }

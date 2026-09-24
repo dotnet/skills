@@ -2,22 +2,25 @@ using SkillValidator.Shared;
 
 namespace SkillValidator.Tests;
 
+[TestClass]
 public class RetryHelperTests
 {
-    [Fact]
+    public TestContext TestContext { get; set; } = null!;
+
+    [TestMethod]
     public async Task SucceedsOnFirstAttempt_NoRetries()
     {
         var callCount = 0;
         var result = await RetryHelper.ExecuteWithRetry(
             (_) => { callCount++; return Task.FromResult(42); },
             "test",
-            cancellationToken: TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.CancellationToken);
 
-        Assert.Equal(42, result);
-        Assert.Equal(1, callCount);
+        Assert.AreEqual(42, result);
+        Assert.AreEqual(1, callCount);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task RetriesOnTransientFailure_ThenSucceeds()
     {
         var callCount = 0;
@@ -32,17 +35,17 @@ public class RetryHelperTests
             "test",
             maxRetries: 2,
             baseDelayMs: 1,
-            cancellationToken: TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.CancellationToken);
 
-        Assert.Equal("ok", result);
-        Assert.Equal(2, callCount);
+        Assert.AreEqual("ok", result);
+        Assert.AreEqual(2, callCount);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ThrowsAfterAllRetriesExhausted()
     {
         var callCount = 0;
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
             RetryHelper.ExecuteWithRetry<int>(
                 (_) =>
                 {
@@ -52,18 +55,18 @@ public class RetryHelperTests
                 "test",
                 maxRetries: 2,
                 baseDelayMs: 1,
-                cancellationToken: TestContext.Current.CancellationToken));
+                cancellationToken: TestContext.CancellationToken));
 
-        Assert.Equal(3, callCount); // 1 initial + 2 retries
+        Assert.AreEqual(3, callCount); // 1 initial + 2 retries
         Assert.Contains("all attempts failed", ex.Message);
-        Assert.IsType<InvalidOperationException>(ex.InnerException);
+        Assert.IsExactInstanceOfType<InvalidOperationException>(ex.InnerException);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task RespectsTotal_TimeoutBudget()
     {
         var callCount = 0;
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
             RetryHelper.ExecuteWithRetry<int>(
                 async (_) =>
                 {
@@ -76,19 +79,19 @@ public class RetryHelperTests
                 maxRetries: 10, // many retries but budget is tiny
                 baseDelayMs: 1,
                 totalTimeoutMs: 100,
-                cancellationToken: TestContext.Current.CancellationToken));
+                cancellationToken: TestContext.CancellationToken));
 
         // Should have stopped before exhausting all 10 retries
-        Assert.True(callCount < 10, $"Expected fewer than 10 attempts but got {callCount}");
+        Assert.IsTrue(callCount < 10, $"Expected fewer than 10 attempts but got {callCount}");
     }
 
-    [Fact]
+    [TestMethod]
     public async Task CancellationToken_StopsRetryLoop()
     {
         using var cts = new CancellationTokenSource();
         var callCount = 0;
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
             RetryHelper.ExecuteWithRetry<int>(
                 (_) =>
                 {
@@ -102,10 +105,10 @@ public class RetryHelperTests
                 baseDelayMs: 1,
                 cancellationToken: cts.Token));
 
-        Assert.Equal(1, callCount);
+        Assert.AreEqual(1, callCount);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ExponentialBackoff_DelaysIncrease()
     {
         // Uses injected clock/delay to avoid real-time sensitivity on Windows
@@ -114,7 +117,7 @@ public class RetryHelperTests
         var fakeTimeMs = 0L;
         var recordedDelays = new List<int>();
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
             RetryHelper.ExecuteWithRetryCore<int>(
                 (_) =>
                 {
@@ -126,21 +129,21 @@ public class RetryHelperTests
                 maxRetries: 2,
                 baseDelayMs: 200,
                 totalTimeoutMs: 60_000,
-                cancellationToken: TestContext.Current.CancellationToken,
+                cancellationToken: TestContext.CancellationToken,
                 clock: () => fakeTimeMs,
                 delayFunc: (ms, _) => { recordedDelays.Add(ms); fakeTimeMs += ms; return Task.CompletedTask; },
                 jitterFunc: () => 0.5)); // 0.5 → zero jitter offset ((0.5*2-1)*range = 0)
 
-        Assert.Equal(3, callCount);
+        Assert.AreEqual(3, callCount);
         // With baseDelayMs=200, expected delays are: 200ms (attempt 1), 400ms (attempt 2)
-        Assert.Equal(2, recordedDelays.Count);
-        Assert.True(recordedDelays[1] > recordedDelays[0],
+        Assert.AreEqual(2, recordedDelays.Count);
+        Assert.IsTrue(recordedDelays[1] > recordedDelays[0],
             $"Expected exponential increase: delay1={recordedDelays[0]}ms, delay2={recordedDelays[1]}ms");
-        Assert.Equal(200, recordedDelays[0]); // baseDelayMs * 2^0
-        Assert.Equal(400, recordedDelays[1]); // baseDelayMs * 2^1
+        Assert.AreEqual(200, recordedDelays[0]); // baseDelayMs * 2^0
+        Assert.AreEqual(400, recordedDelays[1]); // baseDelayMs * 2^1
     }
 
-    [Fact]
+    [TestMethod]
     public async Task DelayClampedToRemainingBudget()
     {
         // With a very large base delay but small total budget,
@@ -150,7 +153,7 @@ public class RetryHelperTests
         var fakeTimeMs = 0L;
         var recordedDelays = new List<int>();
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
             RetryHelper.ExecuteWithRetryCore<int>(
                 (_) =>
                 {
@@ -162,28 +165,28 @@ public class RetryHelperTests
                 maxRetries: 1,
                 baseDelayMs: 60_000, // 60s base delay - would be huge without clamping
                 totalTimeoutMs: 2000,
-                cancellationToken: TestContext.Current.CancellationToken,
+                cancellationToken: TestContext.CancellationToken,
                 clock: () => fakeTimeMs,
                 delayFunc: (ms, _) => { recordedDelays.Add(ms); return Task.CompletedTask; },
                 jitterFunc: () => 0.5)); // zero jitter offset
 
-        Assert.Equal(2, callCount);
+        Assert.AreEqual(2, callCount);
         // The retry delay should be clamped to remaining budget, not the raw 60s.
-        Assert.Single(recordedDelays);
-        Assert.True(recordedDelays[0] <= 2000,
+        Assert.ContainsSingle(recordedDelays);
+        Assert.IsTrue(recordedDelays[0] <= 2000,
             $"Delay should be clamped to remaining budget, got {recordedDelays[0]}ms");
-        Assert.True(recordedDelays[0] >= 0,
+        Assert.IsTrue(recordedDelays[0] >= 0,
             $"Delay should be non-negative, got {recordedDelays[0]}ms");
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Jitter_AdjustsDelayWithinRange()
     {
         var fakeTimeMs = 0L;
         var recordedDelays = new List<int>();
 
         // jitterFunc returns 1.0 → max positive jitter offset
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
             RetryHelper.ExecuteWithRetryCore<int>(
                 (_) =>
                 {
@@ -194,24 +197,24 @@ public class RetryHelperTests
                 maxRetries: 1,
                 baseDelayMs: 1000,
                 totalTimeoutMs: 60_000,
-                cancellationToken: TestContext.Current.CancellationToken,
+                cancellationToken: TestContext.CancellationToken,
                 clock: () => fakeTimeMs,
                 delayFunc: (ms, _) => { recordedDelays.Add(ms); fakeTimeMs += ms; return Task.CompletedTask; },
                 jitterFunc: () => 1.0)); // max positive: (1.0*2-1)*250 = +250
 
-        Assert.Single(recordedDelays);
+        Assert.ContainsSingle(recordedDelays);
         // baseDelay=1000, jitter=25% of 1000=250, offset=+250 → 1250
-        Assert.Equal(1250, recordedDelays[0]);
+        Assert.AreEqual(1250, recordedDelays[0]);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task Jitter_NegativeOffset_ReducesDelay()
     {
         var fakeTimeMs = 0L;
         var recordedDelays = new List<int>();
 
         // jitterFunc returns 0.0 → max negative jitter offset
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
             RetryHelper.ExecuteWithRetryCore<int>(
                 (_) =>
                 {
@@ -222,17 +225,17 @@ public class RetryHelperTests
                 maxRetries: 1,
                 baseDelayMs: 1000,
                 totalTimeoutMs: 60_000,
-                cancellationToken: TestContext.Current.CancellationToken,
+                cancellationToken: TestContext.CancellationToken,
                 clock: () => fakeTimeMs,
                 delayFunc: (ms, _) => { recordedDelays.Add(ms); fakeTimeMs += ms; return Task.CompletedTask; },
                 jitterFunc: () => 0.0)); // max negative: (0.0*2-1)*250 = -250
 
-        Assert.Single(recordedDelays);
+        Assert.ContainsSingle(recordedDelays);
         // baseDelay=1000, jitter=-250 → 750
-        Assert.Equal(750, recordedDelays[0]);
+        Assert.AreEqual(750, recordedDelays[0]);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task BudgetToken_FlowsToAction()
     {
         // Verify that the CancellationToken passed to the action is functional.
@@ -244,9 +247,9 @@ public class RetryHelperTests
                 return Task.FromResult(true);
             },
             "test",
-            cancellationToken: TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.CancellationToken);
 
         // The token should be a real linked token, not CancellationToken.None.
-        Assert.True(capturedToken.CanBeCanceled);
+        Assert.IsTrue(capturedToken.CanBeCanceled);
     }
 }

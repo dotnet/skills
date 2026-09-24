@@ -3,9 +3,10 @@ using SkillValidator.Shared;
 
 namespace SkillValidator.Tests;
 
+[TestClass]
 public class ParseEvalConfigTests
 {
-    [Fact]
+    [TestMethod]
     public void ParsesValidEvalConfig()
     {
         var yaml = """
@@ -21,12 +22,12 @@ public class ParseEvalConfigTests
             """;
         var config = EvalSchema.ParseEvalConfig(yaml);
 
-        Assert.Single(config.Scenarios);
-        Assert.Equal("Test scenario", config.Scenarios[0].Name);
-        Assert.Equal(60, config.Scenarios[0].Timeout);
+        Assert.ContainsSingle(config.Scenarios);
+        Assert.AreEqual("Test scenario", config.Scenarios[0].Name);
+        Assert.AreEqual(60, config.Scenarios[0].Timeout);
     }
 
-    [Fact]
+    [TestMethod]
     public void AppliesDefaultTimeout()
     {
         var yaml = """
@@ -36,28 +37,28 @@ public class ParseEvalConfigTests
             """;
         var config = EvalSchema.ParseEvalConfig(yaml);
 
-        Assert.Equal(120, config.Scenarios[0].Timeout);
+        Assert.AreEqual(120, config.Scenarios[0].Timeout);
     }
 
-    [Fact]
+    [TestMethod]
     public void RejectsEmptyScenarios()
     {
         var yaml = "scenarios: []";
-        var ex = Assert.Throws<InvalidOperationException>(() => EvalSchema.ParseEvalConfig(yaml));
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(() => EvalSchema.ParseEvalConfig(yaml));
         Assert.Contains("at least one scenario", ex.Message);
     }
 
-    [Fact]
+    [TestMethod]
     public void RejectsMissingPrompt()
     {
         var yaml = """
             scenarios:
               - name: "Test"
             """;
-        Assert.Throws<InvalidOperationException>(() => EvalSchema.ParseEvalConfig(yaml));
+        Assert.ThrowsExactly<InvalidOperationException>(() => EvalSchema.ParseEvalConfig(yaml));
     }
 
-    [Fact]
+    [TestMethod]
     public void RejectsInvalidAssertionType()
     {
         var yaml = """
@@ -67,10 +68,10 @@ public class ParseEvalConfigTests
                 assertions:
                   - type: "invalid_type"
             """;
-        Assert.Throws<InvalidOperationException>(() => EvalSchema.ParseEvalConfig(yaml));
+        Assert.ThrowsExactly<InvalidOperationException>(() => EvalSchema.ParseEvalConfig(yaml));
     }
 
-    [Fact]
+    [TestMethod]
     public void ParsesFileContainsAssertion()
     {
         var yaml = """
@@ -83,10 +84,10 @@ public class ParseEvalConfigTests
                     value: "stackalloc"
             """;
         var config = EvalSchema.ParseEvalConfig(yaml);
-        Assert.Equal(AssertionType.FileContains, config.Scenarios[0].Assertions![0].Type);
+        Assert.AreEqual(AssertionType.FileContains, config.Scenarios[0].Assertions![0].Type);
     }
 
-    [Fact]
+    [TestMethod]
     public void ParsesScenarioLevelConstraints()
     {
         var yaml = """
@@ -102,13 +103,13 @@ public class ParseEvalConfigTests
             """;
         var config = EvalSchema.ParseEvalConfig(yaml);
         var s = config.Scenarios[0];
-        Assert.Equal(["bash"], s.ExpectTools);
-        Assert.Equal(["create_file"], s.RejectTools);
-        Assert.Equal(10, s.MaxTurns);
-        Assert.Equal(5000, s.MaxTokens);
+        Assert.AreSequenceEqual(["bash"], s.ExpectTools);
+        Assert.AreSequenceEqual(["create_file"], s.RejectTools);
+        Assert.AreEqual(10, s.MaxTurns);
+        Assert.AreEqual(5000, s.MaxTokens);
     }
 
-    [Fact]
+    [TestMethod]
     public void ParsesSetupCommands()
     {
         var yaml = """
@@ -123,14 +124,14 @@ public class ParseEvalConfigTests
             """;
         var config = EvalSchema.ParseEvalConfig(yaml);
         var setup = config.Scenarios[0].Setup;
-        Assert.NotNull(setup);
-        Assert.True(setup!.CopyTestFiles);
-        Assert.NotNull(setup.Commands);
-        Assert.Equal(2, setup.Commands!.Count);
-        Assert.Equal("dotnet build /bl:build.binlog", setup.Commands[0]);
+        Assert.IsNotNull(setup);
+        Assert.IsTrue(setup!.CopyTestFiles);
+        Assert.IsNotNull(setup.Commands);
+        Assert.AreEqual(2, setup.Commands!.Count);
+        Assert.AreEqual("dotnet build /bl:build.binlog", setup.Commands[0]);
     }
 
-    [Fact]
+    [TestMethod]
     public void ParsesConfigSection()
     {
         var yaml = """
@@ -143,12 +144,12 @@ public class ParseEvalConfigTests
             """;
         var config = EvalSchema.ParseEvalConfig(yaml);
 
-        Assert.Equal(1, config.MaxParallelScenarios);
-        Assert.Equal(2, config.MaxParallelRuns);
-        Assert.Single(config.Scenarios);
+        Assert.AreEqual(1, config.MaxParallelScenarios);
+        Assert.AreEqual(2, config.MaxParallelRuns);
+        Assert.ContainsSingle(config.Scenarios);
     }
 
-    [Fact]
+    [TestMethod]
     public void ConfigSectionIsOptional()
     {
         var yaml = """
@@ -158,11 +159,11 @@ public class ParseEvalConfigTests
             """;
         var config = EvalSchema.ParseEvalConfig(yaml);
 
-        Assert.Null(config.MaxParallelScenarios);
-        Assert.Null(config.MaxParallelRuns);
+        Assert.IsNull(config.MaxParallelScenarios);
+        Assert.IsNull(config.MaxParallelRuns);
     }
 
-    [Fact]
+    [TestMethod]
     public void ParsesPartialConfigSection()
     {
         var yaml = """
@@ -174,11 +175,11 @@ public class ParseEvalConfigTests
             """;
         var config = EvalSchema.ParseEvalConfig(yaml);
 
-        Assert.Equal(2, config.MaxParallelScenarios);
-        Assert.Null(config.MaxParallelRuns);
+        Assert.AreEqual(2, config.MaxParallelScenarios);
+        Assert.IsNull(config.MaxParallelRuns);
     }
 
-    [Fact]
+    [TestMethod]
     public void ParsesRunCommandAndAssertAssertion()
     {
         var yaml = """
@@ -198,20 +199,20 @@ public class ParseEvalConfigTests
             """;
         var config = EvalSchema.ParseEvalConfig(yaml);
         var assertion = config.Scenarios[0].Assertions![0];
-        Assert.Equal(AssertionType.RunCommandAndAssert, assertion.Type);
-        Assert.NotNull(assertion.CommandArgs);
+        Assert.AreEqual(AssertionType.RunCommandAndAssert, assertion.Type);
+        Assert.IsNotNull(assertion.CommandArgs);
         var cmd = assertion.CommandArgs!;
-        Assert.Equal("dotnet", cmd.CommandToRun);
-        Assert.Equal("build", cmd.CommandArguments);
-        Assert.Equal(0, cmd.ExpectedExitCode);
-        Assert.Equal("Build succeeded", cmd.ExpectedStdOutContains);
-        Assert.Equal("warning", cmd.ExpectedStdErrorContains);
-        Assert.Equal("Build \\w+", cmd.ExpectedStdOutMatches);
-        Assert.Equal("warn.*", cmd.ExpectedStdErrorMatches);
-        Assert.Equal(60, cmd.Timeout);
+        Assert.AreEqual("dotnet", cmd.CommandToRun);
+        Assert.AreEqual("build", cmd.CommandArguments);
+        Assert.AreEqual(0, cmd.ExpectedExitCode);
+        Assert.AreEqual("Build succeeded", cmd.ExpectedStdOutContains);
+        Assert.AreEqual("warning", cmd.ExpectedStdErrorContains);
+        Assert.AreEqual("Build \\w+", cmd.ExpectedStdOutMatches);
+        Assert.AreEqual("warn.*", cmd.ExpectedStdErrorMatches);
+        Assert.AreEqual(60, cmd.Timeout);
     }
 
-    [Fact]
+    [TestMethod]
     public void RejectsRunCommandAndAssertWithoutCommandToRun()
     {
         var yaml = """
@@ -222,11 +223,11 @@ public class ParseEvalConfigTests
                   - type: "run_command_and_assert"
                     expected_exit_code: 0
             """;
-        var ex = Assert.Throws<InvalidOperationException>(() => EvalSchema.ParseEvalConfig(yaml));
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(() => EvalSchema.ParseEvalConfig(yaml));
         Assert.Contains("command_to_run", ex.Message);
     }
 
-    [Fact]
+    [TestMethod]
     public void RejectsRunCommandAndAssertWithoutAnyExpectedChecks()
     {
         var yaml = """
@@ -237,12 +238,12 @@ public class ParseEvalConfigTests
                   - type: "run_command_and_assert"
                     command_to_run: "dotnet"
             """;
-        var ex = Assert.Throws<InvalidOperationException>(() => EvalSchema.ParseEvalConfig(yaml));
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(() => EvalSchema.ParseEvalConfig(yaml));
         Assert.Contains("expected_exit_code", ex.Message);
         Assert.Contains("expected_std_output_contains", ex.Message);
     }
 
-    [Fact]
+    [TestMethod]
     public void ParsesVallyAgentEvalForNativeExecution()
     {
         var yaml = """
@@ -287,41 +288,41 @@ public class ParseEvalConfigTests
 
         var config = EvalSchema.ParseEvalConfigFlexible(yaml);
 
-        Assert.NotNull(config);
-        var scenario = Assert.Single(config!.Scenarios);
-        Assert.Equal(1200, scenario.Timeout);
-        Assert.False(scenario.ExpectActivation);
-        Assert.Equal(["bash"], scenario.ExpectTools);
-        Assert.Equal(["web"], scenario.RejectTools);
-        Assert.Equal(12, scenario.MaxTurns);
-        Assert.Equal(4000, scenario.MaxTokens);
-        Assert.Equal("../../plugins/demo/skills/migrate", Assert.Single(scenario.Setup!.AdditionalRequiredSkills!));
-        Assert.Equal("helper-agent", Assert.Single(scenario.Setup.AdditionalRequiredAgents!));
-        var file = Assert.Single(scenario.Setup.Files!);
-        Assert.Equal("fixtures/project", file.Source);
-        Assert.Equal("Project", file.Path);
-        Assert.Equal("git init -q", Assert.Single(scenario.Setup.Commands!));
-        Assert.Equal(2, scenario.Assertions!.Count);
-        Assert.Equal(AssertionType.FileContains, scenario.Assertions[0].Type);
-        Assert.Equal(AssertionType.RunCommandAndAssert, scenario.Assertions[1].Type);
+        Assert.IsNotNull(config);
+        var scenario = Assert.ContainsSingle(config!.Scenarios);
+        Assert.AreEqual(1200, scenario.Timeout);
+        Assert.IsFalse(scenario.ExpectActivation);
+        Assert.AreSequenceEqual(["bash"], scenario.ExpectTools);
+        Assert.AreSequenceEqual(["web"], scenario.RejectTools);
+        Assert.AreEqual(12, scenario.MaxTurns);
+        Assert.AreEqual(4000, scenario.MaxTokens);
+        Assert.AreEqual("../../plugins/demo/skills/migrate", Assert.ContainsSingle(scenario.Setup!.AdditionalRequiredSkills!));
+        Assert.AreEqual("helper-agent", Assert.ContainsSingle(scenario.Setup.AdditionalRequiredAgents!));
+        var file = Assert.ContainsSingle(scenario.Setup.Files!);
+        Assert.AreEqual("fixtures/project", file.Source);
+        Assert.AreEqual("Project", file.Path);
+        Assert.AreEqual("git init -q", Assert.ContainsSingle(scenario.Setup.Commands!));
+        Assert.AreEqual(2, scenario.Assertions!.Count);
+        Assert.AreEqual(AssertionType.FileContains, scenario.Assertions[0].Type);
+        Assert.AreEqual(AssertionType.RunCommandAndAssert, scenario.Assertions[1].Type);
         var command = scenario.Assertions[1].CommandArgs;
-        Assert.NotNull(command);
-        Assert.Equal(300, command!.Timeout);
-        Assert.Equal("Passed!", command.ExpectedStdOutContains);
-        Assert.Equal("Passed", command.ExpectedStdOutMatches);
+        Assert.IsNotNull(command);
+        Assert.AreEqual(300, command!.Timeout);
+        Assert.AreEqual("Passed!", command.ExpectedStdOutContains);
+        Assert.AreEqual("Passed", command.ExpectedStdOutMatches);
         if (OperatingSystem.IsWindows())
         {
-            Assert.Equal("/d /s /c \"dotnet test Project\"", command.CommandArguments);
-            Assert.Null(command.ArgumentList);
+            Assert.AreEqual("/d /s /c \"dotnet test Project\"", command.CommandArguments);
+            Assert.IsNull(command.ArgumentList);
         }
         else
         {
-            Assert.Equal(["-c", "dotnet test Project"], command.ArgumentList!);
-            Assert.Null(command.CommandArguments);
+            Assert.AreSequenceEqual(["-c", "dotnet test Project"], command.ArgumentList!);
+            Assert.IsNull(command.CommandArguments);
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task VallyRunCommandPreservesNestedQuotes()
     {
         var shellCommand = OperatingSystem.IsWindows()
@@ -340,21 +341,21 @@ public class ParseEvalConfigTests
                       expected_exit_code: 0
             """;
         var config = EvalSchema.ParseEvalConfigFlexible(yaml);
-        var assertion = Assert.Single(Assert.Single(config!.Scenarios).Assertions!);
+        var assertion = Assert.ContainsSingle(Assert.ContainsSingle(config!.Scenarios).Assertions!);
         var command = assertion.CommandArgs;
-        Assert.NotNull(command);
+        Assert.IsNotNull(command);
         if (OperatingSystem.IsWindows())
-            Assert.Contains(shellCommand, command!.CommandArguments);
+            Assert.Contains(shellCommand, command!.CommandArguments!);
         else
-            Assert.Equal(shellCommand, command!.ArgumentList![1]);
+            Assert.AreEqual(shellCommand, command!.ArgumentList![1]);
 
         var workDir = Path.Combine(Path.GetTempPath(), $"nested-command-{Guid.NewGuid():N}");
         Directory.CreateDirectory(workDir);
         try
         {
-            var result = Assert.Single(await AssertionEvaluator.EvaluateAssertions(
+            var result = Assert.ContainsSingle(await AssertionEvaluator.EvaluateAssertions(
                 [assertion], "", workDir));
-            Assert.True(result.Passed, result.Message);
+            Assert.IsTrue(result.Passed, result.Message);
         }
         finally
         {
@@ -362,9 +363,9 @@ public class ParseEvalConfigTests
         }
     }
 
-    [Theory]
-    [InlineData("""powershell -NoLogo -NoProfile -Command "exit 7" """)]
-    [InlineData("""powershell -NoLogo -NoProfile -Command "throw 'must fail'" """)]
+    [TestMethod]
+    [DataRow("""powershell -NoLogo -NoProfile -Command "exit 7" """)]
+    [DataRow("""powershell -NoLogo -NoProfile -Command "throw 'must fail'" """)]
     public async Task VallyRunCommandPreservesQuotedWindowsFailures(string shellCommand)
     {
         if (!OperatingSystem.IsWindows())
@@ -382,14 +383,14 @@ public class ParseEvalConfigTests
                         {{shellCommand}}
             """;
         var config = EvalSchema.ParseEvalConfigFlexible(yaml);
-        var assertion = Assert.Single(Assert.Single(config!.Scenarios).Assertions!);
+        var assertion = Assert.ContainsSingle(Assert.ContainsSingle(config!.Scenarios).Assertions!);
         var workDir = Path.Combine(Path.GetTempPath(), $"quoted-command-{Guid.NewGuid():N}");
         Directory.CreateDirectory(workDir);
         try
         {
-            var result = Assert.Single(await AssertionEvaluator.EvaluateAssertions(
+            var result = Assert.ContainsSingle(await AssertionEvaluator.EvaluateAssertions(
                 [assertion], "", workDir));
-            Assert.False(result.Passed, result.Message);
+            Assert.IsFalse(result.Passed, result.Message);
         }
         finally
         {
@@ -397,32 +398,33 @@ public class ParseEvalConfigTests
         }
     }
 
-    [Theory]
-    [InlineData("90", 90)]
-    [InlineData("1500ms", 2)]
-    [InlineData("2m", 120)]
-    [InlineData("1h", 3600)]
+    [TestMethod]
+    [DataRow("90", 90)]
+    [DataRow("1500ms", 2)]
+    [DataRow("2m", 120)]
+    [DataRow("1h", 3600)]
     public void ParsesVallyDurations(string value, int expectedSeconds)
     {
-        Assert.Equal(expectedSeconds, EvalSchema.ParseDurationSeconds(value));
+        Assert.AreEqual(expectedSeconds, EvalSchema.ParseDurationSeconds(value));
     }
 
-    [Theory]
-    [InlineData("2147483648s")]
-    [InlineData("9223372036854775807m")]
-    [InlineData("9223372036854775807h")]
+    [TestMethod]
+    [DataRow("2147483648s")]
+    [DataRow("9223372036854775807m")]
+    [DataRow("9223372036854775807h")]
     public void RejectsVallyDurationsThatOverflowSeconds(string value)
     {
-        var error = Assert.Throws<InvalidOperationException>(
+        var error = Assert.ThrowsExactly<InvalidOperationException>(
             () => EvalSchema.ParseDurationSeconds(value));
 
         Assert.Contains("exceeds the supported maximum", error.Message);
     }
 }
 
+[TestClass]
 public class ValidateEvalConfigTests
 {
-    [Fact]
+    [TestMethod]
     public void ReturnsSuccessForValidConfig()
     {
         var yaml = """
@@ -431,16 +433,16 @@ public class ValidateEvalConfigTests
                 prompt: "Do it"
             """;
         var result = EvalSchema.ValidateEvalConfig(yaml);
-        Assert.True(result.Success);
+        Assert.IsTrue(result.Success);
     }
 
-    [Fact]
+    [TestMethod]
     public void ReturnsErrorsForInvalidConfig()
     {
         var yaml = "scenarios: \"not-an-array\"";
         var result = EvalSchema.ValidateEvalConfig(yaml);
-        Assert.False(result.Success);
-        Assert.NotNull(result.Errors);
-        Assert.True(result.Errors!.Count > 0);
+        Assert.IsFalse(result.Success);
+        Assert.IsNotNull(result.Errors);
+        Assert.IsTrue(result.Errors!.Count > 0);
     }
 }

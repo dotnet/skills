@@ -3,8 +3,11 @@ using SkillValidator.Evaluate;
 
 namespace SkillValidator.Tests;
 
+[TestClass]
 public class ResultsSchemaTests
 {
+    public TestContext TestContext { get; set; } = null!;
+
     private const string UnversionedResultsJson = """
         {
           "model": "executor",
@@ -23,7 +26,7 @@ public class ResultsSchemaTests
         }
         """;
 
-    [Fact]
+    [TestMethod]
     public void SerializedResultsIdentifyTheLegacySkillValidatorSchema()
     {
         var verdict = CreateVerdict();
@@ -39,41 +42,41 @@ public class ResultsSchemaTests
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
 
-        Assert.Equal(LegacySkillValidatorResultsSchema.Owner, root.GetProperty("schemaOwner").GetString());
-        Assert.Equal(LegacySkillValidatorResultsSchema.CurrentVersion, root.GetProperty("schemaVersion").GetInt32());
+        Assert.AreEqual(LegacySkillValidatorResultsSchema.Owner, root.GetProperty("schemaOwner").GetString());
+        Assert.AreEqual(LegacySkillValidatorResultsSchema.CurrentVersion, root.GetProperty("schemaVersion").GetInt32());
         var serializedVerdict = root.GetProperty("verdicts")[0];
-        Assert.Equal(LegacySkillValidatorResultsSchema.Owner, serializedVerdict.GetProperty("schemaOwner").GetString());
-        Assert.Equal(
+        Assert.AreEqual(LegacySkillValidatorResultsSchema.Owner, serializedVerdict.GetProperty("schemaOwner").GetString());
+        Assert.AreEqual(
             LegacySkillValidatorResultsSchema.CurrentVersion,
             serializedVerdict.GetProperty("schemaVersion").GetInt32());
     }
 
-    [Fact]
+    [TestMethod]
     public void UnversionedLegacyResultsRemainSupported()
     {
         var data = JsonSerializer.Deserialize(
             UnversionedResultsJson,
             SkillValidatorJsonContext.Default.ConsolidateData);
 
-        Assert.NotNull(data);
+        Assert.IsNotNull(data);
         LegacySkillValidatorResultsSchema.EnsureSupported(data.SchemaOwner, data.SchemaVersion);
-        var verdict = Assert.Single(data.Verdicts!);
-        Assert.Equal(LegacySkillValidatorResultsSchema.Owner, verdict.SchemaOwner);
-        Assert.Equal(LegacySkillValidatorResultsSchema.CurrentVersion, verdict.SchemaVersion);
+        var verdict = Assert.ContainsSingle(data.Verdicts!);
+        Assert.AreEqual(LegacySkillValidatorResultsSchema.Owner, verdict.SchemaOwner);
+        Assert.AreEqual(LegacySkillValidatorResultsSchema.CurrentVersion, verdict.SchemaVersion);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ConsolidationAcceptsUnversionedLegacyResults()
     {
         var paths = CreateTempPaths();
         try
         {
-            await File.WriteAllTextAsync(paths.Input, UnversionedResultsJson, TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(paths.Input, UnversionedResultsJson, TestContext.CancellationToken);
 
             var exitCode = await ConsolidateCommand.Consolidate([paths.Input], paths.Output);
 
-            Assert.Equal(0, exitCode);
-            var markdown = await File.ReadAllTextAsync(paths.Output, TestContext.Current.CancellationToken);
+            Assert.AreEqual(0, exitCode);
+            var markdown = await File.ReadAllTextAsync(paths.Output, TestContext.CancellationToken);
             Assert.Contains("Skill Validation Results", markdown);
         }
         finally
@@ -82,18 +85,18 @@ public class ResultsSchemaTests
         }
     }
 
-    [Theory]
-    [InlineData(3)]
-    [InlineData(4)]
+    [TestMethod]
+    [DataRow(3)]
+    [DataRow(4)]
     public void VallyAdapterSchemasAreRejectedByLegacyConsolidation(int schemaVersion)
     {
-        var error = Assert.Throws<InvalidDataException>(
+        var error = Assert.ThrowsExactly<InvalidDataException>(
             () => LegacySkillValidatorResultsSchema.EnsureSupported(null, schemaVersion));
 
         Assert.Contains("Vally adapter results use a separate schema", error.Message);
     }
 
-    [Fact]
+    [TestMethod]
     public void ExplicitSchemaVersionZeroIsRejected()
     {
         var json = """
@@ -110,15 +113,15 @@ public class ResultsSchemaTests
             """;
         var verdict = JsonSerializer.Deserialize(json, SkillValidatorJsonContext.Default.SkillVerdict);
 
-        Assert.NotNull(verdict);
-        var error = Assert.Throws<InvalidDataException>(
+        Assert.IsNotNull(verdict);
+        var error = Assert.ThrowsExactly<InvalidDataException>(
             () => LegacySkillValidatorResultsSchema.EnsureSupported(
                 verdict.SchemaOwner,
                 verdict.SchemaVersion));
         Assert.Contains("'0'", error.Message);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ConsolidationFailsForVallyAdapterResults()
     {
         var paths = CreateTempPaths();
@@ -127,11 +130,11 @@ public class ResultsSchemaTests
             await File.WriteAllTextAsync(
                 paths.Input,
                 """{"schemaVersion":3,"verdicts":[]}""",
-                TestContext.Current.CancellationToken);
+                TestContext.CancellationToken);
 
             var exitCode = await ConsolidateCommand.Consolidate([paths.Input], paths.Output);
 
-            Assert.Equal(1, exitCode);
+            Assert.AreEqual(1, exitCode);
         }
         finally
         {
@@ -139,7 +142,7 @@ public class ResultsSchemaTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ConsolidationFailsForNullJsonRoot()
     {
         var paths = CreateTempPaths();
@@ -148,11 +151,11 @@ public class ResultsSchemaTests
             await File.WriteAllTextAsync(
                 paths.Input,
                 "null",
-                TestContext.Current.CancellationToken);
+                TestContext.CancellationToken);
 
             var exitCode = await ConsolidateCommand.Consolidate([paths.Input], paths.Output);
 
-            Assert.Equal(1, exitCode);
+            Assert.AreEqual(1, exitCode);
         }
         finally
         {
