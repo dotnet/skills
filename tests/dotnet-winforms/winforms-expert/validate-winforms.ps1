@@ -358,7 +358,7 @@ switch ($Scenario)
         Assert-Matches $designer 'private\s+BindingSource\s+_customerViewModelBindingSource\s*;' "The BindingSource is not a designer field."
         Assert-Matches $designer '_customerViewModelBindingSource\s*=\s*new\s+BindingSource\s*\(\s*components\s*\)\s*;' "The BindingSource is not owned by the components container."
         Assert-Matches $designer '_customerViewModelBindingSource\.DataSource\s*=\s*typeof\s*\(\s*CustomerViewModel\s*\)\s*;' "The BindingSource type is not available to the designer."
-        $usesSemanticConstructor = $designer -match 'new\s+Binding\s*\(\s*"Text"\s*,\s*_customerViewModelBindingSource\s*,\s*"Name"\s*,\s*true\s*,\s*DataSourceUpdateMode\.OnPropertyChanged\s*\)'
+        $usesSemanticConstructor = $designer -match '_nameTextBox\.DataBindings\.Add\s*\(\s*new\s+Binding\s*\(\s*"Text"\s*,\s*_customerViewModelBindingSource\s*,\s*"Name"\s*,\s*true\s*,\s*DataSourceUpdateMode\.OnPropertyChanged\s*\)\s*\)'
         $bindingVariableMatch = [regex]::Match(
             $designer,
             '(?<variable>\w+)\s*=\s*new\s+Binding\s*\(\s*"Text"\s*,\s*_customerViewModelBindingSource\s*,\s*"Name"\s*\)\s*;'
