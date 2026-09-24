@@ -47,8 +47,8 @@
     plugin.json (i.e. plugins that actually drifted).
 
 .PARAMETER Write
-    Materialize the computed version into every manifest and synchronize the Claude manifest with
-    the root manifest. Without it the script is read-only.
+    Materialize the computed version into every host manifest while preserving host-specific fields.
+    Without it the script is read-only.
 
 .OUTPUTS
     A JSON array on stdout: [{ "plugin", "current", "computed", "changed" }, ...].
@@ -390,8 +390,8 @@ foreach ($name in $Plugins) {
     $pluginDir = Join-Path $pluginsRoot $name
     $manifest = Join-Path $pluginDir 'plugin.json'
     $codexManifest = Join-Path $pluginDir '.codex-plugin' 'plugin.json'
-    # Claude Code needs an inline plugin.json. The root manifest is authoritative because the two
-    # formats are identical; -Write creates or replaces the Claude copy when it is missing or stale.
+    # Claude Code needs an inline plugin.json, but host-specific fields can differ from the root
+    # manifest. Require it explicitly because the root manifest is not a safe host-specific template.
     $claudeManifest = Join-Path $pluginDir '.claude-plugin' 'plugin.json'
 
     # A shipped plugin (one with a plugin.json) must define a version base; fail loudly rather than
@@ -413,13 +413,13 @@ foreach ($name in $Plugins) {
     if (-not (Test-Path $codexManifest)) {
         throw "plugins/$name is missing .codex-plugin/plugin.json — the version must be stamped into both manifests. Add plugins/$name/.codex-plugin/plugin.json."
     }
+    if (-not (Test-Path $claudeManifest)) {
+        throw "plugins/$name is missing .claude-plugin/plugin.json — host-specific fields cannot be reconstructed safely from plugin.json. Add plugins/$name/.claude-plugin/plugin.json."
+    }
     # Read the Codex manifest too so we detect (and repair) the case where the two manifests have
     # drifted apart — e.g. a hand-edit updated one but not the other.
     $currentCodex = (Get-Content $codexManifest -Raw | ConvertFrom-Json).version
-    $rootManifestContent = [IO.File]::ReadAllText($manifest)
-    $claudeManifestContent = if (Test-Path $claudeManifest) {
-        [IO.File]::ReadAllText($claudeManifest)
-    } else { $null }
+    $currentClaude = (Get-Content $claudeManifest -Raw | ConvertFrom-Json).version
 
     # The version.json base must be major.minor (e.g. "0.1"). Validate it before either
     # computation path can stamp a malformed release.
@@ -478,18 +478,16 @@ foreach ($name in $Plugins) {
         throw "Computed version '$computed' for plugin '$name' is not a valid major.minor.patch — check plugins/$name/version.json"
     }
 
-    # The Claude manifest must be an exact copy of the root manifest. Treat a missing or stale copy
-    # as drift so both the weekly sync and /version-bump can repair older branches automatically.
+    # All host manifests share the computed version, but their other fields can be host-specific.
     $changed = ($computed -ne $current) -or ($computed -ne $currentCodex) -or
-               ($claudeManifestContent -cne $rootManifestContent)
+               ($computed -ne $currentClaude)
 
     if ($OnlyChanged -and -not $changed) { continue }
 
     if ($Write -and $changed) {
         [void](Set-ManifestVersion -Path $manifest -Version $computed)
         [void](Set-ManifestVersion -Path $codexManifest -Version $computed)
-        [void](New-Item -ItemType Directory -Path (Split-Path $claudeManifest -Parent) -Force)
-        [IO.File]::WriteAllText($claudeManifest, [IO.File]::ReadAllText($manifest))
+        [void](Set-ManifestVersion -Path $claudeManifest -Version $computed)
     }
 
     $results.Add([ordered]@{
