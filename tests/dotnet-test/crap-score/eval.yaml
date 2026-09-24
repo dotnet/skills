@@ -161,6 +161,7 @@ stimuli:
       - Extracts per-method coverage from the generated Cobertura XML
       - Computes CRAP scores using both cyclomatic complexity and code coverage for each method in OrderService
       - Provides risk categorization and actionable recommendations for the riskiest methods
+      - Discloses any temporary source, dependency, or tooling changes made to generate coverage
 
   - name: Recompute complexity instead of trusting a stale source comment
     prompt: What is the CRAP score for ApplySurcharges in InvoiceEngine.cs? Coverage is already in

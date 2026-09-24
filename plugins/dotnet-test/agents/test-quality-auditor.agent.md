@@ -6,7 +6,7 @@ description: >-
   health checks across a project/workspace. For a focused request, invoke only
   the matching specialist skill; reserve the combined audit pipeline for broad
   requests. Supports .NET and common non-.NET test frameworks. DO NOT USE to
-  write, generate, or fix tests; use code-testing-generator instead.
+  write, generate, or fix tests; use the public code-testing-agent skill instead.
 user-invokable: true
 disable-model-invocation: false
 handoffs:
@@ -40,7 +40,7 @@ broad health check:
 | Project-wide coverage, plateaus, or risk hotspots | `coverage-analysis` for .NET; native tooling otherwise |
 | CRAP or coverage-and-complexity risk for one named method, class, or file | `crap-score` |
 | Tags, traits, or test-type distribution | `test-tagging` |
-| Generate or repair tests | `code-testing-generator` |
+| Generate or repair tests | `code-testing-agent`; it uses its direct workflow for focused work and delegates broad work to `code-testing-generator` |
 
 For a focused request, invoke the matching skill once and stop. A request to
 generate tests is not an audit; leave this agent dormant.
