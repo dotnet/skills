@@ -306,6 +306,40 @@ test("a retry that returns no record for the scenario is unresolved", () => {
   assert.match(summary.attempts[0].reason, /returned 0 record/);
 });
 
+test("a re-entered retry never reuses stale results from an older attempt", () => {
+  const paths = workspace(resultsWith([timedOutScenario("flaky")]));
+  const staleRun = join(
+    paths.retryResultsDir,
+    "1-code-testing-generator",
+    "attempt-stale",
+    "20260101-000000",
+  );
+  mkdirSync(staleRun, { recursive: true });
+  writeFileSync(
+    join(staleRun, "results.json"),
+    JSON.stringify({
+      verdicts: [
+        {
+          skillName: "code-testing-generator",
+          scenarios: [scenario("flaky")],
+        },
+      ],
+    }),
+  );
+  const run = (_validator, args) => {
+    const resultsDir = args[args.indexOf("--results-dir") + 1];
+    mkdirSync(join(resultsDir, "20260102-000000"), { recursive: true });
+  };
+
+  const summary = retryAgentTimeouts(baseConfig(paths, run));
+
+  assert.equal(summary.recoveredScenarioCount, 0);
+  assert.equal(summary.unresolvedScenarioCount, 1);
+  assert.match(summary.attempts[0].reason, /produced no results\.json/);
+  const merged = JSON.parse(readFileSync(paths.resultsFile, "utf8"));
+  assert.equal(merged.verdicts[0].scenarios[0].timedOut, true);
+});
+
 test("more timed-out scenarios than the bound is treated as systemic and skipped", () => {
   const paths = workspace(
     resultsWith([

@@ -928,13 +928,19 @@ function recordsForComparisonSlot(records, stimulusName, trialIndex) {
   );
 }
 
-function trialIndexSetForStimulus(records, stimulusName) {
-  return new Set(
-    (records ?? [])
-      .filter((record) => record != null && stimulusOf(record) === stimulusName)
-      .map(recordTrialIndex)
-      .filter((trialIndex) => Number.isInteger(trialIndex) && trialIndex >= 0),
-  );
+function trialIndexEvidenceForStimulus(records, stimulusName) {
+  const indices = new Set();
+  let invalidCount = 0;
+  for (const record of records ?? []) {
+    if (record == null || stimulusOf(record) !== stimulusName) continue;
+    const trialIndex = recordTrialIndex(record);
+    if (!Number.isInteger(trialIndex) || trialIndex < 0) {
+      invalidCount++;
+    } else {
+      indices.add(trialIndex);
+    }
+  }
+  return { indices, invalidCount };
 }
 
 function sameIntegerSet(left, right) {
@@ -951,15 +957,19 @@ function targetedSlotIdentityErrors(report, baselineRecords, skilledRecords) {
         .map((trial) => trial?.trialIndex)
         .filter((trialIndex) => Number.isInteger(trialIndex) && trialIndex >= 0),
     );
-    const baselineIndices = trialIndexSetForStimulus(
+    const baselineEvidence = trialIndexEvidenceForStimulus(
       baselineRecords,
       stimulusName,
     );
-    const skilledIndices = trialIndexSetForStimulus(
+    const skilledEvidence = trialIndexEvidenceForStimulus(
       skilledRecords,
       stimulusName,
     );
+    const baselineIndices = baselineEvidence.indices;
+    const skilledIndices = skilledEvidence.indices;
     if (
+      baselineEvidence.invalidCount > 0 ||
+      skilledEvidence.invalidCount > 0 ||
       !sameIntegerSet(comparisonIndices, baselineIndices) ||
       !sameIntegerSet(comparisonIndices, skilledIndices)
     ) {
@@ -969,9 +979,10 @@ function targetedSlotIdentityErrors(report, baselineRecords, skilledRecords) {
         kind: "permanent",
         code: "targeted_slot_trial_identity_mismatch",
         message:
-          `Comparison/executor trial-index sets differ for "${stimulusName}": ` +
+          `Comparison/executor trial identity mismatch for "${stimulusName}": ` +
           `comparison=${values(comparisonIndices)}, ` +
-          `baseline=${values(baselineIndices)}, skilled=${values(skilledIndices)}`,
+          `baseline=${values(baselineIndices)} (${baselineEvidence.invalidCount} invalid), ` +
+          `skilled=${values(skilledIndices)} (${skilledEvidence.invalidCount} invalid)`,
       });
     }
   }
@@ -1123,6 +1134,21 @@ function recoverComparisonSlot(slot, config) {
   }
   if (trials[0].errored) {
     return { ok: false, error: classifyComparisonError(trials[0].evidence) };
+  }
+  const validWinner = new Set(["treatment", "baseline", "tie"]).has(
+    trials[0].winner,
+  );
+  if (!validWinner && !Number.isFinite(trials[0].score)) {
+    return {
+      ok: false,
+      error: {
+        phase: "comparison_judge",
+        kind: "permanent",
+        code: "targeted_retry_result_invalid",
+        message:
+          "Targeted comparison retry returned a trial without a valid winner or numeric score",
+      },
+    };
   }
   return { ok: true, trial: trials[0] };
 }

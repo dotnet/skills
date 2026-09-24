@@ -266,7 +266,9 @@ overfitting assessment. The adapter derives the completion and activation gates
 from scenarios again instead of trusting legacy aggregate flags.
 
 Retry runs first write outside `RESULTS_DIR`, so a workflow `SIGTERM` cannot
-leave a retry `results.json` where recursive discovery can count it. After a
+leave a retry `results.json` where recursive discovery can count it. Each retry
+uses a unique attempt directory, so a re-entered recovery process cannot accept
+an older attempt's result when the current attempt produced none. After a
 retry process finishes, its `sessions.db`, logs, and raw result (renamed
 `retry-results.json`) are copied under `_agent-timeout-retry/` in the main
 evaluation artifact. Workflow result counting, consolidation, summaries, and

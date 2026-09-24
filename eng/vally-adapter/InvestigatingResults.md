@@ -337,8 +337,10 @@ and `recoveredFrom`. Anything unexpected — no trajectory for either arm
 (`targeted_slot_trajectory_missing`), duplicate trajectories
 (`targeted_slot_trajectory_ambiguous`), incorrect variant pairing
 (`targeted_slot_variant_mismatch`), executor/comparison trial-index set drift
+or executor records without a parseable shard-key trial index
 (`targeted_slot_trial_identity_mismatch`), a retry that returns the wrong number of trials
-(`targeted_retry_result_ambiguous`), a failed invocation
+(`targeted_retry_result_ambiguous`), a retry trial with no valid winner or
+numeric score (`targeted_retry_result_invalid`), a failed invocation
 (`targeted_retry_invocation_failed`), or a repeat timeout — leaves the slot
 errored and the eval measurement-invalid. `targeted_slot_trajectory_missing`
 and `targeted_slot_trajectory_ambiguous` are separate codes on purpose: the
@@ -391,7 +393,8 @@ regression.
 
 Retry runs first write outside `RESULTS_DIR`. This means a workflow `SIGTERM`
 cannot leave a retry `results.json` where a recursive collector could mistake it
-for an authoritative result. After a retry process finishes, its `sessions.db`,
+for an authoritative result. Each invocation uses a unique attempt directory,
+so re-entry cannot read stale evidence from an older retry. After a retry process finishes, its `sessions.db`,
 logs, and raw result (renamed `retry-results.json`) are copied under
 `_agent-timeout-retry/` in the uploaded artifact. Recursive result discovery also
 excludes that subtree as defense in depth. The single adapted

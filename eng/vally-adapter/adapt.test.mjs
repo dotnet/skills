@@ -1663,6 +1663,29 @@ test("a targeted retry report with extra evidence is rejected", () => {
   );
 });
 
+test("a targeted retry trial without judgment fields is rejected", () => {
+  const primary = strandSlot(
+    reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0.4]),
+    5,
+    0,
+  );
+
+  const recovered = withTargetedRecovery(primary, () => ({
+    stimuli: [
+      {
+        stimulusName: "Scenario 6",
+        trials: [{ trialIndex: 0, errored: false }],
+      },
+    ],
+  }));
+
+  assert.equal(recovered.summary.erroredCount, 1);
+  assert.equal(
+    recovered.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1).code,
+    "targeted_retry_result_invalid",
+  );
+});
+
 test("targeted recovery never re-judges a permanent judge failure", () => {
   const primary = strandSlot(reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0.4]), 5, 0, {
     phase: "comparison_judge",
@@ -1746,7 +1769,7 @@ test("a missing executor trial fails the comparison identity check", () => {
     assert.equal(failure.code, "targeted_slot_trial_identity_mismatch");
     assert.match(
       failure.message,
-      /comparison=\[0, 1, 2\], baseline=\[0, 1\], skilled=\[0, 1, 2\]/,
+      /comparison=\[0, 1, 2\], baseline=\[0, 1\] \(0 invalid\), skilled=\[0, 1, 2\] \(0 invalid\)/,
     );
   } finally {
     rmSync(workDir, { recursive: true, force: true });
@@ -1845,6 +1868,7 @@ test("executor and comparison trial-index set mismatch fails closed", () => {
       ),
     };
   });
+
   let calls = 0;
 
   const result = withTargetedRecovery(
@@ -1863,8 +1887,33 @@ test("executor and comparison trial-index set mismatch fails closed", () => {
   assert.equal(failure.code, "targeted_slot_trial_identity_mismatch");
   assert.match(
     failure.message,
-    /comparison=\[0, 1, 2\], baseline=\[1, 2, 3\], skilled=\[0, 1, 2\]/,
+    /comparison=\[0, 1, 2\], baseline=\[1, 2, 3\] \(0 invalid\), skilled=\[0, 1, 2\] \(0 invalid\)/,
   );
+});
+
+test("executor records with invalid trial identities fail closed", () => {
+  const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 1);
+  const baselineRecords = executorRecordsFor(primary, "baseline");
+  baselineRecords.push({
+    ...baselineRecords[0],
+    shardKey: "malformed-without-trial-index",
+  });
+  let calls = 0;
+
+  const result = withTargetedRecovery(
+    primary,
+    () => {
+      calls++;
+      return null;
+    },
+    { baselineRecords },
+  );
+
+  assert.equal(calls, 0);
+  const failure =
+    result.retrySummary.targetedRecovery.unresolvedSlots[0].attemptHistory.at(-1);
+  assert.equal(failure.code, "targeted_slot_trial_identity_mismatch");
+  assert.match(failure.message, /baseline=\[0, 1, 2\] \(1 invalid\)/);
 });
 
 test("targeted recovery uses the canonical stimulus identity", () => {

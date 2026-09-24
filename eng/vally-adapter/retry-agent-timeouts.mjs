@@ -28,6 +28,7 @@
 import {
   cpSync,
   existsSync,
+  mkdtempSync,
   mkdirSync,
   readFileSync,
   readdirSync,
@@ -361,7 +362,11 @@ function quarantineRetryResults(root) {
 }
 
 function archiveRetryEvidence(attemptRoot, retryResultsFile, retryResultsContent, target, index, config) {
-  const auditRoot = join(config.retryAuditDir, `${index + 1}-${target.skillName}`);
+  const auditRoot = join(
+    config.retryAuditDir,
+    `${index + 1}-${target.skillName}`,
+    basename(attemptRoot),
+  );
   mkdirSync(dirname(auditRoot), { recursive: true });
   cpSync(attemptRoot, auditRoot, {
     recursive: true,
@@ -383,8 +388,12 @@ function archiveRetryEvidence(attemptRoot, retryResultsFile, retryResultsContent
  * not produce clean evidence for exactly that scenario.
  */
 function retryScenario(target, index, config) {
-  const attemptRoot = join(config.retryResultsDir, `${index + 1}-${target.skillName}`);
-  mkdirSync(attemptRoot, { recursive: true });
+  const attemptParent = join(
+    config.retryResultsDir,
+    `${index + 1}-${target.skillName}`,
+  );
+  mkdirSync(attemptParent, { recursive: true });
+  const attemptRoot = mkdtempSync(join(attemptParent, "attempt-"));
 
   const args = [
     "evaluate",
