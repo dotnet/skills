@@ -40,11 +40,6 @@ internal static class SecureFileSystem
     private const int UnixDirectoryMode = 0x4000;
     private const int UnixRegularFileMode = 0x8000;
     private const int UnixSymbolicLinkMode = 0xA000;
-    private const int PalUnixWriteOnly = 0x0001;
-    private const int PalUnixCloseOnExec = 0x0010;
-    private const int PalUnixCreate = 0x0020;
-    private const int PalUnixExclusive = 0x0040;
-    private const int PalUnixNoFollow = 0x0200;
 
     internal static async Task WriteAllTextAsync(
         string allowedRoot,
@@ -1083,11 +1078,12 @@ internal static class SecureFileSystem
         beforeLeafOpen?.Invoke();
 
         var temporaryName = $".skill-validator-{Guid.NewGuid():N}.tmp";
-        var temporaryPath = Path.Combine(root, temporaryName);
         try
         {
             await WriteUnixTemporaryFileAsync(
-                temporaryPath,
+                rootHandle,
+                temporaryName,
+                Path.Combine(root, temporaryName),
                 content,
                 cancellationToken);
 
@@ -1102,7 +1098,14 @@ internal static class SecureFileSystem
         }
         finally
         {
-            try { File.Delete(temporaryPath); } catch (FileNotFoundException) { }
+            if (UnlinkAtUnix(
+                rootHandle.DangerousGetHandle().ToInt32(),
+                temporaryName,
+                0) != 0
+                && Marshal.GetLastPInvokeError() != UnixMissingPath)
+            {
+                ThrowUnixPathError(Path.Combine(root, temporaryName));
+            }
         }
     }
 
@@ -1124,11 +1127,12 @@ internal static class SecureFileSystem
         beforeLeafOpen?.Invoke();
 
         var temporaryName = $".skill-validator-{Guid.NewGuid():N}.tmp";
-        var temporaryPath = Path.Combine(root, temporaryName);
         try
         {
             await WriteUnixTemporaryFileAsync(
-                temporaryPath,
+                rootHandle,
+                temporaryName,
+                Path.Combine(root, temporaryName),
                 content,
                 cancellationToken);
 
@@ -1150,27 +1154,35 @@ internal static class SecureFileSystem
         }
         finally
         {
-            try { File.Delete(temporaryPath); } catch (FileNotFoundException) { }
+            if (UnlinkAtUnix(
+                rootHandle.DangerousGetHandle().ToInt32(),
+                temporaryName,
+                0) != 0
+                && Marshal.GetLastPInvokeError() != UnixMissingPath)
+            {
+                ThrowUnixPathError(Path.Combine(root, temporaryName));
+            }
         }
     }
 
     private static async Task WriteUnixTemporaryFileAsync(
-        string temporaryPath,
+        SafeFileHandle root,
+        string temporaryName,
+        string displayPath,
         string content,
         CancellationToken cancellationToken)
     {
-        var rawHandle = OpenSystemNative(
-            temporaryPath,
-            PalUnixWriteOnly
-                | PalUnixCloseOnExec
-                | PalUnixCreate
-                | PalUnixExclusive
-                | PalUnixNoFollow,
+        var rawHandle = OpenAtUnixCreate(
+            root.DangerousGetHandle().ToInt32(),
+            temporaryName,
+            UnixWriteOnly | UnixCloseOnExec | UnixCreate | UnixExclusive | UnixNoFollow,
             Convert.ToInt32("600", 8));
-        if (rawHandle == -1)
-            ThrowUnixPathError(temporaryPath);
+        if (rawHandle < 0)
+            ThrowUnixPathError(displayPath);
 
-        using var temporaryHandle = new SafeFileHandle(rawHandle, ownsHandle: true);
+        using var temporaryHandle = new SafeFileHandle(new IntPtr(rawHandle), ownsHandle: true);
+        if (!GetUnixStatus(temporaryHandle, displayPath).IsFile)
+            throw new UnauthorizedAccessException($"Temporary path is not a regular file: {displayPath}");
         await WriteTextAsync(
             temporaryHandle,
             content,
@@ -1474,6 +1486,8 @@ internal static class SecureFileSystem
     }
 
     private static int UnixAppend => OperatingSystem.IsMacOS() ? 0x0008 : 0x0400;
+    private static int UnixCreate => OperatingSystem.IsMacOS() ? 0x0200 : 0x0040;
+    private static int UnixExclusive => OperatingSystem.IsMacOS() ? 0x0800 : 0x0080;
     private static int UnixNonBlock => OperatingSystem.IsMacOS() ? 0x0004 : 0x0800;
     private static int UnixNoFollow => OperatingSystem.IsMacOS() ? 0x0100 : 0x20000;
     private static int UnixCloseOnExec => OperatingSystem.IsMacOS() ? 0x1000000 : 0x80000;
@@ -1561,9 +1575,6 @@ internal static class SecureFileSystem
         ref WindowsFileDispositionInformation fileInformation,
         uint bufferSize);
 
-    [DllImport("System.Native", EntryPoint = "SystemNative_Open", SetLastError = true)]
-    private static extern nint OpenSystemNative(string path, int flags, int mode);
-
     [DllImport("System.Native", EntryPoint = "SystemNative_FStat", SetLastError = true)]
     private static extern int GetFileStatusSystemNative(
         nint fileDescriptor,
@@ -1579,6 +1590,13 @@ internal static class SecureFileSystem
 
     [DllImport("libc", EntryPoint = "openat", SetLastError = true)]
     private static extern int OpenAtUnix(int directoryFd, string path, int flags);
+
+    [DllImport("libc", EntryPoint = "openat", SetLastError = true)]
+    private static extern int OpenAtUnixCreate(
+        int directoryFd,
+        string path,
+        int flags,
+        int mode);
 
     [DllImport("libc", EntryPoint = "mkdirat", SetLastError = true)]
     private static extern int MakeDirectoryAtUnix(int directoryFd, string path, int mode);

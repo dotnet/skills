@@ -1849,6 +1849,56 @@ public class LocalSessionFsHandlerTests
     }
 
     [TestMethod]
+    public async Task SecureUnixWriteCannotBeRedirectedAfterRootIsOpened()
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-root-race-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var movedWorkDir = Path.Combine(root, "moved-work");
+        var parent = Path.Combine(workDir, "parent");
+        var outsideDir = Path.Combine(root, "outside");
+        Directory.CreateDirectory(parent);
+        Directory.CreateDirectory(outsideDir);
+        var replacementCreated = false;
+
+        try
+        {
+            await SecureFileSystem.WriteAllTextAsync(
+                workDir,
+                Path.Combine(parent, "safe.txt"),
+                "safe",
+                append: false,
+                TestContext.CancellationToken,
+                beforeLeafOpen: () =>
+                {
+                    Directory.Move(workDir, movedWorkDir);
+                    Directory.CreateSymbolicLink(workDir, outsideDir);
+                    replacementCreated = true;
+                });
+
+            Assert.IsTrue(replacementCreated);
+            Assert.AreEqual(
+                "safe",
+                await File.ReadAllTextAsync(
+                    Path.Combine(movedWorkDir, "parent", "safe.txt"),
+                    TestContext.CancellationToken));
+            Assert.IsFalse(File.Exists(Path.Combine(outsideDir, "safe.txt")));
+            Assert.IsEmpty(Directory.GetFiles(outsideDir));
+        }
+        finally
+        {
+            if (Directory.Exists(workDir)
+                && (File.GetAttributes(workDir) & FileAttributes.ReparsePoint) != 0)
+            {
+                Directory.Delete(workDir);
+            }
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [TestMethod]
     public async Task SecureReadRejectsLeafSymlinkReplacement()
     {
         var root = Path.Combine(Path.GetTempPath(), $"session-fs-read-leaf-race-{Guid.NewGuid():N}");
