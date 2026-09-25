@@ -1,7 +1,8 @@
 name: code-testing-agent
 description: Evaluates the dotnet-test/code-testing-agent skill
 type: capability
-executionShard: generation
+tags:
+  executionShard: generation
 # `defaults:` replaces the deprecated `config:` — vally's loader throws on a
 # spec declaring both (eng/eval-quality check 10).
 #
@@ -9,8 +10,13 @@ executionShard: generation
 # added four baseline-equivalent ties. Seven broad tasks below exercise the
 # skill's distinctive Research -> Plan -> Implement contract across Python,
 # TypeScript, Go, SDK/classic .NET, existing-suite extension, and a sparse
-# workspace. Two focused tasks protect proportional routing in different
-# ecosystems. Nine independent stimuli improve power without changing runs.
+# workspace. Three focused tasks protect proportional routing in different
+# ecosystems. Ten independent stimuli improve power without changing runs.
+#
+# Broad-scope state under the git testagent directory is intentionally
+# non-stageable and is verified by dedicated run-command graders. These
+# scenarios therefore use trajectory and rubric oracles rather than incomplete
+# golden patches that cannot represent the required state.
 defaults:
   timeout: 60m
   runs: 2
@@ -31,6 +37,33 @@ stimuli:
       max-length truncation, and invalid max_length. Keep this project-wide:
       tests should live under fixtures/python-multimodule/tests/ and pass with
       pytest from fixtures/python-multimodule/.
+    tags:
+      capability: project-wide-python-orchestration
+      risk: incomplete-boundary-coverage
+      journey: orchestrate-multimodule-pytest
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "code-testing-agent-pytest-multimodule"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The project-wide pytest suite covers the three public modules under fixtures/python-multimodule/ — analytics.stats (mean, percentile), analytics.window.RateWindow, and textkit.slug.slugify. The non-stageable git testagent state directory contains research.md, plan.md, and status.md; tests live under tests/ and assert concrete values (means, percentiles, averages, peaks, slugs), not existence-only.
+
+              | Requirement | Evidence |
+              | --- | --- |
+              | mean average + empty-input error | tests/test_stats.py::test_mean_returns_average, ::test_mean_empty_raises |
+              | percentile empty + range errors | tests/test_stats.py::test_percentile_empty_raises, ::test_percentile_out_of_range_raises |
+              | percentile 0/100 boundaries | tests/test_stats.py::test_percentile_zero_and_hundred_boundaries |
+              | percentile ordering | tests/test_stats.py::test_percentile_orders_unsorted_input |
+              | RateWindow constructor validation | tests/test_window.py::test_constructor_rejects_non_positive_capacity |
+              | empty-window errors | tests/test_window.py::test_average_on_empty_window_raises, ::test_peak_on_empty_window_raises |
+              | capacity rollover + average/peak | tests/test_window.py::test_capacity_rollover_drops_oldest, ::test_average_and_peak_before_rollover |
+              | slug separator collapse/trim | tests/test_slug.py::test_collapses_and_trims_separators |
+              | max-length truncation | tests/test_slug.py::test_truncates_and_strips_trailing_hyphen |
+              | invalid max_length | tests/test_slug.py::test_invalid_max_length_raises |
     environment:
       files:
         - src: fixtures/python-multimodule
@@ -40,7 +73,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: sh -c "cd fixtures/python-multimodule && python3 -m pip install --quiet pytest && python3 -m pytest -q"
+          command: sh -c "cd fixtures/python-multimodule && python3 -m pytest -q"
           expected_exit_code: 0
           timeout: 5m
       - type: run-command
@@ -80,6 +113,33 @@ stimuli:
       validation, negative subtotal, below-threshold behavior, exact-threshold
       activation, and a concrete discounted value. Do not modernize the project
       or dependencies.
+    tags:
+      capability: legacy-mstest-orchestration
+      risk: legacy-stack-drift
+      journey: orchestrate-classic-dotnet-tests
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "code-testing-agent-mstest-classic-library"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The classic net472 suite preserves its existing stack: the non-stageable git testagent state directory records that MSTest 3.5.2 has Assert.ThrowsException<T> but neither Assert.Throws<T> nor Assert.ThrowsExactly<T>, so exception paths use Assert.ThrowsException<T>. DiscountServiceTests.cs and packages.config stay byte-for-byte unchanged; each new file is registered once via <Compile Include>. DiscountServiceBoundaryTests.cs and TieredDiscountPolicyTests.cs use concrete expected values.
+
+              | Requirement | Evidence |
+              | --- | --- |
+              | DiscountService 0/100 boundaries | DiscountServiceBoundaryTests::Apply_HundredPercent_ReturnsZero (with preserved Apply_ZeroPercent_ReturnsOriginalPrice) |
+              | DiscountService invalid percentages | ::Apply_NegativePercentage_Throws, ::Apply_PercentageAboveHundred_Throws |
+              | DiscountService missing product | ::Apply_MissingProduct_Throws |
+              | DiscountService exact discounted value | ::Apply_QuarterOff_ReturnsExactDiscountedValue |
+              | TieredDiscountPolicy constructor validation | TieredDiscountPolicyTests::Constructor_NonPositiveThreshold_Throws, ::Constructor_RateOutOfRange_Throws |
+              | negative subtotal | ::Apply_NegativeSubtotal_Throws |
+              | below-threshold behavior | ::Apply_BelowThreshold_ReturnsSubtotalUnchanged |
+              | exact-threshold activation | ::Apply_ExactThreshold_AppliesDiscount |
+              | concrete discounted value | ::Apply_AboveThreshold_ReturnsExactDiscountedValue |
+              | registered once, classic stack preserved | Discounts.Tests.csproj Compile items; DiscountServiceTests.cs and packages.config unchanged |
     environment:
       files:
         - src: fixtures/classic-mstest
@@ -179,6 +239,30 @@ stimuli:
       collaborator and verify the second collaborator is not called when the
       first fails. Keep tests inside the corresponding Go packages and make
       `go test ./...` pass from fixtures/go-multipackage/.
+    tags:
+      capability: multi-package-go-orchestration
+      risk: collaborator-short-circuit-gaps
+      journey: orchestrate-go-module-tests
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "code-testing-agent-go-multipackage"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The project-wide Go suite covers module example.com/checkout across money.Discount, shipping.Rate, and order.Total. The non-stageable git testagent state directory contains research.md, plan.md, and status.md for the package inventory and table-driven plan; leaf packages get table-driven boundary tests, and order uses hand-written fakes that record call counts to prove the subtotal - discount + shipping composition and that the second collaborator is skipped when the first fails.
+
+              | Requirement | Evidence |
+              | --- | --- |
+              | discount 0/100 boundaries | money/discount_test.go::TestDiscount (zero percent, hundred percent cases) |
+              | invalid subtotal and percent | money/discount_test.go::TestDiscount (negative subtotal, percent below 0, percent above 100 cases) |
+              | shipping bracket equality | shipping/rate_test.go::TestRate (weight equal to UpToGrams cases) |
+              | shipping overflow + negative + empty | shipping/rate_test.go::TestRate (overflow, negative weight, empty brackets cases) |
+              | exact order composition | order/total_test.go::TestTotalComposesSubtotalDiscountAndShipping |
+              | error propagation each collaborator | order/total_test.go::TestTotalShortCircuitsWhenDiscountFails, ::TestTotalPropagatesShippingError |
+              | short-circuit second collaborator | order/total_test.go::TestTotalShortCircuitsWhenDiscountFails, ::TestTotalRejectsNegativeSubtotalWithoutCallingCollaborators |
     environment:
       files:
         - src: fixtures/go-multipackage
@@ -226,6 +310,41 @@ stimuli:
       for the module that currently has source code but no tests yet. The
       project is configured with pythonpath = ["."] and testpaths = ["tests"]
       in pyproject.toml, so the generated tests should pass with pytest.
+    tags:
+      capability: sparse-workspace-integrity
+      risk: unintended-source-restoration
+      journey: test-authoritative-workspace
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "code-testing-agent-workspace-integrity"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Research (non-stageable git testagent state): the workspace under fixtures/python-workspace-integrity/ is sparse on purpose. synthstr/stringy.py is marked "synthetic test target" and the former metricsd core/ and io/ trees were removed deliberately. I treated the code on disk as authoritative and did NOT run git checkout/restore, revert, or otherwise reconstruct any deleted source — the module that has code but no tests is synthstr.stringy.
+
+              Plan (non-stageable git testagent state): one test module, tests/test_stringy.py, covering every synthstr.stringy behavior with concrete expected values. The state directory also contains status.md.
+
+              Implementation summary (tests/test_stringy.py):
+              - reverse("abc")=="cba" and reverse("") == "".
+              - is_palindrome true for "A man, a plan, a canal: Panama" (case/punctuation-insensitive) and false for "hello".
+              - word_count("a b  c")==3 and whitespace-only == 0.
+              - truncate unchanged within limit; ellipsis truncation "hello world"/8 -> "hello w\u2026" (length 8); limit 0 -> ""; negative limit raises ValueError.
+
+              Verification: `cd fixtures/python-workspace-integrity && python3 -m pytest -q` passes (7 tests). core/aggregator.py and io/reader.py remain absent; the sparse workspace was accepted, not "repaired".
+
+              | Requirement | Evidence |
+              | --- | --- |
+              | reverse behavior | tests/test_stringy.py::test_reverse_reverses_characters |
+              | is_palindrome punctuation/case | tests/test_stringy.py::test_is_palindrome_ignores_case_and_punctuation |
+              | word_count | tests/test_stringy.py::test_word_count_counts_whitespace_delimited_words |
+              | truncate within limit | tests/test_stringy.py::test_truncate_returns_input_when_within_limit |
+              | ellipsis truncation | tests/test_stringy.py::test_truncate_adds_ellipsis_when_shortened |
+              | zero-limit empty | tests/test_stringy.py::test_truncate_zero_limit_is_empty |
+              | negative-limit ValueError | tests/test_stringy.py::test_truncate_negative_limit_raises |
+              | did not restore deleted source | no git restore/checkout; core/ and io/ remain absent |
     environment:
       files:
         - src: fixtures/python-workspace-integrity
@@ -235,7 +354,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: sh -c "cd fixtures/python-workspace-integrity && python3 -m pip install --quiet pytest && python3 -m pytest -q"
+          command: sh -c "cd fixtures/python-workspace-integrity && python3 -m pytest -q"
           expected_exit_code: 0
           timeout: 5m
       - type: run-command
@@ -282,6 +401,10 @@ stimuli:
       Keep all tests under fixtures/typescript-vitest-cart/tests/. Use injected
       collaborators and Vitest fakes; do not use real network or filesystem I/O.
       Both `npm test` and the configured coverage thresholds must pass.
+    tags:
+      capability: layered-typescript-orchestration
+      risk: async-composition-gaps
+      journey: orchestrate-vitest-cart-tests
     environment:
       files:
         - src: fixtures/typescript-vitest-cart
@@ -323,6 +446,10 @@ stimuli:
       exact overdraft-limit equality, one cent inside and outside the limit,
       positive balances, a negative overdraft limit, and unknown entry kinds.
       Use exact Decimal assertions and make pytest pass from the fixture root.
+    tags:
+      capability: existing-pytest-suite-expansion
+      risk: boundary-regression-gaps
+      journey: extend-ledger-test-suite
     environment:
       files:
         - src: fixtures/failing-suite
@@ -366,6 +493,10 @@ stimuli:
       exact decimal totals, the instant before reservation, the exact start,
       the instant before expiry, and the exact expiry boundary. Keep production
       code unchanged and make the existing test project pass.
+    tags:
+      capability: sdk-xunit-orchestration
+      risk: temporal-boundary-gaps
+      journey: orchestrate-sdk-dotnet-tests
     environment:
       files:
         - src: fixtures/sdk-xunit-orders
@@ -378,6 +509,7 @@ stimuli:
         config:
           command: sh -c "dotnet test fixtures/sdk-xunit-orders/tests/Orders.Tests.csproj"
           expected_exit_code: 0
+          stdout_matches: '(?i)\btotal:\s*[1-9][0-9]*\b'
           timeout: 10m
       - type: run-command
         config:
@@ -407,6 +539,10 @@ stimuli:
       IsActive immediately before reservation, exactly at reservation, immediately
       before expiry, and exactly at expiry. Do not add OrderPricing tests or change
       production code. Run the existing test project.
+    tags:
+      capability: focused-xunit-generation
+      risk: scope-overexpansion
+      journey: add-reservation-tests
     environment:
       files:
         - src: fixtures/sdk-xunit-orders
@@ -419,6 +555,7 @@ stimuli:
         config:
           command: sh -c "dotnet test fixtures/sdk-xunit-orders/tests/Orders.Tests.csproj"
           expected_exit_code: 0
+          stdout_matches: '(?i)\btotal:\s*[1-9][0-9]*\b'
           timeout: 10m
       - type: run-command
         config:
@@ -460,6 +597,35 @@ stimuli:
       function under fixtures/python-single-function/tests/. Nothing else in the
       package needs tests. The suite should pass with pytest from
       fixtures/python-single-function/.
+    tags:
+      capability: proportional-single-function-testing
+      risk: workflow-overhead
+      journey: test-one-python-function
+    golden_patch:
+      path: ./references/single-function-proportional.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "code-testing-agent-single-function-proportional"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a single helper (textkit.slugify.slugify), so I kept the work proportional: one test module under fixtures/python-single-function/tests/, no .testagent research/plan/status artifacts, and nothing added for the rest of the package.
+
+              tests/test_slugify.py asserts concrete slugs: separator runs collapse and trim to "hello-world"; with no limit the full slug is returned; an over-length cut backs up to the last hyphen ("hello"); with no hyphen to back up to the hard cut is kept; max_length of 0 or -1 raises ValueError; and an all-separator input slugs to "".
+
+              Verification: `cd fixtures/python-single-function && python3 -m pytest -q` passes (7 tests, 0 failures).
+
+              | Requirement | Evidence |
+              | --- | --- |
+              | separator collapse/trim | tests/test_slugify.py::test_collapses_and_trims_separators |
+              | no-limit full slug | tests/test_slugify.py::test_no_limit_returns_full_slug |
+              | truncate at hyphen boundary | tests/test_slugify.py::test_truncates_at_hyphen_boundary |
+              | truncate without boundary | tests/test_slugify.py::test_truncates_without_hyphen_boundary |
+              | non-positive max_length error | tests/test_slugify.py::test_non_positive_max_length_raises |
+              | empty output | tests/test_slugify.py::test_empty_output_for_all_separators |
     environment:
       files:
         - src: fixtures/python-single-function
@@ -469,7 +635,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: sh -c "cd fixtures/python-single-function && python3 -m pip install --quiet pytest && python3 -m pytest -q"
+          command: sh -c "cd fixtures/python-single-function && python3 -m pytest -q"
           expected_exit_code: 0
           timeout: 5m
       - type: run-command
@@ -492,3 +658,69 @@ stimuli:
       - Asserted concrete expected slugs rather than only checking that a string came back
       - Kept work proportional to one function with no intermediate state files, multi-phase ceremony, or unrelated tests
       - Produced a Requirement coverage section with each behavior traced to a named test
+
+  - name: Extend one function's tests without starting the broad workflow
+    tags:
+      capability: focused-suite-extension
+      risk: broad-workflow-run-for-focused-request
+      journey: add-missing-boundary-tests
+    prompt: |
+      The pytest suite under fixtures/partial-suite/ is green, but is_overdrawn
+      in ledger/balance.py is only exercised for balances that sit inside the
+      overdraft limit.
+
+      Add coverage for the two cases it is missing: a balance sitting exactly on
+      the overdraft limit, and a positive balance with no limit supplied. Limit
+      the work to is_overdrawn — leave every other test and all of ledger/ alone.
+    golden_patch:
+      path: ./references/extend-partial-suite.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "code-testing-agent-extend-partial-suite"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a focused request — one function, two named cases — so I added the two tests directly and did not stand up the research/plan pipeline for it.
+
+              `is_overdrawn` compares the balance against the negated limit, so the boundary is exclusive: a balance of exactly -100 against a 100 limit is not overdrawn, and a positive balance with the default limit of 0 is not either.
+
+              | Requirement | Evidence |
+              | --- | --- |
+              | Balance exactly on the overdraft limit is not overdrawn | `test_is_overdrawn_at_exact_limit_is_false` |
+              | Positive balance with no limit is not overdrawn | `test_is_overdrawn_positive_balance_is_false` |
+              | Existing tests and `ledger/` untouched | `python3 -m pytest -q` reports 6 passed |
+    environment:
+      files:
+        - src: fixtures/partial-suite
+          dest: fixtures/partial-suite
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "cd fixtures/partial-suite && python3 -m pytest -q"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: sh -c "test $(grep -c '^def test_' fixtures/partial-suite/tests/test_balance.py) -ge 6"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "grep -q 'return balance < -overdraft_limit' fixtures/partial-suite/ledger/balance.py"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test ! -e "$state_dir/research.md" && test ! -L "$state_dir/research.md" && test ! -e "$state_dir/plan.md" && test ! -L "$state_dir/plan.md" && test ! -e "$state_dir/status.md" && test ! -L "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Classified the request as focused and did not create research, plan, or status artifacts in the git testagent state directory
+      - Added a test for a balance sitting exactly on the overdraft limit, expecting it is not overdrawn
+      - Added a test for a positive balance with no explicit limit, expecting it is not overdrawn
+      - Left the four existing tests and every file under ledger/ unmodified
+      - Ran the suite to a clean exit and reported the added coverage against the two requested cases
