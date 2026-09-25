@@ -40,6 +40,13 @@ Plugin support is component-specific:
 | [dotnet-blazor](plugins/dotnet-blazor/) | Skills for Blazor development: component authoring, interactivity, and web application patterns. |
 | [dotnet11](plugins/dotnet11/) | Skills for new .NET 11 APIs and language features. |
 
+## Agentic Workflows
+
+Reusable GitHub Agentic Workflows are published under
+[`agentic-workflows/`](agentic-workflows/). Install the complete collection with
+`gh aw add-wizard dotnet/skills/agentic-workflows@main`, or install an individual
+package using the command in its README.
+
 ## Installation
 
 ### 🚀 Plugins - Copilot CLI / Claude Code

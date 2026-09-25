@@ -1,0 +1,11 @@
+manifest-version: "1"
+min-version: v0.89.15
+name: Build Failure Analysis
+description: Analyzes failed .NET SDK Azure Pipelines builds from their existing binary logs.
+license: MIT
+includes:
+  - workflows/build-failure-analysis-pat-pool.md
+  - workflows/build-failure-analysis-fetch.md
+  - workflows/build-failure-analysis-shared.md
+  - workflows/build-failure-analysis.md
+  - agents/build-failure-analyst.agent.md
