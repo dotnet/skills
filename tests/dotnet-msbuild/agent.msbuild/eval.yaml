@@ -2,15 +2,25 @@ name: agent.msbuild
 description: Evaluates the dotnet-msbuild/msbuild custom agent
 type: capability
 defaults:
-  timeout: 3m
+  timeout: 6m
 stimuli:
   - name: Triage a build failure and route to appropriate analysis
     prompt: My .NET project is failing to build. I see errors when I run dotnet build but I'm not sure how to diagnose the
       issue. Can you help me figure out what's going wrong and how to fix it?
+    tags:
+      capability: build-failure-triage
+      risk: high
+      journey: diagnose-build-failure
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./MyApp.csproj
+          dest: MyApp.csproj
+        - src: ./Program.cs
+          dest: Program.cs
+        - src: ./NuGet.Config
+          dest: NuGet.Config
+        - src: ./empty-feed
+          dest: empty-feed
       skills:
         - ../../plugins/dotnet-msbuild/skills/binlog-failure-analysis
         - ../../plugins/dotnet-msbuild/skills/binlog-generation
@@ -24,12 +34,16 @@ stimuli:
       - Attempted to build the project to reproduce the error
       - Suggested removing or replacing the invalid PackageReference with a valid package
   - name: Advise on project file organization
-    prompt: I have a solution with several .NET projects and I'm wondering if there's a better way to organize my shared
-      build properties. Right now I'm duplicating settings like TargetFramework and common PackageReferences across all
+    prompt: I have a repository with several .NET projects and I'm wondering if there's a better way to organize my shared
+      build properties. Right now I'm duplicating settings like TargetFramework, Nullable, and ImplicitUsings across all
       my project files.
+    tags:
+      capability: directory-build-props-recommendation
+      risk: medium
+      journey: build-infra-organization
     environment:
       files:
-        - src: .
+        - src: ./healthy
           dest: .
     graders:
       - type: output-matches
@@ -42,13 +56,17 @@ stimuli:
       - Suggested moving duplicated PackageReferences or common properties into the shared file
   - name: Route a slow build to performance analysis
     prompt: |
-      This small .NET project builds successfully, but our real solution has
+      These small .NET projects build successfully, but our real solution has
       become much slower over time. Explain how you would establish a baseline,
       capture the right evidence, and identify the expensive targets, tasks, and
       analyzers before changing the build.
+    tags:
+      capability: build-performance-routing
+      risk: high
+      journey: diagnose-build-performance
     environment:
       files:
-        - src: .
+        - src: ./healthy
           dest: .
       skills:
         - ../../plugins/dotnet-msbuild/skills/binlog-generation
@@ -71,12 +89,16 @@ stimuli:
       - Avoided guessing at optimizations before gathering evidence
   - name: Diagnose broken incremental build behavior
     prompt: |
-      Rebuilding without source changes still reruns an expensive custom target.
-      Show me how to diagnose why the target is not being skipped and what input,
-      output, or timestamp mistakes to look for in the project files.
+      Rebuilding AppOne/AppOne.csproj without source changes still reruns its
+      GenerateBuildMarker target. Show me how to diagnose why the target is not
+      being skipped and what input, output, or timestamp mistakes to look for.
+    tags:
+      capability: incremental-build-routing
+      risk: high
+      journey: diagnose-incremental-build
     environment:
       files:
-        - src: .
+        - src: ./healthy
           dest: .
       skills:
         - ../../plugins/dotnet-msbuild/skills/incremental-build
@@ -94,12 +116,16 @@ stimuli:
       - Proposed a repeatable no-change rebuild to verify the fix
   - name: Review a project file for maintainability risks
     prompt: |
-      Review this .NET project file for build configuration maintainability and correctness
-      risks. Prioritize concrete issues, explain their impact, and suggest
-      targeted improvements without redesigning unrelated application code.
+      Review AppOne/AppOne.csproj for build configuration maintainability
+      and correctness risks. Prioritize concrete issues, explain their impact,
+      and suggest targeted improvements without redesigning unrelated application code.
+    tags:
+      capability: project-file-review
+      risk: medium
+      journey: review-build-configuration
     environment:
       files:
-        - src: .
+        - src: ./healthy
           dest: .
       skills:
         - ../../plugins/dotnet-msbuild/skills/msbuild-antipatterns
@@ -108,9 +134,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: (PackageReference|TargetFramework|property|item|condition|target)
-      - type: output-matches
-        config:
-          pattern: (risk|issue|recommend|improv)
       - type: prompt
     rubric:
       - Grounded findings in the supplied project file rather than giving generic MSBuild advice
