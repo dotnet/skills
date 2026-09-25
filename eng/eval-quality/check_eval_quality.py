@@ -431,7 +431,7 @@ def path_within(root: str, relative: str) -> str:
         raise ValueError(f"path must be relative: {relative!r}")
 
     root_real = os.path.realpath(root)
-    candidate = os.path.normpath(os.path.join(root, relative))
+    candidate = os.path.normpath(os.path.join(root, normalized))
     candidate_real = os.path.realpath(candidate)
     try:
         contained = os.path.commonpath((root_real, candidate_real)) == root_real
@@ -447,7 +447,7 @@ def repository_source_path(base: str, relative: str) -> str:
     normalized = relative.replace("\\", "/")
     if (PurePosixPath(normalized).is_absolute() or PureWindowsPath(relative).is_absolute()):
         raise ValueError(f"path must be relative: {relative!r}")
-    candidate = os.path.normpath(os.path.join(base, relative))
+    candidate = os.path.normpath(os.path.join(base, normalized))
     repository_root = os.path.realpath(os.getcwd())
     repository_relative = os.path.relpath(candidate, repository_root)
     return path_within(repository_root, repository_relative)

@@ -975,6 +975,13 @@ def traversing_fixture_source(d):
     replace_fixture_mapping(d, "src: fixtures/sample", "src: ../../../../outside.cs")
 
 
+def windows_traversing_fixture_source(d):
+    replace_fixture_mapping(
+        d,
+        "src: fixtures/sample",
+        r"src: ..\..\..\..\outside.cs")
+
+
 def sibling_fixture_source(d):
     sibling = os.path.join(d, "tests", "demo", "shared", "sample")
     os.makedirs(sibling, exist_ok=True)
@@ -990,6 +997,10 @@ def absolute_fixture_destination(d):
 
 def traversing_fixture_destination(d):
     replace_fixture_mapping(d, "dest: sample", "dest: ../escaped")
+
+
+def windows_traversing_fixture_destination(d):
+    replace_fixture_mapping(d, "dest: sample", r"dest: ..\escaped")
 
 
 def escaping_fixture_symlink(d):
@@ -1759,12 +1770,16 @@ results = [
          expect_fail=True),
     case("traversing fixture source cannot escape repository", traversing_fixture_source,
          expect_fail=True),
+    case("Windows-style fixture source cannot escape repository",
+         windows_traversing_fixture_source, expect_fail=True),
     case("sibling fixture source inside repository is allowed", sibling_fixture_source,
          expect_fail=False),
     case("absolute fixture destination cannot escape workspace",
          absolute_fixture_destination, expect_fail=True),
     case("traversing fixture destination cannot escape workspace",
          traversing_fixture_destination, expect_fail=True),
+    case("Windows-style fixture destination cannot escape workspace",
+         windows_traversing_fixture_destination, expect_fail=True),
     case("fixture symlink cannot escape suite", escaping_fixture_symlink,
          expect_fail=True),
     case("Cobertura line-rate contradicts its <lines>", bad_cobertura, expect_fail=True),
