@@ -1,6 +1,6 @@
 ---
 name: directory-build-organization
-description: "DO NOT INVOKE to introduce shared build files for one project with no repeated policy. Existing Directory.Build.props/targets diagnosis remains in scope even for one project when the defect is import timing or file placement. USE FOR: Directory.Build.props/targets/rsp, Directory.Packages.props, central package management, duplicated settings, multi-level hierarchy and overrides, and TargetFramework conditions that must move later. Exclude non-MSBuild systems and legacy-to-SDK migration."
+description: "Own MSBuild shared-file organization and import placement. USE FOR: discovering or diagnosing existing Directory.Build.props/.targets/.rsp or Directory.Packages.props; parent Directory.Build hierarchy and import order; props-versus-targets relocation, including TargetFramework timing; centralizing repeated multi-project policy and package versions. These diagnosis and placement tasks remain in scope even for one project. NEVER INVOKE for a lone project with no existing Directory.Build.* and no repeated shared policy. DO NOT USE for concrete property value, condition, default, composition, or normalization fixes that stay in the current files (use property-patterns), legacy-to-SDK migration, or non-MSBuild systems."
 license: MIT
 ---
 

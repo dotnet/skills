@@ -1,6 +1,6 @@
 ---
 name: property-patterns
-description: "Use only when the requested fix changes an MSBuild property value, condition, default, composition, or normalization. USE FOR: last-write-wins, import-order effects on property values, multi-level property overrides, OS/TFM conditions, append versus overwrite, blocked overrides, empty-property conditions, portable paths, and reviews centered on those property defects. Choosing which shared build file should contain a target or customization with no property defect is organization work. Exclude item operations, target structure, reviews with no concrete property defect, and non-MSBuild work."
+description: "Own concrete MSBuild property value changes that stay within the current project and shared-file layout. USE FOR: conditions, defaults, append versus overwrite, last-write-wins values, OS/TFM checks, portable paths, normalization, and reviews centered on those property defects. NEVER INVOKE when the task is to discover or diagnose a Directory.Build.* hierarchy or import, move configuration between .props and .targets, or choose which shared file owns a target or customization; use directory-build-organization. Exclude item operations, target structure, broad reviews without a concrete property defect, and non-MSBuild work."
 license: MIT
 ---
 

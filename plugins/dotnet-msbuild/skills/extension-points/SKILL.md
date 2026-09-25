@@ -1,6 +1,6 @@
 ---
 name: extension-points
-description: "IMPORT AND HOOK DISCOVERY ONLY: guide MSBuild extension points such as CustomBefore/CustomAfter, ordered wildcard imports, control properties, NuGet build/buildTransitive layout, package/file naming, packed paths, and import guards. INVOKE for broken, missing, or replaced imports and hooks. NEVER INVOKE when the prompt says imports and hook placement already work and asks only for target Inputs/Outputs, incremental skipping, or FileWrites clean tracking; use incremental-build or target-authoring. Exclude props-versus-targets placement, broad review, and non-MSBuild systems."
+description: "Own MSBuild import and hook discovery. USE FOR: CustomBefore/CustomAfter hooks, ordered wildcard and NuGet auto-imports, control properties, build/buildTransitive packed layout, package ID and file-name matching, per-TFM forwarders, import guards, and tracing whether an asset is imported. Also use for broken, missing, or replaced hooks and designing extensibility. DO NOT USE merely to report an already-proven unsafe or unguarded package import in a broad audit; use msbuild-antipatterns. NEVER INVOKE when imports and hook placement already work and the request is only target Inputs/Outputs, incremental skipping, or FileWrites clean tracking; use incremental-build or target-authoring. Exclude props-versus-targets placement and non-MSBuild systems."
 license: MIT
 ---
 

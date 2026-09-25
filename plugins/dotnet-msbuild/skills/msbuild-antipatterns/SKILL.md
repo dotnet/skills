@@ -1,6 +1,6 @@
 ---
 name: msbuild-antipatterns
-description: "Detect and fix discrete MSBuild authoring anti-patterns in project and build files. USE FOR: audit, lint, cleanup, code review, or correctness checks of .csproj/.vbproj/.fsproj/.props/.targets/.proj and Directory.Build files; F# compile ordering; cross-platform path separators; and safe NuGet build/buildTransitive imports. Each finding has a symptom and concrete BAD→GOOD fix. NEVER USE when the primary goal is to convert, migrate, modernize, or rewrite a legacy project to SDK style, even if this is the only available skill or legacy smells are mentioned; use msbuild-modernization when available. DO NOT USE for non-MSBuild build systems such as npm, Maven, or CMake."
+description: "Detect and fix discrete MSBuild authoring anti-patterns. USE FOR: broad audit, lint, cleanup, code review, or correctness checks of project and build files; adding or ordering .fs files in an .fsproj; adding .fsi F# signature files before implementation files; FS0039 caused by F# compile order; cross-platform path separators; and unsafe or unguarded package imports in a broad audit or when a concrete unsafe import is identified. DO NOT USE to discover NuGet auto-import behavior, trace build/buildTransitive packed layouts, match package IDs to file names, or resolve forwarders; use extension-points. NEVER USE for full legacy-to-SDK conversion (use msbuild-modernization) or non-MSBuild systems."
 license: MIT
 ---
 
