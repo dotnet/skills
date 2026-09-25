@@ -5,6 +5,7 @@ using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using SkillValidator.Shared;
 using GitHub.Copilot;
 
@@ -344,6 +345,13 @@ public static class AgentRunner
             return false;
         }
 
+        if (MayCreateFileSystemLink(request.FullCommandText))
+        {
+            var labelSuffix = runLabel is not null ? $" ({runLabel})" : "";
+            log?.Invoke($"      ❌ Denying shell command that can create a filesystem link{labelSuffix}");
+            return false;
+        }
+
         if (request.PossiblePaths is not { Length: > 0 }
             && !IsAllowedPathlessShellCommand(request.FullCommandText))
         {
@@ -360,6 +368,34 @@ public static class AgentRunner
             runLabel,
             pluginRoot,
             additionalAllowedDirs);
+    }
+
+    internal static bool MayCreateFileSystemLink(string? command)
+    {
+        if (string.IsNullOrWhiteSpace(command))
+            return false;
+
+        return Regex.IsMatch(
+            command,
+            """
+            (?ix)
+            (?:
+                \bln\s+(?:-[^\s;|&]*s[^\s;|&]*|--symbolic)\b
+              | \bmklink(?:\.exe)?\b
+              | \bjunction(?:\.exe)?\b
+              | \bfsutil(?:\.exe)?\s+(?:hardlink|reparsepoint)\b
+              | \bnew-item\b[^\r\n;|&]*-(?:itemtype|type)\s+(?:symboliclink|junction|hardlink)\b
+              | \b(?:directory|file)\.createsymboliclink\s*\(
+              | \b(?:file\.)?createhardlink\s*\(
+              | \bfs(?:\.promises)?\.symlinksync\s*\(
+              | \bfs(?:\.promises)?\.symlink\s*\(
+              | \.(?:symlinksync|symlink)\s*\(
+              | \bos\.symlink\s*\(
+              | \.symlink_to\s*\(
+            )
+            """,
+            RegexOptions.CultureInvariant,
+            TimeSpan.FromSeconds(1));
     }
 
     public static bool CheckPermission(string? reqPath, string workDir, string? skillPath, Action<string>? log, string? runLabel = null, string? pluginRoot = null, IReadOnlyList<string>? additionalAllowedDirs = null)

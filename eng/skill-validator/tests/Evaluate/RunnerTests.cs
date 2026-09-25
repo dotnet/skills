@@ -573,6 +573,36 @@ public class BuildSessionConfigTests
     }
 
     [TestMethod]
+    [DataRow("ln -s /etc/passwd linked")]
+    [DataRow("cmd /c mklink linked C:\\outside")]
+    [DataRow("junction.exe linked C:\\outside")]
+    [DataRow("fsutil hardlink create linked C:\\outside\\secret")]
+    [DataRow("New-Item linked -ItemType SymbolicLink -Target C:\\outside")]
+    [DataRow("python -c \"import os; os.symlink('/outside', 'linked')\"")]
+    [DataRow("node -e \"require('fs').symlinkSync('/outside', 'linked')\"")]
+    [DataRow("dotnet script -e \"Directory.CreateSymbolicLink(\\\"linked\\\", \\\"/outside\\\")\"")]
+    public async Task DeniesShellCommandsThatCanCreateFilesystemLinks(string command)
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var allowedPath = Path.Combine(workDir, "linked");
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = command,
+            HasWriteFileRedirection = false,
+            Intention = "Create a link",
+            PossiblePaths = [allowedPath],
+            PossibleUrls = [],
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.AreEqual("reject", decision.Kind);
+    }
+
+    [TestMethod]
     [DataRow("dotnet test")]
     [DataRow("  DOTNET   TEST  ")]
     [DataRow("git status --short")]
