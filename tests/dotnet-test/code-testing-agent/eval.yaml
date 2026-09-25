@@ -442,14 +442,14 @@ stimuli:
           timeout: 1m
       - type: output-matches
         config:
-          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+          pattern: (?:(?:^|\r?\n)[ \t]*\|[ \t]*Requirement[ \t]*\|[ \t]*Evidence[ \t]*\|[ \t]*(?=\r?\n|$)|(?:^|\r?\n)[ \t]*(?:#{1,6}[ \t]*)?(?:\*\*)?Requirement[ \t]+coverage(?:\*\*)?[ \t]*:?[ \t]*(?=\r?\n|$))
       - type: prompt
     rubric:
       - Added passing xUnit v3 tests only for ReservationWindow
       - Covered invalid zero/negative durations and all four before/at boundary instants
       - Left OrderPricing and production code unchanged
       - Kept the one-class request proportional without broad planning artifacts or unrelated tests
-      - Mapped each requested state to an exact test name and cited the successful targeted command
+      - Mapped each requested state to an exact test name and cited the successful targeted command under a Requirement coverage label
 
   # Keep one cheap focused task so the eval protects scope sizing without
   # letting baseline-equivalent focused work dominate the broad comparison.
@@ -484,11 +484,11 @@ stimuli:
           timeout: 1m
       - type: output-matches
         config:
-          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+          pattern: (?:(?:^|\r?\n)[ \t]*\|[ \t]*Requirement[ \t]*\|[ \t]*Evidence[ \t]*\|[ \t]*(?=\r?\n|$)|(?:^|\r?\n)[ \t]*(?:#{1,6}[ \t]*)?(?:\*\*)?Requirement[ \t]+coverage(?:\*\*)?[ \t]*:?[ \t]*(?=\r?\n|$))
       - type: prompt
     rubric:
       - Generated passing pytest tests for slugify under fixtures/python-single-function/tests/
       - Covered separator collapsing/trimming, both truncation paths, non-positive max_length, and empty output
       - Asserted concrete expected slugs rather than only checking that a string came back
       - Kept work proportional to one function with no intermediate state files, multi-phase ceremony, or unrelated tests
-      - Produced the Requirement | Evidence table with each behavior traced to a named test
+      - Produced a Requirement coverage section with each behavior traced to a named test

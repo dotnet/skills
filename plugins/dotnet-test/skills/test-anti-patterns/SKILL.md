@@ -78,12 +78,23 @@ Identify the language and framework. Try the matching
 
 ### Step 2: Gather the test code
 
-Read every test file in the resolved scope. Use extension discovery markers
-when loaded; otherwise use the built-in markers in this skill (attributes such
-as `[TestClass]`/`[Fact]`/`[Test]`, `test_*.py`, `*.test.*`, `*_test.go`,
-`*_spec.rb`, `#[test]`, `*.Tests.ps1`, `TEST(...)`, and `TEST_CASE(...)`).
+Inventory the resolved scope before reading bodies. For one file or class, read
+that scope directly. For a project or suite, discover test files once, batch
+independent reads where tools allow, and stop when every discovered test and
+class-level fixture has a ledger disposition.
 
-If production code is available, read it too -- this is critical for detecting tests that are coupled to implementation details rather than behavior.
+Use extension discovery markers when loaded; otherwise use the built-in markers
+in this skill (attributes such as `[TestClass]`/`[Fact]`/`[Test]`,
+`test_*.py`, `*.test.*`, `*_test.go`, `*_spec.rb`, `#[test]`,
+`*.Tests.ps1`, `TEST(...)`, and `TEST_CASE(...)`).
+
+Do not read unrelated production code wholesale. Open the production symbol
+corresponding to every suspicious test needed to decide whether an assertion,
+transformation, identity contract, or adjacent gap is real. For a systematic
+facade/surface-area pattern, every invoked member is relevant: read the entire
+small production type or inspect each invoked member, then map each weak test to
+the exact observable result, exception, state change, or boundary it should
+verify.
 
 ### Step 3: Scan for anti-patterns
 
@@ -93,14 +104,17 @@ cross-framework examples in the catalog.
 
 Before drafting the report, make a private completeness ledger with one row for
 every test method and every class-level fixture/resource. Record its oracle (or
-absence), exception handling, state/time dependencies, and disposition. Do not
-publish until every row is either attached to a finding or explicitly judged
-sound. In particular:
+absence), exception handling, state/time dependencies, concurrency safety,
+precondition/assertion order, and disposition. Do not publish until every row is
+either attached to a finding or explicitly judged sound. In particular:
 
 - `actual != oldValue` is a weak mutation oracle: it accepts every wrong new
   value. Require the exact expected value.
 - Include unused or undisposed class-level resources; method-only scans miss
   fields such as a static `HttpClient`.
+- Treat an unsynchronized static/global collection as both order-coupled and
+  parallel-unsafe when tests read and write it. Also flag dereferencing a
+  nullable result before the assertion intended to prove it non-null.
 - When production code is supplied, note obvious untested contracts adjacent to
   a finding, but do not perform exhaustive branch or mutation analysis. Route
   that broader question to `test-gap-analysis`.

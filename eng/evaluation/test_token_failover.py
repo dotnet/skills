@@ -8,6 +8,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -2207,6 +2208,22 @@ esac
         adapter_path = "eng/vally-adapter/**"
         for event in ("pull_request", "push"):
             self.assertEqual(triggers[event]["paths"].count(adapter_path), 1)
+            self.assertEqual(
+                triggers[event]["paths"].count(".github/scripts/**"),
+                1,
+            )
+            self.assertEqual(
+                triggers[event]["paths"].count(
+                    "eng/evaluation/test_pr_triage_retry.py"
+                ),
+                1,
+            )
+            self.assertEqual(
+                triggers[event]["paths"].count(
+                    ".github/workflows/pr-triage.yml"
+                ),
+                1,
+            )
 
         job = workflow["jobs"]["vally-adapter"]
         self.assertEqual(job["runs-on"], "ubuntu-latest")
@@ -2214,6 +2231,17 @@ esac
         self.assertIn(
             "node --test eng/vally-adapter/*.test.mjs",
             steps["Run adapter fault-injection and report tests"]["run"],
+        )
+        tools_job = workflow["jobs"]["token-failover"]
+        tools_steps = {step.get("name"): step for step in tools_job["steps"]}
+        workflow_tests = tools_steps["Test evaluation workflow behavior"]["run"]
+        self.assertIn(
+            "python eng/evaluation/test_token_failover.py",
+            workflow_tests,
+        )
+        self.assertIn(
+            "python eng/evaluation/test_pr_triage_retry.py",
+            workflow_tests,
         )
 
     def test_manual_eval_data_publish_is_explicit_and_main_only(self) -> None:
@@ -2287,6 +2315,147 @@ esac
         )
         self.assertNotIn("re-post `/evaluate`", script)
 
+    def test_pr_session_publish_failure_is_visible_but_non_authoritative(self) -> None:
+        workflow = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        publish_job = workflow["jobs"]["publish-session-data"]
+        self.assertEqual(
+            publish_job["continue-on-error"],
+            "${{ needs.gate.outputs.pr_number != '' }}",
+        )
+        self.assertEqual(
+            publish_job["outputs"]["status"],
+            "${{ steps.publish-status.outputs.status }}",
+        )
+
+        steps = {step.get("name"): step for step in publish_job["steps"]}
+        auth_script = steps["Validate session data credentials"]["run"]
+        self.assertIn('push --dry-run "$REPO_URL"', auth_script)
+        self.assertIn(
+            "Session telemetry token is missing",
+            auth_script,
+        )
+        self.assertIn(
+            "Session data token is missing",
+            auth_script,
+        )
+        self.assertIn(
+            "Session telemetry write preflight failed",
+            auth_script,
+        )
+        self.assertIn(
+            "Session data write preflight failed",
+            auth_script,
+        )
+        self.assertIn(
+            "credential-bearing remote output was suppressed",
+            auth_script,
+        )
+        self.assertIn("commit --allow-empty", auth_script)
+        self.assertIn("session-data-auth-preflight-", auth_script)
+        self.assertLess(
+            [step.get("name") for step in publish_job["steps"]].index(
+                "Validate session data credentials"
+            ),
+            [step.get("name") for step in publish_job["steps"]].index(
+                "Checkout repository"
+            ),
+        )
+        self.assertEqual(
+            steps["Validate session data credentials"]["continue-on-error"],
+            "${{ needs.gate.outputs.pr_number != '' }}",
+        )
+        self.assertEqual(
+            steps["Checkout repository"]["if"],
+            "steps.auth.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Download evaluation artifacts"]["if"],
+            "steps.auth.outcome == 'success' && steps.checkout.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Determine source metadata"]["if"],
+            "steps.download.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Build session manifest"]["if"],
+            "steps.meta.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Clone existing session data branch"]["if"],
+            "steps.build.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Merge and purge old sessions"]["if"],
+            "steps.clone.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Push to dashboard-session-data branch (dotnet/skills-data)"]["if"],
+            "steps.merge.outcome == 'success'",
+        )
+        for name in (
+            "Checkout repository",
+            "Inspect downloaded artifacts",
+            "Determine source metadata",
+            "Build session manifest",
+            "Clone existing session data branch",
+            "Merge and purge old sessions",
+            "Push to dashboard-session-data branch (dotnet/skills-data)",
+        ):
+            self.assertEqual(
+                steps[name]["continue-on-error"],
+                "${{ needs.gate.outputs.pr_number != '' }}",
+            )
+        self.assertIn(
+            "needs.gate.outputs.pr_number != '' || needs.evaluate.result != 'success'",
+            steps["Download evaluation artifacts"]["continue-on-error"],
+        )
+        status_step = steps["Report session publishing outcome"]
+        self.assertEqual(status_step["if"], "always()")
+        self.assertEqual(
+            status_step["env"]["DOWNLOAD_OUTCOME"],
+            "${{ steps.download.outcome }}",
+        )
+        status_script = status_step["run"]
+        self.assertIn('"$OUTCOMES" == *skipped*', status_script)
+        self.assertIn('echo "status=degraded"', status_script)
+        self.assertIn(
+            "Evaluation results remain authoritative",
+            status_script,
+        )
+        self.assertIn('echo "status=failed"', status_script)
+        self.assertIn(
+            "Scheduled/main publishing is strict",
+            status_script,
+        )
+
+        comment_steps = {
+            step.get("name"): step
+            for step in workflow["jobs"]["comment-on-pr"]["steps"]
+        }
+        comment_script = comment_steps["Consolidate and post results"]["run"]
+        self.assertIn(
+            'needs.publish-session-data.outputs.status',
+            comment_script,
+        )
+        self.assertIn(
+            "Session replay telemetry was not published",
+            comment_script,
+        )
+        self.assertIn(
+            'needs.publish-session-data.outputs.status }}" == "published"',
+            comment_script,
+        )
+        self.assertNotIn(
+            'needs.publish-session-data.result }}" == "success"',
+            comment_script,
+        )
+
+        deploy_condition = workflow["jobs"]["deploy-dashboard"]["if"]
+        self.assertNotIn(
+            "needs.publish-session-data.outputs.status",
+            deploy_condition,
+        )
+
     def test_partial_matrix_results_never_become_complete_verdicts(self) -> None:
         caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
         comment_job = caller["jobs"]["comment-on-pr"]
@@ -2305,6 +2474,11 @@ esac
             "${{ needs.discover.outputs.entries }}",
         )
         script = consolidate_step["run"]
+        self.assertIn(
+            "find all-results/ -name results.json "
+            "-not -path '*/_agent-timeout-retry/*'",
+            script,
+        )
         incomplete_guard = (
             'if [[ "$MATRIX_MANIFEST_VALID" != "true" '
             '|| "$EVALUATE_RESULT" != "success" '
@@ -2479,6 +2653,10 @@ esac
             'if [ "$PRODUCED" -ne "$EXPECTED_EVAL_COUNT" ]',
             run_script,
         )
+        self.assertIn(
+            '-not -path "$RESULTS_DIR/_agent-timeout-retry/*"',
+            run_script,
+        )
         self.assertIn("s.expectedManifestProvided === true", run_script)
         self.assertIn("s.unexpectedEvalCount === 0", run_script)
         self.assertIn("s.measurementInvalidEvalCount === 0", run_script)
@@ -2494,6 +2672,22 @@ esac
         )
         self.assertIn(
             '--max-groups 3',
+            run_script,
+        )
+        self.assertIn(
+            '--max-attempts-per-group 2',
+            run_script,
+        )
+        self.assertIn(
+            "timeout --signal=TERM --kill-after=30s 45m",
+            run_script,
+        )
+        self.assertIn(
+            '--max-scenario-seconds 1200',
+            run_script,
+        )
+        self.assertIn(
+            '--scenario-overhead-seconds 300',
             run_script,
         )
         self.assertIn(
@@ -2539,13 +2733,47 @@ esac
         self.assertIn(f"node {trusted_adapter}gen-experiment.mjs", run_script)
         self.assertIn(f"node {trusted_adapter}adapt.mjs", run_script)
         self.assertIn(f"node {trusted_adapter}adapt-agent-results.mjs", run_script)
+        self.assertEqual(run_script.count("adapt-agent-results.mjs"), 1)
         self.assertIn('"$RUNNER_TEMP/trusted-validator/skill-validator" evaluate', run_script)
+        self.assertIn(
+            '--retry-results-dir "$RUNNER_TEMP/agent-timeout-retry"',
+            run_script,
+        )
+        self.assertIn(
+            '--retry-audit-dir "$RESULTS_DIR/_agent-timeout-retry"',
+            run_script,
+        )
+        self.assertNotIn(
+            '--retry-results-dir "$RESULTS_DIR',
+            run_script,
+        )
+        self.assertIn("raw result is renamed retry-results.json", run_script)
+        self.assertIn("--keep-sessions", run_script)
         self.assertIn('rm -f "${AGENT_RESULTS[0]}"', run_script)
         self.assertGreater(
             run_script.index('rm -f "${AGENT_RESULTS[0]}"'),
             run_script.index(f"node {trusted_adapter}adapt-agent-results.mjs"),
         )
+        self.assertNotIn('rm -rf "$RESULTS_DIR/_agent-timeout-retry"', run_script)
+        self.assertIn(
+            '-not -path "$RESULTS_DIR/_agent-timeout-retry/*"',
+            summary_script,
+        )
         self.assertNotIn("node eng/vally-adapter/", run_script)
+
+        caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        caller_scripts = "\n".join(
+            step.get("run", "")
+            for job in caller["jobs"].values()
+            for step in job.get("steps", [])
+        )
+        self.assertGreaterEqual(
+            caller_scripts.count(
+                "Where-Object { $_.FullName -notmatch "
+                "'[\\\\/]_agent-timeout-retry[\\\\/]' }"
+            ),
+            2,
+        )
 
     def test_discovery_creates_first_class_agent_matrix_entries(self) -> None:
         caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
@@ -2579,6 +2807,21 @@ esac
         self.assertIn('if [ "$TARGET_KIND" = "agent" ]', run)
         self.assertIn("--verdict-warn-only", run)
         self.assertIn("--keep-sessions", run)
+        native_eval = '"$RUNNER_TEMP/trusted-validator/skill-validator" evaluate'
+        agent_branch = run.index('if [ "$TARGET_KIND" = "agent" ]')
+        self.assertLess(
+            run.index("set +e", agent_branch),
+            run.index(native_eval),
+        )
+        self.assertIn("AGENT_EVAL_STATUS=$?", run)
+        self.assertIn(
+            'if [ "$AGENT_EVAL_STATUS" -ne 0 ]; then',
+            run,
+        )
+        self.assertIn(
+            "attempting bounded recovery and adapting the preserved result",
+            run,
+        )
 
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -3064,6 +3307,80 @@ esac
         self.assertNotIn("Generate judge-comparison data", caller_text)
         self.assertNotIn("all-crossjudge", caller_text)
         self.assertIn('Group-Object -Property { "$($_.Json.model)|$($_.Json.judgeModel)" }', caller_text)
+
+
+class AgentTimeoutRetryQuarantineTests(unittest.TestCase):
+    """The agent timeout-retry tree must never yield a collectable results.json.
+
+    Retry aggregates are staged outside RESULTS_DIR, so TERM/KILL cannot leave
+    one in the uploaded tree. Completed sessions, logs, and a renamed raw result
+    are copied into the audit subtree, which every recursive collector excludes.
+    """
+
+    RETRY_DIR = "_agent-timeout-retry"
+
+    def _run_script(self) -> str:
+        workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        steps = workflow["jobs"]["vally-evaluate"]["steps"]
+        return next(
+            step["run"] for step in steps if step.get("name") == "Run vally evaluations"
+        )
+
+    def test_retry_results_are_staged_outside_results_dir(self) -> None:
+        script = self._run_script()
+        self.assertIn(
+            '--retry-results-dir "$RUNNER_TEMP/agent-timeout-retry"',
+            script,
+        )
+        self.assertIn(
+            f'--retry-audit-dir "$RESULTS_DIR/{self.RETRY_DIR}"',
+            script,
+        )
+        self.assertNotIn('--retry-results-dir "$RESULTS_DIR', script)
+
+    def test_retry_budget_is_wired_to_the_outer_watchdog(self) -> None:
+        script = self._run_script()
+        self.assertIn(
+            "timeout --signal=TERM --kill-after=30s 45m",
+            script,
+        )
+        self.assertIn("--max-scenarios 2", script)
+        self.assertIn("--max-scenario-seconds 1200", script)
+        self.assertIn("--scenario-overhead-seconds 300", script)
+
+    def test_recursive_collectors_exclude_the_retry_tree(self) -> None:
+        # Scan the whole workflow: the produced-result count and the per-skill
+        # summary loop live in different steps, and both walk RESULTS_DIR.
+        workflow_text = WORKFLOW.read_text(encoding="utf-8")
+        finds = [
+            line
+            for line in workflow_text.splitlines()
+            if "find " in line and "-name results.json" in line
+        ]
+        # The AGENT_RAW_DIR probe runs before the retry directory can exist.
+        scoped = [
+            line
+            for line in finds
+            if "$RESULTS_DIR" in line and f'"$RESULTS_DIR/{self.RETRY_DIR}"' not in line
+        ]
+        self.assertGreaterEqual(len(scoped), 2)
+        for line in scoped:
+            with self.subTest(line=line.strip()):
+                self.assertIn(f'-not -path "$RESULTS_DIR/{self.RETRY_DIR}/*"', line)
+
+        caller = CALLER_WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn(
+            "find all-results/ -name results.json "
+            f"-not -path '*/{self.RETRY_DIR}/*'",
+            caller,
+        )
+        self.assertEqual(
+            caller.count(
+                r"Where-Object { $_.FullName -notmatch "
+                rf"'[\\/]{self.RETRY_DIR}[\\/]' }}"
+            ),
+            2,
+        )
 
 
 if __name__ == "__main__":

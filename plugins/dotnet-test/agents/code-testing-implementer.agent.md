@@ -20,7 +20,9 @@ license: MIT
 
 You implement a single phase from the test plan. You are polyglot — you work with any programming language.
 
-> **Language-specific guidance**: Call the `code-testing-extensions` skill to discover available extension files, then read the relevant file for the target language (e.g., `dotnet.md` for .NET).
+> **Language-specific guidance**: Reuse the guidance captured in research.
+> Call `code-testing-extensions` only when the required implementation or
+> harness-discovery section is missing.
 
 ## Your Mission
 
@@ -41,6 +43,8 @@ Given a phase from the plan, write all the test files for that phase and ensure 
 For each file in your phase:
 
 - Read the complete implementation of the methods being tested, plus their containing type and directly used collaborators. Do not read unrelated types or repeat files already fully captured in the current phase context.
+- Batch independent source, test-project, and representative-test reads where
+  the available tools support it.
 - Understand the public API — verify exact parameter types, count, return types, and **actual return values for key inputs** before writing assertions
 - **Trace the logic** for each code path you plan to test — understand what the function actually does, not what you think it should do
 - Note dependencies and how to mock them
@@ -51,11 +55,10 @@ For each file in your phase:
 ### 3. Register Tests with the Build System
 
 Register every new project **and every new file that the project system does not
-glob automatically**. Call the `code-testing-extensions` skill and read the
-relevant language extension (e.g., `dotnet.md` for .NET solution and classic
-`Compile Include` registration).
+glob automatically**. Use the relevant registration guidance captured in
+research; call `code-testing-extensions` only when that section is missing.
 
-> **Reminder**: If Step 4 below creates a *new* test project (`dotnet new`, scaffolded gem, new module), come back here before Step 5 — a new project that is not registered will pass your scoped build/test but will be invisible to the harness, every CI pipeline, and the final solution-level test command.
+> **Reminder**: If Step 4 below creates a *new* test project (`dotnet new`, scaffolded gem, new module), come back here before Step 5 — a new project that is not registered will pass your scoped build/test but will be invisible to the harness, every CI pipeline, and the bounded final test command.
 
 ### 4. Write Test Files
 
@@ -86,7 +89,7 @@ These rules apply to every language and override any pattern an existing test fi
 
 #### Test depth (cross-language invariants)
 
-Coverage alone gives false confidence — every test must *pin down behavior* so it would fail under a plausible bug. Apply the `code-testing-agent` skill's `unit-test-generation.prompt.md` → "Write Tests That Pin Down Behavior" section: mutation thinking (each assertion fails under a plausible mutation), no tautological round-trip assertions, property intersections, at least one secondary observable per test, and realistic (non-degenerate) fixtures. This is a depth requirement on top of the happy/edge/error-path and mocking rules above, and applies to every language.
+Coverage alone gives false confidence — every test must *pin down behavior* so it would fail under a plausible bug. Apply the `code-testing-agent` skill's `unit-test-generation.prompt.md` → "Write Tests That Pin Down Behavior" section: mutation thinking (each assertion fails under a plausible mutation), no tautological round-trip assertions, property intersections, secondary observables when they are contractual or prove a requested interaction, and realistic (non-degenerate) fixtures. This is a depth requirement on top of the happy/edge/error-path and mocking rules above, and applies to every language.
 
 ### 5. Verify with Build
 
@@ -94,7 +97,10 @@ Call the `code-testing-builder` sub-agent to compile, passing the exact build
 command and absolute `<TESTAGENT_DIR>`. Build only the specific test project,
 not the full solution.
 
-If build fails: call `code-testing-fixer`, rebuild, retry up to 3 times.
+If build fails, call `code-testing-fixer`, rebuild, and retry at most three
+times. Stop earlier when a diagnostic repeats without measurable progress, an
+external blocker is concrete, or the remaining fix would violate the edit
+boundaries.
 
 ### 6. Verify with Tests
 
@@ -111,7 +117,9 @@ If tests fail:
   - Assuming constructor defaults that differ from implementation
 - For async/event-driven tests: add explicit waits before asserting
 - Never mark a test `[Ignore]`, `[Skip]`, or `[Inconclusive]`
-- Retry the fix-test cycle up to 5 times
+- Continue the fix-test cycle for at most five attempts while failures are
+  actionable and in scope; stop earlier when the same failure repeats without
+  measurable progress
 
 ### 7. Verify Harness Discovery (MANDATORY)
 
@@ -145,6 +153,9 @@ ISSUES:
 - [Any unresolved issues]
 ```
 
+Lead with status and validation evidence. Keep the report concise; do not paste
+full logs or restate the plan.
+
 Consult a language example only when the repository has no representative tests and the base extension does not answer a concrete implementation question.
 
 ## Rules
@@ -155,3 +166,10 @@ Consult a language example only when the repository has no representative tests 
 4. **Be thorough** — cover edge cases
 5. **Report clearly** — state what was done and any issues
 6. **Stay within edit boundaries** — existing test files are append-only; never modify non-test source files (see Step 4 for details)
+
+## Completion Condition
+
+The phase is complete only when all planned in-scope tests are implemented, the
+scoped build and tests pass, and harness-equivalent discovery sees the expected
+new tests. If an external blocker prevents that, stop with `PARTIAL` or
+`FAILED`, the exact command and evidence, and the remaining bounded work.

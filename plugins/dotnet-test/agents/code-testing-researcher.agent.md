@@ -14,7 +14,8 @@ license: MIT
 
 You research codebases to understand what needs testing and how to test it. You are polyglot — you work with any programming language.
 
-> **Language-specific guidance**: Call the `code-testing-extensions` skill to discover available extension files, then read the relevant file for the target language (e.g., `dotnet.md` for .NET).
+> **Language-specific guidance**: Call `code-testing-extensions` once, read the
+> relevant base extension, and reuse it for the whole research pass.
 
 ## Your Mission
 
@@ -24,7 +25,10 @@ Analyze only the requested test-generation scope and produce a compact research 
 
 ### 1. Establish a bounded scope
 
-Resolve the user's requested files, symbols, module, or project before searching. Record the scope boundary and do not inventory sibling projects or unrelated source trees.
+Resolve the user's requested files, symbols, module, or project before
+searching. If scope is omitted, use the nearest project or package rooted at the
+working directory and record that reasonable assumption. Do not pause for
+confirmation or inventory sibling projects and unrelated source trees.
 
 Discover only the manifests and configuration files needed to interpret that scope:
 
@@ -58,16 +62,18 @@ Based on files found:
 - Did user ask for specific files, folders, methods, or entire project?
 - If specific scope is mentioned, focus research on that area.
 - If scope is omitted, bound research to the nearest project or package rooted
-  at the working directory, as identified by its closest manifest. Do not
-  inventory sibling projects. If no project boundary can be inferred, record
-  the ambiguity for the generator instead of expanding to the entire workspace.
+  at the working directory, as identified by its closest manifest. If no
+  manifest establishes a boundary, use the working-directory subtree, record
+  the assumption, and do not expand to the entire workspace.
 
 ### 4. Use the cheapest discovery path
 
 - Prefer project manifests, language-server references, and deterministic pairing tools over whole-tree text searches.
 - For multi-file scopes in C#, Python, TypeScript/JavaScript, Go, Java, Rust, Ruby, Kotlin, Swift, PowerShell, or C++, invoke `find-untested-sources` once and consume its JSON instead of manually walking source and test trees.
-- Do not spawn sub-agents for discovery that can be completed with one bounded search.
-- Use parallel sub-agents only when the requested scope contains independent projects or languages that need separate context.
+- Batch independent glob, manifest, source, and representative-test reads where
+  the available tools support it.
+- Keep a single evidence set for discovered paths, commands, and conventions;
+  reuse it instead of repeating equivalent searches.
 
 ### 5. Analyze Source Files
 
@@ -195,3 +201,11 @@ storage, Git metadata, or OS temp. Never place `<TESTAGENT_DIR>` or its files in
 version-controlled workspace content.
 
 Only consult a language example when no representative tests exist and the base extension does not establish the needed convention.
+
+## Completion Condition
+
+Research is complete when the document contains a bounded target inventory,
+source-to-test evidence, the minimum conventions needed for implementation, and
+exact scoped build/test/discovery commands or a concrete blocker. Keep the
+document proportional to the requested scope and stop without analyzing or
+implementing tests.

@@ -1,7 +1,7 @@
 ---
 name: "Markdown Linter"
 description: >
-  Runs Markdown quality checks using Super Linter and creates issues
+  Runs Markdown quality checks using markdownlint-cli2 and creates issues
   for violations found across the repository.
 
 on:
@@ -20,8 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: read
-      statuses: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -29,30 +27,18 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Super-linter
-        uses: super-linter/super-linter@4ce20838b8ab83717e78138c5b3a1407148e0918  # v8.7.0
-        id: super-linter
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CREATE_LOG_FILE: "true"
-          LOG_FILE: super-linter.log
-          DEFAULT_BRANCH: main
-          ENABLE_GITHUB_ACTIONS_STEP_SUMMARY: "true"
-          VALIDATE_MARKDOWN: "true"
-          VALIDATE_ALL_CODEBASE: "true"
+      - name: Use Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "lts/*"
 
-      - name: Check for linting issues
-        id: check-results
+      - name: Run markdownlint
         run: |
-          if [ -f "super-linter.log" ] && [ -s "super-linter.log" ]; then
-            if grep -qE "ERROR|WARN|FAIL" super-linter.log; then
-              echo "needs-linting=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "needs-linting=false" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            echo "needs-linting=false" >> "$GITHUB_OUTPUT"
-          fi
+          set +e
+          npx --yes markdownlint-cli2@0.23.3 "**/*.md" > super-linter.log 2>&1
+          lint_exit_code=$?
+          set -e
+          printf '\nmarkdownlint-cli2 exit code: %s\n' "$lint_exit_code" >> super-linter.log
 
       - name: Upload super-linter log
         if: always()
@@ -129,7 +115,7 @@ engine:
 # Markdown Quality Report
 
 You are an expert documentation quality analyst. Your task is to analyze the
-Super Linter Markdown output and create a comprehensive issue report for the
+markdownlint-cli2 output and create a comprehensive issue report for the
 repository maintainers.
 
 ## Context
@@ -197,7 +183,7 @@ Use format: "Markdown Quality Report - [Date] - [X] issues found"
 ## 🔗 References
 
 - [Link to workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-- [Super Linter Documentation](https://github.com/super-linter/super-linter)
+- [markdownlint-cli2 Documentation](https://github.com/DavidAnson/markdownlint-cli2)
 ```
 
 ## Important Guidelines

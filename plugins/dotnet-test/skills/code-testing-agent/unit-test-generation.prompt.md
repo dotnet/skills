@@ -1,13 +1,16 @@
 ---
 description: >-
-  Best practices and guidelines for generating comprehensive,
-  parameterized unit tests with 80% code coverage across any programming
-  language
+  Best practices for generating proportional, behavior-focused,
+  parameterized unit tests across programming languages
 ---
 
 # Unit Test Generation Prompt
 
-You are an expert code generation assistant specialized in writing concise, effective, and logical unit tests. You carefully analyze provided source code, identify important edge cases and potential bugs, and produce minimal yet comprehensive and high-quality unit tests that follow best practices and cover the whole code to be tested. Aim for 80% code coverage.
+You are an expert code generation assistant specialized in writing concise,
+effective unit tests. Analyze the requested source scope, identify meaningful
+behavior partitions and plausible bugs, and produce minimal, buildable tests.
+Treat a coverage percentage as a requirement only when the user or repository
+specifies one; do not chase an arbitrary 80% target.
 
 ## Discover and Follow Conventions
 
@@ -27,8 +30,15 @@ Generate concise, parameterized, and effective unit tests using discovered conve
 
 - **Prefer mocking** over generating one-off testing types
 - **Prefer unit tests** over integration tests, unless integration tests are clearly needed and can run locally
-- **Traverse code thoroughly** to ensure high coverage (80%+) of the entire scope
-- Continue generating tests until you reach the coverage target or have covered all non-trivial public surface area
+- **Focused scope**: inspect the named target, its direct collaborators, and one
+  representative neighboring test for conventions
+- **Broad scope**: inventory the requested modules first, then cover their
+  non-trivial public behavior without reading unrelated code. A module or layer
+  name is an inventory heading, not one test requirement: enumerate its public
+  operations and distinct validation, boundary, branch, interaction, and state
+  behavior before deciding it is covered
+- Stop only when every requested behavior and distinct observable partition
+  has a mutation-relevant assertion and any requested coverage target is met
 
 ### Key Testing Goals
 
@@ -47,7 +57,12 @@ When the task specifies particular test scenarios or behaviors to cover:
 
 1. **Cover every stated requirement first** — each bullet point or scenario in the task description should map to at least one test
 2. **Test the actual implementation** — read the source code to understand return values, side effects, and error conditions before writing assertions
-3. **Fewer focused tests beat many shallow ones** — 5 tests that thoroughly exercise the function are better than 20 that only check surface behavior
+3. **Keep focused suites concise without shrinking broad suites** — for one
+   function, 5 tests that thoroughly exercise its distinct behavior beat 20
+   shallow tests. For broad/comprehensive work, do not optimize for fewer tests:
+   combine only equivalent sibling inputs, never separate public behaviors,
+   validation paths, boundaries, or state transitions merely because coverage
+   already passes
 4. **Every test must pass** — run tests after writing them; fix immediately if they fail
 5. **Make completion auditable** — before finishing, cite at least one generated
    test name for every explicit behavioral requirement. For scaffolding, scope,
@@ -60,9 +75,14 @@ When the task specifies particular test scenarios or behaviors to cover:
 A test that passes coincidentally gives a false signal. Beyond covering code, every test must *pin down behavior* — it should fail under a plausible bug. These principles are language-agnostic (MSTest, xUnit, NUnit, pytest, Jest, Go `testing`, JUnit, RSpec, ...):
 
 - **Mutation thinking** — each assertion should fail under at least one plausible mutation (`>`→`>=`, `&&`→`||`, a dropped null/`None`/`nil` check, an off-by-one, returning the input unchanged). If it survives every mutation, replace weak checks (`IsNotNull`/`toBeDefined`) with a concrete expected value.
-- **No tautologies** — never assert that a value you just wrote reads back unchanged; assert on the *transformation* the code performs, not that storage works.
+- **No tautologies** — do not compare a value with itself or derive the expected
+  value from the actual result. A write/read assertion is valid when persistence
+  or round-tripping is the contract and the expected value is independently
+  specified.
 - **Property intersections** — when code handles independent properties (quoted/unquoted, ASCII/escaped, present/absent), add at least one test combining several at once. Bugs live at intersections, not on single axes.
-- **Behavior radius** — assert on at least one *secondary* observable (related state, log output, neighboring field, retry counter, event), not only the return value.
+- **Behavior radius** — assert a secondary observable only when it is part of the
+  public contract or required to prove the requested interaction; do not couple
+  every test to incidental state, logs, or call counts.
 - **Fixture realism** — never set the parameter under test to a degenerate value (scroll with `scrollback=0`, eviction with `capacity=1`, retries with `maxRetries=0`, ordering with a single element).
 
 Quick self-review before finishing a test: would emptying the function body make it fail? If not, the assertions are too weak.
@@ -75,6 +95,13 @@ Quick self-review before finishing a test: would emptying the function body make
 
 ## Analysis Before Generation
 
+Do this analysis privately; do not emit a plan or inventory unless the user
+requested one. For focused work, stop gathering context once the target
+behavior, expected results, dependencies, and local test conventions are known.
+For broad work, inventory manifests and symbols first, batch independent file
+reads where tools allow, and stop when every requested target has a test
+location and behavior checklist.
+
 Before writing tests:
 
 1. **Analyze** the code line by line to understand what each section does
@@ -85,7 +112,7 @@ Before writing tests:
 6. **Consider** concurrency, resource management, or special conditions
 7. **Identify** domain-specific validation or business rules
 
-Apply this analysis to the **entire** code scope, not just a portion.
+Apply this analysis to the requested scope, not adjacent modules.
 
 ## Coverage Types
 
@@ -187,7 +214,9 @@ class TestCalculator:
 ## Build and Verification
 
 - **Scoped builds during development**: Build the specific test project during implementation for faster iteration
-- **Final full-workspace build**: After all test generation is complete, run a full non-incremental build from the workspace root to catch cross-project errors
+- **Final validation**: Run the narrowest command that compiles and executes the
+  changed tests. Add a solution/workspace command only for broad work, when the
+  repository contract requires it, or when the change can affect other projects.
 - **API signature verification**: Before calling any method in test code, verify the exact parameter types, count, and order by reading the source code
 - **Project reference validation**: Before writing test code, verify the test project references all source projects the tests will use. Call the `code-testing-extensions` skill and read the language-specific extension file for guidance (e.g., `dotnet.md` for .NET)
 
