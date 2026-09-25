@@ -295,23 +295,10 @@
     return value < 0.001 ? value.toExponential(2) : value.toFixed(3);
   }
 
-  function verdictDisplay(verdict) {
-    const reasonCode = verdict && verdict.stateReason && verdict.stateReason.code;
-    if (verdict && verdict.state === 'VALID_REGRESSION') return { label: 'Objective regression', cls: 'fail' };
-    if (verdict && verdict.state === 'INVALID_INCONCLUSIVE') return { label: 'Invalid or underpowered', cls: 'warning' };
-    if (reasonCode === 'activation_contract_failed' ||
-        (verdict && verdict.activationContract && verdict.activationContract.passed === false)) {
-      return { label: 'Activation contract failed', cls: 'fail' };
-    }
-    if (verdict && verdict.state === 'VALID_PASS') return { label: 'Improved', cls: 'pass' };
-    const legacyPreferenceLoss = verdict &&
-      (!verdict.state || verdict.state === 'VALID_NO_CHANGE') &&
-      (verdict.preferenceRegressed || verdict.regressed);
-    if (reasonCode === 'preference_regression_report_only' || legacyPreferenceLoss) {
-      return { label: 'Preference loss (report only)', cls: 'warning' };
-    }
-    if (verdict && verdict.passed) return { label: 'Improved (legacy)', cls: 'pass' };
-    return { label: 'Not proven improved', cls: 'neutral' };
+  const verdictDisplay = window.VerdictDisplay?.forVerdict
+    ?? (typeof require === 'function' ? require('./dashboard-verdict.js').forVerdict : null);
+  if (!verdictDisplay) {
+    throw new Error('dashboard-verdict.js must load before dashboard.js');
   }
 
   function activationStatusLabel(status) {

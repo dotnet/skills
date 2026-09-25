@@ -1822,6 +1822,7 @@ jobs:
           # Copy dashboard UI from source tree
           cp ${{ github.workspace }}/eng/dashboard/dashboard.html index.html
           cp ${{ github.workspace }}/eng/dashboard/dashboard-freshness.js dashboard-freshness.js
+          cp ${{ github.workspace }}/eng/dashboard/dashboard-verdict.js dashboard-verdict.js
           cp ${{ github.workspace }}/eng/dashboard/dashboard.js dashboard.js
           cp ${{ github.workspace }}/eng/dashboard/token-usage.js token-usage.js
           cp ${{ github.workspace }}/eng/dashboard/skill-value.js skill-value.js
