@@ -281,8 +281,14 @@ stimuli:
               | CancelOrder | 2 | 0% | 6.00 | moderate |
 
               CRAP uses `complexity^2 * (1 - coverage)^3 + complexity`.
-              ProcessOrder remains the highest score because its machine-produced
-              complexity is 12 even though the current tests cover most lines.
+              ProcessOrder remains the highest score because the generated
+              Cobertura report records complexity 12 even though the current
+              tests cover most lines. A manual source count gives 7 (base path
+              plus the null guard, empty-items guard and `||`, loop,
+              invalid-quantity guard, and invalid-total guard), which would
+              produce CRAP ~7.19. I am using 12 for the primary score because
+              the requested current report is machine-produced and maps to this
+              method, while reporting the manual discrepancy explicitly.
               CancelOrder is completely uncovered, so add tests for both the
               found and missing order paths first; then cover ProcessOrder's
               empty-items, invalid-quantity, and invalid-total branches.
@@ -299,6 +305,12 @@ stimuli:
         - src: fixtures/no-coverage/Directory.Build.props
           dest: Directory.Build.props
     graders:
+      - type: run-command
+        config:
+          command: dotnet test TestProject.csproj --no-restore
+          expected_exit_code: 0
+          stdout_matches: '(?i)\bPassed:\s*[1-9][0-9]*\b'
+          timeout: 10m
       - type: run-command
         config:
           command: sh -c "coverage=$(find TestResults -name coverage.cobertura.xml -print -quit) && test -n \"$coverage\" && grep -q 'name=\"ProcessOrder\"' \"$coverage\" && grep -q 'line-rate=\"0.8421\"' \"$coverage\" && grep -q 'complexity=\"12\"' \"$coverage\" && grep -q 'name=\"CancelOrder\"' \"$coverage\""
@@ -321,6 +333,7 @@ stimuli:
       - Runs dotnet test with code coverage collection to generate Cobertura data before analysis
       - Extracts per-method coverage from the generated Cobertura XML
       - Computes CRAP scores using both cyclomatic complexity and code coverage for each method in OrderService
+      - Uses the generated report's complexity for the primary score while disclosing the manual source-count discrepancy
       - Provides risk categorization and actionable recommendations for the riskiest methods
       - Discloses any temporary source, dependency, or tooling changes made to generate coverage
 

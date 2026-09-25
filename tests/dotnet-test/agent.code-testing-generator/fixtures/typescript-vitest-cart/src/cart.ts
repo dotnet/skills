@@ -68,8 +68,10 @@ export class Cart {
     if (!Number.isInteger(quantity) || quantity <= 0) {
       throw new RangeError(`quantity must be a positive integer (got ${quantity})`);
     }
-    if (product.unitPriceCents < 0) {
-      throw new RangeError(`unitPriceCents must be non-negative (got ${product.unitPriceCents})`);
+    if (!Number.isInteger(product.unitPriceCents) || product.unitPriceCents < 0) {
+      throw new RangeError(
+        `unitPriceCents must be a non-negative integer (got ${product.unitPriceCents})`,
+      );
     }
 
     const existing = this.lines.get(product.id);

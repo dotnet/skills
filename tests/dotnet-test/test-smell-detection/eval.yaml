@@ -338,7 +338,6 @@ stimuli:
 
               **Not a smell.** `TierNames` is `static readonly` and never mutated, so sharing it is fine, and `GoldThreshold` is a named constant rather than an unexplained literal. Neither should be reported.
               Fix the ordering hazard first: move the ledger and tier into instance fields, or rebuild them in a `[TestInitialize]` method, so every test starts from a known state. Renaming or pinning the execution order only hides the coupling.
-              Fix the ordering hazard first: move the ledger and tier into instance fields, or rebuild them in a `[TestInitialize]` method, so every test starts from a known state. Renaming or pinning the execution order only hides the coupling.
     environment:
       files:
         - src: fixtures/order-dependent/Loyalty.Tests/Loyalty.Tests.csproj

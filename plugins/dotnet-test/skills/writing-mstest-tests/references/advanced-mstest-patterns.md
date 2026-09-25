@@ -29,11 +29,18 @@ or later.
 ```csharp
 [TestMethod]
 [OSCondition(OperatingSystems.Windows)]
-public void WindowsRegistry_ReadsValue() { }
+public void WindowsSystemDirectory_IsAvailable()
+{
+    var systemDirectory = Environment.SystemDirectory;
+    Assert.IsFalse(string.IsNullOrWhiteSpace(systemDirectory));
+}
 
 [TestMethod]
 [CICondition(ConditionMode.Exclude)]
-public void LocalOnly_InteractiveTest() { }
+public void LocalOnly_MachineName_IsAvailable()
+{
+    Assert.IsFalse(string.IsNullOrWhiteSpace(Environment.MachineName));
+}
 ```
 
 Attributes replace environment branches in test bodies. They do not replace
