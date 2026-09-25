@@ -29,6 +29,7 @@ Review changed:
 
 - `.csproj`, `.fsproj`, `.vbproj`, `.proj`, and `.projitems` files
 - `.props`, `.targets`, `.tasks`, and `.overridetasks` files
+- `.nuspec` package layout definitions
 - `Directory.Build.*` and `Directory.Packages.*`
 - NuGet `build/`, `buildTransitive/`, and `buildMultiTargeting/` extensions
 - shared SDK, import, packaging, and build infrastructure directly related to those

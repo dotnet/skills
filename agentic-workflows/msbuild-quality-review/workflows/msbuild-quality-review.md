@@ -19,6 +19,7 @@ on:
       - "**/*.targets"
       - "**/*.tasks"
       - "**/*.overridetasks"
+      - "**/*.nuspec"
       - "**/Directory.Build.*"
       - "**/Directory.Packages.*"
   roles: all

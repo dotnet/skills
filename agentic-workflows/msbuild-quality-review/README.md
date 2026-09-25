@@ -47,7 +47,7 @@ The reviewer always excludes generated output and common fixture paths:
 - `**/samples/broken/**`, `**/invalid/**`
 
 The trigger covers changed `.csproj`, `.fsproj`, `.vbproj`, `.proj`, `.projitems`,
-`.props`, `.targets`, `.tasks`, `.overridetasks`, `Directory.Build.*`, and
+`.props`, `.targets`, `.tasks`, `.overridetasks`, `.nuspec`, `Directory.Build.*`, and
 `Directory.Packages.*` files. The reviewer only reports findings supported by changed
 lines or directly related changed-file evidence; it does not turn a PR review into a
 repository-wide audit.
