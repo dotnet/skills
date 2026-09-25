@@ -972,9 +972,15 @@ def absolute_fixture_source(d):
 
 
 def traversing_fixture_source(d):
-    with open(os.path.join(d, "outside.cs"), "w") as f:
-        f.write("class Outside {}\n")
-    replace_fixture_mapping(d, "src: fixtures/sample", "src: ../../../outside.cs")
+    replace_fixture_mapping(d, "src: fixtures/sample", "src: ../../../../outside.cs")
+
+
+def sibling_fixture_source(d):
+    sibling = os.path.join(d, "tests", "demo", "shared", "sample")
+    os.makedirs(sibling, exist_ok=True)
+    with open(os.path.join(sibling, "Sibling.cs"), "w") as f:
+        f.write("class Sibling {}\n")
+    replace_fixture_mapping(d, "src: fixtures/sample", "src: ../shared/sample")
 
 
 def absolute_fixture_destination(d):
@@ -1751,8 +1757,10 @@ results = [
          patch_with_output_grader_and_trajectory, expect_fail=False),
     case("absolute fixture source cannot escape suite", absolute_fixture_source,
          expect_fail=True),
-    case("traversing fixture source cannot escape suite", traversing_fixture_source,
+    case("traversing fixture source cannot escape repository", traversing_fixture_source,
          expect_fail=True),
+    case("sibling fixture source inside repository is allowed", sibling_fixture_source,
+         expect_fail=False),
     case("absolute fixture destination cannot escape workspace",
          absolute_fixture_destination, expect_fail=True),
     case("traversing fixture destination cannot escape workspace",

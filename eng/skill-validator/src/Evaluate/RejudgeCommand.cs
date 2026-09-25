@@ -605,7 +605,12 @@ public static class RejudgeCommand
             }
 
             var baseline = matchingBaselines[0];
-            matchedBaselineIds.Add(baseline.Id);
+            if (!matchedBaselineIds.Add(baseline.Id))
+            {
+                duplicateBaseline.Add(
+                    $"{FormatSessionIdentity(isolated)}, baseline={FormatSessionIdentity(baseline)} (already paired)");
+                continue;
+            }
             pairs.Add(new CrossDirPair(
                 group.Key.SkillName,
                 group.Key.ScenarioName,
@@ -849,8 +854,14 @@ public static class RejudgeCommand
             .Select(session => ResolveExpectedActivation(session, isAgent, log))
             .Distinct()
             .ToList();
-        expectActivation = expectations.Count == 1 && expectations[0];
-        return expectations.Count == 1;
+        if (expectations.Count == 1)
+        {
+            expectActivation = expectations[0];
+            return true;
+        }
+
+        expectActivation = false;
+        return false;
     }
 
     internal static string? ResolveCurrentEvalPath(

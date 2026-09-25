@@ -194,6 +194,25 @@ public class RejudgeCommandTests
     }
 
     [TestMethod]
+    public void ResolveExpectedActivation_AcceptsConsistentDormantScenario()
+    {
+        var sessions = new[]
+        {
+            Rec("dormant-0", "with-skill-isolated", 0, "K1", expectActivation: false),
+            Rec("dormant-1", "with-skill-isolated", 1, "K1", expectActivation: false),
+        };
+
+        var resolved = RejudgeCommand.TryResolveConsistentExpectedActivation(
+            sessions,
+            isAgent: false,
+            _ => { },
+            out var expectActivation);
+
+        Assert.IsTrue(resolved);
+        Assert.IsFalse(expectActivation);
+    }
+
+    [TestMethod]
     public async Task RunCrossDir_CompletedRequiredArmsWithRunningPlugin_FailsWithoutPublishing()
     {
         var root = Path.Combine(Path.GetTempPath(), $"rejudge-running-plugin-{Guid.NewGuid():N}");
@@ -398,6 +417,24 @@ public class RejudgeCommandTests
         var mismatch = Assert.ContainsSingle(pairing.UnmatchedTreatment);
         Assert.Contains("baseline key mismatch", mismatch);
         Assert.Contains("plugin", mismatch);
+    }
+
+    [TestMethod]
+    public void PairCrossDir_RejectsBaselineReuseAcrossTreatmentGroups()
+    {
+        var baseline = new[] { Rec("b0", "baseline", 0, "K1") };
+        var treatment = new[]
+        {
+            Rec("iso-a", "with-skill-isolated", 0, "K1", skill: "skill-a"),
+            Rec("iso-b", "with-skill-isolated", 0, "K1", skill: "skill-b"),
+        };
+
+        var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
+
+        Assert.ContainsSingle(pairing.Pairs);
+        var duplicate = Assert.ContainsSingle(pairing.DuplicateBaseline);
+        Assert.Contains("already paired", duplicate);
+        Assert.Contains("b0", duplicate);
     }
 
     [TestMethod]

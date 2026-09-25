@@ -427,9 +427,8 @@ def path_within(root: str, relative: str) -> str:
         raise ValueError("path must be a non-empty string")
     normalized = relative.replace("\\", "/")
     if (PurePosixPath(normalized).is_absolute()
-            or PureWindowsPath(relative).is_absolute()
-            or ".." in PurePosixPath(normalized).parts):
-        raise ValueError(f"path must be relative and cannot contain '..': {relative!r}")
+            or PureWindowsPath(relative).is_absolute()):
+        raise ValueError(f"path must be relative: {relative!r}")
 
     root_real = os.path.realpath(root)
     candidate = os.path.normpath(os.path.join(root, relative))
@@ -441,6 +440,32 @@ def path_within(root: str, relative: str) -> str:
     if not contained:
         raise ValueError(f"path resolves outside its declared root: {relative!r}")
     return candidate
+
+
+def repository_source_path(base: str, relative: str) -> str:
+    """Resolve a fixture source relative to its eval while containing it in the repo."""
+    normalized = relative.replace("\\", "/")
+    if (PurePosixPath(normalized).is_absolute() or PureWindowsPath(relative).is_absolute()):
+        raise ValueError(f"path must be relative: {relative!r}")
+    candidate = os.path.normpath(os.path.join(base, relative))
+    repository_root = os.path.realpath(os.getcwd())
+    repository_relative = os.path.relpath(candidate, repository_root)
+    return path_within(repository_root, repository_relative)
+
+
+def fixture_containment_root(path: str, suite_root: str) -> str:
+    """Return the boundary that symlinks inside one declared fixture may not escape."""
+    suite_real = os.path.realpath(suite_root)
+    path_absolute = os.path.abspath(path)
+    try:
+        inside_suite = os.path.commonpath((suite_real, path_absolute)) == suite_real
+    except ValueError:
+        inside_suite = False
+    if inside_suite:
+        return suite_root
+    if os.path.islink(path) or os.path.isfile(path):
+        return os.path.dirname(path)
+    return path
 
 
 def check_symlink_containment(path: str, root: str) -> None:
@@ -506,8 +531,8 @@ def check_fixtures(spec: str, doc: dict, tracked: set[str]) -> None:
             if not src:
                 continue
             try:
-                resolved = path_within(base, src)
-                check_symlink_containment(resolved, base)
+                resolved = repository_source_path(base, src)
+                check_symlink_containment(resolved, fixture_containment_root(resolved, base))
             except (OSError, ValueError) as exc:
                 errors.append(
                     f"{spec}: '{stim.get('name')}' has unsafe fixture src {src!r}: {exc}")
@@ -1043,8 +1068,8 @@ def materialize_declared_files(spec: str, stim: dict, workspace: str) -> None:
     entries = (stim.get("environment") or {}).get("files") or []
     base = os.path.dirname(spec)
     for entry in entries:
-        source = path_within(base, entry["src"])
-        check_symlink_containment(source, base)
+        source = repository_source_path(base, entry["src"])
+        check_symlink_containment(source, fixture_containment_root(source, base))
         destination = path_within(workspace, entry["dest"])
         os.makedirs(os.path.dirname(destination), exist_ok=True)
         if os.path.isdir(source):

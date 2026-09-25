@@ -1273,6 +1273,38 @@ public class BuildSessionConfigTests
     }
 
     [TestMethod]
+    public async Task SetupWorkDirDoesNotCopyEvaluatorReferences()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"setup-references-{Guid.NewGuid():N}");
+        var evalDir = Path.Combine(root, "tests", "demo", "target");
+        var references = Path.Combine(evalDir, "references");
+        Directory.CreateDirectory(references);
+        var evalPath = Path.Combine(evalDir, "eval.yaml");
+        File.WriteAllText(evalPath, "stimuli: []");
+        File.WriteAllText(Path.Combine(evalDir, "Fixture.cs"), "class Fixture {}");
+        File.WriteAllText(Path.Combine(references, "answer.json"), "{}");
+
+        try
+        {
+            var scenario = new EvalScenario(
+                "Copy fixtures",
+                "Inspect them",
+                Setup: new SetupConfig(CopyTestFiles: true));
+
+            var workDir = await AgentRunner.SetupWorkDir(scenario, null, evalPath);
+
+            Assert.IsTrue(File.Exists(Path.Combine(workDir, "Fixture.cs")));
+            Assert.IsFalse(Directory.Exists(Path.Combine(workDir, "references")));
+            Assert.IsFalse(File.Exists(Path.Combine(workDir, "eval.yaml")));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+            await AgentRunner.CleanupWorkDirs();
+        }
+    }
+
+    [TestMethod]
     public async Task PluginAgentRunRegistersCompleteProductionSurface()
     {
         var pluginRoot = Path.Combine(Path.GetTempPath(), $"agent-plugin-{Guid.NewGuid():N}");

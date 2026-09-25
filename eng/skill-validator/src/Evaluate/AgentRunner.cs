@@ -66,6 +66,12 @@ internal sealed class RunEventBuffer
 
 public static class AgentRunner
 {
+    private static readonly HashSet<string> EvaluatorOnlySetupEntries =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "eval.yaml",
+            "references",
+        };
     private static readonly ConcurrentDictionary<string, CopilotClient> _pluginClients = new(StringComparer.OrdinalIgnoreCase);
     private static readonly SemaphoreSlim _clientLock = new(1, 1);
     private static readonly ConcurrentBag<string> _workDirs = [];
@@ -1095,7 +1101,8 @@ public static class AgentRunner
             var evalDir = Path.GetDirectoryName(evalPath)!;
             foreach (var entry in new DirectoryInfo(evalDir).EnumerateFileSystemInfos())
             {
-                if (entry.Name == "eval.yaml") continue;
+                if (EvaluatorOnlySetupEntries.Contains(entry.Name))
+                    continue;
                 FileAttributes attributes;
                 try
                 {
