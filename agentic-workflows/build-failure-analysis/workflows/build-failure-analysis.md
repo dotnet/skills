@@ -1,35 +1,30 @@
 ---
 name: "Build Failure Analysis"
 description: >-
-  When the Azure Pipelines PR build (`dotnet-sdk-public-ci`) fails, downloads the binary
-  logs that build already produced — it does NOT rebuild — and delegates to
-  the `build-failure-analyst` agent, which queries the binlogs live via the
+  When the configured Azure Pipelines PR build fails, downloads the binary logs
+  that build already produced — it does NOT rebuild — and delegates to the
+  `build-failure-analyst` agent, which queries the binlogs live via the
   containerized `binlog-mcp` MCP server to identify root causes, post a PR
   comment summarizing them, and attach inline `suggestion` blocks tied to the
   diff.
 
 # This workflow is **advisory**, not gating, and it performs **no build of its
-# own**. The SDK's authoritative PR build runs on Azure DevOps
-# (dnceng-public/public, pipeline "dotnet-sdk-public-ci", definitionId 101) and publishes
-# each build leg's binary logs inside a `<Leg>_Logs_Attempt<N>` pipeline
-# artifact (e.g. `Windows_x64_Logs_Attempt1`). When
-# that build's GitHub check reports failure, this workflow downloads the
-# binlogs from **all** build legs (anonymously — dnceng-public/public is a
-# public project) and the agent analyses whichever leg(s) actually contain
-# errors. Reusing the binlogs avoids a duplicate build: the analysis pipeline
-# only downloads build artifacts (data) and reads them — it does **not** build
-# or execute PR code. (gh-aw's generated agent job **does** check out the
+# own**. The consuming repository configures a public Azure DevOps organization,
+# project, pipeline definition, and GitHub rollup check name through repository
+# variables. When that check reports failure, this workflow downloads available
+# binlogs from the build artifacts and the agent analyses whichever leg(s)
+# contain errors. Reusing those binlogs avoids a duplicate build: the analysis
+# pipeline only downloads build artifacts (data) and reads them — it does **not**
+# build or execute PR code. (gh-aw's generated agent job **does** check out the
 # repository — via `actions/checkout` — to load the workflow's own agent
 # configuration; that checkout is for tooling only and uses the event's ref,
 # **not** the PR head, so no PR code is built or executed.)
 
 on:
   # `check_run` fires for every check on a commit, so the `fetch-binlog` job
-  # below filters tightly to the rollup `dotnet-sdk-public-ci` build check
-  # reporting failure. The pipeline also emits per-leg checks named
-  # `dotnet-sdk-public-ci (Build <leg>)`; the exact-name match below
-  # deliberately ignores those so the analysis runs once per build, not once
-  # per leg.
+  # below filters tightly to the configured rollup build check reporting
+  # failure. Exact-name matching deliberately ignores per-leg checks so the
+  # analysis runs once per build.
   check_run:
     types: [completed]
   # Advisory analysis should run for **every** failing PR — including external
@@ -44,7 +39,7 @@ on:
   workflow_dispatch:
     inputs:
       ado-build-id:
-        description: "Azure DevOps build id to analyze (dnceng-public/public)."
+        description: "Azure DevOps build id to analyze."
         required: true
         type: string
       pr-number:
@@ -58,8 +53,8 @@ on:
 # Activate (and run the agent) only when the fetch job retrieved at least one
 # binlog. When `check_run` fires for an unrelated / passing check the
 # fetch-binlog job is skipped, its output is empty, and this cascades into a
-# skipped agent — no AI calls on anything but a real `dotnet-sdk-public-ci`
-# failure whose PR targets an in-scope base branch.
+# skipped agent — no AI calls on anything but a real failure from the
+# configured build pipeline.
 if: needs.fetch-binlog.outputs.binlog-found == 'true'
 
 # Least-privilege for the workflow/agent jobs. The agent runs read-only; it
@@ -75,45 +70,31 @@ permissions:
   copilot-requests: write
 
 concurrency:
-  # Only real `dotnet-sdk-public-ci` check_run events (and manual dispatch for
+  # Only real configured build check_run events (and manual dispatch for
   # a PR) use a PR/head-scoped group, so a newer analysis supersedes an
   # in-progress one for the same PR. Every OTHER completed check_run on the PR
   # would otherwise land in the same group and — with cancel-in-progress —
   # abort the running real analysis, so those get a unique per-run group that
   # collides with nothing.
-  group: ${{ (github.event_name == 'check_run' && github.event.check_run.name == 'dotnet-sdk-public-ci' && format('build-failure-analysis-{0}', github.event.check_run.pull_requests[0].number || github.event.check_run.head_sha)) || (github.event_name == 'workflow_dispatch' && format('build-failure-analysis-{0}', inputs['pr-number'])) || format('build-failure-analysis-run-{0}', github.run_id) }}
+  group: ${{ (github.event_name == 'check_run' && github.event.check_run.name == vars.BUILD_FAILURE_ANALYSIS_CHECK_NAME && format('build-failure-analysis-{0}', github.event.check_run.pull_requests[0].number || github.event.check_run.head_sha)) || (github.event_name == 'workflow_dispatch' && format('build-failure-analysis-{0}', inputs['pr-number'])) || format('build-failure-analysis-run-{0}', github.run_id) }}
   cancel-in-progress: true
+  job-discriminator: ${{ github.run_id }}
 
 timeout-minutes: 30
 
-
-# ###############################################################
-# Select a PAT from the pool and override COPILOT_GITHUB_TOKEN.
-# Run agentic jobs in an isolated `copilot-pat-pool` environment.
-#
-# When org-level billing is available, this will be removed.
-# See `shared/pat_pool.README.md` for more information.
-# ###############################################################
 imports:
-  - uses: build-failure-analysis-pat-pool.md
-    with:
-      environment: copilot-pat-pool
   - build-failure-analysis-fetch.md
   - build-failure-analysis-shared.md
 
-environment: copilot-pat-pool
-
 engine:
   id: copilot
-  env:
-    COPILOT_GITHUB_TOKEN: ${{ case(needs.pat_pool.outputs.pat_number == '0', secrets.COPILOT_PAT_0, needs.pat_pool.outputs.pat_number == '1', secrets.COPILOT_PAT_1, needs.pat_pool.outputs.pat_number == '2', secrets.COPILOT_PAT_2, needs.pat_pool.outputs.pat_number == '3', secrets.COPILOT_PAT_3, needs.pat_pool.outputs.pat_number == '4', secrets.COPILOT_PAT_4, needs.pat_pool.outputs.pat_number == '5', secrets.COPILOT_PAT_5, needs.pat_pool.outputs.pat_number == '6', secrets.COPILOT_PAT_6, needs.pat_pool.outputs.pat_number == '7', secrets.COPILOT_PAT_7, needs.pat_pool.outputs.pat_number == '8', secrets.COPILOT_PAT_8, needs.pat_pool.outputs.pat_number == '9', secrets.COPILOT_PAT_9, 'NO COPILOT PAT AVAILABLE') }}
 
 
 # Custom job that reuses the binlogs from the failed Azure DevOps build instead
 # of rebuilding. It resolves the ADO build id (from the check details URL or
 # the dispatch input), verifies the PR targets an in-scope base branch,
-# downloads every `<Leg>_Logs_Attempt<N>` artifact, extracts each leg's
-# `*.binlog`, and uploads them for the agent job.
+# downloads build artifacts, extracts their `*.binlog` files, and uploads them
+# for the agent job.
 # Steps that run in the agent job. Because the top-level `if:` gates activation
 # on `needs.fetch-binlog.outputs.binlog-found == 'true'`, these only run once
 # binlogs have been retrieved from the failed Azure DevOps build.

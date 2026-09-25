@@ -1,10 +1,10 @@
 # Build Failure Analysis
 
-Installs the .NET SDK Build Failure Analysis agentic workflow. When the
-`dotnet-sdk-public-ci` GitHub check fails, the workflow downloads the binary logs already
-published by the Azure Pipelines build, analyzes them with `binlog-mcp`, and posts an
-advisory summary and inline suggestions on the pull request. It does not rebuild or
-execute pull request code.
+Installs a configurable .NET Build Failure Analysis agentic workflow. When the
+configured Azure Pipelines rollup check fails, the workflow downloads binary logs already
+published by that build, analyzes them with `binlog-mcp`, and posts an advisory summary
+and inline suggestions on the pull request. It does not rebuild or execute pull request
+code.
 
 ## Install
 
@@ -14,39 +14,39 @@ From the root of the consuming repository:
 gh aw add-wizard dotnet/skills/agentic-workflows/build-failure-analysis@main
 ```
 
-For non-interactive installation:
-
-```powershell
-gh aw add dotnet/skills/agentic-workflows/build-failure-analysis@main
-```
-
 Pin production installations to a release tag or commit SHA instead of `main`.
+
+The interactive installer prompts for these repository variables:
+
+| Variable | Value |
+| --- | --- |
+| `BUILD_FAILURE_ANALYSIS_CHECK_NAME` | Exact GitHub rollup check name emitted by the Azure Pipelines PR build. |
+| `BUILD_FAILURE_ANALYSIS_ADO_ORGANIZATION` | Public Azure DevOps organization name. |
+| `BUILD_FAILURE_ANALYSIS_ADO_PROJECT` | Public Azure DevOps project name. |
+| `BUILD_FAILURE_ANALYSIS_ADO_DEFINITION_ID` | Numeric Azure Pipelines definition ID. |
+
+This package declares interactive repository configuration, so install it with
+`gh aw add-wizard` rather than `gh aw add`.
 
 The package installs:
 
 - `.github/workflows/build-failure-analysis.md`
 - `.github/workflows/build-failure-analysis-fetch.md`
 - `.github/workflows/build-failure-analysis-shared.md`
-- `.github/workflows/build-failure-analysis-pat-pool.md`
 - `.github/agents/build-failure-analyst.agent.md`
 - the generated `.github/workflows/build-failure-analysis.lock.yml`
 
-## Repository-specific assumptions
+## Requirements
 
-This initial package intentionally preserves the SDK workflow's configuration. A
-consumer must either match or customize these assumptions after installation:
-
-- Azure DevOps organization/project: `dnceng-public/public`
-- Pipeline and GitHub check name: `dotnet-sdk-public-ci`
-- Azure Pipelines definition ID: `101`
-- Build artifacts named `<Leg>_Logs_Attempt<N>` containing `*.binlog` files
-- A protected `copilot-pat-pool` environment with at least one
-  `COPILOT_PAT_0` through `COPILOT_PAT_9` environment secret
-
-The source grants `copilot-requests: write`, but currently retains the .NET team's PAT
-pool override. Consumers without that setup must replace the PAT-pool import, environment,
-and `engine.env.COPILOT_GITHUB_TOKEN` override with their supported Copilot authentication
-configuration before enabling the workflow.
+- The Azure DevOps project and build artifacts must be publicly readable.
+- The configured build must use the GitHub PR merge ref
+  (`refs/pull/<number>/merge`) and expose `triggerInfo["pr.sourceSha"]`.
+- Build artifacts must contain one or more `*.binlog` files. Artifacts ending in
+  `_Logs_Attempt<N>` are deduplicated to the latest attempt per leg; for other naming
+  schemes the workflow safely scans every artifact for binlogs.
+- GitHub Copilot organization billing for Actions, or another Copilot authentication
+  method configured by `gh aw add-wizard`. The workflow uses
+  `copilot-requests: write` and does not require the .NET team's PAT-pool infrastructure.
 
 After local customization, run:
 

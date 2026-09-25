@@ -1,11 +1,29 @@
 manifest-version: "1"
 min-version: v0.89.15
 name: Build Failure Analysis
-description: Analyzes failed .NET SDK Azure Pipelines builds from their existing binary logs.
+description: Analyzes failed .NET Azure Pipelines builds from their existing binary logs.
 license: MIT
 includes:
-  - workflows/build-failure-analysis-pat-pool.md
   - workflows/build-failure-analysis-fetch.md
   - workflows/build-failure-analysis-shared.md
   - workflows/build-failure-analysis.md
   - agents/build-failure-analyst.agent.md
+config:
+  - type: copilot-auth
+    strategy: prompt-if-actions-auth-unavailable
+  - type: repo-variable
+    name: BUILD_FAILURE_ANALYSIS_CHECK_NAME
+    prompt: GitHub check name for the Azure Pipelines PR build
+    description: Exact rollup check name that triggers build-failure analysis.
+  - type: repo-variable
+    name: BUILD_FAILURE_ANALYSIS_ADO_ORGANIZATION
+    prompt: Azure DevOps organization name
+    description: Public Azure DevOps organization containing the build pipeline.
+  - type: repo-variable
+    name: BUILD_FAILURE_ANALYSIS_ADO_PROJECT
+    prompt: Azure DevOps project name
+    description: Public Azure DevOps project containing the build pipeline.
+  - type: repo-variable
+    name: BUILD_FAILURE_ANALYSIS_ADO_DEFINITION_ID
+    prompt: Azure Pipelines definition ID
+    description: Numeric definition ID of the PR build pipeline.

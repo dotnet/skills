@@ -1,57 +1,25 @@
 ---
 # Packaged with a workflow-specific filename to avoid collisions in consumers.
 description: >-
-  Shared `fetch-binlog` job for the Build Failure Analysis workflows. Resolves
-  the PR's failed `dotnet-sdk-public-ci` Azure DevOps build, downloads the
-  binary logs that build already produced and stages them for the analysis
-  agent. It performs **no build**: it only reads published build artifacts.
+  Shared `fetch-binlog` job for the Build Failure Analysis workflow. Resolves
+  the PR's failed configured Azure DevOps build, downloads the binary logs that
+  build already produced and stages them for the analysis agent. It performs
+  **no build**: it only reads published build artifacts.
 
-# Both Build Failure Analysis workflows — the automatic one (`check_run`) and
-# the `/analyze-build-failure` slash command (`issue_comment`) — need exactly
-# the same download engine, but they cannot be a single workflow: gh-aw's
-# `roles:` is one workflow-scoped gate, and the two need different ones. The
-# automatic analysis is advisory and must run on **every** failing PR including
-# external contributors' (`roles: all`), while the slash command spends the
-# download on demand and is restricted to `[admin, maintainer, write]`.
-#
-# So the job lives here instead and both workflows import it. Only the build/PR
-# resolution differs by trigger, and that is a single `if` at the top of the
-# script; everything after it — artifact enumeration, missing-leg detection,
-# the download/extraction budgets and the fail-closed completeness checks — is
-# shared, so a fix lands in both workflows at once.
+# The job is imported by the main workflow so the artifact-fetching logic stays
+# separate from agent configuration and prompt instructions.
 jobs:
   fetch-binlog:
     name: Fetch binlogs (Azure Pipelines)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Cheap pre-gate covering every trigger this job is imported under. Each
-    # importing workflow only ever fires one of these branches; the others are
-    # simply never true.
-    #
-    # `check_run` fires for every check on a commit, so only the rollup
-    # `dotnet-sdk-public-ci` check reporting failure is acted on.
-    #
-    # The `issue_comment` branch matters most: this job is a dependency of
-    # gh-aw's `pre_activation`, so it runs BEFORE the role / command-position
-    # check. Without a guard it would download hundreds of MB of binlogs on
-    # *every* comment in the repository, which any public commenter could
-    # trigger repeatedly. This expression is only the free first filter —
-    # `author_association` is coarse (in an org-owned repo every org member
-    # reports MEMBER regardless of the permission they actually hold here), so
-    # the step below resolves the commenter's real repository permission before
-    # anything is downloaded. `pre_activation` remains the authoritative role +
-    # command-position check, and `activation` additionally requires
-    # `binlog-found == 'true'`.
+    # `check_run` fires for every check on a commit, so only the configured
+    # rollup check reporting failure is acted on.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'check_run' &&
-       github.event.check_run.name == 'dotnet-sdk-public-ci' &&
-       github.event.check_run.conclusion == 'failure') ||
-      (github.event_name == 'issue_comment' &&
-       github.event.repository.fork == false &&
-       github.event.issue.pull_request &&
-       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
-       contains(github.event.comment.body, '/analyze-build-failure'))
+       github.event.check_run.name == vars.BUILD_FAILURE_ANALYSIS_CHECK_NAME &&
+       github.event.check_run.conclusion == 'failure')
     permissions:
       contents: read
       pull-requests: read
@@ -64,131 +32,25 @@ jobs:
       ado-build-url: ${{ steps.fetch.outputs.ado-build-url }}
       missing-legs: ${{ steps.fetch.outputs.missing-legs }}
     steps:
-      # Slash command only. Two things have to be true before this job is
-      # allowed to spend a ~600MB download, and neither can be expressed in the
-      # job-level `if:`: the comment must actually INVOKE the command (not just
-      # mention it — `contains()` is a substring test), and the commenter must
-      # really have write access (`author_association` cannot tell an org member
-      # with read-only access apart from a maintainer). Both are checked here,
-      # before any download. `pre_activation` remains the authoritative role +
-      # command-position check, and `activation` additionally requires
-      # `binlog-found == 'true'`; this step exists because gh-aw schedules
-      # `pre_activation` AFTER this job, so its checks come too late to prevent
-      # the cost. KEEP IN SYNC with `roles:` in build-failure-analysis-command.md.
-      #
-      # `.permission` is the field to test. The REST docs for this endpoint say
-      # it returns the legacy base roles admin|write|read|none, "where the
-      # maintain role is mapped to write and the triage role is mapped to read",
-      # so `admin|write` is exactly "has push access or better" — precisely the
-      # set `roles: [admin, maintainer, write]` describes, maintainers included.
-      #
-      # `.role_name` is deliberately NOT consulted. It reports "the name of the
-      # assigned role, including custom roles", and a custom organization role
-      # only has to avoid the base names read/triage/write/maintain/admin — so
-      # matching on it would let a role merely *named* like a privileged one
-      # (say a custom `maintainer` inheriting read) clear this gate with no push
-      # access at all.
-      #
-      # On any API failure the response carries no `.permission`, so the check
-      # falls into the deny branch; failing closed is the safe direction here.
-      - name: Verify the comment invokes the command and the commenter has write access
-        id: perm
-        if: github.event_name == 'issue_comment'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          COMMENTER: ${{ github.event.comment.user.login }}
-          COMMENT_BODY: ${{ github.event.comment.body }}
-          COMMAND_NAME: "analyze-build-failure"
-        run: |
-          set +e
-          authorized=false
-          # --- 1. Command position (free; do this before the API call) ------
-          # The job-level `if:` can only use `contains()`, a plain substring
-          # test, so it also fires on "see /analyze-build-failure above" or on
-          # the command quoted inside an unrelated comment — each of which costs
-          # a runner and, past this gate, a ~600MB download. `pre_activation`
-          # does the real check, but it runs AFTER this job. Reproduce it here.
-          #
-          # gh-aw trims the body and requires the command to be the FIRST token:
-          # `/^\/([a-zA-Z0-9][a-zA-Z0-9._-]*)(?=$|\s)/` over the trimmed text,
-          # then an equality comparison on the captured name
-          # (actions/setup/js/slash_command_matcher.cjs). `awk 'NF {print $1;
-          # exit}'` is the same rule: skip leading whitespace/blank lines, take
-          # the first whitespace-delimited token. The token is delimited by
-          # whitespace or end-of-input, which is exactly the `(?=$|\s)`
-          # lookahead, so `/analyze-build-failure-now` correctly does NOT match.
-          # `tr -d '\r'` is needed because JS `.trim()` and `\s` treat CR as
-          # whitespace while awk's default field splitting does not.
-          # KEEP IN SYNC with `on.command.name` in build-failure-analysis-command.md.
-          first_word=$(printf '%s' "${COMMENT_BODY}" | tr -d '\r' | awk 'NF {print $1; exit}')
-          if [ "${first_word}" != "/${COMMAND_NAME}" ]; then
-            # Never echo the raw token: it is attacker-controlled and `::`-
-            # prefixed text is interpreted by the runner as a workflow command.
-            safe_word=$(printf '%s' "${first_word}" | tr -cd 'A-Za-z0-9/._-' | cut -c1-40)
-            echo "Comment does not start with '/${COMMAND_NAME}' (first token: '${safe_word}'); skipping the binlog download."
-            echo "authorized=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          # --- 2. Repository permission -------------------------------------
-          # `github.event.comment.user.login` is GitHub-supplied, so this value
-          # is already trustworthy. The shape check is kept anyway so the gate
-          # never interpolates anything but a plausible login into an API path
-          # or into log output.
-          case "${COMMENTER}" in
-            ""|*[!A-Za-z0-9-]*)
-              [ -n "${COMMENTER}" ] && echo "::warning::Ignoring implausible actor name from the event payload."
-              COMMENTER="" ;;
-          esac
-          if [ -z "${COMMENTER}" ]; then
-            echo "::warning::No commenter resolved from the event; skipping the binlog download."
-          else
-            resp=$(gh api "repos/${GITHUB_REPOSITORY}/collaborators/${COMMENTER}/permission" 2>/dev/null)
-            # Extract with `jq` rather than `gh api --jq`: on a non-2xx response
-            # `gh` prints the error document to stdout, which `--jq` does not
-            # filter, so the raw JSON would land in `perm` and be echoed into
-            # the log. Reading the field ourselves yields "" for any error shape.
-            perm=$(printf '%s' "${resp}" | jq -r '.permission // empty' 2>/dev/null)
-            case "${perm}" in
-              admin|write) authorized=true ;;
-              *)           authorized=false ;;
-            esac
-            if [ "${authorized}" = "true" ]; then
-              echo "'${COMMENTER}' has '${perm}' access to ${GITHUB_REPOSITORY}; proceeding."
-            else
-              echo "::warning::'${COMMENTER}' does not have write access to ${GITHUB_REPOSITORY} (resolved permission '${perm:-none}'); skipping the binlog download."
-            fi
-          fi
-          echo "authorized=${authorized}" >> "$GITHUB_OUTPUT"
-
       - name: Download binlogs from the failed Azure Pipelines build
         id: fetch
-        # The gate above only runs for the slash command; on `check_run` /
-        # `workflow_dispatch` it is skipped and its output is empty, so the
-        # first clause lets those triggers through unchanged.
-        if: github.event_name != 'issue_comment' || steps.perm.outputs.authorized == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           GH_AW_REPO: ${{ github.repository }}
-          ADO_API: "https://dev.azure.com/dnceng-public/public/_apis"
-          ADO_BUILD_UI: "https://dev.azure.com/dnceng-public/public/_build/results"
-          # dotnet-sdk-public-ci pipeline definition id in dnceng-public/public
-          # (used to validate the resolved build belongs to the right pipeline).
-          ADO_BUILD_DEFINITION_ID: "101"
+          ADO_ORGANIZATION: ${{ vars.BUILD_FAILURE_ANALYSIS_ADO_ORGANIZATION }}
+          ADO_PROJECT: ${{ vars.BUILD_FAILURE_ANALYSIS_ADO_PROJECT }}
+          ADO_API: "https://dev.azure.com/${{ vars.BUILD_FAILURE_ANALYSIS_ADO_ORGANIZATION }}/${{ vars.BUILD_FAILURE_ANALYSIS_ADO_PROJECT }}/_apis"
+          ADO_BUILD_UI: "https://dev.azure.com/${{ vars.BUILD_FAILURE_ANALYSIS_ADO_ORGANIZATION }}/${{ vars.BUILD_FAILURE_ANALYSIS_ADO_PROJECT }}/_build/results"
+          ADO_BUILD_DEFINITION_ID: ${{ vars.BUILD_FAILURE_ANALYSIS_ADO_DEFINITION_ID }}
+          BUILD_CHECK_NAME: ${{ vars.BUILD_FAILURE_ANALYSIS_CHECK_NAME }}
           EVENT_NAME: ${{ github.event_name }}
           # `check_run` payload.
           CHECK_DETAILS_URL: ${{ github.event.check_run.details_url }}
           CHECK_PR_NUMBER: ${{ github.event.check_run.pull_requests[0].number }}
-          # `workflow_dispatch` inputs, read from `github.event.inputs` rather
-          # than the `inputs` context: `inputs` only exists for dispatch/call
-          # workflows, while `github.event.inputs` is simply absent (empty) on
-          # the slash-command event, so one shared job can reference both.
+          # `workflow_dispatch` inputs.
           DISPATCH_BUILD_ID: ${{ github.event.inputs['ado-build-id'] }}
           DISPATCH_PR_NUMBER: ${{ github.event.inputs['pr-number'] }}
-          # Slash-command payload (inline `issue_comment`, or `aw_context` when
-          # the command is routed through a central dispatcher).
-          COMMENT_PR_NUMBER: ${{ github.event.issue.number || fromJSON(github.event.inputs.aw_context || github.event.client_payload.aw_context || '{}').item_number }}
         run: |
           # Advisory + best-effort: on any gap emit binlog-found=false and the
           # agent pipeline stays inert.
@@ -205,6 +67,16 @@ jobs:
           fi
 
           emit_none() { echo "binlog-found=false" >> "$GITHUB_OUTPUT"; exit 0; }
+
+          if [ -z "${BUILD_CHECK_NAME}" ] || [ -z "${ADO_ORGANIZATION}" ] ||
+             [ -z "${ADO_PROJECT}" ] || [ -z "${ADO_BUILD_DEFINITION_ID}" ]; then
+            echo "::warning::Build Failure Analysis repository variables are not configured; skipping."
+            emit_none
+          fi
+          if ! printf '%s' "${ADO_BUILD_DEFINITION_ID}" | grep -qE '^[0-9]+$'; then
+            echo "::warning::Configured Azure Pipelines definition id '${ADO_BUILD_DEFINITION_ID}' is not numeric; refusing."
+            emit_none
+          fi
 
           # Fetch an Azure DevOps API document into ADO_DOC. A network failure
           # or a non-JSON body is a data-resolution failure, not evidence that
@@ -247,117 +119,63 @@ jobs:
           }
 
           # --- 1. Resolve the Azure DevOps build and the PR it belongs to ---
-          # This is the ONLY part of the job that differs between the two
-          # workflows, because they learn about the build in opposite
-          # directions:
-          #
-          #   * `check_run` / `workflow_dispatch` are TOLD which build to look
-          #     at — the check payload names it in `details_url`, a manual
-          #     dispatch passes it explicitly — so the build is resolved first
-          #     and the PR is derived from it.
-          #   * `issue_comment` (the slash command) is told nothing about a
-          #     build: it is a request to re-analyse whatever the PR's newest
-          #     build is, so the PR comes first and the build is looked up from
-          #     it. That build is usable only once it has COMPLETED; a still
-          #     running newest build (e.g. right after a force-push) would
-          #     otherwise pair an older failure with the PR's current head.
-          #
-          # Both branches end with BUILD_ID, build_json and PR_NUMBER set, and
-          # everything below this block is common to both.
-          if [ "${EVENT_NAME}" = "issue_comment" ]; then
-            PR_NUMBER="${COMMENT_PR_NUMBER}"
-            [ -z "${PR_NUMBER}" ] && { echo "::warning::No PR number resolved from the slash-command event / aw_context."; emit_none; }
-            # PR_NUMBER feeds GitHub API paths and the `refs/pull/<n>/merge`
-            # branch query; require it numeric so a malformed event/aw_context
-            # payload can't reach those URLs with unexpected content.
-            if ! printf '%s' "${PR_NUMBER}" | grep -qE '^[0-9]+$'; then
-              echo "::warning::Resolved PR number '${PR_NUMBER}' is not numeric; refusing."; emit_none
-            fi
-            # Newest build for the PR's merge ref REGARDLESS of status
-            # (queue-time descending), so a build queued after an older failure
-            # is seen rather than the stale one being analysed silently.
-            ado_get "build list for PR #${PR_NUMBER}" \
-              "${ADO_API}/build/builds?definitions=${ADO_BUILD_DEFINITION_ID}&branchName=refs/pull/${PR_NUMBER}/merge&queryOrder=queueTimeDescending&\$top=1&api-version=7.1" || emit_none
-            builds_json="${ADO_DOC}"
-            BUILD_ID=$(printf '%s' "${builds_json}" | jq -r '.value // [] | .[0].id // empty')
-            BUILD_STATUS=$(printf '%s' "${builds_json}" | jq -r '.value // [] | .[0].status // empty')
-            echo "Newest dotnet-sdk-public-ci build for PR #${PR_NUMBER}: id='${BUILD_ID}' status='${BUILD_STATUS}'"
-            [ -z "${BUILD_ID}" ] && { echo "::warning::No dotnet-sdk-public-ci build found for PR #${PR_NUMBER}."; emit_none; }
-            # Require a numeric build id before it feeds subsequent ADO API
-            # URLs, so a malformed query response can't inject path/query.
-            if ! printf '%s' "${BUILD_ID}" | grep -qE '^[0-9]+$'; then
-              echo "::warning::ADO build id '${BUILD_ID}' is not numeric; refusing."; emit_none
-            fi
-            if [ "${BUILD_STATUS}" != "completed" ]; then
-              echo "::warning::PR #${PR_NUMBER}'s newest dotnet-sdk-public-ci build (${BUILD_ID}) is still '${BUILD_STATUS}'; wait for it to finish before analysing."
+          if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+            BUILD_ID="${DISPATCH_BUILD_ID}"
+          else
+            # details_url looks like: .../_build/results?buildId=NNN&view=...
+            BUILD_ID=$(printf '%s' "${CHECK_DETAILS_URL}" | grep -oE 'buildId=[0-9]+' | head -1 | cut -d= -f2)
+          fi
+          echo "Azure DevOps build id: '${BUILD_ID}'"
+          [ -z "${BUILD_ID}" ] && { echo "::warning::Could not resolve an ADO build id."; emit_none; }
+          # The build id feeds directly into ADO API URLs below; require it to
+          # be purely numeric (especially on workflow_dispatch, where it is a
+          # free-form input) so a malformed value cannot alter the path/query.
+          if ! printf '%s' "${BUILD_ID}" | grep -qE '^[0-9]+$'; then
+            echo "::warning::Resolved ADO build id '${BUILD_ID}' is not numeric; refusing."; emit_none
+          fi
+          # Build metadata is the authoritative source for the PR association,
+          # definition, result, and revision validated below.
+          ado_get "details of build ${BUILD_ID}" "${ADO_API}/build/builds/${BUILD_ID}?api-version=7.1" || emit_none
+          build_json="${ADO_DOC}"
+          BUILD_PR_NUM=$(printf '%s' "${build_json}" | jq -r '.sourceBranch // empty' | sed -n 's#^refs/pull/\([0-9]\{1,\}\)/merge$#\1#p')
+          if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+            PR_NUMBER="${DISPATCH_PR_NUMBER}"
+          else
+            # Safe outputs are pinned to this trusted event PR number. Require
+            # the build metadata to agree rather than letting build content
+            # redirect output to another PR that shares the same commit.
+            PR_NUMBER="${CHECK_PR_NUMBER}"
+            if [ -n "${BUILD_PR_NUM}" ] && [ "${BUILD_PR_NUM}" != "${CHECK_PR_NUMBER}" ]; then
+              echo "::warning::Azure Pipelines build belongs to PR #${BUILD_PR_NUM}, but the triggering check names PR #${CHECK_PR_NUMBER}; refusing."
               emit_none
             fi
-            ado_get "details of build ${BUILD_ID}" "${ADO_API}/build/builds/${BUILD_ID}?api-version=7.1" || emit_none
-            build_json="${ADO_DOC}"
-          else
-            if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
-              BUILD_ID="${DISPATCH_BUILD_ID}"
-            else
-              # details_url looks like: .../_build/results?buildId=NNN&view=...
-              BUILD_ID=$(printf '%s' "${CHECK_DETAILS_URL}" | grep -oE 'buildId=[0-9]+' | head -1 | cut -d= -f2)
-            fi
-            echo "Azure DevOps build id: '${BUILD_ID}'"
-            [ -z "${BUILD_ID}" ] && { echo "::warning::Could not resolve an ADO build id."; emit_none; }
-            # The build id feeds directly into ADO API URLs below; require it to
-            # be purely numeric (esp. on workflow_dispatch, where it is free-form
-            # input) so a malformed value can't alter the request path/query.
-            if ! printf '%s' "${BUILD_ID}" | grep -qE '^[0-9]+$'; then
-              echo "::warning::Resolved ADO build id '${BUILD_ID}' is not numeric; refusing."; emit_none
-            fi
-            # The build metadata is the authoritative source for the PR number
-            # (via sourceBranch) as well as for the definition / result /
-            # revision validated in step 3.
-            ado_get "details of build ${BUILD_ID}" "${ADO_API}/build/builds/${BUILD_ID}?api-version=7.1" || emit_none
-            build_json="${ADO_DOC}"
-            # A PR build's sourceBranch is exactly `refs/pull/<n>/merge`, so it
-            # identifies the PR unambiguously — unlike the commit->PRs API,
-            # which can return several PRs in an unspecified order.
-            BUILD_PR_NUM=$(printf '%s' "${build_json}" | jq -r '.sourceBranch // empty' | sed -n 's#^refs/pull/\([0-9]\{1,\}\)/merge$#\1#p')
-            if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
-              PR_NUMBER="${DISPATCH_PR_NUMBER}"
-            else
-              # Prefer the PR named by the build's own sourceBranch
-              # (authoritative) over check_run.pull_requests[0], whose order
-              # isn't guaranteed and can name a different PR sharing the commit.
-              PR_NUMBER="${BUILD_PR_NUM:-${CHECK_PR_NUMBER}}"
-            fi
-            [ -z "${PR_NUMBER}" ] && { echo "::warning::Could not resolve a PR number."; emit_none; }
-            # PR_NUMBER feeds `gh api .../pulls/<n>` and the `refs/pull/<n>/merge`
-            # comparison; require it numeric so a malformed value can't reach the
-            # GitHub API path (traversal-like input) or skew the branch match.
-            if ! printf '%s' "${PR_NUMBER}" | grep -qE '^[0-9]+$'; then
-              echo "::warning::Resolved PR number '${PR_NUMBER}' is not numeric; refusing."; emit_none
-            fi
+          fi
+          [ -z "${PR_NUMBER}" ] && { echo "::warning::Could not resolve a PR number."; emit_none; }
+          # PR_NUMBER feeds `gh api .../pulls/<n>` and the merge-ref comparison;
+          # require it numeric so malformed input cannot reach an API path.
+          if ! printf '%s' "${PR_NUMBER}" | grep -qE '^[0-9]+$'; then
+            echo "::warning::Resolved PR number '${PR_NUMBER}' is not numeric; refusing."; emit_none
           fi
           RESULT=$(printf '%s' "${build_json}" | jq -r '.result // empty')
           DEF_ID=$(printf '%s' "${build_json}" | jq -r '.definition.id // empty')
           SRC_BRANCH=$(printf '%s' "${build_json}" | jq -r '.sourceBranch // empty')
 
-          # --- 2. Scope check: only analyse PRs targeting main / release/* ---
+          # --- 2. Confirm the target PR exists ---
           PR_JSON=$(gh api "repos/${GH_AW_REPO}/pulls/${PR_NUMBER}" 2>/dev/null)
           BASE_REF=$(printf '%s' "${PR_JSON}" | jq -r '.base.ref // empty')
-          case "${BASE_REF}" in
-            main|release/*) echo "PR #${PR_NUMBER} base '${BASE_REF}' is in scope." ;;
-            *) echo "::warning::PR #${PR_NUMBER} base '${BASE_REF}' is out of scope (main, release/*); skipping."; emit_none ;;
-          esac
+          [ -z "${BASE_REF}" ] && { echo "::warning::Could not resolve PR #${PR_NUMBER}; skipping."; emit_none; }
+          echo "PR #${PR_NUMBER} targets '${BASE_REF}'."
 
           # --- 3. Validate the build, whichever way it was resolved ---
-          # It must be the dotnet-sdk-public-ci definition (101), have failed,
-          # and belong to this PR (sourceBranch == refs/pull/<PR>/merge). No
+          # It must be the configured definition, have failed, and belong to
+          # this PR (sourceBranch == refs/pull/<PR>/merge). No
           # entry point is fully trusted: `check_run` parses the build id out of
-          # a check payload, dispatch takes the build id and PR number as
-          # independent free-form inputs, and the slash command derives the
-          # build from a query. Validating here — rather than per trigger —
-          # prevents downloading an unrelated build or posting its analysis to
-          # the wrong PR no matter how the build was found.
+          # a check payload, while dispatch takes the build id and PR number as
+          # independent free-form inputs. Validating here prevents downloading
+          # an unrelated build or posting its analysis to the wrong PR.
           echo "ADO build ${BUILD_ID}: result='${RESULT}' definition='${DEF_ID}' sourceBranch='${SRC_BRANCH}'"
           if [ "${DEF_ID}" != "${ADO_BUILD_DEFINITION_ID}" ]; then
-            echo "::warning::ADO build ${BUILD_ID} is definition '${DEF_ID}', not dotnet-sdk-public-ci (${ADO_BUILD_DEFINITION_ID}); refusing."; emit_none
+            echo "::warning::ADO build ${BUILD_ID} is definition '${DEF_ID}', not configured definition '${ADO_BUILD_DEFINITION_ID}'; refusing."; emit_none
           fi
           if [ "${RESULT}" != "failed" ]; then
             echo "::warning::ADO build ${BUILD_ID} did not fail (result='${RESULT}'); nothing to analyze."; emit_none
@@ -413,27 +231,11 @@ jobs:
           HEAD_SHA="${CURRENT_HEAD}"
           echo "Analyzing build ${BUILD_ID} at PR head revision '${HEAD_SHA}'."
           # --- 5. Download every logs artifact and extract binlogs ---
-          # The SDK pipeline publishes one logs artifact per build leg, each
-          # holding that leg's `log/<Configuration>/*.binlog`, but the artifact
-          # NAME depends on the target branch even though the definition id is
-          # the same (101):
-          #   * `main`      -> `<Leg>_Logs_Attempt<N>` (e.g. `Windows_x64_Logs_Attempt1`,
-          #                    `Linux_arm64_AOT_Logs_Attempt1`). A retried leg
-          #                    publishes ONE ARTIFACT PER ATTEMPT, so keep only the
-          #                    highest `<N>` per leg: `Attempt1` holds the logs of a
-          #                    superseded run, and a leg that failed on attempt 1 and
-          #                    passed on attempt 2 would otherwise hand the agent a
-          #                    binlog full of errors that no longer exist — it would
-          #                    then confidently report an already-fixed failure.
-          #                    (Real example: build 1535012 publishes both
-          #                    `Windows_x64_FullFramework_Logs_Attempt1` and
-          #                    `..._Attempt2`.)
-          #   * `release/*` -> `<Leg>` (e.g. `TestBuild_linux_x64`, `AoT_macOS_x64`)
-          # Both carry the same `log/<Configuration>/*.binlog` tree inside, so
-          # only the match differs. Matching just the `main` shape would make the
-          # workflow a silent no-op on every `release/*` PR (0 artifacts matched
-          # -> binlog-found=false -> agent skipped), which is exactly the class of
-          # failure that looks green forever, so handle both.
+          # Pipelines that publish `<Leg>_Logs_Attempt<N>` get retry-aware
+          # deduplication: keep only the highest attempt per leg, because an
+          # earlier failed attempt may have been superseded by a successful
+          # retry. For every other naming scheme, inspect all artifacts and let
+          # extraction identify which ones contain binlogs.
           ado_get "artifact list of build ${BUILD_ID}" "${ADO_API}/build/builds/${BUILD_ID}/artifacts?api-version=7.1" || emit_none
           artifacts_json="${ADO_DOC}"
           mapfile -t names < <(printf '%s' "${artifacts_json}" | jq -r '
@@ -448,10 +250,10 @@ jobs:
             | .[]')
           ARTIFACT_LAYOUT="attempt"
           if [ "${#names[@]}" -eq 0 ]; then
-            # `release/*` layout. There is no reliable name-only test for "this
-            # artifact holds binlogs", so take every artifact and let the
-            # extraction decide; an artifact with no binlog inside is tolerated
-            # (but a download/extract FAILURE is still fatal — see below).
+            # Generic layout. There is no reliable name-only test for "this
+            # artifact holds binlogs", so take every artifact and let extraction
+            # decide; an artifact with no binlog inside is tolerated (but a
+            # download/extract FAILURE is still fatal — see below).
             ARTIFACT_LAYOUT="leg"
             mapfile -t names < <(printf '%s' "${artifacts_json}" | jq -r '.value // [] | .[].name')
           fi

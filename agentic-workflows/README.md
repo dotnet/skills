@@ -8,7 +8,7 @@ that can be installed into other repositories. The workflow sources are kept out
 
 | Package | Description |
 | --- | --- |
-| [Build Failure Analysis](build-failure-analysis/) | Analyzes failed `dotnet-sdk-public-ci` Azure Pipelines builds from their existing binary logs and posts evidence-backed findings on the pull request. |
+| [Build Failure Analysis](build-failure-analysis/) | Analyzes failed .NET Azure Pipelines builds from their existing binary logs and posts evidence-backed findings on the pull request. |
 
 ## Installation
 

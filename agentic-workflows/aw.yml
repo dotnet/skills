@@ -5,3 +5,22 @@ description: Reusable agentic workflows maintained by the .NET team.
 license: MIT
 includes:
   - build-failure-analysis/aw.yml
+config:
+  - type: copilot-auth
+    strategy: prompt-if-actions-auth-unavailable
+  - type: repo-variable
+    name: BUILD_FAILURE_ANALYSIS_CHECK_NAME
+    prompt: GitHub check name for the Azure Pipelines PR build
+    description: Exact rollup check name that triggers build-failure analysis.
+  - type: repo-variable
+    name: BUILD_FAILURE_ANALYSIS_ADO_ORGANIZATION
+    prompt: Azure DevOps organization name
+    description: Public Azure DevOps organization containing the build pipeline.
+  - type: repo-variable
+    name: BUILD_FAILURE_ANALYSIS_ADO_PROJECT
+    prompt: Azure DevOps project name
+    description: Public Azure DevOps project containing the build pipeline.
+  - type: repo-variable
+    name: BUILD_FAILURE_ANALYSIS_ADO_DEFINITION_ID
+    prompt: Azure Pipelines definition ID
+    description: Numeric definition ID of the PR build pipeline.
