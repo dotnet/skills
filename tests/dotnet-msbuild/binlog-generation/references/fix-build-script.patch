@@ -1,0 +1,10 @@
+diff --git a/fix-build-script/build.sh b/fix-build-script/build.sh
+--- a/fix-build-script/build.sh
++++ b/fix-build-script/build.sh
+@@ -5,4 +5,4 @@
+ set -euo pipefail
+-
++
+ dotnet build SimpleApp.csproj -c Debug
+-dotnet build SimpleApp.csproj -c Release /bl
++dotnet build SimpleApp.csproj -c Release /bl:{}

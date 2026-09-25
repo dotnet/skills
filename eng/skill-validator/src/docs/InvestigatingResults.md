@@ -148,16 +148,85 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 
 > **Note:** Scenarios do not have a `passed` field. To determine pass/fail for an individual scenario, check whether `improvementScore >= 0`. For skills, this effective score is the minimum of isolated and plugin scores when both arms exist. For agents, it is always the isolated score; `pluginImprovementScore` and `pluginBreakdown` remain diagnostic production-surface telemetry. The `passed` field exists only at the verdict level.
 
-> **Agent activation:** Expected target-agent activation in the isolated arm is a verdict gate. Missing target activation in the plugin arm is diagnostic telemetry and is included in logs and reason text, but does not set `skillNotActivated`, change `failureKind`, or fail the verdict.
+> **Agent activation:** Expected-active native custom-agent scenarios select the
+> target agent as the primary persona in both isolated and plugin arms. After
+> `SelectAsync` succeeds, the evaluator records `agent.primary_selected`; this
+> direct event is authoritative activation evidence even when the SDK omits
+> `SubagentSelectedEvent`. SDK subagent events remain delegation and
+> organic-routing telemetry and are deduplicated with the direct event by agent
+> name. Expected-dormant scenarios register the target agent but do not preselect
+> it, so neither the direct event nor forced activation is present and both arms
+> exercise normal routing. Dormant scenarios are excluded from
+> preference scoring, and unexpected target selection in the isolated arm fails
+> the activation contract. Missing target activation in an expected-active
+> isolated arm is also a verdict gate, while plugin-arm activation remains
+> diagnostic.
+
+> **Skill activation:** Expected-active scenarios require target activation in
+> both isolated and plugin arms. Expected-dormant scenarios must keep the target
+> inactive in the isolated arm; unexpected isolated activation fails with
+> `unexpected_activation`, while plugin-arm activity remains diagnostic. Inline
+> and cross-directory rejudge reapply the same contract from persisted
+> `expect_activation` metadata. Databases created before schema version 4 retain
+> this field as unknown when migrated. Rejudge then recovers the expectation from
+> the current target's matching `eval.yaml` scenario when possible, using the
+> stored checkout path or the current repository and requiring persisted prompt
+> text to still match when available. If the eval, scenario, or matching prompt is
+> unavailable, it uses the legacy expected-active behavior instead of inventing
+> historical dormancy.
+> Schema-version-4 databases keep their explicit values while migration removes
+> the old non-null/default constraint so schema 5 has one consistent shape.
 
 > **Plugin skill staging:** Plugin runs load staged copies of manifest-declared
 > skills rather than exposing the source directories directly. Skill directories
 > and `SKILL.md` files must remain inside the plugin without symlink/reparse-point
 > components, and linked descendants are omitted while copying the skill tree.
+> Runtime file and shell permissions include the staged copies but exclude the
+> original plugin source tree, so evaluation changes cannot mutate the checkout.
+> The evaluator captures `GH_TOKEN` or `GITHUB_TOKEN` for its SDK client, then
+> removes both aliases from the process and every setup-command or command-grader
+> child environment.
+> The session filesystem provider stores `session-state/*` under the private
+> config directory, resolves relative file-tool paths from the scenario
+> workspace, limits absolute paths to the private evaluator root, and rejects
+> any reparse-point or symbolic-link component that escapes the selected root.
+> Evaluator clients use a process-private directory under the system temp
+> directory as their SDK filesystem root because the shared client is created
+> before per-scenario `sv-*` workspaces. Fixtures and staged skills are created
+> beneath that private root, which is created with owner-only permissions on
+> Unix and a protected owner-only ACL on Windows. Per-session pre-tool and
+> permission hooks further restrict file access
+> to the current fixture workspace and its explicitly staged skill/plugin
+> directories. Judge, overfitting, and rejudge sessions also receive tracked
+> private work directories beneath that root; they never use the shared system
+> temp directory as their working or absolute-access root. The filesystem
+> provider receives only the current workspace and explicitly staged roots,
+> and multi-path file operations validate every source and destination. File
+> reads, metadata queries, writes, appends, and directory creation walk from
+> an opened allowed root with OS no-follow semantics, so a path component
+> replaced after validation cannot redirect the operation through a symbolic
+> link or reparse point.
+> Permission requests fail closed: read/write paths use the same containment
+> checks, URL access is denied, shell requests without path or URL metadata
+> are limited to a small exact local-command allowlist, and MCP access is
+> limited to registered, sanitized servers and their explicitly declared
+> tools; an omitted tool list permits none, while an explicit `*` permits all.
+> The native evaluator currently accepts only the repository's shipped
+> `dotnet dnx Microsoft.AITools.BinlogMcp --yes --prerelease` stdio launch
+> shape as input, then rewrites it to package version 3.0.2 with a
+> validator-owned NuGet configuration, trusted source, and private package and
+> HTTP caches. Plugin-supplied environment variables, arbitrary runtimes,
+> scripts, projects, and package substitutions are rejected before the server
+> starts.
+
+> **Command graders:** A Vally `run-command` grader with an explicit `args`
+> array executes `command` directly with those argument boundaries preserved.
+> When `args` is absent, the command remains a shell string so existing quoting,
+> redirection, and compound-command behavior stays compatible.
 
 > **Reused baselines:** When the run was invoked with `--baseline-from`, the `baseline` arm is not executed — its `metrics` and `judgeResult` come from the shared baseline file produced earlier with `--baseline-out` (computed once, honoring `--runs`). Such scenarios are reported with the `baseline-reused` session phase and a `reused` baseline status. The baseline file is keyed on `--model` and `--judge-model` plus, per scenario, a SHA-256 of the prompt and a composite SHA-256 over its setup inputs (copied test files, explicit setup files, and setup commands) and its evaluation criteria (rubric, assertions, expect/reject tools, and turn/token/timeout limits); reuse fails fast if the agent model, judge model, or any prompt-plus-setup-plus-criteria identity is missing, so the baseline you compare against is always identity-matched and a shared prompt across cases with different fixtures or rubrics cannot cross-contaminate. Because the baseline output is identical across every skill/agent that consumes the same file, this acts as a shared control group and removes baseline run-to-run variance from cross-skill comparisons.
 
-> **Decoupled runs and judging:** `evaluate --no-judge` runs the agent arms and persists `sessions.db` but performs no judging and needs no baseline file, so baseline and treatment arms can run in one parallel pool. Each persisted session row carries a `baseline_key` column — the same prompt-SHA-plus-target-SHA identity used for baseline reuse. A later `rejudge <treatment-dir> --baseline-dir <baseline-dir>` pairs each treatment run with its baseline run by that key (preferring the matching run index), runs the same judges and gates an inline `evaluate` would, and writes baseline judge/pairwise results back to the baseline `sessions.db` and treatment judge results to the treatment `sessions.db`. Baseline and treatment must share `--model`; the judge model resolves to `--judge-model`, else the treatment DB's persisted judge model, else the baseline DB's, and a mismatch between the two persisted judge models (without an explicit override) is rejected.
+> **Decoupled runs and judging:** `evaluate --no-judge` runs the agent arms and persists `sessions.db` but performs no judging and needs no baseline file, so baseline and treatment arms can run in one parallel pool. Each persisted session row carries a `baseline_key` column — the same prompt-SHA-plus-target-SHA identity used for baseline reuse. Scenario execution failures are persisted with terminal `failed` status and make `--no-judge` return nonzero; rejudge rejects any baseline or treatment database containing those failed sessions instead of silently dropping them. A later `rejudge <treatment-dir> --baseline-dir <baseline-dir>` requires exactly one baseline with the same key and run index for every treatment run, and every isolated/plugin role must carry the same key. It then runs the same judges and gates an inline `evaluate` would and writes results back to the owning databases. Cross-directory rejudge also requires complete accounting: any unmatched, duplicate, unexpected-role, or key-mismatched baseline or treatment run is listed by skill, scenario, run, role, session ID, and baseline key, and stops rejudge before judging or publishing a partial verdict. Inline rejudge enforces the same baseline-key agreement and rejects duplicate baseline, isolated, or plugin role records for the same skill, scenario, and run. Every run for one scenario must agree on its persisted activation expectation; mixed eval revisions fail closed. Inline and cross-directory rejudge reject any database with a nonterminal session before judging, including an interrupted `running` plugin arm beside completed baseline and isolated arms. Inline rejudge similarly stops when a completed run group lacks its required baseline or isolated arm. Inline rejudge accepts normal and reused baselines plus both skill and agent isolated/plugin roles. It persists each new scenario's activation expectation, reconstructs target activation from saved events, and reapplies the skill or agent activation-contract gate. When an older database has no expectation, rejudge first reads the current matching eval scenario and otherwise preserves the legacy expected-active behavior. Baseline and treatment must share `--model`; the judge model resolves to `--judge-model`, else the treatment DB's persisted judge model, else the baseline DB's, and a mismatch between the two persisted judge models (without an explicit override) is rejected.
 
 ### Breakdown fields
 

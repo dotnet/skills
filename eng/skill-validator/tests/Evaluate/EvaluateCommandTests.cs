@@ -141,6 +141,374 @@ public class EvaluateCommandTests
     }
 
     [TestMethod]
+    public void AgentMissingActivationTelemetryFailsClosed()
+    {
+        var comparison = SkillActivationComparison(
+            expectActivation: true,
+            isolatedActivated: false,
+            pluginActivated: false);
+        comparison.SubagentActivationIsolated = null;
+        comparison.SubagentActivationPlugin = null;
+        var verdict = PassingSkillVerdict(comparison);
+        verdict.SkillKind = "agent";
+
+        EvaluateCommand.ApplyAgentActivationGate(
+            verdict, [comparison], "router", _ => { });
+
+        Assert.IsFalse(verdict.Passed);
+        Assert.IsTrue(verdict.SkillNotActivated);
+        Assert.AreEqual(FailureKind.SkillNotActivated, verdict.FailureKind);
+        Assert.Contains("AGENT NOT ACTIVATED (isolated)", verdict.Reason);
+        Assert.Contains("AGENT NOT ACTIVATED (plugin)", verdict.Reason);
+    }
+
+    [TestMethod]
+    public void AgentExpectedDormantActivationFails()
+    {
+        var comparison = SkillActivationComparison(
+            expectActivation: false,
+            isolatedActivated: false,
+            pluginActivated: false);
+        comparison.SubagentActivationIsolated = new SubagentActivationInfo(["router"], 1);
+        comparison.SubagentActivationPlugin = new SubagentActivationInfo(["router"], 1);
+        var verdict = PassingSkillVerdict(comparison);
+        verdict.SkillKind = "agent";
+
+        EvaluateCommand.ApplyAgentActivationGate(
+            verdict, [comparison], "router", _ => { });
+
+        Assert.IsFalse(verdict.Passed);
+        Assert.AreEqual(FailureKind.UnexpectedActivation, verdict.FailureKind);
+        Assert.Contains("UNEXPECTED AGENT ACTIVATION (isolated)", verdict.Reason);
+        Assert.IsTrue(Reporter.RequiresVerdictLevelFailure(verdict));
+    }
+
+    [TestMethod]
+    public void SkillExpectedActiveMissingActivationFails()
+    {
+        var comparison = SkillActivationComparison(
+            expectActivation: true,
+            isolatedActivated: false,
+            pluginActivated: true);
+        var verdict = PassingSkillVerdict(comparison);
+
+        EvaluateCommand.ApplySkillActivationGate(
+            verdict, [comparison], "target", _ => { });
+
+        Assert.IsFalse(verdict.Passed);
+        Assert.IsTrue(verdict.SkillNotActivated);
+        Assert.AreEqual(FailureKind.SkillNotActivated, verdict.FailureKind);
+        Assert.Contains("NOT ACTIVATED (isolated)", verdict.Reason);
+    }
+
+    [TestMethod]
+    public void SkillExpectedActiveMissingPluginEvidenceFails()
+    {
+        var comparison = SkillActivationComparison(
+            expectActivation: true,
+            isolatedActivated: true,
+            pluginActivated: true);
+        comparison.SkillActivationPlugin = null;
+        var verdict = PassingSkillVerdict(comparison);
+
+        EvaluateCommand.ApplySkillActivationGate(
+            verdict, [comparison], "target", _ => { });
+
+        Assert.IsFalse(verdict.Passed);
+        Assert.IsTrue(verdict.SkillNotActivated);
+        Assert.AreEqual(FailureKind.SkillNotActivated, verdict.FailureKind);
+        Assert.Contains("NOT ACTIVATED (plugin)", verdict.Reason);
+    }
+
+    [TestMethod]
+    public void SkillExpectedDormantInactivePassesWithPluginDiagnostic()
+    {
+        var comparison = SkillActivationComparison(
+            expectActivation: false,
+            isolatedActivated: false,
+            pluginActivated: true);
+        var verdict = PassingSkillVerdict(comparison);
+
+        EvaluateCommand.ApplySkillActivationGate(
+            verdict, [comparison], "target", _ => { });
+
+        Assert.IsTrue(verdict.Passed);
+        Assert.IsFalse(verdict.SkillNotActivated);
+        Assert.IsNull(verdict.FailureKind);
+        Assert.Contains("PLUGIN ACTIVATION DIAGNOSTIC", verdict.Reason);
+    }
+
+    [TestMethod]
+    public void SkillExpectedDormantActivationFails()
+    {
+        var comparison = SkillActivationComparison(
+            expectActivation: false,
+            isolatedActivated: true,
+            pluginActivated: false);
+        var verdict = PassingSkillVerdict(comparison);
+
+        EvaluateCommand.ApplySkillActivationGate(
+            verdict, [comparison], "target", _ => { });
+
+        Assert.IsFalse(verdict.Passed);
+        Assert.IsFalse(verdict.SkillNotActivated);
+        Assert.AreEqual(FailureKind.UnexpectedActivation, verdict.FailureKind);
+        Assert.Contains("UNEXPECTED ACTIVATION (isolated)", verdict.Reason);
+    }
+
+    [TestMethod]
+    public void SkillActivationContractFailureClassifiesDormantAndMissingEvidence()
+    {
+        var dormantActive = SkillActivationComparison(
+            expectActivation: false,
+            isolatedActivated: true,
+            pluginActivated: false);
+        var activeMissingPlugin = SkillActivationComparison(
+            expectActivation: true,
+            isolatedActivated: true,
+            pluginActivated: true);
+        activeMissingPlugin.SkillActivationPlugin = null;
+
+        Assert.IsTrue(EvaluateCommand.HasSkillActivationContractFailure(dormantActive));
+        Assert.IsTrue(EvaluateCommand.HasSkillActivationContractFailure(activeMissingPlugin));
+    }
+
+    [TestMethod]
+    public void ReporterFormatsDormantActivationByArmContract()
+    {
+        var activation = new SkillActivationInfo(true, ["target"], [], 1);
+
+        Assert.StartsWith(
+            "❌ ACTIVATED (unexpected)",
+            Reporter.FormatActivationCell(activation, expectActivation: false));
+        Assert.StartsWith(
+            "ℹ️ activated (plugin diagnostic)",
+            Reporter.FormatActivationCell(
+                activation,
+                expectActivation: false,
+                diagnosticOnly: true));
+    }
+
+    [TestMethod]
+    public void ReporterTreatsDormantQualityAsDiagnostic()
+    {
+        var dormantInactive = SkillActivationComparison(
+            expectActivation: false,
+            isolatedActivated: false,
+            pluginActivated: false,
+            improvementScore: -1);
+        var dormantActive = SkillActivationComparison(
+            expectActivation: false,
+            isolatedActivated: true,
+            pluginActivated: false,
+            improvementScore: 1);
+
+        Assert.IsFalse(Reporter.IsScenarioFailureForReport("skill", dormantInactive));
+        Assert.IsTrue(Reporter.IsScenarioFailureForReport("skill", dormantActive));
+    }
+
+    [TestMethod]
+    public void ReporterTreatsAgentSkillActivationAsDiagnostic()
+    {
+        var activation = new SkillActivationInfo(false, [], [], 0);
+
+        Assert.AreEqual(
+            "ℹ️ no skill telemetry",
+            Reporter.FormatActivationCell(
+                activation,
+                expectActivation: null,
+                diagnosticOnly: true));
+    }
+
+    [TestMethod]
+    public void ReporterTreatsDormantAgentQualityAsDiagnostic()
+    {
+        var comparison = SkillActivationComparison(
+            expectActivation: false,
+            isolatedActivated: false,
+            pluginActivated: false,
+            improvementScore: -1);
+
+        Assert.IsFalse(Reporter.IsScenarioFailureForReport("agent", comparison));
+    }
+
+    [TestMethod]
+    public void FailedScenarioPreservesDormantActivationExpectation()
+    {
+        var comparison = EvaluateCommand.CreateFailedScenarioComparison(
+            "stay dormant",
+            "runner failed",
+            expectActivation: false);
+
+        Assert.IsFalse(comparison.ExpectActivation);
+    }
+
+    [TestMethod]
+    [DataRow(true, true)]
+    [DataRow(false, false)]
+    public void AgentPrimarySelectionFollowsActivationExpectation(
+        bool expectActivation,
+        bool expectedSelection)
+    {
+        var scenario = new EvalScenario(
+            "agent routing",
+            "Route this request.",
+            ExpectActivation: expectActivation);
+
+        Assert.AreEqual(
+            expectedSelection,
+            EvaluateCommand.ShouldSelectAgentAsPrimary(scenario));
+    }
+
+    [TestMethod]
+    public void FailedDormantScenarioFailsVerdictAndReport()
+    {
+        var comparison = EvaluateCommand.CreateFailedScenarioComparison(
+            "stay dormant",
+            "runner failed",
+            expectActivation: false);
+        var verdict = PassingSkillVerdict(comparison);
+
+        EvaluateCommand.ApplySkillActivationGate(
+            verdict, [comparison], "target", _ => { });
+        EvaluateCommand.ApplyExecutionErrorGate(
+            verdict, [comparison], _ => { });
+
+        Assert.IsFalse(verdict.Passed);
+        Assert.AreEqual(FailureKind.ExecutionError, verdict.FailureKind);
+        Assert.IsTrue(Reporter.IsScenarioFailureForReport("skill", comparison));
+        Assert.Contains("EXECUTION ERROR", verdict.Reason);
+    }
+
+    [TestMethod]
+    public void NoJudgeRejectsScenarioExecutionErrors()
+    {
+        var comparison = EvaluateCommand.CreateFailedScenarioComparison(
+            "failed scenario",
+            "runner failed",
+            expectActivation: false);
+
+        var error = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            EvaluateCommand.ThrowIfScenarioExecutionFailed(
+                [comparison],
+                "target"));
+
+        Assert.Contains("target scenario execution failed", error.Message);
+        Assert.Contains("failed scenario", error.Message);
+    }
+
+    [TestMethod]
+    public void RunMetricErrorsFailSessionsAndScenarioExecution()
+    {
+        var clean = new RunMetrics();
+        var failed = new RunMetrics { ErrorCount = 1 };
+        var timedOut = new RunMetrics { ErrorCount = 1, TimedOut = true };
+
+        Assert.AreEqual("completed", EvaluateCommand.GetSessionStatus(clean));
+        Assert.AreEqual("reused", EvaluateCommand.GetSessionStatus(clean, reused: true));
+        Assert.AreEqual("failed", EvaluateCommand.GetSessionStatus(failed));
+        Assert.AreEqual("failed", EvaluateCommand.GetSessionStatus(failed, reused: true));
+        Assert.AreEqual("timed_out", EvaluateCommand.GetSessionStatus(timedOut));
+        var error = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            EvaluateCommand.ThrowIfRunExecutionFailed(clean, failed, clean));
+        Assert.Contains("isolated", error.Message);
+        EvaluateCommand.ThrowIfRunExecutionFailed(clean, timedOut, clean);
+    }
+
+    [TestMethod]
+    public void ReporterEmitsVerdictFailureForMissingAgentActivation()
+    {
+        var comparison = SkillActivationComparison(
+            expectActivation: true,
+            isolatedActivated: false,
+            pluginActivated: false);
+        var verdict = new SkillVerdict
+        {
+            SkillKind = "agent",
+            SkillName = "router",
+            SkillPath = "plugins/demo/agents/router.agent.md",
+            Passed = false,
+            Scenarios = [comparison],
+            OverallImprovementScore = 0.5,
+            Reason = "Agent did not activate",
+            FailureKind = FailureKind.SkillNotActivated,
+            SkillNotActivated = true,
+        };
+
+        Assert.IsTrue(Reporter.RequiresVerdictLevelFailure(verdict));
+        Assert.Contains(
+            "### ❌ Skill validation errors",
+            Reporter.GenerateMarkdownSummary([verdict]));
+    }
+
+    [TestMethod]
+    public void ReporterPreservesAllDormantNoScenariosFailure()
+    {
+        var dormant = SkillActivationComparison(
+            expectActivation: false,
+            isolatedActivated: false,
+            pluginActivated: false,
+            improvementScore: -1);
+        var verdict = new SkillVerdict
+        {
+            SkillName = "target",
+            SkillPath = "plugins/demo/skills/target/SKILL.md",
+            Passed = false,
+            Scenarios = [dormant],
+            OverallImprovementScore = 0,
+            Reason = "No scenarios to evaluate",
+            FailureKind = FailureKind.NoScenarios,
+        };
+
+        Assert.IsTrue(Reporter.RequiresVerdictLevelFailure(verdict));
+        Assert.Contains(
+            "### ❌ Skill validation errors",
+            Reporter.GenerateMarkdownSummary([verdict]));
+    }
+
+    private static ScenarioComparison SkillActivationComparison(
+        bool expectActivation,
+        bool isolatedActivated,
+        bool pluginActivated,
+        double improvementScore = 0.5)
+    {
+        var run = new RunResult(
+            new RunMetrics { AgentOutput = "done", TaskCompleted = true, Events = [] },
+            new JudgeResult([], 5, "passed"));
+        return new ScenarioComparison
+        {
+            ScenarioName = "activation contract",
+            Baseline = run,
+            SkilledIsolated = run,
+            SkilledPlugin = run,
+            ImprovementScore = improvementScore,
+            Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+            SkillActivationIsolated = new SkillActivationInfo(
+                isolatedActivated,
+                isolatedActivated ? ["target"] : [],
+                [],
+                isolatedActivated ? 1 : 0),
+            SkillActivationPlugin = new SkillActivationInfo(
+                pluginActivated,
+                pluginActivated ? ["target"] : [],
+                [],
+                pluginActivated ? 1 : 0),
+            ExpectActivation = expectActivation,
+        };
+    }
+
+    private static SkillVerdict PassingSkillVerdict(ScenarioComparison comparison) =>
+        new()
+        {
+            SkillName = "target",
+            SkillPath = "plugins/demo/skills/target/SKILL.md",
+            Passed = true,
+            Scenarios = [comparison],
+            OverallImprovementScore = 0.5,
+            Reason = "passed",
+        };
+
+    [TestMethod]
     public async Task ResolveAdditionalAgentsIncludesTransitiveDeclaredDependencies()
     {
         var pluginRoot = Path.Combine(Path.GetTempPath(), $"agent-deps-{Guid.NewGuid():N}");

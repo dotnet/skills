@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <UsingTask TaskName="WriteGeneratedCode" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <FilePath ParameterType="System.String" Required="true" />
+      <Namespace ParameterType="System.String" Required="true" />
+      <Message ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs"><![CDATA[
+var code = $@"namespace {Namespace}
+{{
+    public static class BuildInfo {{ public const string Message = ""{Message}""; }}
+}}
+";
+System.IO.File.WriteAllText(FilePath, code);
+]]></Code>
+    </Task>
+  </UsingTask>
+
+
+  <Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile;BeforeCompile">
+    <PropertyGroup>
+      <_BrokenGeneratedCodeDir>obj\$(Configuration)\$(TargetFramework)\Generated\</_BrokenGeneratedCodeDir>
+      <_BrokenGeneratedFile>$(_BrokenGeneratedCodeDir)GeneratedInfo.cs</_BrokenGeneratedFile>
+      <_ExpectedGeneratedFile>$(IntermediateOutputPath)Generated\GeneratedInfo.cs</_ExpectedGeneratedFile>
+    </PropertyGroup>
+
+    <MakeDir Directories="$(_BrokenGeneratedCodeDir)" />
+    <WriteGeneratedCode
+      FilePath="$(_BrokenGeneratedFile)"
+      Namespace="HardcodedPath.Generated"
+      Message="Written to the wrong intermediate folder" />
+
+    <ItemGroup>
+      <Compile Include="$(_ExpectedGeneratedFile)" />
+      <FileWrites Include="$(_ExpectedGeneratedFile)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

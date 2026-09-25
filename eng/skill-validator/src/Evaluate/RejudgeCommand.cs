@@ -82,6 +82,24 @@ public static class RejudgeCommand
         }
 
         using var sessionDb = new SessionDatabase(dbPath);
+        var nonterminalSessions = sessionDb.GetNonterminalSessions();
+        if (nonterminalSessions.Count > 0)
+        {
+            WriteNonterminalSessions(
+                "Cannot rejudge: execution data contains nonterminal sessions. No verdict was published.",
+                ("Sessions", nonterminalSessions));
+            return 1;
+        }
+
+        var failedSessions = sessionDb.GetFailedSessions();
+        if (failedSessions.Count > 0)
+        {
+            Console.Error.WriteLine(
+                $"Cannot rejudge: {failedSessions.Count} session(s) failed during execution: "
+                + string.Join(", ", failedSessions.Select(s =>
+                    $"{s.SkillName}/{s.ScenarioName}#{s.RunIndex + 1}/{s.Role}")));
+            return 1;
+        }
         var sessions = sessionDb.GetCompletedSessions();
         if (sessions.Count == 0)
         {
@@ -95,6 +113,26 @@ public static class RejudgeCommand
         if (string.IsNullOrWhiteSpace(effectiveJudgeModel))
         {
             Console.Error.WriteLine("No persisted judge model found in sessions.db. Re-run with --judge-model to specify the judge explicitly.");
+            return 1;
+        }
+
+        bool usePairwise = judgeMode is JudgeMode.Pairwise or JudgeMode.Both;
+        var allRunGroups = sessions
+            .GroupBy(s => (s.SkillName, s.ScenarioName, s.RunIndex))
+            .ToList();
+        var incompleteRunGroups = FindIncompleteInlineRunGroups(allRunGroups);
+
+        if (incompleteRunGroups.Count > 0)
+        {
+            Console.Error.WriteLine("Cannot rejudge: incomplete inline run group(s):");
+            foreach (var identity in incompleteRunGroups)
+                Console.Error.WriteLine($"  - {identity}");
+            return 1;
+        }
+
+        if (allRunGroups.Count == 0)
+        {
+            Console.Error.WriteLine("No complete run groups found.");
             return 1;
         }
 
@@ -116,19 +154,7 @@ public static class RejudgeCommand
 
         Console.WriteLine($"Rejudging {sessions.Count} sessions with model: {effectiveJudgeModel}, mode: {judgeMode}");
 
-        bool usePairwise = judgeMode is JudgeMode.Pairwise or JudgeMode.Both;
-        var runGroups = sessions
-            .GroupBy(s => (s.SkillName, s.ScenarioName, s.RunIndex))
-            .Where(g => g.Any(s => s.Role == "baseline") &&
-                (g.Any(s => s.Role == "with-skill-isolated") || g.Any(s => s.Role == "with-skill")))
-            .ToList();
-
-        if (runGroups.Count == 0)
-        {
-            Console.Error.WriteLine("No complete run groups found.");
-            return 1;
-        }
-
+        var runGroups = allRunGroups;
         Console.WriteLine($"Found {runGroups.Count} run group(s) across {runGroups.Select(g => g.Key.SkillName).Distinct().Count()} skill(s)\n");
 
         var firstSession = sessions[0];
@@ -137,46 +163,71 @@ public static class RejudgeCommand
         {
             var skillName = skillGroup.Key;
             var firstSkillSession = skillGroup.First().First();
+            var isAgent = SelectInlineRunGroup(skillGroup.First())!.IsAgent;
             Console.WriteLine($"[{skillName}] Rejudging...");
 
             var comparisons = new List<ScenarioComparison>();
             foreach (var scenarioGroup in skillGroup.GroupBy(g => g.Key.ScenarioName))
             {
                 var scenarioName = scenarioGroup.Key;
+                var expectationSessions = scenarioGroup
+                    .Select(group => SelectInlineRunGroup(group)?.Isolated)
+                    .Where(session => session is not null)
+                    .Select(session => session!);
+                if (!TryResolveConsistentExpectedActivation(
+                    expectationSessions,
+                    isAgent,
+                    message => Console.WriteLine($"[{skillName}] {message}"),
+                    out var expectActivation))
+                {
+                    Console.Error.WriteLine(
+                        $"Cannot rejudge: {skillName}/{scenarioName} contains conflicting activation expectations. No verdict was published.");
+                    return 1;
+                }
                 var storedRubric = GetStoredRubric(skillName, scenarioName, scenarioGroup.SelectMany(g => g));
                 var rejudgedRuns = new List<RejudgedRun>();
 
                 foreach (var runGroup in scenarioGroup)
                 {
-                    var baselineSess = runGroup.First(s => s.Role == "baseline");
-                    var isolatedSess = runGroup.FirstOrDefault(s => s.Role == "with-skill-isolated")
-                        ?? runGroup.FirstOrDefault(s => s.Role == "with-skill");
-                    if (isolatedSess is null)
+                    var selected = SelectInlineRunGroup(runGroup);
+                    if (selected is null)
                         continue;
 
-                    var pluginSess = runGroup.FirstOrDefault(s => s.Role == "with-skill-plugin");
+                    var baselineSess = selected.Baseline;
+                    var isolatedSess = selected.Isolated;
+                    var pluginSess = selected.Plugin;
                     var prompt = baselineSess.Prompt ?? isolatedSess.Prompt ?? pluginSess?.Prompt ?? "";
-                    var scenario = new EvalScenario(scenarioName, prompt, Rubric: storedRubric);
+                    var scenario = new EvalScenario(
+                        scenarioName,
+                        prompt,
+                        Rubric: storedRubric,
+                        ExpectActivation: expectActivation);
                     Action<string>? log = verbose ? msg => Console.WriteLine($"  [{scenarioName}/{runGroup.Key.RunIndex + 1}] {msg}") : null;
 
                     rejudgedRuns.Add(await JudgeRunGroup(
                         scenario, skillName, firstSkillSession.SkillPath,
                         baselineSess, isolatedSess, pluginSess,
-                        effectiveJudgeModel, verbose, judgeTimeout, usePairwise,
+                        effectiveJudgeModel, verbose, judgeTimeout, usePairwise, isAgent,
                         baselineSaveDb: sessionDb, treatmentSaveDb: sessionDb, log));
                 }
 
                 if (rejudgedRuns.Count == 0)
                     continue;
 
-                comparisons.Add(BuildScenarioComparison(scenarioName, rejudgedRuns));
+                comparisons.Add(BuildScenarioComparison(scenarioName, rejudgedRuns, isAgent));
             }
 
             if (comparisons.Count == 0)
                 continue;
 
-            var skill = new SkillInfo(skillName, "", firstSkillSession.SkillPath, firstSkillSession.SkillPath, "");
-            var verdict = Comparator.ComputeVerdict(skill, comparisons, minImprovement, requireCompletion, confidenceLevel);
+            var verdict = ComputeRejudgeVerdict(
+                skillName,
+                firstSkillSession.SkillPath,
+                comparisons,
+                isAgent,
+                minImprovement,
+                requireCompletion,
+                confidenceLevel);
             Console.WriteLine($"[{skillName}] {(verdict.Passed ? "✅" : "❌")} Score: {verdict.OverallImprovementScore * 100:F1}%");
             verdicts.Add(verdict);
         }
@@ -226,6 +277,26 @@ public static class RejudgeCommand
         using var treatmentDb = new SessionDatabase(treatmentDbPath);
         using var baselineDb = new SessionDatabase(baselineDbPath);
 
+        var nonterminalTreatmentSessions = treatmentDb.GetNonterminalSessions();
+        var nonterminalBaselineSessions = baselineDb.GetNonterminalSessions();
+        if (nonterminalTreatmentSessions.Count > 0 || nonterminalBaselineSessions.Count > 0)
+        {
+            WriteNonterminalSessions(
+                "Cannot rejudge: baseline or treatment data contains nonterminal sessions. No verdict was published.",
+                ("Baseline sessions", nonterminalBaselineSessions),
+                ("Treatment sessions", nonterminalTreatmentSessions));
+            return 1;
+        }
+
+        var failedTreatmentSessions = treatmentDb.GetFailedSessions();
+        var failedBaselineSessions = baselineDb.GetFailedSessions();
+        if (failedTreatmentSessions.Count > 0 || failedBaselineSessions.Count > 0)
+        {
+            Console.Error.WriteLine(
+                "Cannot rejudge: baseline or treatment data contains failed execution sessions.");
+            return 1;
+        }
+
         var treatmentSessions = treatmentDb.GetCompletedSessions();
         var baselineSessions = baselineDb.GetCompletedSessions();
         if (treatmentSessions.Count == 0)
@@ -264,6 +335,14 @@ public static class RejudgeCommand
             return 1;
         }
 
+        var pairing = PairCrossDir(baselineSessions, treatmentSessions);
+        var pairingFailure = GetCrossDirPairingFailure(pairing);
+        if (pairingFailure is not null)
+        {
+            Console.Error.WriteLine(pairingFailure);
+            return 1;
+        }
+
         try
         {
             var client = await AgentRunner.GetSharedClient(verbose);
@@ -280,16 +359,6 @@ public static class RejudgeCommand
             return 1;
         }
 
-        var pairing = PairCrossDir(baselineSessions, treatmentSessions);
-        foreach (var unmatched in pairing.Unmatched)
-            Console.WriteLine($"⚠️  No baseline match for treatment run {unmatched}; skipping.");
-
-        if (pairing.Pairs.Count == 0)
-        {
-            Console.Error.WriteLine("No treatment runs could be paired with a baseline.");
-            return 1;
-        }
-
         Console.WriteLine($"Judging {pairing.Pairs.Count} paired run(s) with model: {effectiveJudgeModel}, mode: {judgeMode}\n");
 
         bool usePairwise = judgeMode is JudgeMode.Pairwise or JudgeMode.Both;
@@ -298,12 +367,23 @@ public static class RejudgeCommand
         {
             var skillName = skillGroup.Key;
             var skillPath = skillGroup.First().Isolated.SkillPath;
+            var isAgent = skillGroup.First().IsAgent;
             Console.WriteLine($"[{skillName}] Judging...");
 
             var comparisons = new List<ScenarioComparison>();
             foreach (var scenarioGroup in skillGroup.GroupBy(p => p.ScenarioName))
             {
                 var scenarioName = scenarioGroup.Key;
+                if (!TryResolveConsistentExpectedActivation(
+                    scenarioGroup.Select(pair => pair.Isolated),
+                    isAgent,
+                    message => Console.WriteLine($"[{skillName}] {message}"),
+                    out var expectActivation))
+                {
+                    Console.Error.WriteLine(
+                        $"Cannot rejudge: {skillName}/{scenarioName} contains conflicting activation expectations. No verdict was published.");
+                    return 1;
+                }
                 var storedRubric = GetStoredRubric(skillName, scenarioName,
                     scenarioGroup.SelectMany(p => p.Plugin is null
                         ? new[] { p.Baseline, p.Isolated }
@@ -313,27 +393,37 @@ public static class RejudgeCommand
                 foreach (var pair in scenarioGroup)
                 {
                     var prompt = pair.Baseline.Prompt ?? pair.Isolated.Prompt ?? pair.Plugin?.Prompt ?? "";
-                    var scenario = new EvalScenario(scenarioName, prompt, Rubric: storedRubric);
+                    var scenario = new EvalScenario(
+                        scenarioName,
+                        prompt,
+                        Rubric: storedRubric,
+                        ExpectActivation: expectActivation);
                     Action<string>? log = verbose ? msg => Console.WriteLine($"  [{scenarioName}/{pair.RunIndex + 1}] {msg}") : null;
 
                     rejudgedRuns.Add(await JudgeRunGroup(
                         scenario, skillName, skillPath,
                         pair.Baseline, pair.Isolated, pair.Plugin,
-                        effectiveJudgeModel!, verbose, judgeTimeout, usePairwise,
+                        effectiveJudgeModel!, verbose, judgeTimeout, usePairwise, isAgent,
                         baselineSaveDb: baselineDb, treatmentSaveDb: treatmentDb, log));
                 }
 
                 if (rejudgedRuns.Count == 0)
                     continue;
 
-                comparisons.Add(BuildScenarioComparison(scenarioName, rejudgedRuns));
+                comparisons.Add(BuildScenarioComparison(scenarioName, rejudgedRuns, isAgent));
             }
 
             if (comparisons.Count == 0)
                 continue;
 
-            var skill = new SkillInfo(skillName, "", skillPath, skillPath, "");
-            var verdict = Comparator.ComputeVerdict(skill, comparisons, minImprovement, requireCompletion, confidenceLevel);
+            var verdict = ComputeRejudgeVerdict(
+                skillName,
+                skillPath,
+                comparisons,
+                isAgent,
+                minImprovement,
+                requireCompletion,
+                confidenceLevel);
             Console.WriteLine($"[{skillName}] {(verdict.Passed ? "✅" : "❌")} Score: {verdict.OverallImprovementScore * 100:F1}%");
             verdicts.Add(verdict);
         }
@@ -351,57 +441,331 @@ public static class RejudgeCommand
         return verdicts.All(v => v.Passed) ? 0 : 1;
     }
 
-    private static readonly string[] CrossDirIsolatedRoles = { "with-skill-isolated", "with-skill", "with-agent-isolated" };
-    private static readonly string[] CrossDirPluginRoles = { "with-skill-plugin", "with-agent-plugin" };
-    private static readonly string[] CrossDirBaselineRoles = { "baseline", "baseline-reused" };
+    private static readonly string[] IsolatedRoles = { "with-skill-isolated", "with-skill", "with-agent-isolated" };
+    private static readonly string[] PluginRoles = { "with-skill-plugin", "with-agent-plugin" };
+    private static readonly string[] BaselineRoles = { "baseline", "baseline-reused" };
+
+    internal static InlineRunGroupSelection?
+        SelectInlineRunGroup(IEnumerable<SessionRecord> sessions)
+    {
+        var group = sessions.ToList();
+        if (group.Any(session => !BaselineRoles.Contains(session.Role)
+            && !IsolatedRoles.Contains(session.Role)
+            && !PluginRoles.Contains(session.Role)))
+        {
+            return null;
+        }
+        var baselines = group.Where(s => BaselineRoles.Contains(s.Role)).ToList();
+        var isolatedSessions = group.Where(s => IsolatedRoles.Contains(s.Role)).ToList();
+        var pluginSessions = group.Where(s => PluginRoles.Contains(s.Role)).ToList();
+        if (baselines.Count != 1
+            || isolatedSessions.Count != 1
+            || pluginSessions.Count > 1)
+        {
+            return null;
+        }
+
+        var baseline = baselines[0];
+        var isolated = isolatedSessions[0];
+        var plugin = pluginSessions.SingleOrDefault();
+        var isAgent = isolated.Role == "with-agent-isolated";
+        if (plugin is not null
+            && plugin.Role != (isAgent ? "with-agent-plugin" : "with-skill-plugin"))
+        {
+            return null;
+        }
+        if (!string.Equals(isolated.BaselineKey, baseline.BaselineKey, StringComparison.Ordinal)
+            || (plugin is not null
+                && !string.Equals(plugin.BaselineKey, baseline.BaselineKey, StringComparison.Ordinal)))
+        {
+            return null;
+        }
+        return new InlineRunGroupSelection(
+            baseline,
+            isolated,
+            plugin,
+            isAgent);
+    }
+
+    internal static IReadOnlyList<string> FindIncompleteInlineRunGroups(
+        IEnumerable<IGrouping<(string SkillName, string ScenarioName, int RunIndex), SessionRecord>> runGroups) =>
+        runGroups
+            .Where(group => SelectInlineRunGroup(group) is null)
+            .Select(FormatRunGroupIdentity)
+            .ToList();
+
+    internal static SkillVerdict ComputeRejudgeVerdict(
+        string targetName,
+        string targetPath,
+        IReadOnlyList<ScenarioComparison> comparisons,
+        bool isAgent,
+        double minImprovement,
+        bool requireCompletion,
+        double confidenceLevel)
+    {
+        var target = new SkillInfo(targetName, "", targetPath, targetPath, "");
+        if (!isAgent)
+        {
+            var skillPreferenceComparisons = comparisons.Where(c => c.ExpectActivation).ToList();
+            var skillVerdict = Comparator.ComputeVerdict(
+                target,
+                skillPreferenceComparisons,
+                minImprovement,
+                requireCompletion,
+                confidenceLevel,
+                reportedComparisons: comparisons);
+            EvaluateCommand.ApplySkillActivationGate(
+                skillVerdict, comparisons, targetName, _ => { });
+            EvaluateCommand.ApplyExecutionErrorGate(
+                skillVerdict, comparisons, _ => { });
+            return skillVerdict;
+        }
+
+        var agentPreferenceComparisons = comparisons.Where(c => c.ExpectActivation).ToList();
+        var verdict = Comparator.ComputeAgentVerdict(
+            target, agentPreferenceComparisons, minImprovement, requireCompletion, confidenceLevel,
+            reportedComparisons: comparisons);
+        verdict.SkillKind = "agent";
+        EvaluateCommand.ApplyAgentActivationGate(verdict, comparisons, targetName, _ => { });
+        EvaluateCommand.ApplyExecutionErrorGate(verdict, comparisons, _ => { });
+        return verdict;
+    }
 
     /// <summary>
     /// Pure pairing of baseline sessions to treatment sessions by their shared baseline key
     /// (prompt SHA + target SHA). Treatment runs are grouped by skill/scenario/run-index; each
-    /// run's baseline is the baseline session sharing its key, preferring the matching run index.
+    /// run requires exactly one baseline session sharing its key and run index.
     /// </summary>
     public static CrossDirPairing PairCrossDir(
         IReadOnlyList<SessionRecord> baselineSessions,
         IReadOnlyList<SessionRecord> treatmentSessions)
     {
-        var baselineByKey = baselineSessions
-            .Where(s => CrossDirBaselineRoles.Contains(s.Role) && !string.IsNullOrEmpty(s.BaselineKey))
+        var unexpectedBaseline = baselineSessions
+            .Where(session => !BaselineRoles.Contains(session.Role)
+                || string.IsNullOrEmpty(session.BaselineKey))
+            .Select(FormatSessionIdentity)
+            .ToList();
+        var baselineRuns = baselineSessions
+            .Where(s => BaselineRoles.Contains(s.Role)
+                && !string.IsNullOrEmpty(s.BaselineKey))
+            .ToList();
+        var baselineByKey = baselineRuns
+            .Where(s => !string.IsNullOrEmpty(s.BaselineKey))
             .GroupBy(s => s.BaselineKey!)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         var pairs = new List<CrossDirPair>();
-        var unmatched = new List<string>();
+        var matchedBaselineIds = new HashSet<string>(StringComparer.Ordinal);
+        var unmatchedTreatment = new List<string>();
+        var duplicateBaseline = new List<string>();
+        var duplicateTreatment = new List<string>();
+        var unexpectedTreatment = new List<string>();
 
         foreach (var group in treatmentSessions.GroupBy(s => (s.SkillName, s.ScenarioName, s.RunIndex)))
         {
-            var isolated = CrossDirIsolatedRoles
-                .Select(role => group.FirstOrDefault(s => s.Role == role))
-                .FirstOrDefault(s => s is not null);
-            if (isolated is null)
-                continue;
-
-            var plugin = CrossDirPluginRoles
-                .Select(role => group.FirstOrDefault(s => s.Role == role))
-                .FirstOrDefault(s => s is not null);
-
-            var key = isolated.BaselineKey;
-            if (string.IsNullOrEmpty(key) || !baselineByKey.TryGetValue(key, out var candidates) || candidates.Count == 0)
+            var groupSessions = group.ToList();
+            var unexpectedSessions = groupSessions
+                .Where(session => !IsolatedRoles.Contains(session.Role)
+                    && !PluginRoles.Contains(session.Role))
+                .ToList();
+            if (unexpectedSessions.Count > 0)
             {
-                unmatched.Add($"{group.Key.SkillName}/{group.Key.ScenarioName}#{group.Key.RunIndex + 1}");
+                unexpectedTreatment.Add(
+                    $"{group.Key.SkillName}/{group.Key.ScenarioName}#{group.Key.RunIndex + 1}: " +
+                    string.Join(", ", unexpectedSessions.Select(FormatSessionIdentity)));
+                continue;
+            }
+            var isolatedSessions = groupSessions
+                .Where(session => IsolatedRoles.Contains(session.Role))
+                .ToList();
+            var pluginSessions = groupSessions
+                .Where(session => PluginRoles.Contains(session.Role))
+                .ToList();
+            if (isolatedSessions.Count > 1 || pluginSessions.Count > 1)
+            {
+                duplicateTreatment.Add(FormatDuplicateRunGroupIdentity(
+                    group,
+                    isolatedSessions,
+                    pluginSessions));
                 continue;
             }
 
-            var baseline = candidates.FirstOrDefault(b => b.RunIndex == group.Key.RunIndex) ?? candidates[0];
+            var isolated = isolatedSessions.SingleOrDefault();
+            if (isolated is null)
+            {
+                unmatchedTreatment.Add(FormatRunGroupIdentity(group));
+                continue;
+            }
+
+            var plugin = pluginSessions.SingleOrDefault();
+
+            var key = isolated.BaselineKey;
+            if (plugin is not null
+                && !string.Equals(plugin.BaselineKey, key, StringComparison.Ordinal))
+            {
+                unmatchedTreatment.Add(
+                    $"{FormatSessionIdentity(isolated)}, plugin={FormatSessionIdentity(plugin)} (baseline key mismatch)");
+                continue;
+            }
+            if (string.IsNullOrEmpty(key) || !baselineByKey.TryGetValue(key, out var candidates) || candidates.Count == 0)
+            {
+                unmatchedTreatment.Add(FormatSessionIdentity(isolated));
+                continue;
+            }
+
+            var matchingBaselines = candidates
+                .Where(candidate => candidate.RunIndex == group.Key.RunIndex)
+                .ToList();
+            if (matchingBaselines.Count == 0)
+            {
+                unmatchedTreatment.Add(FormatSessionIdentity(isolated));
+                continue;
+            }
+            if (matchingBaselines.Count > 1)
+            {
+                duplicateBaseline.Add(
+                    $"{FormatSessionIdentity(isolated)}, baseline=[{string.Join(", ", matchingBaselines.Select(FormatSessionIdentity))}]");
+                continue;
+            }
+
+            var baseline = matchingBaselines[0];
+            if (!matchedBaselineIds.Add(baseline.Id))
+            {
+                duplicateBaseline.Add(
+                    $"{FormatSessionIdentity(isolated)}, baseline={FormatSessionIdentity(baseline)} (already paired)");
+                continue;
+            }
             pairs.Add(new CrossDirPair(
                 group.Key.SkillName,
                 group.Key.ScenarioName,
                 group.Key.RunIndex,
                 baseline,
                 isolated,
-                plugin));
+                plugin,
+                isolated.Role == "with-agent-isolated"));
         }
 
-        return new CrossDirPairing(pairs, unmatched);
+        var unmatchedBaseline = baselineRuns
+            .Where(session => !matchedBaselineIds.Contains(session.Id))
+            .Select(FormatSessionIdentity)
+            .ToList();
+
+        return new CrossDirPairing(
+            pairs,
+            unmatchedBaseline,
+            unmatchedTreatment,
+            duplicateBaseline,
+            duplicateTreatment,
+            unexpectedBaseline,
+            unexpectedTreatment);
+    }
+
+    internal static string? GetCrossDirPairingFailure(CrossDirPairing pairing)
+    {
+        if (pairing.UnmatchedBaseline.Count == 0
+            && pairing.UnmatchedTreatment.Count == 0
+            && pairing.DuplicateBaseline.Count == 0
+            && pairing.DuplicateTreatment.Count == 0
+            && pairing.UnexpectedBaseline.Count == 0
+            && pairing.UnexpectedTreatment.Count == 0)
+        {
+            return pairing.Pairs.Count == 0
+                ? "No treatment runs could be paired with a baseline."
+                : null;
+        }
+
+        var lines = new List<string>
+        {
+            "Cannot rejudge: cross-directory run pairing is incomplete. No verdict was published.",
+        };
+        if (pairing.UnmatchedBaseline.Count > 0)
+        {
+            lines.Add("Unmatched baseline run(s):");
+            lines.AddRange(pairing.UnmatchedBaseline.Select(identity => $"  - {identity}"));
+        }
+        if (pairing.UnmatchedTreatment.Count > 0)
+        {
+            lines.Add("Unmatched treatment run(s):");
+            lines.AddRange(pairing.UnmatchedTreatment.Select(identity => $"  - {identity}"));
+        }
+        if (pairing.DuplicateBaseline.Count > 0)
+        {
+            lines.Add("Duplicate baseline run(s):");
+            lines.AddRange(pairing.DuplicateBaseline.Select(identity => $"  - {identity}"));
+        }
+        if (pairing.DuplicateTreatment.Count > 0)
+        {
+            lines.Add("Duplicate treatment role record(s):");
+            lines.AddRange(pairing.DuplicateTreatment.Select(identity => $"  - {identity}"));
+        }
+        if (pairing.UnexpectedBaseline.Count > 0)
+        {
+            lines.Add("Unexpected or unpairable baseline record(s):");
+            lines.AddRange(pairing.UnexpectedBaseline.Select(identity => $"  - {identity}"));
+        }
+        if (pairing.UnexpectedTreatment.Count > 0)
+        {
+            lines.Add("Unexpected treatment role record(s):");
+            lines.AddRange(pairing.UnexpectedTreatment.Select(identity => $"  - {identity}"));
+        }
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static string FormatSessionIdentity(SessionRecord session)
+    {
+        var baselineKey = FormatBaselineKey(session.BaselineKey);
+        return $"{session.SkillName}/{session.ScenarioName}#{session.RunIndex + 1}/{session.Role} "
+            + $"(id={session.Id}, baseline_key={baselineKey})";
+    }
+
+    private static string FormatRunGroupIdentity(
+        IGrouping<(string SkillName, string ScenarioName, int RunIndex), SessionRecord> group)
+    {
+        var sessions = string.Join(", ", group
+            .OrderBy(session => session.Role, StringComparer.Ordinal)
+            .Select(session =>
+                $"{session.Role}:id={session.Id},baseline_key={FormatBaselineKey(session.BaselineKey)}"));
+        return $"{group.Key.SkillName}/{group.Key.ScenarioName}#{group.Key.RunIndex + 1} ({sessions})";
+    }
+
+    private static string FormatDuplicateRunGroupIdentity(
+        IGrouping<(string SkillName, string ScenarioName, int RunIndex), SessionRecord> group,
+        IReadOnlyList<SessionRecord> isolatedSessions,
+        IReadOnlyList<SessionRecord> pluginSessions)
+    {
+        var duplicateArms = new List<string>();
+        if (isolatedSessions.Count > 1)
+        {
+            duplicateArms.Add("isolated=[" + string.Join(", ", isolatedSessions.Select(
+                session => $"{session.Role}:id={session.Id}")) + "]");
+        }
+        if (pluginSessions.Count > 1)
+        {
+            duplicateArms.Add("plugin=[" + string.Join(", ", pluginSessions.Select(
+                session => $"{session.Role}:id={session.Id}")) + "]");
+        }
+
+        return $"{FormatRunGroupIdentity(group)}; duplicate arms: {string.Join("; ", duplicateArms)}";
+    }
+
+    private static string FormatBaselineKey(string? baselineKey) =>
+        string.IsNullOrEmpty(baselineKey) ? "<missing>" : baselineKey;
+
+    private static void WriteNonterminalSessions(
+        string message,
+        params (string Label, IReadOnlyList<SessionRecord> Sessions)[] groups)
+    {
+        Console.Error.WriteLine(message);
+        foreach (var group in groups.Where(group => group.Sessions.Count > 0))
+        {
+            Console.Error.WriteLine($"{group.Label}:");
+            foreach (var session in group.Sessions)
+            {
+                Console.Error.WriteLine(
+                    $"  - {FormatSessionIdentity(session)}, status={session.Status}");
+            }
+        }
     }
 
     /// <summary>
@@ -448,6 +812,136 @@ public static class RejudgeCommand
     }
 
     /// <summary>
+    /// Resolves activation metadata for rejudge. Version 4 and later sessions carry an
+    /// explicit value. Older sessions recover it from the current eval when the target
+    /// and scenario can still be found, then fall back to the legacy expected-active
+    /// behavior when the historical intent is unavailable.
+    /// </summary>
+    internal static bool ResolveExpectedActivation(
+        SessionRecord session,
+        bool isAgent,
+        Action<string>? log = null,
+        string? currentDirectory = null)
+    {
+        if (session.ExpectActivation is { } persisted)
+            return persisted;
+
+        var evalPath = ResolveCurrentEvalPath(session, isAgent, currentDirectory);
+        if (evalPath is not null)
+        {
+            try
+            {
+                var evalConfig = EvalSchema.ParseEvalConfigFlexible(File.ReadAllText(evalPath));
+                var scenario = evalConfig?.Scenarios.FirstOrDefault(candidate =>
+                    string.Equals(candidate.Name, session.ScenarioName, StringComparison.Ordinal));
+                if (scenario is not null
+                    && session.Prompt is not null
+                    && string.Equals(scenario.Prompt, session.Prompt, StringComparison.Ordinal))
+                {
+                    log?.Invoke(
+                        $"Recovered expect_activation={scenario.ExpectActivation.ToString().ToLowerInvariant()} "
+                        + $"for scenario '{session.ScenarioName}' from {evalPath}.");
+                    return scenario.ExpectActivation;
+                }
+
+                var reason = scenario is null
+                    ? $"does not contain scenario '{session.ScenarioName}'"
+                    : session.Prompt is null
+                        ? $"cannot verify scenario '{session.ScenarioName}' because the historical prompt is missing"
+                    : $"has different prompt text for scenario '{session.ScenarioName}'";
+                log?.Invoke(
+                    $"⚠️  Current eval {evalPath} {reason}; using legacy expect_activation=true behavior.");
+            }
+            catch (Exception error) when (
+                error is IOException
+                    or UnauthorizedAccessException
+                    or InvalidOperationException
+                    or FormatException
+                    or ArgumentException
+                    or NotSupportedException)
+            {
+                log?.Invoke(
+                    $"⚠️  Could not read or parse current eval {evalPath} ({error.Message}); "
+                    + "using legacy expect_activation=true behavior.");
+            }
+        }
+        else
+        {
+            log?.Invoke(
+                $"⚠️  Session data has no expect_activation value for scenario '{session.ScenarioName}', "
+                + "and the current eval could not be found; using legacy expect_activation=true behavior.");
+        }
+
+        return true;
+    }
+
+    internal static bool TryResolveConsistentExpectedActivation(
+        IEnumerable<SessionRecord> isolatedSessions,
+        bool isAgent,
+        Action<string> log,
+        out bool expectActivation)
+    {
+        var expectations = isolatedSessions
+            .Select(session => ResolveExpectedActivation(session, isAgent, log))
+            .Distinct()
+            .ToList();
+        if (expectations.Count == 1)
+        {
+            expectActivation = expectations[0];
+            return true;
+        }
+
+        expectActivation = false;
+        return false;
+    }
+
+    internal static string? ResolveCurrentEvalPath(
+        SessionRecord session,
+        bool isAgent,
+        string? currentDirectory = null)
+    {
+        string targetPath;
+        try
+        {
+            targetPath = Path.GetFullPath(session.SkillPath);
+        }
+        catch (Exception error) when (error is ArgumentException or NotSupportedException or IOException)
+        {
+            return null;
+        }
+
+        if (!isAgent && Directory.Exists(targetPath))
+        {
+            var inTree = EvaluateCommand.ResolveEvalPath(targetPath, testsDir: null);
+            if (inTree is not null)
+                return inTree;
+        }
+
+        var startDirectory = Directory.Exists(targetPath)
+            ? targetPath
+            : Path.GetDirectoryName(targetPath);
+        var searchRoots = new[] { startDirectory, currentDirectory ?? Directory.GetCurrentDirectory() };
+        var visitedTestsDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var searchRoot in searchRoots)
+        {
+            for (var current = searchRoot; current is not null; current = Directory.GetParent(current)?.FullName)
+            {
+                var testsDirectory = Path.Combine(current, "tests");
+                if (!visitedTestsDirectories.Add(testsDirectory) || !Directory.Exists(testsDirectory))
+                    continue;
+
+                var evalPath = isAgent
+                    ? EvaluateCommand.ResolveAgentEvalPath(session.SkillName, testsDirectory)
+                    : EvaluateCommand.ResolveEvalPath(targetPath, testsDirectory);
+                if (evalPath is not null)
+                    return evalPath;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Judges a single baseline/treatment run group and persists the judge results.
     /// Baseline judge + pairwise are saved to <paramref name="baselineSaveDb"/>; the
     /// isolated/plugin judge results are saved to <paramref name="treatmentSaveDb"/>.
@@ -464,6 +958,7 @@ public static class RejudgeCommand
         bool verbose,
         int judgeTimeout,
         bool usePairwise,
+        bool isAgent,
         SessionDatabase baselineSaveDb,
         SessionDatabase treatmentSaveDb,
         Action<string>? log)
@@ -534,7 +1029,9 @@ public static class RejudgeCommand
             {
                 try
                 {
-                    var pairwiseTarget = pluginResult is not null && pluginResult.JudgeResult.OverallScore < isolatedResult.JudgeResult.OverallScore
+                    var pairwiseTarget = !isAgent
+                        && pluginResult is not null
+                        && pluginResult.JudgeResult.OverallScore < isolatedResult.JudgeResult.OverallScore
                         ? pluginResult
                         : isolatedResult;
                     pairwiseFromPlugin = ReferenceEquals(pairwiseTarget, pluginResult);
@@ -566,6 +1063,10 @@ public static class RejudgeCommand
             var pluginActivation = pluginMetrics is not null
                 ? MetricsCollector.ExtractSkillActivation(pluginMetrics.Events, baselineMetrics.ToolCallBreakdown, skillName)
                 : null;
+            var isolatedSubagentActivation = MetricsCollector.ExtractSubagentActivation(isolatedMetrics.Events);
+            var pluginSubagentActivation = pluginMetrics is not null
+                ? MetricsCollector.ExtractSubagentActivation(pluginMetrics.Events)
+                : null;
 
             return new RejudgedRun(
                 Baseline: baselineResult,
@@ -574,7 +1075,10 @@ public static class RejudgeCommand
                 Pairwise: pairwise,
                 PairwiseFromPlugin: pairwiseFromPlugin,
                 IsolatedActivation: isolatedActivation,
-                PluginActivation: pluginActivation);
+                PluginActivation: pluginActivation,
+                IsolatedSubagentActivation: isolatedSubagentActivation,
+                PluginSubagentActivation: pluginSubagentActivation,
+                ExpectActivation: scenario.ExpectActivation);
         }
         finally
         {
@@ -584,9 +1088,7 @@ public static class RejudgeCommand
 
     private static string CreateJudgeWorkDir(string prefix)
     {
-        var root = Path.Combine(Path.GetTempPath(), $"sv-{prefix}-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
-        return root;
+        return AgentRunner.CreatePrivateWorkDir(prefix);
     }
 
     private static string CreateJudgeWorkDir(string root, string name)
@@ -608,7 +1110,10 @@ public static class RejudgeCommand
         }
     }
 
-    private static ScenarioComparison BuildScenarioComparison(string scenarioName, List<RejudgedRun> runs)
+    internal static ScenarioComparison BuildScenarioComparison(
+        string scenarioName,
+        List<RejudgedRun> runs,
+        bool isAgent = false)
     {
         var baselineRuns = runs.Select(r => r.Baseline).ToList();
         var isolatedRuns = runs.Select(r => r.Isolated).ToList();
@@ -635,9 +1140,11 @@ public static class RejudgeCommand
                 perRunPluginScores.Add(pluginComp.ImprovementScore);
             }
 
-            var perRunScores = perRunIsolatedScores
-                .Zip(perRunPluginScores, (iso, plugin) => Math.Min(iso, plugin))
-                .ToList();
+            var perRunScores = isAgent
+                ? perRunIsolatedScores
+                : perRunIsolatedScores
+                    .Zip(perRunPluginScores, (iso, plugin) => Math.Min(iso, plugin))
+                    .ToList();
             var avgPlugin = AverageResults(pluginRuns);
             int bestPairwiseIdx = runs.FindIndex(r => r.Pairwise?.PositionSwapConsistent == true);
             if (bestPairwiseIdx < 0)
@@ -655,10 +1162,12 @@ public static class RejudgeCommand
                 Baseline = avgBaseline,
                 SkilledIsolated = avgIsolated,
                 SkilledPlugin = avgPlugin,
-                ImprovementScore = Math.Min(isoComparison.ImprovementScore, pluginComparison.ImprovementScore),
+                ImprovementScore = isAgent
+                    ? isoComparison.ImprovementScore
+                    : Math.Min(isoComparison.ImprovementScore, pluginComparison.ImprovementScore),
                 IsolatedImprovementScore = isoComparison.ImprovementScore,
                 PluginImprovementScore = pluginComparison.ImprovementScore,
-                Breakdown = isoComparison.ImprovementScore <= pluginComparison.ImprovementScore
+                Breakdown = isAgent || isoComparison.ImprovementScore <= pluginComparison.ImprovementScore
                     ? isoComparison.Breakdown
                     : pluginComparison.Breakdown,
                 IsolatedBreakdown = isoComparison.Breakdown,
@@ -675,6 +1184,17 @@ public static class RejudgeCommand
                     DetectedSkills: runs.SelectMany(r => r.PluginActivation?.DetectedSkills ?? []).Distinct().ToList(),
                     ExtraTools: runs.SelectMany(r => r.PluginActivation?.ExtraTools ?? []).Distinct().ToList(),
                     SkillEventCount: runs.Sum(r => r.PluginActivation?.SkillEventCount ?? 0)),
+                SubagentActivationIsolated = new SubagentActivationInfo(
+                    runs.SelectMany(r => r.IsolatedSubagentActivation.InvokedAgents)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList(),
+                    runs.Sum(r => r.IsolatedSubagentActivation.SubagentEventCount)),
+                SubagentActivationPlugin = new SubagentActivationInfo(
+                    runs.SelectMany(r => r.PluginSubagentActivation?.InvokedAgents ?? [])
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList(),
+                    runs.Sum(r => r.PluginSubagentActivation?.SubagentEventCount ?? 0)),
+                ExpectActivation = runs[0].ExpectActivation,
                 TimedOut = runs.Any(r => r.Baseline.Metrics.TimedOut || r.Isolated.Metrics.TimedOut || r.Plugin?.Metrics.TimedOut == true),
             };
             return comparison;
@@ -687,6 +1207,12 @@ public static class RejudgeCommand
             DetectedSkills: runs.SelectMany(r => r.IsolatedActivation.DetectedSkills).Distinct().ToList(),
             ExtraTools: runs.SelectMany(r => r.IsolatedActivation.ExtraTools).Distinct().ToList(),
             SkillEventCount: runs.Sum(r => r.IsolatedActivation.SkillEventCount));
+        comparisonNoPlugin.SubagentActivationIsolated = new SubagentActivationInfo(
+            runs.SelectMany(r => r.IsolatedSubagentActivation.InvokedAgents)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+            runs.Sum(r => r.IsolatedSubagentActivation.SubagentEventCount));
+        comparisonNoPlugin.ExpectActivation = runs[0].ExpectActivation;
         comparisonNoPlugin.TimedOut = runs.Any(r => r.Baseline.Metrics.TimedOut || r.Isolated.Metrics.TimedOut);
         return comparisonNoPlugin;
     }
@@ -769,15 +1295,24 @@ public static class RejudgeCommand
         return new RunResult(avgMetrics, avgJudge);
     }
 
-    private sealed record RejudgedRun(
+    internal sealed record RejudgedRun(
         RunResult Baseline,
         RunResult Isolated,
         RunResult? Plugin,
         PairwiseJudgeResult? Pairwise,
         bool PairwiseFromPlugin,
         SkillActivationInfo IsolatedActivation,
-        SkillActivationInfo? PluginActivation);
+        SkillActivationInfo? PluginActivation,
+        SubagentActivationInfo IsolatedSubagentActivation,
+        SubagentActivationInfo? PluginSubagentActivation,
+        bool ExpectActivation);
 }
+
+internal sealed record InlineRunGroupSelection(
+    SessionRecord Baseline,
+    SessionRecord Isolated,
+    SessionRecord? Plugin,
+    bool IsAgent);
 
 /// <summary>A treatment run paired with its matching baseline run for cross-directory judging.</summary>
 public sealed record CrossDirPair(
@@ -786,9 +1321,15 @@ public sealed record CrossDirPair(
     int RunIndex,
     SessionRecord Baseline,
     SessionRecord Isolated,
-    SessionRecord? Plugin);
+    SessionRecord? Plugin,
+    bool IsAgent);
 
 /// <summary>Result of pairing treatment runs to baseline runs across two results directories.</summary>
 public sealed record CrossDirPairing(
     IReadOnlyList<CrossDirPair> Pairs,
-    IReadOnlyList<string> Unmatched);
+    IReadOnlyList<string> UnmatchedBaseline,
+    IReadOnlyList<string> UnmatchedTreatment,
+    IReadOnlyList<string> DuplicateBaseline,
+    IReadOnlyList<string> DuplicateTreatment,
+    IReadOnlyList<string> UnexpectedBaseline,
+    IReadOnlyList<string> UnexpectedTreatment);

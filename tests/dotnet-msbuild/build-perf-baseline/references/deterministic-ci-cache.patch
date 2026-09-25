@@ -1,0 +1,8 @@
+diff --git a/Directory.Build.props b/Directory.Build.props
+--- a/Directory.Build.props
++++ b/Directory.Build.props
+@@ -6,3 +6,4 @@
+     <!-- Documentation generated for every build, even during local dev -->
+     <GenerateDocumentationFile>true</GenerateDocumentationFile>
++    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+   </PropertyGroup>

@@ -1,0 +1,21 @@
+Project Performance Summary (captured via `dotnet build Platform.sln -m -bl`), 62 projects:
+
+  Total wall-clock:        51,000 ms
+  Sum of project times:    39,680 ms  (already less than wall-clock * node count, so nodes are being used)
+  Average project time:      640 ms
+  Slowest single project:  1,150 ms  (no project dominates the build)
+
+Notes:
+- The solution has 62 projects. Most are thin internal "layering" libraries
+  containing 1-2 source files each (for example Contracts.Orders,
+  Contracts.Billing, Abstractions.Orders, Abstractions.Billing), created to
+  enforce a strict internal layering convention.
+- Maximum dependency depth from any leaf to the root is 3 levels; the graph is
+  shallow and wide, not a long serial chain.
+- No single Target or Task in the Target/Task Performance Summary exceeds a
+  few hundred milliseconds; the time is spread evenly across all 62 project
+  evaluations and builds rather than concentrated anywhere.
+- Several of the smallest projects (for example Contracts.Orders and
+  Abstractions.Orders) have no consumers outside of the Orders module and
+  could be merged into a single project without changing any externally
+  consumed public API.

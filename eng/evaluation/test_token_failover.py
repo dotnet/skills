@@ -23,6 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-run.yml"
 CALLER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation.yml"
 TEST_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-workflow-tests.yml"
+EVAL_QUALITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "eval-quality.yml"
 DASHBOARD_GENERATOR = REPO_ROOT / "eng" / "dashboard" / "generate-benchmark-data.ps1"
 PATH_SAFETY_SCRIPT = REPO_ROOT / "eng" / "evaluation" / "path-safety.ps1"
 FIND_TARGETS_SCRIPT = REPO_ROOT / "eng" / "evaluation" / "find-targets.ps1"
@@ -2536,6 +2537,90 @@ esac
             "error",
         )
 
+    def test_execution_shard_uses_only_top_level_tags(self) -> None:
+        caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        discover_script = workflow_step_script(
+            caller, "discover", "function Get-PluginShardEntries"
+        )
+        start = discover_script.index("function Get-EvalExecutionShard")
+        end = discover_script.index(
+            'if ("$env:GATE_PR_NUMBER"', start
+        )
+        functions = discover_script[start:end]
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for skill in ("top-level", "nested-only"):
+                (root / "plugins" / "demo" / "skills" / skill).mkdir(parents=True)
+                (root / "tests" / "demo" / skill).mkdir(parents=True)
+                (root / "plugins" / "demo" / "skills" / skill / "SKILL.md").write_text(
+                    "# Skill", encoding="utf-8"
+                )
+            (root / "tests" / "demo" / "top-level" / "eval.yaml").write_text(
+                "tags:\n"
+                "  executionShard: heavy\n"
+                "stimuli:\n"
+                "  - name: Scenario\n"
+                "    tags:\n"
+                "      executionShard: nested\n",
+                encoding="utf-8",
+            )
+            (root / "tests" / "demo" / "nested-only" / "eval.yaml").write_text(
+                "stimuli:\n"
+                "  - name: Scenario\n"
+                "    tags:\n"
+                "      executionShard: nested\n",
+                encoding="utf-8",
+            )
+            script = (
+                "$ErrorActionPreference = 'Stop'\n"
+                + functions
+                + f"\n$root = '{str(root).replace(chr(39), chr(39) * 2)}'\n"
+                + "$entries = @(Get-PluginShardEntries -plugin demo -contentRoot $root)\n"
+                + "ConvertTo-Json -InputObject @($entries) -Compress\n"
+            )
+            result = subprocess.run(
+                ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            entries = json.loads(result.stdout.strip().splitlines()[-1])
+            self.assertEqual(
+                {entry["name"] for entry in entries},
+                {"demo--shard-default", "demo--shard-heavy"},
+            )
+
+    def test_manual_eval_quality_uses_main_as_comparison_base(self) -> None:
+        workflow = yaml.safe_load(EVAL_QUALITY_WORKFLOW.read_text(encoding="utf-8"))
+        script = workflow_step_script(
+            workflow, "check", 'EVENT_NAME" = "workflow_dispatch'
+        )
+
+        self.assertIn('COMPARISON_REF="origin/main"', script)
+        self.assertIn('python eng/eval-quality/check_eval_quality.py --base-ref "$COMPARISON_REF"', script)
+        manual_branch = script.split(
+            'elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then',
+            maxsplit=1,
+        )[1].split("fi", maxsplit=1)[0]
+        self.assertNotIn("--all", manual_branch)
+
+    def test_eval_quality_contract_changes_audit_every_spec(self) -> None:
+        workflow = yaml.safe_load(EVAL_QUALITY_WORKFLOW.read_text(encoding="utf-8"))
+        script = workflow_step_script(
+            workflow, "check", "Repository-wide contract audit"
+        )
+
+        self.assertIn("check_eval_quality.py --all", script)
+        self.assertIn("checked all ", script)
+        self.assertIn("current_count < base_count", script)
+        self.assertRegex(
+            script,
+            r"eng/eval-quality/\(check_eval_quality\|selftest_eval_quality\)",
+        )
+        self.assertIn("eng/vally-adapter/adapt", script)
+
     def test_fork_checkout_is_blocked_and_adapter_code_is_trusted(self) -> None:
         workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
         steps = workflow["jobs"]["vally-evaluate"]["steps"]
@@ -2848,7 +2933,7 @@ esac
             (root / "tests" / "demo" / "nested" / "agent.router" / "eval.yaml").write_text(
                 "name: agent.router\nstimuli: []\n", encoding="utf-8")
 
-            start = discover_script.index("function Get-PluginShardEntries")
+            start = discover_script.index("function Get-EvalExecutionShard")
             end = discover_script.index(
                 'if ("$env:GATE_PR_NUMBER"', start)
             functions = discover_script[start:end]

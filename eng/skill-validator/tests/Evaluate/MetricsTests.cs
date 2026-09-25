@@ -640,6 +640,35 @@ public class ExtractSubagentActivationTests
     }
 
     [TestMethod]
+    public void CountsSuccessfulPrimaryAgentSelectionAsActivation()
+    {
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("agent.primary_selected", D(("agentName", JsonValue.Create("msbuild")))),
+        };
+
+        var result = MetricsCollector.ExtractSubagentActivation(events);
+
+        Assert.AreSequenceEqual(["msbuild"], result.InvokedAgents);
+        Assert.AreEqual(1, result.SubagentEventCount);
+    }
+
+    [TestMethod]
+    public void DeduplicatesPrimarySelectionWithSdkSubagentEvents()
+    {
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("agent.primary_selected", D(("agentName", JsonValue.Create("msbuild")))),
+            MakeEvent("subagent.selected", D(("agentName", JsonValue.Create("MSBuild")))),
+        };
+
+        var result = MetricsCollector.ExtractSubagentActivation(events);
+
+        Assert.AreSequenceEqual(["msbuild"], result.InvokedAgents);
+        Assert.AreEqual(2, result.SubagentEventCount);
+    }
+
+    [TestMethod]
     public void HandlesSubagentEventWithEmptyName()
     {
         var events = new List<AgentEvent>
