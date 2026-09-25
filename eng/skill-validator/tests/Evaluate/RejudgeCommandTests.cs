@@ -315,16 +315,36 @@ public class RejudgeCommandTests
     }
 
     [TestMethod]
-    public void PairCrossDir_FallsBackToFirstBaseline_WhenRunIndexMissing()
+    public void PairCrossDir_ReportsUnmatched_WhenRunIndexMissing()
     {
         var baseline = new[] { Rec("b0", "baseline", 0, "K1") };
         var treatment = new[] { Rec("t2", "with-skill-isolated", 2, "K1") };
 
         var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
 
-        var pair = Assert.ContainsSingle(pairing.Pairs);
-        Assert.AreEqual("b0", pair.Baseline.Id);
-        Assert.AreEqual(2, pair.RunIndex);
+        Assert.IsEmpty(pairing.Pairs);
+        Assert.Contains("b0", Assert.ContainsSingle(pairing.UnmatchedBaseline));
+        Assert.Contains("t2", Assert.ContainsSingle(pairing.UnmatchedTreatment));
+        Assert.Contains("Unmatched treatment run(s)", RejudgeCommand.GetCrossDirPairingFailure(pairing)!);
+    }
+
+    [TestMethod]
+    public void PairCrossDir_ReportsDuplicateBaselineForSameRunIndex()
+    {
+        var baseline = new[]
+        {
+            Rec("b0a", "baseline", 0, "K1"),
+            Rec("b0b", "baseline-reused", 0, "K1"),
+        };
+        var treatment = new[] { Rec("t0", "with-skill-isolated", 0, "K1") };
+
+        var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
+
+        Assert.IsEmpty(pairing.Pairs);
+        var duplicate = Assert.ContainsSingle(pairing.DuplicateBaseline);
+        Assert.Contains("b0a", duplicate);
+        Assert.Contains("b0b", duplicate);
+        Assert.Contains("Duplicate baseline run(s)", RejudgeCommand.GetCrossDirPairingFailure(pairing)!);
     }
 
     [TestMethod]
@@ -425,6 +445,7 @@ public class RejudgeCommandTests
         Assert.AreEqual(2, pairing.Pairs.Count);
         Assert.IsEmpty(pairing.UnmatchedBaseline);
         Assert.IsEmpty(pairing.UnmatchedTreatment);
+        Assert.IsEmpty(pairing.DuplicateBaseline);
         Assert.IsEmpty(pairing.DuplicateTreatment);
         Assert.IsNull(RejudgeCommand.GetCrossDirPairingFailure(pairing));
     }
@@ -517,6 +538,7 @@ public class RejudgeCommandTests
         Assert.AreEqual("plugin", pair.Plugin!.Id);
         Assert.IsEmpty(pairing.UnmatchedBaseline);
         Assert.IsEmpty(pairing.UnmatchedTreatment);
+        Assert.IsEmpty(pairing.DuplicateBaseline);
         Assert.IsEmpty(pairing.DuplicateTreatment);
         Assert.IsNull(RejudgeCommand.GetCrossDirPairingFailure(pairing));
     }
@@ -598,6 +620,34 @@ public class RejudgeCommandTests
         Assert.AreEqual("s0", selected.Isolated.Id);
         Assert.IsNull(selected.Plugin);
         Assert.IsFalse(selected.IsAgent);
+    }
+
+    [TestMethod]
+    public void SelectInlineRunGroup_RejectsDuplicateRequiredRoles()
+    {
+        var duplicateBaseline = new[]
+        {
+            Rec("b0", "baseline", 0, "K1"),
+            Rec("b1", "baseline-reused", 0, "K1"),
+            Rec("s0", "with-skill-isolated", 0, "K1"),
+        };
+        var duplicateIsolated = new[]
+        {
+            Rec("b0", "baseline", 0, "K1"),
+            Rec("s0", "with-skill-isolated", 0, "K1"),
+            Rec("s1", "with-skill", 0, "K1"),
+        };
+        var duplicatePlugin = new[]
+        {
+            Rec("b0", "baseline", 0, "K1"),
+            Rec("s0", "with-skill-isolated", 0, "K1"),
+            Rec("p0", "with-skill-plugin", 0, "K1"),
+            Rec("p1", "with-agent-plugin", 0, "K1"),
+        };
+
+        Assert.IsNull(RejudgeCommand.SelectInlineRunGroup(duplicateBaseline));
+        Assert.IsNull(RejudgeCommand.SelectInlineRunGroup(duplicateIsolated));
+        Assert.IsNull(RejudgeCommand.SelectInlineRunGroup(duplicatePlugin));
     }
 
     [TestMethod]

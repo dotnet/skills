@@ -880,6 +880,7 @@ public class BuildSessionConfigTests
         Assert.IsFalse(entry.Env.ContainsKey("MY_SETTING"));
         Assert.StartsWith(Path.GetTempPath(), entry.Env["NUGET_PACKAGES"]);
         Assert.StartsWith(Path.GetTempPath(), entry.Env["NUGET_HTTP_CACHE_PATH"]);
+        Assert.AreEqual("", entry.Env["NUGET_FALLBACK_PACKAGES"]);
     }
 
     [TestMethod]
@@ -943,6 +944,11 @@ public class BuildSessionConfigTests
         var configIndex = entry.Args.IndexOf("--configfile");
         Assert.IsTrue(configIndex >= 0);
         Assert.IsTrue(File.Exists(entry.Args[configIndex + 1]));
+        var nugetConfig = await File.ReadAllTextAsync(
+            entry.Args[configIndex + 1],
+            CancellationToken.None);
+        Assert.Contains("<fallbackPackageFolders>", nugetConfig);
+        Assert.Contains("<clear />", nugetConfig);
         Assert.AreEqual(entry.Args[configIndex + 1], secondEntry.Args![configIndex + 1]);
         Assert.AreEqual(entry.Env!["NUGET_PACKAGES"], secondEntry.Env!["NUGET_PACKAGES"]);
         Assert.AreEqual(entry.Env["NUGET_HTTP_CACHE_PATH"], secondEntry.Env["NUGET_HTTP_CACHE_PATH"]);
@@ -2331,6 +2337,7 @@ public class ScrubSensitiveEnvironmentTests
         psi.Environment["NUGET_API_KEY"] = "nuget_key";
         psi.Environment["NUGET_PLUGIN_PATHS"] = "/tmp/plugin";
         psi.Environment["NUGET_NETCORE_PLUGIN_PATHS"] = "/tmp/netcore-plugin";
+        psi.Environment["NUGET_FALLBACK_PACKAGES"] = "/tmp/fallback";
         psi.Environment["NUGET_PACKAGES"] = "/tmp/packages";
         psi.Environment["SAFE_VAR"] = "keep";
 
@@ -2343,6 +2350,7 @@ public class ScrubSensitiveEnvironmentTests
         Assert.IsFalse(psi.Environment.ContainsKey("NUGET_API_KEY"));
         Assert.IsFalse(psi.Environment.ContainsKey("NUGET_PLUGIN_PATHS"));
         Assert.IsFalse(psi.Environment.ContainsKey("NUGET_NETCORE_PLUGIN_PATHS"));
+        Assert.IsFalse(psi.Environment.ContainsKey("NUGET_FALLBACK_PACKAGES"));
         Assert.IsFalse(psi.Environment.ContainsKey("NUGET_PACKAGES"));
         Assert.AreEqual("keep", psi.Environment["SAFE_VAR"]);
     }

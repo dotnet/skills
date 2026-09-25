@@ -436,18 +436,19 @@ public static class RejudgeCommand
         SelectInlineRunGroup(IEnumerable<SessionRecord> sessions)
     {
         var group = sessions.ToList();
-        var baseline = BaselineRoles
-            .Select(role => group.FirstOrDefault(s => s.Role == role))
-            .FirstOrDefault(s => s is not null);
-        var isolated = IsolatedRoles
-            .Select(role => group.FirstOrDefault(s => s.Role == role))
-            .FirstOrDefault(s => s is not null);
-        if (baseline is null || isolated is null)
+        var baselines = group.Where(s => BaselineRoles.Contains(s.Role)).ToList();
+        var isolatedSessions = group.Where(s => IsolatedRoles.Contains(s.Role)).ToList();
+        var pluginSessions = group.Where(s => PluginRoles.Contains(s.Role)).ToList();
+        if (baselines.Count != 1
+            || isolatedSessions.Count != 1
+            || pluginSessions.Count > 1)
+        {
             return null;
+        }
 
-        var plugin = PluginRoles
-            .Select(role => group.FirstOrDefault(s => s.Role == role))
-            .FirstOrDefault(s => s is not null);
+        var baseline = baselines[0];
+        var isolated = isolatedSessions[0];
+        var plugin = pluginSessions.SingleOrDefault();
         return new InlineRunGroupSelection(
             baseline,
             isolated,
@@ -502,7 +503,7 @@ public static class RejudgeCommand
     /// <summary>
     /// Pure pairing of baseline sessions to treatment sessions by their shared baseline key
     /// (prompt SHA + target SHA). Treatment runs are grouped by skill/scenario/run-index; each
-    /// run's baseline is the baseline session sharing its key, preferring the matching run index.
+    /// run requires exactly one baseline session sharing its key and run index.
     /// </summary>
     public static CrossDirPairing PairCrossDir(
         IReadOnlyList<SessionRecord> baselineSessions,
@@ -519,6 +520,7 @@ public static class RejudgeCommand
         var pairs = new List<CrossDirPair>();
         var matchedBaselineIds = new HashSet<string>(StringComparer.Ordinal);
         var unmatchedTreatment = new List<string>();
+        var duplicateBaseline = new List<string>();
         var duplicateTreatment = new List<string>();
 
         foreach (var group in treatmentSessions.GroupBy(s => (s.SkillName, s.ScenarioName, s.RunIndex)))
@@ -555,7 +557,22 @@ public static class RejudgeCommand
                 continue;
             }
 
-            var baseline = candidates.FirstOrDefault(b => b.RunIndex == group.Key.RunIndex) ?? candidates[0];
+            var matchingBaselines = candidates
+                .Where(candidate => candidate.RunIndex == group.Key.RunIndex)
+                .ToList();
+            if (matchingBaselines.Count == 0)
+            {
+                unmatchedTreatment.Add(FormatSessionIdentity(isolated));
+                continue;
+            }
+            if (matchingBaselines.Count > 1)
+            {
+                duplicateBaseline.Add(
+                    $"{FormatSessionIdentity(isolated)}, baseline=[{string.Join(", ", matchingBaselines.Select(FormatSessionIdentity))}]");
+                continue;
+            }
+
+            var baseline = matchingBaselines[0];
             matchedBaselineIds.Add(baseline.Id);
             pairs.Add(new CrossDirPair(
                 group.Key.SkillName,
@@ -572,13 +589,19 @@ public static class RejudgeCommand
             .Select(FormatSessionIdentity)
             .ToList();
 
-        return new CrossDirPairing(pairs, unmatchedBaseline, unmatchedTreatment, duplicateTreatment);
+        return new CrossDirPairing(
+            pairs,
+            unmatchedBaseline,
+            unmatchedTreatment,
+            duplicateBaseline,
+            duplicateTreatment);
     }
 
     internal static string? GetCrossDirPairingFailure(CrossDirPairing pairing)
     {
         if (pairing.UnmatchedBaseline.Count == 0
             && pairing.UnmatchedTreatment.Count == 0
+            && pairing.DuplicateBaseline.Count == 0
             && pairing.DuplicateTreatment.Count == 0)
         {
             return pairing.Pairs.Count == 0
@@ -599,6 +622,11 @@ public static class RejudgeCommand
         {
             lines.Add("Unmatched treatment run(s):");
             lines.AddRange(pairing.UnmatchedTreatment.Select(identity => $"  - {identity}"));
+        }
+        if (pairing.DuplicateBaseline.Count > 0)
+        {
+            lines.Add("Duplicate baseline run(s):");
+            lines.AddRange(pairing.DuplicateBaseline.Select(identity => $"  - {identity}"));
         }
         if (pairing.DuplicateTreatment.Count > 0)
         {
@@ -1206,4 +1234,5 @@ public sealed record CrossDirPairing(
     IReadOnlyList<CrossDirPair> Pairs,
     IReadOnlyList<string> UnmatchedBaseline,
     IReadOnlyList<string> UnmatchedTreatment,
+    IReadOnlyList<string> DuplicateBaseline,
     IReadOnlyList<string> DuplicateTreatment);

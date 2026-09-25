@@ -19,13 +19,14 @@ function Get-EvalExecutionShard {
   $inTopLevelTags = $false
   foreach ($line in Get-Content -LiteralPath $evalPath) {
     if ($line -match '^\s*(?:#.*)?$') { continue }
-    if ($line -match '^(?<key>[A-Za-z_][\w-]*):(?:\s|$)') {
-      $inTopLevelTags = $Matches["key"] -eq "tags"
-      continue
-    }
     if ($inTopLevelTags -and
         $line -match '^\s+executionShard:\s*[\x27"]?([\w.\-]+)') {
       return $Matches[1]
+    }
+    # Only column-zero keys can enter or leave the top-level tags mapping.
+    if ($line -match '^(?<key>[A-Za-z_][\w-]*):(?:\s|$)') {
+      $inTopLevelTags = $Matches["key"] -eq "tags"
+      continue
     }
   }
   return "default"

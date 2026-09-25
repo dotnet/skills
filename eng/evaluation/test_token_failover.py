@@ -2598,15 +2598,28 @@ esac
             workflow, "check", 'EVENT_NAME" = "workflow_dispatch'
         )
 
-        self.assertIn(
-            "python eng/eval-quality/check_eval_quality.py --base-ref origin/main",
-            script,
-        )
+        self.assertIn('COMPARISON_REF="origin/main"', script)
+        self.assertIn('python eng/eval-quality/check_eval_quality.py --base-ref "$COMPARISON_REF"', script)
         manual_branch = script.split(
             'elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then',
             maxsplit=1,
-        )[1].split("else", maxsplit=1)[0]
+        )[1].split("fi", maxsplit=1)[0]
         self.assertNotIn("--all", manual_branch)
+
+    def test_eval_quality_contract_changes_audit_every_spec(self) -> None:
+        workflow = yaml.safe_load(EVAL_QUALITY_WORKFLOW.read_text(encoding="utf-8"))
+        script = workflow_step_script(
+            workflow, "check", "Repository-wide contract audit"
+        )
+
+        self.assertIn("check_eval_quality.py --all", script)
+        self.assertIn("checked all ", script)
+        self.assertIn("current_count < base_count", script)
+        self.assertRegex(
+            script,
+            r"eng/eval-quality/\(check_eval_quality\|selftest_eval_quality\)",
+        )
+        self.assertIn("eng/vally-adapter/adapt", script)
 
     def test_fork_checkout_is_blocked_and_adapter_code_is_trusted(self) -> None:
         workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))

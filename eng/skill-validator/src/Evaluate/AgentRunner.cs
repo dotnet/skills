@@ -1301,6 +1301,7 @@ public static class AgentRunner
         "NPM_TOKEN",
         "NUGET_API_KEY",
         "NUGET_CREDENTIALPROVIDERS_PATH",
+        "NUGET_FALLBACK_PACKAGES",
         "NUGET_HTTP_CACHE_PATH",
         "NUGET_NETCORE_PLUGIN_PATHS",
         "NUGET_PACKAGES",
@@ -1430,6 +1431,9 @@ public static class AgentRunner
                 <clear />
                 <add key="nuget.org" value="{TrustedNugetSource}" protocolVersion="3" />
               </packageSources>
+              <fallbackPackageFolders>
+                <clear />
+              </fallbackPackageFolders>
               <packageSourceMapping>
                 <packageSource key="nuget.org">
                   <package pattern="*" />
@@ -1451,6 +1455,7 @@ public static class AgentRunner
             {
                 ["NUGET_PACKAGES"] = packages,
                 ["NUGET_HTTP_CACHE_PATH"] = httpCache,
+                ["NUGET_FALLBACK_PACKAGES"] = "",
             });
     }
 

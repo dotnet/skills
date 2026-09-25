@@ -1077,7 +1077,15 @@ test("missing dormancy stimuli fail the activation contract", () => {
 
   assert.equal(verdict.passed, false);
   assert.equal(verdict.activationContract.passed, false);
+  assert.equal(verdict.activationContract.count, 1);
+  assert.equal(verdict.activationContract.satisfied, 0);
+  assert.equal(verdict.activationContract.violated, 1);
   assert.equal(verdict.activationContract.failures.length, 1);
+  assert.equal(
+    verdict.activationContract.failures[0].scenarioName,
+    "Renamed scenario",
+  );
+  assert.equal(verdict.activationContract.failures[0].expected, "dormant");
   assert.equal(verdict.activationContract.failures[0].observed, "missing");
   assert.equal(
     verdict.scenarios.find((scenario) => scenario.scenarioName === "Renamed scenario")
