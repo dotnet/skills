@@ -1792,16 +1792,14 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
         `matched no observed stimulus: ${unmatchedDormancyStimuli.join(", ")}`,
     );
   }
-  const activationContractCount =
-    activationContractScenarios.length + unmatchedDormancyStimuli.length;
   const activationContract = {
     evaluated: true,
     requiredForPass: true,
     source: `isolated_target_${targetKind}_activation`,
     reason:
       "Explicit dormancy expectations are evaluated independently of preference",
-    count: activationContractCount,
-    satisfied: activationContractCount - activationContractFailures.length,
+    count: activationContractScenarios.length,
+    satisfied: activationContractScenarios.length - activationContractFailures.length,
     violated: activationContractFailures.length,
     passed: activationContractFailures.length === 0,
     failures: activationContractFailures,
