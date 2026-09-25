@@ -741,6 +741,25 @@ public class RejudgeCommandTests
     }
 
     [TestMethod]
+    public void SelectInlineRunGroup_RejectsBaselineKeyMismatch()
+    {
+        var isolatedMismatch = new[]
+        {
+            Rec("b0", "baseline", 0, "K1"),
+            Rec("s0", "with-skill-isolated", 0, "K2"),
+        };
+        var pluginMismatch = new[]
+        {
+            Rec("b0", "baseline", 0, "K1"),
+            Rec("s0", "with-skill-isolated", 0, "K1"),
+            Rec("p0", "with-skill-plugin", 0, "K2"),
+        };
+
+        Assert.IsNull(RejudgeCommand.SelectInlineRunGroup(isolatedMismatch));
+        Assert.IsNull(RejudgeCommand.SelectInlineRunGroup(pluginMismatch));
+    }
+
+    [TestMethod]
     public void FindIncompleteInlineRunGroups_ReportsMissingIsolatedArm()
     {
         var sessions = new[] { Rec("b0", "baseline", 0, "K1") };

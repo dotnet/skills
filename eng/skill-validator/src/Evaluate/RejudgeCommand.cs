@@ -462,6 +462,12 @@ public static class RejudgeCommand
         var baseline = baselines[0];
         var isolated = isolatedSessions[0];
         var plugin = pluginSessions.SingleOrDefault();
+        if (!string.Equals(isolated.BaselineKey, baseline.BaselineKey, StringComparison.Ordinal)
+            || (plugin is not null
+                && !string.Equals(plugin.BaselineKey, baseline.BaselineKey, StringComparison.Ordinal)))
+        {
+            return null;
+        }
         return new InlineRunGroupSelection(
             baseline,
             isolated,
