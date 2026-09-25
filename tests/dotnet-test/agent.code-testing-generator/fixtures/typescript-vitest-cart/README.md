@@ -1,35 +1,24 @@
-# Shopping cart (TypeScript + Vitest)
+# Shopping cart
 
-A small TypeScript shopping-cart library with pricing, tax, shipping, inventory,
-and checkout components.
+This library models a shopping cart with product lines, discounts, tax,
+shipping, inventory availability, and checkout.
 
-## Layout
+## Domain behavior
 
-```
-package.json                            # pinned vitest + typescript + @vitest/coverage-v8 (devDependencies)
-package-lock.json                       # generated, committed for npm ci reproducibility
-tsconfig.json                           # bundler resolution, strict mode, allowImportingTsExtensions
-vitest.config.ts                        # tests/**/*.test.ts, node env, non-global API
-src/
-  product.ts                            # Product (+ optional weight / currency) + CartLine value types
-  pricing.ts                            # DiscountPolicy + No / Percentage / FixedAmount / CompositeDiscountPolicy (sum | chain)
-  tax.ts                                # TaxCalculator + No/RegionalTaxCalculator; AsyncTaxRateProvider + AsyncTaxCalculator
-  shipping.ts                           # ShippingCalculator + Free/Flat/WeightBasedShippingCalculator + WeightBracket
-  inventory.ts                          # Price and availability contracts + InventoryError + refreshPrices()
-  cart.ts                               # Cart: pricing pipeline (subtotal → discount → tax → shipping) + async checkout()
-  index.ts                              # barrel export
-tests/                                  # project tests
-```
-
-## Running tests locally
-
-```bash
-npm ci
-npx vitest run
-npx vitest run --coverage
-```
-
-Coverage (`@vitest/coverage-v8`) is pre-configured in `vitest.config.ts`
-and is enforced as a **hard floor** when `--coverage` is passed: lines /
-statements / functions ≥ 80%, branches ≥ 70%. The coverage run exits
-non-zero if any threshold is not met.
+- Products have stable identifiers, prices in cents, and optional weight and
+  currency data.
+- A cart can add, remove, update, clear, count, and snapshot product lines.
+- Re-adding a product increases its quantity. Updating a quantity to zero
+  removes the product.
+- Totals are calculated in this order: subtotal, discount, tax on the
+  discounted subtotal, shipping, and final total.
+- Discount policies support no discount, percentages, fixed amounts, and
+  composite sum or chain behavior.
+- Tax calculation supports fixed regional rates or rates obtained
+  asynchronously.
+- Shipping supports free, flat-rate, threshold-based, and weight-bracket
+  calculations.
+- Checkout can refresh product prices, verify inventory, and resolve a tax
+  rate before returning an immutable line snapshot and final totals.
+- Invalid prices, quantities, rates, discounts, and availability results are
+  rejected with descriptive errors.
