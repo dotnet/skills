@@ -380,7 +380,7 @@ public static class AgentRunner
             """
             (?ix)
             (?:
-                \bln\s+(?:-[^\s;|&]*s[^\s;|&]*|--symbolic)\b
+                \bln\b
               | \bmklink(?:\.exe)?\b
               | \bjunction(?:\.exe)?\b
               | \bfsutil(?:\.exe)?\s+(?:hardlink|reparsepoint)\b
@@ -391,7 +391,12 @@ public static class AgentRunner
               | \bfs(?:\.promises)?\.symlink\s*\(
               | \.(?:symlinksync|symlink)\s*\(
               | \bos\.symlink\s*\(
+              | \bfs(?:\.promises)?\.linksync\s*\(
+              | \bfs(?:\.promises)?\.link\s*\(
+              | \.(?:linksync|link)\s*\(
+              | \bos\.link\s*\(
               | \.symlink_to\s*\(
+              | \.hardlink_to\s*\(
             )
             """,
             RegexOptions.CultureInvariant,

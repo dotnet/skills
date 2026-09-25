@@ -574,12 +574,16 @@ public class BuildSessionConfigTests
 
     [TestMethod]
     [DataRow("ln -s /etc/passwd linked")]
+    [DataRow("ln /etc/passwd linked")]
     [DataRow("cmd /c mklink linked C:\\outside")]
     [DataRow("junction.exe linked C:\\outside")]
     [DataRow("fsutil hardlink create linked C:\\outside\\secret")]
     [DataRow("New-Item linked -ItemType SymbolicLink -Target C:\\outside")]
     [DataRow("python -c \"import os; os.symlink('/outside', 'linked')\"")]
+    [DataRow("python -c \"import os; os.link('/outside', 'linked')\"")]
     [DataRow("node -e \"require('fs').symlinkSync('/outside', 'linked')\"")]
+    [DataRow("node -e \"require('fs').linkSync('/outside', 'linked')\"")]
+    [DataRow("node -e \"require('fs').promises.link('/outside', 'linked')\"")]
     [DataRow("dotnet script -e \"Directory.CreateSymbolicLink(\\\"linked\\\", \\\"/outside\\\")\"")]
     public async Task DeniesShellCommandsThatCanCreateFilesystemLinks(string command)
     {
