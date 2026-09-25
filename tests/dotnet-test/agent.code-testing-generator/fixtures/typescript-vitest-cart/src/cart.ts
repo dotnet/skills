@@ -46,10 +46,8 @@ export interface CheckoutResult {
  * is fixed at: **subtotal → discount (clamped to [0, subtotal]) → tax on the
  * discounted subtotal → shipping (computed against discounted subtotal)**.
  *
- * The cart never reaches the network or filesystem itself; all I/O is delegated
- * to injected collaborators (DiscountPolicy / TaxCalculator / ShippingCalculator
- * for sync totals, and PriceFetcher / InventoryChecker / AsyncTaxRateProvider
- * for `checkout()`).
+ * The cart performs no direct network or filesystem access. Optional checkout
+ * services can refresh prices, validate inventory, and resolve tax rates.
  */
 export class Cart {
   private readonly lines = new Map<string, CartLine>();
@@ -125,12 +123,8 @@ export class Cart {
   }
 
   /**
-   * Async checkout pipeline:
-   *  1. Refresh prices via the (optional) `priceFetcher`.
-   *  2. Validate inventory via the (optional) `inventoryChecker`; first denial
-   *     wins and throws an :class:`InventoryError` describing the failing line.
-   *  3. Compute totals; if an `asyncTaxProvider` is supplied, the tax calculator
-   *     is replaced for this call by an :class:`AsyncTaxCalculator`.
+   * Returns a checkout snapshot after optional price refresh, inventory
+   * validation, and asynchronous tax-rate resolution.
    */
   async checkout(collaborators: CheckoutCollaborators = {}): Promise<CheckoutResult> {
     let lines = this.snapshot();

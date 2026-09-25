@@ -1,7 +1,4 @@
-/**
- * DiscountPolicy is the seam consumers (and tests) substitute to control pricing.
- * Implementations must be deterministic and pure.
- */
+/** Computes the discount applied to a cart subtotal. */
 export interface DiscountPolicy {
   /**
    * @param subtotalCents Sum of (unitPriceCents * quantity) across all lines, before any discount.

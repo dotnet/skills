@@ -15,7 +15,7 @@ src/
   pricing.ts                            # DiscountPolicy + No / Percentage / FixedAmount / CompositeDiscountPolicy (sum | chain)
   tax.ts                                # TaxCalculator + No/RegionalTaxCalculator; AsyncTaxRateProvider + AsyncTaxCalculator
   shipping.ts                           # ShippingCalculator + Free/Flat/WeightBasedShippingCalculator + WeightBracket
-  inventory.ts                          # PriceFetcher + InventoryChecker async seams + InventoryError + refreshPrices()
+  inventory.ts                          # Price and availability contracts + InventoryError + refreshPrices()
   cart.ts                               # Cart: pricing pipeline (subtotal → discount → tax → shipping) + async checkout()
   index.ts                              # barrel export
 tests/                                  # project tests

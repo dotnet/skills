@@ -1,10 +1,7 @@
 import type { CartLine } from "./product.ts";
 import { totalLineWeightGrams } from "./tax.ts";
 
-/**
- * ShippingCalculator is the seam consumers (and tests) substitute to compute shipping.
- * Implementations must be pure and deterministic for a given input.
- */
+/** Computes the shipping charge for cart lines and their discounted subtotal. */
 export interface ShippingCalculator {
   /**
    * @param lines           Cart lines being shipped.

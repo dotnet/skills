@@ -1,15 +1,11 @@
 import type { CartLine, Product } from "./product.ts";
 
-/** Async seam for refreshing prices from a backend before checkout. */
+/** Provides the current price for a product. */
 export interface PriceFetcher {
   fetchPriceCents(productId: string): Promise<number>;
 }
 
-/**
- * In-stock check seam used by Cart.checkout(). Implementations may resolve
- * with `available: true` and an optional `availableQuantity`, or reject /
- * resolve `available: false` to signal an inventory failure.
- */
+/** Reports whether the requested product quantity is available. */
 export interface InventoryChecker {
   check(productId: string, quantity: number): Promise<InventoryDecision>;
 }

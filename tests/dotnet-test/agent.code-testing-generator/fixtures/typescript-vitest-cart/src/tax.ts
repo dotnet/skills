@@ -1,9 +1,6 @@
 import type { CartLine } from "./product.ts";
 
-/**
- * TaxCalculator is a seam consumers (and tests) substitute to compute tax.
- * Implementations must be pure and deterministic for a given input.
- */
+/** Computes tax for a subtotal and region. */
 export interface TaxCalculator {
   /**
    * @param taxableCents Subtotal after any discounts.
@@ -51,7 +48,7 @@ export class RegionalTaxCalculator implements TaxCalculator {
   }
 }
 
-/** Async seam for callers that resolve rates from a remote service. */
+/** Provides the tax rate for a region. */
 export interface AsyncTaxRateProvider {
   getRate(region: string): Promise<number>;
 }
