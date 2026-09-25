@@ -1,16 +1,18 @@
 diff --git a/TargetAuthoring.csproj b/TargetAuthoring.csproj
 --- a/TargetAuthoring.csproj
 +++ b/TargetAuthoring.csproj
-@@ -1,4 +1,9 @@
+@@ -1,6 +1,11 @@
  <Project Sdk="Microsoft.NET.Sdk">
+   <PropertyGroup>
+     <TargetFramework>net8.0</TargetFramework>
+     <OutputType>Library</OutputType>
+   </PropertyGroup>
++
 +  <ItemGroup>
 +    <Compile Include="$(IntermediateOutputPath)ApiClient.g.cs" />
 +    <FileWrites Include="$(IntermediateOutputPath)ApiClient.g.cs" />
 +  </ItemGroup>
-+
-   <PropertyGroup>
-     <TargetFramework>net8.0</TargetFramework>
-     <OutputType>Library</OutputType>
+ 
 @@ -7,4 +11,4 @@
 -  <Target Name="GetApiEndpoints" Outputs="@(ApiEndpoint)">
 +  <Target Name="GetApiEndpoints" Returns="@(ApiEndpoint)">

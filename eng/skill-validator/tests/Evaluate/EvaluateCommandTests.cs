@@ -141,6 +141,28 @@ public class EvaluateCommandTests
     }
 
     [TestMethod]
+    public void AgentMissingActivationTelemetryFailsClosed()
+    {
+        var comparison = SkillActivationComparison(
+            expectActivation: true,
+            isolatedActivated: false,
+            pluginActivated: false);
+        comparison.SubagentActivationIsolated = null;
+        comparison.SubagentActivationPlugin = null;
+        var verdict = PassingSkillVerdict(comparison);
+        verdict.SkillKind = "agent";
+
+        EvaluateCommand.ApplyAgentActivationGate(
+            verdict, [comparison], "router", _ => { });
+
+        Assert.IsFalse(verdict.Passed);
+        Assert.IsTrue(verdict.SkillNotActivated);
+        Assert.AreEqual(FailureKind.SkillNotActivated, verdict.FailureKind);
+        Assert.Contains("AGENT NOT ACTIVATED (isolated)", verdict.Reason);
+        Assert.Contains("AGENT NOT ACTIVATED (plugin)", verdict.Reason);
+    }
+
+    [TestMethod]
     public void AgentExpectedDormantActivationFails()
     {
         var comparison = SkillActivationComparison(

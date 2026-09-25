@@ -449,6 +449,12 @@ public static class RejudgeCommand
         SelectInlineRunGroup(IEnumerable<SessionRecord> sessions)
     {
         var group = sessions.ToList();
+        if (group.Any(session => !BaselineRoles.Contains(session.Role)
+            && !IsolatedRoles.Contains(session.Role)
+            && !PluginRoles.Contains(session.Role)))
+        {
+            return null;
+        }
         var baselines = group.Where(s => BaselineRoles.Contains(s.Role)).ToList();
         var isolatedSessions = group.Where(s => IsolatedRoles.Contains(s.Role)).ToList();
         var pluginSessions = group.Where(s => PluginRoles.Contains(s.Role)).ToList();
@@ -462,6 +468,12 @@ public static class RejudgeCommand
         var baseline = baselines[0];
         var isolated = isolatedSessions[0];
         var plugin = pluginSessions.SingleOrDefault();
+        var isAgent = isolated.Role == "with-agent-isolated";
+        if (plugin is not null
+            && plugin.Role != (isAgent ? "with-agent-plugin" : "with-skill-plugin"))
+        {
+            return null;
+        }
         if (!string.Equals(isolated.BaselineKey, baseline.BaselineKey, StringComparison.Ordinal)
             || (plugin is not null
                 && !string.Equals(plugin.BaselineKey, baseline.BaselineKey, StringComparison.Ordinal)))
@@ -472,7 +484,7 @@ public static class RejudgeCommand
             baseline,
             isolated,
             plugin,
-            isolated.Role == "with-agent-isolated");
+            isAgent);
     }
 
     internal static IReadOnlyList<string> FindIncompleteInlineRunGroups(
@@ -528,8 +540,14 @@ public static class RejudgeCommand
         IReadOnlyList<SessionRecord> baselineSessions,
         IReadOnlyList<SessionRecord> treatmentSessions)
     {
+        var unexpectedBaseline = baselineSessions
+            .Where(session => !BaselineRoles.Contains(session.Role)
+                || string.IsNullOrEmpty(session.BaselineKey))
+            .Select(FormatSessionIdentity)
+            .ToList();
         var baselineRuns = baselineSessions
-            .Where(s => BaselineRoles.Contains(s.Role))
+            .Where(s => BaselineRoles.Contains(s.Role)
+                && !string.IsNullOrEmpty(s.BaselineKey))
             .ToList();
         var baselineByKey = baselineRuns
             .Where(s => !string.IsNullOrEmpty(s.BaselineKey))
@@ -638,6 +656,7 @@ public static class RejudgeCommand
             unmatchedTreatment,
             duplicateBaseline,
             duplicateTreatment,
+            unexpectedBaseline,
             unexpectedTreatment);
     }
 
@@ -647,6 +666,7 @@ public static class RejudgeCommand
             && pairing.UnmatchedTreatment.Count == 0
             && pairing.DuplicateBaseline.Count == 0
             && pairing.DuplicateTreatment.Count == 0
+            && pairing.UnexpectedBaseline.Count == 0
             && pairing.UnexpectedTreatment.Count == 0)
         {
             return pairing.Pairs.Count == 0
@@ -677,6 +697,11 @@ public static class RejudgeCommand
         {
             lines.Add("Duplicate treatment role record(s):");
             lines.AddRange(pairing.DuplicateTreatment.Select(identity => $"  - {identity}"));
+        }
+        if (pairing.UnexpectedBaseline.Count > 0)
+        {
+            lines.Add("Unexpected or unpairable baseline record(s):");
+            lines.AddRange(pairing.UnexpectedBaseline.Select(identity => $"  - {identity}"));
         }
         if (pairing.UnexpectedTreatment.Count > 0)
         {
@@ -1306,4 +1331,5 @@ public sealed record CrossDirPairing(
     IReadOnlyList<string> UnmatchedTreatment,
     IReadOnlyList<string> DuplicateBaseline,
     IReadOnlyList<string> DuplicateTreatment,
+    IReadOnlyList<string> UnexpectedBaseline,
     IReadOnlyList<string> UnexpectedTreatment);

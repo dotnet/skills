@@ -385,6 +385,28 @@ public class RejudgeCommandTests
     }
 
     [TestMethod]
+    public void PairCrossDir_RejectsUnexpectedOrUnpairableBaselineRecords()
+    {
+        var baseline = new[]
+        {
+            Rec("valid", "baseline", 0, "K1"),
+            Rec("unexpected-role", "with-skill-isolated", 0, "K1"),
+            Rec("missing-key", "baseline", 1, null),
+        };
+        var treatment = new[] { Rec("iso", "with-skill-isolated", 0, "K1") };
+
+        var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
+
+        Assert.ContainsSingle(pairing.Pairs);
+        Assert.AreEqual(2, pairing.UnexpectedBaseline.Count);
+        Assert.IsTrue(pairing.UnexpectedBaseline.Any(value => value.Contains("unexpected-role")));
+        Assert.IsTrue(pairing.UnexpectedBaseline.Any(value => value.Contains("missing-key")));
+        Assert.Contains(
+            "Unexpected or unpairable baseline record(s)",
+            RejudgeCommand.GetCrossDirPairingFailure(pairing)!);
+    }
+
+    [TestMethod]
     public void PairCrossDir_RejectsUnexpectedTreatmentRole()
     {
         var baseline = new[] { Rec("b0", "baseline", 0, "K1") };
@@ -757,6 +779,33 @@ public class RejudgeCommandTests
 
         Assert.IsNull(RejudgeCommand.SelectInlineRunGroup(isolatedMismatch));
         Assert.IsNull(RejudgeCommand.SelectInlineRunGroup(pluginMismatch));
+    }
+
+    [TestMethod]
+    public void SelectInlineRunGroup_RejectsUnexpectedAndMixedRoleFamilies()
+    {
+        var unknownRole = new[]
+        {
+            Rec("b0", "baseline", 0, "K1"),
+            Rec("s0", "with-skill-isolated", 0, "K1"),
+            Rec("extra", "unexpected-role", 0, "K1"),
+        };
+        var mixedAgentPlugin = new[]
+        {
+            Rec("b0", "baseline", 0, "K1"),
+            Rec("s0", "with-skill-isolated", 0, "K1"),
+            Rec("p0", "with-agent-plugin", 0, "K1"),
+        };
+        var mixedSkillPlugin = new[]
+        {
+            Rec("b0", "baseline", 0, "K1"),
+            Rec("a0", "with-agent-isolated", 0, "K1"),
+            Rec("p0", "with-skill-plugin", 0, "K1"),
+        };
+
+        Assert.IsNull(RejudgeCommand.SelectInlineRunGroup(unknownRole));
+        Assert.IsNull(RejudgeCommand.SelectInlineRunGroup(mixedAgentPlugin));
+        Assert.IsNull(RejudgeCommand.SelectInlineRunGroup(mixedSkillPlugin));
     }
 
     [TestMethod]

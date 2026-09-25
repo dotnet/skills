@@ -767,11 +767,15 @@ public static class EvaluateCommand
         // Only the isolated arm participates in the agent verdict. The plugin arm
         // is production-surface telemetry, matching ComputeAgentVerdict's score gate.
         var notActivatedIsolated = comparisons.Where(c =>
-            c.SubagentActivationIsolated is { } sa && !sa.InvokedAgents.Any(n => n.Equals(agentName, StringComparison.OrdinalIgnoreCase))
-            && c.ExpectActivation).ToList();
+            c.ExpectActivation
+            && (c.SubagentActivationIsolated is null
+                || !c.SubagentActivationIsolated.InvokedAgents.Any(
+                    n => n.Equals(agentName, StringComparison.OrdinalIgnoreCase)))).ToList();
         var notActivatedPlugin = comparisons.Where(c =>
-            c.SubagentActivationPlugin is { } sa && !sa.InvokedAgents.Any(n => n.Equals(agentName, StringComparison.OrdinalIgnoreCase))
-            && c.ExpectActivation).ToList();
+            c.ExpectActivation
+            && (c.SubagentActivationPlugin is null
+                || !c.SubagentActivationPlugin.InvokedAgents.Any(
+                    n => n.Equals(agentName, StringComparison.OrdinalIgnoreCase)))).ToList();
         var unexpectedlyActivated = comparisons.Where(c =>
             c.SubagentActivationIsolated is { } sa && sa.InvokedAgents.Any(n => n.Equals(agentName, StringComparison.OrdinalIgnoreCase))
             && !c.ExpectActivation).ToList();
