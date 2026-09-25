@@ -330,14 +330,14 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              The suite is green only because these four methods happen to be executed in declaration order in this configuration.
+              The suite is green only because it explicitly runs the four methods in parallel and serializes them with static `ManualResetEventSlim` gates. Those gates hide that the tests are not independent.
 
-              **High - Interacting Tests / shared mutable fixture.** `AwardedPoints` and `_tierIndex` are `static` and are never reset between methods, so each test inherits whatever the previous one left behind. `AwardPoints_AccumulatesAcrossPurchases` asserts a total of 550, which is reachable only after the first method has already appended 200. `PromoteMember_ReachesGoldAtThreshold` then depends on both. Reorder the class, run it with `[Parallelize(Scope = ExecutionScope.MethodLevel)]`, or execute a single test on its own and the suite goes red. This is the only finding that can change a run's result.
+              **High - Interacting Tests / shared mutable fixture.** `AwardedPoints` and `_tierIndex` are `static` and are never reset between methods, so each test inherits whatever the gated predecessor left behind. `AwardPoints_AccumulatesAcrossPurchases` asserts a total of 550, which is reachable only after `AwardPoints_RecordsTheFirstPurchase` appends 200 and opens its gate. `PromoteMember_ReachesGoldAtThreshold` waits for both purchases. Run any later test alone, remove a predecessor, or let a predecessor fail before signaling and the suite fails after its timeout. This is the only finding that can change a run's result.
 
               **Medium - conditional promotion with one untested branch.** The `if` in `PromoteMember_ReachesGoldAtThreshold` means the below-threshold path never executes, so the test proves nothing about members who have not earned Gold.
 
               **Not a smell.** `TierNames` is `static readonly` and never mutated, so sharing it is fine, and `GoldThreshold` is a named constant rather than an unexplained literal. Neither should be reported.
-              Fix the ordering hazard first: move the ledger and tier into instance fields, or rebuild them in a `[TestInitialize]` method, so every test starts from a known state. Renaming or pinning the execution order only hides the coupling.
+              Fix the sequencing hazard first: remove the gates and move the ledger and tier into instance fields, or rebuild them in a `[TestInitialize]` method, so every test starts from a known state. Explicit sequencing only hides the coupling.
     environment:
       files:
         - src: fixtures/order-dependent/Loyalty.Tests/Loyalty.Tests.csproj
@@ -347,7 +347,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: ([Ss]hared (mutable|static)|[Oo]rder.?depend|[Ii]nteracting [Tt]est|static (field|state))
+          pattern: ([Ss]hared (mutable|static)|[Oo]rder.?depend|[Ii]nteracting [Tt]est|static (field|state)|ManualResetEventSlim|sequenc)
       - type: output-matches
         config:
           pattern: (TestInitialize|per.?test|isolat|instance field)
@@ -355,7 +355,7 @@ stimuli:
       - type: prompt
     rubric:
       - Named the never-reset static AwardedPoints and _tierIndex as the highest-severity finding
-      - Explained that the suite passes only in declaration order and breaks under reordering, isolation, or parallel execution
+      - Explained that static gates force a predecessor sequence and that later tests fail under isolation or when a predecessor does not signal
       - Pointed at the concrete coupling - the 550 total is only reachable because an earlier test already appended to the same list
       - Left the immutable TierNames array and the named GoldThreshold constant unflagged
-      - Recommended real per-test isolation such as instance fields or TestInitialize instead of pinning execution order
+      - Recommended real per-test isolation such as instance fields or TestInitialize instead of explicit sequencing

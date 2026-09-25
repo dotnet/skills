@@ -1,5 +1,9 @@
+using System;
 using System.Collections.Generic;
+using System.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+[assembly: Parallelize(Workers = 4, Scope = ExecutionScope.MethodLevel)]
 
 namespace Contoso.Loyalty.Tests;
 
@@ -14,36 +18,46 @@ public class LoyaltyLedgerTests
 
     private static int _tierIndex;
 
+    private static readonly ManualResetEventSlim FirstPurchaseRecorded = new();
+    private static readonly ManualResetEventSlim PurchasesAccumulated = new();
+    private static readonly ManualResetEventSlim MemberPromoted = new();
+
     [TestMethod]
     public void AwardPoints_RecordsTheFirstPurchase()
     {
         AwardedPoints.Add(200);
 
         Assert.AreEqual(1, AwardedPoints.Count);
+        FirstPurchaseRecorded.Set();
     }
 
     [TestMethod]
     public void AwardPoints_AccumulatesAcrossPurchases()
     {
+        Assert.IsTrue(FirstPurchaseRecorded.Wait(TimeSpan.FromSeconds(5)));
         AwardedPoints.Add(350);
 
         Assert.AreEqual(550, Total(AwardedPoints));
+        PurchasesAccumulated.Set();
     }
 
     [TestMethod]
     public void PromoteMember_ReachesGoldAtThreshold()
     {
+        Assert.IsTrue(PurchasesAccumulated.Wait(TimeSpan.FromSeconds(5)));
         if (Total(AwardedPoints) >= GoldThreshold)
         {
             _tierIndex = 2;
         }
 
         Assert.AreEqual("Gold", TierNames[_tierIndex]);
+        MemberPromoted.Set();
     }
 
     [TestMethod]
     public void ResetLedger_StartsANewProgramYear()
     {
+        Assert.IsTrue(MemberPromoted.Wait(TimeSpan.FromSeconds(5)));
         AwardedPoints.Clear();
         _tierIndex = 0;
 
