@@ -1181,6 +1181,12 @@ internal static class SecureFileSystem
             ThrowUnixPathError(displayPath);
 
         using var temporaryHandle = new SafeFileHandle(new IntPtr(rawHandle), ownsHandle: true);
+        if (ChangeUnixFileMode(
+            temporaryHandle.DangerousGetHandle().ToInt32(),
+            Convert.ToInt32("600", 8)) != 0)
+        {
+            ThrowUnixPathError(displayPath);
+        }
         if (!GetUnixStatus(temporaryHandle, displayPath).IsFile)
             throw new UnauthorizedAccessException($"Temporary path is not a regular file: {displayPath}");
         await WriteTextAsync(
@@ -1597,6 +1603,9 @@ internal static class SecureFileSystem
         string path,
         int flags,
         int mode);
+
+    [DllImport("libc", EntryPoint = "fchmod", SetLastError = true)]
+    private static extern int ChangeUnixFileMode(int fileDescriptor, int mode);
 
     [DllImport("libc", EntryPoint = "mkdirat", SetLastError = true)]
     private static extern int MakeDirectoryAtUnix(int directoryFd, string path, int mode);

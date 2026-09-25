@@ -1745,6 +1745,12 @@ public class LocalSessionFsHandlerTests
                 TestContext.CancellationToken);
 
             Assert.AreEqual("first-second", await File.ReadAllTextAsync(target, TestContext.CancellationToken));
+            if (!OperatingSystem.IsWindows())
+            {
+                var mode = File.GetUnixFileMode(target);
+                Assert.IsTrue((mode & UnixFileMode.UserRead) != 0);
+                Assert.IsTrue((mode & UnixFileMode.UserWrite) != 0);
+            }
         }
         finally
         {
