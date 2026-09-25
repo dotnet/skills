@@ -84,9 +84,29 @@ stimuli:
             - -e
             - |
               const fs = require('fs');
-              const count = fs.readdirSync('.', { withFileTypes: true })
-                .filter(entry => entry.isFile() && entry.name.endsWith('.binlog')).length;
-              if (count < 2) throw new Error('Expected at least two top-level binlogs, found ' + count);
+              const zlib = require('zlib');
+              const files = fs.readdirSync('.', { withFileTypes: true })
+                .filter(entry => entry.isFile() && entry.name.endsWith('.binlog'))
+                .map(entry => entry.name);
+              if (files.length !== 2) {
+                throw new Error('Expected exactly two top-level binlogs, found: ' + files.join(', '));
+              }
+              for (const file of files) {
+                const compressed = fs.readFileSync(file);
+                if (compressed.length < 1024 || compressed[0] !== 0x1f || compressed[1] !== 0x8b) {
+                  throw new Error('Not a nontrivial gzip-compressed binlog: ' + file);
+                }
+                const payload = zlib.gunzipSync(compressed);
+                if (payload.length < 4096 || !payload.includes(Buffer.from('BinLog'))) {
+                  throw new Error('Missing MSBuild BinLog payload: ' + file);
+                }
+              }
+              for (const configuration of ['Debug', 'Release']) {
+                const output = 'bin/' + configuration + '/net8.0/SimpleApp.dll';
+                if (!fs.existsSync(output) || fs.statSync(output).size === 0) {
+                  throw new Error(configuration + ' build output is missing: ' + output);
+                }
+              }
           expected_exit_code: 0
       - type: file-exists
         config:
@@ -126,6 +146,7 @@ stimuli:
             - -e
             - |
               const fs = require('fs');
+              const zlib = require('zlib');
               const directory = 'predictable-filename';
               const manifest = fs.readFileSync(directory + '/ci-artifacts-manifest.txt', 'utf8');
               const existing = new Set(manifest.match(/\b[^\s]+\.binlog\b/g) ?? []);
@@ -138,7 +159,20 @@ stimuli:
               }
               for (const name of produced) {
                 const file = directory + '/' + name;
-                if (fs.statSync(file).size === 0) throw new Error('Empty binlog: ' + file);
+                const compressed = fs.readFileSync(file);
+                if (compressed.length < 1024 || compressed[0] !== 0x1f || compressed[1] !== 0x8b) {
+                  throw new Error('Not a nontrivial gzip-compressed binlog: ' + file);
+                }
+                const payload = zlib.gunzipSync(compressed);
+                if (payload.length < 4096 || !payload.includes(Buffer.from('BinLog'))) {
+                  throw new Error('Missing MSBuild BinLog payload: ' + file);
+                }
+              }
+              for (const configuration of ['Debug', 'Release']) {
+                const output = directory + '/bin/' + configuration + '/net8.0/SimpleApp.dll';
+                if (!fs.existsSync(output) || fs.statSync(output).size === 0) {
+                  throw new Error(configuration + ' build output is missing: ' + output);
+                }
               }
           expected_exit_code: 0
       - type: prompt
