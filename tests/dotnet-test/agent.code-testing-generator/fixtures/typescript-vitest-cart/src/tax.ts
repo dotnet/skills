@@ -51,12 +51,7 @@ export class RegionalTaxCalculator implements TaxCalculator {
   }
 }
 
-/**
- * Async seam for callers that resolve rates from a remote service.
- *
- * Cart.checkout() uses this seam when configured; tests typically substitute
- * a mock returning a resolved promise (e.g. `vi.fn().mockResolvedValue(...)`).
- */
+/** Async seam for callers that resolve rates from a remote service. */
 export interface AsyncTaxRateProvider {
   getRate(region: string): Promise<number>;
 }
@@ -75,7 +70,7 @@ export class AsyncTaxCalculator {
   }
 }
 
-/** Helper for tests / callers that need to compute taxable weight from lines. */
+/** Computes total weight from cart lines. */
 export function totalLineWeightGrams(lines: readonly CartLine[]): number {
   let total = 0;
   for (const line of lines) {

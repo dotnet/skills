@@ -1,10 +1,6 @@
 import type { CartLine, Product } from "./product.ts";
 
-/**
- * Async seam for refreshing prices from a backend before checkout. Tests
- * typically substitute a mock returning a resolved promise (e.g.
- * `vi.fn().mockResolvedValue({ ... })`).
- */
+/** Async seam for refreshing prices from a backend before checkout. */
 export interface PriceFetcher {
   fetchPriceCents(productId: string): Promise<number>;
 }

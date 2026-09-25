@@ -252,8 +252,8 @@ stimuli:
       - Identified that the create/list tests assert only existence or type rather than the returned order's actual
         field values
       - Flagged the always-true assertion that cannot fail regardless of the code's behavior
-      - Flagged the un-awaited promise assertion as silently passing even when the underlying promise rejects,
-        which is the most dangerous defect in the file
+      - "Flagged the un-awaited `.resolves` matcher as unreliable and shallow: it is not returned or awaited and only
+        checks definedness; also recognized that synchronous `confirm` executes before `Promise.resolve`"
       - Flagged the assertion that compares a value to itself as incapable of detecting any bug
       - Flagged the not-equal-to-an-unrelated-string assertion as passing for almost any possible value
       - Recognized that the two tests pinning the returned customer and asserting the thrown error message do verify

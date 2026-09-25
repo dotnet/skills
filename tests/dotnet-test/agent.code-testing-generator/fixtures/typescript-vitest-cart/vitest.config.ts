@@ -7,11 +7,6 @@ export default defineConfig({
     globals: false,
     reporters: ["default"],
     coverage: {
-      // Coverage is enforced as a hard floor when --coverage is passed: the run
-      // fails when line / statement / function coverage is below 80% (branch
-      // coverage 70%). The agent must plan its tests to cover every module
-      // (cart / pricing / tax / shipping / inventory / product) — incidental
-      // coverage from a few happy-path tests will not clear the bar.
       provider: "v8",
       reporter: ["lcov", "text"],
       include: ["src/**/*.ts"],
