@@ -249,16 +249,17 @@ sign test and net win.
 
 The same scenario becomes an isolated-arm activation contract. Unexpected
 target-skill activation blocks a pass with
-`stateReason.code = activation_contract_failed`. Plugin-arm activity remains
-diagnostic because the plugin event does not identify which sibling skill
-activated. Comparison errors, pairing errors, and completion transitions still
-account for every stimulus, including dormancy, so exclusion cannot hide a
-broken measurement or completion signal.
+`stateReason.code = activation_contract_failed`. Plugin-arm activation is
+target-scoped when the event names the target skill; sibling-skill invocations
+do not count as target activation. Comparison errors, pairing errors, and
+completion transitions still account for every stimulus, including dormancy,
+so exclusion cannot hide a broken measurement or completion signal.
 
 Dormancy annotations that match no observed stimulus are retained in
-`activationContract.unmatchedDormancyStimuli` and emitted as adapter warnings.
-They do not change the current pass rule, but make renames, typos, and missing
-scenario evidence visible instead of silently dropping the contract.
+`activationContract.unmatchedDormancyStimuli` and fail the activation contract
+with `stateReason.code = activation_contract_failed`. This makes renames,
+typos, and missing scenario evidence visible instead of silently dropping the
+contract.
 
 ### 8. Convert repeated trials into independent stimulus votes
 

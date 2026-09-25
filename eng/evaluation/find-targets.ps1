@@ -3,8 +3,9 @@ $plugins = @()
 . (Join-Path $PWD "eng/evaluation/path-safety.ps1")
 
 # Build matrix entries for a full-plugin evaluation, sharding skills
-# that have eval specs by the optional `executionShard:` top-level tag
-# in tests/<plugin>/<skill>/eval.yaml. Untagged evals fall into a
+# that have eval specs by the optional `executionShard:` metadata key
+# under the top-level `tags` mapping in tests/<plugin>/<skill>/eval.yaml.
+# Untagged evals fall into a
 # synthetic "default" bucket. Plugins with all skills in one bucket
 # produce a single entry (unchanged behavior); plugins with multiple
 # buckets fan out into one matrix entry per shard so each shard
@@ -12,6 +13,24 @@ $plugins = @()
 # MCP-heavy plugins like dotnet-msbuild, where cumulative runner
 # resource usage across ~90 min of continuous MCP traffic
 # consistently triggered host-level termination.
+function Get-EvalExecutionShard {
+  param([string]$evalPath)
+
+  $inTopLevelTags = $false
+  foreach ($line in Get-Content -LiteralPath $evalPath) {
+    if ($line -match '^\s*(?:#.*)?$') { continue }
+    if ($line -match '^(?<key>[A-Za-z_][\w-]*):(?:\s|$)') {
+      $inTopLevelTags = $Matches["key"] -eq "tags"
+      continue
+    }
+    if ($inTopLevelTags -and
+        $line -match '^\s+executionShard:\s*[\x27"]?([\w.\-]+)') {
+      return $Matches[1]
+    }
+  }
+  return "default"
+}
+
 function Get-PluginShardEntries {
   param(
     [string]$plugin,
@@ -47,12 +66,7 @@ function Get-PluginShardEntries {
     $evalPath = Join-Path $contentRoot "tests" $plugin $skill "eval.yaml"
     if (-not (Test-Path $evalPath)) { continue }
     $evalSkills += $skill
-    $shard = "default"
-    # Allow optional leading whitespace so an accidentally indented
-    # executionShard: key still groups correctly (rather than silently
-    # collapsing back to the default bucket).
-    $m = Select-String -Path $evalPath -Pattern '^\s*executionShard:\s*[\x27"]?([\w.\-]+)' -List
-    if ($m) { $shard = $m.Matches[0].Groups[1].Value }
+    $shard = Get-EvalExecutionShard -evalPath $evalPath
     if (-not $shardGroups.ContainsKey($shard)) { $shardGroups[$shard] = @() }
     $shardGroups[$shard] += $skill
   }

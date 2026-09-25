@@ -1,4 +1,7 @@
 using System.Diagnostics;
+using System.Security.AccessControl;
+using System.Security.Principal;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GitHub.Copilot;
@@ -17,6 +20,17 @@ public class BuildSessionConfigTests
         Path: Path.Combine("C:", "home", "user", "skills", "test-skill"),
         SkillMdPath: Path.Combine("C:", "home", "user", "skills", "test-skill", "SKILL.md"),
         SkillMdContent: "# Test");
+
+    private static MCPServerDef SafeMcpServer(
+        string[]? tools = null,
+        Dictionary<string, string>? env = null,
+        string? cwd = null) =>
+        new(
+            Command: "dotnet",
+            Args: ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"],
+            Tools: tools ?? ["*"],
+            Env: env,
+            Cwd: cwd);
 
     [TestMethod]
     public async Task SetsSkillDirectoriesToStagedIsolationDir()
@@ -213,6 +227,125 @@ public class BuildSessionConfigTests
     }
 
     [TestMethod]
+    public void EvaluationRootIsPrivateDirectoryUnderSystemTemp()
+    {
+        var root = AgentRunner.GetEvaluationRoot();
+        var tempPath = Path.GetFullPath(Path.GetTempPath());
+        var relative = Path.GetRelativePath(root, tempPath);
+
+        Assert.IsTrue(Path.IsPathFullyQualified(root));
+        Assert.AreNotEqual(
+            Path.TrimEndingDirectorySeparator(Path.GetPathRoot(root)!),
+            Path.TrimEndingDirectorySeparator(root));
+        Assert.StartsWith("..", relative, StringComparison.Ordinal);
+        Assert.IsFalse(
+            Path.GetRelativePath(tempPath, root).StartsWith("..", StringComparison.Ordinal));
+
+        if (OperatingSystem.IsWindows())
+        {
+            using var currentIdentity = WindowsIdentity.GetCurrent();
+            var currentUser = currentIdentity.User;
+            Assert.IsNotNull(currentUser);
+
+            var security = new DirectoryInfo(root).GetAccessControl(
+                AccessControlSections.Access | AccessControlSections.Owner);
+            Assert.AreEqual(
+                currentUser,
+                security.GetOwner(typeof(SecurityIdentifier)));
+            Assert.IsTrue(security.AreAccessRulesProtected);
+
+            var rules = security
+                .GetAccessRules(
+                    includeExplicit: true,
+                    includeInherited: true,
+                    targetType: typeof(SecurityIdentifier))
+                .Cast<FileSystemAccessRule>()
+                .ToArray();
+            var ownerRule = Assert.ContainsSingle(rules);
+            Assert.IsFalse(ownerRule.IsInherited);
+            Assert.AreEqual(currentUser, ownerRule.IdentityReference);
+            Assert.AreEqual(AccessControlType.Allow, ownerRule.AccessControlType);
+            Assert.AreEqual(FileSystemRights.FullControl, ownerRule.FileSystemRights);
+            Assert.AreEqual(
+                InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+                ownerRule.InheritanceFlags);
+            Assert.AreEqual(PropagationFlags.None, ownerRule.PropagationFlags);
+        }
+        else
+        {
+            Assert.AreEqual(
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute,
+                File.GetUnixFileMode(root));
+        }
+    }
+
+    [TestMethod]
+    public void PrivateWorkDirIsCreatedInsideEvaluationRoot()
+    {
+        var evaluationRoot = AgentRunner.GetEvaluationRoot();
+        var workDir = AgentRunner.CreatePrivateWorkDir("judge-test");
+        var relative = Path.GetRelativePath(evaluationRoot, workDir);
+
+        Assert.IsTrue(Directory.Exists(workDir));
+        Assert.AreNotEqual(
+            Path.TrimEndingDirectorySeparator(evaluationRoot),
+            Path.TrimEndingDirectorySeparator(workDir));
+        Assert.IsFalse(Path.IsPathFullyQualified(relative));
+        Assert.IsFalse(relative.StartsWith("..", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task DeniesBuiltInFileToolOutsideScenarioWorkDir()
+    {
+        var evaluationRoot = AgentRunner.GetEvaluationRoot();
+        var workDir = Path.Combine(evaluationRoot, "current-scenario");
+        var outsidePath = Path.Combine(evaluationRoot, "other-scenario", "secret.txt");
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var args = JsonDocument.Parse(
+            JsonSerializer.Serialize(new { path = outsidePath })).RootElement;
+
+        var result = await config.Hooks!.OnPreToolUse!(
+            new PreToolUseHookInput { ToolName = "view", ToolArgs = args },
+            null!);
+
+        Assert.AreEqual("deny", result!.PermissionDecision);
+    }
+
+    [TestMethod]
+    public async Task DeniesMultiPathFileToolWhenAnyPathIsOutsideScenarioWorkDir()
+    {
+        var evaluationRoot = AgentRunner.GetEvaluationRoot();
+        var workDir = Path.Combine(evaluationRoot, "rename-scenario");
+        var outsidePath = Path.Combine(evaluationRoot, "other-scenario", "secret.txt");
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var args = JsonDocument.Parse(JsonSerializer.Serialize(new
+        {
+            source = Path.Combine(workDir, "inside.txt"),
+            destination = outsidePath,
+        })).RootElement;
+
+        var result = await config.Hooks!.OnPreToolUse!(
+            new PreToolUseHookInput { ToolName = "rename", ToolArgs = args },
+            null!);
+
+        Assert.AreEqual("deny", result!.PermissionDecision);
+    }
+
+    [TestMethod]
+    public async Task DeniesBuiltInFileToolAccessToReservedSessionState()
+    {
+        var workDir = Path.Combine(AgentRunner.GetEvaluationRoot(), "current-scenario");
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var args = JsonDocument.Parse("""{"path":"session-state/events.jsonl"}""").RootElement;
+
+        var result = await config.Hooks!.OnPreToolUse!(
+            new PreToolUseHookInput { ToolName = "view", ToolArgs = args },
+            null!);
+
+        Assert.AreEqual("deny", result!.PermissionDecision);
+    }
+
+    [TestMethod]
     public async Task SetsConfigDirToUniqueTempDirForSkillIsolation()
     {
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
@@ -394,14 +527,294 @@ public class BuildSessionConfigTests
     }
 
     [TestMethod]
+    public async Task DeniesSchemeLessCurlWhenShellMetadataIsMissing()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = "curl example.com",
+            HasWriteFileRedirection = false,
+            Intention = "Download data",
+            PossiblePaths = [],
+            PossibleUrls = [],
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.AreEqual("reject", decision.Kind);
+    }
+
+    [TestMethod]
+    [DataRow("python -c \"import socket; socket.create_connection(('example.com', 443))\"")]
+    [DataRow("node socket-launcher.js")]
+    [DataRow("./open-socket.sh")]
+    [DataRow("dotnet test && curl example.com")]
+    public async Task DeniesUnclassifiedPathlessShellCommands(string command)
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = command,
+            HasWriteFileRedirection = false,
+            Intention = "Run a command",
+            PossiblePaths = [],
+            PossibleUrls = [],
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.AreEqual("reject", decision.Kind);
+    }
+
+    [TestMethod]
+    [DataRow("dotnet test")]
+    [DataRow("  DOTNET   TEST  ")]
+    [DataRow("git status --short")]
+    [DataRow("pwd")]
+    public void AllowsOnlyKnownPathlessShellCommands(string command)
+    {
+        Assert.IsTrue(AgentRunner.IsAllowedPathlessShellCommand(command));
+    }
+
+    [TestMethod]
+    public async Task ReadPermissionRequiresAllowedPath()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+
+        var allowed = await config.OnPermissionRequest!(
+            new PermissionRequestRead
+            {
+                Kind = "read",
+                Intention = "Read source",
+                Path = Path.Combine(workDir, "src", "Program.cs"),
+                ToolCallId = "read-allowed",
+            },
+            null!);
+        var denied = await config.OnPermissionRequest!(
+            new PermissionRequestRead
+            {
+                Kind = "read",
+                Intention = "Read secret",
+                Path = Path.GetFullPath(Path.Combine(workDir, "..", "secret.txt")),
+                ToolCallId = "read-denied",
+            },
+            null!);
+
+        Assert.AreEqual("approve-once", allowed.Kind);
+        Assert.AreEqual("reject", denied.Kind);
+    }
+
+    [TestMethod]
+    public async Task WritePermissionRejectsReservedSessionState()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+
+        var decision = await config.OnPermissionRequest!(
+            new PermissionRequestWrite
+            {
+                Kind = "write",
+                CanOfferSessionApproval = false,
+                Diff = "",
+                FileName = Path.Combine("session-state", "state.json"),
+                Intention = "Write evaluator state",
+                NewFileContents = "{}",
+                ToolCallId = "write-denied",
+            },
+            null!);
+
+        Assert.AreEqual("reject", decision.Kind);
+    }
+
+    [TestMethod]
+    public async Task UrlPermissionIsDenied()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+
+        var decision = await config.OnPermissionRequest!(
+            new PermissionRequestUrl
+            {
+                Kind = "url",
+                Intention = "Download data",
+                ToolCallId = "url-denied",
+                Url = "https://example.com/data",
+            },
+            null!);
+
+        Assert.AreEqual("reject", decision.Kind);
+    }
+
+    [TestMethod]
+    public async Task McpPermissionRequiresRegisteredServerAndTool()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(
+            null,
+            null,
+            "gpt-4.1",
+            workDir,
+            new Dictionary<string, MCPServerDef>
+            {
+                ["build-data"] = SafeMcpServer(["inspect"]),
+            });
+
+        var allowed = await config.OnPermissionRequest!(
+            new PermissionRequestMcp
+            {
+                Kind = "mcp",
+                ReadOnly = true,
+                ServerName = "build-data",
+                ToolCallId = "mcp-allowed",
+                ToolName = "inspect",
+                ToolTitle = "Inspect",
+            },
+            null!);
+        var denied = await config.OnPermissionRequest!(
+            new PermissionRequestMcp
+            {
+                Kind = "mcp",
+                ReadOnly = true,
+                ServerName = "build-data",
+                ToolCallId = "mcp-denied",
+                ToolName = "exfiltrate",
+                ToolTitle = "Exfiltrate",
+            },
+            null!);
+
+        Assert.AreEqual("approve-once", allowed.Kind);
+        Assert.AreEqual("reject", denied.Kind);
+    }
+
+    [TestMethod]
+    public async Task McpPermissionRejectsServerWithOmittedTools()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(
+            null,
+            null,
+            "gpt-4.1",
+            workDir,
+            new Dictionary<string, MCPServerDef>
+            {
+                ["build-data"] = new(
+                    Command: "dotnet",
+                    Args: ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"]),
+            });
+
+        var server = Assert.IsInstanceOfType<McpStdioServerConfig>(config.McpServers!["build-data"]);
+        Assert.IsNotNull(server.Tools);
+        Assert.IsEmpty(server.Tools!);
+
+        var decision = await config.OnPermissionRequest!(
+            new PermissionRequestMcp
+            {
+                Kind = "mcp",
+                ReadOnly = true,
+                ServerName = "build-data",
+                ToolCallId = "mcp-omitted-tools",
+                ToolName = "inspect",
+                ToolTitle = "Inspect",
+            },
+            null!);
+
+        Assert.AreEqual("reject", decision.Kind);
+    }
+
+    [TestMethod]
+    public void McpPermissionRejectsUntrustedServerWithOmittedTools()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var allowedMcpServers = new Dictionary<string, McpServerConfig>
+        {
+            ["untrusted"] = new McpStdioServerConfig
+            {
+                Command = "custom-mcp",
+                Args = [],
+            },
+        };
+
+        var decision = AgentRunner.DecidePermissionRequest(
+            new PermissionRequestMcp
+            {
+                Kind = "mcp",
+                ReadOnly = true,
+                ServerName = "untrusted",
+                ToolCallId = "mcp-untrusted",
+                ToolName = "inspect",
+                ToolTitle = "Inspect",
+            },
+            workDir,
+            log: null,
+            runLabel: "test",
+            additionalAllowedDirs: [],
+            allowedMcpServers);
+
+        Assert.AreEqual("reject", decision.Kind);
+    }
+
+    [TestMethod]
+    public async Task McpPermissionAllowsExplicitWildcard()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(
+            null,
+            null,
+            "gpt-4.1",
+            workDir,
+            new Dictionary<string, MCPServerDef>
+            {
+                ["build-data"] = SafeMcpServer(),
+            });
+
+        var decision = await config.OnPermissionRequest!(
+            new PermissionRequestMcp
+            {
+                Kind = "mcp",
+                ReadOnly = true,
+                ServerName = "build-data",
+                ToolCallId = "mcp-wildcard",
+                ToolName = "inspect",
+                ToolTitle = "Inspect",
+            },
+            null!);
+
+        Assert.AreEqual("approve-once", decision.Kind);
+    }
+
+    [TestMethod]
+    public async Task UnsupportedPermissionRequestIsDenied()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+
+        var decision = await config.OnPermissionRequest!(
+            new PermissionRequestMemory
+            {
+                Kind = "memory",
+                Fact = "secret",
+                Reason = "Store evaluator data",
+                Subject = "evaluation",
+                ToolCallId = "memory-denied",
+            },
+            null!);
+
+        Assert.AreEqual("reject", decision.Kind);
+    }
+
+    [TestMethod]
     public async Task SetsMcpServersWhenProvided()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
-            ["test-mcp"] = new MCPServerDef(
-                Command: "dotnet",
-                Args: ["run", "--project", "server"],
-                Tools: ["load_data", "get_results"])
+            ["test-mcp"] = SafeMcpServer(["load_data", "get_results"])
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         Assert.IsNotNull(config.McpServers);
@@ -445,15 +858,12 @@ public class BuildSessionConfigTests
     }
 
     [TestMethod]
-    public async Task StripsDangerousMcpEnvKeys()
+    public async Task IgnoresPluginMcpEnvAndUsesPrivateNugetState()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
-            ["ok"] = new MCPServerDef(
-                Command: "node",
-                Args: ["server.js"],
-                Tools: ["*"],
-                Env: new Dictionary<string, string>
+            ["ok"] = SafeMcpServer(
+                env: new Dictionary<string, string>
                 {
                     ["NODE_OPTIONS"] = "--require=evil.js",
                     ["MY_SETTING"] = "safe",
@@ -463,12 +873,13 @@ public class BuildSessionConfigTests
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         Assert.IsNotNull(config.McpServers);
         Assert.IsTrue(config.McpServers.ContainsKey("ok"));
-        // Dangerous keys are stripped; safe keys remain
         var entry = (McpStdioServerConfig)config.McpServers["ok"];
         Assert.IsNotNull(entry.Env);
         Assert.IsFalse(entry.Env.ContainsKey("NODE_OPTIONS"));
         Assert.IsFalse(entry.Env.ContainsKey("PATH"));
-        Assert.IsTrue(entry.Env.ContainsKey("MY_SETTING"));
+        Assert.IsFalse(entry.Env.ContainsKey("MY_SETTING"));
+        Assert.StartsWith(Path.GetTempPath(), entry.Env["NUGET_PACKAGES"]);
+        Assert.StartsWith(Path.GetTempPath(), entry.Env["NUGET_HTTP_CACHE_PATH"]);
     }
 
     [TestMethod]
@@ -476,11 +887,7 @@ public class BuildSessionConfigTests
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
-            ["ok"] = new MCPServerDef(
-                Command: "node",
-                Args: ["server.js"],
-                Tools: ["*"],
-                Cwd: "/tmp/evil")
+            ["ok"] = SafeMcpServer(cwd: "/tmp/evil")
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         Assert.IsNotNull(config.McpServers);
@@ -493,7 +900,7 @@ public class BuildSessionConfigTests
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
-            ["good"] = new MCPServerDef(Command: "node", Args: ["server.js"], Tools: ["*"]),
+            ["good"] = SafeMcpServer(),
             ["bad"] = new MCPServerDef(Command: "bash", Args: ["-c", "echo pwned"], Tools: ["*"]),
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
@@ -507,22 +914,39 @@ public class BuildSessionConfigTests
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
-            ["evil"] = new MCPServerDef(Command: "node", Args: ["-e", "process.exit(1)"], Tools: ["*"]),
+            ["evil"] = new MCPServerDef(Command: "dotnet", Args: ["exec", "/tmp/evil.dll"], Tools: ["*"]),
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         Assert.IsNull(config.McpServers);
     }
 
     [TestMethod]
-    public async Task AllowsMcpServerWithSafeArgs()
+    public async Task AllowsShippedBinlogMcpArgs()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
-            ["ok"] = new MCPServerDef(Command: "node", Args: ["dist/server.js", "--stdio"], Tools: ["*"]),
+            ["ok"] = SafeMcpServer(),
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         Assert.IsNotNull(config.McpServers);
-        Assert.IsTrue(config.McpServers.ContainsKey("ok"));
+        var entry = Assert.IsInstanceOfType<McpStdioServerConfig>(config.McpServers["ok"]);
+        Assert.IsNotNull(entry.Args);
+        Assert.Contains("Microsoft.AITools.BinlogMcp@3.0.2", entry.Args!);
+        Assert.Contains("--no-http-cache", entry.Args);
+        var configIndex = entry.Args.IndexOf("--configfile");
+        Assert.IsTrue(configIndex >= 0);
+        Assert.IsTrue(File.Exists(entry.Args[configIndex + 1]));
+    }
+
+    private static string FindRepositoryRoot(
+        [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "")
+    {
+        return Path.GetFullPath(Path.Combine(
+            Path.GetDirectoryName(sourceFilePath)!,
+            "..",
+            "..",
+            "..",
+            ".."));
     }
 
     [TestMethod]
@@ -530,10 +954,7 @@ public class BuildSessionConfigTests
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
-            ["test-mcp"] = new MCPServerDef(
-                Command: "dotnet",
-                Args: ["run"],
-                Tools: ["t1"])
+            ["test-mcp"] = SafeMcpServer(["t1"])
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, "/plugins/dotnet", "gpt-4.1", "C:\\tmp\\work", mcpServers);
         // When pluginRoot has no plugin.json, SkillDirectories falls back to empty
@@ -635,6 +1056,16 @@ public class BuildSessionConfigTests
             Directory.Delete(evalRoot, true);
             await AgentRunner.CleanupWorkDirs();
         }
+    }
+
+    [TestMethod]
+    public void SetupCommandsInheritUnusedOutputStreams()
+    {
+        var psi = AgentRunner.CreateSetupProcessStartInfo("echo setup", Path.GetTempPath());
+
+        Assert.IsFalse(psi.RedirectStandardOutput);
+        Assert.IsFalse(psi.RedirectStandardError);
+        Assert.IsFalse(psi.UseShellExecute);
     }
 
     [TestMethod]
@@ -837,15 +1268,16 @@ public class BuildSessionConfigTests
             """);
         try
         {
-            var target = Assert.ContainsSingle(
-                (await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot))
-                    .Where(agent => agent.Name == "target"));
+            var target = Assert.ContainsSingle((await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot)).Where(agent => agent.Name == "target"));
+            var workDir = Path.Combine(
+                AgentRunner.GetEvaluationRoot(),
+                $"plugin-agent-work-{Guid.NewGuid():N}");
 
             var config = await AgentRunner.BuildSessionConfig(
                 skill: null,
                 pluginRoot: pluginRoot,
                 model: "gpt-4.1",
-                workDir: "C:\\tmp\\work",
+                workDir: workDir,
                 agent: target);
 
             Assert.AreSequenceEqual(
@@ -854,6 +1286,36 @@ public class BuildSessionConfigTests
             var stagedRoot = config.SkillDirectories!.Single();
             Assert.StartsWith(Path.GetTempPath(), stagedRoot);
             Assert.IsTrue(File.Exists(Path.Combine(stagedRoot, "helper-skill", "SKILL.md")));
+
+            var originalSkillPath = Path.Combine(skillsDir, "SKILL.md");
+            var originalArgs = JsonDocument.Parse(
+                JsonSerializer.Serialize(new { path = originalSkillPath })).RootElement;
+            var originalDecision = await config.Hooks!.OnPreToolUse!(
+                new PreToolUseHookInput { ToolName = "view", ToolArgs = originalArgs },
+                null!);
+            Assert.AreEqual("deny", originalDecision!.PermissionDecision);
+
+            var stagedSkillPath = Path.Combine(stagedRoot, "helper-skill", "SKILL.md");
+            var stagedArgs = JsonDocument.Parse(
+                JsonSerializer.Serialize(new { path = stagedSkillPath })).RootElement;
+            var stagedDecision = await config.Hooks.OnPreToolUse!(
+                new PreToolUseHookInput { ToolName = "view", ToolArgs = stagedArgs },
+                null!);
+            Assert.AreEqual("allow", stagedDecision!.PermissionDecision);
+
+            var shellDecision = await config.OnPermissionRequest!(
+                new PermissionRequestShell
+                {
+                    CanOfferSessionApproval = false,
+                    Commands = [],
+                    FullCommandText = $"cat \"{originalSkillPath}\"",
+                    HasWriteFileRedirection = false,
+                    Intention = "Read original plugin source",
+                    PossiblePaths = [originalSkillPath],
+                    PossibleUrls = [],
+                },
+                null!);
+            Assert.AreEqual("reject", shellDecision.Kind);
         }
         finally
         {
@@ -962,12 +1424,8 @@ public class BuildSessionConfigTests
             """);
         try
         {
-            var targetSkill = Assert.ContainsSingle(
-                (await SkillDiscovery.DiscoverSkills(Path.Combine(pluginRoot, "skills")))
-                    .Where(skill => skill.Name == "target-skill"));
-            var declaredAgent = Assert.ContainsSingle(
-                (await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot))
-                    .Where(agent => agent.Name == "declared"));
+            var targetSkill = Assert.ContainsSingle((await SkillDiscovery.DiscoverSkills(Path.Combine(pluginRoot, "skills"))).Where(skill => skill.Name == "target-skill"));
+            var declaredAgent = Assert.ContainsSingle((await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot)).Where(agent => agent.Name == "declared"));
 
             var config = await AgentRunner.BuildSessionConfig(
                 skill: targetSkill,
@@ -1014,72 +1472,570 @@ public class RunEventBufferTests
 }
 
 [TestClass]
-public class ExtractPathFromToolArgsTests
+public class ExtractPathsFromToolArgsTests
 {
-    private static PreToolUseHookInput MakeInput(JsonElement? toolArgs) =>
-        new() { ToolArgs = toolArgs };
+    private static PreToolUseHookInput MakeInput(JsonElement? toolArgs, string? toolName = null) =>
+        new() { ToolArgs = toolArgs, ToolName = toolName ?? string.Empty };
 
     [TestMethod]
     public void ExtractsPathKey()
     {
         var args = JsonDocument.Parse("""{"path": "/tmp/work/file.txt"}""").RootElement;
-        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
-        Assert.AreEqual("/tmp/work/file.txt", result);
+        var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args));
+        Assert.AreSequenceEqual(["/tmp/work/file.txt"], result);
     }
 
     [TestMethod]
     public void ExtractsFileNameKey()
     {
         var args = JsonDocument.Parse("""{"fileName": "src/Program.cs"}""").RootElement;
-        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
-        Assert.AreEqual("src/Program.cs", result);
+        var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args));
+        Assert.AreSequenceEqual(["src/Program.cs"], result);
     }
 
     [TestMethod]
     public void IgnoresFullCommandText()
     {
         var args = JsonDocument.Parse("""{"fullCommandText": "dotnet build"}""").RootElement;
-        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
-        Assert.IsNull(result);
+        var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args));
+        Assert.IsEmpty(result);
     }
 
     [TestMethod]
-    public void PrefersPathOverFileName()
+    public void ExtractsEveryKnownPath()
     {
-        var args = JsonDocument.Parse("""{"fullCommandText": "cmd", "fileName": "f.cs", "path": "/p"}""").RootElement;
-        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
-        Assert.AreEqual("/p", result);
+        var args = JsonDocument.Parse("""{"path": "/p", "source": "a.txt", "destination": "b.txt", "paths": ["c.txt", "d.txt"]}""").RootElement;
+        var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args, "rename"));
+        Assert.AreSequenceEqual(["/p", "a.txt", "b.txt", "c.txt", "d.txt"], result.OrderBy(path => path, StringComparer.Ordinal));
     }
 
     [TestMethod]
     public void ReturnsNullWhenToolArgsIsNull()
     {
-        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(null));
-        Assert.IsNull(result);
+        var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(null));
+        Assert.IsEmpty(result);
     }
 
     [TestMethod]
     public void ReturnsNullWhenToolArgsIsNotObject()
     {
         var args = JsonDocument.Parse("""42""").RootElement;
-        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
-        Assert.IsNull(result);
+        var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args));
+        Assert.IsEmpty(result);
     }
 
     [TestMethod]
     public void ReturnsNullWhenNoKnownKeysPresent()
     {
         var args = JsonDocument.Parse("""{"content": "hello", "other": 123}""").RootElement;
-        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
-        Assert.IsNull(result);
+        var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args));
+        Assert.IsEmpty(result);
     }
 
     [TestMethod]
     public void ReturnsNullWhenKeyIsNotString()
     {
         var args = JsonDocument.Parse("""{"path": 42}""").RootElement;
-        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
-        Assert.IsNull(result);
+        var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args));
+        Assert.IsEmpty(result);
+    }
+}
+
+[TestClass]
+public class LocalSessionFsHandlerTests
+{
+    public TestContext TestContext { get; set; } = null!;
+
+    [TestMethod]
+    public void ResolvesStateWorkspaceAndStagedPathsSeparately()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-{Guid.NewGuid():N}");
+        var stateRoot = Path.Combine(root, "config");
+        var workDir = Path.Combine(root, "work");
+        var stagedDir = Path.Combine(root, "staged");
+        Directory.CreateDirectory(stagedDir);
+
+        try
+        {
+            var handler = new LocalSessionFsHandler(stateRoot, workDir, [workDir, stagedDir]);
+
+            Assert.AreEqual(
+                Path.Combine(stateRoot, "session-state", "events.jsonl"),
+                handler.ResolvePath(Path.Combine("session-state", "events.jsonl")));
+            Assert.AreEqual(
+                Path.Combine(workDir, "src", "Program.cs"),
+                handler.ResolvePath(Path.Combine("src", "Program.cs")));
+            Assert.AreEqual(
+                Path.Combine(stagedDir, "SKILL.md"),
+                handler.ResolvePath(Path.Combine(stagedDir, "SKILL.md")));
+            Assert.ThrowsExactly<UnauthorizedAccessException>(
+                () => handler.ResolvePath(Path.Combine(root, "other-scenario", "secret.txt")));
+            Assert.ThrowsExactly<UnauthorizedAccessException>(
+                () => handler.ResolvePath(Path.Combine(root, "..", "outside.txt")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public void RejectsWorkspaceSymlinkThatEscapesAllowedRoot()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-link-{Guid.NewGuid():N}");
+        var allowedRoot = Path.Combine(root, "allowed");
+        var stateRoot = Path.Combine(allowedRoot, "config");
+        var workDir = Path.Combine(allowedRoot, "work");
+        var outsideDir = Path.Combine(root, "outside");
+        Directory.CreateDirectory(workDir);
+        Directory.CreateDirectory(outsideDir);
+        File.WriteAllText(Path.Combine(outsideDir, "secret.txt"), "secret");
+        var link = Path.Combine(workDir, "linked");
+        if (!SymlinkTestHelper.TryCreateDirectory(link, outsideDir))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+
+        try
+        {
+            var handler = new LocalSessionFsHandler(stateRoot, workDir, [workDir]);
+
+            Assert.ThrowsExactly<UnauthorizedAccessException>(
+                () => handler.ResolvePath(Path.Combine("linked", "secret.txt")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task SecureWriteRejectsSymlinkCreatedAfterPathResolution()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-write-race-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var stateRoot = Path.Combine(root, "state");
+        var outsideDir = Path.Combine(root, "outside");
+        Directory.CreateDirectory(workDir);
+        Directory.CreateDirectory(outsideDir);
+        var link = Path.Combine(workDir, "linked");
+        var handler = new LocalSessionFsHandler(stateRoot, workDir, [workDir]);
+        var target = handler.ResolvePath(Path.Combine("linked", "escaped.txt"));
+        if (!SymlinkTestHelper.TryCreateDirectory(link, outsideDir))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+
+        try
+        {
+            await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() =>
+                SecureFileSystem.WriteAllTextAsync(
+                    workDir,
+                    target,
+                    "blocked",
+                    append: false,
+                    TestContext.CancellationToken));
+            Assert.IsFalse(File.Exists(Path.Combine(outsideDir, "escaped.txt")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task SecureWriteCreatesAndAppendsToNewNestedFile()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-write-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        Directory.CreateDirectory(workDir);
+        var target = Path.Combine(workDir, "new", "nested", "events.jsonl");
+
+        try
+        {
+            await SecureFileSystem.WriteAllTextAsync(
+                workDir,
+                target,
+                "first",
+                append: false,
+                TestContext.CancellationToken);
+            await SecureFileSystem.WriteAllTextAsync(
+                workDir,
+                target,
+                "-second",
+                append: true,
+                TestContext.CancellationToken);
+
+            Assert.AreEqual("first-second", await File.ReadAllTextAsync(target, TestContext.CancellationToken));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task SecureWriteRejectsInvalidUtf16()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-encoding-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        Directory.CreateDirectory(workDir);
+
+        try
+        {
+            await Assert.ThrowsExactlyAsync<EncoderFallbackException>(() =>
+                SecureFileSystem.WriteAllTextAsync(
+                    workDir,
+                    Path.Combine(workDir, "invalid.txt"),
+                    "\uD800",
+                    append: false,
+                    TestContext.CancellationToken));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task SecureWriteCannotBeRedirectedAfterParentIsOpened()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-open-race-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var parent = Path.Combine(workDir, "parent");
+        var outsideDir = Path.Combine(root, "outside");
+        Directory.CreateDirectory(parent);
+        Directory.CreateDirectory(outsideDir);
+        var attemptedReplacement = false;
+        var replacementCreated = false;
+        var replacementBlocked = false;
+        var probe = Path.Combine(workDir, "symlink-probe");
+        if (!SymlinkTestHelper.TryCreateDirectory(probe, outsideDir))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+        Directory.Delete(probe);
+
+        try
+        {
+            try
+            {
+                await SecureFileSystem.WriteAllTextAsync(
+                    workDir,
+                    Path.Combine(parent, "safe.txt"),
+                    "safe",
+                    append: false,
+                    TestContext.CancellationToken,
+                    beforeLeafOpen: () =>
+                    {
+                        attemptedReplacement = true;
+                        try
+                        {
+                            Directory.Delete(parent);
+                            Directory.CreateSymbolicLink(parent, outsideDir);
+                            replacementCreated = true;
+                        }
+                        catch (IOException) when (Directory.Exists(parent))
+                        {
+                            // A pinned directory may reject namespace replacement.
+                            replacementBlocked = true;
+                        }
+                        catch (UnauthorizedAccessException) when (Directory.Exists(parent))
+                        {
+                            // Sharing violations can be reported as access failures.
+                            replacementBlocked = true;
+                        }
+                    });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // A namespace replacement may make the anchored directory unusable;
+                // failing the write is safe as long as it cannot escape the root.
+            }
+            catch (IOException)
+            {
+                // Unix can report the unlinked anchored directory as not found.
+            }
+
+            Assert.IsTrue(attemptedReplacement);
+            Assert.IsTrue(replacementCreated || replacementBlocked);
+            if (replacementCreated)
+                Assert.IsTrue((File.GetAttributes(parent) & FileAttributes.ReparsePoint) != 0);
+            Assert.IsFalse(File.Exists(Path.Combine(outsideDir, "safe.txt")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task SecureReadRejectsLeafSymlinkReplacement()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-read-leaf-race-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var outsideFile = Path.Combine(root, "secret.txt");
+        var target = Path.Combine(workDir, "data.txt");
+        Directory.CreateDirectory(workDir);
+        File.WriteAllText(target, "safe");
+        File.WriteAllText(outsideFile, "secret");
+        var probe = Path.Combine(workDir, "symlink-probe");
+        if (!SymlinkTestHelper.TryCreateFile(probe, outsideFile))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+        File.Delete(probe);
+        var replaced = false;
+
+        try
+        {
+            await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() =>
+                SecureFileSystem.ReadAllTextAsync(
+                    workDir,
+                    target,
+                    TestContext.CancellationToken,
+                    beforeLeafOpen: () =>
+                    {
+                        File.Delete(target);
+                        File.CreateSymbolicLink(target, outsideFile);
+                        replaced = true;
+                    }));
+
+            Assert.IsTrue(replaced);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task SecureReadCannotBeRedirectedAfterParentIsOpened()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-read-parent-race-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var parent = Path.Combine(workDir, "parent");
+        var movedParent = Path.Combine(workDir, "moved-parent");
+        var outsideDir = Path.Combine(root, "outside");
+        Directory.CreateDirectory(parent);
+        Directory.CreateDirectory(outsideDir);
+        File.WriteAllText(Path.Combine(parent, "data.txt"), "safe");
+        File.WriteAllText(Path.Combine(outsideDir, "data.txt"), "secret");
+        var probe = Path.Combine(workDir, "symlink-probe");
+        if (!SymlinkTestHelper.TryCreateDirectory(probe, outsideDir))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+        Directory.Delete(probe);
+        var replacementCreated = false;
+        var replacementBlocked = false;
+
+        try
+        {
+            var content = await SecureFileSystem.ReadAllTextAsync(
+                workDir,
+                Path.Combine(parent, "data.txt"),
+                TestContext.CancellationToken,
+                beforeLeafOpen: () =>
+                {
+                    try
+                    {
+                        Directory.Move(parent, movedParent);
+                        Directory.CreateSymbolicLink(parent, outsideDir);
+                        replacementCreated = true;
+                    }
+                    catch (IOException) when (Directory.Exists(parent))
+                    {
+                        replacementBlocked = true;
+                    }
+                    catch (UnauthorizedAccessException) when (Directory.Exists(parent))
+                    {
+                        replacementBlocked = true;
+                    }
+                });
+
+            Assert.IsTrue(replacementCreated || replacementBlocked);
+            Assert.AreEqual("safe", content);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public void SecureMetadataRejectsLeafSymlinkReplacement()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-stat-race-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var outsideFile = Path.Combine(root, "secret.txt");
+        var target = Path.Combine(workDir, "data.txt");
+        Directory.CreateDirectory(workDir);
+        File.WriteAllText(target, "safe");
+        File.WriteAllText(outsideFile, "secret");
+        var probe = Path.Combine(workDir, "symlink-probe");
+        if (!SymlinkTestHelper.TryCreateFile(probe, outsideFile))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+        File.Delete(probe);
+
+        try
+        {
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
+                SecureFileSystem.Exists(
+                    workDir,
+                    target,
+                    beforeLeafOpen: () =>
+                    {
+                        File.Delete(target);
+                        File.CreateSymbolicLink(target, outsideFile);
+                    }));
+
+            File.Delete(target);
+            File.WriteAllText(target, "safe");
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
+                SecureFileSystem.GetStatus(
+                    workDir,
+                    target,
+                    beforeLeafOpen: () =>
+                    {
+                        File.Delete(target);
+                        File.CreateSymbolicLink(target, outsideFile);
+                    }));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public void SecureMetadataRejectsFifoWithoutBlocking()
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-fifo-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var fifo = Path.Combine(workDir, "blocked");
+        Directory.CreateDirectory(workDir);
+        using var process = Process.Start(new ProcessStartInfo
+        {
+            FileName = "mkfifo",
+            UseShellExecute = false,
+            ArgumentList = { fifo },
+        });
+        process!.WaitForExit();
+        Assert.AreEqual(0, process.ExitCode);
+
+        try
+        {
+            var stopwatch = Stopwatch.StartNew();
+
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
+                SecureFileSystem.Exists(workDir, fifo));
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
+                SecureFileSystem.GetStatus(workDir, fifo));
+
+            Assert.IsTrue(stopwatch.Elapsed < TimeSpan.FromSeconds(2));
+        }
+        finally
+        {
+            File.Delete(fifo);
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task SecureReadRejectsSymlinkRoot()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-root-link-{Guid.NewGuid():N}");
+        var outsideDir = Path.Combine(root, "outside");
+        var linkedRoot = Path.Combine(root, "linked-root");
+        Directory.CreateDirectory(outsideDir);
+        File.WriteAllText(Path.Combine(outsideDir, "secret.txt"), "secret");
+        if (!SymlinkTestHelper.TryCreateDirectory(linkedRoot, outsideDir))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+
+        try
+        {
+            await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() =>
+                SecureFileSystem.ReadAllTextAsync(
+                    linkedRoot,
+                    Path.Combine(linkedRoot, "secret.txt"),
+                    TestContext.CancellationToken));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task SecureOperationsTreatNonDirectoryComponentAsNotFound()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-not-dir-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var file = Path.Combine(workDir, "file");
+        var child = Path.Combine(file, "child.txt");
+        Directory.CreateDirectory(workDir);
+        File.WriteAllText(file, "content");
+
+        try
+        {
+            Assert.IsFalse(SecureFileSystem.Exists(workDir, child));
+            await Assert.ThrowsExactlyAsync<FileNotFoundException>(() =>
+                SecureFileSystem.ReadAllTextAsync(
+                    workDir,
+                    child,
+                    TestContext.CancellationToken));
+            Assert.ThrowsExactly<FileNotFoundException>(() =>
+                SecureFileSystem.GetStatus(workDir, child));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public void SecureDirectoryCreateRejectsSymlinkCreatedAfterPathResolution()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-mkdir-race-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var stateRoot = Path.Combine(root, "state");
+        var outsideDir = Path.Combine(root, "outside");
+        Directory.CreateDirectory(workDir);
+        Directory.CreateDirectory(outsideDir);
+        var link = Path.Combine(workDir, "linked");
+        var handler = new LocalSessionFsHandler(stateRoot, workDir, [workDir]);
+        var target = handler.ResolvePath(Path.Combine("linked", "escaped"));
+        if (!SymlinkTestHelper.TryCreateDirectory(link, outsideDir))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+
+        try
+        {
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
+                SecureFileSystem.CreateDirectory(workDir, target));
+            Assert.IsFalse(Directory.Exists(Path.Combine(outsideDir, "escaped")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
     }
 }
 
@@ -1088,11 +2044,11 @@ public class IsAllowedMcpCommandTests
 {
     [TestMethod]
     [DataRow("dotnet", true)]
-    [DataRow("node", true)]
-    [DataRow("npx", true)]
-    [DataRow("python", true)]
-    [DataRow("python3", true)]
-    [DataRow("uvx", true)]
+    [DataRow("node", false)]
+    [DataRow("npx", false)]
+    [DataRow("python", false)]
+    [DataRow("python3", false)]
+    [DataRow("uvx", false)]
     [DataRow("bash", false)]
     [DataRow("sh", false)]
     [DataRow("curl", false)]
@@ -1115,6 +2071,14 @@ public class IsAllowedMcpCommandTests
     {
         Assert.AreEqual(expected, AgentRunner.IsAllowedMcpCommand(command));
     }
+
+    [TestMethod]
+    public void AllowsDotnetExeOnlyOnWindows()
+    {
+        Assert.AreEqual(
+            OperatingSystem.IsWindows(),
+            AgentRunner.IsAllowedMcpCommand("dotnet.exe"));
+    }
 }
 
 [TestClass]
@@ -1124,18 +2088,26 @@ public class ScrubSensitiveEnvironmentTests
     public void RemovesKnownSensitiveKeys()
     {
         var psi = new ProcessStartInfo();
+        psi.Environment["GH_TOKEN"] = "gh_alias_secret";
         psi.Environment["GITHUB_TOKEN"] = "ghp_secret";
         psi.Environment["ACTIONS_RUNTIME_TOKEN"] = "token";
         psi.Environment["NPM_TOKEN"] = "npm_token";
         psi.Environment["NUGET_API_KEY"] = "nuget_key";
+        psi.Environment["NUGET_PLUGIN_PATHS"] = "/tmp/plugin";
+        psi.Environment["NUGET_NETCORE_PLUGIN_PATHS"] = "/tmp/netcore-plugin";
+        psi.Environment["NUGET_PACKAGES"] = "/tmp/packages";
         psi.Environment["SAFE_VAR"] = "keep";
 
         AgentRunner.ScrubSensitiveEnvironment(psi);
 
+        Assert.IsFalse(psi.Environment.ContainsKey("GH_TOKEN"));
         Assert.IsFalse(psi.Environment.ContainsKey("GITHUB_TOKEN"));
         Assert.IsFalse(psi.Environment.ContainsKey("ACTIONS_RUNTIME_TOKEN"));
         Assert.IsFalse(psi.Environment.ContainsKey("NPM_TOKEN"));
         Assert.IsFalse(psi.Environment.ContainsKey("NUGET_API_KEY"));
+        Assert.IsFalse(psi.Environment.ContainsKey("NUGET_PLUGIN_PATHS"));
+        Assert.IsFalse(psi.Environment.ContainsKey("NUGET_NETCORE_PLUGIN_PATHS"));
+        Assert.IsFalse(psi.Environment.ContainsKey("NUGET_PACKAGES"));
         Assert.AreEqual("keep", psi.Environment["SAFE_VAR"]);
     }
 
@@ -1181,6 +2153,45 @@ public class ScrubSensitiveEnvironmentTests
         AgentRunner.ScrubSensitiveEnvironment(psi);
 
         Assert.IsTrue(psi.Environment.ContainsKey("PATH"));
+    }
+}
+
+[TestClass]
+public class CaptureGitHubTokenTests
+{
+    [TestMethod]
+    public void PrefersGhTokenAndRemovesBothAliases()
+    {
+        var values = new Dictionary<string, string?>
+        {
+            ["GH_TOKEN"] = "gh-alias",
+            ["GITHUB_TOKEN"] = "github-alias",
+        };
+        var removed = new List<string>();
+
+        var token = AgentRunner.CaptureAndRemoveGitHubTokenAliases(
+            key => values.GetValueOrDefault(key),
+            removed.Add);
+
+        Assert.AreEqual("gh-alias", token);
+        Assert.AreSequenceEqual(["GH_TOKEN", "GITHUB_TOKEN"], removed);
+    }
+
+    [TestMethod]
+    public void FallsBackToGitHubTokenAndStillRemovesBothAliases()
+    {
+        var values = new Dictionary<string, string?>
+        {
+            ["GITHUB_TOKEN"] = "github-alias",
+        };
+        var removed = new List<string>();
+
+        var token = AgentRunner.CaptureAndRemoveGitHubTokenAliases(
+            key => values.GetValueOrDefault(key),
+            removed.Add);
+
+        Assert.AreEqual("github-alias", token);
+        Assert.AreSequenceEqual(["GH_TOKEN", "GITHUB_TOKEN"], removed);
     }
 }
 
@@ -1252,57 +2263,47 @@ public class SanitizeMcpEnvTests
 public class SanitizeMcpArgsTests
 {
     [TestMethod]
-    public void AllowsSafeNodeArgs()
+    public void AllowsShippedBinlogMcpArgs()
     {
-        var result = AgentRunner.SanitizeMcpArgs("node", ["dist/server.js", "--stdio"]);
+        var result = AgentRunner.SanitizeMcpArgs(
+            "dotnet",
+            ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"]);
+
         Assert.IsNotNull(result);
-        Assert.AreEqual(2, result.Length);
+        Assert.AreSequenceEqual(
+            ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"],
+            result);
     }
 
     [TestMethod]
-    [DataRow("-e")]
-    [DataRow("--eval")]
-    [DataRow("-p")]
-    [DataRow("--print")]
-    public void RejectsDangerousNodeArgs(string flag)
+    [DataRow("node", "server.js")]
+    [DataRow("node", "/tmp/evil.js")]
+    [DataRow("python", "server.py")]
+    [DataRow("python3", "../server.py")]
+    [DataRow("npx", "@modelcontextprotocol/server-filesystem")]
+    [DataRow("uvx", "server")]
+    public void RejectsUnsupportedRuntimeEntrypoints(string command, string argument)
     {
-        Assert.IsNull(AgentRunner.SanitizeMcpArgs("node", [flag, "process.exit()"]));
+        Assert.IsNull(AgentRunner.SanitizeMcpArgs(command, [argument]));
     }
 
     [TestMethod]
-    [DataRow("-c")]
-    [DataRow("-m")]
-    public void RejectsDangerousPythonArgs(string flag)
+    [DataRow("exec", "/tmp/evil.dll")]
+    [DataRow("exec", "../evil.dll")]
+    [DataRow("run", "--project")]
+    [DataRow("dnx", "Other.Package")]
+    [DataRow("dnx", "Microsoft.AITools.BinlogMcp@latest")]
+    public void RejectsUnsupportedDotnetLaunchForms(string subcommand, string argument)
     {
-        Assert.IsNull(AgentRunner.SanitizeMcpArgs("python3", [flag, "evil"]));
+        Assert.IsNull(AgentRunner.SanitizeMcpArgs("dotnet", [subcommand, argument]));
     }
 
     [TestMethod]
-    public void RejectsNpxAutoInstall()
+    public void RejectsModifiedBinlogMcpFlags()
     {
-        Assert.IsNull(AgentRunner.SanitizeMcpArgs("npx", ["-y", "evil-pkg"]));
-        Assert.IsNull(AgentRunner.SanitizeMcpArgs("npx", ["--yes", "evil-pkg"]));
-    }
-
-    [TestMethod]
-    public void AllowsSafeNpxArgs()
-    {
-        var result = AgentRunner.SanitizeMcpArgs("npx", ["@modelcontextprotocol/server-filesystem", "/tmp"]);
-        Assert.IsNotNull(result);
-    }
-
-    [TestMethod]
-    public void AllowsUnknownCommandArgs()
-    {
-        // dotnet has no dangerous args list, so all args pass through
-        var result = AgentRunner.SanitizeMcpArgs("dotnet", ["run", "--project", "src/Server"]);
-        Assert.IsNotNull(result);
-    }
-
-    [TestMethod]
-    public void RejectsUvxFromFlag()
-    {
-        Assert.IsNull(AgentRunner.SanitizeMcpArgs("uvx", ["--from", "evil-pkg", "serve"]));
+        Assert.IsNull(AgentRunner.SanitizeMcpArgs(
+            "dotnet",
+            ["dnx", "Microsoft.AITools.BinlogMcp", "--yes"]));
     }
 }
 

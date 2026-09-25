@@ -693,6 +693,9 @@ test("scenario results retain post-activation telemetry for isolated and plugin 
       gradeResult: { passed: false, score: 0 },
       trajectory: {
         endReason: "completed",
+        events: [
+          { type: "skill.invoked", data: { name: IDENTITY.skill } },
+        ],
         metrics: {
           skillActivationCount: 1,
           toolCallCount: 1,
@@ -725,6 +728,52 @@ test("scenario results retain post-activation telemetry for isolated and plugin 
     verdict.scenarios[0].skillActivationPlugin,
     verdict.scenarios[0].skillActivationIsolated,
   );
+});
+
+test("plugin activation ignores sibling skills when the target stays dormant", () => {
+  const targetRecord = {
+    gradeResult: { passed: true, score: 1 },
+    trajectory: {
+      endReason: "completed",
+      events: [
+        { type: "skill.invoked", data: { name: IDENTITY.skill } },
+      ],
+      metrics: {
+        skillActivationCount: 1,
+        toolCallCount: 1,
+        toolCallBreakdown: { skill: 1 },
+      },
+    },
+  };
+  const siblingRecord = {
+    gradeResult: { passed: true, score: 1 },
+    trajectory: {
+      endReason: "completed",
+      events: [
+        { type: "skill.invoked", data: { name: "sibling-skill" } },
+      ],
+      metrics: {
+        skillActivationCount: 1,
+        toolCallCount: 1,
+        toolCallBreakdown: { skill: 1 },
+      },
+    },
+  };
+  const verdict = comparisonToVerdict(
+    reportFromScores([0]),
+    IDENTITY,
+    {
+      baselineByStim: new Map(),
+      skilledByStim: new Map([["Scenario 1", [targetRecord]]]),
+      pluginByStim: new Map([["Scenario 1", [siblingRecord]]]),
+      hasPlugin: true,
+    },
+    new Set(),
+  );
+
+  assert.equal(verdict.scenarios[0].skillActivationIsolated.activated, true);
+  assert.equal(verdict.scenarios[0].skillActivationPlugin.activated, false);
+  assert.equal(verdict.scenarios[0].skillActivationPlugin.activatedRuns, undefined);
 });
 
 test("dormancy parser matches PyYAML Boolean false spellings exactly", () => {
@@ -988,7 +1037,12 @@ test("dormancy scenarios are retained but excluded from preference inference", (
   const verdict = comparisonToVerdict(
     report,
     IDENTITY,
-    EMPTY_ROLES,
+    {
+      ...EMPTY_ROLES,
+      skilledByStim: new Map([
+        ["Scenario 6", [{ trajectory: { events: [], metrics: {} } }]],
+      ]),
+    },
     new Set(["Scenario 6"]),
   );
 
@@ -1013,7 +1067,7 @@ test("dormancy scenarios are retained but excluded from preference inference", (
   assert.deepEqual(verdict.activationContract.unmatchedDormancyStimuli, []);
 });
 
-test("dormancy annotations that match no observed stimulus remain visible", () => {
+test("missing dormancy stimuli fail the activation contract", () => {
   const verdict = comparisonToVerdict(
     reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4]),
     IDENTITY,
@@ -1021,11 +1075,48 @@ test("dormancy annotations that match no observed stimulus remain visible", () =
     new Set(["Renamed scenario"]),
   );
 
-  assert.equal(verdict.passed, true, "unmatched annotations do not change the pass rule");
+  assert.equal(verdict.passed, false);
+  assert.equal(verdict.activationContract.passed, false);
+  assert.equal(verdict.activationContract.failures.length, 1);
+  assert.equal(verdict.activationContract.failures[0].observed, "missing");
+  assert.equal(
+    verdict.scenarios.find((scenario) => scenario.scenarioName === "Renamed scenario")
+      ?.observedInAnyRole,
+    false,
+  );
   assert.deepEqual(
     verdict.activationContract.unmatchedDormancyStimuli,
     ["Renamed scenario"],
   );
+});
+
+test("dormancy requires isolated target evidence even when other roles are observed", () => {
+  const report = reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0]);
+  const observedRun = [{ trajectory: { events: [], metrics: {} } }];
+  const roles = {
+    ...EMPTY_ROLES,
+    baselineByStim: new Map([["Scenario 6", observedRun]]),
+    pluginByStim: new Map([["Scenario 6", observedRun]]),
+  };
+
+  const verdict = comparisonToVerdict(
+    report,
+    IDENTITY,
+    roles,
+    new Set(["Scenario 6"]),
+  );
+
+  assert.equal(verdict.scenarios[5].observedInAnyRole, true);
+  assert.equal(verdict.activationContract.passed, false);
+  assert.deepEqual(verdict.activationContract.failures, [
+    {
+      scenarioName: "Scenario 6",
+      expected: "dormant",
+      observed: "missing",
+      satisfied: false,
+    },
+  ]);
+  assert.equal(verdict.stateReason.code, "activation_contract_failed");
 });
 
 test("unexpected dormancy activation blocks an otherwise passing preference verdict", () => {
@@ -1035,7 +1126,14 @@ test("unexpected dormancy activation blocks an otherwise passing preference verd
     skilledByStim: new Map([
       [
         "Scenario 6",
-        [{ trajectory: { metrics: { skillActivationCount: 1 } } }],
+        [{
+          trajectory: {
+            events: [
+              { type: "skill.invoked", data: { name: IDENTITY.skill } },
+            ],
+            metrics: { skillActivationCount: 1 },
+          },
+        }],
       ],
     ]),
   };
@@ -1069,7 +1167,14 @@ test("activation contract failure remains definitive when preference is underpow
     skilledByStim: new Map([
       [
         "Scenario 5",
-        [{ trajectory: { metrics: { skillActivationCount: 1 } } }],
+        [{
+          trajectory: {
+            events: [
+              { type: "skill.invoked", data: { name: IDENTITY.skill } },
+            ],
+            metrics: { skillActivationCount: 1 },
+          },
+        }],
       ],
     ]),
   };
@@ -1716,8 +1821,14 @@ test("targeted recovery never re-judges semantic or activation outcomes", () => 
 
   assert.equal(calls, 0);
   assert.deepEqual(result, decided);
+  const roles = {
+    ...EMPTY_ROLES,
+    skilledByStim: new Map([
+      ["Scenario 2", [{ trajectory: { events: [], metrics: {} } }]],
+    ]),
+  };
   assert.equal(
-    comparisonToVerdict(result, IDENTITY, EMPTY_ROLES, new Set(["Scenario 2"])).state,
+    comparisonToVerdict(result, IDENTITY, roles, new Set(["Scenario 2"])).state,
     VERDICT_STATES.INVALID_INCONCLUSIVE,
   );
 });
