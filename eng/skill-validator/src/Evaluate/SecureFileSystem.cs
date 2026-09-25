@@ -727,11 +727,14 @@ internal static class SecureFileSystem
         SafeFileHandle directory,
         string path)
     {
-        if ((!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())
-            || IntPtr.Size != 8)
+        var supportedArchitecture =
+            (OperatingSystem.IsLinux() && IntPtr.Size == 8)
+            || (OperatingSystem.IsMacOS()
+                && RuntimeInformation.ProcessArchitecture == Architecture.Arm64);
+        if (!supportedArchitecture)
         {
             throw new NotSupportedException(
-                "Secure directory enumeration requires a 64-bit Linux or macOS process.");
+                "Secure directory enumeration requires 64-bit Linux or arm64 macOS.");
         }
 
         var duplicate = DuplicateFileDescriptorUnix(
@@ -752,7 +755,7 @@ internal static class SecureFileSystem
             var names = new List<string>();
             while (true)
             {
-                Marshal.SetLastPInvokeError(0);
+                Marshal.SetLastSystemError(0);
                 var entry = ReadDirectoryUnix(nativeDirectory);
                 if (entry == 0)
                 {
