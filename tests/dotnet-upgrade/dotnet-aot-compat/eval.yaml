@@ -1,7 +1,7 @@
 name: dotnet-aot-compat
 description: Evaluates the dotnet-upgrade/dotnet-aot-compat skill
 type: capability
-config:
+defaults:
   timeout: 1050s
 stimuli:
   - name: Make Azure.ResourceManager AOT-compatible
@@ -21,13 +21,183 @@ stimuli:
       - Built with AOT/trim analyzers enabled and identified IL warnings
       - Used DynamicallyAccessedMembers annotations to preserve annotation flow where possible
       - Used RequiresUnreferencedCode only as a last resort for fundamentally reflection-dependent code
-      - "Did NOT use #pragma warning disable or UnconditionalSuppressMessage for any IL warning. Warnings hidden via
-        suppression do not count as resolved."
+      - "Did NOT use #pragma warning disable for any IL warning. Pragma only hides the warning from Roslyn — the
+        linker still sees it, so it does not count as resolved."
+      - "If [UnconditionalSuppressMessage] was used at all, it was limited to a genuine last-resort case with a
+        Justification describing a real, verified invariant — not used as a shortcut in place of annotation or
+        refactoring work."
       - Iteratively rebuilt to verify warnings were resolved, working from innermost call sites outward
       - Used source-generated System.Text.Json instead of reflection-based JSON serialization
-      - "Final build produces 0 IL warnings. Warnings suppressed via #pragma or [UnconditionalSuppressMessage] still
-        count as unresolved."
+      - "Final build produces 0 IL warnings. Warnings suppressed via #pragma still count as unresolved; a justified
+        [UnconditionalSuppressMessage] at a proven invariant counts as resolved."
     constraints:
       expect_tools:
         - bash
         - dotnet
+
+  - name: Reflection-based type activation cascading across call sites
+    prompt: |
+      This helper is called from dozens of places across our library, and after turning on trim analysis every one
+      of those call sites now needs its own `[DynamicallyAccessedMembers]` annotation:
+
+      ```csharp
+      public static class PluginFactory
+      {
+          public static object Create(Type pluginType) => Activator.CreateInstance(pluginType)!;
+      }
+      ```
+
+      Every caller passes a `typeof(SomeConcretePlugin)` that's known at compile time. Annotating every one of those
+      call sites is a lot of churn and leaks trimming details into public APIs we don't control. Is there a better
+      way to make this trim/AOT-safe without spreading `[DynamicallyAccessedMembers]` everywhere?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (source generator|source-generat)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recognized that annotation spreading across dozens of call sites is exactly the case where removing the
+        reflection is preferable to annotating around it
+      - Proposed a source generator (or an equivalent compile-time mechanism, such as a marker interface with direct
+        construction) that emits direct type references instead of activating via reflection
+      - Did not present spraying [DynamicallyAccessedMembers] across every call site as the only option
+      - Noted that this replacement only works because the plugin types are known at compile time — genuinely
+        runtime-unknown types would need a different approach
+
+  - name: Non-public field access on a type we don't own
+    prompt: |
+      We need to read a private field on a sealed type from a third-party package, to interoperate with a legacy
+      component:
+
+      ```csharp
+      static int GetInternalCounter(SomeSealedVendorType instance)
+      {
+          var field = typeof(SomeSealedVendorType).GetField("_counter", BindingFlags.NonPublic | BindingFlags.Instance);
+          return (int)field.GetValue(instance)!;
+      }
+      ```
+
+      This works today, but I'm worried about it once we publish trimmed or Native AOT. What should we do instead?
+    graders:
+      - type: output-matches
+        config:
+          pattern: UnsafeAccessor
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recommended [UnsafeAccessor] as a reflection-free alternative for a known non-public member on a known,
+        fixed type
+      - Explained that UnsafeAccessor needs no DynamicallyAccessedMembers annotation because the target type and
+        member are fixed at compile time, unlike a Type discovered dynamically at runtime
+      - Did not suggest [RequiresUnreferencedCode] as the primary fix when a compile-time-known target is available
+      - Described or showed the extern static UnsafeAccessor method pattern rather than only naming the attribute
+
+  - name: Teammate proposes pragma to silence a stubborn IL warning
+    prompt: |
+      We have a trim warning we can't easily get rid of by refactoring:
+
+      ```csharp
+      static void InvokeHandler(string name, object[] args)
+      {
+          Type handlerType = HandlerRegistry[name]; // IL2073: return type doesn't match required annotation
+          var method = handlerType.GetMethod("Handle"); // downstream call flagged too
+      }
+      ```
+
+      A teammate suggested just adding `#pragma warning disable IL2073` above the method, since we've manually
+      verified `HandlerRegistry` only ever contains public types that expose a `Handle` method. Is that the right
+      call, or is there a better way to record that guarantee?
+    graders:
+      - type: output-matches
+        config:
+          pattern: UnconditionalSuppressMessage
+      - type: output-matches
+        config:
+          pattern: (linker|ILLink|trimmer).{0,60}(still|does not|doesn't|won't) (see|know|honor)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - "Rejected #pragma warning disable for the IL warning, explaining it only silences Roslyn at build time — the
+        linker and AOT compiler still see the underlying issue and can fail at publish time"
+      - Explained that [UnconditionalSuppressMessage] is the IL-persisted alternative the linker actually honors,
+        and is appropriate here only because the teammate's invariant is genuinely provable
+      - "Either required a Justification that states the actual invariant (HandlerRegistry only ever contains public
+        types with a Handle method), not a generic restatement of the warning, OR correctly pointed out that a
+        runtime dictionary's contents are not a statically provable invariant and recommended strengthening the
+        guarantee (e.g. rooting the known handler types with [DynamicDependency], or a compile-time registration)
+        before relying on suppression"
+      - Mentioned trying to preserve annotation flow (e.g. annotating HandlerRegistry's value type or return path)
+        as the first thing to attempt before reaching for suppression
+
+  - name: Choosing IsTrimmable vs IsAotCompatible for a multi-targeted library
+    prompt: |
+      We maintain a class library multi-targeting netstandard2.0 and net8.0. Most of it is already trim-safe, but it
+      has one optional advanced-scenario fast path built on Reflection.Emit (with a slower reflection-based fallback
+      for when that's unavailable), so we can't honestly promise full Native AOT support. We still want consumers to
+      see trim warnings if they misuse the rest of the API. Which MSBuild property should we set, and how do we
+      avoid breaking the netstandard2.0 target?
+    graders:
+      - type: output-matches
+        config:
+          pattern: IsTrimmable
+      - type: output-matches
+        config:
+          pattern: (IsTargetFrameworkCompatible|NETSDK1210)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recommended IsTrimmable rather than IsAotCompatible specifically because the Reflection.Emit fast path is a
+        genuine, permanent reason the library can't be AOT-safe — not merely because it's a library
+      - Explained that IsAotCompatible is a superset that also enables the single-file and AOT analyzers, and would
+        be the default choice if the Reflection.Emit path didn't exist
+      - Added a TFM condition (e.g. via IsTargetFrameworkCompatible) so the property only applies to net8.0+ targets
+      - Warned that setting the property unconditionally on a netstandard2.0-included multi-target produces a
+        NETSDK1210 warning
+
+  - name: Already-compatible project needs no further changes
+    prompt: |
+      Here's our .csproj — can you check whether we still need to do any AOT/trimming work?
+
+      ```xml
+      <Project Sdk="Microsoft.NET.Sdk">
+        <PropertyGroup>
+          <TargetFramework>net9.0</TargetFramework>
+          <IsAotCompatible>true</IsAotCompatible>
+          <InvariantGlobalization>true</InvariantGlobalization>
+        </PropertyGroup>
+      </Project>
+      ```
+
+      We ran `dotnet build` and `dotnet publish -p:PublishAot=true` and got zero warnings and a working native
+      binary.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (already|no (further|additional|more) (work|changes|action)|nothing (else|further) (to do|needed))
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Correctly recognized the project is already AOT-compatible and published cleanly with zero warnings
+      - Did not fabricate additional IL warnings, annotations, or required changes that are not present in the
+        described state
+      - Did not suggest also adding IsTrimmable when IsAotCompatible is already set, since it is a superset
+      - Any suggested follow-up (e.g. testing a representative workload under the published binary) was framed as
+        optional, not required
+
+  - name: Decline .NET Framework trim request
+    prompt: |
+      Our WinForms app targets net48 and startup feels sluggish. We're weighing whether Native AOT would help shrink
+      our deployment size. What would that actually take for us?
+    expect_activation: false
+    graders:
+      - type: output-matches
+        config:
+          pattern: (does not|doesn't|not support|no support|cannot).{0,40}(net48|\.NET Framework|4\.8)
+      - type: prompt
+    rubric:
+      - Recognized that .NET Framework (net48) does not support the trim/AOT analyzers or Native AOT
+      - Did not attempt to add IsAotCompatible, IsTrimmable, or IL-warning fixes to the net48-only project as
+        described
+      - "Suggested the correct alternative: retargeting to net8.0+ (optionally multi-targeting alongside net48)
+        before trim/AOT work becomes possible"
