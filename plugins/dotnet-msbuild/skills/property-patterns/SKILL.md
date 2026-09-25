@@ -1,6 +1,6 @@
 ---
 name: property-patterns
-description: "MSBuild property definition patterns: conditional defaults, composition/concatenation, path normalization, trailing-slash handling, TFM detection helpers, and evaluation order. USE FOR: diagnosing and fixing property definition issues and shared-property anti-patterns in .props/.csproj; DefineConstants or NoWarn overwritten instead of appended; unconditional assignments that block project-level overrides; unquoted conditions that fail on empty properties; hardcoded paths that break cross-platform builds; setting overridable defaults; property evaluation order and last-write-wins semantics. DO NOT USE FOR: props vs targets placement (use directory-build-organization), item operations (use item-management), target structure (use target-authoring), general anti-patterns (use msbuild-antipatterns), non-MSBuild build systems."
+description: "Use only when the requested fix changes an MSBuild property value, condition, default, composition, or normalization. USE FOR: last-write-wins, import-order effects on property values, multi-level property overrides, OS/TFM conditions, append versus overwrite, blocked overrides, empty-property conditions, portable paths, and reviews centered on those property defects. Choosing which shared build file should contain a target or customization with no property defect is organization work. Exclude item operations, target structure, reviews with no concrete property defect, and non-MSBuild work."
 license: MIT
 ---
 

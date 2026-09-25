@@ -1,6 +1,6 @@
 ---
 name: including-generated-files
-description: "Fix MSBuild targets that generate files during the build but those files are missing from compilation or output. USE FOR: generated source files not compiling (CS0246 for a type that should exist), custom build tasks that create files but they are invisible to subsequent targets, globs not capturing build-generated files because they expand at evaluation time before execution creates them, ensuring generated files are cleaned by the Clean target. Covers correct BeforeTargets timing (CoreCompile, BeforeBuild, AssignTargetPaths), adding to Compile/FileWrites item groups, using $(IntermediateOutputPath) instead of hardcoded obj/ paths. DO NOT USE FOR: C# source generators that already work via the Roslyn pipeline, T4 design-time generation that runs in Visual Studio, non-MSBuild build systems."
+description: "Diagnose an existing project or targets file where WriteLinesToFile, Exec, or another MSBuild task already creates a physical artifact that is absent from later item lists or writes outside $(IntermediateOutputPath). USE FOR: target timing, generated Compile or Content registration, evaluation-time glob misses, and FileWrites clean tracking. Requires an existing file-producing MSBuild task. DO NOT USE for non-MSBuild build systems."
 license: MIT
 ---
 

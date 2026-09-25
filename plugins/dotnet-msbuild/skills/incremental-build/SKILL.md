@@ -72,7 +72,7 @@ Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the 
 
 2. **Replay the second binlog** to a diagnostic text log:
    ```shell
-   dotnet msbuild second.binlog -noconlog -fl -flp:v=diag;logfile=second-full.log;performancesummary
+   dotnet msbuild second.binlog -noconlog -fl "-flp:v=diag;logfile=second-full.log;performancesummary"
    ```
    Then search for targets that actually executed:
    ```bash
