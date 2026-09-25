@@ -2272,6 +2272,33 @@ public class LocalSessionFsHandlerTests
             Directory.Delete(root, true);
         }
     }
+
+    [TestMethod]
+    public void SecureDarwinEnumerationAndRecursiveRemovalAreSupported()
+    {
+        if (!OperatingSystem.IsMacOS())
+            return;
+
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-darwin-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var target = Path.Combine(workDir, "target");
+        Directory.CreateDirectory(Path.Combine(target, "nested"));
+        File.WriteAllText(Path.Combine(target, "nested", "data.txt"), "content");
+
+        try
+        {
+            var entries = SecureFileSystem.EnumerateDirectory(workDir, target);
+            Assert.IsTrue(entries.Any(entry => entry.Name == "nested" && entry.IsDirectory));
+
+            SecureFileSystem.Remove(workDir, target, recursive: true);
+
+            Assert.IsFalse(Directory.Exists(target));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
 }
 
 [TestClass]

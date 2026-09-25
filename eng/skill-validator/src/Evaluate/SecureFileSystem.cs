@@ -40,7 +40,6 @@ internal static class SecureFileSystem
     private const int UnixDirectoryMode = 0x4000;
     private const int UnixRegularFileMode = 0x8000;
     private const int UnixSymbolicLinkMode = 0xA000;
-    private const int UnixRemoveDirectory = 0x200;
     private const int PalUnixWriteOnly = 0x0001;
     private const int PalUnixCloseOnExec = 0x0010;
     private const int PalUnixCreate = 0x0020;
@@ -193,10 +192,10 @@ internal static class SecureFileSystem
         {
             if (OperatingSystem.IsWindows())
                 return EnumerateWindowsDirectory(allowedRoot, path, afterDirectoryOpen);
-            if (OperatingSystem.IsLinux())
+            if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
                 return EnumerateUnixDirectory(allowedRoot, path, afterDirectoryOpen);
             throw new NotSupportedException(
-                "Secure directory enumeration is supported only on Windows and Linux.");
+                "Secure directory enumeration is supported only on Windows, Linux, and macOS.");
         }
         catch (FileNotFoundException)
         {
@@ -443,11 +442,6 @@ internal static class SecureFileSystem
             ThrowUnixPathError(path);
         using var entry = new SafeFileHandle(new IntPtr(fd), ownsHandle: true);
         var status = GetUnixStatus(entry, path);
-        if (status.IsDirectory && recursive && !OperatingSystem.IsLinux())
-        {
-            throw new NotSupportedException(
-                "Secure recursive directory removal is supported only on Windows and Linux.");
-        }
         afterEntryOpen?.Invoke();
         RemoveOpenedUnixEntry(
             parent,
@@ -733,10 +727,11 @@ internal static class SecureFileSystem
         SafeFileHandle directory,
         string path)
     {
-        if (!OperatingSystem.IsLinux() || IntPtr.Size != 8)
+        if ((!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())
+            || IntPtr.Size != 8)
         {
             throw new NotSupportedException(
-                "Secure directory enumeration requires a 64-bit Linux process.");
+                "Secure directory enumeration requires a 64-bit Linux or macOS process.");
         }
 
         var duplicate = DuplicateFileDescriptorUnix(
@@ -767,10 +762,9 @@ internal static class SecureFileSystem
                     break;
                 }
 
-                // On supported 64-bit Linux ABIs, d_name follows ino64, off64,
-                // reclen, and type in struct dirent.
-                const int LinuxDirectoryEntryNameOffset = 19;
-                var name = Marshal.PtrToStringUTF8(entry + LinuxDirectoryEntryNameOffset)
+                // Linux places d_name after ino64, off64, reclen, and type.
+                // Darwin also stores namlen before type, shifting d_name by 2 bytes.
+                var name = Marshal.PtrToStringUTF8(entry + UnixDirectoryEntryNameOffset)
                     ?? throw new UnauthorizedAccessException(
                         $"Invalid directory entry name returned for: {path}");
                 if (name is not "." and not "..")
@@ -1480,6 +1474,8 @@ internal static class SecureFileSystem
     private static int UnixNonBlock => OperatingSystem.IsMacOS() ? 0x0004 : 0x0800;
     private static int UnixNoFollow => OperatingSystem.IsMacOS() ? 0x0100 : 0x20000;
     private static int UnixCloseOnExec => OperatingSystem.IsMacOS() ? 0x1000000 : 0x80000;
+    private static int UnixRemoveDirectory => OperatingSystem.IsMacOS() ? 0x0080 : 0x0200;
+    private static int UnixDirectoryEntryNameOffset => OperatingSystem.IsMacOS() ? 21 : 19;
 
     [DllImport("kernel32.dll", EntryPoint = "CreateFileW", SetLastError = true, CharSet = CharSet.Unicode)]
     private static extern SafeFileHandle CreateFileWindows(
