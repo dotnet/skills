@@ -176,6 +176,24 @@ public class RejudgeCommandTests
     }
 
     [TestMethod]
+    public void ResolveExpectedActivation_RejectsMixedScenarioExpectations()
+    {
+        var sessions = new[]
+        {
+            Rec("active", "with-skill-isolated", 0, "K1", expectActivation: true),
+            Rec("dormant", "with-skill-isolated", 1, "K1", expectActivation: false),
+        };
+
+        var resolved = RejudgeCommand.TryResolveConsistentExpectedActivation(
+            sessions,
+            isAgent: false,
+            _ => { },
+            out _);
+
+        Assert.IsFalse(resolved);
+    }
+
+    [TestMethod]
     public async Task RunCrossDir_CompletedRequiredArmsWithRunningPlugin_FailsWithoutPublishing()
     {
         var root = Path.Combine(Path.GetTempPath(), $"rejudge-running-plugin-{Guid.NewGuid():N}");
@@ -345,6 +363,41 @@ public class RejudgeCommandTests
         Assert.Contains("b0a", duplicate);
         Assert.Contains("b0b", duplicate);
         Assert.Contains("Duplicate baseline run(s)", RejudgeCommand.GetCrossDirPairingFailure(pairing)!);
+    }
+
+    [TestMethod]
+    public void PairCrossDir_RejectsUnexpectedTreatmentRole()
+    {
+        var baseline = new[] { Rec("b0", "baseline", 0, "K1") };
+        var treatment = new[]
+        {
+            Rec("iso", "with-skill-isolated", 0, "K1"),
+            Rec("extra", "baseline", 0, "K1"),
+        };
+
+        var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
+
+        Assert.IsEmpty(pairing.Pairs);
+        Assert.Contains("extra", Assert.ContainsSingle(pairing.UnexpectedTreatment));
+        Assert.Contains("Unexpected treatment role record(s)", RejudgeCommand.GetCrossDirPairingFailure(pairing)!);
+    }
+
+    [TestMethod]
+    public void PairCrossDir_RejectsPluginBaselineKeyMismatch()
+    {
+        var baseline = new[] { Rec("b0", "baseline", 0, "K1") };
+        var treatment = new[]
+        {
+            Rec("iso", "with-skill-isolated", 0, "K1"),
+            Rec("plugin", "with-skill-plugin", 0, "K2"),
+        };
+
+        var pairing = RejudgeCommand.PairCrossDir(baseline, treatment);
+
+        Assert.IsEmpty(pairing.Pairs);
+        var mismatch = Assert.ContainsSingle(pairing.UnmatchedTreatment);
+        Assert.Contains("baseline key mismatch", mismatch);
+        Assert.Contains("plugin", mismatch);
     }
 
     [TestMethod]

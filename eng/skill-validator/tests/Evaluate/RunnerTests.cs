@@ -1085,6 +1085,34 @@ public class BuildSessionConfigTests
     }
 
     [TestMethod]
+    public async Task SetupCommandFailureAndTimeoutFailClosed()
+    {
+        var workDir = Path.Combine(Path.GetTempPath(), $"setup-command-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(workDir);
+        var failingCommand = OperatingSystem.IsWindows() ? "exit /b 7" : "exit 7";
+        var slowCommand = OperatingSystem.IsWindows()
+            ? "ping -n 10 127.0.0.1 > nul"
+            : "sleep 10";
+
+        try
+        {
+            var failed = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+                AgentRunner.RunSetupCommand(failingCommand, workDir));
+            Assert.Contains("code 7", failed.Message);
+
+            await Assert.ThrowsExactlyAsync<TimeoutException>(() =>
+                AgentRunner.RunSetupCommand(
+                    slowCommand,
+                    workDir,
+                    TimeSpan.FromMilliseconds(50)));
+        }
+        finally
+        {
+            Directory.Delete(workDir, recursive: true);
+        }
+    }
+
+    [TestMethod]
     public void ResolveSourcePathAllowsSharedFixtureInsideRepository()
     {
         var repoRoot = Path.Combine(Path.GetTempPath(), $"shared-fixture-{Guid.NewGuid():N}");

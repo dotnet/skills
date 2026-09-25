@@ -170,13 +170,20 @@ public static class RejudgeCommand
             foreach (var scenarioGroup in skillGroup.GroupBy(g => g.Key.ScenarioName))
             {
                 var scenarioName = scenarioGroup.Key;
-                var expectationSession = scenarioGroup
+                var expectationSessions = scenarioGroup
                     .Select(group => SelectInlineRunGroup(group)?.Isolated)
-                    .First(session => session is not null)!;
-                var expectActivation = ResolveExpectedActivation(
-                    expectationSession,
+                    .Where(session => session is not null)
+                    .Select(session => session!);
+                if (!TryResolveConsistentExpectedActivation(
+                    expectationSessions,
                     isAgent,
-                    message => Console.WriteLine($"[{skillName}] {message}"));
+                    message => Console.WriteLine($"[{skillName}] {message}"),
+                    out var expectActivation))
+                {
+                    Console.Error.WriteLine(
+                        $"Cannot rejudge: {skillName}/{scenarioName} contains conflicting activation expectations. No verdict was published.");
+                    return 1;
+                }
                 var storedRubric = GetStoredRubric(skillName, scenarioName, scenarioGroup.SelectMany(g => g));
                 var rejudgedRuns = new List<RejudgedRun>();
 
@@ -367,10 +374,16 @@ public static class RejudgeCommand
             foreach (var scenarioGroup in skillGroup.GroupBy(p => p.ScenarioName))
             {
                 var scenarioName = scenarioGroup.Key;
-                var expectActivation = ResolveExpectedActivation(
-                    scenarioGroup.First().Isolated,
+                if (!TryResolveConsistentExpectedActivation(
+                    scenarioGroup.Select(pair => pair.Isolated),
                     isAgent,
-                    message => Console.WriteLine($"[{skillName}] {message}"));
+                    message => Console.WriteLine($"[{skillName}] {message}"),
+                    out var expectActivation))
+                {
+                    Console.Error.WriteLine(
+                        $"Cannot rejudge: {skillName}/{scenarioName} contains conflicting activation expectations. No verdict was published.");
+                    return 1;
+                }
                 var storedRubric = GetStoredRubric(skillName, scenarioName,
                     scenarioGroup.SelectMany(p => p.Plugin is null
                         ? new[] { p.Baseline, p.Isolated }
@@ -522,10 +535,22 @@ public static class RejudgeCommand
         var unmatchedTreatment = new List<string>();
         var duplicateBaseline = new List<string>();
         var duplicateTreatment = new List<string>();
+        var unexpectedTreatment = new List<string>();
 
         foreach (var group in treatmentSessions.GroupBy(s => (s.SkillName, s.ScenarioName, s.RunIndex)))
         {
             var groupSessions = group.ToList();
+            var unexpectedSessions = groupSessions
+                .Where(session => !IsolatedRoles.Contains(session.Role)
+                    && !PluginRoles.Contains(session.Role))
+                .ToList();
+            if (unexpectedSessions.Count > 0)
+            {
+                unexpectedTreatment.Add(
+                    $"{group.Key.SkillName}/{group.Key.ScenarioName}#{group.Key.RunIndex + 1}: " +
+                    string.Join(", ", unexpectedSessions.Select(FormatSessionIdentity)));
+                continue;
+            }
             var isolatedSessions = groupSessions
                 .Where(session => IsolatedRoles.Contains(session.Role))
                 .ToList();
@@ -551,6 +576,13 @@ public static class RejudgeCommand
             var plugin = pluginSessions.SingleOrDefault();
 
             var key = isolated.BaselineKey;
+            if (plugin is not null
+                && !string.Equals(plugin.BaselineKey, key, StringComparison.Ordinal))
+            {
+                unmatchedTreatment.Add(
+                    $"{FormatSessionIdentity(isolated)}, plugin={FormatSessionIdentity(plugin)} (baseline key mismatch)");
+                continue;
+            }
             if (string.IsNullOrEmpty(key) || !baselineByKey.TryGetValue(key, out var candidates) || candidates.Count == 0)
             {
                 unmatchedTreatment.Add(FormatSessionIdentity(isolated));
@@ -594,7 +626,8 @@ public static class RejudgeCommand
             unmatchedBaseline,
             unmatchedTreatment,
             duplicateBaseline,
-            duplicateTreatment);
+            duplicateTreatment,
+            unexpectedTreatment);
     }
 
     internal static string? GetCrossDirPairingFailure(CrossDirPairing pairing)
@@ -602,7 +635,8 @@ public static class RejudgeCommand
         if (pairing.UnmatchedBaseline.Count == 0
             && pairing.UnmatchedTreatment.Count == 0
             && pairing.DuplicateBaseline.Count == 0
-            && pairing.DuplicateTreatment.Count == 0)
+            && pairing.DuplicateTreatment.Count == 0
+            && pairing.UnexpectedTreatment.Count == 0)
         {
             return pairing.Pairs.Count == 0
                 ? "No treatment runs could be paired with a baseline."
@@ -632,6 +666,11 @@ public static class RejudgeCommand
         {
             lines.Add("Duplicate treatment role record(s):");
             lines.AddRange(pairing.DuplicateTreatment.Select(identity => $"  - {identity}"));
+        }
+        if (pairing.UnexpectedTreatment.Count > 0)
+        {
+            lines.Add("Unexpected treatment role record(s):");
+            lines.AddRange(pairing.UnexpectedTreatment.Select(identity => $"  - {identity}"));
         }
 
         return string.Join(Environment.NewLine, lines);
@@ -798,6 +837,20 @@ public static class RejudgeCommand
         }
 
         return true;
+    }
+
+    internal static bool TryResolveConsistentExpectedActivation(
+        IEnumerable<SessionRecord> isolatedSessions,
+        bool isAgent,
+        Action<string> log,
+        out bool expectActivation)
+    {
+        var expectations = isolatedSessions
+            .Select(session => ResolveExpectedActivation(session, isAgent, log))
+            .Distinct()
+            .ToList();
+        expectActivation = expectations.Count == 1 && expectations[0];
+        return expectations.Count == 1;
     }
 
     internal static string? ResolveCurrentEvalPath(
@@ -1235,4 +1288,5 @@ public sealed record CrossDirPairing(
     IReadOnlyList<string> UnmatchedBaseline,
     IReadOnlyList<string> UnmatchedTreatment,
     IReadOnlyList<string> DuplicateBaseline,
-    IReadOnlyList<string> DuplicateTreatment);
+    IReadOnlyList<string> DuplicateTreatment,
+    IReadOnlyList<string> UnexpectedTreatment);

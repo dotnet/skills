@@ -133,6 +133,36 @@ public static class EvaluateCommand
         return command;
     }
 
+    internal static string GetSessionStatus(RunMetrics metrics, bool reused = false)
+    {
+        if (metrics.TimedOut)
+            return "timed_out";
+        if (metrics.ErrorCount > 0)
+            return "failed";
+        if (reused)
+            return "reused";
+        return "completed";
+    }
+
+    internal static void ThrowIfRunExecutionFailed(
+        RunMetrics baseline,
+        RunMetrics isolated,
+        RunMetrics plugin)
+    {
+        var failedRoles = new List<string>();
+        if (baseline.ErrorCount > 0 && !baseline.TimedOut)
+            failedRoles.Add($"baseline ({baseline.ErrorCount} error(s))");
+        if (isolated.ErrorCount > 0 && !isolated.TimedOut)
+            failedRoles.Add($"isolated ({isolated.ErrorCount} error(s))");
+        if (plugin.ErrorCount > 0 && !plugin.TimedOut)
+            failedRoles.Add($"plugin ({plugin.ErrorCount} error(s))");
+        if (failedRoles.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"Agent execution failed in: {string.Join(", ", failedRoles)}");
+        }
+    }
+
     private static ReporterSpec ParseReporter(string value) => value switch
     {
         "console" => new ReporterSpec(ReporterType.Console),
@@ -1035,13 +1065,14 @@ public static class EvaluateCommand
 
         if (sessionDb is not null)
         {
-            sessionDb.CompleteSession(baselineSessionId, reusedBaseline is not null ? "reused" : (baselineMetrics.TimedOut ? "timed_out" : "completed"),
+            sessionDb.CompleteSession(baselineSessionId, GetSessionStatus(baselineMetrics, reusedBaseline is not null),
                 JsonSerializer.Serialize(baselineMetrics, SkillValidatorJsonContext.Default.RunMetrics));
-            sessionDb.CompleteSession(isolatedSessionId, isolatedMetrics.TimedOut ? "timed_out" : "completed",
+            sessionDb.CompleteSession(isolatedSessionId, GetSessionStatus(isolatedMetrics),
                 JsonSerializer.Serialize(isolatedMetrics, SkillValidatorJsonContext.Default.RunMetrics));
-            sessionDb.CompleteSession(pluginSessionId, pluginMetrics.TimedOut ? "timed_out" : "completed",
+            sessionDb.CompleteSession(pluginSessionId, GetSessionStatus(pluginMetrics),
                 JsonSerializer.Serialize(pluginMetrics, SkillValidatorJsonContext.Default.RunMetrics));
         }
+        ThrowIfRunExecutionFailed(baselineMetrics, isolatedMetrics, pluginMetrics);
 
         // Assertions, constraints, task completion, judging — same as skills.
         // Baseline arm is skipped when reused (its results are cached).
@@ -1757,13 +1788,14 @@ public static class EvaluateCommand
 
         if (sessionDb is not null)
         {
-            var baselineStatus = reusedBaseline is not null ? "reused" : (baselineMetrics.TimedOut ? "timed_out" : "completed");
-            var isolatedStatus = isolatedMetrics.TimedOut ? "timed_out" : "completed";
-            var pluginStatus = pluginMetrics.TimedOut ? "timed_out" : "completed";
+            var baselineStatus = GetSessionStatus(baselineMetrics, reusedBaseline is not null);
+            var isolatedStatus = GetSessionStatus(isolatedMetrics);
+            var pluginStatus = GetSessionStatus(pluginMetrics);
             sessionDb.CompleteSession(baselineSessionId, baselineStatus, JsonSerializer.Serialize(baselineMetrics, SkillValidatorJsonContext.Default.RunMetrics));
             sessionDb.CompleteSession(isolatedSessionId, isolatedStatus, JsonSerializer.Serialize(isolatedMetrics, SkillValidatorJsonContext.Default.RunMetrics));
             sessionDb.CompleteSession(pluginSessionId, pluginStatus, JsonSerializer.Serialize(pluginMetrics, SkillValidatorJsonContext.Default.RunMetrics));
         }
+        ThrowIfRunExecutionFailed(baselineMetrics, isolatedMetrics, pluginMetrics);
 
         // Evaluate assertions on the skilled runs (baseline assertions are cached when reused)
         if (scenario.Assertions is { Count: > 0 })

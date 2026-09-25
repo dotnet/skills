@@ -376,6 +376,24 @@ public class EvaluateCommandTests
     }
 
     [TestMethod]
+    public void RunMetricErrorsFailSessionsAndScenarioExecution()
+    {
+        var clean = new RunMetrics();
+        var failed = new RunMetrics { ErrorCount = 1 };
+        var timedOut = new RunMetrics { ErrorCount = 1, TimedOut = true };
+
+        Assert.AreEqual("completed", EvaluateCommand.GetSessionStatus(clean));
+        Assert.AreEqual("reused", EvaluateCommand.GetSessionStatus(clean, reused: true));
+        Assert.AreEqual("failed", EvaluateCommand.GetSessionStatus(failed));
+        Assert.AreEqual("failed", EvaluateCommand.GetSessionStatus(failed, reused: true));
+        Assert.AreEqual("timed_out", EvaluateCommand.GetSessionStatus(timedOut));
+        var error = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            EvaluateCommand.ThrowIfRunExecutionFailed(clean, failed, clean));
+        Assert.Contains("isolated", error.Message);
+        EvaluateCommand.ThrowIfRunExecutionFailed(clean, timedOut, clean);
+    }
+
+    [TestMethod]
     public void ReporterEmitsVerdictFailureForMissingAgentActivation()
     {
         var comparison = SkillActivationComparison(

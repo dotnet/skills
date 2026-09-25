@@ -1173,36 +1173,38 @@ public static class AgentRunner
         {
             foreach (var cmd in commands)
             {
-                try
-                {
-                    var psi = CreateSetupProcessStartInfo(cmd, workDir);
-
-                    using var proc = Process.Start(psi);
-                    if (proc is not null)
-                    {
-                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
-                        try
-                        {
-                            await proc.WaitForExitAsync(cts.Token);
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            // Process timed out — kill the orphan
-                            try { proc.Kill(true); } catch { }
-                            Console.Error.WriteLine($"Setup command timed out and was killed");
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // Setup commands may return non-zero exit codes
-                    // (e.g. building a broken project to produce a binlog)
-                    Console.Error.WriteLine($"Setup command failed: {ex.GetType().Name}: {ex.Message}");
-                }
+                await RunSetupCommand(cmd, workDir);
             }
         }
 
         return workDir;
+    }
+
+    internal static async Task RunSetupCommand(
+        string command,
+        string workDir,
+        TimeSpan? timeout = null)
+    {
+        var psi = CreateSetupProcessStartInfo(command, workDir);
+        using var process = Process.Start(psi)
+            ?? throw new InvalidOperationException($"Setup command failed to start: {command}");
+        using var cts = new CancellationTokenSource(timeout ?? TimeSpan.FromSeconds(120));
+        try
+        {
+            await process.WaitForExitAsync(cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            try { process.Kill(entireProcessTree: true); } catch { }
+            try { await process.WaitForExitAsync(); } catch { }
+            throw new TimeoutException($"Setup command timed out and was killed: {command}");
+        }
+
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"Setup command exited with code {process.ExitCode}: {command}");
+        }
     }
 
     internal static ProcessStartInfo CreateSetupProcessStartInfo(string command, string workDir)
