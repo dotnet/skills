@@ -1,0 +1,651 @@
+name: DevOps Health groom canary
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/devops-health-groom.md"
+      - ".github/workflows/devops-health-groom.lock.yml"
+      - ".github/workflows/devops-health-groom-canary.yml"
+      - ".github/workflows/shared/pat_pool.md"
+      - ".github/aw/actions-lock.json"
+      - ".github/aw/shared/devops-health.lock.md"
+      - ".github/workflows/copilot-setup-steps.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+  issues: write
+
+concurrency:
+  group: devops-health-groom-canary-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  groom:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    uses: ./.github/workflows/devops-health-groom.lock.yml
+    with:
+      dry_run: true
+    secrets:
+      COPILOT_PAT_0: ${{ secrets.COPILOT_PAT_0 }}
+      COPILOT_PAT_1: ${{ secrets.COPILOT_PAT_1 }}
+      COPILOT_PAT_2: ${{ secrets.COPILOT_PAT_2 }}
+      COPILOT_PAT_3: ${{ secrets.COPILOT_PAT_3 }}
+      COPILOT_PAT_4: ${{ secrets.COPILOT_PAT_4 }}
+      COPILOT_PAT_5: ${{ secrets.COPILOT_PAT_5 }}
+      COPILOT_PAT_6: ${{ secrets.COPILOT_PAT_6 }}
+      COPILOT_PAT_7: ${{ secrets.COPILOT_PAT_7 }}
+      COPILOT_PAT_8: ${{ secrets.COPILOT_PAT_8 }}
+      COPILOT_PAT_9: ${{ secrets.COPILOT_PAT_9 }}
+
+  validate:
+    needs: groom
+    if: ${{ !cancelled() && needs.groom.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      issues: read
+    steps:
+      - name: Download agent output
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: "*-agent-output-fallback"
+          merge-multiple: true
+          path: canary-artifact
+
+      - name: Require exactly one valid safe output
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require("fs");
+
+            const findOutputs = directory =>
+              fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+                const path = `${directory}/${entry.name}`;
+                if (entry.isDirectory()) {
+                  return findOutputs(path);
+                }
+                return entry.isFile() && entry.name === "agent_output.json"
+                  ? [path]
+                  : [];
+              });
+            const outputs = findOutputs("canary-artifact");
+            if (outputs.length !== 1) {
+              throw new Error(
+                `Expected one agent_output.json, found ${outputs.length}`
+              );
+            }
+            const output = JSON.parse(
+              fs.readFileSync(outputs[0], "utf8")
+            );
+            const errors = Array.isArray(output.errors) ? output.errors : [];
+            const items = Array.isArray(output.items) ? output.items : [];
+            if (errors.length !== 0) {
+              throw new Error(`Expected no safe-output errors, got ${errors.length}`);
+            }
+            if (items.length !== 1) {
+              throw new Error(`Expected exactly one safe-output item, got ${items.length}`);
+            }
+
+            const item = items[0];
+            if (item.type === "noop") {
+              if (
+                typeof item.message !== "string" ||
+                item.message.trim().length === 0 ||
+                item.message.length > 2000
+              ) {
+                throw new Error("noop must contain a non-empty bounded message");
+              }
+            } else if (item.type === "publish_groomed_dashboard") {
+              const fenced =
+                typeof item.rows_json === "string" &&
+                /^```json\r?\n([\s\S]*)\r?\n```$/.exec(item.rows_json);
+              if (!fenced || item.rows_json.length > 100000) {
+                throw new Error("publish_groomed_dashboard rows_json is not a bounded JSON fence");
+              }
+              const rows = JSON.parse(fenced[1]);
+              if (!Array.isArray(rows) || rows.length > 100) {
+                throw new Error(
+                  "publish_groomed_dashboard rows_json must contain at most 100 rows"
+                );
+              }
+              const exactKeys = (value, keys) =>
+                value !== null &&
+                typeof value === "object" &&
+                !Array.isArray(value) &&
+                JSON.stringify(Object.keys(value).sort()) ===
+                  JSON.stringify([...keys].sort());
+              const { owner, repo } = context.repo;
+              const issue = await github.rest.issues.get({
+                owner,
+                repo,
+                issue_number: 695,
+              });
+              const labels = issue.data.labels.map(label =>
+                typeof label === "string" ? label : label.name
+              );
+              if (
+                issue.data.state !== "open" ||
+                issue.data.title !== "🏥 Repository Health Dashboard" ||
+                !labels.includes("devops-health")
+              ) {
+                throw new Error(
+                  "Issue 695 failed canonical dashboard validation"
+                );
+              }
+              const body = issue.data.body || "";
+              const validDate = value => {
+                if (
+                  typeof value !== "string" ||
+                  !/^\d{4}-\d{2}-\d{2}$/.test(value)
+                ) {
+                  return false;
+                }
+                const parsed = new Date(`${value}T00:00:00.000Z`);
+                return (
+                  !Number.isNaN(parsed.valueOf()) &&
+                  parsed.toISOString().slice(0, 10) === value
+                );
+              };
+              const validCount = value =>
+                typeof value === "number" &&
+                Number.isFinite(value) &&
+                value >= 0;
+              const validNumericObject = value =>
+                value !== null &&
+                typeof value === "object" &&
+                !Array.isArray(value) &&
+                Object.keys(value).length <= 20 &&
+                Object.values(value).every(validCount);
+              const allowedTypes =
+                new Set(["pipeline", "infra", "resource"]);
+              const allowedSeverities =
+                new Set(["critical", "warning", "info"]);
+              const validRepositoryUrl = value => {
+                if (
+                  typeof value !== "string" ||
+                  value.length > 500 ||
+                  /[\s()[\]|<>\\]/.test(value)
+                ) {
+                  return false;
+                }
+                try {
+                  const url = new URL(value);
+                  return (
+                    url.protocol === "https:" &&
+                    url.hostname === "github.com" &&
+                    url.username === "" &&
+                    url.password === "" &&
+                    url.port === "" &&
+                    (
+                      url.pathname === `/${owner}/${repo}` ||
+                      url.pathname.startsWith(`/${owner}/${repo}/`)
+                    )
+                  );
+                } catch {
+                  return false;
+                }
+              };
+              const validFingerprint = value => {
+                if (
+                  typeof value !== "string" ||
+                  value.length > 300 ||
+                  /[\r\n]/.test(value)
+                ) {
+                  return false;
+                }
+                const component = "[a-z0-9][a-z0-9._/()=-]*";
+                return (
+                  /^pipeline:evaluation:failure-rate:(critical|warning)$/.test(value) ||
+                  /^pipeline:evaluation:schedule-cancellation:(critical|warning)$/.test(value) ||
+                  new RegExp(
+                    `^pipeline:${component}:${component}:timeout$`
+                  ).test(value) ||
+                  new RegExp(
+                    `^pipeline:${component}:${component}:${component}:${component}$`
+                  ).test(value) ||
+                  /^infra:(no-codeowners|no-dependabot|relaxed-skill-validation|verdict-warn-only|pages-deployment-failed)$/.test(value) ||
+                  new RegExp(
+                    `^infra:unpinned-action:${component}$`
+                  ).test(value) ||
+                  new RegExp(
+                    `^infra:orphan-skill:${component}:${component}$`
+                  ).test(value) ||
+                  new RegExp(
+                    `^infra:orphan-plugin:${component}$`
+                  ).test(value) ||
+                  /^resource:eval-duration:(critical|warning)$/.test(value) ||
+                  value === "resource:cost-increase"
+                );
+              };
+              const expectedSeverityForFingerprint = fingerprint => {
+                if (fingerprint.startsWith("pipeline:copilot-code-review")) {
+                  return "info";
+                }
+                if (
+                  /^pipeline:evaluation:(failure-rate|schedule-cancellation):(critical|warning)$/.test(
+                    fingerprint
+                  )
+                ) {
+                  return fingerprint.endsWith(":critical")
+                    ? "critical"
+                    : "warning";
+                }
+                if (/^pipeline:[^:]+:[^:]+:timeout$/.test(fingerprint)) {
+                  return "warning";
+                }
+                if (
+                  /^pipeline:evaluation:[^:]+:[^:]+:[^:]+$/.test(fingerprint)
+                ) {
+                  return "critical";
+                }
+                if (
+                  /^pipeline:[^:]+:[^:]+:[^:]+:[^:]+$/.test(fingerprint)
+                ) {
+                  return "warning";
+                }
+                if (
+                  fingerprint === "infra:verdict-warn-only" ||
+                  fingerprint.startsWith("infra:unpinned-action:")
+                ) {
+                  return "info";
+                }
+                if (fingerprint === "infra:pages-deployment-failed") {
+                  return "critical";
+                }
+                if (fingerprint.startsWith("infra:")) {
+                  return "warning";
+                }
+                if (
+                  /^resource:eval-duration:(critical|warning)$/.test(
+                    fingerprint
+                  )
+                ) {
+                  return fingerprint.endsWith(":critical")
+                    ? "critical"
+                    : "warning";
+                }
+                if (fingerprint === "resource:cost-increase") {
+                  return "warning";
+                }
+                return null;
+              };
+              const stateMatches = [
+                ...body.matchAll(
+                  /<!-- devops-health-state:v1\r?\n([\s\S]*?)\r?\n-->/g
+                ),
+              ];
+              const stateTokenCount =
+                body.split("<!-- devops-health-state:v1").length - 1;
+              if (stateTokenCount > 1) {
+                throw new Error("Dashboard state marker is duplicated");
+              }
+              if (stateTokenCount !== stateMatches.length) {
+                throw new Error("Dashboard state marker is malformed");
+              }
+              if (stateMatches.length !== 1) {
+                throw new Error(
+                  "Dashboard body must contain one valid state marker"
+                );
+              }
+              const state = JSON.parse(stateMatches[0][1]);
+              if (
+                !exactKeys(state, ["active_findings", "history"]) ||
+                !Array.isArray(state.active_findings) ||
+                state.active_findings.length > 100 ||
+                !Array.isArray(state.history) ||
+                state.history.length > 14
+              ) {
+                throw new Error(
+                  "Dashboard state has an invalid top-level schema"
+                );
+              }
+              const active = new Map();
+              for (const finding of state.active_findings) {
+                if (
+                  !exactKeys(finding, [
+                    "category",
+                    "fingerprint",
+                    "first_seen",
+                    "occurrences",
+                    "severity",
+                    "title",
+                    "url",
+                  ]) ||
+                  !validFingerprint(finding.fingerprint) ||
+                  !allowedTypes.has(finding.category) ||
+                  !finding.fingerprint.startsWith(`${finding.category}:`) ||
+                  !allowedSeverities.has(finding.severity) ||
+                  finding.severity !==
+                    expectedSeverityForFingerprint(finding.fingerprint) ||
+                  typeof finding.title !== "string" ||
+                  finding.title.length === 0 ||
+                  finding.title.length > 200 ||
+                  !validDate(finding.first_seen) ||
+                  !validCount(finding.occurrences) ||
+                  !validRepositoryUrl(finding.url) ||
+                  active.has(finding.fingerprint)
+                ) {
+                  throw new Error(
+                    "Dashboard state contains an invalid active finding"
+                  );
+                }
+                active.set(finding.fingerprint, finding);
+              }
+              for (const history of state.history) {
+                if (
+                  !exactKeys(history, [
+                    "by_severity",
+                    "date",
+                    "existing_count",
+                    "metrics",
+                    "new_count",
+                    "resolved_count",
+                  ]) ||
+                  !validDate(history.date) ||
+                  !validCount(history.new_count) ||
+                  !validCount(history.existing_count) ||
+                  !validCount(history.resolved_count) ||
+                  !validNumericObject(history.by_severity) ||
+                  !validNumericObject(history.metrics)
+                ) {
+                  throw new Error(
+                    "Dashboard state contains an invalid history entry"
+                  );
+                }
+              }
+              const validCommentUrl = value => {
+                if (
+                  typeof value !== "string" ||
+                  value.length > 500 ||
+                  /[\s()[\]|<>\\]/.test(value)
+                ) {
+                  return false;
+                }
+                try {
+                  const url = new URL(value);
+                  return (
+                    url.protocol === "https:" &&
+                    url.hostname === "github.com" &&
+                    url.username === "" &&
+                    url.password === "" &&
+                    url.port === "" &&
+                    url.pathname === `/${owner}/${repo}/issues/695` &&
+                    url.search === "" &&
+                    /^#issuecomment-\d+$/.test(url.hash)
+                  );
+                } catch {
+                  return false;
+                }
+              };
+              const priorOutbox = new Map();
+              for (const line of body.split(/\r?\n/)) {
+                const fingerprintMatch = line.match(
+                  /#investigation-fingerprint:([^)]*)\)/
+                );
+                const legacyFingerprintMatch = line.match(
+                  new RegExp(
+                    "<!-- investigation-" +
+                    "fingerprint:[^>\\r\\n]+-->"
+                  )
+                );
+                const correlationMatch = line.match(
+                  /#investigation-correlation:(hc-\d{4}-\d{2}-\d{2}-\d+-\d+)\)/
+                );
+                const statusMatch = line.match(
+                  / \| (⏳ Dispatch pending|🔄 Dispatched|✅ Done) \| \d{4}-\d{2}-\d{2} \|/
+                );
+                const status = statusMatch?.[1] === "⏳ Dispatch pending"
+                  ? "dispatching"
+                  : statusMatch?.[1] === "🔄 Dispatched"
+                    ? "dispatched"
+                    : statusMatch?.[1] === "✅ Done"
+                      ? "done"
+                      : null;
+                if (
+                  status &&
+                  !legacyFingerprintMatch &&
+                  (!fingerprintMatch || !correlationMatch)
+                ) {
+                  throw new Error(
+                    "Dashboard contains an active investigation row without valid identity markers"
+                  );
+                }
+                if (fingerprintMatch && correlationMatch && status) {
+                  let fingerprint;
+                  try {
+                    fingerprint = decodeURIComponent(fingerprintMatch[1]);
+                  } catch {
+                    throw new Error(
+                      "Dashboard contains an invalid investigation fingerprint marker"
+                    );
+                  }
+                  if (priorOutbox.has(fingerprint)) {
+                    throw new Error(
+                      "Dashboard contains duplicate active investigation rows"
+                    );
+                  }
+                  priorOutbox.set(fingerprint, {
+                    correlation: correlationMatch[1],
+                    status,
+                  });
+                }
+              }
+              const resolvedOutboxExpired = prior => {
+                const date = prior.correlation.match(
+                  /^hc-(\d{4}-\d{2}-\d{2})-\d+-\d+$/
+                )?.[1];
+                if (!date) {
+                  return false;
+                }
+                const ageDays = Math.floor(
+                  (Date.now() - Date.parse(`${date}T00:00:00Z`)) / 86400000
+                );
+                return ageDays > 14;
+              };
+              const seen = new Set();
+              const rowByFingerprint = new Map();
+              for (const row of rows) {
+                if (
+                  !exactKeys(row, [
+                    "correlation_id",
+                    "fingerprint",
+                    "result_summary",
+                    "result_url",
+                    "status",
+                  ]) ||
+                  typeof row.fingerprint !== "string" ||
+                  ![
+                    "pending",
+                    "dispatching",
+                    "dispatched",
+                    "done",
+                    "skipped",
+                  ].includes(row.status) ||
+                  typeof row.correlation_id !== "string" ||
+                  typeof row.result_summary !== "string" ||
+                  row.result_summary.length > 300 ||
+                  typeof row.result_url !== "string" ||
+                  seen.has(row.fingerprint)
+                ) {
+                  throw new Error("A groomed row failed schema validation");
+                }
+                seen.add(row.fingerprint);
+                if (
+                  row.status === "done" &&
+                  (
+                    row.result_summary.length === 0 ||
+                    !validCommentUrl(row.result_url)
+                  )
+                ) {
+                  throw new Error("A completed groomed row has an invalid result");
+                }
+                if (
+                  row.status !== "done" &&
+                  (row.result_summary !== "" || row.result_url !== "")
+                ) {
+                  throw new Error("An incomplete groomed row contains result data");
+                }
+                const validCorrelation =
+                  /^hc-\d{4}-\d{2}-\d{2}-\d+-\d+$/.test(row.correlation_id);
+                if (
+                  (
+                    ["dispatching", "dispatched", "done"].includes(row.status) &&
+                    !validCorrelation
+                  ) ||
+                  (
+                    !["dispatching", "dispatched", "done"].includes(row.status) &&
+                    row.correlation_id !== ""
+                  )
+                ) {
+                  throw new Error("A groomed row has an invalid correlation");
+                }
+                if (row.status === "done") {
+                  const url = new URL(row.result_url);
+                  const commentId = Number(
+                    url.hash.slice("#issuecomment-".length)
+                  );
+                  if (!Number.isSafeInteger(commentId) || commentId <= 0) {
+                    throw new Error(
+                      "A completed groomed row has an invalid comment ID"
+                    );
+                  }
+                  const response = await github.rest.issues.getComment({
+                    owner,
+                    repo,
+                    comment_id: commentId,
+                  });
+                  const comment = response.data;
+                  const commentBody = comment.body || "";
+                  const lines = commentBody.split(/\r?\n/);
+                  const findingLine = `**Finding ID:** \`${row.fingerprint}\``;
+                  const correlationLine =
+                    `**Correlation:** ${row.correlation_id}`;
+                  const summaryLine =
+                    `**Executive Summary:** ${row.result_summary}`;
+                  const runFooterPattern = new RegExp(
+                    `^<sub>🔍 \\[Investigation Run #\\d+\\]\\(` +
+                    `https://github\\.com/${owner}/${repo}/actions/runs/(\\d+)\\)` +
+                    ` · Dispatched by health check · ${row.correlation_id}</sub>$`
+                  );
+                  const runFooterLines = lines.filter(line =>
+                    line.startsWith("<sub>🔍 [Investigation Run #")
+                  );
+                  const runFooterMatch =
+                    runFooterLines.length === 1 &&
+                    runFooterPattern.exec(runFooterLines[0]);
+                  if (
+                    comment.user?.login !== "github-actions[bot]" ||
+                    comment.issue_url !==
+                      `https://api.github.com/repos/${owner}/${repo}/issues/695` ||
+                    comment.html_url !== row.result_url ||
+                    !commentBody.startsWith("## 🔍 Investigation:") ||
+                    lines.filter(
+                      line => line.startsWith("**Finding ID:**")
+                    ).length !== 1 ||
+                    !lines.includes(findingLine) ||
+                    lines.filter(
+                      line => line.startsWith("**Correlation:**")
+                    ).length !== 1 ||
+                    !lines.includes(correlationLine) ||
+                    lines.filter(
+                      line => line.startsWith("**Executive Summary:**")
+                    ).length !== 1 ||
+                    !lines.includes(summaryLine) ||
+                    !runFooterMatch
+                  ) {
+                    throw new Error(
+                      "A completed groomed row does not match its trusted comment"
+                    );
+                  }
+                  const run = await github.rest.actions.getWorkflowRun({
+                    owner,
+                    repo,
+                    run_id: Number(runFooterMatch[1]),
+                  });
+                  if (
+                    run.data.event !== "workflow_dispatch" ||
+                    run.data.conclusion !== "success" ||
+                    run.data.display_title !==
+                      `DevOps Health Investigation — ${row.correlation_id}` ||
+                    run.data.path?.split("@")[0] !==
+                      ".github/workflows/devops-health-investigate.lock.yml" ||
+                    run.data.head_repository?.full_name !== `${owner}/${repo}`
+                  ) {
+                    throw new Error(
+                      "A completed groomed row does not match its trusted workflow run"
+                    );
+                  }
+                }
+                const finding = active.get(row.fingerprint);
+                const prior = priorOutbox.get(row.fingerprint);
+                rowByFingerprint.set(row.fingerprint, row);
+                if (!finding) {
+                  const allowedStatuses = prior?.status === "dispatching"
+                    ? new Set(["dispatching", "done"])
+                    : prior?.status === "dispatched"
+                      ? new Set(["dispatched", "done"])
+                      : prior?.status === "done"
+                        ? new Set(["done"])
+                        : new Set();
+                  if (
+                    !prior ||
+                    row.correlation_id !== prior.correlation ||
+                    !allowedStatuses.has(row.status)
+                  ) {
+                    throw new Error(
+                      "An inactive groomed row does not match a persisted investigation"
+                    );
+                  }
+                } else if (prior?.status === "done") {
+                  if (
+                    row.status !== "done" ||
+                    row.correlation_id !== prior.correlation
+                  ) {
+                    throw new Error("A completed groomed row was modified");
+                  }
+                }
+              }
+              for (const [fingerprint, prior] of priorOutbox) {
+                if (prior.status === "done" && !active.has(fingerprint)) {
+                  continue;
+                }
+                const row = rowByFingerprint.get(fingerprint);
+                const allowedStatuses = prior.status === "dispatching"
+                  ? new Set(["dispatching", "done"])
+                  : prior.status === "dispatched"
+                    ? new Set(["dispatched", "done"])
+                    : new Set(["done"]);
+                if (
+                  !row &&
+                  ["dispatching", "dispatched"].includes(prior.status)
+                ) {
+                  if (
+                    !active.has(fingerprint) &&
+                    resolvedOutboxExpired(prior)
+                  ) {
+                    continue;
+                  }
+                  if (!active.has(fingerprint)) {
+                    continue;
+                  }
+                }
+                if (
+                  !row ||
+                  row.correlation_id !== prior.correlation ||
+                  !allowedStatuses.has(row.status)
+                ) {
+                  throw new Error(
+                    "An active persisted investigation row was omitted or changed"
+                  );
+                }
+              }
+            } else {
+              throw new Error(`Unexpected safe-output type: ${String(item.type)}`);
+            }
+
+            console.log(`Validated one ${item.type} safe-output item`);
