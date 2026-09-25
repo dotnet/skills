@@ -9,6 +9,7 @@ that can be installed into other repositories. The workflow sources are kept out
 | Package | Description |
 | --- | --- |
 | [Build Failure Analysis](build-failure-analysis/) | Analyzes failed .NET Azure Pipelines builds from their existing binary logs and posts evidence-backed findings on the pull request. |
+| [Test Failure Analysis](test-failure-analysis/) | Analyzes bounded, normalized test evidence from a repository-owned CI collector and reports supported failures, flakes, hangs, crashes, and duration regressions. |
 
 ## Installation
 
