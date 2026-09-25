@@ -118,6 +118,21 @@ public class SessionDatabaseTests : IDisposable
     }
 
     [TestMethod]
+    public void GetNonterminalSessions_ReturnsOnlyRunningRows()
+    {
+        _db.RegisterSession("running", "skill", "/p", "scn", 0, "with-skill-plugin", "model", null, null);
+        _db.RegisterSession("completed", "skill", "/p", "scn", 0, "baseline", "model", null, null);
+        _db.RegisterSession("failed", "skill", "/p", "scn", 0, "with-skill-isolated", "model", null, null);
+        _db.CompleteSession("completed", "completed", "{}");
+        _db.CompleteSession("failed", "failed", "{}");
+
+        var session = Assert.ContainsSingle(_db.GetNonterminalSessions());
+
+        Assert.AreEqual("running", session.Id);
+        Assert.AreEqual("running", session.Status);
+    }
+
+    [TestMethod]
     public void GetCompletedSessions_IncludesTimedOut()
     {
         _db.RegisterSession("s1", "skill", "/p", "scn", 0, "baseline", "model", null, null);

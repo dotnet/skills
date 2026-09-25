@@ -928,14 +928,24 @@ public class BuildSessionConfigTests
             ["ok"] = SafeMcpServer(),
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
+        var secondConfig = await AgentRunner.BuildSessionConfig(
+            MockSkill,
+            null,
+            "gpt-4.1",
+            "C:\\tmp\\other-work",
+            mcpServers);
         Assert.IsNotNull(config.McpServers);
         var entry = Assert.IsInstanceOfType<McpStdioServerConfig>(config.McpServers["ok"]);
+        var secondEntry = Assert.IsInstanceOfType<McpStdioServerConfig>(secondConfig.McpServers!["ok"]);
         Assert.IsNotNull(entry.Args);
         Assert.Contains("Microsoft.AITools.BinlogMcp@3.0.2", entry.Args!);
-        Assert.Contains("--no-http-cache", entry.Args);
+        Assert.DoesNotContain("--no-http-cache", entry.Args);
         var configIndex = entry.Args.IndexOf("--configfile");
         Assert.IsTrue(configIndex >= 0);
         Assert.IsTrue(File.Exists(entry.Args[configIndex + 1]));
+        Assert.AreEqual(entry.Args[configIndex + 1], secondEntry.Args![configIndex + 1]);
+        Assert.AreEqual(entry.Env!["NUGET_PACKAGES"], secondEntry.Env!["NUGET_PACKAGES"]);
+        Assert.AreEqual(entry.Env["NUGET_HTTP_CACHE_PATH"], secondEntry.Env["NUGET_HTTP_CACHE_PATH"]);
     }
 
     private static string FindRepositoryRoot(
@@ -2031,6 +2041,231 @@ public class LocalSessionFsHandlerTests
             Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
                 SecureFileSystem.CreateDirectory(workDir, target));
             Assert.IsFalse(Directory.Exists(Path.Combine(outsideDir, "escaped")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public void SecureEnumerationReportsOpenedFileAndDirectoryEntries()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-enumerate-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var directory = Path.Combine(workDir, "items");
+        Directory.CreateDirectory(Path.Combine(directory, "child"));
+        File.WriteAllText(Path.Combine(directory, "file.txt"), "content");
+
+        try
+        {
+            var entries = SecureFileSystem.EnumerateDirectory(workDir, directory);
+
+            Assert.AreEqual(2, entries.Count);
+            Assert.IsTrue(entries.Any(entry => entry.Name == "child" && entry.IsDirectory));
+            Assert.IsTrue(entries.Any(entry => entry.Name == "file.txt" && !entry.IsDirectory));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public void SecureEnumerationCannotBeRedirectedAfterDirectoryIsOpened()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-enumerate-race-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var directory = Path.Combine(workDir, "items");
+        var movedDirectory = Path.Combine(workDir, "moved-items");
+        var outsideDir = Path.Combine(root, "outside");
+        Directory.CreateDirectory(directory);
+        Directory.CreateDirectory(outsideDir);
+        File.WriteAllText(Path.Combine(directory, "safe.txt"), "safe");
+        File.WriteAllText(Path.Combine(outsideDir, "secret.txt"), "secret");
+        var probe = Path.Combine(workDir, "symlink-probe");
+        if (!SymlinkTestHelper.TryCreateDirectory(probe, outsideDir))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+        Directory.Delete(probe);
+        var replacementCreated = false;
+        var replacementBlocked = false;
+
+        try
+        {
+            var entries = SecureFileSystem.EnumerateDirectory(
+                workDir,
+                directory,
+                afterDirectoryOpen: () =>
+                {
+                    try
+                    {
+                        Directory.Move(directory, movedDirectory);
+                        Directory.CreateSymbolicLink(directory, outsideDir);
+                        replacementCreated = true;
+                    }
+                    catch (IOException) when (Directory.Exists(directory))
+                    {
+                        replacementBlocked = true;
+                    }
+                    catch (UnauthorizedAccessException) when (Directory.Exists(directory))
+                    {
+                        replacementBlocked = true;
+                    }
+                });
+
+            Assert.IsTrue(replacementCreated || replacementBlocked);
+            Assert.IsTrue(entries.Any(entry => entry.Name == "safe.txt"));
+            Assert.IsFalse(entries.Any(entry => entry.Name == "secret.txt"));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public void SecureRemoveDeletesRecursiveTree()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-remove-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var target = Path.Combine(workDir, "target");
+        Directory.CreateDirectory(Path.Combine(target, "nested"));
+        File.WriteAllText(Path.Combine(target, "nested", "data.txt"), "content");
+
+        try
+        {
+            SecureFileSystem.Remove(workDir, target, recursive: true);
+
+            Assert.IsFalse(Directory.Exists(target));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public void SecureRemoveCannotDeleteExternalFileAfterParentReplacement()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-remove-race-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var parent = Path.Combine(workDir, "parent");
+        var movedParent = Path.Combine(workDir, "moved-parent");
+        var outsideDir = Path.Combine(root, "outside");
+        var target = Path.Combine(parent, "data.txt");
+        var outsideFile = Path.Combine(outsideDir, "data.txt");
+        Directory.CreateDirectory(parent);
+        Directory.CreateDirectory(outsideDir);
+        File.WriteAllText(target, "inside");
+        File.WriteAllText(outsideFile, "outside");
+        var probe = Path.Combine(workDir, "symlink-probe");
+        if (!SymlinkTestHelper.TryCreateDirectory(probe, outsideDir))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+        Directory.Delete(probe);
+        var replacementCreated = false;
+        var replacementBlocked = false;
+
+        try
+        {
+            SecureFileSystem.Remove(
+                workDir,
+                target,
+                recursive: false,
+                afterEntryOpen: () =>
+                {
+                    try
+                    {
+                        Directory.Move(parent, movedParent);
+                        Directory.CreateSymbolicLink(parent, outsideDir);
+                        replacementCreated = true;
+                    }
+                    catch (IOException) when (Directory.Exists(parent))
+                    {
+                        replacementBlocked = true;
+                    }
+                    catch (UnauthorizedAccessException) when (Directory.Exists(parent))
+                    {
+                        replacementBlocked = true;
+                    }
+                });
+
+            Assert.IsTrue(replacementCreated || replacementBlocked);
+            Assert.AreEqual("outside", File.ReadAllText(outsideFile));
+            Assert.IsFalse(File.Exists(
+                replacementCreated
+                    ? Path.Combine(movedParent, "data.txt")
+                    : target));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public void SecureRenameCannotMoveIntoExternalDestinationAfterParentReplacement()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-rename-race-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var source = Path.Combine(workDir, "source.txt");
+        var destinationParent = Path.Combine(workDir, "destination");
+        var movedDestinationParent = Path.Combine(workDir, "moved-destination");
+        var outsideDir = Path.Combine(root, "outside");
+        var destination = Path.Combine(destinationParent, "moved.txt");
+        Directory.CreateDirectory(workDir);
+        Directory.CreateDirectory(destinationParent);
+        Directory.CreateDirectory(outsideDir);
+        File.WriteAllText(source, "inside");
+        var probe = Path.Combine(workDir, "symlink-probe");
+        if (!SymlinkTestHelper.TryCreateDirectory(probe, outsideDir))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+        Directory.Delete(probe);
+        var replacementCreated = false;
+        var replacementBlocked = false;
+
+        try
+        {
+            SecureFileSystem.Rename(
+                workDir,
+                source,
+                workDir,
+                destination,
+                afterParentsOpen: () =>
+                {
+                    try
+                    {
+                        Directory.Move(destinationParent, movedDestinationParent);
+                        Directory.CreateSymbolicLink(destinationParent, outsideDir);
+                        replacementCreated = true;
+                    }
+                    catch (IOException) when (Directory.Exists(destinationParent))
+                    {
+                        replacementBlocked = true;
+                    }
+                    catch (UnauthorizedAccessException) when (Directory.Exists(destinationParent))
+                    {
+                        replacementBlocked = true;
+                    }
+                });
+
+            Assert.IsTrue(replacementCreated || replacementBlocked);
+            Assert.IsFalse(File.Exists(Path.Combine(outsideDir, "moved.txt")));
+            Assert.AreEqual(
+                "inside",
+                File.ReadAllText(
+                    replacementCreated
+                        ? Path.Combine(movedDestinationParent, "moved.txt")
+                        : destination));
+            Assert.IsFalse(File.Exists(source));
         }
         finally
         {

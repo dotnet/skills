@@ -82,6 +82,15 @@ public static class RejudgeCommand
         }
 
         using var sessionDb = new SessionDatabase(dbPath);
+        var nonterminalSessions = sessionDb.GetNonterminalSessions();
+        if (nonterminalSessions.Count > 0)
+        {
+            WriteNonterminalSessions(
+                "Cannot rejudge: execution data contains nonterminal sessions. No verdict was published.",
+                ("Sessions", nonterminalSessions));
+            return 1;
+        }
+
         var failedSessions = sessionDb.GetFailedSessions();
         if (failedSessions.Count > 0)
         {
@@ -260,6 +269,17 @@ public static class RejudgeCommand
 
         using var treatmentDb = new SessionDatabase(treatmentDbPath);
         using var baselineDb = new SessionDatabase(baselineDbPath);
+
+        var nonterminalTreatmentSessions = treatmentDb.GetNonterminalSessions();
+        var nonterminalBaselineSessions = baselineDb.GetNonterminalSessions();
+        if (nonterminalTreatmentSessions.Count > 0 || nonterminalBaselineSessions.Count > 0)
+        {
+            WriteNonterminalSessions(
+                "Cannot rejudge: baseline or treatment data contains nonterminal sessions. No verdict was published.",
+                ("Baseline sessions", nonterminalBaselineSessions),
+                ("Treatment sessions", nonterminalTreatmentSessions));
+            return 1;
+        }
 
         var failedTreatmentSessions = treatmentDb.GetFailedSessions();
         var failedBaselineSessions = baselineDb.GetFailedSessions();
@@ -628,6 +648,22 @@ public static class RejudgeCommand
 
     private static string FormatBaselineKey(string? baselineKey) =>
         string.IsNullOrEmpty(baselineKey) ? "<missing>" : baselineKey;
+
+    private static void WriteNonterminalSessions(
+        string message,
+        params (string Label, IReadOnlyList<SessionRecord> Sessions)[] groups)
+    {
+        Console.Error.WriteLine(message);
+        foreach (var group in groups.Where(group => group.Sessions.Count > 0))
+        {
+            Console.Error.WriteLine($"{group.Label}:");
+            foreach (var session in group.Sessions)
+            {
+                Console.Error.WriteLine(
+                    $"  - {FormatSessionIdentity(session)}, status={session.Status}");
+            }
+        }
+    }
 
     /// <summary>
     /// Pure validation of cross-directory model/judge-model compatibility. Baseline and treatment

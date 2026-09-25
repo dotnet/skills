@@ -23,6 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-run.yml"
 CALLER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation.yml"
 TEST_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-workflow-tests.yml"
+EVAL_QUALITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "eval-quality.yml"
 DASHBOARD_GENERATOR = REPO_ROOT / "eng" / "dashboard" / "generate-benchmark-data.ps1"
 PATH_SAFETY_SCRIPT = REPO_ROOT / "eng" / "evaluation" / "path-safety.ps1"
 FIND_TARGETS_SCRIPT = REPO_ROOT / "eng" / "evaluation" / "find-targets.ps1"
@@ -2590,6 +2591,22 @@ esac
                 {entry["name"] for entry in entries},
                 {"demo--shard-default", "demo--shard-heavy"},
             )
+
+    def test_manual_eval_quality_uses_main_as_comparison_base(self) -> None:
+        workflow = yaml.safe_load(EVAL_QUALITY_WORKFLOW.read_text(encoding="utf-8"))
+        script = workflow_step_script(
+            workflow, "check", 'EVENT_NAME" = "workflow_dispatch'
+        )
+
+        self.assertIn(
+            "python eng/eval-quality/check_eval_quality.py --base-ref origin/main",
+            script,
+        )
+        manual_branch = script.split(
+            'elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then',
+            maxsplit=1,
+        )[1].split("else", maxsplit=1)[0]
+        self.assertNotIn("--all", manual_branch)
 
     def test_fork_checkout_is_blocked_and_adapter_code_is_trusted(self) -> None:
         workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))

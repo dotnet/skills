@@ -87,8 +87,13 @@ jobs:
             # A push can contain multiple commits. Compare with the event's
             # pre-push tip so suites changed by any commit are checked.
             python eng/eval-quality/check_eval_quality.py --base-ref "$PUSH_BEFORE"
+          elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            # Manual runs validate the selected ref against main. The repository
+            # still has grandfathered migration debt, so repository-wide audits
+            # remain an explicit local operation.
+            python eng/eval-quality/check_eval_quality.py --base-ref origin/main
           else
-            # workflow_dispatch and unusual push events have no safe comparison
-            # base. A full audit is safer than silently checking only HEAD^.
+            # Unusual push events have no safe comparison base. A full audit is
+            # safer than silently checking only HEAD^.
             python eng/eval-quality/check_eval_quality.py --all
           fi

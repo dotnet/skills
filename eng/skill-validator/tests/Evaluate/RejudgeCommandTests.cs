@@ -3,6 +3,7 @@ using SkillValidator.Evaluate;
 namespace SkillValidator.Tests;
 
 [TestClass]
+[DoNotParallelize]
 public class RejudgeCommandTests
 {
     private static SessionRecord Rec(
@@ -172,6 +173,120 @@ public class RejudgeCommandTests
             skillPath: Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}", "target"));
 
         Assert.IsTrue(RejudgeCommand.ResolveExpectedActivation(session, isAgent: false));
+    }
+
+    [TestMethod]
+    public async Task RunCrossDir_CompletedRequiredArmsWithRunningPlugin_FailsWithoutPublishing()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"rejudge-running-plugin-{Guid.NewGuid():N}");
+        var baselineDir = Path.Combine(root, "baseline");
+        var treatmentDir = Path.Combine(root, "treatment");
+        Directory.CreateDirectory(baselineDir);
+        Directory.CreateDirectory(treatmentDir);
+
+        try
+        {
+            using (var baselineDb = new SessionDatabase(Path.Combine(baselineDir, "sessions.db")))
+            {
+                baselineDb.RegisterSession(
+                    "baseline", "skill", "/p", "scn", 0, "baseline", "model-x",
+                    null, null, baselineKey: "K1");
+                baselineDb.CompleteSession("baseline", "completed", "{}");
+            }
+            using (var treatmentDb = new SessionDatabase(Path.Combine(treatmentDir, "sessions.db")))
+            {
+                treatmentDb.RegisterSession(
+                    "isolated", "skill", "/p", "scn", 0, "with-skill-isolated", "model-x",
+                    null, null, baselineKey: "K1");
+                treatmentDb.CompleteSession("isolated", "completed", "{}");
+                treatmentDb.RegisterSession(
+                    "plugin", "skill", "/p", "scn", 0, "with-skill-plugin", "model-x",
+                    null, null, baselineKey: "K1");
+            }
+
+            using var stderr = new StringWriter();
+            var originalError = Console.Error;
+            Console.SetError(stderr);
+            try
+            {
+                var exitCode = await RejudgeCommand.RunCrossDir(
+                    treatmentDir, baselineDir, judgeModel: null, judgeMode: JudgeMode.Pairwise,
+                    judgeTimeout: 1, verbose: false, minImprovement: 0.1,
+                    requireCompletion: true, confidenceLevel: 0.95);
+
+                Assert.AreEqual(1, exitCode);
+            }
+            finally
+            {
+                Console.SetError(originalError);
+            }
+
+            Assert.Contains("nonterminal sessions", stderr.ToString());
+            Assert.Contains("with-skill-plugin", stderr.ToString());
+            Assert.Contains("No verdict was published", stderr.ToString());
+            Assert.IsFalse(File.Exists(Path.Combine(treatmentDir, "results.json")));
+            Assert.IsFalse(File.Exists(Path.Combine(treatmentDir, "summary.md")));
+            Assert.IsEmpty(Directory.GetFiles(treatmentDir, "verdict.json", SearchOption.AllDirectories));
+        }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public async Task Run_OnlyRunningRows_FailsWithoutPublishing()
+    {
+        var resultsDir = Path.Combine(Path.GetTempPath(), $"rejudge-interrupted-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(resultsDir);
+
+        try
+        {
+            using (var db = new SessionDatabase(Path.Combine(resultsDir, "sessions.db")))
+            {
+                db.RegisterSession(
+                    "baseline", "skill", "/p", "scn", 0, "baseline", "model-x",
+                    null, null, baselineKey: "K1");
+                db.RegisterSession(
+                    "isolated", "skill", "/p", "scn", 0, "with-skill-isolated", "model-x",
+                    null, null, baselineKey: "K1");
+                db.RegisterSession(
+                    "plugin", "skill", "/p", "scn", 0, "with-skill-plugin", "model-x",
+                    null, null, baselineKey: "K1");
+            }
+
+            using var stderr = new StringWriter();
+            var originalError = Console.Error;
+            Console.SetError(stderr);
+            try
+            {
+                var exitCode = await RejudgeCommand.Run(
+                    resultsDir, judgeModel: null, judgeMode: JudgeMode.Pairwise,
+                    judgeTimeout: 1, verbose: false, minImprovement: 0.1,
+                    requireCompletion: true, confidenceLevel: 0.95);
+
+                Assert.AreEqual(1, exitCode);
+            }
+            finally
+            {
+                Console.SetError(originalError);
+            }
+
+            Assert.Contains("nonterminal sessions", stderr.ToString());
+            Assert.Contains("baseline", stderr.ToString());
+            Assert.Contains("with-skill-isolated", stderr.ToString());
+            Assert.Contains("with-skill-plugin", stderr.ToString());
+            Assert.Contains("No verdict was published", stderr.ToString());
+            Assert.IsFalse(File.Exists(Path.Combine(resultsDir, "results.json")));
+            Assert.IsFalse(File.Exists(Path.Combine(resultsDir, "summary.md")));
+            Assert.IsEmpty(Directory.GetFiles(resultsDir, "verdict.json", SearchOption.AllDirectories));
+        }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(resultsDir, recursive: true);
+        }
     }
 
     [TestMethod]

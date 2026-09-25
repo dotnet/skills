@@ -413,6 +413,17 @@ public sealed class SessionDatabase : IDisposable
     }
 
     /// <summary>
+    /// Returns sessions that have not reached a recognized terminal status.
+    /// </summary>
+    public List<SessionRecord> GetNonterminalSessions()
+    {
+        lock (_lock)
+        {
+            return GetSessions("WHERE s.status NOT IN ('completed', 'timed_out', 'reused', 'failed')");
+        }
+    }
+
+    /// <summary>
     /// Returns schema metadata (type, version) for DB detection by external tools.
     /// </summary>
     public Dictionary<string, string> GetSchemaInfo()

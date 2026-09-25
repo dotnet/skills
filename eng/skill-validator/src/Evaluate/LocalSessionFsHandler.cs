@@ -189,59 +189,52 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
 
     protected override Task<IList<string>> ReadDirectoryAsync(string path, CancellationToken cancellationToken)
     {
-        var resolved = ResolvePath(path);
-        var entries = new List<string>();
-        if (Directory.Exists(resolved))
-        {
-            foreach (var entry in Directory.EnumerateFileSystemEntries(resolved))
-                entries.Add(Path.GetFileName(entry));
-        }
-        return Task.FromResult<IList<string>>(entries);
+        var resolved = ResolvePathInfo(path);
+        var entries = SecureFileSystem.EnumerateDirectory(
+            resolved.Root,
+            resolved.FullPath);
+        return Task.FromResult<IList<string>>(entries.Select(entry => entry.Name).ToList());
     }
 
     protected override Task<IList<SessionFsReaddirWithTypesEntry>> ReadDirectoryWithTypesAsync(string path, CancellationToken cancellationToken)
     {
-        var resolved = ResolvePath(path);
-        var entries = new List<SessionFsReaddirWithTypesEntry>();
-        if (Directory.Exists(resolved))
-        {
-            foreach (var entry in new DirectoryInfo(resolved).EnumerateFileSystemInfos())
+        var resolved = ResolvePathInfo(path);
+        var entries = SecureFileSystem.EnumerateDirectory(
+                resolved.Root,
+                resolved.FullPath)
+            .Select(entry =>
             {
-                entries.Add(new SessionFsReaddirWithTypesEntry
+                return new SessionFsReaddirWithTypesEntry
                 {
                     Name = entry.Name,
-                    Type = entry is DirectoryInfo ? SessionFsReaddirWithTypesEntryType.Directory : SessionFsReaddirWithTypesEntryType.File,
-                });
-            }
-        }
+                    Type = entry.IsDirectory
+                        ? SessionFsReaddirWithTypesEntryType.Directory
+                        : SessionFsReaddirWithTypesEntryType.File,
+                };
+            })
+            .ToList();
         return Task.FromResult<IList<SessionFsReaddirWithTypesEntry>>(entries);
     }
 
     protected override Task RemoveAsync(string path, bool recursive, bool force, CancellationToken cancellationToken)
     {
-        var resolved = ResolvePath(path);
-        if (File.Exists(resolved))
-        {
-            File.Delete(resolved);
-        }
-        else if (Directory.Exists(resolved))
-        {
-            Directory.Delete(resolved, recursive: recursive);
-        }
+        var resolved = ResolvePathInfo(path);
+        SecureFileSystem.Remove(
+            resolved.Root,
+            resolved.FullPath,
+            recursive);
         return Task.CompletedTask;
     }
 
     protected override Task RenameAsync(string src, string dest, CancellationToken cancellationToken)
     {
-        var resolvedSrc = ResolvePath(src);
-        var resolvedDest = ResolvePath(dest);
-        var destDir = Path.GetDirectoryName(resolvedDest);
-        if (destDir is not null) Directory.CreateDirectory(destDir);
-
-        if (File.Exists(resolvedSrc))
-            File.Move(resolvedSrc, resolvedDest, overwrite: true);
-        else if (Directory.Exists(resolvedSrc))
-            Directory.Move(resolvedSrc, resolvedDest);
+        var resolvedSrc = ResolvePathInfo(src);
+        var resolvedDest = ResolvePathInfo(dest);
+        SecureFileSystem.Rename(
+            resolvedSrc.Root,
+            resolvedSrc.FullPath,
+            resolvedDest.Root,
+            resolvedDest.FullPath);
         return Task.CompletedTask;
     }
 

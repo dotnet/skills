@@ -8,6 +8,8 @@ internal static class SecureFileSystem
 {
     private const uint WindowsGenericRead = 0x80000000;
     private const uint WindowsGenericWrite = 0x40000000;
+    private const uint WindowsDelete = 0x00010000;
+    private const uint WindowsFileListDirectory = 0x00000001;
     private const uint WindowsFileReadAttributes = 0x00000080;
     private const uint WindowsSynchronize = 0x00100000;
     private const uint WindowsFileShareRead = 0x00000001;
@@ -25,7 +27,11 @@ internal static class SecureFileSystem
     private const uint WindowsFileNonDirectoryFile = 0x00000040;
     private const uint WindowsFileOpenReparsePoint = 0x00200000;
     private const int WindowsFileBasicInfo = 0;
+    private const int WindowsFileDispositionInfo = 4;
     private const int WindowsFileStandardInfo = 1;
+    private const int WindowsFileNamesInformation = 12;
+    private const int WindowsNtFileRenameInformation = 10;
+    private const int WindowsStatusNoMoreFiles = unchecked((int)0x80000006);
 
     private const int UnixReadOnly = 0;
     private const int UnixWriteOnly = 1;
@@ -34,6 +40,7 @@ internal static class SecureFileSystem
     private const int UnixDirectoryMode = 0x4000;
     private const int UnixRegularFileMode = 0x8000;
     private const int UnixSymbolicLinkMode = 0xA000;
+    private const int UnixRemoveDirectory = 0x200;
     private const int PalUnixWriteOnly = 0x0001;
     private const int PalUnixCloseOnExec = 0x0010;
     private const int PalUnixCreate = 0x0020;
@@ -177,6 +184,450 @@ internal static class SecureFileSystem
         using var handle = OpenUnixDirectoryChain(allowedRoot, segments, createMissing: true);
     }
 
+    internal static IReadOnlyList<SecureDirectoryEntry> EnumerateDirectory(
+        string allowedRoot,
+        string path,
+        Action? afterDirectoryOpen = null)
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+                return EnumerateWindowsDirectory(allowedRoot, path, afterDirectoryOpen);
+            if (OperatingSystem.IsLinux())
+                return EnumerateUnixDirectory(allowedRoot, path, afterDirectoryOpen);
+            throw new NotSupportedException(
+                "Secure directory enumeration is supported only on Windows and Linux.");
+        }
+        catch (FileNotFoundException)
+        {
+            return [];
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return [];
+        }
+    }
+
+    internal static void Remove(
+        string allowedRoot,
+        string path,
+        bool recursive,
+        Action? afterEntryOpen = null)
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                RemoveWindows(allowedRoot, path, recursive, afterEntryOpen);
+                return;
+            }
+            if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())
+            {
+                throw new NotSupportedException(
+                    "Secure removal is supported only on Windows, Linux, and macOS.");
+            }
+
+            RemoveUnix(allowedRoot, path, recursive, afterEntryOpen);
+        }
+        catch (FileNotFoundException)
+        {
+        }
+        catch (DirectoryNotFoundException)
+        {
+        }
+    }
+
+    internal static void Rename(
+        string sourceRoot,
+        string sourcePath,
+        string destinationRoot,
+        string destinationPath,
+        Action? afterParentsOpen = null)
+    {
+        if (!Exists(sourceRoot, sourcePath))
+            return;
+
+        if (OperatingSystem.IsWindows())
+        {
+            RenameWindows(
+                sourceRoot,
+                sourcePath,
+                destinationRoot,
+                destinationPath,
+                afterParentsOpen);
+            return;
+        }
+        if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())
+        {
+            throw new NotSupportedException(
+                "Secure rename is supported only on Windows, Linux, and macOS.");
+        }
+
+        RenameUnix(
+            sourceRoot,
+            sourcePath,
+            destinationRoot,
+            destinationPath,
+            afterParentsOpen);
+    }
+
+    private static IReadOnlyList<SecureDirectoryEntry> EnumerateWindowsDirectory(
+        string allowedRoot,
+        string path,
+        Action? afterDirectoryOpen)
+    {
+        var segments = GetRelativeSegments(allowedRoot, path, allowRoot: true);
+        SafeFileHandle directory;
+        if (segments.Length == 0)
+        {
+            directory = OpenWindowsDirectory(
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(allowedRoot)),
+                WindowsFileReadAttributes | WindowsFileListDirectory);
+        }
+        else
+        {
+            using var parent = OpenWindowsDirectoryChain(
+                allowedRoot,
+                segments.AsSpan(0, segments.Length - 1),
+                createMissing: false);
+            directory = OpenWindowsRelative(
+                parent,
+                segments[^1],
+                isDirectory: true,
+                createMissing: false,
+                path,
+                desiredAccess: WindowsFileReadAttributes | WindowsFileListDirectory);
+        }
+
+        using (directory)
+        {
+            afterDirectoryOpen?.Invoke();
+            var entries = new List<SecureDirectoryEntry>();
+            foreach (var name in EnumerateWindowsDirectoryNames(directory, path))
+            {
+                try
+                {
+                    using var child = OpenWindowsRelative(
+                        directory,
+                        name,
+                        isDirectory: null,
+                        createMissing: false,
+                        Path.Combine(path, name),
+                        desiredAccess: WindowsFileReadAttributes);
+                    var status = GetWindowsStatus(child, Path.Combine(path, name));
+                    entries.Add(new SecureDirectoryEntry(name, status.IsDirectory));
+                }
+                catch (FileNotFoundException)
+                {
+                }
+            }
+            return entries;
+        }
+    }
+
+    private static IReadOnlyList<SecureDirectoryEntry> EnumerateUnixDirectory(
+        string allowedRoot,
+        string path,
+        Action? afterDirectoryOpen)
+    {
+        using var opened = OpenUnixExisting(
+            allowedRoot,
+            path,
+            requireRegularFile: false,
+            beforeLeafOpen: null);
+        if (!opened.Status.IsDirectory)
+            return [];
+
+        afterDirectoryOpen?.Invoke();
+        var entries = new List<SecureDirectoryEntry>();
+        foreach (var name in EnumerateUnixDirectoryNames(opened.Handle, path))
+        {
+            try
+            {
+                var fd = OpenUnixExistingEntry(
+                    opened.Handle.DangerousGetHandle().ToInt32(),
+                    name,
+                    Path.Combine(path, name));
+                if (fd < 0)
+                    ThrowUnixPathError(Path.Combine(path, name));
+                using var child = new SafeFileHandle(new IntPtr(fd), ownsHandle: true);
+                var status = GetUnixStatus(child, Path.Combine(path, name));
+                entries.Add(new SecureDirectoryEntry(name, status.IsDirectory));
+            }
+            catch (FileNotFoundException)
+            {
+            }
+        }
+        return entries;
+    }
+
+    private static void RemoveWindows(
+        string allowedRoot,
+        string path,
+        bool recursive,
+        Action? afterEntryOpen)
+    {
+        var segments = GetRelativeSegments(allowedRoot, path, allowRoot: false);
+        using var parent = OpenWindowsDirectoryChain(
+            allowedRoot,
+            segments.AsSpan(0, segments.Length - 1),
+            createMissing: false);
+        using var entry = OpenWindowsRelative(
+            parent,
+            segments[^1],
+            isDirectory: null,
+            createMissing: false,
+            path,
+            desiredAccess: WindowsDelete | WindowsFileReadAttributes | WindowsFileListDirectory);
+        var status = GetWindowsStatus(entry, path);
+        afterEntryOpen?.Invoke();
+        RemoveOpenedWindowsEntry(entry, status, path, recursive);
+    }
+
+    private static void RemoveOpenedWindowsEntry(
+        SafeFileHandle entry,
+        SecureFileStatus status,
+        string path,
+        bool recursive)
+    {
+        if (status.IsDirectory && recursive)
+        {
+            foreach (var childName in EnumerateWindowsDirectoryNames(entry, path))
+            {
+                var childPath = Path.Combine(path, childName);
+                using var child = OpenWindowsRelative(
+                    entry,
+                    childName,
+                    isDirectory: null,
+                    createMissing: false,
+                    childPath,
+                    desiredAccess: WindowsDelete | WindowsFileReadAttributes | WindowsFileListDirectory);
+                var childStatus = GetWindowsStatus(child, childPath);
+                RemoveOpenedWindowsEntry(
+                    child,
+                    childStatus,
+                    childPath,
+                    recursive: true);
+            }
+        }
+
+        var disposition = new WindowsFileDispositionInformation { DeleteFile = 1 };
+        if (!SetFileInformationByHandle(
+            entry,
+            WindowsFileDispositionInfo,
+            ref disposition,
+            (uint)Marshal.SizeOf<WindowsFileDispositionInformation>()))
+        {
+            var error = Marshal.GetLastPInvokeError();
+            throw new UnauthorizedAccessException(
+                $"Unable to remove opened path securely: {path} (error {error})");
+        }
+    }
+
+    private static void RemoveUnix(
+        string allowedRoot,
+        string path,
+        bool recursive,
+        Action? afterEntryOpen)
+    {
+        var segments = GetRelativeSegments(allowedRoot, path, allowRoot: false);
+        using var parent = OpenUnixDirectoryChain(
+            allowedRoot,
+            segments.AsSpan(0, segments.Length - 1),
+            createMissing: false);
+        var fd = OpenUnixExistingEntry(
+            parent.DangerousGetHandle().ToInt32(),
+            segments[^1],
+            path);
+        if (fd < 0)
+            ThrowUnixPathError(path);
+        using var entry = new SafeFileHandle(new IntPtr(fd), ownsHandle: true);
+        var status = GetUnixStatus(entry, path);
+        if (status.IsDirectory && recursive && !OperatingSystem.IsLinux())
+        {
+            throw new NotSupportedException(
+                "Secure recursive directory removal is supported only on Windows and Linux.");
+        }
+        afterEntryOpen?.Invoke();
+        RemoveOpenedUnixEntry(
+            parent,
+            segments[^1],
+            entry,
+            status,
+            path,
+            recursive);
+    }
+
+    private static void RemoveOpenedUnixEntry(
+        SafeFileHandle parent,
+        string name,
+        SafeFileHandle entry,
+        SecureFileStatus status,
+        string path,
+        bool recursive)
+    {
+        if (status.IsDirectory && recursive)
+        {
+            foreach (var childName in EnumerateUnixDirectoryNames(entry, path))
+            {
+                var childPath = Path.Combine(path, childName);
+                var childFd = OpenUnixExistingEntry(
+                    entry.DangerousGetHandle().ToInt32(),
+                    childName,
+                    childPath);
+                if (childFd < 0)
+                {
+                    if (Marshal.GetLastPInvokeError() == UnixMissingPath)
+                        continue;
+                    ThrowUnixPathError(childPath);
+                }
+                using var child = new SafeFileHandle(new IntPtr(childFd), ownsHandle: true);
+                var childStatus = GetUnixStatus(child, childPath);
+                RemoveOpenedUnixEntry(
+                    entry,
+                    childName,
+                    child,
+                    childStatus,
+                    childPath,
+                    recursive: true);
+            }
+        }
+
+        if (UnlinkAtUnix(
+            parent.DangerousGetHandle().ToInt32(),
+            name,
+            status.IsDirectory ? UnixRemoveDirectory : 0) != 0)
+        {
+            var error = Marshal.GetLastPInvokeError();
+            if (error == UnixMissingPath)
+                return;
+            ThrowUnixPathError(path, error);
+        }
+    }
+
+    private static void RenameWindows(
+        string sourceRoot,
+        string sourcePath,
+        string destinationRoot,
+        string destinationPath,
+        Action? afterParentsOpen)
+    {
+        var sourceSegments = GetRelativeSegments(sourceRoot, sourcePath, allowRoot: false);
+        var destinationSegments = GetRelativeSegments(destinationRoot, destinationPath, allowRoot: false);
+        using var sourceParent = OpenWindowsDirectoryChain(
+            sourceRoot,
+            sourceSegments.AsSpan(0, sourceSegments.Length - 1),
+            createMissing: false);
+        using var source = OpenWindowsRelative(
+            sourceParent,
+            sourceSegments[^1],
+            isDirectory: null,
+            createMissing: false,
+            sourcePath,
+            desiredAccess: WindowsDelete | WindowsFileReadAttributes);
+        var sourceStatus = GetWindowsStatus(source, sourcePath);
+        using var destinationParent = OpenWindowsDirectoryChain(
+            destinationRoot,
+            destinationSegments.AsSpan(0, destinationSegments.Length - 1),
+            createMissing: true);
+        afterParentsOpen?.Invoke();
+        RenameOpenedWindowsEntry(
+            source,
+            destinationParent,
+            destinationSegments[^1],
+            replaceExisting: sourceStatus.IsFile,
+            destinationPath);
+    }
+
+    private static void RenameOpenedWindowsEntry(
+        SafeFileHandle source,
+        SafeFileHandle destinationParent,
+        string destinationName,
+        bool replaceExisting,
+        string destinationPath)
+    {
+        var nameBytes = Encoding.Unicode.GetBytes(destinationName);
+        var rootOffset = IntPtr.Size == 8 ? 8 : 4;
+        var nameLengthOffset = rootOffset + IntPtr.Size;
+        var nameOffset = nameLengthOffset + sizeof(uint);
+        var bufferSize = checked(nameOffset + nameBytes.Length);
+        var buffer = Marshal.AllocHGlobal(bufferSize);
+        try
+        {
+            for (var i = 0; i < nameOffset; i++)
+                Marshal.WriteByte(buffer, i, 0);
+            Marshal.WriteByte(buffer, replaceExisting ? (byte)1 : (byte)0);
+            Marshal.WriteIntPtr(
+                buffer,
+                rootOffset,
+                destinationParent.DangerousGetHandle());
+            Marshal.WriteInt32(buffer, nameLengthOffset, nameBytes.Length);
+            Marshal.Copy(nameBytes, 0, buffer + nameOffset, nameBytes.Length);
+            var status = NtSetInformationFile(
+                source,
+                out _,
+                buffer,
+                (uint)bufferSize,
+                WindowsNtFileRenameInformation);
+            if (status < 0)
+            {
+                var error = RtlNtStatusToDosError(status);
+                if (error == 17)
+                {
+                    throw new NotSupportedException(
+                        $"Secure cross-volume rename is not supported: {destinationPath}");
+                }
+                throw new UnauthorizedAccessException(
+                    $"Unable to rename opened path securely: {destinationPath} (error {error})");
+            }
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
+    }
+
+    private static void RenameUnix(
+        string sourceRoot,
+        string sourcePath,
+        string destinationRoot,
+        string destinationPath,
+        Action? afterParentsOpen)
+    {
+        var sourceSegments = GetRelativeSegments(sourceRoot, sourcePath, allowRoot: false);
+        var destinationSegments = GetRelativeSegments(destinationRoot, destinationPath, allowRoot: false);
+        using var sourceParent = OpenUnixDirectoryChain(
+            sourceRoot,
+            sourceSegments.AsSpan(0, sourceSegments.Length - 1),
+            createMissing: false);
+        using var destinationParent = OpenUnixDirectoryChain(
+            destinationRoot,
+            destinationSegments.AsSpan(0, destinationSegments.Length - 1),
+            createMissing: true);
+        var sourceFd = OpenUnixExistingEntry(
+            sourceParent.DangerousGetHandle().ToInt32(),
+            sourceSegments[^1],
+            sourcePath);
+        if (sourceFd < 0)
+            ThrowUnixPathError(sourcePath);
+        using var source = new SafeFileHandle(new IntPtr(sourceFd), ownsHandle: true);
+        afterParentsOpen?.Invoke();
+        if (RenameAtUnix(
+            sourceParent.DangerousGetHandle().ToInt32(),
+            sourceSegments[^1],
+            destinationParent.DangerousGetHandle().ToInt32(),
+            destinationSegments[^1]) != 0)
+        {
+            var error = Marshal.GetLastPInvokeError();
+            if (error == 18)
+            {
+                throw new NotSupportedException(
+                    $"Secure cross-device rename is not supported: {destinationPath}");
+            }
+            ThrowUnixPathError(destinationPath, error);
+        }
+    }
+
     private static OpenedPath OpenExisting(
         string allowedRoot,
         string path,
@@ -194,6 +645,143 @@ internal static class SecureFileSystem
                 path,
                 requireRegularFile,
                 beforeLeafOpen);
+    }
+
+    private static IReadOnlyList<string> EnumerateWindowsDirectoryNames(
+        SafeFileHandle directory,
+        string path)
+    {
+        const int bufferSize = 64 * 1024;
+        var buffer = Marshal.AllocHGlobal(bufferSize);
+        try
+        {
+            var names = new List<string>();
+            var restartScan = true;
+            while (true)
+            {
+                var status = NtQueryDirectoryFile(
+                    directory,
+                    0,
+                    0,
+                    0,
+                    out var ioStatus,
+                    buffer,
+                    (uint)bufferSize,
+                    WindowsFileNamesInformation,
+                    returnSingleEntry: false,
+                    0,
+                    restartScan);
+                restartScan = false;
+                if (status == WindowsStatusNoMoreFiles)
+                    break;
+                if (status < 0)
+                {
+                    var error = RtlNtStatusToDosError(status);
+                    throw new UnauthorizedAccessException(
+                        $"Unable to enumerate opened directory securely: {path} (error {error})");
+                }
+
+                var bytesReturned = checked((int)ioStatus.Information);
+                if (bytesReturned == 0)
+                    break;
+
+                var offset = 0;
+                while (true)
+                {
+                    if (offset < 0 || offset + 12 > bytesReturned)
+                    {
+                        throw new UnauthorizedAccessException(
+                            $"Invalid directory enumeration data returned for: {path}");
+                    }
+
+                    var entry = buffer + offset;
+                    var nextOffset = Marshal.ReadInt32(entry);
+                    var nameByteLength = Marshal.ReadInt32(entry, 8);
+                    if (nameByteLength < 0
+                        || (nameByteLength & 1) != 0
+                        || offset + 12 + nameByteLength > bytesReturned)
+                    {
+                        throw new UnauthorizedAccessException(
+                            $"Invalid directory entry returned for: {path}");
+                    }
+
+                    var name = Marshal.PtrToStringUni(entry + 12, nameByteLength / sizeof(char))
+                        ?? throw new UnauthorizedAccessException(
+                            $"Invalid directory entry name returned for: {path}");
+                    if (name is not "." and not "..")
+                        names.Add(name);
+
+                    if (nextOffset == 0)
+                        break;
+                    if (nextOffset < 12 || offset + nextOffset >= bytesReturned)
+                    {
+                        throw new UnauthorizedAccessException(
+                            $"Invalid directory entry offset returned for: {path}");
+                    }
+                    offset += nextOffset;
+                }
+            }
+            return names;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
+    }
+
+    private static IReadOnlyList<string> EnumerateUnixDirectoryNames(
+        SafeFileHandle directory,
+        string path)
+    {
+        if (!OperatingSystem.IsLinux() || IntPtr.Size != 8)
+        {
+            throw new NotSupportedException(
+                "Secure directory enumeration requires a 64-bit Linux process.");
+        }
+
+        var duplicate = DuplicateFileDescriptorUnix(
+            directory.DangerousGetHandle().ToInt32());
+        if (duplicate < 0)
+            ThrowUnixPathError(path);
+
+        var nativeDirectory = OpenDirectoryFromFileDescriptorUnix(duplicate);
+        if (nativeDirectory == 0)
+        {
+            var error = Marshal.GetLastPInvokeError();
+            CloseFileDescriptorUnix(duplicate);
+            ThrowUnixPathError(path, error);
+        }
+
+        try
+        {
+            var names = new List<string>();
+            while (true)
+            {
+                Marshal.SetLastPInvokeError(0);
+                var entry = ReadDirectoryUnix(nativeDirectory);
+                if (entry == 0)
+                {
+                    var error = Marshal.GetLastPInvokeError();
+                    if (error != 0)
+                        ThrowUnixPathError(path, error);
+                    break;
+                }
+
+                // On supported 64-bit Linux ABIs, d_name follows ino64, off64,
+                // reclen, and type in struct dirent.
+                const int LinuxDirectoryEntryNameOffset = 19;
+                var name = Marshal.PtrToStringUTF8(entry + LinuxDirectoryEntryNameOffset)
+                    ?? throw new UnauthorizedAccessException(
+                        $"Invalid directory entry name returned for: {path}");
+                if (name is not "." and not "..")
+                    names.Add(name);
+            }
+            return names;
+        }
+        finally
+        {
+            CloseDirectoryUnix(nativeDirectory);
+        }
     }
 
     private static OpenedPath OpenWindowsExisting(
@@ -298,11 +886,13 @@ internal static class SecureFileSystem
         }
     }
 
-    private static SafeFileHandle OpenWindowsDirectory(string path)
+    private static SafeFileHandle OpenWindowsDirectory(
+        string path,
+        uint desiredAccess = WindowsFileReadAttributes)
     {
         var handle = CreateFileWindows(
             path,
-            WindowsFileReadAttributes,
+            desiredAccess,
             WindowsFileShareRead | WindowsFileShareWrite | WindowsFileShareDelete,
             0,
             WindowsOpenExisting,
@@ -916,6 +1506,28 @@ internal static class SecureFileSystem
         uint eaLength);
 
     [DllImport("ntdll.dll")]
+    private static extern int NtQueryDirectoryFile(
+        SafeFileHandle fileHandle,
+        nint eventHandle,
+        nint apcRoutine,
+        nint apcContext,
+        out WindowsIoStatusBlock ioStatusBlock,
+        nint fileInformation,
+        uint length,
+        int fileInformationClass,
+        [MarshalAs(UnmanagedType.U1)] bool returnSingleEntry,
+        nint fileName,
+        [MarshalAs(UnmanagedType.U1)] bool restartScan);
+
+    [DllImport("ntdll.dll")]
+    private static extern int NtSetInformationFile(
+        SafeFileHandle fileHandle,
+        out WindowsIoStatusBlock ioStatusBlock,
+        nint fileInformation,
+        uint length,
+        int fileInformationClass);
+
+    [DllImport("ntdll.dll")]
     private static extern uint RtlNtStatusToDosError(int status);
 
     [DllImport("kernel32.dll", SetLastError = true)]
@@ -940,6 +1552,14 @@ internal static class SecureFileSystem
         SafeFileHandle file,
         int fileInformationClass,
         out WindowsFileStandardInformation fileInformation,
+        uint bufferSize);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetFileInformationByHandle(
+        SafeFileHandle file,
+        int fileInformationClass,
+        ref WindowsFileDispositionInformation fileInformation,
         uint bufferSize);
 
     [DllImport("System.Native", EntryPoint = "SystemNative_Open", SetLastError = true)]
@@ -979,8 +1599,17 @@ internal static class SecureFileSystem
         string newPath,
         int flags);
 
+    [DllImport("libc", EntryPoint = "unlinkat", SetLastError = true)]
+    private static extern int UnlinkAtUnix(
+        int directoryFd,
+        string path,
+        int flags);
+
     [DllImport("libc", EntryPoint = "fdopendir", SetLastError = true)]
     private static extern nint OpenDirectoryFromFileDescriptorUnix(int fileDescriptor);
+
+    [DllImport("libc", EntryPoint = "readdir", SetLastError = true)]
+    private static extern nint ReadDirectoryUnix(nint directory);
 
     [DllImport("libc", EntryPoint = "dup", SetLastError = true)]
     private static extern int DuplicateFileDescriptorUnix(int fileDescriptor);
@@ -1046,6 +1675,12 @@ internal static class SecureFileSystem
         internal readonly uint NumberOfLinks;
         internal readonly byte DeletePending;
         internal readonly byte Directory;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WindowsFileDispositionInformation
+    {
+        internal int DeleteFile;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -1119,3 +1754,7 @@ internal sealed record SecureFileStatus(
     long Size,
     DateTimeOffset Mtime,
     DateTimeOffset Birthtime);
+
+internal sealed record SecureDirectoryEntry(
+    string Name,
+    bool IsDirectory);

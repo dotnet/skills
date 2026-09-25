@@ -530,13 +530,13 @@ public static class AgentRunner
                     continue;
                 }
 
-                var hardenedLaunch = CreateHardenedBinlogMcpLaunch();
+                var hardenedLaunch = HardenedBinlogMcpLaunch.Value;
                 var entry = new McpStdioServerConfig
                 {
                     Command = def.Command,
-                    Args = hardenedLaunch.Args,
+                    Args = [.. hardenedLaunch.Args],
                     Tools = def.Tools ?? [],
-                    Env = hardenedLaunch.Environment,
+                    Env = new Dictionary<string, string>(hardenedLaunch.Environment),
                 };
 
                 if (def.Env is { Count: > 0 })
@@ -1394,6 +1394,8 @@ public static class AgentRunner
     private const string BinlogMcpPackage = "Microsoft.AITools.BinlogMcp";
     private const string BinlogMcpVersion = "3.0.2";
     private const string TrustedNugetSource = "https://api.nuget.org/v3/index.json";
+    private static readonly Lazy<HardenedMcpLaunch> HardenedBinlogMcpLaunch =
+        new(CreateHardenedBinlogMcpLaunch);
 
     internal static string[]? SanitizeMcpArgs(string command, string[] args)
     {
@@ -1413,7 +1415,10 @@ public static class AgentRunner
         var httpCache = Path.Combine(root, "http-cache");
         Directory.CreateDirectory(packages);
         Directory.CreateDirectory(httpCache);
-        _workDirs.Add(root);
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        {
+            try { Directory.Delete(root, recursive: true); } catch { }
+        };
 
         var configPath = Path.Combine(root, "NuGet.config");
         File.WriteAllText(
@@ -1441,7 +1446,6 @@ public static class AgentRunner
                 "--yes",
                 "--configfile",
                 configPath,
-                "--no-http-cache",
             ],
             Environment: new Dictionary<string, string>
             {
