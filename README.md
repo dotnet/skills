@@ -38,6 +38,7 @@ Plugin support is component-specific:
 | [dotnet-test-migration](plugins/dotnet-test-migration/) | Skills and a GitHub Copilot orchestrator agent for migrating .NET test frameworks and platforms: MSTest and xUnit version upgrades, xUnit-to-MSTest conversion, and VSTest to Microsoft.Testing.Platform. |
 | [dotnet-aspnetcore](plugins/dotnet-aspnetcore/) | ASP.NET Core web development skills including middleware, endpoints, real-time communication, and API patterns. |
 | [dotnet-blazor](plugins/dotnet-blazor/) | Skills for Blazor development: component authoring, interactivity, and web application patterns. |
+| [dotnet-winforms](plugins/dotnet-winforms/) | Skills for Windows Forms development: project setup, UI design, data binding, accessibility, and modern .NET practices. |
 | [dotnet11](plugins/dotnet11/) | Skills for new .NET 11 APIs and language features. |
 
 ## Agentic Workflows
