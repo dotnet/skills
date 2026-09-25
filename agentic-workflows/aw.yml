@@ -5,6 +5,7 @@ description: Reusable agentic workflows maintained by the .NET team.
 license: MIT
 includes:
   - build-failure-analysis/aw.yml
+  - msbuild-quality-review/aw.yml
 config:
   - type: copilot-auth
     strategy: prompt-if-actions-auth-unavailable
@@ -24,3 +25,7 @@ config:
     name: BUILD_FAILURE_ANALYSIS_ADO_DEFINITION_ID
     prompt: Azure Pipelines definition ID
     description: Numeric definition ID of the PR build pipeline.
+  - type: repo-variable
+    name: MSBUILD_QUALITY_REVIEW_EXCLUDED_PATHS
+    prompt: Additional paths to exclude from MSBuild quality review
+    description: Optional newline-, comma-, or semicolon-separated glob patterns for fixtures or generated files.

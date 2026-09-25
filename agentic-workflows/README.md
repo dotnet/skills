@@ -9,6 +9,7 @@ that can be installed into other repositories. The workflow sources are kept out
 | Package | Description |
 | --- | --- |
 | [Build Failure Analysis](build-failure-analysis/) | Analyzes failed .NET Azure Pipelines builds from their existing binary logs and posts evidence-backed findings on the pull request. |
+| [MSBuild Quality Review](msbuild-quality-review/) | Reviews changed MSBuild project and infrastructure files and posts one bounded, evidence-backed PR review comment. |
 
 ## Installation
 
