@@ -1,7 +1,8 @@
 name: agent.code-testing-generator
 description: Evaluates the dotnet-test/code-testing-generator custom-agent pipeline
 type: capability
-executionShard: generation
+tags:
+  executionShard: generation
 defaults:
   timeout: 60m
   runs: 1
@@ -13,9 +14,13 @@ stimuli:
       analytics.window.RateWindow, and textkit.slug, including validation,
       boundaries, rollover, and truncation. Run pytest and map every requested
       behavior to named test evidence.
+    tags:
+      capability: project-wide-pytest-generation
+      risk: missed-boundary-coverage
+      journey: generate-multimodule-python-suite
     environment:
       files:
-        - src: ../code-testing-agent/fixtures/python-multimodule
+        - src: fixtures/python-multimodule
           dest: fixtures/python-multimodule
       commands:
         - git init -q
@@ -51,9 +56,13 @@ stimuli:
       packages.config, explicit compile items, and the existing test file.
       Cover DiscountService and TieredDiscountPolicy validation and boundaries,
       then report exact evidence for each requirement.
+    tags:
+      capability: classic-mstest-suite-extension
+      risk: legacy-project-drift
+      journey: extend-classic-dotnet-suite
     environment:
       files:
-        - src: ../code-testing-agent/fixtures/classic-mstest
+        - src: fixtures/classic-mstest
           dest: fixtures/classic-mstest
       commands:
         - rm -f fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs && cp fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine fixtures/classic-mstest/tests/Discounts.Tests.csproj && rm fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine
@@ -75,6 +84,19 @@ stimuli:
           command: sh -c "grep -q 'Compile Include=\"DiscountServiceBoundaryTests.cs\"' fixtures/classic-mstest/tests/Discounts.Tests.csproj && grep -q 'Compile Include=\"TieredDiscountPolicyTests.cs\"' fixtures/classic-mstest/tests/Discounts.Tests.csproj"
           expected_exit_code: 0
           timeout: 1m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import base64,pathlib;
+            p=pathlib.Path('fixtures/classic-mstest/.eval-validation/GeneratedTests.csproj');
+            p.parent.mkdir(parents=True,exist_ok=True);
+            p.write_bytes(base64.b64decode('PFByb2plY3QgU2RrPSJNaWNyb3NvZnQuTkVULlNkayI+CiAgPFByb3BlcnR5R3JvdXA+CiAgICA8VGFyZ2V0RnJhbWV3b3JrPm5ldDguMDwvVGFyZ2V0RnJhbWV3b3JrPgogICAgPEVuYWJsZURlZmF1bHRDb21waWxlSXRlbXM+ZmFsc2U8L0VuYWJsZURlZmF1bHRDb21waWxlSXRlbXM+CiAgICA8SW1wbGljaXRVc2luZ3M+ZGlzYWJsZTwvSW1wbGljaXRVc2luZ3M+CiAgICA8TnVsbGFibGU+ZGlzYWJsZTwvTnVsbGFibGU+CiAgICA8SXNUZXN0UHJvamVjdD50cnVlPC9Jc1Rlc3RQcm9qZWN0PgogICAgPE5vV2Fybj4kKE5vV2Fybik7TlUxNzAxPC9Ob1dhcm4+CiAgPC9Qcm9wZXJ0eUdyb3VwPgogIDxJdGVtR3JvdXA+CiAgICA8UGFja2FnZVJlZmVyZW5jZSBJbmNsdWRlPSJNaWNyb3NvZnQuTkVULlRlc3QuU2RrIiBWZXJzaW9uPSIxNy4xMy4wIiAvPgogICAgPFBhY2thZ2VSZWZlcmVuY2UgSW5jbHVkZT0iTVNUZXN0LlRlc3RBZGFwdGVyIiBWZXJzaW9uPSIzLjUuMiIgLz4KICAgIDxQYWNrYWdlUmVmZXJlbmNlIEluY2x1ZGU9Ik1TVGVzdC5UZXN0RnJhbWV3b3JrIiBWZXJzaW9uPSIzLjUuMiIgLz4KICAgIDxQYWNrYWdlUmVmZXJlbmNlIEluY2x1ZGU9Ik1vcSIgVmVyc2lvbj0iNC4yLjE1MTAuMjIwNSIgLz4KICAgIDxQYWNrYWdlUmVmZXJlbmNlIEluY2x1ZGU9Ik5CdWlsZGVyIiBWZXJzaW9uPSI2LjEuMCIgLz4KICAgIDxQYWNrYWdlUmVmZXJlbmNlIEluY2x1ZGU9IlN5c3RlbS5Db2RlRG9tIiBWZXJzaW9uPSI4LjAuMCIgLz4KICAgIDxQYWNrYWdlUmVmZXJlbmNlIEluY2x1ZGU9IlN5c3RlbS5TZWN1cml0eS5QZXJtaXNzaW9ucyIgVmVyc2lvbj0iOC4wLjAiIC8+CiAgPC9JdGVtR3JvdXA+CiAgPEl0ZW1Hcm91cD4KICAgIDxDb21waWxlIEluY2x1ZGU9Ii4uL3NyYy9EaXNjb3VudFNlcnZpY2UuY3MiIC8+CiAgICA8Q29tcGlsZSBJbmNsdWRlPSIuLi9zcmMvVGllcmVkRGlzY291bnRQb2xpY3kuY3MiIC8+CiAgICA8Q29tcGlsZSBJbmNsdWRlPSIuLi90ZXN0cy9GaXh0dXJlQmFzZS5jcyIgLz4KICAgIDxDb21waWxlIEluY2x1ZGU9Ii4uL3Rlc3RzL0Rpc2NvdW50U2VydmljZVRlc3RzLmNzIiAvPgogICAgPENvbXBpbGUgSW5jbHVkZT0iLi4vdGVzdHMvRGlzY291bnRTZXJ2aWNlQm91bmRhcnlUZXN0cy5jcyIgLz4KICAgIDxDb21waWxlIEluY2x1ZGU9Ii4uL3Rlc3RzL1RpZXJlZERpc2NvdW50UG9saWN5VGVzdHMuY3MiIC8+CiAgPC9JdGVtR3JvdXA+CjwvUHJvamVjdD4K'))"
+            && dotnet test
+            fixtures/classic-mstest/.eval-validation/GeneratedTests.csproj
+            --list-tests --verbosity minimal
+          expected_exit_code: 0
+          stdout_matches: '(?is)Apply_HundredPercent_ReturnsZero.*Apply_AboveThreshold_ReturnsExactDiscountedValue'
+          timeout: 10m
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
@@ -91,9 +113,13 @@ stimuli:
       order.Total, including validation, exact boundaries, collaborator errors,
       and short-circuit behavior. Use fakes where appropriate and make
       `go test ./...` pass.
+    tags:
+      capability: cross-package-go-test-generation
+      risk: collaborator-path-omission
+      journey: generate-go-module-suite
     environment:
       files:
-        - src: ../code-testing-agent/fixtures/go-multipackage
+        - src: fixtures/go-multipackage
           dest: fixtures/go-multipackage
       commands:
         - git init -q
@@ -105,7 +131,17 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: sh -c "cd fixtures/go-multipackage && go test ./..."
+          command: >-
+            sh -c "cd fixtures/go-multipackage
+            && go test -json ./... > .eval-go-tests.json
+            && python3 -c 'import json,sys;
+            events=[json.loads(line) for line in open(sys.argv[1], encoding=\"utf-8\")];
+            expected={\"example.com/checkout/money\",\"example.com/checkout/shipping\",\"example.com/checkout/order\"};
+            executed={e[\"Package\"] for e in events if e.get(\"Action\")==\"pass\" and e.get(\"Test\")};
+            missing=expected-executed;
+            assert not missing, f\"packages without passing tests: {sorted(missing)}\"'
+            .eval-go-tests.json
+            && rm .eval-go-tests.json"
           expected_exit_code: 0
           timeout: 5m
       - type: run-command
@@ -129,9 +165,13 @@ stimuli:
       shipping, inventory, and Cart behavior, including async refresh,
       collaborator failures, snapshot isolation, and configured coverage
       thresholds. Use fakes instead of real I/O.
+    tags:
+      capability: layered-vitest-suite-generation
+      risk: async-integration-gaps
+      journey: generate-typescript-cart-suite
     environment:
       files:
-        - src: ../code-testing-agent/fixtures/typescript-vitest-cart
+        - src: fixtures/typescript-vitest-cart
           dest: fixtures/typescript-vitest-cart
       commands:
         - git init -q
@@ -166,9 +206,13 @@ stimuli:
       fixtures/sdk-xunit-orders/. Cover OrderPricing.Total and ReservationWindow,
       including validation, exact decimal values, and every before/at boundary.
       Keep production code unchanged and run the existing test project.
+    tags:
+      capability: project-wide-xunit-generation
+      risk: time-boundary-gaps
+      journey: generate-dotnet-order-suite
     environment:
       files:
-        - src: ../code-testing-agent/fixtures/sdk-xunit-orders
+        - src: fixtures/sdk-xunit-orders
           dest: fixtures/sdk-xunit-orders
       commands:
         - find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -delete
@@ -183,6 +227,7 @@ stimuli:
         config:
           command: sh -c "dotnet test fixtures/sdk-xunit-orders/tests/Orders.Tests.csproj"
           expected_exit_code: 0
+          stdout_matches: '(?i)\btotal:\s*[1-9][0-9]*\b'
           timeout: 10m
       - type: run-command
         config:
