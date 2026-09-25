@@ -112,10 +112,11 @@ Include a machine marker after the heading:
 
 Before posting:
 
-1. Re-read PR `GH_AW_PR_NUMBER` with `gh api`. Compare `.head.sha` with
-   `GH_AW_EXPECTED_HEAD_SHA`, and require `GH_AW_EXPECTED_TESTED_SHA` to still
-   equal either `.head.sha` or the current non-empty `.merge_commit_sha`. If
-   these values are unavailable or different, call `noop` and stop.
+1. Re-read PR `GH_AW_PR_NUMBER` with the GitHub `pull_requests` read tool.
+   Compare `.head.sha` with `GH_AW_EXPECTED_HEAD_SHA`, and require
+   `GH_AW_EXPECTED_TESTED_SHA` to still equal either `.head.sha` or the current
+   non-empty `.merge_commit_sha`. If these values are unavailable or different,
+   call `noop` and stop.
 2. Search existing PR comments for the workflow marker, numeric source run ID,
    build identity, tested SHA, and phase. Trust lifecycle state only when the
    comment author's login exactly equals `GH_AW_TRUSTED_COMMENT_AUTHOR`.

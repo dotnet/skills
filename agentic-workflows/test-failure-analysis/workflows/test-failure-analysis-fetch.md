@@ -23,10 +23,10 @@ jobs:
       head-sha: ${{ steps.collect.outputs.head-sha }}
       tested-sha: ${{ steps.collect.outputs.tested-sha }}
       build-identity: ${{ steps.collect.outputs.build-identity }}
-      trusted-comment-author: ${{ steps.collect.outputs.trusted-comment-author }}
       source-run-id: ${{ steps.collect.outputs.source-run-id }}
       source-run-url: ${{ steps.collect.outputs.source-run-url }}
       summary-location: ${{ steps.collect.outputs.summary-location }}
+      sanitized-artifact-name: ${{ steps.collect.outputs.sanitized-artifact-name }}
     steps:
       - name: Validate and sanitize evidence artifact
         id: collect
@@ -41,7 +41,6 @@ jobs:
           GH_AW_EXPECTED_HEAD_SHA: ${{ inputs['expected-head-sha'] }}
           GH_AW_EXPECTED_TESTED_SHA: ${{ inputs['expected-tested-sha'] }}
           GH_AW_EXPECTED_BUILD_IDENTITY: ${{ inputs['expected-build-identity'] }}
-          GH_AW_TRUSTED_COMMENT_AUTHOR: ${{ inputs['trusted-comment-author'] }}
           GH_AW_EXPECTED_SOURCE_RUN_URL: ${{ inputs['source-run-url'] }}
           GH_AW_EXPECTED_SUMMARY_LOCATION: ${{ inputs['evidence-summary-location'] }}
           GH_AW_DURATION_PERCENT: ${{ inputs['duration-regression-percent'] }}
@@ -60,6 +59,8 @@ jobs:
 
           [ -n "${GITHUB_OUTPUT:-}" ] || fail "GITHUB_OUTPUT is unavailable."
           printf '' >> "$GITHUB_OUTPUT" || fail "GITHUB_OUTPUT is not writable."
+          SANITIZED_ARTIFACT_NAME="test-failure-analysis-data-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-$(python3 -c 'import uuid; print(uuid.uuid4().hex)')"
+          echo "sanitized-artifact-name=${SANITIZED_ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
 
           python3 - <<'PY'
           import os
@@ -118,11 +119,6 @@ jobs:
               r"[A-Za-z0-9][A-Za-z0-9._:@/+ -]{0,199}",
               "Build identity contains unsupported characters or is too long.",
           )
-          fullmatch(
-              "GH_AW_TRUSTED_COMMENT_AUTHOR",
-              r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,98}[A-Za-z0-9])?(?:\[bot\])?",
-              "Trusted comment author is not a valid login.",
-          )
           bounded_scalar("GH_AW_EXPECTED_SOURCE_RUN_URL", 300, allow_empty=True)
           if os.environ["GH_AW_EXPECTED_SUMMARY_LOCATION"]:
               fullmatch(
@@ -147,6 +143,10 @@ jobs:
               if name.endswith("SAMPLES") and value != value.to_integral_value():
                   fail(f"{name} must be an integer.")
           PY
+
+          GH_AW_EXPECTED_HEAD_SHA=${GH_AW_EXPECTED_HEAD_SHA,,}
+          GH_AW_EXPECTED_TESTED_SHA=${GH_AW_EXPECTED_TESTED_SHA,,}
+          export GH_AW_EXPECTED_HEAD_SHA GH_AW_EXPECTED_TESTED_SHA
 
           PR_JSON=$(gh api "repos/${GH_AW_REPOSITORY}/pulls/${GH_AW_PR_NUMBER}") ||
             fail "Could not read the trusted pull request."
@@ -529,7 +529,6 @@ jobs:
             echo "head-sha=${GH_AW_EXPECTED_HEAD_SHA}"
             echo "tested-sha=${GH_AW_EXPECTED_TESTED_SHA}"
             echo "build-identity=${GH_AW_EXPECTED_BUILD_IDENTITY}"
-            echo "trusted-comment-author=${GH_AW_TRUSTED_COMMENT_AUTHOR}"
             echo "source-run-id=${GH_AW_EVIDENCE_RUN_ID}"
             echo "source-run-url=${SOURCE_RUN_URL}"
             echo "summary-location=${SUMMARY_LOCATION}"
@@ -539,7 +538,7 @@ jobs:
         if: steps.collect.outputs.evidence-found == 'true'
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: test-failure-analysis-data
+          name: ${{ steps.collect.outputs.sanitized-artifact-name }}
           path: ${{ runner.temp }}/test-failure-analysis-evidence
           if-no-files-found: error
           retention-days: "1"

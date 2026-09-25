@@ -231,7 +231,6 @@ jobs:
       expected-head-sha: ${{ inputs.expected-head-sha }}
       expected-tested-sha: ${{ inputs.tested-sha }}
       expected-build-identity: ${{ needs.collect.outputs.build-identity }}
-      trusted-comment-author: github-actions[bot]
       source-run-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       evidence-summary-location: artifact:normalized-test-evidence/summary.txt
       duration-regression-percent: 25

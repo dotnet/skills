@@ -36,11 +36,6 @@ on:
         description: "Stable CI build identity expected in metadata.json."
         required: true
         type: string
-      trusted-comment-author:
-        description: "Login used by gh-aw safe outputs for lifecycle comments."
-        required: false
-        type: string
-        default: "github-actions[bot]"
       source-run-url:
         description: "Optional trusted source run URL; must match the Actions run."
         required: false
@@ -97,11 +92,6 @@ on:
         description: "Stable CI build identity expected in metadata.json."
         required: true
         type: string
-      trusted-comment-author:
-        description: "Login used by gh-aw safe outputs for lifecycle comments."
-        required: false
-        type: string
-        default: "github-actions[bot]"
       source-run-url:
         description: "Optional trusted source run URL; must match the Actions run."
         required: false
@@ -152,7 +142,7 @@ steps:
   - name: Download sanitized evidence
     uses: actions/download-artifact@v8.0.1
     with:
-      name: test-failure-analysis-data
+      name: ${{ needs.collect-test-evidence.outputs.sanitized-artifact-name }}
       path: .gh-aw/test-failure-analysis/evidence
 
   - name: Export trusted analysis context
@@ -163,7 +153,7 @@ steps:
       GH_AW_HEAD_SHA_VALUE: ${{ needs.collect-test-evidence.outputs.head-sha }}
       GH_AW_TESTED_SHA_VALUE: ${{ needs.collect-test-evidence.outputs.tested-sha }}
       GH_AW_BUILD_IDENTITY_VALUE: ${{ needs.collect-test-evidence.outputs.build-identity }}
-      GH_AW_TRUSTED_COMMENT_AUTHOR_VALUE: ${{ needs.collect-test-evidence.outputs.trusted-comment-author }}
+      GH_AW_TRUSTED_COMMENT_AUTHOR_VALUE: "github-actions[bot]"
       GH_AW_SOURCE_RUN_ID_VALUE: ${{ needs.collect-test-evidence.outputs.source-run-id }}
       GH_AW_SOURCE_RUN_URL_VALUE: ${{ needs.collect-test-evidence.outputs.source-run-url }}
       GH_AW_SUMMARY_LOCATION_VALUE: ${{ needs.collect-test-evidence.outputs.summary-location }}
