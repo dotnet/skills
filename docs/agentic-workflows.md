@@ -62,7 +62,7 @@ gh aw compile --strict --validate --schedule-seed dotnet/skills `
 gh aw run devops-health-check --dry-run
 
 # Run the same active-workflow and package validation used by CI
-python eng/agentic-workflows/validate_agentic_workflows.py
+python eng/agentic-workflows/validate_agentic_workflows.py --normalize
 
 # Exercise the packaged build-failure operational-value evaluator fixtures
 python eng/agentic-workflows/test_build_failure_analysis_operational_value.py

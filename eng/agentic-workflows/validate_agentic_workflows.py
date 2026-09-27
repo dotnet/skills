@@ -77,6 +77,36 @@ def assert_same(expected: Path, actual: Path, repo_root: Path) -> None:
         )
 
 
+def normalize_maintenance_cli_version(path: Path) -> None:
+    if not path.exists():
+        return
+    text = path.read_text(encoding="utf-8")
+    setup_cli_ref = f"uses: github/gh-aw-actions/setup-cli@{GH_AW_ACTIONS_SHA}"
+    lines = text.splitlines(keepends=True)
+    changed = False
+    for index, line in enumerate(lines):
+        if setup_cli_ref not in line:
+            continue
+        for candidate in range(index + 1, min(index + 5, len(lines))):
+            stripped = lines[candidate].strip()
+            if stripped.startswith("version:"):
+                indentation = lines[candidate][: len(lines[candidate]) - len(lines[candidate].lstrip())]
+                newline = "\n" if lines[candidate].endswith("\n") else ""
+                lines[candidate] = f"{indentation}version: {GH_AW_VERSION}{newline}"
+                changed = True
+                break
+    if changed:
+        path.write_text("".join(lines), encoding="utf-8", newline="\n")
+
+
+def expected_active_locks(workflows_dir: Path) -> set[Path]:
+    return {
+        source.with_name(f"{source.stem}.lock.yml")
+        for source in workflows_dir.glob("*.md")
+        if has_workflow_trigger(source)
+    }
+
+
 def validate_active_workflows(repo_root: Path) -> None:
     with tempfile.TemporaryDirectory(prefix="gh-aw-active-") as temp_dir:
         scratch = Path(temp_dir)
@@ -101,8 +131,31 @@ def validate_active_workflows(repo_root: Path) -> None:
             ],
             scratch,
         )
+        normalize_maintenance_cli_version(
+            scratch / ".github" / "workflows" / "agentics-maintenance.yml"
+        )
 
-        generated = sorted((repo_root / ".github" / "workflows").glob("*.lock.yml"))
+        workflows_dir = repo_root / ".github" / "workflows"
+        expected_locks = expected_active_locks(workflows_dir)
+        committed_locks = set(workflows_dir.glob("*.lock.yml"))
+        if committed_locks != expected_locks:
+            missing = sorted(str(path.relative_to(repo_root)) for path in expected_locks - committed_locks)
+            unexpected = sorted(str(path.relative_to(repo_root)) for path in committed_locks - expected_locks)
+            details = []
+            if missing:
+                details.append(f"missing generated locks: {', '.join(missing)}")
+            if unexpected:
+                details.append(f"unexpected generated locks: {', '.join(unexpected)}")
+            raise RuntimeError("; ".join(details))
+
+        scratch_locks = set((scratch / ".github" / "workflows").glob("*.lock.yml"))
+        expected_scratch_locks = {
+            scratch / lock.relative_to(repo_root) for lock in expected_locks
+        }
+        if scratch_locks != expected_scratch_locks:
+            raise RuntimeError("gh-aw compilation produced an unexpected lock-file set")
+
+        generated = sorted(expected_locks)
         generated.append(repo_root / ".github" / "workflows" / "agentics-maintenance.yml")
         generated.append(repo_root / ".github" / "aw" / "actions-lock.json")
         for expected in generated:
@@ -165,11 +218,32 @@ def grader_evaluator_paths(path: Path) -> list[Path]:
 
 def package_destination(include: str) -> Path:
     path = Path(include)
+    if not path.parts:
+        raise RuntimeError("Package include path must not be empty")
     if path.parts[0] == "workflows":
         return Path(".github", "workflows", *path.parts[1:])
     if path.parts[0] == "agents":
         return Path(".github", "agents", *path.parts[1:])
     return path
+
+
+def resolve_package_include(manifest: Path, include: str, scratch: Path) -> tuple[Path, Path]:
+    include_path = Path(include)
+    if include_path.is_absolute():
+        raise RuntimeError(f"{manifest} contains absolute include path {include}")
+
+    package_root = manifest.parent.resolve()
+    source = (package_root / include_path).resolve()
+    if not source.is_relative_to(package_root):
+        raise RuntimeError(f"{manifest} include escapes its package directory: {include}")
+
+    destination_relative = package_destination(include)
+    if destination_relative.is_absolute():
+        raise RuntimeError(f"{manifest} contains absolute destination path {include}")
+    destination = (scratch.resolve() / destination_relative).resolve()
+    if not destination.is_relative_to(scratch.resolve()):
+        raise RuntimeError(f"{manifest} include escapes the staged repository: {include}")
+    return source, destination
 
 
 def validate_package(repo_root: Path, manifest: Path) -> None:
@@ -183,10 +257,9 @@ def validate_package(repo_root: Path, manifest: Path) -> None:
     with tempfile.TemporaryDirectory(prefix=f"gh-aw-package-{manifest.parent.name}-") as temp_dir:
         scratch = Path(temp_dir)
         for include in includes:
-            source = manifest.parent / include
+            source, destination = resolve_package_include(manifest, include, scratch)
             if not source.is_file():
                 raise RuntimeError(f"{manifest.relative_to(repo_root)} references missing file {include}")
-            destination = scratch / package_destination(include)
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
 
@@ -257,6 +330,11 @@ def main() -> int:
         type=Path,
         default=Path(__file__).resolve().parents[2],
     )
+    parser.add_argument(
+        "--normalize",
+        action="store_true",
+        help="Normalize generated maintenance setup-cli inputs before validation.",
+    )
     args = parser.parse_args()
     repo_root = args.repo_root.resolve()
 
@@ -265,6 +343,11 @@ def main() -> int:
     if not version.endswith(GH_AW_VERSION):
         raise RuntimeError(
             f"Expected gh-aw {GH_AW_VERSION}, but found {version or 'no version output'}"
+        )
+
+    if args.normalize:
+        normalize_maintenance_cli_version(
+            repo_root / ".github" / "workflows" / "agentics-maintenance.yml"
         )
 
     validate_active_workflows(repo_root)

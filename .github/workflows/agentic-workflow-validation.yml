@@ -46,7 +46,9 @@ jobs:
           version: v0.89.15
 
       - name: Validate active and packaged workflows
-        run: python eng/agentic-workflows/validate_agentic_workflows.py
+        run: |
+          python -m unittest eng/agentic-workflows/test_validate_agentic_workflows.py
+          python eng/agentic-workflows/validate_agentic_workflows.py
 
       - name: Test build-failure operational-value grader
         run: python eng/agentic-workflows/test_build_failure_analysis_operational_value.py
