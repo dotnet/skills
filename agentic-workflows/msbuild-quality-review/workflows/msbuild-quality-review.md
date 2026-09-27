@@ -6,9 +6,11 @@ description: >-
   package extension authoring, maintainability, and credible performance issues.
 
 on:
-  pull_request:
+  # Execute the workflow and generated lock from the trusted base branch. The
+  # agent never checks out or executes pull request code; it reads the PR diff
+  # and changed files through the restricted, read-only GitHub tools.
+  pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
-    forks: ["*"]
     paths:
       - "**/*.csproj"
       - "**/*.fsproj"
@@ -25,6 +27,8 @@ on:
   roles: all
 
 if: github.event.pull_request.draft == false
+
+checkout: false
 
 concurrency:
   group: msbuild-quality-review-${{ github.event.pull_request.number }}

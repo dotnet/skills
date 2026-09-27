@@ -7,7 +7,9 @@ extension authoring, maintainability, and credible performance regressions.
 
 The workflow is read-only. It does not build pull request code, modify files, create
 issues, or open pull requests. Each run emits at most one `COMMENT` review and reports at
-most 10 findings.
+most 10 findings. It uses `pull_request_target` so GitHub executes the workflow and
+generated lock from the trusted base branch; pull request content is read only through
+the restricted GitHub tools and is never checked out or executed.
 
 ## Install
 

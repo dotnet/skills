@@ -48,7 +48,8 @@ infrastructure, then individual projects.
 5. For package build extensions, reconstruct the packed layout before judging imports:
    inspect nearby `.nuspec` `<file>` mappings and project `PackagePath` metadata.
 6. Keep only findings whose primary location is changed and whose impact is credible.
-7. Re-read the pull request head before posting. If it moved, use `noop`.
+7. Re-read the pull request head and base SHAs before posting. If either moved, use
+   `noop`.
 
 ## Review categories
 
