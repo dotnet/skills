@@ -28,6 +28,7 @@ on:
 
 concurrency:
   group: gh-aw-${{ github.workflow }}-${{ github.event.issue.number || inputs.issue_number }}
+  job-discriminator: ${{ github.run_id }}
 
 model: ${{ vars.GH_AW_MODEL_AGENT_COPILOT || vars.GH_AW_DEFAULT_MODEL_COPILOT || 'gpt-5.6-sol' }}
 

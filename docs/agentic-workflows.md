@@ -52,14 +52,17 @@ devops-health-groom (Groomer) ─── runs daily
 ## Local Development
 
 ```powershell
-# Compile workflows (generates .lock.yml from .md frontmatter)
-gh aw compile
-
-# Compile with validation
-gh aw compile --strict
+# Compile workflows with the repository's deterministic action pins and
+# schedule seed (generates .lock.yml from .md frontmatter)
+gh aw compile --strict --validate --schedule-seed dotnet/skills `
+  --action-mode action `
+  --action-tag e93dc06546adbe250a4bdf7d27cee653f22312a0
 
 # Dry-run (validates without triggering on GitHub Actions)
 gh aw run devops-health-check --dry-run
+
+# Run the same active-workflow and package validation used by CI
+python eng/agentic-workflows/validate_agentic_workflows.py
 
 # Run on GitHub Actions (from a pushed branch)
 gh aw run devops-health-check --push --ref <branch>
