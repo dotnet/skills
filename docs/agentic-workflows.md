@@ -64,6 +64,9 @@ gh aw run devops-health-check --dry-run
 # Run the same active-workflow and package validation used by CI
 python eng/agentic-workflows/validate_agentic_workflows.py
 
+# Exercise the packaged build-failure operational-value evaluator fixtures
+python eng/agentic-workflows/test_build_failure_analysis_operational_value.py
+
 # Run on GitHub Actions (from a pushed branch)
 gh aw run devops-health-check --push --ref <branch>
 ```

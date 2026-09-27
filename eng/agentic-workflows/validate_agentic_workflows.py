@@ -131,6 +131,38 @@ def has_workflow_trigger(path: Path) -> bool:
     return re.search(r"(?m)^on:\s*(?:#.*)?$", text[3:end]) is not None
 
 
+def frontmatter(path: Path) -> dict:
+    text = path.read_text(encoding="utf-8")
+    if not text.startswith("---"):
+        raise RuntimeError(f"{path} does not start with YAML frontmatter")
+    end = text.find("\n---", 3)
+    if end < 0:
+        raise RuntimeError(f"{path} has unterminated YAML frontmatter")
+    data = yaml.safe_load(text[3:end]) or {}
+    if not isinstance(data, dict):
+        raise RuntimeError(f"{path} frontmatter must be a mapping")
+    return data
+
+
+def grader_evaluator_paths(path: Path) -> list[Path]:
+    graders = frontmatter(path).get("graders")
+    if not isinstance(graders, dict):
+        return []
+
+    result: list[Path] = []
+    for grader in graders.values():
+        if not isinstance(grader, dict):
+            continue
+        evaluator = grader.get("run")
+        if not isinstance(evaluator, str) or not evaluator:
+            continue
+        evaluator_path = Path(evaluator)
+        if evaluator_path.is_absolute() or ".." in evaluator_path.parts:
+            raise RuntimeError(f"{path} references invalid grader evaluator {evaluator}")
+        result.append(evaluator_path)
+    return result
+
+
 def package_destination(include: str) -> Path:
     path = Path(include)
     if path.parts[0] == "workflows":
@@ -155,6 +187,22 @@ def validate_package(repo_root: Path, manifest: Path) -> None:
             if not source.is_file():
                 raise RuntimeError(f"{manifest.relative_to(repo_root)} references missing file {include}")
             destination = scratch / package_destination(include)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
+
+        evaluator_paths = {
+            evaluator
+            for include in workflow_includes
+            for evaluator in grader_evaluator_paths(manifest.parent / include)
+        }
+        for evaluator in sorted(evaluator_paths):
+            source = repo_root / evaluator
+            if not source.is_file():
+                raise RuntimeError(
+                    f"{manifest.relative_to(repo_root)} references missing grader evaluator "
+                    f"{evaluator}"
+                )
+            destination = scratch / evaluator
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
 

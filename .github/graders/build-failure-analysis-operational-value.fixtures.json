@@ -1,0 +1,287 @@
+[
+  {
+    "name": "successful-summary",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "101",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/42/merge",
+        "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "add_comment",
+          "body": "<!-- build-failure-analysis -->\n### Build failure analysis\n\nThe compiler error originates in `src/Parser.cs`."
+        },
+        {
+          "type": "create_pull_request_review_comment",
+          "path": "src/Parser.cs",
+          "line": 42,
+          "body": "```suggestion\nreturn parsed;\n```"
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 1
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 1
+      },
+      {
+        "id": "review-comment-count",
+        "value": 1
+      },
+      {
+        "id": "noop-count",
+        "value": 0
+      }
+    ]
+  },
+  {
+    "name": "successful-noop",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "102",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/43/merge",
+        "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "eventName": "workflow_dispatch"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "noop",
+          "message": "The available binlogs compiled cleanly; this is a non-build failure and is out of scope."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 1
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 1
+      }
+    ]
+  },
+  {
+    "name": "contradictory-outputs",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "103",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/44/merge",
+        "sha": "cccccccccccccccccccccccccccccccccccccccc",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "add_comment",
+          "body": "<!-- build-failure-analysis -->\n### Build failure analysis\n\nOne compiler failure was found."
+        },
+        {
+          "type": "noop",
+          "message": "The PR revision moved while the analysis was running, so no comment should be posted."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 0
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 1
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 1
+      }
+    ]
+  },
+  {
+    "name": "missing-terminal-output",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "104",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/45/merge",
+        "sha": "dddddddddddddddddddddddddddddddddddddddd",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "create_pull_request_review_comment",
+          "path": "src/Compiler.cs",
+          "line": 17,
+          "body": "This line causes the compiler failure."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 0
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 1
+      },
+      {
+        "id": "noop-count",
+        "value": 0
+      }
+    ]
+  },
+  {
+    "name": "insufficient-noop-evidence",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "105",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/46/merge",
+        "sha": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "eventName": "workflow_dispatch"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "noop",
+          "message": "Nothing to do."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 0
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 1
+      }
+    ]
+  },
+  {
+    "name": "insufficient-output-evidence",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "106",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/47/merge",
+        "sha": "ffffffffffffffffffffffffffffffffffffffff",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "noop"
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": null
+      },
+      {
+        "id": "summary-comment-count",
+        "value": null
+      },
+      {
+        "id": "review-comment-count",
+        "value": null
+      },
+      {
+        "id": "noop-count",
+        "value": null
+      }
+    ]
+  },
+  {
+    "name": "malformed-input",
+    "request": {
+      "schemaVersion": "one",
+      "run": {},
+      "event": [],
+      "outputs": {},
+      "config": []
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": null
+      },
+      {
+        "id": "summary-comment-count",
+        "value": null
+      },
+      {
+        "id": "review-comment-count",
+        "value": null
+      },
+      {
+        "id": "noop-count",
+        "value": null
+      }
+    ]
+  }
+]

@@ -34,6 +34,7 @@ The package installs:
 - `.github/workflows/build-failure-analysis-fetch.md`
 - `.github/workflows/build-failure-analysis-shared.md`
 - `.github/agents/build-failure-analyst.agent.md`
+- `.github/graders/build-failure-analysis-operational-value.sh`
 - the generated `.github/workflows/build-failure-analysis.lock.yml`
 
 ## Requirements
