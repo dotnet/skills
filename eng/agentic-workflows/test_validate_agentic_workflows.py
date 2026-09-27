@@ -59,5 +59,26 @@ class PackagePathTests(unittest.TestCase):
                 )
 
 
+class ActiveWorkflowTests(unittest.TestCase):
+    def test_detects_block_and_inline_triggers(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            workflows = root / ".github" / "workflows"
+            workflows.mkdir(parents=True)
+            sources = {
+                "block.md": "---\non:\n  workflow_dispatch:\n---\n",
+                "scalar.md": "---\non: workflow_dispatch\n---\n",
+                "flow.md": "---\non: [push, pull_request]\n---\n",
+                "fragment.md": "---\ndescription: shared fragment\n---\n",
+            }
+            for name, content in sources.items():
+                (workflows / name).write_text(content, encoding="utf-8")
+
+            self.assertEqual(
+                {path.name for path in VALIDATOR.expected_active_locks(workflows)},
+                {"block.lock.yml", "scalar.lock.yml", "flow.lock.yml"},
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

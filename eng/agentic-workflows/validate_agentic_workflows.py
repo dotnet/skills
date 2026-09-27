@@ -181,7 +181,7 @@ def has_workflow_trigger(path: Path) -> bool:
     end = text.find("\n---", 3)
     if end < 0:
         return False
-    return re.search(r"(?m)^on:\s*(?:#.*)?$", text[3:end]) is not None
+    return re.search(r"(?m)^on:(?:\s.*)?$", text[3:end]) is not None
 
 
 def frontmatter(path: Path) -> dict:
