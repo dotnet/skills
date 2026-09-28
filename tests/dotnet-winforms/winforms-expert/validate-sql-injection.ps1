@@ -119,8 +119,8 @@ foreach ($sourceFile in $sourceFiles)
     }
 }
 
-$mainForm = [IO.File]::ReadAllText("TimeTracking/FrmMain.cs")
-$dayTracking = [IO.File]::ReadAllText("TimeTracking.Controls/DayTracking.cs")
+$mainForm = [IO.File]::ReadAllText("TimeTracking/TimeTracking/FrmMain.cs")
+$dayTracking = [IO.File]::ReadAllText("TimeTracking/TimeTracking.Controls/DayTracking.cs")
 
 Assert-Matches $mainForm '\bCreateSearchCommand\s*\(' `
     "The user-search command path was removed instead of repaired."
