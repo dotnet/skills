@@ -32,6 +32,7 @@ function Test-DynamicSqlExpression([string] $Expression)
 {
     return (
         $Expression -match '\$"' -or
+        $Expression -match '(?i)\bString\.Concat\s*\(' -or
         $Expression -match '(?i)\bString\.Format\s*\(' -or
         $Expression -match '["''][^"'']*["'']\s*(?:\+|&)\s*\w+' -or
         $Expression -match '\w+\s*(?:\+|&)\s*["'']'
@@ -67,16 +68,20 @@ Assert-NotMatches $allSource '(?is)new\s+(?:SqlCommand|OleDbCommand|SqlDataAdapt
 foreach ($sourceFile in $sourceFiles)
 {
     $source = [IO.File]::ReadAllText($sourceFile.FullName)
-    $commandTextAssignments = @(
+    $commandTextAssignments = if ($sourceFile.Extension -eq ".cs")
+    {
         [regex]::Matches(
             $source,
             '(?is)\.(?:CommandText|SelectCommand)\s*=\s*(?<expression>.*?);'
         )
+    }
+    else
+    {
         [regex]::Matches(
             $source,
             '(?im)\.(?:CommandText|SelectCommand)\s*=\s*(?<expression>[^\r\n]+)'
         )
-    )
+    }
 
     foreach ($assignment in $commandTextAssignments)
     {
@@ -86,16 +91,20 @@ foreach ($sourceFile in $sourceFiles)
         }
     }
 
-    $assignments = @(
+    $assignments = if ($sourceFile.Extension -eq ".cs")
+    {
         [regex]::Matches(
             $source,
             '(?is)\b(?:var|string|String)\s+(?<name>\w+)\s*=\s*(?<expression>.*?);'
         )
+    }
+    else
+    {
         [regex]::Matches(
             $source,
             '(?im)\bDim\s+(?<name>\w+)(?:\s+As\s+String)?\s*=\s*(?<expression>[^\r\n]+)'
         )
-    )
+    }
 
     foreach ($assignment in $assignments)
     {
@@ -121,6 +130,7 @@ foreach ($sourceFile in $sourceFiles)
 
 $mainForm = [IO.File]::ReadAllText("TimeTracking/TimeTracking/FrmMain.cs")
 $dayTracking = [IO.File]::ReadAllText("TimeTracking/TimeTracking.Controls/DayTracking.cs")
+$legacyQueries = [IO.File]::ReadAllText("TimeTracking/TimeTracking.Legacy/LegacyEntryQueries.vb")
 
 Assert-Matches $mainForm '\bCreateSearchCommand\s*\(' `
     "The user-search command path was removed instead of repaired."
@@ -135,5 +145,12 @@ Assert-Matches $dayTracking '(?is)\bSELECT\b.*?\bFROM\s+TimeEntries\b.*?@\w+' `
     "The employee-entry SQL no longer uses a parameter placeholder."
 Assert-Matches $dayTracking '(?is)\.Parameters\.(?:Add|AddWithValue|AddRange)\s*\([^;]*employeeId' `
     "The employee ID is not bound as a command parameter."
+
+Assert-Matches $legacyQueries '(?i)\bCreateNotesCommand\s*\(' `
+    "The VB.NET notes-query command path was removed instead of repaired."
+Assert-Matches $legacyQueries '(?is)\bSELECT\b.*?\bFROM\s+TimeEntries\b.*?@\w+' `
+    "The VB.NET notes-query SQL no longer uses a parameter placeholder."
+Assert-Matches $legacyQueries '(?is)\.Parameters\.(?:Add|AddWithValue|AddRange)\s*\([^\r\n]*notesFilter' `
+    "The VB.NET notes filter is not bound as a command parameter."
 
 Write-Host "SQL command construction is parameterized across the TimeTracking solution."

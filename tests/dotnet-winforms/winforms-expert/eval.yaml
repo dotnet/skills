@@ -630,7 +630,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHMAcQBsAC0AaQBuAGoAZQBjAHQAaQBvAG4ALgBwAHMAMQAiACkALgBSAGUAcABsAGEAYwBlACgAIgBgAHIAYABuACIALAAgACIAYABuACIAKQAKACQAYgB5AHQAZQBzACAAPQAgAFsAVABlAHgAdAAuAEUAbgBjAG8AZABpAG4AZwBdADoAOgBVAFQARgA4AC4ARwBlAHQAQgB5AHQAZQBzACgAJAB0AGUAeAB0ACkACgAkAGEAYwB0AHUAYQBsACAAPQAgAFsAQwBvAG4AdgBlAHIAdABdADoAOgBUAG8ASABlAHgAUwB0AHIAaQBuAGcAKABbAFMAZQBjAHUAcgBpAHQAeQAuAEMAcgB5AHAAdABvAGcAcgBhAHAAaAB5AC4AUwBIAEEAMgA1ADYAXQA6ADoASABhAHMAaABEAGEAdABhACgAJABiAHkAdABlAHMAKQApAAoAaQBmACAAKAAkAGEAYwB0AHUAYQBsACAALQBuAGUAIAAiADcAMQAwADEARgAxAEYAMwAxAEEANQA4AEYAQQA5ADEAMAA5ADkANwAxAEEAQQA2ADQARgA0ADEAMQA4ADEAOQBFAEUARgA2AEIAQwAyAEIARQBEADkAMQA2ADgAQwAzADIANgA0ADYARQA3ADYARgA5ADYANQA1ADYANAA5AEQAIgApACAAewAgAGUAeABpAHQAIAAxACAAfQA=
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHMAcQBsAC0AaQBuAGoAZQBjAHQAaQBvAG4ALgBwAHMAMQAiACkALgBSAGUAcABsAGEAYwBlACgAIgBgAHIAYABuACIALAAgACIAYABuACIAKQAKACQAYgB5AHQAZQBzACAAPQAgAFsAVABlAHgAdAAuAEUAbgBjAG8AZABpAG4AZwBdADoAOgBVAFQARgA4AC4ARwBlAHQAQgB5AHQAZQBzACgAJAB0AGUAeAB0ACkACgAkAGEAYwB0AHUAYQBsACAAPQAgAFsAQwBvAG4AdgBlAHIAdABdADoAOgBUAG8ASABlAHgAUwB0AHIAaQBuAGcAKABbAFMAZQBjAHUAcgBpAHQAeQAuAEMAcgB5AHAAdABvAGcAcgBhAHAAaAB5AC4AUwBIAEEAMgA1ADYAXQA6ADoASABhAHMAaABEAGEAdABhACgAJABiAHkAdABlAHMAKQApAAoAaQBmACAAKAAkAGEAYwB0AHUAYQBsACAALQBuAGUAIAAiADUANwAwAEMAOQA0ADAAMwBCAEYAOQAyAEIARQA5ADIAOQBBAEMAQwA2AEQAQgA4ADEAMgA4ADkANwBBAEMAMAA1ADMAMAA1ADEARgBDADQAMwBGAEYAOABBAEMAMwBCADEAQQA4ADUANQA3ADIARgA0ADgANgBEADMARQBBADcAIgApACAAewAgAGUAeABpAHQAIAAxACAAfQA=
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -640,15 +640,15 @@ stimuli:
           timeout: 1m
       - type: run-command
         config:
-          command: dotnet build TimeTracking.slnx --nologo
+          command: dotnet build TimeTracking/TimeTracking.slnx --nologo
           expected_exit_code: 0
           timeout: 5m
       - type: exit-success
       - type: prompt
     rubric:
-      - Audits both projects and identifies the direct search-text injection as higher risk than the employee-ID injection
+      - Audits all three C# and VB.NET projects and identifies the user-controlled search and notes filters as higher risk than the employee-ID injection
       - Reports each vulnerable file and location, shows the unsafe SQL construction, and names the untrusted value entering the query
-      - Replaces every dynamic SQL value with command parameters while preserving both query paths and their intended filtering behavior
+      - Replaces every dynamic SQL value with command parameters while preserving all three query paths and their intended filtering behavior
       - Keeps runtime logic out of designer-generated files and produces a successful full-solution build
 
   - name: Stay dormant for a WPF command binding request
