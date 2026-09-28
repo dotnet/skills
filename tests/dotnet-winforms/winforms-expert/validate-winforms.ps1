@@ -250,6 +250,17 @@ function Test-DesignerSafety
         Assert-NotMatches $text '\?\?|\?\.|\?\[|\bnameof\s*\(|\bnew\s*\(\s*\)|=\s*\[' "Modern expression syntax found in $($designerFile.Name)."
         Assert-NotMatches $text '(?m)^\s*(?:private|protected|public|internal)\s+[\w<>\[\]?]+\s+\w+\s*\{\s*(?:get|set)\b' "A property was moved into $($designerFile.Name)."
 
+        $classNames = [regex]::Matches(
+            $text,
+            '\bpartial\s+class\s+(?<name>\w+)'
+        )
+        foreach ($className in $classNames)
+        {
+            $escapedClassName = [regex]::Escape($className.Groups['name'].Value)
+            Assert-NotMatches $text "(?ms)^\s*(?:(?:private|protected|public|internal)\s+)?(?:static\s+)?$escapedClassName\s*\([^;{}]*\)\s*(?::\s*(?:this|base)\s*\([^;{}]*\)\s*)?\{" `
+                "A constructor was moved into $($designerFile.Name)."
+        }
+
         $methods = [regex]::Matches(
             $text,
             '(?m)^\s*(?:private|protected|public|internal)\s+(?:(?:static|override|virtual|sealed|async)\s+)*[\w<>\[\]?]+\s+(?<name>\w+)\s*\([^;]*\)\s*\{'
