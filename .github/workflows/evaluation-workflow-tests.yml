@@ -13,8 +13,10 @@ on:
       - ".github/workflows/agentics-maintenance.yml"
       - ".github/workflows/copilot-setup-steps.yml"
       - ".github/workflows/devops-health-check.md"
+      - ".github/workflows/devops-health-copilot-pin.yml"
       - ".github/workflows/devops-health-groom.md"
       - ".github/workflows/devops-health-investigate.md"
+      - "eng/devops-health/**"
       - ".github/workflows/issue-triage.md"
       - ".github/workflows/*.lock.yml"
       - ".github/scripts/**"
@@ -39,8 +41,10 @@ on:
       - ".github/workflows/agentics-maintenance.yml"
       - ".github/workflows/copilot-setup-steps.yml"
       - ".github/workflows/devops-health-check.md"
+      - ".github/workflows/devops-health-copilot-pin.yml"
       - ".github/workflows/devops-health-groom.md"
       - ".github/workflows/devops-health-investigate.md"
+      - "eng/devops-health/**"
       - ".github/workflows/issue-triage.md"
       - ".github/workflows/*.lock.yml"
       - ".github/scripts/**"
@@ -107,6 +111,20 @@ jobs:
 
       - name: Test SDK startup ordering without model calls
         run: node --test eng/evaluation-tools/*.test.mjs
+
+  devops-health-pin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          persist-credentials: false
+
+      - name: Test Copilot pin maintenance
+        run: |
+          python -m unittest eng/devops-health/test_copilot_pin.py
+          node --test eng/devops-health/test_mcp_canary_server.mjs
 
   token-failover:
     runs-on: ubuntu-latest
