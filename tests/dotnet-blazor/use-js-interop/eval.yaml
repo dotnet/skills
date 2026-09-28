@@ -1,10 +1,13 @@
 name: use-js-interop
 description: Evaluates the dotnet-blazor/use-js-interop skill
 type: capability
-config:
-  timeout: 10m
+defaults:
+  timeout: 15m
+  runs: 1
 stimuli:
   - name: Auto-saving notepad that survives page reloads
+    tags:
+      feature: browser-storage-lifecycle
     prompt: |
       I need a `Notepad` component for my Blazor Web App.
 
@@ -17,19 +20,30 @@ stimuli:
         built-in "Leave site?" confirmation dialog
       - A "Clear" button that erases both the textarea and the saved data
       - A "Save now" button for manual saves
-    environment:
+    environment: &interactive-server-project
+      files:
+        - src: ../fixtures/global.json
+          dest: global.json
       commands:
-        - dotnet new blazor --interactivity Server --no-https
+        - dotnet new blazor --interactivity server --no-https --force
     graders:
-      - type: output-contains
+      - type: file-contains
         config:
-          substring: OnAfterRenderAsync
-      - type: output-contains
+          path: '**/Notepad.razor'
+          value: OnAfterRenderAsync
+      - type: file-contains
         config:
-          substring: IAsyncDisposable
-      - type: output-matches
+          path: '**/Notepad.razor'
+          value: IAsyncDisposable
+      - type: file-contains
         config:
-          pattern: (export function|export \{)
+          path: '**/Notepad.razor.js'
+          value: export
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
       - type: prompt
     rubric:
       - Uses a collocated .razor.js file with exported functions — not a global script tag or window-level globals
@@ -44,6 +58,8 @@ stimuli:
       - The clear function removes stored data and resets the beforeunload guard in one operation
       - Uses sessionStorage (or localStorage) for persistence, the beforeunload event for the unsaved-changes prompt, and setInterval/clearInterval for the auto-save timer
   - name: User activity tracker that detects idle timeout
+    tags:
+      feature: js-to-dotnet-callback
     prompt: |
       I need a `UserActivityTracker` component for my Blazor Web App.
 
@@ -54,22 +70,29 @@ stimuli:
       - The idle timeout duration is set via `[Parameter] int TimeoutSeconds` (default 300)
       - Wraps child content — can be placed around any section of the app
       - After the component is removed from the page, no leftover timers or event handlers should remain
-    environment:
-      commands:
-        - dotnet new blazor --interactivity Server --no-https
+    environment: *interactive-server-project
     graders:
-      - type: output-contains
+      - type: file-contains
         config:
-          substring: OnAfterRenderAsync
-      - type: output-contains
+          path: '**/UserActivityTracker.razor'
+          value: OnAfterRenderAsync
+      - type: file-contains
         config:
-          substring: DotNetObjectReference
-      - type: output-contains
+          path: '**/UserActivityTracker.razor'
+          value: DotNetObjectReference
+      - type: file-contains
         config:
-          substring: IAsyncDisposable
-      - type: output-matches
+          path: '**/UserActivityTracker.razor'
+          value: IAsyncDisposable
+      - type: file-contains
         config:
-          pattern: (export function|export \{)
+          path: '**/UserActivityTracker.razor.js'
+          value: export
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
       - type: prompt
     rubric:
       - Uses a collocated .razor.js file with exported functions — not global window functions or inline scripts
@@ -79,6 +102,8 @@ stimuli:
       - Manages the idle timeout timer in JavaScript using setTimeout/clearTimeout — not via .NET Task.Delay
       - Cleans up all event listeners and timers in the JS dispose function — no dangling handlers after component removal
   - name: Responsive layout that adapts to screen size
+    tags:
+      feature: viewport-observer
     prompt: |
       My Blazor Web App needs to adapt its layout based on the browser viewport width. I need:
 
@@ -101,22 +126,29 @@ stimuli:
           <MyContent />
       </ScreenSizeProvider>
       ```
-    environment:
-      commands:
-        - dotnet new blazor --interactivity Server --no-https
+    environment: *interactive-server-project
     graders:
-      - type: output-contains
+      - type: file-contains
         config:
-          substring: CascadingValue
-      - type: output-contains
+          path: '**/ScreenSizeProvider.razor'
+          value: CascadingValue
+      - type: file-contains
         config:
-          substring: OnAfterRenderAsync
-      - type: output-contains
+          path: '**/ScreenSizeProvider.razor'
+          value: OnAfterRenderAsync
+      - type: file-contains
         config:
-          substring: IAsyncDisposable
-      - type: output-matches
+          path: '**/ScreenSizeProvider.razor'
+          value: IAsyncDisposable
+      - type: file-contains
         config:
-          pattern: (export function|export \{)
+          path: '**/ScreenSizeProvider.razor.js'
+          value: export
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
       - type: prompt
     rubric:
       - Provides the screen size category to children via CascadingValue — child components can consume it with [CascadingParameter]
@@ -131,6 +163,8 @@ stimuli:
       - Does not call JS interop during prerendering — guards all JS calls behind firstRender or a flag
       - Uses window.matchMedia or the resize event for viewport detection — not polling or server-side user-agent sniffing
   - name: Infinite scroll list using IntersectionObserver
+    tags:
+      feature: intersection-observer
     prompt: |
       I need an `InfiniteScrollList` component for my Blazor Web App that loads more items
       as the user scrolls.
@@ -150,22 +184,29 @@ stimuli:
           <div class="product-card">@product.Name — @product.Price</div>
       </InfiniteScrollList>
       ```
-    environment:
-      commands:
-        - dotnet new blazor --interactivity Server --no-https
+    environment: *interactive-server-project
     graders:
-      - type: output-contains
+      - type: file-contains
         config:
-          substring: IntersectionObserver
-      - type: output-contains
+          path: '**/InfiniteScrollList.razor.js'
+          value: IntersectionObserver
+      - type: file-contains
         config:
-          substring: OnAfterRenderAsync
-      - type: output-contains
+          path: '**/InfiniteScrollList.razor'
+          value: OnAfterRenderAsync
+      - type: file-contains
         config:
-          substring: IAsyncDisposable
-      - type: output-contains
+          path: '**/InfiniteScrollList.razor'
+          value: IAsyncDisposable
+      - type: file-contains
         config:
-          substring: DotNetObjectReference
+          path: '**/InfiniteScrollList.razor'
+          value: DotNetObjectReference
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
       - type: prompt
     rubric:
       - Uses a collocated .razor.js file with exported functions — not a global script
@@ -178,3 +219,168 @@ stimuli:
       - Uses ElementReference for the sentinel element — not a string ID
       - Respects the HasMore parameter — does not trigger loads or observe the sentinel when there are no more items
       - Uses IntersectionObserver (not scroll event listeners) for efficient visibility detection
+  - name: Update a chart after parameters change
+    tags:
+      feature: deferred-parameter-interop
+    prompt: |
+      Add a SalesChart component that receives IReadOnlyList<SalesPoint>. A
+      collocated JavaScript module creates a third-party chart on first render and
+      updates that existing chart when the Data parameter changes. Do not call
+      JavaScript from OnParametersSet. Encapsulate module calls in a typed wrapper
+      and destroy the chart when the component is removed.
+    environment: *interactive-server-project
+    graders:
+      - type: file-contains
+        config:
+          path: '**/SalesChart.razor'
+          value: OnParametersSet
+      - type: file-contains
+        config:
+          path: '**/SalesChart.razor'
+          value: OnAfterRenderAsync
+      - type: file-contains
+        config:
+          path: '**/SalesChart.razor.js'
+          value: export
+      - type: file-exists
+        config:
+          path: '**/*ChartInterop.cs'
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Marks changed data during parameter processing and performs the JavaScript update after rendering
+      - Reuses one chart instance instead of recreating it for every parameter change
+      - Encapsulates module identifiers and lifecycle in a typed interop wrapper
+      - Destroys the chart and disposes module references safely
+  - name: Monitor clipboard changes from JavaScript
+    tags:
+      feature: callback-error-handling
+    prompt: |
+      Add a ClipboardMonitor component that starts listening for browser copy
+      events after first render and displays the last copied text. JavaScript must
+      call a public .NET callback. A lost Server circuit must not leave unhandled
+      promise rejections, event handlers, or .NET references behind.
+    environment: *interactive-server-project
+    graders:
+      - type: file-contains
+        config:
+          path: '**/ClipboardMonitor.razor'
+          value: '[JSInvokable]'
+      - type: file-contains
+        config:
+          path: '**/ClipboardMonitor.razor'
+          value: DotNetObjectReference
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=list(Path('.').glob('**/ClipboardMonitor.razor.js'));
+            text='\n'.join(p.read_text() for p in files);
+            pattern=r'try\s*\{.*?await\s+.*?invokeMethodAsync.*?\}\s*catch';
+            sys.exit(0 if files and re.search(pattern, text, re.S) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-contains
+        config:
+          path: '**/ClipboardMonitor.razor.js'
+          value: removeEventListener
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Uses a public JSInvokable callback and marshals UI changes through InvokeAsync
+      - Awaits and catches failures from invokeMethodAsync in JavaScript
+      - Removes the copy listener and disposes the DotNetObjectReference
+      - Handles JSDisconnectedException during server-side disposal
+  - name: Focus a validated field without string ids
+    tags:
+      feature: element-reference-interop
+    prompt: |
+      Add a FocusableEditor component with a textarea and a public FocusAsync
+      method that its parent can call after validation fails. Use a collocated
+      module to focus and select the textarea. Pass the actual DOM element to
+      JavaScript, avoid global functions and string element ids, and make repeated
+      FocusAsync calls safe before and after the first render.
+    environment: *interactive-server-project
+    graders:
+      - type: file-contains
+        config:
+          path: '**/FocusableEditor.razor'
+          value: ElementReference
+      - type: file-contains
+        config:
+          path: '**/FocusableEditor.razor'
+          value: OnAfterRenderAsync
+      - type: file-contains
+        config:
+          path: '**/FocusableEditor.razor.js'
+          value: export
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Passes an ElementReference to a collocated module rather than looking up a string id
+      - Avoids JavaScript calls before the module is available and gives callers predictable behavior
+      - Awaits void interop and disposes the module safely
+  - name: Wrap a map widget with deterministic cleanup
+    tags:
+      feature: third-party-widget-lifecycle
+    prompt: |
+      Add a LocationMap component that receives latitude, longitude, and zoom.
+      A collocated JavaScript module owns a map widget instance, applies all three
+      values in one update call, and reports marker moves back to .NET. Parameter
+      changes should update the existing widget. Disposal must remove widget
+      listeners, release the widget, and tolerate a disconnected Server circuit.
+    environment: *interactive-server-project
+    graders:
+      - type: file-contains
+        config:
+          path: '**/LocationMap.razor'
+          value: DotNetObjectReference
+      - type: file-contains
+        config:
+          path: '**/LocationMap.razor'
+          value: JSDisconnectedException
+      - type: file-contains
+        config:
+          path: '**/LocationMap.razor.js'
+          value: export
+      - type: file-contains
+        config:
+          path: '**/LocationMap.razor.js'
+          value: dispose
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Batches latitude, longitude, and zoom into one JavaScript update operation
+      - Reuses the widget across parameter changes and sends marker state back in one callback
+      - Cleans up JavaScript listeners, widget resources, module references, and the .NET callback reference
+      - Handles circuit loss without unobserved interop failures
+  - name: Stay dormant for CSS-only responsiveness
+    tags:
+      feature: routing-boundary
+    prompt: |
+      Make a card grid switch from four columns to one column below 768px. This
+      is purely presentational; no component state or C# callback needs the
+      viewport width. Use the simplest built-in web approach.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Uses a CSS media query for the presentational layout change
+      - Does not add JavaScript interop, resize listeners, or component lifecycle code
+      - Stayed dormant and did not hijack the CSS-only request with browser callback infrastructure

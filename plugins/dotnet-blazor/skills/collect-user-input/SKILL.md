@@ -316,7 +316,8 @@ When using raw `<form>` instead of `EditForm` in SSR, add the antiforgery token 
 </form>
 ```
 
-`EditForm` includes the antiforgery token automatically.
+In static SSR, `@onsubmit` is dispatched by the server-side form handling pipeline on the POST; it
+does not require an interactive render mode. `EditForm` includes the antiforgery token automatically.
 
 ## File Upload
 

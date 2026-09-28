@@ -1,10 +1,13 @@
 name: configure-auth
 description: Evaluates the dotnet-blazor/configure-auth skill
 type: capability
-config:
+defaults:
   timeout: 20m
+  runs: 1
 stimuli:
   - name: Login and account management in a globally interactive app
+    tags:
+      feature: identity-static-boundary
     prompt: |
       I have a Blazor Web App with Interactive Server mode applied globally
       (all pages are interactive by default).
@@ -37,7 +40,10 @@ stimuli:
 
       Set up Identity services in Program.cs with an in-memory EF store.
       I don't need user seeding — just the pages and plumbing.
-    environment:
+    environment: &global-server-project
+      files:
+        - src: ../fixtures/global.json
+          dest: global.json
       commands:
         - dotnet new blazor --interactivity server --all-interactive --no-https --force
     graders:
@@ -53,6 +59,11 @@ stimuli:
         config:
           path: '**/*ogin*'
           value: SignInManager
+      - type: run-command
+        config:
+          command: dotnet build
+          expected_exit_code: 0
+          timeout: 8m
       - type: prompt
     rubric:
       - Login and register pages use [ExcludeFromInteractiveRouting] to render as static SSR — explains that SignInManager and UserManager need HttpContext which is unavailable in interactive components
@@ -61,6 +72,8 @@ stimuli:
       - Logout is handled correctly (either a static page or a minimal API endpoint) — does not attempt HttpContext operations inside an interactive component
       - Auth state is reflected in the UI — shows user info when logged in, login/register links when not
   - name: Multi-tier app with WebAssembly auth
+    tags:
+      feature: wasm-auth-state-handoff
     prompt: |
       I have a Blazor Web App using Auto interactivity mode (per-page). Some
       pages will run on Server, others on WebAssembly.
@@ -85,7 +98,10 @@ stimuli:
       runtime takes over, the user's identity and roles must still be available.
       I've heard that auth state can get lost when the client-side runtime
       activates — make sure that doesn't happen.
-    environment:
+    environment: &auto-project
+      files:
+        - src: ../fixtures/global.json
+          dest: global.json
       commands:
         - dotnet new blazor --interactivity auto --no-https --force
     graders:
@@ -97,9 +113,233 @@ stimuli:
         config:
           path: '**/*.razor'
           value: '[Authorize'
+      - type: run-command
+        config:
+          command: dotnet build
+          expected_exit_code: 0
+          timeout: 8m
       - type: prompt
     rubric:
       - Server Program.cs calls AddAuthenticationStateSerialization so auth state is serialized into the prerendered HTML — without this the WebAssembly runtime starts with an anonymous user
       - Client Program.cs calls AddAuthenticationStateDeserialization so the WASM runtime can reconstitute the auth state from the serialized data
       - Profile page displays user name and roles that remain correct after WebAssembly takes over from prerendering — the auth state is not lost during the handoff
       - Editor page enforces role-based access via [Authorize(Roles = ...)] or AuthorizeView with Roles — unauthorized users see a denied message, not the page content
+  - name: Protect an interactive server admin area
+    tags:
+      feature: role-authorization
+    prompt: |
+      Add authentication plumbing to this globally interactive Server app and
+      create /admin restricted to the Admin role. The page must enforce access at
+      routing time, while the navigation menu shows its Admin link only to Admin
+      users. Authenticated non-admin users should see an access-denied result;
+      anonymous users should be sent to login. Use a stub authentication state
+      provider with one Admin user so the behavior is demonstrable.
+    environment: *global-server-project
+    graders:
+      - type: file-contains
+        config:
+          path: '**/Program.cs'
+          value: AddCascadingAuthenticationState
+      - type: file-contains
+        config:
+          path: '**/*.razor'
+          value: AuthorizeView
+      - type: file-contains
+        config:
+          path: '**/*dmin*.razor'
+          value: '[Authorize'
+      - type: run-command
+        config:
+          command: dotnet build
+          expected_exit_code: 0
+          timeout: 8m
+      - type: prompt
+    rubric:
+      - Enforces the Admin requirement on the route instead of relying only on hidden navigation
+      - Distinguishes anonymous users from authenticated users who lack the role
+      - Cascades authentication state to routing and conditional UI
+      - Keeps HttpContext out of the interactive component implementation
+  - name: Implement a mutable authentication state provider
+    tags:
+      feature: custom-authentication-state
+    prompt: |
+      In this Interactive Server app, implement a development-only
+      AuthenticationStateProvider with SignIn(email, roles) and SignOut methods.
+      Add a /session-demo page that displays the current identity and roles and
+      has buttons to sign in as an Editor and sign out. Every AuthorizeView on the
+      page must update immediately when those methods are called.
+    environment: *global-server-project
+    graders:
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: NotifyAuthenticationStateChanged
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: AuthenticationStateProvider
+      - type: file-contains
+        config:
+          path: '**/*ession*emo*.razor'
+          value: AuthorizeView
+      - type: run-command
+        config:
+          command: dotnet build
+          expected_exit_code: 0
+          timeout: 8m
+      - type: prompt
+    rubric:
+      - Registers one scoped provider as both the concrete service and AuthenticationStateProvider
+      - Builds ClaimsPrincipal values with authentication type, name, and role claims
+      - Notifies subscribers on both sign-in and sign-out so conditional UI updates immediately
+  - name: Keep per-page Identity endpoints static
+    tags:
+      feature: per-page-identity
+    prompt: |
+      Add simple ASP.NET Core Identity login, register, and logout endpoints to
+      this per-page Interactive Server app. Normal application pages opt into
+      interactivity, but account operations must use a real request HttpContext.
+      Implement the account flow and explain which account files need render-mode
+      attributes or routing exclusions in this per-page setup.
+    environment:
+      files:
+        - src: ../fixtures/global.json
+          dest: global.json
+      commands:
+        - dotnet new blazor --interactivity server --auth Individual --no-https --force
+    graders:
+      - type: file-contains
+        config:
+          path: '**/*ogin*'
+          value: SignInManager
+      - type: file-not-contains
+        config:
+          path: '**/*ogin*'
+          value: '@rendermode InteractiveServer'
+      - type: run-command
+        config:
+          command: dotnet build
+          expected_exit_code: 0
+          timeout: 8m
+      - type: prompt
+    rubric:
+      - Keeps account pages static by leaving off interactive render modes in a per-page app
+      - Does not require ExcludeFromInteractiveRouting when the account pages are already outside an interactive route
+      - Handles logout through a static request endpoint rather than an interactive event handler
+      - Leaves unrelated pages free to opt into Interactive Server
+  - name: Authorize both an Auto page and its API
+    tags:
+      feature: auto-api-authorization
+    prompt: |
+      Add an Interactive Auto /orders page that calls GET /api/orders. Both the
+      page and API require an authenticated user, and the API additionally
+      requires an Orders.Read claim. The authenticated name and claims must
+      survive the prerender-to-WebAssembly handoff. Return a clear unauthorized
+      or forbidden response from the API instead of relying only on the page UI.
+    environment: *auto-project
+    graders:
+      - type: file-contains
+        config:
+          path: '**/Program.cs'
+          value: AddAuthenticationStateSerialization
+      - type: file-contains
+        config:
+          path: '**/*.Client/**/Program.cs'
+          value: AddAuthenticationStateDeserialization
+      - type: file-contains
+        config:
+          path: '**/Program.cs'
+          value: RequireAuthorization
+      - type: run-command
+        config:
+          command: dotnet build
+          expected_exit_code: 0
+          timeout: 8m
+      - type: prompt
+    rubric:
+      - Protects the server API independently of the Blazor page
+      - Serializes the required claims and restores them in the WebAssembly runtime
+      - Applies the Orders.Read policy to the API and an equivalent authorization requirement to the page
+      - Uses an HTTP client abstraction from the client project rather than server-only access
+  - name: Apply a claim-based authorization policy
+    tags:
+      feature: policy-authorization
+    prompt: |
+      Add a CanApproveExpense authorization policy to this Interactive Server
+      app. It requires an authenticated user with Department=Finance and either
+      the Manager or Director role. Protect /expenses/approve with the policy and
+      show an Approve button elsewhere only when the same policy succeeds. Use a
+      development provider with example claims so the page compiles and can be
+      exercised.
+    environment: *global-server-project
+    graders:
+      - type: file-contains
+        config:
+          path: '**/Program.cs'
+          value: CanApproveExpense
+      - type: file-contains
+        config:
+          path: '**/*.razor'
+          value: Policy="CanApproveExpense"
+      - type: file-contains
+        config:
+          path: '**/*pprov*.razor'
+          value: '[Authorize'
+      - type: run-command
+        config:
+          command: dotnet build
+          expected_exit_code: 0
+          timeout: 8m
+      - type: prompt
+    rubric:
+      - Defines one reusable policy that combines the department claim with either accepted role
+      - Enforces the policy at the route and uses the same policy for conditional UI
+      - Does not treat a hidden button as sufficient authorization
+  - name: Redirect anonymous users without looping
+    tags:
+      feature: unauthorized-routing
+    prompt: |
+      Configure this globally interactive Server app so protected routes redirect
+      anonymous users to /account/login?returnUrl=..., while authenticated users
+      who lack permission see an access-denied page. The login page itself must
+      stay static and must not redirect back to itself. Add one protected /profile
+      page and the router components needed to demonstrate the behavior.
+    environment: *global-server-project
+    graders:
+      - type: file-contains
+        config:
+          path: '**/*.razor'
+          value: AuthorizeRouteView
+      - type: file-contains
+        config:
+          path: '**/*ogin*'
+          value: ExcludeFromInteractiveRouting
+      - type: file-contains
+        config:
+          path: '**/App.razor'
+          value: AcceptsInteractiveRouting
+      - type: run-command
+        config:
+          command: dotnet build
+          expected_exit_code: 0
+          timeout: 8m
+      - type: prompt
+    rubric:
+      - Redirects only anonymous users and preserves a safe local return URL
+      - Shows access denied for authenticated users without permission
+      - Keeps the login request static and conditionally removes the global interactive render mode
+      - Avoids a redirect loop on the login route
+  - name: Stay dormant for non-auth shared state
+    tags:
+      feature: routing-boundary
+    prompt: |
+      Add a per-user theme preference service so unrelated interactive Blazor
+      components can switch between light and dark mode and update together.
+      There are no users, roles, claims, login pages, or authorization rules.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Implements shared UI state without introducing authentication or authorization infrastructure
+      - Keeps each server circuit's theme independent
+      - Stayed dormant and did not hijack the request with users, claims, policies, or account pages

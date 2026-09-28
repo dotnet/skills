@@ -1,124 +1,504 @@
 name: convert-blazor-server-to-webapp
 description: Evaluates the dotnet-aspnetcore/convert-blazor-server-to-webapp skill
 type: capability
-config:
-  timeout: 10m
+defaults:
+  timeout: 15m
+  runs: 1
 stimuli:
-  - name: Blazor Server app with CascadingAuthenticationState
+  - name: Convert a basic interactive server app
+    tags:
+      feature: hosting-model
     prompt: |
-      Convert this .NET 7 Blazor Server app to a .NET 8 Blazor Web App. The app uses
-      authentication with CascadingAuthenticationState. Provide the complete updated files.
-      The app should no longer use AddServerSideBlazor or MapBlazorHub.
-
-      Program.cs:
-      ```csharp
-      using BlazorAuthApp;
-
-      var builder = WebApplication.CreateBuilder(args);
-
-      builder.Services.AddRazorPages();
-      builder.Services.AddServerSideBlazor();
-
-      var app = builder.Build();
-
-      if (!app.Environment.IsDevelopment())
-      {
-          app.UseExceptionHandler("/Error");
-          app.UseHsts();
-      }
-
-      app.UseHttpsRedirection();
-      app.UseStaticFiles();
-      app.UseRouting();
-
-      app.UseAuthentication();
-      app.UseAuthorization();
-
-      app.MapControllers();
-      app.MapBlazorHub();
-      app.MapFallbackToPage("/_Host");
-
-      app.Run();
-      ```
-
-      App.razor:
-      ```razor
-      <CascadingAuthenticationState>
-          <Router AppAssembly="@typeof(Program).Assembly">
-              <Found Context="routeData">
-                  <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
-                      <NotAuthorized>
-                          <RedirectToLogin />
-                      </NotAuthorized>
-                  </AuthorizeRouteView>
-                  <FocusOnNavigate RouteData="@routeData" Selector="h1" />
-              </Found>
-              <NotFound>
-                  <LayoutView Layout="@typeof(MainLayout)">
-                      <p>Sorry, there's nothing at this address.</p>
-                  </LayoutView>
-              </NotFound>
-          </Router>
-      </CascadingAuthenticationState>
-      ```
-
-      Pages/_Host.cshtml:
-      ```html
-      @page "/"
-      @using Microsoft.AspNetCore.Components.Web
-      @namespace BlazorAuthApp.Pages
-      @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
-
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-          <meta charset="utf-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <base href="~/" />
-          <link href="BlazorAuthApp.styles.css" rel="stylesheet" />
-          <component type="typeof(HeadOutlet)" render-mode="ServerPrerendered" />
-      </head>
-      <body>
-          <component type="typeof(App)" render-mode="ServerPrerendered" />
-
-          <div id="blazor-error-ui">
-              <environment include="Staging,Production">
-                  An error has occurred. This application may no longer respond until reloaded.
-              </environment>
-              <environment include="Development">
-                  An unhandled exception has occurred. See browser dev tools for details.
-              </environment>
-              <a href="" class="reload">Reload</a>
-              <a class="dismiss">🗙</a>
-          </div>
-
-          <script src="_framework/blazor.server.js"></script>
-      </body>
-      </html>
-      ```
+      Convert the supplied legacy Blazor Server project to the current Blazor Web
+      App hosting model while preserving interactive server behavior. Replace the
+      Razor Page host with a Razor component document, move routing into its own
+      component, update services and endpoints, and remove obsolete hosting
+      artifacts. Work directly in the supplied project and build it.
+    environment:
+      files:
+        - src: fixtures/global.json
+          dest: global.json
+        - src: fixtures/basic/BasicMigration.csproj
+          dest: BasicMigration.csproj
+        - src: fixtures/basic/Program.cs
+          dest: Program.cs
+        - src: fixtures/basic/App.razor
+          dest: App.razor
+        - src: fixtures/basic/_Imports.razor
+          dest: _Imports.razor
+        - src: fixtures/basic/Pages/_Host.cshtml
+          dest: Pages/_Host.cshtml
+        - src: fixtures/basic/Pages/Index.razor
+          dest: Pages/Index.razor
+        - src: fixtures/basic/Shared/MainLayout.razor
+          dest: Shared/MainLayout.razor
     graders:
-      - type: output-contains
+      - type: run-command
         config:
-          substring: AddCascadingAuthenticationState
-      - type: output-contains
+          command: dotnet build BasicMigration.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
         config:
-          substring: AddRazorComponents
-      - type: output-contains
+          command: >-
+            python3 -c "from pathlib import Path; import sys;
+            cs='\n'.join(p.read_text() for p in Path('.').rglob('*.cs') if not {'bin','obj'} & set(p.parts));
+            razor='\n'.join(p.read_text() for p in Path('.').rglob('*.razor') if not {'bin','obj'} & set(p.parts));
+            required=['AddRazorComponents','AddInteractiveServerComponents',
+            'MapRazorComponents<App>','AddInteractiveServerRenderMode','UseAntiforgery'];
+            forbidden=['AddServerSideBlazor','MapBlazorHub','MapFallbackToPage'];
+            ok=all(x in cs for x in required) and not any(x in cs for x in forbidden)
+            and '<!DOCTYPE html>' in razor and '<Routes' in razor
+            and '<Router' in razor and 'blazor.web.js' in razor
+            and 'blazor.server.js' not in razor;
+            sys.exit(0 if ok else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-not-exists
         config:
-          substring: MapRazorComponents
-      - type: output-contains
+          path: Pages/_Host.cshtml
+      - type: file-exists
         config:
-          substring: UseAntiforgery
-      - type: output-not-matches
-        config:
-          pattern: 'AddServerSideBlazor\s*\('
-      - type: output-not-matches
-        config:
-          pattern: 'MapBlazorHub\s*\('
+          path: "**/Routes.razor"
+      - type: exit-success
       - type: prompt
     rubric:
-      - Removes the CascadingAuthenticationState component wrapper from App.razor/Routes.razor
-      - Adds builder.Services.AddCascadingAuthenticationState() to Program.cs
-      - Places UseAntiforgery after UseAuthentication and UseAuthorization in the middleware pipeline
-      - Keeps AuthorizeRouteView in the Routes component
-      - Does NOT switch to static rendering — preserves interactive server rendering
+      - The converted project builds and keeps its button-driven page interactive through server rendering
+      - The HTML document and router are valid Razor components rather than a component tag-helper host page
+      - The application starts through the current component service and endpoint model
+      - Obsolete hub, fallback-page, host-page, and server-script dependencies are removed
+
+  - name: Migrate cascading authentication state
+    tags:
+      feature: authentication-state
+    prompt: |
+      Convert the supplied authenticated Blazor Server project to a Blazor Web
+      App. Preserve AuthorizeRouteView and the redirect shown to unauthorized
+      users. Authentication state must remain available across the interactive
+      render boundary without keeping the component wrapper. Preserve the
+      authentication and authorization middleware, then build the project.
+    environment:
+      files:
+        - src: fixtures/global.json
+          dest: global.json
+        - src: fixtures/auth/AuthMigration.csproj
+          dest: AuthMigration.csproj
+        - src: fixtures/auth/Program.cs
+          dest: Program.cs
+        - src: fixtures/auth/App.razor
+          dest: App.razor
+        - src: fixtures/auth/_Imports.razor
+          dest: _Imports.razor
+        - src: fixtures/auth/Pages/_Host.cshtml
+          dest: Pages/_Host.cshtml
+        - src: fixtures/auth/Pages/Index.razor
+          dest: Pages/Index.razor
+        - src: fixtures/auth/Shared/MainLayout.razor
+          dest: Shared/MainLayout.razor
+        - src: fixtures/auth/Shared/RedirectToLogin.razor
+          dest: Shared/RedirectToLogin.razor
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build AuthMigration.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import sys;
+            cs='\n'.join(p.read_text() for p in Path('.').rglob('*.cs') if not {'bin','obj'} & set(p.parts));
+            razor='\n'.join(p.read_text() for p in Path('.').rglob('*.razor') if not {'bin','obj'} & set(p.parts));
+            ok='AddCascadingAuthenticationState' in cs
+            and 'UseAuthentication' in cs and 'UseAuthorization' in cs
+            and 'AuthorizeRouteView' in razor and 'RedirectToLogin' in razor
+            and '<CascadingAuthenticationState' not in razor
+            and 'AddRazorComponents' in cs and 'MapRazorComponents<App>' in cs
+            and 'blazor.web.js' in razor;
+            sys.exit(0 if ok else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-not-exists
+        config:
+          path: Pages/_Host.cshtml
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The converted project builds with authentication and authorization middleware still active
+      - Authorized routing and the existing unauthorized redirect behavior remain in the router
+      - Authentication state is supplied by application services so it crosses the render boundary
+      - The obsolete cascading component wrapper and legacy hosting artifacts are gone
+
+  - name: Preserve disabled prerendering
+    tags:
+      feature: prerender-semantics
+    prompt: |
+      Convert the supplied Blazor Server project to a Blazor Web App without
+      changing its rendering lifecycle. The old host uses Server rather than
+      ServerPrerendered because components perform browser-only work during
+      initialization. Preserve that no-prerender behavior for both document-head
+      and route rendering. Build the converted project.
+    environment:
+      files:
+        - src: fixtures/global.json
+          dest: global.json
+        - src: fixtures/no-prerender/NoPrerenderMigration.csproj
+          dest: NoPrerenderMigration.csproj
+        - src: fixtures/no-prerender/Program.cs
+          dest: Program.cs
+        - src: fixtures/no-prerender/App.razor
+          dest: App.razor
+        - src: fixtures/no-prerender/_Imports.razor
+          dest: _Imports.razor
+        - src: fixtures/no-prerender/Pages/_Host.cshtml
+          dest: Pages/_Host.cshtml
+        - src: fixtures/no-prerender/Pages/Index.razor
+          dest: Pages/Index.razor
+        - src: fixtures/no-prerender/Shared/MainLayout.razor
+          dest: Shared/MainLayout.razor
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build NoPrerenderMigration.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            cs='\n'.join(p.read_text() for p in Path('.').rglob('*.cs') if not {'bin','obj'} & set(p.parts));
+            razor='\n'.join(p.read_text() for p in Path('.').rglob('*.razor') if not {'bin','obj'} & set(p.parts));
+            ok=len(re.findall(r'prerender\s*:\s*false', razor)) >= 2
+            and 'InteractiveServerRenderMode' in razor
+            and '<HeadOutlet' in razor and '<Routes' in razor
+            and 'AddInteractiveServerComponents' in cs
+            and 'AddInteractiveServerRenderMode' in cs;
+            sys.exit(0 if ok else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-not-exists
+        config:
+          path: Pages/_Host.cshtml
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The converted project builds without enabling prerendering that the original application intentionally disabled
+      - Both head content and routed components use interactive server rendering with prerendering disabled
+      - The current hosting model replaces the legacy host page, hub, and server script
+
+  - name: Preserve configured circuit behavior
+    tags:
+      feature: circuit-options
+    prompt: |
+      Convert the supplied Blazor Server project to a Blazor Web App. The current
+      circuit configuration enables detailed errors and retains disconnected
+      circuits for twelve minutes; preserve both settings in the new hosting
+      model instead of silently dropping them. Build the project after migration.
+    environment:
+      files:
+        - src: fixtures/global.json
+          dest: global.json
+        - src: fixtures/circuit-options/CircuitMigration.csproj
+          dest: CircuitMigration.csproj
+        - src: fixtures/circuit-options/Program.cs
+          dest: Program.cs
+        - src: fixtures/circuit-options/App.razor
+          dest: App.razor
+        - src: fixtures/circuit-options/_Imports.razor
+          dest: _Imports.razor
+        - src: fixtures/circuit-options/Pages/_Host.cshtml
+          dest: Pages/_Host.cshtml
+        - src: fixtures/circuit-options/Pages/Index.razor
+          dest: Pages/Index.razor
+        - src: fixtures/circuit-options/Shared/MainLayout.razor
+          dest: Shared/MainLayout.razor
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build CircuitMigration.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            text=Path('Program.cs').read_text();
+            ok=re.search(r'AddInteractiveServerComponents\s*\(\s*\w+\s*=>', text)
+            and 'DetailedErrors = true' in text
+            and 'DisconnectedCircuitRetentionPeriod' in text
+            and 'TimeSpan.FromMinutes(12)' in text
+            and 'AddServerSideBlazor' not in text
+            and 'MapBlazorHub' not in text;
+            sys.exit(0 if ok else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import sys;
+            razor='\n'.join(p.read_text() for p in Path('.').rglob('*.razor') if not {'bin','obj'} & set(p.parts));
+            sys.exit(0 if 'blazor.web.js' in razor and '<Routes' in razor else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The project builds with the same detailed-error and disconnected-circuit retention behavior
+      - Circuit settings are attached to the current interactive server component registration
+      - The legacy service and endpoint model is completely replaced
+
+  - name: Preserve authentication pipeline order
+    tags:
+      feature: middleware-order
+    prompt: |
+      Convert the supplied Blazor Server application to a Blazor Web App while
+      preserving its controllers and authentication pipeline. Add any middleware
+      required by the new component endpoint model in the correct position.
+      Remove middleware and endpoints that only served the old host. Build the
+      project.
+    environment:
+      files:
+        - src: fixtures/global.json
+          dest: global.json
+        - src: fixtures/pipeline/PipelineMigration.csproj
+          dest: PipelineMigration.csproj
+        - src: fixtures/pipeline/Program.cs
+          dest: Program.cs
+        - src: fixtures/pipeline/App.razor
+          dest: App.razor
+        - src: fixtures/pipeline/_Imports.razor
+          dest: _Imports.razor
+        - src: fixtures/pipeline/Pages/_Host.cshtml
+          dest: Pages/_Host.cshtml
+        - src: fixtures/pipeline/Pages/Index.razor
+          dest: Pages/Index.razor
+        - src: fixtures/pipeline/Shared/MainLayout.razor
+          dest: Shared/MainLayout.razor
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build PipelineMigration.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import sys;
+            text=Path('Program.cs').read_text();
+            required=['UseAuthentication','UseAuthorization','UseAntiforgery',
+            'MapControllers','MapRazorComponents<App>','AddInteractiveServerRenderMode'];
+            ok=all(x in text for x in required)
+            and text.index('UseAuthentication') < text.index('UseAuthorization')
+            < text.index('UseAntiforgery') < text.index('MapRazorComponents<App>')
+            and 'MapBlazorHub' not in text
+            and 'MapFallbackToPage' not in text;
+            sys.exit(0 if ok else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-not-exists
+        config:
+          path: Pages/_Host.cshtml
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The converted project builds and retains its controller endpoints
+      - Authentication runs before authorization, and antiforgery runs after both before component endpoint execution
+      - Legacy hub and fallback-page behavior is removed without disturbing the controller pipeline
+      - The component endpoint keeps interactive server rendering
+
+  - name: Preserve the host document and error UI
+    tags:
+      feature: document-shell
+    prompt: |
+      Convert the supplied Blazor Server application to a Blazor Web App. Preserve
+      its viewport metadata, isolated stylesheet, and environment-specific error
+      text when moving the document shell out of _Host.cshtml. Replace Razor Page
+      and tag-helper constructs with valid component equivalents, and build the
+      project.
+    environment:
+      files:
+        - src: fixtures/global.json
+          dest: global.json
+        - src: fixtures/host-shell/HostShellMigration.csproj
+          dest: HostShellMigration.csproj
+        - src: fixtures/host-shell/Program.cs
+          dest: Program.cs
+        - src: fixtures/host-shell/App.razor
+          dest: App.razor
+        - src: fixtures/host-shell/_Imports.razor
+          dest: _Imports.razor
+        - src: fixtures/host-shell/Pages/_Host.cshtml
+          dest: Pages/_Host.cshtml
+        - src: fixtures/host-shell/Pages/Index.razor
+          dest: Pages/Index.razor
+        - src: fixtures/host-shell/Shared/MainLayout.razor
+          dest: Shared/MainLayout.razor
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build HostShellMigration.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            apps=[p.read_text() for p in Path('.').rglob('App.razor') if not {'bin','obj'} & set(p.parts)];
+            text='\n'.join(apps);
+            required=['<!DOCTYPE html>','name=\"viewport\"','<base href=\"/\"',
+            'HostShellMigration.styles.css','IsDevelopment()',
+            'blazor-error-ui','<HeadOutlet','<Routes','blazor.web.js'];
+            forbidden=['<environment ','<component type=','blazor.server.js'];
+            sys.exit(0 if all(x in text for x in required)
+            and re.search(r'I(?:Web)?HostEnvironment', text)
+            and not any(x in text for x in forbidden) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-not-exists
+        config:
+          path: Pages/_Host.cshtml
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The converted project builds with the original document metadata, stylesheet, and error UI retained
+      - Environment-specific text is expressed with component logic rather than MVC environment tag helpers
+      - Component tag helpers and the legacy server script are replaced with current Razor component syntax
+
+  - name: Convert a Startup-based application
+    tags:
+      feature: startup-hosting
+    prompt: |
+      Convert the supplied application from the legacy Blazor Server hosting
+      model to a Blazor Web App. This project still uses Program.cs plus
+      Startup.cs rather than top-level minimal hosting. Update whichever hosting
+      files are needed, remove the old host page, and preserve interactive server
+      rendering. Build the result.
+    environment:
+      files:
+        - src: fixtures/global.json
+          dest: global.json
+        - src: fixtures/startup/StartupMigration.csproj
+          dest: StartupMigration.csproj
+        - src: fixtures/startup/Program.cs
+          dest: Program.cs
+        - src: fixtures/startup/Startup.cs
+          dest: Startup.cs
+        - src: fixtures/startup/App.razor
+          dest: App.razor
+        - src: fixtures/startup/_Imports.razor
+          dest: _Imports.razor
+        - src: fixtures/startup/Pages/_Host.cshtml
+          dest: Pages/_Host.cshtml
+        - src: fixtures/startup/Pages/Index.razor
+          dest: Pages/Index.razor
+        - src: fixtures/startup/Shared/MainLayout.razor
+          dest: Shared/MainLayout.razor
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build StartupMigration.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import sys;
+            cs='\n'.join(p.read_text() for p in Path('.').rglob('*.cs') if not {'bin','obj'} & set(p.parts));
+            razor='\n'.join(p.read_text() for p in Path('.').rglob('*.razor') if not {'bin','obj'} & set(p.parts));
+            required=['AddRazorComponents','AddInteractiveServerComponents',
+            'MapRazorComponents<App>','AddInteractiveServerRenderMode','UseAntiforgery'];
+            forbidden=['AddServerSideBlazor','MapBlazorHub','MapFallbackToPage'];
+            ok=all(x in cs for x in required) and not any(x in cs for x in forbidden)
+            and '<Routes' in razor and 'blazor.web.js' in razor;
+            sys.exit(0 if ok else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-not-exists
+        config:
+          path: Pages/_Host.cshtml
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The Startup-based project builds after conversion
+      - Current component services, interactive server rendering, antiforgery, and component endpoints are configured regardless of whether hosting remains split or is consolidated
+      - The document and router become Razor components, and the legacy host page and hub route are removed
+
+  - name: Leave an existing Blazor Web App unchanged
+    tags:
+      feature: no-op-already-converted
+    prompt: |
+      Check whether this project still needs conversion from Blazor Server to a
+      Blazor Web App. If it is already on the current model, explain that briefly
+      and do not modify any files.
+    environment:
+      files:
+        - src: fixtures/global.json
+          dest: global.json
+        - src: fixtures/already-webapp/AlreadyWebApp.csproj
+          dest: AlreadyWebApp.csproj
+        - src: fixtures/already-webapp/Program.cs
+          dest: Program.cs
+        - src: fixtures/already-webapp/Components/App.razor
+          dest: Components/App.razor
+        - src: fixtures/already-webapp/Components/Routes.razor
+          dest: Components/Routes.razor
+        - src: fixtures/already-webapp/Components/_Imports.razor
+          dest: Components/_Imports.razor
+        - src: fixtures/already-webapp/Components/Layout/MainLayout.razor
+          dest: Components/Layout/MainLayout.razor
+        - src: fixtures/already-webapp/Components/Pages/Home.razor
+          dest: Components/Pages/Home.razor
+        - src: fixtures/already-webapp/AlreadyWebApp.csproj
+          dest: .eval-baseline/AlreadyWebApp.csproj.txt
+        - src: fixtures/already-webapp/Program.cs
+          dest: .eval-baseline/Program.cs.txt
+        - src: fixtures/already-webapp/Components/App.razor
+          dest: .eval-baseline/Components/App.razor.txt
+        - src: fixtures/already-webapp/Components/Routes.razor
+          dest: .eval-baseline/Components/Routes.razor.txt
+        - src: fixtures/already-webapp/Components/_Imports.razor
+          dest: .eval-baseline/Components/_Imports.razor.txt
+        - src: fixtures/already-webapp/Components/Layout/MainLayout.razor
+          dest: .eval-baseline/Components/Layout/MainLayout.razor.txt
+        - src: fixtures/already-webapp/Components/Pages/Home.razor
+          dest: .eval-baseline/Components/Pages/Home.razor.txt
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build AlreadyWebApp.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: >-
+            sh -c "diff -u .eval-baseline/AlreadyWebApp.csproj.txt AlreadyWebApp.csproj
+            && diff -u .eval-baseline/Program.cs.txt Program.cs
+            && diff -u .eval-baseline/Components/App.razor.txt Components/App.razor
+            && diff -u .eval-baseline/Components/Routes.razor.txt Components/Routes.razor
+            && diff -u .eval-baseline/Components/_Imports.razor.txt Components/_Imports.razor
+            && diff -u .eval-baseline/Components/Layout/MainLayout.razor.txt Components/Layout/MainLayout.razor
+            && diff -u .eval-baseline/Components/Pages/Home.razor.txt Components/Pages/Home.razor"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Correctly recognizes that the project already uses component services, component endpoints, and the Blazor Web App document structure
+      - Does not rewrite, regenerate, or delete any project or source file
+      - Concludes without migration because no conversion is needed
+
+  - name: Keep conversion guidance dormant for hosted WebAssembly
+    tags:
+      feature: dormancy-webassembly
+    prompt: |
+      Migrate my hosted Blazor WebAssembly solution to the newest supported
+      hosted WebAssembly layout. It has separate Client, Server, and Shared
+      projects and downloads the client runtime into the browser.
+    expect_activation: false
+    graders:
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recognizes that a hosted WebAssembly solution has a different migration path from a server-rendered Blazor application
+      - Does not prescribe replacing AddServerSideBlazor, MapBlazorHub, or _Host.cshtml when those are not the described hosting model
+      - The server-hosting conversion workflow stayed dormant for the WebAssembly request
