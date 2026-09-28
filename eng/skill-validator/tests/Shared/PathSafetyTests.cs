@@ -2,9 +2,10 @@ using SkillValidator.Shared;
 
 namespace SkillValidator.Tests;
 
+[TestClass]
 public class PathSafetyTests
 {
-    [Fact]
+    [TestMethod]
     public void ContainsReparsePointRejectsLinkedAllowedRoot()
     {
         var root = Path.Combine(Path.GetTempPath(), $"linked-allowed-root-{Guid.NewGuid():N}");
@@ -20,8 +21,8 @@ public class PathSafetyTests
 
         try
         {
-            Assert.True(PathSafety.ContainsReparsePoint(linkedRoot, linkedRoot));
-            Assert.True(PathSafety.ContainsReparsePoint(
+            Assert.IsTrue(PathSafety.ContainsReparsePoint(linkedRoot, linkedRoot));
+            Assert.IsTrue(PathSafety.ContainsReparsePoint(
                 linkedRoot,
                 Path.Combine(linkedRoot, "child.txt")));
         }

@@ -10,7 +10,8 @@ description: >-
   precedence for MSTest/xUnit/NUnit/TUnit. DO NOT USE when the user asks to
   run/filter tests or for commands, flags, TRX/dumps, or test-command/filter
   errors; use run-tests directly.
-  Do not use for hot reload or migration.
+  Do not route hot-reload or migration requests here as the entry skill;
+  mtp-hot-reload may use this skill internally for platform detection.
 license: MIT
 ---
 

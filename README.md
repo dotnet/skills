@@ -41,6 +41,13 @@ Plugin support is component-specific:
 | [dotnet-winforms](plugins/dotnet-winforms/) | Skills for Windows Forms development: project setup, UI design, data binding, accessibility, and modern .NET practices. |
 | [dotnet11](plugins/dotnet11/) | Skills for new .NET 11 APIs and language features. |
 
+## Agentic Workflows
+
+Reusable GitHub Agentic Workflows are published under
+[`agentic-workflows/`](agentic-workflows/). Install the complete collection with
+`gh aw add-wizard dotnet/skills/agentic-workflows@main`, or install an individual
+package using the command in its README.
+
 ## Installation
 
 ### 🚀 Plugins - Copilot CLI / Claude Code

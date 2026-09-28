@@ -21,6 +21,13 @@
 > the Copilot CLI's no-authentication setup block. Unrelated service and
 > configuration failures remain terminal.
 
+> PR session replay publishing is auxiliary. A missing or invalid
+> `SKILLS_DATA_TOKEN`, or one that cannot authenticate for a non-mutating
+> `git push --dry-run` to `dotnet/skills-data`, is detected before replay
+> artifacts are processed. The degradation is shown in workflow annotations and
+> the PR report but does not override authoritative evaluation verdicts.
+> Scheduled and main session-data publishing remains strict.
+
 > Current Vally PR evaluations default to `claude-sonnet-5` and `gpt-5.6-luna`,
 > with judges `gpt-5.6-terra` and `claude-haiku-4.5`, respectively.
 > Explicit profiles and the scheduled cadence can select other models.
@@ -40,6 +47,12 @@
 > causes. `preferenceRegressed` is report-only LLM preference evidence and is
 > not an objective completion regression. `adapter-summary.json` reconciles the
 > exact expected-eval manifest with observed and written results.
+> Native-agent baseline-pass/isolated-fail completion evidence can produce
+> `VALID_REGRESSION` even when preference evidence has fewer than five eligible
+> stimuli, including on an `expect_activation: false` scenario. Execution,
+> timeout, missing-arm, and comparison-invalid evidence still takes precedence.
+> Both completion values must be explicit booleans; a missing isolated
+> completion value remains measurement-invalid instead of becoming a regression.
 > `practicalSignificance` adds the 20% net-win floor. Objective completion is a
 > separately defined tri-state over explicitly selected deterministic graders;
 > aggregate Vally pass booleans remain report-only. These fields do not exist
@@ -217,6 +230,77 @@ Several scenario-level options in `eval.yaml` are relevant when diagnosing failu
 - **Increase `timeout`** in `eval.yaml` — 180s is often not enough for scenarios that involve code generation. Try 360s.
 - **Restructure the prompt** to discourage bash exploration (e.g., "Show me the code" rather than "Create a project")
 - **Add `reject_tools: ["bash"]`** if the scenario should be answerable without shell commands
+
+**In CI:** a required arm that times out makes the whole eval
+measurement-invalid, even when every other scenario produced clean evidence. The
+evaluation workflow therefore runs `eng/vally-adapter/retry-agent-timeouts.mjs`
+before the adapter. It re-runs only the timed-out scenario, using
+`skill-validator evaluate --target "<agent>" --scenario "<name>"`, writes that
+retry into its own `--results-dir`, and replaces only that one scenario record
+in the native results file. The target filter prevents another agent with the
+same scenario name from entering the retry. The agent identity is validated as
+a safe single path segment before timeout lookup or retry/audit storage.
+The retry result must contain exactly one verdict total, for that target, and
+exactly one scenario. The original timeout must already have a pairwise
+judgment with valid winner/magnitude, rubric, reasoning, and position-swap
+consistency fields.
+Because the retry never shares a
+results directory, its sessions never merge with the first attempt's: every
+role/session record stays unique and the `rejudge` pairing rules that reject
+duplicate completed roles still apply unchanged. The retry judges the arms it
+re-runs, so no separate `rejudge` pass is needed.
+
+The retry is deliberately narrow. It fires only when a wall-clock timeout is the
+scenario's sole defect; an `executionError`, `failedRunCount > 0`, a missing
+arm, missing boolean completion evidence, a missing or malformed pairwise
+judgment, objective baseline-pass/isolated-fail completion regression, or a
+measured negative improvement/routing failure from non-timed-out baseline and
+isolated arms is never retried. In particular, a plugin-only timeout cannot
+erase a completed objective regression by replacing the whole scenario. A
+negative score from a baseline- or isolated-arm timeout remains eligible because
+the timeout contaminated the score. Ineligible
+timeout scenarios remain listed as unresolved diagnostics
+instead of disappearing from retry accounting. A second timeout,
+more than two timed-out scenarios, an effective per-scenario three-arm retry
+cost (including `constraints.max_duration`) that exceeds the bounded recovery
+window, or any unexpected retry shape leaves the original measurement in place
+and keeps the eval invalid. The systemic scenario-count guard runs before
+individual budget filtering, so a widespread timeout never triggers a partial
+subset of retries. Check
+`agent-timeout-retry-summary.json` in the leg artifact for
+`plannedScenarioCount`, `recoveredScenarioCount`, `unresolvedScenarioCount`,
+`ineligibleScenarioCount`, `budgetSkippedScenarioCount`, `clearedAggregates`,
+and a per-scenario reason. `plannedScenarioCount` includes every named
+required-arm timeout before eligibility filtering.
+
+After replacement, recovery recomputes execution, isolated target-agent
+activation, unexpected activation, and completion-regression state from all
+surviving scenarios. It clears stale `failureKind`/`skillNotActivated` values
+when the evidence no longer supports them, while any true remaining failure
+stays fail-closed. If stale `skill_not_activated` masked an isolated completion
+regression, recomputation restores `completion_regression`. It also clears the
+old `confidenceInterval`,
+`isSignificant`, and `overfittingResult`; the changed sample cannot reuse the
+first attempt's aggregate statistics, and native agent evals do not produce an
+overfitting assessment. The adapter derives the completion and activation gates
+from scenarios again instead of trusting legacy aggregate flags.
+
+Retry runs first write outside `RESULTS_DIR`, so a workflow `SIGTERM` cannot
+leave a retry `results.json` where recursive discovery can count it. Each retry
+uses a unique attempt directory, so a re-entered recovery process cannot accept
+an older attempt's result when the current attempt produced none. The current
+attempt must contain exactly one native `results.json`; zero or multiple
+aggregates remain unresolved, and colliding aggregates are retained under their
+relative audit paths for diagnosis. After a
+retry process finishes, its `sessions.db`, logs, and raw result (renamed
+`retry-results.json`) are copied under `_agent-timeout-retry/` in the main
+evaluation artifact. Workflow result counting, consolidation, summaries, and
+dashboard publication also exclude this subtree as defense in depth, so exactly
+one adapted per-agent `results.json` is authoritative.
+
+`--target` and `--scenario` are repeatable, match names case-insensitively, and
+exit `1` when a name matches nothing, so a typo can never quietly evaluate an
+empty set and report a clean run.
 
 ### 2. Baseline already bad
 

@@ -41,12 +41,19 @@ Options:
   process.exit(opts.help ? 0 : 1);
 }
 
+// The agent timeout-retry tree holds a second, narrower native copy of one
+// scenario, kept only for audit. It is never a skill result, so a recursive
+// walk must step over it — the same exclusion the workflow collectors apply.
+const EXCLUDED_DIRECTORIES = new Set(["_agent-timeout-retry"]);
+
 function findNamedFiles(dir, fileName) {
   const out = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...findNamedFiles(full, fileName));
-    else if (entry.name === fileName) out.push(full);
+    if (entry.isDirectory()) {
+      if (EXCLUDED_DIRECTORIES.has(entry.name)) continue;
+      out.push(...findNamedFiles(full, fileName));
+    } else if (entry.name === fileName) out.push(full);
   }
   return out;
 }

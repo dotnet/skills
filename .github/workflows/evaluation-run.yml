@@ -851,6 +851,7 @@ jobs:
 
             AGENT_RAW_DIR="$RESULTS_DIR/_agent-evaluation"
             mkdir -p "$AGENT_RAW_DIR"
+            set +e
             "$RUNNER_TEMP/trusted-validator/skill-validator" evaluate \
               "${AGENT_ARGS[@]}" \
               --tests-dir "tests/$PLUGIN" \
@@ -864,11 +865,48 @@ jobs:
               --keep-sessions \
               --verdict-warn-only \
               --results-dir "$AGENT_RAW_DIR"
+            AGENT_EVAL_STATUS=$?
+            set -e
 
             mapfile -d '' AGENT_RESULTS < <(find "$AGENT_RAW_DIR" -name results.json -type f -print0)
             if [ ${#AGENT_RESULTS[@]} -ne 1 ]; then
               echo "::error::Expected exactly one native agent results.json, found ${#AGENT_RESULTS[@]}"
+              if [ "$AGENT_EVAL_STATUS" -ne 0 ]; then
+                exit "$AGENT_EVAL_STATUS"
+              fi
               exit 1
+            fi
+            if [ "$AGENT_EVAL_STATUS" -ne 0 ]; then
+              echo "::warning::Native agent evaluator exited $AGENT_EVAL_STATUS; attempting bounded recovery and adapting the preserved result"
+            fi
+            # A wall-clock timeout on a required arm is a property of one run, not
+            # of the agent under test, yet it makes the whole eval
+            # measurement-invalid. Re-run only the affected scenario in a temporary
+            # results tree. Retry results.json files stay outside RESULTS_DIR so
+            # SIGTERM cannot leave an authoritative-looking file in the artifact
+            # tree. Completed retry sessions and logs are copied into the diagnostic
+            # subtree; the raw result is renamed retry-results.json. Recursive
+            # collectors also exclude that subtree as defense in depth. A scenario
+            # that times out again, fails for any other reason, or has a measured
+            # loss/routing failure from non-timed-out baseline+isolated evidence is
+            # left exactly as measured and
+            # still fails the accounting gate below. The bound keeps a systemic
+            # capacity problem from being retried at all.
+            if ! timeout --signal=TERM --kill-after=30s 45m \
+              node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/retry-agent-timeouts.mjs" \
+                --results-file "${AGENT_RESULTS[0]}" \
+                --retry-results-dir "$RUNNER_TEMP/agent-timeout-retry" \
+                --retry-audit-dir "$RESULTS_DIR/_agent-timeout-retry" \
+                --summary "$RESULTS_DIR/agent-timeout-retry-summary.json" \
+                --validator "$RUNNER_TEMP/trusted-validator/skill-validator" \
+                --tests-dir "tests/$PLUGIN" \
+                --model "$MODEL" \
+                --judge-model "$JUDGE_MODEL" \
+                --max-scenarios 2 \
+                --max-scenario-seconds 1200 \
+                --scenario-overhead-seconds 300 \
+                "${AGENT_ARGS[@]/#/--agent=}"; then
+              echo "::warning::Agent timeout recovery did not complete; the original measurement stands"
             fi
             node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/adapt-agent-results.mjs" \
               --results-file "${AGENT_RESULTS[0]}" \
@@ -1017,11 +1055,16 @@ jobs:
           fi
 
           # A single agent session can time out transiently while every other
-          # trial succeeds. Retry only that eval/variant once, then replace only
-          # the matching failed slots. Persistent or non-timeout failures remain
-          # in the original JSONL and fail the measurement-validity gate below.
+          # trial succeeds. Retry only that eval/variant, then repeat once only
+          # when exact timeout slots remain unresolved. Each pass replaces only
+          # matching failed slots; successful original and recovered slots stay
+          # frozen. Persistent or non-timeout failures remain in the original
+          # JSONL and fail the measurement-validity gate below.
+          # A slot whose executor evidence is complete but whose comparison judge
+          # stalled is recovered later, inside adapt.mjs, by re-judging just that
+          # slot from these preserved trajectories.
           set +e
-          timeout --signal=TERM --kill-after=30s 30m \
+          timeout --signal=TERM --kill-after=30s 45m \
             node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/retry-executor-timeouts.mjs" \
               --experiment-file "$EXPERIMENT_FILE" \
               --experiment-dir "$RUN_DIR" \
@@ -1029,7 +1072,8 @@ jobs:
               --summary "$RESULTS_DIR/executor-retry-summary.json" \
               --vally "vally" \
               --workers 5 \
-              --max-groups 3
+              --max-groups 3 \
+              --max-attempts-per-group 2
           EXECUTOR_RETRY_STATUS=$?
           set -e
           if [ "$EXECUTOR_RETRY_STATUS" -ne 0 ]; then
@@ -1091,14 +1135,22 @@ jobs:
 
           fi
 
-          # Surface how many verdicts were produced.
-          PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$RESULTS_DIR/_experiment/*" -not -path "$RESULTS_DIR/_agent-evaluation/*" | wc -l | tr -d ' ')
+          # Surface how many verdicts were produced. Raw evaluator trees are
+          # excluded: only the adapted schema-v5 results are authoritative, and
+          # the timeout-retry tree holds a second raw copy of one scenario.
+          PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$RESULTS_DIR/_experiment/*" -not -path "$RESULTS_DIR/_agent-evaluation/*" -not -path "$RESULTS_DIR/_agent-timeout-retry/*" | wc -l | tr -d ' ')
           echo "Produced $PRODUCED of $EXPECTED_EVAL_COUNT expected target verdict(s) for $PLUGIN"
           if [ "$PRODUCED" -ne "$EXPECTED_EVAL_COUNT" ]; then
             echo "::error::vally produced $PRODUCED result file(s), but the pre-run manifest required $EXPECTED_EVAL_COUNT. The result set is incomplete or contains an unexpected eval."
             exit 1
           fi
           ADAPTER_SUMMARY="$RESULTS_DIR/adapter-summary.json"
+          # measurementInvalidEvalCount counts evals whose evidence is unusable,
+          # which is what the two recovery passes above exist to prevent: a slot
+          # recovered from preserved evidence is a real measurement, so this count
+          # legitimately reaches zero after recovery. A slot that stayed errored is
+          # still counted and still fails here. Diagnostic errorCount is not part
+          # of this gate: it records annotations that do not invalidate a verdict.
           if [ ! -f "$ADAPTER_SUMMARY" ] || ! node -e "
             const s = JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));
             const expected = Number(process.argv[2]);
@@ -1198,4 +1250,7 @@ jobs:
               }
             " "$RESULTS_JSON" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-          done < <(find "$RESULTS_DIR" -name results.json | sort)
+          # Exclude the agent timeout-retry tree: it holds a second, narrower
+          # native copy of one scenario, not a skill result. The retry raw result
+          # is renamed, and this path filter remains defense in depth.
+          done < <(find "$RESULTS_DIR" -name results.json -not -path "$RESULTS_DIR/_agent-timeout-retry/*" | sort)

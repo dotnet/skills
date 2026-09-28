@@ -37,4 +37,7 @@ This skill provides access to language-specific guidance files used by the code-
 
 ## Usage
 
-Read the appropriate extension file for the target language before writing test code. When an `<language>-examples.md` file exists for the target language, read it alongside the base extension to see a concrete end-to-end pipeline walkthrough (research output, plan, generated tests, fix cycles, final report).
+Read the appropriate base extension before writing test code. Load an
+`<language>-examples.md` file only when the repository has no representative
+tests and the base extension does not resolve the needed pattern. Do not load
+end-to-end examples for a focused request with established local conventions.

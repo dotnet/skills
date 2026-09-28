@@ -3,6 +3,7 @@ using SkillValidator.Shared;
 
 namespace SkillValidator.Tests;
 
+[TestClass]
 public class FailureIsolationTests
 {
     private static readonly SkillInfo MockSkill = new(
@@ -12,55 +13,55 @@ public class FailureIsolationTests
         SkillMdPath: "/test/SKILL.md",
         SkillMdContent: "# Test");
 
-    [Fact]
+    [TestMethod]
     public void CreateFailedScenarioComparison_SetsExecutionError()
     {
         var result = EvaluateCommand.CreateFailedScenarioComparison("test-scenario", "Something went wrong");
 
-        Assert.Equal("test-scenario", result.ScenarioName);
-        Assert.Equal("Something went wrong", result.ExecutionError);
+        Assert.AreEqual("test-scenario", result.ScenarioName);
+        Assert.AreEqual("Something went wrong", result.ExecutionError);
     }
 
-    [Fact]
+    [TestMethod]
     public void CreateFailedScenarioComparison_DoesNotSetTimedOut()
     {
         var result = EvaluateCommand.CreateFailedScenarioComparison("test-scenario", "OOM killed");
 
-        Assert.False(result.TimedOut);
+        Assert.IsFalse(result.TimedOut);
     }
 
-    [Fact]
+    [TestMethod]
     public void CreateFailedScenarioComparison_SetsZeroImprovementScore()
     {
         var result = EvaluateCommand.CreateFailedScenarioComparison("test-scenario", "error");
 
-        Assert.Equal(0, result.ImprovementScore);
-        Assert.Equal(0, result.Breakdown.QualityImprovement);
-        Assert.Equal(0, result.Breakdown.TokenReduction);
+        Assert.AreEqual(0, result.ImprovementScore);
+        Assert.AreEqual(0, result.Breakdown.QualityImprovement);
+        Assert.AreEqual(0, result.Breakdown.TokenReduction);
     }
 
-    [Fact]
+    [TestMethod]
     public void CreateFailedScenarioComparison_HasNonNullRunResults()
     {
         var result = EvaluateCommand.CreateFailedScenarioComparison("test-scenario", "error");
 
-        Assert.NotNull(result.Baseline);
-        Assert.NotNull(result.SkilledIsolated);
-        Assert.NotNull(result.SkilledPlugin);
-        Assert.Equal(1, result.Baseline.Metrics.ErrorCount);
+        Assert.IsNotNull(result.Baseline);
+        Assert.IsNotNull(result.SkilledIsolated);
+        Assert.IsNotNull(result.SkilledPlugin);
+        Assert.AreEqual(1, result.Baseline.Metrics.ErrorCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void FailedScenario_ProducesFailedVerdict()
     {
         var failed = EvaluateCommand.CreateFailedScenarioComparison("scenario-1", "Runner OOM killed");
 
         var verdict = Comparator.ComputeVerdict(MockSkill, [failed], 0.1, true);
 
-        Assert.False(verdict.Passed);
+        Assert.IsFalse(verdict.Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public void FailedScenario_MixedWithSuccessful_StillProducesVerdict()
     {
         var baseline = new RunResult(
@@ -96,11 +97,11 @@ public class FailureIsolationTests
         // Verdict should still be computed (not throw) when mixing failed + successful scenarios
         var verdict = Comparator.ComputeVerdict(MockSkill, [successScenario, failedScenario], 0.1, true);
 
-        Assert.NotNull(verdict);
-        Assert.Equal(2, verdict.Scenarios.Count);
+        Assert.IsNotNull(verdict);
+        Assert.AreEqual(2, verdict.Scenarios.Count);
     }
 
-    [Fact]
+    [TestMethod]
     public void FailedRunCount_DefaultsToZero()
     {
         var baseline = new RunResult(
@@ -117,14 +118,14 @@ public class FailureIsolationTests
             new JudgeResult([new RubricScore("Q", 3, "")], 3, "OK"));
 
         var comparison = Comparator.CompareScenario("test", baseline, baseline);
-        Assert.Equal(0, comparison.FailedRunCount);
+        Assert.AreEqual(0, comparison.FailedRunCount);
     }
 
-    [Fact]
+    [TestMethod]
     public void FailedScenarioComparison_HasZeroFailedRunCount()
     {
         // A scenario-level failure is different from run-level failures
         var result = EvaluateCommand.CreateFailedScenarioComparison("test", "error");
-        Assert.Equal(0, result.FailedRunCount);
+        Assert.AreEqual(0, result.FailedRunCount);
     }
 }

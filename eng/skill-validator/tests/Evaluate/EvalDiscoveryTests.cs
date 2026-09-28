@@ -3,9 +3,12 @@ using SkillValidator.Shared;
 
 namespace SkillValidator.Tests;
 
+[TestClass]
 public class EvalDiscoveryTests
 {
-    [Fact]
+    public TestContext TestContext { get; set; } = null!;
+
+    [TestMethod]
     public async Task FindsPluginMcpServersInParentDirectory()
     {
         var tmpDir = Path.Combine(Path.GetTempPath(), $"skill-test-{Guid.NewGuid():N}");
@@ -24,12 +27,12 @@ public class EvalDiscoveryTests
                     }
                 }
                 """;
-            await File.WriteAllTextAsync(Path.Combine(tmpDir, "plugin.json"), pluginJson, TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(tmpDir, "plugin.json"), pluginJson, TestContext.CancellationToken);
 
             var result = await EvaluateCommand.FindPluginMcpServers(skillDir);
-            Assert.NotNull(result);
-            Assert.True(result!.ContainsKey("test-mcp"));
-            Assert.Equal("dotnet", result["test-mcp"].Command);
+            Assert.IsNotNull(result);
+            Assert.IsTrue(result!.ContainsKey("test-mcp"));
+            Assert.AreEqual("dotnet", result["test-mcp"].Command);
         }
         finally
         {
@@ -37,7 +40,7 @@ public class EvalDiscoveryTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task FindsPluginMcpServersInGrandparentDirectory()
     {
         // Simulates the real layout: plugin.json is at dotnet-msbuild/,
@@ -58,12 +61,12 @@ public class EvalDiscoveryTests
                     }
                 }
                 """;
-            await File.WriteAllTextAsync(Path.Combine(tmpDir, "plugin.json"), pluginJson, TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(tmpDir, "plugin.json"), pluginJson, TestContext.CancellationToken);
 
             var result = await EvaluateCommand.FindPluginMcpServers(skillDir);
-            Assert.NotNull(result);
-            Assert.True(result!.ContainsKey("test-mcp"));
-            Assert.Equal("dotnet", result["test-mcp"].Command);
+            Assert.IsNotNull(result);
+            Assert.IsTrue(result!.ContainsKey("test-mcp"));
+            Assert.AreEqual("dotnet", result["test-mcp"].Command);
         }
         finally
         {
@@ -71,7 +74,7 @@ public class EvalDiscoveryTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ReturnsNullWhenNoPluginJson()
     {
         var tmpDir = Path.Combine(Path.GetTempPath(), $"skill-test-{Guid.NewGuid():N}");
@@ -79,7 +82,7 @@ public class EvalDiscoveryTests
         try
         {
             var result = await EvaluateCommand.FindPluginMcpServers(tmpDir);
-            Assert.Null(result);
+            Assert.IsNull(result);
         }
         finally
         {
@@ -87,7 +90,7 @@ public class EvalDiscoveryTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task RejectsReferencedMcpFileThroughSymlink()
     {
         var root = Path.Combine(Path.GetTempPath(), $"skill-mcp-link-{Guid.NewGuid():N}");
@@ -99,11 +102,11 @@ public class EvalDiscoveryTests
         await File.WriteAllTextAsync(
             Path.Combine(pluginDir, "plugin.json"),
             """{"mcpServers":"./.mcp.json"}""",
-            TestContext.Current.CancellationToken);
+            TestContext.CancellationToken);
         await File.WriteAllTextAsync(
             outsideMcp,
             """{"mcpServers":{"external":{"command":"dotnet","args":["run"]}}}""",
-            TestContext.Current.CancellationToken);
+            TestContext.CancellationToken);
         if (!SymlinkTestHelper.TryCreateFile(linkedMcp, outsideMcp))
         {
             Directory.Delete(root, true);
@@ -114,7 +117,7 @@ public class EvalDiscoveryTests
         {
             var result = await EvaluateCommand.FindPluginMcpServers(skillDir);
 
-            Assert.Null(result);
+            Assert.IsNull(result);
         }
         finally
         {
@@ -122,7 +125,7 @@ public class EvalDiscoveryTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ResolveEvalPathFindsNestedTestDir()
     {
         // Layout: tests/<plugin-name>/<skill-name>/eval.yaml
@@ -134,13 +137,13 @@ public class EvalDiscoveryTests
         Directory.CreateDirectory(evalDir);
         try
         {
-            await File.WriteAllTextAsync(Path.Combine(skillDir, "SKILL.md"), "---\nname: my-skill\ndescription: test\n---\nBody", TestContext.Current.CancellationToken);
-            await File.WriteAllTextAsync(Path.Combine(evalDir, "eval.yaml"), "scenarios:\n  - name: test\n    prompt: hi\n    assertions:\n      - type: exit_success", TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(skillDir, "SKILL.md"), "---\nname: my-skill\ndescription: test\n---\nBody", TestContext.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(evalDir, "eval.yaml"), "scenarios:\n  - name: test\n    prompt: hi\n    assertions:\n      - type: exit_success", TestContext.CancellationToken);
 
             var skills = await SkillDiscovery.DiscoverSkills(skillDir);
             var evalSkills = await EvaluateCommand.LoadAndParseEvalData(skills, testsDir);
-            Assert.Single(evalSkills);
-            Assert.NotNull(evalSkills[0].EvalPath);
+            Assert.ContainsSingle(evalSkills);
+            Assert.IsNotNull(evalSkills[0].EvalPath);
             Assert.Contains("my-plugin", evalSkills[0].EvalPath!);
         }
         finally
@@ -149,7 +152,7 @@ public class EvalDiscoveryTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ResolveEvalPathPrefersFlatLayout()
     {
         // When both flat and nested exist, flat wins
@@ -163,14 +166,14 @@ public class EvalDiscoveryTests
         Directory.CreateDirectory(nestedEvalDir);
         try
         {
-            await File.WriteAllTextAsync(Path.Combine(skillDir, "SKILL.md"), "---\nname: my-skill\ndescription: test\n---\nBody", TestContext.Current.CancellationToken);
-            await File.WriteAllTextAsync(Path.Combine(flatEvalDir, "eval.yaml"), "scenarios:\n  - name: test\n    prompt: hi\n    assertions:\n      - type: exit_success", TestContext.Current.CancellationToken);
-            await File.WriteAllTextAsync(Path.Combine(nestedEvalDir, "eval.yaml"), "scenarios:\n  - name: test\n    prompt: hi\n    assertions:\n      - type: exit_success", TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(skillDir, "SKILL.md"), "---\nname: my-skill\ndescription: test\n---\nBody", TestContext.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(flatEvalDir, "eval.yaml"), "scenarios:\n  - name: test\n    prompt: hi\n    assertions:\n      - type: exit_success", TestContext.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(nestedEvalDir, "eval.yaml"), "scenarios:\n  - name: test\n    prompt: hi\n    assertions:\n      - type: exit_success", TestContext.CancellationToken);
 
             var skills = await SkillDiscovery.DiscoverSkills(skillDir);
             var evalSkills = await EvaluateCommand.LoadAndParseEvalData(skills, testsDir);
-            Assert.Single(evalSkills);
-            Assert.NotNull(evalSkills[0].EvalPath);
+            Assert.ContainsSingle(evalSkills);
+            Assert.IsNotNull(evalSkills[0].EvalPath);
             // Flat path should win
             Assert.DoesNotContain("some-plugin", evalSkills[0].EvalPath!);
         }
@@ -181,6 +184,7 @@ public class EvalDiscoveryTests
     }
 }
 
+[TestClass]
 public class ValidateEvalPromptsTests
 {
     private static (SkillInfo Skill, EvalConfig EvalConfig) MakeSkillWithEval(string content, string name, List<EvalScenario> scenarios)
@@ -195,7 +199,7 @@ public class ValidateEvalPromptsTests
         return (skill, evalConfig);
     }
 
-    [Fact]
+    [TestMethod]
     public void ErrorsWhenEvalPromptMentionsSkillName()
     {
         var content = "---\nname: migrate-app\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
@@ -205,10 +209,10 @@ public class ValidateEvalPromptsTests
         };
         var (skill, evalConfig) = MakeSkillWithEval(content, "migrate-app", scenarios);
         var errors = EvaluateCommand.ValidateEvalPrompts(skill, evalConfig);
-        Assert.Contains(errors, e => e.Contains("mentions target name") && e.Contains("migrate-app"));
+        Assert.IsTrue((errors).Any(e => e.Contains("mentions target name") && e.Contains("migrate-app")));
     }
 
-    [Fact]
+    [TestMethod]
     public void NoErrorWhenEvalPromptDoesNotMentionSkillName()
     {
         var content = "---\nname: migrate-app\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
@@ -218,10 +222,10 @@ public class ValidateEvalPromptsTests
         };
         var (skill, evalConfig) = MakeSkillWithEval(content, "migrate-app", scenarios);
         var errors = EvaluateCommand.ValidateEvalPrompts(skill, evalConfig);
-        Assert.DoesNotContain(errors, e => e.Contains("mentions target name"));
+        Assert.IsFalse((errors).Any(e => e.Contains("mentions target name")));
     }
 
-    [Fact]
+    [TestMethod]
     public void NoErrorWhenSkillNameIsEmpty()
     {
         var content = "---\nname: \n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
@@ -231,13 +235,14 @@ public class ValidateEvalPromptsTests
         };
         var (skill, evalConfig) = MakeSkillWithEval(content, "", scenarios);
         var errors = EvaluateCommand.ValidateEvalPrompts(skill, evalConfig);
-        Assert.DoesNotContain(errors, e => e.Contains("mentions target name"));
+        Assert.IsFalse((errors).Any(e => e.Contains("mentions target name")));
     }
 }
 
+[TestClass]
 public class GroupSkillsByPluginTests
 {
-    [Fact]
+    [TestMethod]
     public void GroupsSkillsUnderSamePlugin()
     {
         var tmpDir = Path.Combine(Path.GetTempPath(), $"group-test-{Guid.NewGuid():N}");
@@ -257,10 +262,10 @@ public class GroupSkillsByPluginTests
             };
 
             var (groups, errors) = EvaluateCommand.GroupSkillsByPlugin(skills);
-            Assert.Empty(errors);
-            Assert.Single(groups);
+            Assert.IsEmpty(errors);
+            Assert.ContainsSingle(groups);
             var (plugin, grouped) = groups.Values.First();
-            Assert.Equal(2, grouped.Count);
+            Assert.AreEqual(2, grouped.Count);
         }
         finally
         {
@@ -268,7 +273,7 @@ public class GroupSkillsByPluginTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void ReportsErrorForStandaloneSkill()
     {
         var tmpDir = Path.Combine(Path.GetTempPath(), $"group-test-{Guid.NewGuid():N}");
@@ -278,8 +283,8 @@ public class GroupSkillsByPluginTests
             // No plugin.json in parents
             var skill = new SkillInfo("orphan", "O", tmpDir, Path.Combine(tmpDir, "SKILL.md"), "# O");
             var (groups, errors) = EvaluateCommand.GroupSkillsByPlugin([skill]);
-            Assert.Empty(groups);
-            Assert.Single(errors);
+            Assert.IsEmpty(groups);
+            Assert.ContainsSingle(errors);
             Assert.Contains("orphan", errors[0]);
         }
         finally

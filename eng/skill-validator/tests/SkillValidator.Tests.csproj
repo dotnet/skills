@@ -1,16 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="xunit.v3.mtp-v2" Version="4.0.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Using Include="Xunit" />
-  </ItemGroup>
+<Project Sdk="MSTest.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\src\SkillValidator.csproj" />
