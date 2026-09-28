@@ -23,12 +23,128 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-run.yml"
 CALLER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation.yml"
 TEST_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-workflow-tests.yml"
+GROOM_CANARY_WORKFLOW = (
+    REPO_ROOT / ".github" / "workflows" / "devops-health-groom-canary.yml"
+)
 DASHBOARD_GENERATOR = REPO_ROOT / "eng" / "dashboard" / "generate-benchmark-data.ps1"
 PATH_SAFETY_SCRIPT = REPO_ROOT / "eng" / "evaluation" / "path-safety.ps1"
 FIND_TARGETS_SCRIPT = REPO_ROOT / "eng" / "evaluation" / "find-targets.ps1"
 STEP_NAME = "Select available Copilot token from pool"
 GIT_BASH = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "bin" / "bash.exe"
 BASH = str(GIT_BASH) if os.name == "nt" and GIT_BASH.exists() else "bash"
+
+
+def run_groom_canary_validator(
+    test_case: unittest.TestCase,
+    item: dict[str, object],
+    *,
+    trusted_comment: bool = True,
+    trusted_run: bool = True,
+    include_prior: bool = False,
+) -> subprocess.CompletedProcess[str]:
+    node = shutil.which("node")
+    if not node:
+        test_case.skipTest("Node.js is required for canary behavior tests")
+
+    canary = yaml.safe_load(GROOM_CANARY_WORKFLOW.read_text(encoding="utf-8"))
+    validator_script = canary["jobs"]["validate"]["steps"][1]["with"]["script"]
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        artifact_path = root / "canary-artifact"
+        artifact_path.mkdir()
+        output_path = artifact_path / "agent_output.json"
+        output_path.write_text(
+            json.dumps({"items": [item], "errors": []}),
+            encoding="utf-8",
+        )
+        harness_path = root / "canary-validator.cjs"
+        harness_path.write_text(
+            f"""
+const context = {{ repo: {{ owner: "dotnet", repo: "skills" }} }};
+const github = {{
+  rest: {{
+    issues: {{
+      get: async () => ({{
+        data: {{
+          state: "open",
+          title: "🏥 Repository Health Dashboard",
+          labels: [{{ name: "devops-health" }}],
+          body: [
+            "<!-- devops-health-state:v1",
+            JSON.stringify({{
+              active_findings: [{{
+                category: "infra",
+                fingerprint: "infra:no-codeowners",
+                first_seen: "2026-09-23",
+                occurrences: 1,
+                severity: "warning",
+                title: "No CODEOWNERS",
+                url: "https://github.com/dotnet/skills"
+              }}],
+              history: []
+            }}),
+            "-->",
+            {json.dumps(
+                "| [](https://github.com/dotnet/skills/issues/695"
+                "#investigation-fingerprint:infra%3Ano-codeowners) "
+                "[](https://github.com/dotnet/skills/issues/695"
+                "#investigation-correlation:hc-2026-09-23-123-1) "
+                "No CODEOWNERS | 🟡 warning | 🔄 Dispatched | "
+                "2026-09-23 | pending |"
+                if include_prior else ""
+            )}
+          ].join("\\n")
+        }}
+      }}),
+      getComment: async () => ({{
+        data: {{
+          user: {{ login: {
+              json.dumps("github-actions[bot]" if trusted_comment else "attacker")
+          } }},
+          issue_url: "https://api.github.com/repos/dotnet/skills/issues/695",
+          html_url: "https://github.com/dotnet/skills/issues/695#issuecomment-42",
+          body: [
+            "## 🔍 Investigation: complete",
+            "**Finding ID:** `infra:no-codeowners`",
+            "**Correlation:** hc-2026-09-23-123-1",
+            "**Executive Summary:** complete",
+            "<sub>🔍 [Investigation Run #99](https://github.com/dotnet/skills/actions/runs/99) · Dispatched by health check · hc-2026-09-23-123-1</sub>"
+          ].join("\\n")
+        }}
+      }})
+    }},
+    actions: {{
+      getWorkflowRun: async () => ({{
+        data: {{
+          event: "workflow_dispatch",
+          conclusion: {json.dumps("success" if trusted_run else "failure")},
+          display_title:
+            "DevOps Health Investigation — hc-2026-09-23-123-1",
+          path: ".github/workflows/devops-health-investigate.lock.yml@refs/heads/main",
+          head_repository: {{ full_name: "dotnet/skills" }}
+        }}
+      }})
+    }}
+  }}
+}};
+(async () => {{
+{validator_script}
+}})().catch(error => {{
+  console.error(error.message);
+  process.exitCode = 1;
+}});
+""",
+            encoding="utf-8",
+        )
+        return subprocess.run(
+            [node, str(harness_path)],
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            cwd=root,
+        )
 
 
 def workflow_frontmatter(text: str) -> dict:
@@ -358,6 +474,37 @@ def generated_safe_output_configs(workflow: object) -> list[dict[str, object]]:
 
 
 class TokenFailoverTests(unittest.TestCase):
+    def test_devops_groom_default_activation_gate(self) -> None:
+        workflows = REPO_ROOT / ".github" / "workflows"
+        source = (workflows / "devops-health-groom.md").read_text(
+            encoding="utf-8"
+        )
+        frontmatter = workflow_frontmatter(source)
+        trigger = frontmatter.get("on", frontmatter.get(True))
+        lock = yaml.safe_load(
+            (workflows / "devops-health-groom.lock.yml").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        self.assertEqual(trigger["permissions"], {"contents": "read"})
+        self.assertNotIn("roles", trigger)
+        pre_activation = lock["jobs"]["pre_activation"]
+        self.assertEqual(pre_activation["permissions"], {"contents": "read"})
+        self.assertEqual(
+            pre_activation["steps"][-1]["name"],
+            "Check team membership for workflow",
+        )
+        self.assertIn(
+            "check_membership.cjs",
+            pre_activation["steps"][-1]["with"]["script"],
+        )
+        self.assertEqual(lock["jobs"]["pat_pool"]["needs"], "pre_activation")
+        self.assertEqual(
+            set(lock["jobs"]["activation"]["needs"]),
+            {"pat_pool", "pre_activation"},
+        )
+
     def test_evaluation_model_profiles_and_judges(self) -> None:
         caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
         discover_script = workflow_step_script(
@@ -780,10 +927,17 @@ class TokenFailoverTests(unittest.TestCase):
             "Any failure throws and stops",
             health_lock_text,
         )
-        self.assertFalse(groom_frontmatter["tools"]["cli-proxy"])
+        self.assertTrue(groom_frontmatter["tools"]["cli-proxy"])
         self.assertFalse(groom_frontmatter["tools"]["edit"])
-        self.assertFalse(groom_frontmatter["tools"]["bash"])
+        self.assertEqual(
+            groom_frontmatter["tools"]["bash"],
+            ["github", "safeoutputs"],
+        )
         self.assertNotIn("update-issue", groom_frontmatter["safe-outputs"])
+        self.assertEqual(
+            groom_frontmatter["safe-outputs"]["staged"],
+            "${{ inputs.dry_run }}",
+        )
         groom_job = groom_frontmatter["safe-outputs"]["jobs"][
             "publish-groomed-dashboard"
         ]
@@ -796,11 +950,63 @@ class TokenFailoverTests(unittest.TestCase):
             "needs.detection.outputs.detection_success == 'true'",
             groom_job["if"],
         )
+        self.assertIn("inputs.dry_run != true", groom_job["if"])
+        groom_trigger = groom_frontmatter.get("on", groom_frontmatter.get(True))
+        groom_inputs = groom_trigger["workflow_dispatch"]["inputs"]
+        dry_run = groom_inputs["dry_run"]
+        self.assertEqual(
+            dry_run,
+            {
+                "description": (
+                    "Exercise grooming and safe outputs without updating issue 695"
+                ),
+                "required": False,
+                "type": "boolean",
+                "default": False,
+            },
+        )
+        self.assertEqual(groom_trigger["permissions"], {"contents": "read"})
+        self.assertNotIn("roles", groom_trigger)
+        self.assertNotIn("steps", groom_trigger)
+        self.assertEqual(
+            groom_trigger["workflow_call"]["inputs"]["dry_run"],
+            {
+                "description": (
+                    "Exercise grooming and safe outputs without updating issue 695"
+                ),
+                "required": True,
+                "type": "boolean",
+            },
+        )
+        self.assertFalse(groom_frontmatter["concurrency"]["cancel-in-progress"])
+        self.assertIn(
+            "gh-aw-devops-health-dashboard-canary-{0}",
+            groom_frontmatter["concurrency"]["group"],
+        )
+        self.assertIn(
+            "github.run_id",
+            groom_frontmatter["concurrency"]["group"],
+        )
+        self.assertEqual(
+            groom_frontmatter["concurrency"]["job-discriminator"],
+            "${{ github.run_id }}",
+        )
+        self.assertNotIn("run-name", groom_frontmatter)
+        self.assertIn(
+            "Do not change the output type only because the run is a dry run.",
+            groom,
+        )
         self.assertFalse(
             groom_frontmatter["safe-outputs"]["report-failure-as-issue"]
         )
         self.assertFalse(
             groom_frontmatter["safe-outputs"]["report-incomplete"]
+        )
+        self.assertFalse(
+            groom_frontmatter["safe-outputs"]["report-failed-jobs"]
+        )
+        self.assertFalse(
+            groom_frontmatter["safe-outputs"]["missing-tool"]["create-issue"]
         )
         self.assertNotIn("hide-comment", groom_frontmatter["safe-outputs"])
         groom_configs = generated_safe_output_configs(groom_lock)
@@ -830,6 +1036,205 @@ class TokenFailoverTests(unittest.TestCase):
             groom_lock_text,
         )
         self.assertIn("expectedSeverityForFingerprint", groom_lock_text)
+
+        canary_text = GROOM_CANARY_WORKFLOW.read_text(encoding="utf-8")
+        canary = yaml.safe_load(canary_text)
+        canary_trigger = canary.get("on", canary.get(True))
+        self.assertEqual(
+            set(canary_trigger["pull_request"]["paths"]),
+            {
+                ".github/workflows/devops-health-groom.md",
+                ".github/workflows/devops-health-groom.lock.yml",
+                ".github/workflows/devops-health-groom-canary.yml",
+                ".github/workflows/shared/pat_pool.md",
+                ".github/aw/actions-lock.json",
+                ".github/aw/shared/devops-health.lock.md",
+                ".github/workflows/copilot-setup-steps.yml",
+            },
+        )
+        self.assertEqual(
+            canary["permissions"],
+            {"actions": "write", "contents": "read", "issues": "write"},
+        )
+        canary_job = canary["jobs"]["groom"]
+        self.assertIn(
+            "github.event.pull_request.head.repo.full_name == github.repository",
+            canary_job["if"],
+        )
+        self.assertNotIn("author_association", canary_job["if"])
+        self.assertEqual(
+            canary_job["uses"],
+            "./.github/workflows/devops-health-groom.lock.yml",
+        )
+        self.assertEqual(canary_job["with"], {"dry_run": True})
+        self.assertEqual(
+            set(canary_job["secrets"]),
+            {f"COPILOT_PAT_{index}" for index in range(10)},
+        )
+        self.assertNotIn("secrets: inherit", canary_text)
+        self.assertNotIn("GH_AW_GITHUB_TOKEN", canary_text)
+        self.assertNotIn("gh workflow run", canary_text)
+        self.assertTrue(canary["concurrency"]["cancel-in-progress"])
+        self.assertIn(
+            "github.event.pull_request.number",
+            canary["concurrency"]["group"],
+        )
+        validate_job = canary["jobs"]["validate"]
+        self.assertEqual(validate_job["needs"], "groom")
+        self.assertEqual(
+            validate_job["if"],
+            "${{ !cancelled() && needs.groom.result != 'skipped' }}",
+        )
+        self.assertEqual(
+            validate_job["permissions"],
+            {"actions": "read", "issues": "read"},
+        )
+        download_step = validate_job["steps"][0]
+        self.assertEqual(
+            download_step["uses"],
+            "actions/download-artifact@"
+            "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+        )
+        self.assertEqual(
+            download_step["with"]["pattern"],
+            "*-agent-output-fallback",
+        )
+        self.assertTrue(download_step["with"]["merge-multiple"])
+        self.assertIn("Expected exactly one safe-output item", canary_text)
+        self.assertIn('item.type === "noop"', canary_text)
+        self.assertIn(
+            'item.type === "publish_groomed_dashboard"',
+            canary_text,
+        )
+        self.assertIn(
+            "publish_groomed_dashboard rows_json must contain at most 100 rows",
+            canary_text,
+        )
+        self.assertIn("A groomed row failed schema validation", canary_text)
+        self.assertIn(
+            "A completed groomed row has an invalid result",
+            canary_text,
+        )
+        self.assertIn(
+            "An incomplete groomed row contains result data",
+            canary_text,
+        )
+        self.assertIn("A groomed row has an invalid correlation", canary_text)
+        self.assertIn(
+            "url.pathname === `/${owner}/${repo}/issues/695`",
+            canary_text,
+        )
+        self.assertIn(
+            "A completed groomed row does not match its trusted comment",
+            canary_text,
+        )
+        self.assertIn(
+            "A completed groomed row does not match its trusted workflow run",
+            canary_text,
+        )
+        self.assertIn(
+            "An inactive groomed row does not match a persisted investigation",
+            canary_text,
+        )
+        self.assertIn(
+            "An active persisted investigation row was omitted or changed",
+            canary_text,
+        )
+        valid_publish = run_groom_canary_validator(
+            self,
+            {
+                "type": "publish_groomed_dashboard",
+                "rows_json": "```json\n[]\n```",
+            },
+        )
+        self.assertEqual(valid_publish.returncode, 0, valid_publish.stderr)
+        invalid_publish = run_groom_canary_validator(
+            self,
+            {
+                "type": "publish_groomed_dashboard",
+                "rows_json": '```json\n[{"status":"done"}]\n```',
+            },
+        )
+        self.assertNotEqual(invalid_publish.returncode, 0)
+        self.assertIn(
+            "A groomed row failed schema validation",
+            invalid_publish.stderr,
+        )
+        completed_row = {
+            "correlation_id": "hc-2026-09-23-123-1",
+            "fingerprint": "infra:no-codeowners",
+            "result_summary": "complete",
+            "result_url":
+                "https://github.com/dotnet/skills/issues/695#issuecomment-42",
+            "status": "done",
+        }
+        trusted_publish = run_groom_canary_validator(
+            self,
+            {
+                "type": "publish_groomed_dashboard",
+                "rows_json": f"```json\n{json.dumps([completed_row])}\n```",
+            },
+        )
+        self.assertEqual(trusted_publish.returncode, 0, trusted_publish.stderr)
+        untrusted_publish = run_groom_canary_validator(
+            self,
+            {
+                "type": "publish_groomed_dashboard",
+                "rows_json": f"```json\n{json.dumps([completed_row])}\n```",
+            },
+            trusted_comment=False,
+        )
+        self.assertNotEqual(untrusted_publish.returncode, 0)
+        self.assertIn(
+            "A completed groomed row does not match its trusted comment",
+            untrusted_publish.stderr,
+        )
+        failed_run_publish = run_groom_canary_validator(
+            self,
+            {
+                "type": "publish_groomed_dashboard",
+                "rows_json": f"```json\n{json.dumps([completed_row])}\n```",
+            },
+            trusted_run=False,
+        )
+        self.assertNotEqual(failed_run_publish.returncode, 0)
+        self.assertIn(
+            "A completed groomed row does not match its trusted workflow run",
+            failed_run_publish.stderr,
+        )
+        unknown_publish = run_groom_canary_validator(
+            self,
+            {
+                "type": "publish_groomed_dashboard",
+                "rows_json": "```json\n" + json.dumps(
+                    [{
+                        "correlation_id": "",
+                        "fingerprint": "infra:no-dependabot",
+                        "result_summary": "",
+                        "result_url": "",
+                        "status": "skipped",
+                    }]
+                ) + "\n```",
+            },
+        )
+        self.assertNotEqual(unknown_publish.returncode, 0)
+        self.assertIn(
+            "An inactive groomed row does not match a persisted investigation",
+            unknown_publish.stderr,
+        )
+        omitted_prior = run_groom_canary_validator(
+            self,
+            {
+                "type": "publish_groomed_dashboard",
+                "rows_json": "```json\n[]\n```",
+            },
+            include_prior=True,
+        )
+        self.assertNotEqual(omitted_prior.returncode, 0)
+        self.assertIn(
+            "An active persisted investigation row was omitted or changed",
+            omitted_prior.stderr,
+        )
         self.assertIn(
             "url.pathname === `/${owner}/${repo}/issues/695`",
             groom_lock_text,
@@ -869,17 +1274,14 @@ class TokenFailoverTests(unittest.TestCase):
         self.assertNotIn('"update_issue":', groom_lock_text)
         self.assertNotIn("--allow-all-tools", groom_lock_text)
         self.assertNotIn("--allow-tool write", groom_lock_text)
-        self.assertNotIn("shell(yq)", groom_lock_text)
-        self.assertNotIn("shell(github:*)", groom_lock_text)
-        self.assertNotIn("shell(safeoutputs:*)", groom_lock_text)
+        self.assertIn("shell(github:*)", groom_lock_text)
+        self.assertIn("shell(safeoutputs:*)", groom_lock_text)
         self.assertNotRegex(groom_lock_text, r"shell\(gh(?::|\s)[^)]*\)")
-        self.assertIn("--allow-tool github", groom_lock_text)
-        self.assertIn("--allow-tool safeoutputs", groom_lock_text)
         self.assertIn("as untrusted data", normalized_groom)
         self.assertIn("Bind outputs to verified data", normalized_groom)
         self.assertIn("/issues/695", groom)
         self.assertIn("issue_number: 695", groom)
-        self.assertIn("perPage: 20, page: 1", groom)
+        self.assertIn("--perPage 20 --page 1", groom)
         self.assertIn("Continue with page 2", groom)
         self.assertIn("GitHub returns issue comments oldest first", groom)
         self.assertIn(
@@ -888,7 +1290,7 @@ class TokenFailoverTests(unittest.TestCase):
         )
         self.assertIn("do not stop based on comment age", normalized_groom)
         self.assertIn(
-            "If absent, call `noop` with a state-not-initialized message",
+            "If absent, call `safeoutputs noop` with a state-not-initialized message",
             groom,
         )
         self.assertIn("Integrity filtering can remove items", groom)
@@ -960,14 +1362,35 @@ class TokenFailoverTests(unittest.TestCase):
         )
         self.assertEqual(health_frontmatter["concurrency"]["queue"], "max")
         self.assertEqual(health_lock["concurrency"]["queue"], "max")
-        self.assertEqual(
-            groom_frontmatter["concurrency"],
-            health_frontmatter["concurrency"],
+        self.assertFalse(
+            groom_frontmatter["concurrency"]["cancel-in-progress"]
         )
+        self.assertEqual(groom_frontmatter["concurrency"]["queue"], "max")
         self.assertEqual(
             groom_lock["concurrency"],
-            health_lock["concurrency"],
+            {
+                "cancel-in-progress": False,
+                "group": groom_frontmatter["concurrency"]["group"],
+                "queue": "max",
+            },
         )
+        self.assertIn(
+            '"gh-aw-conclusion-devops-health-groom-${{ github.run_id }}"',
+            groom_lock_text,
+        )
+        pre_activation = groom_lock["jobs"]["pre_activation"]
+        self.assertEqual(
+            pre_activation["steps"][-1]["name"],
+            "Check team membership for workflow",
+        )
+        self.assertEqual(groom_lock["jobs"]["pat_pool"]["needs"], "pre_activation")
+        self.assertEqual(
+            set(groom_lock["jobs"]["activation"]["needs"]),
+            {"pat_pool", "pre_activation"},
+        )
+        self.assertIn("check_membership.cjs", groom_lock_text)
+        self.assertIn('GH_AW_MISSING_TOOL_CREATE_ISSUE: "false"', groom_lock_text)
+        self.assertNotIn("GH_AW_REPORT_FAILED_JOBS:", groom_lock_text)
         self.assertNotIn("cache-memory", health_frontmatter["tools"])
         self.assertNotIn("--allow-all-tools", health_lock_text)
         self.assertNotIn("--allow-tool write", health_lock_text)
@@ -1078,9 +1501,12 @@ class TokenFailoverTests(unittest.TestCase):
             "If the marker is present but duplicated, malformed, or schema-invalid",
             normalized_groom,
         )
-        self.assertIn("call `noop` with a state-corruption error", normalized_groom)
         self.assertIn(
-            "If the marker is absent, call `noop` and stop without publication",
+            "call `safeoutputs noop` with a state-corruption error",
+            normalized_groom,
+        )
+        self.assertIn(
+            "If the marker is absent, call `safeoutputs noop` and stop without publication",
             normalized_groom,
         )
         self.assertIn(
@@ -1092,7 +1518,13 @@ class TokenFailoverTests(unittest.TestCase):
             groom,
         )
         self.assertNotIn("marker was absent or invalid", groom)
-        self.assertIn("intentionally exposes no shell or CLI proxy", normalized_groom)
+        self.assertIn(
+            "Use only these two MCP CLIs for repository reads",
+            normalized_groom,
+        )
+        self.assertNotIn("No shell or intermediate files", groom)
+        self.assertNotIn("Use the GitHub MCP `issue_read` tool", groom)
+        self.assertIn("Run `github issue_read`", groom)
         self.assertIn("Never use ordinary `gh`", normalized_groom)
         self.assertIn(
             "The safe-output issue update is the only persistence operation",
