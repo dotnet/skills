@@ -78,11 +78,11 @@ listener.Dispose();
 meter.Dispose();
 ```
 
-Verified on .NET 10 (`System.Diagnostics.Metrics` is unchanged for these APIs on
-net11.0): a measurement recorded before `listener.Start()` produces **no** output
-line, one recorded after it produces exactly one. Observable instruments emit
-nothing at all unless `RecordObservableInstruments()` is called, so a process that
-exits without it reports nothing for them.
+Verified against the pinned preview SDK (`11.0.100-preview.3.26207.106`,
+`net11.0`): a measurement recorded before `listener.Start()` produces **no**
+output line, one recorded after it produces exactly one. Observable instruments
+emit nothing at all unless `RecordObservableInstruments()` is called, so a
+process that exits without it reports nothing for them.
 
 ## The pattern
 
@@ -115,36 +115,44 @@ listener.Flush();                                               // pull observab
 Substitute a test `TimeProvider` (e.g. `Microsoft.Extensions.Time.Testing.FakeTimeProvider`)
 to assert on recorded durations without sleeping.
 
-## Sample (runnable)
+## Output contract
 
-See `sample/Program.cs` and `sample/telemetry.csproj`. Build and run:
-
-```bash
-dotnet run --project sample
-```
-
-It prints one JSON line per metric reading, e.g.:
+Each reading is exactly one JSON object on its own line — no banner, no summary
+line, nothing else on stdout. A consumer can `tail -f` and parse every line.
 
 ```json
 {"meter":"MyTool","instrument":"tool.step.duration","unit":"ms","description":"Duration per step","value":58.6,"tags":{"step":"compile"},"timestamp":"2026-08-29T18:32:07+00:00"}
 ```
 
-## Running the sample inside `ubuntu-termux` (PRoot)
+Contract, in order:
 
-This skill is verified to run inside the glibc Ubuntu 24.04 guest of
-[qapdex-maker/ubuntu-termux](https://github.com/qapdex-maker/ubuntu-termux) on an
-Android/Termux host — the practical way to execute `net11.0` code on a phone.
-PRoot blocks .NET's default ~256 GiB virtual-address reservation, so set:
+1. `meter` — the fixed `Meter` name, never per-run or per-environment
+2. `instrument` — the stable instrument name
+3. `unit` — from the instrument metadata, never only a name suffix
+4. `description` — so a scraped reading is self-describing
+5. `value` — the measurement
+6. `tags` — object of the bounded dimensions
+7. `timestamp` — ISO 8601, UTC
+
+Note that a non-standard unit is written in UCUM annotation form: a counter
+measures `{run}` or `{item}`, not `runs` or `items`. That is the correct
+convention, and it is what a consumer expects to see — do not "fix" it to a
+plain noun.
+
+The listener must be constructed and `Start()`ed **before** the first `Record`/
+`Add`, and `RecordObservableInstruments()` must be called before exit. A
+measurement taken before `Start()` produces no line at all — in a short-lived
+CLI that is the whole difference between telemetry and silence.
+
+## Verify it works
 
 ```bash
-export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1   # no libicu in minimal rootfs
-export DOTNET_GCHeapHardLimit=134217728          # 128 MiB hard GC limit
-ulimit -v 8388608                                # cap virtual memory at 8 GiB
+dotnet build -c Release          # must succeed with 0 errors
+dotnet run -c Release --no-build # one JSON line per measurement
 ```
 
-Then `dotnet build -c Release` (succeeded with 0 warnings/0 errors) and
-`dotnet run -c Release --no-build` produce the designed structured output. See
-`docs/LOCAL-DEVELOPMENT.md` for the full walkthrough.
+If `run` prints nothing, the listener ordering above is the first thing to
+check — not the instrument definitions.
 
 ## Notes
 
