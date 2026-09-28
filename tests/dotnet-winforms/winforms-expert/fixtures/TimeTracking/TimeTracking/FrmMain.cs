@@ -14,7 +14,7 @@ namespace TimeTracking
             string userSearchText)
         {
             var command = connection.CreateCommand();
-            command.CommandText = $"SELECT EntryId, EmployeeId, Notes FROM TimeEntries WHERE Notes LIKE '%{userSearchText}%'";
+            command.CommandText = $$"""SELECT EntryId, EmployeeId, Notes FROM TimeEntries WHERE Notes LIKE '%{{userSearchText}}%'""";
             return command;
         }
     }

@@ -1,4 +1,5 @@
 $ErrorActionPreference = "Stop"
+$interpolatedStringStartPattern = '(?:\${1,}"{3,}|(?:\$@?|@\$)")'
 
 function Fail([string] $Message)
 {
@@ -31,9 +32,8 @@ function Assert-NotMatches(
 function Test-DynamicSqlExpression([string] $Expression)
 {
     return (
-        $Expression -match '\$"' -or
+        $Expression -match $interpolatedStringStartPattern -or
         $Expression -match '(?i)\bString\.Concat\s*\(' -or
-        $Expression -match '(?:\$@?"|@\$")' -or
         $Expression -match '(?i)\bString\.Format\s*\(' -or
         $Expression -match '["''][^"'']*["'']\s*(?:\+|&)\s*\w+' -or
         $Expression -match '\w+\s*(?:\+|&)\s*["'']'
@@ -55,13 +55,13 @@ $allSource = ($sourceFiles | ForEach-Object {
     [IO.File]::ReadAllText($_.FullName)
 }) -join "`n"
 
-Assert-NotMatches $allSource '(?is)\b(?:var|String|string|Dim)\s+\w*(?:sql|query|commandText)\w*\s*=\s*\$"' `
+Assert-NotMatches $allSource "(?is)\b(?:var|String|string|Dim)\s+\w*(?:sql|query|commandText)\w*\s*=\s*$interpolatedStringStartPattern" `
     "Interpolated values are still used to construct SQL text."
 Assert-NotMatches $allSource '(?is)\b(?:var|String|string|Dim)\s+\w*(?:sql|query|commandText)\w*\s*=.*?["''][^;]*["'']\s*(?:\+|&)\s*\w+' `
     "Concatenated values are still used to construct SQL text."
 Assert-NotMatches $allSource '(?is)\bString\.Format\s*\(\s*["''][^"'']*(?:SELECT|INSERT|UPDATE|DELETE)' `
     "String.Format is still used to construct SQL text."
-Assert-NotMatches $allSource '(?is)new\s+(?:SqlCommand|OleDbCommand|SqlDataAdapter|OleDbDataAdapter)\s*\(\s*\$"' `
+Assert-NotMatches $allSource "(?is)new\s+(?:SqlCommand|OleDbCommand|SqlDataAdapter|OleDbDataAdapter)\s*\(\s*$interpolatedStringStartPattern" `
     "An interpolated SQL command remains."
 Assert-NotMatches $allSource '(?is)new\s+(?:SqlCommand|OleDbCommand|SqlDataAdapter|OleDbDataAdapter)\s*\([^;]*["'']\s*(?:\+|&)\s*\w+' `
     "A concatenated SQL command remains."
