@@ -65,6 +65,8 @@ Assert-NotMatches $allSource "(?is)new\s+(?:SqlCommand|OleDbCommand|SqlDataAdapt
     "An interpolated SQL command remains."
 Assert-NotMatches $allSource '(?is)new\s+(?:SqlCommand|OleDbCommand|SqlDataAdapter|OleDbDataAdapter)\s*\([^;]*["'']\s*(?:\+|&)\s*\w+' `
     "A concatenated SQL command remains."
+Assert-NotMatches $allSource '(?is)\bnew\s+(?:SqlCommand|OleDbCommand|SqlDataAdapter|OleDbDataAdapter)\s*\(\s*(?:System\.)?String\.(?:Format|Concat)\s*\(' `
+    "String.Format or String.Concat is still used to construct a SQL command."
 
 foreach ($sourceFile in $sourceFiles)
 {
