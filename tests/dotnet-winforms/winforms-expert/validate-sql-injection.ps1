@@ -31,7 +31,7 @@ function Assert-NotMatches(
 function Test-DynamicSqlExpression([string] $Expression)
 {
     return (
-        $Expression -match '\$"' -or
+        $Expression -match '(?:\$@?"|@\$")' -or
         $Expression -match '(?i)\bString\.Format\s*\(' -or
         $Expression -match '["''][^"'']*["'']\s*(?:\+|&)\s*\w+' -or
         $Expression -match '\w+\s*(?:\+|&)\s*["'']'
