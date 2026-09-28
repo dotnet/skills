@@ -643,6 +643,24 @@ stimuli:
           command: dotnet build TimeTracking/TimeTracking.slnx --nologo
           expected_exit_code: 0
           timeout: 5m
+      - type: output-matches
+        config:
+          pattern: 'FrmMain\.cs[^\r\n]{0,120}(?::\s*\d+|\bline\s*#?\s*\d+|\|\s*\d+\s*\||\(\s*\d+\s*\))'
+      - type: output-matches
+        config:
+          pattern: 'DayTracking\.cs[^\r\n]{0,120}(?::\s*\d+|\bline\s*#?\s*\d+|\|\s*\d+\s*\||\(\s*\d+\s*\))'
+      - type: output-matches
+        config:
+          pattern: 'LegacyEntryQueries\.vb[^\r\n]{0,120}(?::\s*\d+|\bline\s*#?\s*\d+|\|\s*\d+\s*\||\(\s*\d+\s*\))'
+      - type: output-matches
+        config:
+          pattern: '(?=[\s\S]*CommandText\s*=[\s\S]{0,300}\buserSearchText\b)(?=[\s\S]*(?:\+\s*employeeId\b|employeeId\s*\+))(?=[\s\S]*(?:&\s*notesFilter\b|notesFilter\s*&))'
+      - type: output-matches
+        config:
+          pattern: '(?=[\s\S]*(?:injection vector|untrusted (?:input|value)|input source))(?=[\s\S]*\buserSearchText\b)(?=[\s\S]*\bemployeeId\b)(?=[\s\S]*\bnotesFilter\b)'
+      - type: output-matches
+        config:
+          pattern: '(?=[\s\S]*\b(?:high|highest|critical)\b)(?=[\s\S]*\bmedium\b)(?=[\s\S]*\b(?:priorit|rank|risk)\w*)'
       - type: exit-success
       - type: prompt
     rubric:
