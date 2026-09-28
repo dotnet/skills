@@ -28,6 +28,16 @@ function Assert-NotMatches(
     }
 }
 
+function Test-DynamicSqlExpression([string] $Expression)
+{
+    return (
+        $Expression -match '\$"' -or
+        $Expression -match '(?i)\bString\.Format\s*\(' -or
+        $Expression -match '["''][^"'']*["'']\s*(?:\+|&)\s*\w+' -or
+        $Expression -match '\w+\s*(?:\+|&)\s*["'']'
+    )
+}
+
 $sourceFiles = Get-ChildItem -Path . -Recurse -File |
     Where-Object {
         $_.Extension -in @(".cs", ".vb") -and
@@ -57,6 +67,25 @@ Assert-NotMatches $allSource '(?is)new\s+(?:SqlCommand|OleDbCommand|SqlDataAdapt
 foreach ($sourceFile in $sourceFiles)
 {
     $source = [IO.File]::ReadAllText($sourceFile.FullName)
+    $commandTextAssignments = @(
+        [regex]::Matches(
+            $source,
+            '(?is)\.(?:CommandText|SelectCommand)\s*=\s*(?<expression>.*?);'
+        )
+        [regex]::Matches(
+            $source,
+            '(?im)\.(?:CommandText|SelectCommand)\s*=\s*(?<expression>[^\r\n]+)'
+        )
+    )
+
+    foreach ($assignment in $commandTextAssignments)
+    {
+        if (Test-DynamicSqlExpression $assignment.Groups["expression"].Value)
+        {
+            Fail "Dynamic SQL is assigned directly to CommandText or SelectCommand in $($sourceFile.FullName)."
+        }
+    }
+
     $assignments = @(
         [regex]::Matches(
             $source,
@@ -72,13 +101,8 @@ foreach ($sourceFile in $sourceFiles)
     {
         $name = $assignment.Groups["name"].Value
         $expression = $assignment.Groups["expression"].Value
-        $isDynamicSql =
-            $expression -match '\$"' -or
-            $expression -match '(?i)\bString\.Format\s*\(' -or
-            $expression -match '["''][^"'']*["'']\s*(?:\+|&)\s*\w+' -or
-            $expression -match '\w+\s*(?:\+|&)\s*["'']'
 
-        if (-not $isDynamicSql)
+        if (-not (Test-DynamicSqlExpression $expression))
         {
             continue
         }

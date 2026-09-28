@@ -501,7 +501,23 @@ switch ($Scenario)
         {
             Fail "The status update is not performed on an awaited WinForms UI context."
         }
-        Assert-Matches $handlerCode '_refreshButton\.Enabled\s*=\s*true\s*;' "The Refresh button is not re-enabled."
+        $finallyMatch = [regex]::Match(
+            $handlerCode,
+            '(?is)\bfinally\s*\{(?<body>.*?)\}'
+        )
+        if (-not $finallyMatch.Success)
+        {
+            Fail "The Refresh button state is not restored in a finally block."
+        }
+        $finallyBody = $finallyMatch.Groups['body'].Value
+        Assert-Matches $finallyBody '_refreshButton\.Enabled\s*=\s*true\b' "The Refresh button is not re-enabled when the refresh fails."
+        if (
+            $handlerCode -match '\.ConfigureAwait\s*\(\s*false\s*\)' -and
+            $finallyBody -notmatch '(?is)\bawait\s+(?:\w+\.)?InvokeAsync\s*\('
+        )
+        {
+            Fail "The failure cleanup is not marshaled back to the WinForms UI context."
+        }
         Assert-NotMatches $handlerCode '_\s*=\s*Task\.Run|\.BeginInvoke\s*\(' "Fire-and-forget work remains in the refresh path."
         Assert-NotMatches $designer '\bTask\b' "Asynchronous logic was placed in the designer file."
     }
