@@ -47,13 +47,14 @@ If a `binlog-mcp` call fails, fall back to the Azure DevOps build referenced by 
 
 1. Read `GH_AW_BUILD_OUTCOME`.
 2. If the value is `success`, post a `noop` with the message `[build-succeeded] Build succeeded — no analysis required.` and stop. (The workflow should have skipped you in this case, but be defensive.)
-3. If the value is `failure` but `GH_AW_BINLOG_LIST` is empty, post a single comment via `add_comment` with the body:
+3. If the value is `failure` but `GH_AW_BINLOG_LIST` is empty, post a single comment via `add_comment` with exactly this body:
 
-   > 🔍 **Build Failure Analysis** — the build failed but no binary log was produced. See the originating [Azure DevOps build](${GH_AW_BINLOG_HOST_PATH}) for the authoritative build logs (this workflow reuses that build's binlogs and does not build locally). The [GitHub Actions run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) has the fetch-step diagnostics.
-
+   ```markdown
    <!-- build-failure-analysis -->
+   🔍 **Build Failure Analysis** — the build failed but no binary log was produced. See the originating [Azure DevOps build](${GH_AW_BINLOG_HOST_PATH}) for the authoritative build logs (this workflow reuses that build's binlogs and does not build locally). The [GitHub Actions run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) has the fetch-step diagnostics.
+   ```
 
-   (Emit the `<!-- build-failure-analysis -->` line as a **raw HTML comment**, not wrapped in backticks — it must stay invisible in the rendered comment so `hide-older-comments` marker detection matches it.)
+   Emit the `<!-- build-failure-analysis -->` line as a **raw HTML comment** in the actual comment body, not wrapped in backticks — it must stay invisible in the rendered comment so `hide-older-comments` marker detection matches it.
 
    Then stop.
 
