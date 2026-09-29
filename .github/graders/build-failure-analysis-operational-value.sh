@@ -167,14 +167,21 @@ noop_shape=$(printf '%s\n' "$request" | jq -r '
                 "i"
             ))
             or
-            ($message | test(
-                "^\\[incomplete-binlogs\\] ("
-                + "missing (build )?legs?:\\s*\\S.+"
-                + "|.+ failed without publishing (binary )?logs\\.?"
-                + "|(?:.+ )?completeness could not be verified(?: .+)?"
-                + ")$";
-                "i"
-            ))
+            (
+                ($message | test(
+                    "^\\[incomplete-binlogs\\] (no|none|zero)\\b";
+                    "i"
+                ) | not)
+                and
+                ($message | test(
+                    "^\\[incomplete-binlogs\\] ("
+                    + "missing (build )?legs?:\\s*\\S.+"
+                    + "|.+ failed without publishing (binary )?logs\\.?"
+                    + "|(?:.+ )?completeness could not be verified(?: .+)?"
+                    + ")$";
+                    "i"
+                ))
+            )
             or
             ($message | test(
                 "^\\[stale-revision\\] ("

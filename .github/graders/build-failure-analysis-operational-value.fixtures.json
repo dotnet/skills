@@ -504,6 +504,47 @@
     ]
   },
   {
+    "name": "prefixed-no-missing-logs-reason",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "119",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/60/merge",
+        "sha": "dededededededededededededededededededede",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "noop",
+          "message": "[incomplete-binlogs] No build legs failed without publishing logs."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 0
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 1
+      }
+    ]
+  },
+  {
     "name": "prefixed-merge-later-reason",
     "request": {
       "schemaVersion": 1,
