@@ -87,6 +87,12 @@ if ! printf '%s\n' "$request" | jq -e '
 fi
 
 summary_count=$(printf '%s\n' "$request" | jq '
+    def substantive:
+        gsub("^\\s+|\\s+$"; "")
+        | . as $content
+        | ($content | length >= 10)
+            and ($content | test("[[:alnum:]]"));
+
     [.outputs[]
         | select(
             .type == "add_comment"
@@ -96,8 +102,26 @@ summary_count=$(printf '%s\n' "$request" | jq '
                     (.body | contains("## 🔍 Build Failure Analysis"))
                     and (.body | test("(?m)^\\*\\*Summary\\*\\* — .+"))
                     and (.body | test("(?m)^### Root cause [0-9]+: .+"))
-                    and (.body | contains("**Affected files / errors**"))
-                    and (.body | contains("**Proposed fix**"))
+                    and (
+                        (
+                            .body
+                            | capture(
+                                "(?ms)\\*\\*Affected files / errors\\*\\*\\s*"
+                                + "(?<content>.*?)\\s*"
+                                + "\\*\\*Proposed fix\\*\\*"
+                            ).content
+                        ) as $affected
+                        | ($affected | substantive)
+                            and ($affected | test("(?m)^- .+"))
+                    )
+                    and (
+                        .body
+                        | capture(
+                            "(?ms)\\*\\*Proposed fix\\*\\*\\s*"
+                            + "(?<content>.+)$"
+                        ).content
+                        | substantive
+                    )
                 )
                 or
                 (
@@ -138,18 +162,26 @@ noop_shape=$(printf '%s\n' "$request" | jq -r '
             or
             ($message | test(
                 "^\\[non-build-failure\\] (Build|The available binlogs) compiled cleanly"
-                + ".+non-build.+out of scope"
-            ))
-            or
-            ($message | test(
-                "^\\[incomplete-binlogs\\] .*(missing|published no (binary )?logs|"
-                + "completeness could not be verified).*$";
+                + ".+(pipeline failure|this is) (is |in )?(a )?non-build"
+                + ".+out of scope( for build-failure analysis)?\\.$";
                 "i"
             ))
             or
             ($message | test(
-                "^\\[stale-revision\\] .*(PR (revision|head|merge)|merge commit)"
-                + ".*(moved|changed|differs|no longer).*$";
+                "^\\[incomplete-binlogs\\] ("
+                + "missing (build )?legs?:\\s*\\S.+"
+                + "|.+ failed without publishing (binary )?logs\\.?"
+                + "|(?:.+ )?completeness could not be verified(?: .+)?"
+                + ")$";
+                "i"
+            ))
+            or
+            ($message | test(
+                "^\\[stale-revision\\] ("
+                + "(unable|could not) to read (the )?(current )?PR head SHA\\.?"
+                + "|.*(PR (revision|head|merge)|merge commit)"
+                + ".*(moved|changed|differs|no longer).*$"
+                + ")";
                 "i"
             ))
     end

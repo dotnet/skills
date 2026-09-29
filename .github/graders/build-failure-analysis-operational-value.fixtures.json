@@ -258,6 +258,47 @@
     ]
   },
   {
+    "name": "empty-summary-evidence-sections",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "111",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/52/merge",
+        "sha": "5555555555555555555555555555555555555555",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "add_comment",
+          "body": "<!-- build-failure-analysis -->\n## 🔍 Build Failure Analysis\n\n**Summary** — A compiler failure occurred.\n\n### Root cause 1: Missing symbol\n\n**Affected files / errors**\n\n**Proposed fix**"
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 0
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 0
+      }
+    ]
+  },
+  {
     "name": "negated-noop-reason",
     "request": {
       "schemaVersion": 1,
@@ -275,6 +316,129 @@
         {
           "type": "noop",
           "message": "The build did not succeed; compiler errors still require diagnosis."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 0
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 1
+      }
+    ]
+  },
+  {
+    "name": "prefixed-negated-non-build-reason",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "112",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/53/merge",
+        "sha": "6666666666666666666666666666666666666666",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "noop",
+          "message": "[non-build-failure] Build compiled cleanly, but this is not a non-build failure and is not out of scope."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 0
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 1
+      }
+    ]
+  },
+  {
+    "name": "prefixed-missing-nothing-reason",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "113",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/54/merge",
+        "sha": "7777777777777777777777777777777777777777",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "noop",
+          "message": "[incomplete-binlogs] The build is missing nothing; a compiler failure was found and should be reported."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 0
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 1
+      }
+    ]
+  },
+  {
+    "name": "prefixed-merge-later-reason",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "114",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/55/merge",
+        "sha": "8888888888888888888888888888888888888888",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "noop",
+          "message": "[stale-revision] Please merge this later after a human review."
         }
       ],
       "config": {}
@@ -357,6 +521,88 @@
         {
           "type": "noop",
           "message": "[stale-revision] PR head changed."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 1
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 1
+      }
+    ]
+  },
+  {
+    "name": "successful-unreadable-head",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "115",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/56/merge",
+        "sha": "9999999999999999999999999999999999999999",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "noop",
+          "message": "[stale-revision] Unable to read the current PR head SHA."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 1
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 1
+      }
+    ]
+  },
+  {
+    "name": "successful-missing-leg-logs",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "116",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/57/merge",
+        "sha": "abababababababababababababababababababab",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "noop",
+          "message": "[incomplete-binlogs] Windows_x64 and Linux_arm64 failed without publishing logs."
         }
       ],
       "config": {}
