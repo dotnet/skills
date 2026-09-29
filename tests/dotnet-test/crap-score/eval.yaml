@@ -307,7 +307,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: dotnet test TestProject.csproj --no-restore
+          command: dotnet test TestProject.csproj
           expected_exit_code: 0
           stdout_matches: '(?i)\bPassed:\s*[1-9][0-9]*\b'
           timeout: 10m
