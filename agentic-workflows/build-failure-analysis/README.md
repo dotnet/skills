@@ -37,6 +37,9 @@ The package installs:
 - `.github/graders/build-failure-analysis-operational-value.sh`
 - the generated `.github/workflows/build-failure-analysis.lock.yml`
 
+gh-aw v0.89.15 discovers the evaluator from `graders.operational-value.run`
+and installs it automatically at the repository-root `.github/graders/` path.
+
 ## Requirements
 
 - The Azure DevOps project and build artifacts must be publicly readable.

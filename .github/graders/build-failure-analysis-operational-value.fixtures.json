@@ -16,7 +16,7 @@
       "outputs": [
         {
           "type": "add_comment",
-          "body": "<!-- build-failure-analysis -->\n### Build failure analysis\n\nThe compiler error originates in `src/Parser.cs`."
+          "body": "<!-- build-failure-analysis -->\n## 🔍 Build Failure Analysis\n\n**Summary** — The compiler error originates in `src/Parser.cs`.\n\n### Root cause 1: Missing parser result\n\nThe build reports `CS0103` at the changed call site.\n\n**Affected files / errors**\n\n- `src/Parser.cs:42` — `CS0103`\n\n**Proposed fix**\n\nReturn the parsed value."
         },
         {
           "type": "create_pull_request_review_comment",
@@ -63,7 +63,7 @@
       "outputs": [
         {
           "type": "noop",
-          "message": "The available binlogs compiled cleanly; this is a non-build failure and is out of scope."
+          "message": "[non-build-failure] The available binlogs compiled cleanly; this is a non-build failure and is out of scope."
         }
       ],
       "config": {}
@@ -104,11 +104,11 @@
       "outputs": [
         {
           "type": "add_comment",
-          "body": "<!-- build-failure-analysis -->\n### Build failure analysis\n\nOne compiler failure was found."
+          "body": "<!-- build-failure-analysis -->\n## 🔍 Build Failure Analysis\n\n**Summary** — One compiler failure was found.\n\n### Root cause 1: Missing symbol\n\nThe compiler reports `CS0103`.\n\n**Affected files / errors**\n\n- `src/Compiler.cs:17` — `CS0103`\n\n**Proposed fix**\n\nRestore the missing symbol."
         },
         {
           "type": "noop",
-          "message": "The PR revision moved while the analysis was running, so no comment should be posted."
+          "message": "[stale-revision] The PR revision moved while the analysis was running and no longer matches the analyzed head."
         }
       ],
       "config": {}
@@ -193,6 +193,88 @@
         {
           "type": "noop",
           "message": "Nothing to do."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 0
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 1
+      }
+    ]
+  },
+  {
+    "name": "marker-only-summary",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "107",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/48/merge",
+        "sha": "1111111111111111111111111111111111111111",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "add_comment",
+          "body": "<!-- build-failure-analysis -->"
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 0
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 0
+      }
+    ]
+  },
+  {
+    "name": "negated-noop-reason",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "108",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/49/merge",
+        "sha": "2222222222222222222222222222222222222222",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "noop",
+          "message": "The build did not succeed; compiler errors still require diagnosis."
         }
       ],
       "config": {}

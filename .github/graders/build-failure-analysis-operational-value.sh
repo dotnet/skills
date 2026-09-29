@@ -9,8 +9,9 @@
 # before the safe-output job applies them, so grade whether the run requested
 # one conforming terminal outcome:
 # - exactly one marked summary add_comment, optionally accompanied by review
-#   comments, and no noop; or
-# - exactly one justified noop and no comment or review output.
+#   comments, required diagnostic structure, and no noop; or
+# - exactly one noop with a workflow-defined reason code and no comment or
+#   review output.
 #
 # Metrics:
 # - build-failure-analysis-terminal-outcome-conformance (ratio,
@@ -90,6 +91,22 @@ summary_count=$(printf '%s\n' "$request" | jq '
         | select(
             .type == "add_comment"
             and (.body | contains("<!-- build-failure-analysis -->"))
+            and (
+                (
+                    (.body | contains("## 🔍 Build Failure Analysis"))
+                    and (.body | test("(?m)^\\*\\*Summary\\*\\* — .+"))
+                    and (.body | test("(?m)^### Root cause [0-9]+: .+"))
+                    and (.body | contains("**Affected files / errors**"))
+                    and (.body | contains("**Proposed fix**"))
+                )
+                or
+                (
+                    (.body | contains("🔍 **Build Failure Analysis**"))
+                    and (.body | contains("the build failed but no binary log was produced"))
+                    and (.body | contains("Azure DevOps build"))
+                    and (.body | contains("GitHub Actions run"))
+                )
+            )
         )]
     | length
 ')
@@ -116,16 +133,23 @@ noop_shape=$(printf '%s\n' "$request" | jq -r '
     if (.outputs | length) != 1 or .outputs[0].type != "noop" then
         false
     else
-        .outputs[0].message
-        | gsub("^\\s+|\\s+$"; "")
-        | length >= 20
-            and (
-                ascii_downcase
-                | test(
-                    "succeed|clean|non-build|out[ -]of[ -]scope|no build errors|"
-                    + "missing|incomplete|stale|moved|changed|revision|merge"
-                )
-            )
+        (.outputs[0].message | gsub("^\\s+|\\s+$"; "")) as $message
+        | ($message | test("^\\[build-succeeded\\] Build succeeded — no analysis required\\.$"))
+            or
+            ($message | test(
+                "^\\[non-build-failure\\] (Build|The available binlogs) compiled cleanly"
+                + ".+non-build.+out of scope"
+            ))
+            or
+            ($message | test(
+                "^\\[incomplete-binlogs\\] .+(missing|published no (binary )?logs|"
+                + "completeness could not be verified).+"
+            ))
+            or
+            ($message | test(
+                "^\\[stale-revision\\] .+(PR (revision|head|merge)|merge commit)"
+                + ".+(moved|changed|differs|no longer).+"
+            ))
     end
 ')
 

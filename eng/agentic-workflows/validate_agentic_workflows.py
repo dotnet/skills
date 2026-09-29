@@ -198,6 +198,10 @@ def frontmatter(path: Path) -> dict:
 
 
 def grader_evaluator_paths(path: Path) -> list[Path]:
+    # gh-aw v0.89.15 automatically installs graders.*.run files as package
+    # resources, including repository-root .github/graders paths. Mirror that
+    # installer behavior here; package-manifest resources cannot target
+    # .github/graders and therefore must not duplicate these evaluator files.
     graders = frontmatter(path).get("graders")
     if not isinstance(graders, dict):
         return []
