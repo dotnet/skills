@@ -11,5 +11,8 @@ def slugify(value: str, max_length: int = 48) -> str:
     if len(slug) <= max_length:
         return slug
 
-    shortened = slug[:max_length].rstrip("-")
-    return shortened
+    shortened = slug[:max_length]
+    boundary = shortened.rfind("-")
+    if boundary > 0:
+        return shortened[:boundary]
+    return shortened.rstrip("-")

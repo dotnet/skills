@@ -46,8 +46,9 @@ def test_window():
 
 def test_slug():
     assert slugify("  Hello!! World  ") == "hello-world"
-    assert slugify("hello world here", 8) == "hello-wo"
+    assert slugify("hello world here", 8) == "hello"
     assert slugify("hello world", 6) == "hello"
+    assert slugify("abcdefgh", 3) == "abc"
     for length in (0, -1):
         with pytest.raises(ValueError):
             slugify("hello", length)

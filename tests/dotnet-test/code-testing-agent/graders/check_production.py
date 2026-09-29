@@ -14,6 +14,8 @@ def snapshot(roots):
     files = {}
     for root_name in roots:
         root = Path(root_name)
+        if root.is_symlink():
+            raise ValueError(f"Unexpected production root symlink: {root}")
         if not root.is_dir():
             raise ValueError(f"Missing production directory: {root}")
         for path in sorted(root.rglob("*")):

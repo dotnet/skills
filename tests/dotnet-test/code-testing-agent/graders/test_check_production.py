@@ -52,6 +52,12 @@ class ProductionIntegrityTests(unittest.TestCase):
         (self.root / "src").rmdir()
         self.run_checker("verify", success=False)
 
+    def test_symlinked_root_fails(self):
+        target = self.root / "replacement"
+        (self.root / "src").rename(target)
+        (self.root / "src").symlink_to(target, target_is_directory=True)
+        self.run_checker("verify", success=False)
+
     def test_line_ending_changes_fail(self):
         (self.root / "src/service.go").write_bytes(b"package service\r\n")
         self.run_checker("verify", success=False)

@@ -37,8 +37,8 @@ MUTATIONS = (
     ("slug-collapse", "textkit/slug.py", 'r"[^a-z0-9]+"', 'r"[^a-z0-9]"'),
     ("slug-trim", "textkit/slug.py", '.strip("-")', ""),
     ("slug-case", "textkit/slug.py", "value.lower()", "value"),
-    ("slug-truncation", "textkit/slug.py", "return shortened", "return slug"),
-    ("slug-trailing-separator", "textkit/slug.py", '.rstrip("-")', ""),
+    ("slug-truncation", "textkit/slug.py", "return shortened[:boundary]", "return shortened"),
+    ("slug-hard-cut", "textkit/slug.py", 'return shortened.rstrip("-")', 'return shortened + "x"'),
 )
 
 

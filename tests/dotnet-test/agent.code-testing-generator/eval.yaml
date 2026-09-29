@@ -78,10 +78,13 @@ stimuli:
           dest: fixtures/classic-mstest
         - src: ../code-testing-agent/graders/check_production.py
           dest: .eval/check_production.py
+        - src: graders/check_classic_preservation.py
+          dest: .eval/check_classic_preservation.py
       commands:
         - rm -f fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs && cp fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine fixtures/classic-mstest/tests/Discounts.Tests.csproj && rm fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine
         - git init -q
         - python3 .eval/check_production.py snapshot fixtures/classic-mstest/src
+        - python3 .eval/check_classic_preservation.py snapshot fixtures/classic-mstest
       skills:
         - ../../plugins/dotnet-test/skills/code-testing-agent
         - ../../plugins/dotnet-test/skills/code-testing-extensions
@@ -91,6 +94,11 @@ stimuli:
       - type: run-command
         config:
           command: python3 .eval/check_production.py verify fixtures/classic-mstest/src
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: python3 .eval/check_classic_preservation.py verify fixtures/classic-mstest
           expected_exit_code: 0
           timeout: 1m
       - type: file-exists
