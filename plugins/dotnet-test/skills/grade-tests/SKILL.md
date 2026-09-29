@@ -182,7 +182,7 @@ Examples (Critical/High and Medium counts → Anti-pattern sub-grade):
 - Zero Critical/High, 1 Medium → **B** (A − 1)
 - Zero Critical/High, 3 Medium → **D** (A − 3)
 - One C-ceiling (e.g., over-mocking), 0 Medium → **C**
-- One C-ceiling, 2 Medium → **D** (`min(C, A − 2 = C) = C`, but a third Medium would tip to **D**)
+- One C-ceiling, 2 Medium → **C** (`min(C, A − 2 = C) = C`; a third Medium tips to **D**)
 - One F-finding (e.g., swallowed exception) plus any number of Medium → **F**
 
 **Critical (drop straight to F or D)**

@@ -133,7 +133,13 @@ stimuli:
       - Correctly identifies the most complex and least-covered methods as highest risk
       - Suggests specific actions for the top offenders
   - name: Generate coverage then compute CRAP score
-    prompt: I want to know the CRAP scores for my OrderService class. I haven't run coverage yet.
+    prompt: |
+      I want to know the CRAP scores for my OrderService class. I haven't run
+      coverage yet. This is a disposable fixture: you are authorized to make
+      temporary source, dependency, and tooling changes needed to produce a
+      valid coverage report, but report those changes. Do not stop to ask for
+      permission after safe command-line retries; use this authorization and
+      continue until you have valid coverage or the authorized paths fail.
     environment:
       files:
         - src: fixtures/no-coverage/OrderService.cs
@@ -155,6 +161,7 @@ stimuli:
       - Extracts per-method coverage from the generated Cobertura XML
       - Computes CRAP scores using both cyclomatic complexity and code coverage for each method in OrderService
       - Provides risk categorization and actionable recommendations for the riskiest methods
+      - Discloses any temporary source, dependency, or tooling changes made to generate coverage
 
   - name: Recompute complexity instead of trusting a stale source comment
     prompt: What is the CRAP score for ApplySurcharges in InvoiceEngine.cs? Coverage is already in
