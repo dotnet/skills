@@ -142,13 +142,15 @@ noop_shape=$(printf '%s\n' "$request" | jq -r '
             ))
             or
             ($message | test(
-                "^\\[incomplete-binlogs\\] .+(missing|published no (binary )?logs|"
-                + "completeness could not be verified).+"
+                "^\\[incomplete-binlogs\\] .*(missing|published no (binary )?logs|"
+                + "completeness could not be verified).*$";
+                "i"
             ))
             or
             ($message | test(
-                "^\\[stale-revision\\] .+(PR (revision|head|merge)|merge commit)"
-                + ".+(moved|changed|differs|no longer).+"
+                "^\\[stale-revision\\] .*(PR (revision|head|merge)|merge commit)"
+                + ".*(moved|changed|differs|no longer).*$";
+                "i"
             ))
     end
 ')

@@ -299,6 +299,88 @@
     ]
   },
   {
+    "name": "successful-incomplete-binlogs",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "109",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/50/merge",
+        "sha": "3333333333333333333333333333333333333333",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "noop",
+          "message": "[incomplete-binlogs] Missing legs: linux-x64."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 1
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 1
+      }
+    ]
+  },
+  {
+    "name": "successful-stale-revision-boundary",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "110",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/51/merge",
+        "sha": "4444444444444444444444444444444444444444",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "noop",
+          "message": "[stale-revision] PR head changed."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 1
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 1
+      }
+    ]
+  },
+  {
     "name": "insufficient-output-evidence",
     "request": {
       "schemaVersion": 1,
