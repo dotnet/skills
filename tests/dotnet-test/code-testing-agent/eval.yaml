@@ -68,12 +68,15 @@ stimuli:
       files:
         - src: fixtures/python-multimodule
           dest: fixtures/python-multimodule
+        - src: graders/check_python_tests.py
+          dest: .eval/check_python_tests.py
         - src: graders/check_production.py
           dest: .eval/check_production.py
       commands:
         - git init -q
         - python3 -m pip install --quiet pytest==8.3.5
         - python3 .eval/check_production.py snapshot fixtures/python-multimodule/analytics fixtures/python-multimodule/textkit
+        - python3 .eval/check_python_tests.py snapshot fixtures/python-multimodule
     graders:
       - type: run-command
         config:
@@ -82,14 +85,9 @@ stimuli:
           timeout: 1m
       - type: run-command
         config:
-          command: sh -c "cd fixtures/python-multimodule && python3 -m pytest -q"
+          command: python3 .eval/check_python_tests.py verify fixtures/python-multimodule
           expected_exit_code: 0
           timeout: 5m
-      - type: run-command
-        config:
-          command: sh -c "grep -R -q 'RateWindow' fixtures/python-multimodule/tests && grep -R -q 'percentile' fixtures/python-multimodule/tests && grep -R -q 'slugify' fixtures/python-multimodule/tests"
-          expected_exit_code: 0
-          timeout: 1m
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
@@ -467,11 +465,14 @@ stimuli:
       files:
         - src: fixtures/typescript-vitest-cart
           dest: fixtures/typescript-vitest-cart
+        - src: graders/check_cart_tests.py
+          dest: .eval/check_cart_tests.py
         - src: graders/check_production.py
           dest: .eval/check_production.py
       commands:
         - git init -q
         - python3 .eval/check_production.py snapshot fixtures/typescript-vitest-cart/src
+        - python3 .eval/check_cart_tests.py snapshot fixtures/typescript-vitest-cart .eval/cart-baseline.json
     graders:
       - type: run-command
         config:
@@ -480,14 +481,9 @@ stimuli:
           timeout: 1m
       - type: run-command
         config:
-          command: sh -c "cd fixtures/typescript-vitest-cart && npm ci --silent && npm run test:coverage"
+          command: python3 .eval/check_cart_tests.py verify fixtures/typescript-vitest-cart .eval/cart-baseline.json
           expected_exit_code: 0
           timeout: 10m
-      - type: run-command
-        config:
-          command: sh -c "find fixtures/typescript-vitest-cart/tests -type f -name '*.test.ts' | grep -q . && grep -R -q 'InventoryError' fixtures/typescript-vitest-cart/tests && grep -R -q 'checkout' fixtures/typescript-vitest-cart/tests"
-          expected_exit_code: 0
-          timeout: 1m
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|

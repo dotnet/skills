@@ -307,13 +307,24 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: dotnet test TestProject.csproj
+          command: >-
+            sh -c 'rm -rf TestResults &&
+            dotnet test TestProject.csproj --collect:"XPlat Code Coverage"
+            --results-directory TestResults'
           expected_exit_code: 0
           stdout_matches: '(?i)\bPassed:\s*[1-9][0-9]*\b'
           timeout: 10m
       - type: run-command
         config:
-          command: sh -c "coverage=$(find TestResults -name coverage.cobertura.xml -print -quit) && test -n \"$coverage\" && grep -q 'name=\"ProcessOrder\"' \"$coverage\" && grep -q 'line-rate=\"0.8421\"' \"$coverage\" && grep -q 'complexity=\"12\"' \"$coverage\" && grep -q 'name=\"CancelOrder\"' \"$coverage\""
+          command: >-
+            python3 -c "from pathlib import Path; import xml.etree.ElementTree as E;
+            reports=list(Path('TestResults').glob('*/coverage.cobertura.xml'));
+            assert len(reports)==1, 'Expected exactly one freshly collected coverage report';
+            methods={m.get('name'):m for m in E.parse(reports[0]).findall('.//method')};
+            assert methods['ProcessOrder'].get('line-rate')=='0.8421';
+            assert methods['ProcessOrder'].get('complexity')=='12';
+            assert methods['CancelOrder'].get('line-rate')=='0';
+            assert methods['CancelOrder'].get('complexity')=='2'"
           expected_exit_code: 0
           timeout: 1m
       - type: output-matches
