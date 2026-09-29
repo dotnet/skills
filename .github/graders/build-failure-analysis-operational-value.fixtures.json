@@ -47,6 +47,47 @@
     ]
   },
   {
+    "name": "successful-missing-binlog-summary",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "118",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/59/merge",
+        "sha": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "add_comment",
+          "body": "> 🔍 **Build Failure Analysis** — the build failed but no binary log was produced. See the originating [Azure DevOps build](https://dev.azure.com/dotnet/runtime/_build/results?buildId=123) for the authoritative build logs (this workflow reuses that build's binlogs and does not build locally). The [GitHub Actions run](https://github.com/dotnet/runtime/actions/runs/456) has the fetch-step diagnostics.\n\n<!-- build-failure-analysis -->"
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 1
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 1
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 0
+      }
+    ]
+  },
+  {
     "name": "successful-noop",
     "request": {
       "schemaVersion": 1,
