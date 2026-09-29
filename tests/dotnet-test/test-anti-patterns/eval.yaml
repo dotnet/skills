@@ -114,6 +114,8 @@ stimuli:
           dest: FlakyCoupled.Tests/FlakyCoupled.Tests.csproj
         - src: ./fixtures/flaky-coupled/OrderServiceTests.cs
           dest: FlakyCoupled.Tests/OrderServiceTests.cs
+        - src: ./fixtures/flaky-coupled/OrderService.cs
+          dest: FlakyCoupled.Tests/OrderService.cs
     golden_trajectory:
       inline:
         schema_version: "ATIF-v1.6"
@@ -149,7 +151,7 @@ stimuli:
           pattern: (reflect|private|internal.*state|implementation.*detail|coupling)
       - type: output-matches
         config:
-          pattern: (exact.*(exception|type)|InvalidOperationException)
+          pattern: (?i)(exact.*(exception|type)|InvalidOperationException)
       - type: exit-success
       - type: prompt
     rubric:
