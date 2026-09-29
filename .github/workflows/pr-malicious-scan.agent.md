@@ -25,6 +25,7 @@ if: ${{ (!github.event.repository.fork) }}
 concurrency:
   group: gh-aw-${{ github.workflow }}-${{ inputs.pr_number }}
   cancel-in-progress: true
+  job-discriminator: ${{ github.run_id }}
 
 model: ${{ vars.GH_AW_MODEL_AGENT_COPILOT || vars.GH_AW_DEFAULT_MODEL_COPILOT || 'claude-sonnet-4.6' }}
 
