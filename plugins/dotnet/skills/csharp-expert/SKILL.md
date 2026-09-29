@@ -147,11 +147,12 @@ project and executable contract identify the defect.
 
 ### 2. Establish project constraints
 
-1. Read the complete affected types and their callers/callees where behavior depends on them.
-2. Inspect the project TFM(s), SDK pin, language version, nullable mode, analyzer rules, package
+1. Use LSP when available to search and navigate through code.
+2. Read the complete affected types and their callers/callees where behavior depends on them.
+3. Inspect the project TFM(s), SDK pin, language version, nullable mode, analyzer rules, package
    management, conditional compilation, and repository build/test instructions.
-3. Check nearby code for established error, logging, cancellation, disposal, and testing patterns.
-4. For a public or externally observed surface, identify source/binary, serialization, reflection,
+4. Check nearby code for established error, logging, cancellation, disposal, and testing patterns.
+5. For a public or externally observed surface, identify source/binary, serialization, reflection,
    interop, and configuration boundaries before changing it.
 
 ### 3. Choose the smallest correct design
@@ -174,13 +175,14 @@ project and executable contract identify the defect.
 
 ### 5. Validate in increasing-cost order
 
-1. Run the narrowest compile/build command that covers every changed target framework and conditional
+1. Use LSP diagnostics to check for issues before compiling/building. Hold off on running builds until diagnostics are clean.
+2. Run the narrowest compile/build command that covers every changed target framework and conditional
    branch that can be selected in the current environment.
-2. Run the focused tests for the changed behavior, then the broader affected test project when practical.
-3. Run applicable analyzers/format checks through the repository's own commands.
-4. Reproduce the original failure or exercise the requested success path and confirm the observable
+3. Run the focused tests for the changed behavior, then the broader affected test project when practical.
+4. Run applicable analyzers/format checks through the repository's own commands.
+5. Reproduce the original failure or exercise the requested success path and confirm the observable
    result, not merely a zero exit code.
-5. For a claimed performance improvement, compare an existing benchmark or a representative,
+6. For a claimed performance improvement, compare an existing benchmark or a representative,
    repeatable measurement. If ratios change direction across runs, treat the result as noise and
    stabilize warmup, tiered compilation, process lifetime, or the benchmark harness before deciding.
    Check semantic equivalence separately: a faster candidate that changes overflow, ordering,
