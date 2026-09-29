@@ -563,7 +563,8 @@ stimuli:
       ReservationWindow: all argument validation, 0 and 100 percent discounts,
       exact decimal totals, the instant before reservation, the exact start,
       the instant before expiry, and the exact expiry boundary. Keep production
-      code unchanged and make the existing test project pass.
+      code and project/build configuration unchanged and make the existing test
+      project pass.
     tags:
       capability: sdk-xunit-orchestration
       risk: temporal-boundary-gaps
@@ -572,29 +573,18 @@ stimuli:
       files:
         - src: fixtures/sdk-xunit-orders
           dest: fixtures/sdk-xunit-orders
-        - src: graders/check_production.py
-          dest: .eval/check_production.py
+        - src: graders/check_xunit_tests.py
+          dest: .eval/check_xunit_tests.py
       commands:
         - find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -delete
         - git init -q
-        - python3 .eval/check_production.py snapshot fixtures/sdk-xunit-orders/src
+        - python3 .eval/check_xunit_tests.py snapshot fixtures/sdk-xunit-orders .eval/xunit-baseline.json
     graders:
       - type: run-command
         config:
-          command: python3 .eval/check_production.py verify fixtures/sdk-xunit-orders/src
+          command: python3 .eval/check_xunit_tests.py verify fixtures/sdk-xunit-orders .eval/xunit-baseline.json
           expected_exit_code: 0
-          timeout: 1m
-      - type: run-command
-        config:
-          command: sh -c "dotnet test fixtures/sdk-xunit-orders/tests/Orders.Tests.csproj"
-          expected_exit_code: 0
-          stdout_matches: '(?i)\btotal:\s*[1-9][0-9]*\b'
           timeout: 10m
-      - type: run-command
-        config:
-          command: sh -c "find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -print -quit | grep -q . && grep -R -q 'OrderPricing' fixtures/sdk-xunit-orders/tests --include='*.cs' && grep -R -q 'ReservationWindow' fixtures/sdk-xunit-orders/tests --include='*.cs'"
-          expected_exit_code: 0
-          timeout: 1m
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
@@ -617,7 +607,7 @@ stimuli:
       fixtures/sdk-xunit-orders/. Cover invalid non-positive hold durations and
       IsActive immediately before reservation, exactly at reservation, immediately
       before expiry, and exactly at expiry. Do not add OrderPricing tests or change
-      production code. Run the existing test project.
+      production code or project/build configuration. Run the existing test project.
     tags:
       capability: focused-xunit-generation
       risk: scope-overexpansion
@@ -626,39 +616,18 @@ stimuli:
       files:
         - src: fixtures/sdk-xunit-orders
           dest: fixtures/sdk-xunit-orders
-        - src: graders/check_production.py
-          dest: .eval/check_production.py
+        - src: graders/check_xunit_tests.py
+          dest: .eval/check_xunit_tests.py
       commands:
-        - find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -delete && cp fixtures/sdk-xunit-orders/src/ReservationWindow.cs .eval-reservation-window.cs
+        - find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -delete
         - git init -q
-        - python3 .eval/check_production.py snapshot fixtures/sdk-xunit-orders/src
+        - python3 .eval/check_xunit_tests.py snapshot fixtures/sdk-xunit-orders .eval/xunit-baseline.json
     graders:
       - type: run-command
         config:
-          command: python3 .eval/check_production.py verify fixtures/sdk-xunit-orders/src
+          command: python3 .eval/check_xunit_tests.py verify fixtures/sdk-xunit-orders .eval/xunit-baseline.json --focused
           expected_exit_code: 0
-          timeout: 1m
-      - type: run-command
-        config:
-          command: sh -c "dotnet test fixtures/sdk-xunit-orders/tests/Orders.Tests.csproj"
-          expected_exit_code: 0
-          stdout_matches: '(?i)\btotal:\s*[1-9][0-9]*\b'
           timeout: 10m
-      - type: run-command
-        config:
-          command: >-
-            sh -c "diff -u .eval-reservation-window.cs
-            fixtures/sdk-xunit-orders/src/ReservationWindow.cs
-            && find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -print -quit
-            | grep -q .
-            && grep -REq '\\[(Fact|Theory)'
-            fixtures/sdk-xunit-orders/tests --include='*.cs'
-            && grep -Rq 'ReservationWindow' fixtures/sdk-xunit-orders/tests
-            --include='*.cs'
-            && ! grep -Rq 'OrderPricing' fixtures/sdk-xunit-orders/tests
-            --include='*.cs'"
-          expected_exit_code: 0
-          timeout: 1m
       - type: run-command
         config:
           command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test ! -e "$state_dir/research.md" && test ! -L "$state_dir/research.md" && test ! -e "$state_dir/plan.md" && test ! -L "$state_dir/plan.md" && test ! -e "$state_dir/status.md" && test ! -L "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"

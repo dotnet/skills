@@ -12,13 +12,24 @@ BASELINE = Path(".eval/baseline.json")
 
 
 def sources(root):
-    return {
-        path.as_posix(): path.read_text(encoding="utf-8-sig")
-        for path in Path(root).rglob("*")
-        if path.is_file()
-        and not EXCLUDED.intersection(path.parts)
-        and (path.suffix.lower() in SOURCE_SUFFIXES or path.name in CONFIG_NAMES)
-    }
+    root = Path(root)
+    if root.is_symlink():
+        raise ValueError(f"Unexpected protected root symlink: {root}")
+    if not root.is_dir():
+        raise ValueError(f"Missing protected directory: {root}")
+    pending = [root]
+    protected = []
+    while pending:
+        for path in pending.pop().iterdir():
+            if path.is_symlink():
+                raise ValueError(f"Unexpected protected tree symlink: {path}")
+            if path.name in EXCLUDED:
+                continue
+            if path.is_dir():
+                pending.append(path)
+            elif path.is_file() and (path.suffix.lower() in SOURCE_SUFFIXES or path.name in CONFIG_NAMES):
+                protected.append(path)
+    return {path.as_posix(): path.read_text(encoding="utf-8-sig") for path in protected}
 
 
 def main():

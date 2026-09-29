@@ -250,7 +250,8 @@ stimuli:
       Generate the complete xUnit v3 suite for the .NET 10 library under
       fixtures/sdk-xunit-orders/. Cover OrderPricing.Total and ReservationWindow,
       including validation, exact decimal values, and every before/at boundary.
-      Keep production code unchanged and run the existing test project.
+      Keep production code and project/build configuration unchanged and run
+      the existing test project.
     tags:
       capability: project-wide-xunit-generation
       risk: time-boundary-gaps
@@ -259,12 +260,12 @@ stimuli:
       files:
         - src: fixtures/sdk-xunit-orders
           dest: fixtures/sdk-xunit-orders
-        - src: ../code-testing-agent/graders/check_production.py
-          dest: .eval/check_production.py
+        - src: ../code-testing-agent/graders/check_xunit_tests.py
+          dest: .eval/check_xunit_tests.py
       commands:
         - find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -delete
         - git init -q
-        - python3 .eval/check_production.py snapshot fixtures/sdk-xunit-orders/src
+        - python3 .eval/check_xunit_tests.py snapshot fixtures/sdk-xunit-orders .eval/xunit-baseline.json
       skills:
         - ../../plugins/dotnet-test/skills/code-testing-agent
         - ../../plugins/dotnet-test/skills/code-testing-extensions
@@ -273,20 +274,9 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: python3 .eval/check_production.py verify fixtures/sdk-xunit-orders/src
+          command: python3 .eval/check_xunit_tests.py verify fixtures/sdk-xunit-orders .eval/xunit-baseline.json
           expected_exit_code: 0
-          timeout: 1m
-      - type: run-command
-        config:
-          command: sh -c "dotnet test fixtures/sdk-xunit-orders/tests/Orders.Tests.csproj"
-          expected_exit_code: 0
-          stdout_matches: '(?i)\btotal:\s*[1-9][0-9]*\b'
           timeout: 10m
-      - type: run-command
-        config:
-          command: sh -c "grep -R -q 'OrderPricing' fixtures/sdk-xunit-orders/tests --include='*.cs' && grep -R -q 'ReservationWindow' fixtures/sdk-xunit-orders/tests --include='*.cs'"
-          expected_exit_code: 0
-          timeout: 1m
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
