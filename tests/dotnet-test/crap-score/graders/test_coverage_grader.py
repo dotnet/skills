@@ -61,9 +61,11 @@ class CoverageGraderTests(unittest.TestCase):
         source = project.read_text()
         source = re.sub(r'\s*<PackageReference Include="coverlet.collector"[^>]*/>', "", source)
         project.write_text(source)
-        # Tests still pass, but the report oracle must reject missing collection.
+        # Collection may fail after the provider is removed. Either way, stale
+        # or fabricated reports must not survive and satisfy the report oracle.
         accepted, output = self.run_grader(EXECUTION)
-        self.assertTrue(accepted, output)
+        if accepted:
+            self.assertIn("Passed:", output)
         accepted, output = self.run_grader(REPORT)
         self.assertFalse(accepted, output)
         self.assertFalse(list((self.workspace / "TestResults").rglob("coverage.cobertura.xml")))

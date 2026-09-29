@@ -6,6 +6,10 @@ tags:
 defaults:
   timeout: 60m
   runs: 1
+environment:
+  files:
+    - src: ../graders/authenticated_artifacts.py
+      dest: .eval/authenticated_artifacts.py
 stimuli:
   - name: Generate a project-wide pytest suite across modules
     prompt: |
@@ -39,12 +43,14 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: python3 .eval/check_production.py verify fixtures/python-multimodule/analytics fixtures/python-multimodule/textkit
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 2b36ef066a5c70912e063be95ab599012cb8952e330ce99ec0c7bfaf63f3bd4a:.eval/check_production.py --expect 1f16f9c6aac20e0068ba01ad2bb48f3e3fe3e0f7741e967d376d315141a15927:.eval/production.json -- python .eval/check_production.py verify fixtures/python-multimodule/analytics fixtures/python-multimodule/textkit
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
         config:
-          command: python3 .eval/check_python_tests.py verify fixtures/python-multimodule
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 56399ea321dee7520e42ff3de3459125bfa2fdc2527d8d57c368e3209a679034:.eval/check_python_tests.py --expect fefd5e3da2f7c21aeeb1529d1ef16ae153cc7e3d47c5af9cafb8969419c0d987:.eval/python-inputs.json -- python .eval/check_python_tests.py verify fixtures/python-multimodule
           expected_exit_code: 0
           timeout: 5m
       - type: output-matches
@@ -80,6 +86,8 @@ stimuli:
           dest: .eval/check_production.py
         - src: graders/check_classic_preservation.py
           dest: .eval/check_classic_preservation.py
+        - src: graders/check_classic_behavior.py
+          dest: .eval/check_classic_behavior.py
       commands:
         - rm -f fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs && cp fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine fixtures/classic-mstest/tests/Discounts.Tests.csproj && rm fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine
         - git init -q
@@ -93,12 +101,14 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: python3 .eval/check_production.py verify fixtures/classic-mstest/src
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 2b36ef066a5c70912e063be95ab599012cb8952e330ce99ec0c7bfaf63f3bd4a:.eval/check_production.py --expect f928dc1fae1c54deac21f8e5cf1010ce17d1ddab3643e32af6164054c4e3f335:.eval/production.json -- python .eval/check_production.py verify fixtures/classic-mstest/src
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
         config:
-          command: python3 .eval/check_classic_preservation.py verify fixtures/classic-mstest
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 39942ace61c8179e6237252c9d165f5626184c6879e392378ba0a65869478e84:.eval/check_classic_preservation.py --expect 06efa9a2ada53c3bb4b6a3ac28691bf2cf2f7d301b14f74bbd3b18260e9ccf10:.eval/classic-preservation.json -- python .eval/check_classic_preservation.py verify fixtures/classic-mstest
           expected_exit_code: 0
           timeout: 1m
       - type: file-exists
@@ -136,6 +146,12 @@ stimuli:
           expected_exit_code: 0
           stdout_matches: '(?is)Passed:\s+[1-9][0-9]*.*Apply_HundredPercent_ReturnsZero.*Apply_AboveThreshold_ReturnsExactDiscountedValue'
           timeout: 10m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect b93c1c547330d21e3b81cf84ad0eb607877aea1e2f18ce120062983a184e5797:.eval/check_classic_behavior.py -- python .eval/check_classic_behavior.py fixtures/classic-mstest
+          expected_exit_code: 0
+          timeout: 10m
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
@@ -144,6 +160,7 @@ stimuli:
       - Added and registered tests for both requested production types
       - Preserved the classic project format and pinned dependency stack
       - Used MSTest APIs compatible with version 3.5.2
+      - Detected bounded regressions in DiscountService and TieredDiscountPolicy behavior
 
   - name: Generate collaborating Go package tests
     prompt: |
@@ -173,7 +190,8 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: python3 .eval/check_production.py verify fixtures/go-multipackage/money fixtures/go-multipackage/shipping fixtures/go-multipackage/order
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 2b36ef066a5c70912e063be95ab599012cb8952e330ce99ec0c7bfaf63f3bd4a:.eval/check_production.py --expect 5850a0210af59a60314166d31644c134ffb07f29472f7b571d74071c004e2cfe:.eval/production.json -- python .eval/check_production.py verify fixtures/go-multipackage/money fixtures/go-multipackage/shipping fixtures/go-multipackage/order
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -236,12 +254,14 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: python3 .eval/check_production.py verify fixtures/typescript-vitest-cart/src
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 2b36ef066a5c70912e063be95ab599012cb8952e330ce99ec0c7bfaf63f3bd4a:.eval/check_production.py --expect e024ba699142906ace6239e9180018d04c02fa0ee11e90a1b876c414bfe33160:.eval/production.json -- python .eval/check_production.py verify fixtures/typescript-vitest-cart/src
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
         config:
-          command: python3 .eval/check_cart_tests.py verify fixtures/typescript-vitest-cart .eval/cart-baseline.json
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 772c6a273ad1ee22419137b3847b0a1bdd5e9ef3d3b6250d86a4601d6273d5ca:.eval/check_cart_tests.py --expect c4c50ad6467a80cae123666a9e7d949d01c5e45a3ce66868e6aade6391b8fcb0:.eval/cart-baseline.json -- python .eval/check_cart_tests.py verify fixtures/typescript-vitest-cart .eval/cart-baseline.json
           expected_exit_code: 0
           timeout: 10m
       - type: output-matches
@@ -282,7 +302,8 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: python3 .eval/check_xunit_tests.py verify fixtures/sdk-xunit-orders .eval/xunit-baseline.json
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 244c9bd8be8f65e2d7289b393f57a6331ca24bb537e4171ca032e48e348714a3:.eval/check_xunit_tests.py --expect 46c6aefd4dfbd3075111ddfa7f70b5a0cfb4110f3472b04a143ba39850847c9c:.eval/xunit-baseline.json -- python .eval/check_xunit_tests.py verify fixtures/sdk-xunit-orders .eval/xunit-baseline.json
           expected_exit_code: 0
           timeout: 10m
       - type: output-matches

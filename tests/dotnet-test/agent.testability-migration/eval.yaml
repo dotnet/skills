@@ -3,6 +3,10 @@ description: Evaluates the dotnet-test/agent.testability-migration orchestrator 
 type: capability
 defaults:
   timeout: 20m
+environment:
+  files:
+    - src: ../graders/authenticated_artifacts.py
+      dest: .eval/authenticated_artifacts.py
 stimuli:
   - name: "Full pipeline: detect statics and recommend migration plan"
     prompt: >
@@ -50,7 +54,8 @@ stimuli:
           pattern: (increment|step|phase|first|order|sequence)
       - type: run-command
         config:
-          command: python .eval/check_readonly.py verify FullPipeline
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect f7bdb165ace5dd131552a50901c913184a803a198515367f716da3c2fc385812:.eval/check_readonly.py --expect d454de4791b1ccfb6bf0fae1a78357e49c126ce3d2352c5145fae45879d928dc:.eval/baseline.json -- python .eval/check_readonly.py verify FullPipeline
           expected_exit_code: 0
           timeout: 1m
       - type: exit-success
@@ -100,12 +105,20 @@ stimuli:
           value: TimeProvider.System
       - type: run-command
         config:
-          command: python .eval/check_time_scope.py
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect f7bdb165ace5dd131552a50901c913184a803a198515367f716da3c2fc385812:.eval/check_readonly.py --expect d454de4791b1ccfb6bf0fae1a78357e49c126ce3d2352c5145fae45879d928dc:.eval/baseline.json -- python .eval/check_readonly.py verify FullPipeline
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
         config:
-          command: dotnet run --project .eval/TimeContract
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 2c5f1a2c6a93d43d19751520c08c552fc17cfc394e3bb68eebdc4a1fe20720f7:.eval/check_time_scope.py --expect d454de4791b1ccfb6bf0fae1a78357e49c126ce3d2352c5145fae45879d928dc:.eval/baseline.json -- python .eval/check_time_scope.py
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 8768d99d41e0021669c2179a2415572c2c0c9177dfc1dc4e7d09f91996ace148:.eval/TimeContract/Program.cs --expect ea3bdafcaa215400ffb53b2fc21bdd0347f67a59a5dd1a7d9e9697492ebb3cb3:.eval/TimeContract/TimeContract.csproj -- dotnet run --project .eval/TimeContract
           expected_exit_code: 0
           timeout: 5m
       - type: exit-success
@@ -157,12 +170,20 @@ stimuli:
           value: TimeProvider.System
       - type: run-command
         config:
-          command: python .eval/check_time_scope.py
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect f7bdb165ace5dd131552a50901c913184a803a198515367f716da3c2fc385812:.eval/check_readonly.py --expect d454de4791b1ccfb6bf0fae1a78357e49c126ce3d2352c5145fae45879d928dc:.eval/baseline.json -- python .eval/check_readonly.py verify FullPipeline
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
         config:
-          command: dotnet run --project .eval/TimeContract
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 2c5f1a2c6a93d43d19751520c08c552fc17cfc394e3bb68eebdc4a1fe20720f7:.eval/check_time_scope.py --expect d454de4791b1ccfb6bf0fae1a78357e49c126ce3d2352c5145fae45879d928dc:.eval/baseline.json -- python .eval/check_time_scope.py
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 8768d99d41e0021669c2179a2415572c2c0c9177dfc1dc4e7d09f91996ace148:.eval/TimeContract/Program.cs --expect ea3bdafcaa215400ffb53b2fc21bdd0347f67a59a5dd1a7d9e9697492ebb3cb3:.eval/TimeContract/TimeContract.csproj -- dotnet run --project .eval/TimeContract
           expected_exit_code: 0
           timeout: 5m
       - type: run-command
@@ -252,7 +273,8 @@ stimuli:
           pattern: (priority|rank|order|first)
       - type: run-command
         config:
-          command: python .eval/check_readonly.py verify FullPipeline
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect f7bdb165ace5dd131552a50901c913184a803a198515367f716da3c2fc385812:.eval/check_readonly.py --expect d454de4791b1ccfb6bf0fae1a78357e49c126ce3d2352c5145fae45879d928dc:.eval/baseline.json -- python .eval/check_readonly.py verify FullPipeline
           expected_exit_code: 0
           timeout: 1m
       - type: prompt

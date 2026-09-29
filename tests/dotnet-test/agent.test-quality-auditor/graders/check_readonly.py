@@ -29,7 +29,10 @@ def sources(root):
                 pending.append(path)
             elif path.is_file() and (path.suffix.lower() in SOURCE_SUFFIXES or path.name in CONFIG_NAMES):
                 protected.append(path)
-    return {path.as_posix(): path.read_text(encoding="utf-8-sig") for path in protected}
+    return {
+        path.as_posix(): path.read_text(encoding="utf-8-sig")
+        for path in sorted(protected)
+    }
 
 
 def main():
@@ -38,7 +41,7 @@ def main():
     if mode == "snapshot":
         assert actual, f"No source files under {root}"
         BASELINE.parent.mkdir(exist_ok=True)
-        BASELINE.write_text(json.dumps(actual), encoding="utf-8")
+        BASELINE.write_text(json.dumps(actual, sort_keys=True), encoding="utf-8")
     elif mode == "verify":
         expected = json.loads(BASELINE.read_text(encoding="utf-8"))
         changed = sorted(path for path in expected.keys() | actual.keys() if expected.get(path) != actual.get(path))

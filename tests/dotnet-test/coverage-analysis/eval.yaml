@@ -78,6 +78,16 @@ stimuli:
         - src: fixtures/partial-coverage/coverage.cobertura.xml
           dest: TestResults/coverage.cobertura.xml
     graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib;
+            p=pathlib.Path('TestResults/coverage.cobertura.xml');
+            assert p.is_file() and not p.is_symlink();
+            assert hashlib.sha256(p.read_bytes()).hexdigest()
+            == '00c8df1ecf51e4eff186695740796ed7aae79f9c1076258318bd550937f88fa9'"
+          expected_exit_code: 0
+          timeout: 1m
       - type: output-matches
         config:
           pattern: CalculateGpa|Calculate_?Gpa

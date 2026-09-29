@@ -60,6 +60,12 @@ stimuli:
         - src: fixtures/clean-tests/Calculator.Tests/ScientificCalculator.cs
           dest: Calculator.Tests/ScientificCalculator.cs
     graders:
+      - type: run-command
+        config:
+          command: dotnet test Loyalty.Tests/Loyalty.Tests.csproj --verbosity minimal
+          expected_exit_code: 0
+          stdout_matches: '(?i)Passed:\s+4\b'
+          timeout: 5m
       - type: output-matches
         config:
           pattern: (?s)(clean|good|well.written|no.*(major|significant).*(smell|issue|problem)|solid|well.structured)

@@ -3,6 +3,10 @@ description: Evaluates the dotnet-test/agent.test-quality-auditor orchestrator a
 type: capability
 defaults:
   timeout: 5m
+environment:
+  files:
+    - src: ../graders/authenticated_artifacts.py
+      dest: .eval/authenticated_artifacts.py
 stimuli:
   - name: Comprehensive test quality audit of weak test suite
     prompt: |
@@ -59,7 +63,8 @@ stimuli:
           pattern: (GetTotalWithDiscount|discount)
       - type: run-command
         config:
-          command: python .eval/check_readonly.py verify WeakTests
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect f7bdb165ace5dd131552a50901c913184a803a198515367f716da3c2fc385812:.eval/check_readonly.py --expect 17b9087c0ec52bde89363b1276acda8e5b9b7bf3f13eab4154503b54b529fca8:.eval/baseline.json -- python .eval/check_readonly.py verify WeakTests
       - type: exit-success
       - type: prompt
     rubric:
@@ -112,7 +117,8 @@ stimuli:
           pattern: (Throws|expected.*(value|total|exception)|assert.*(count|item|total)|verif.*(count|item|total))
       - type: run-command
         config:
-          command: python .eval/check_readonly.py verify WeakTests
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect f7bdb165ace5dd131552a50901c913184a803a198515367f716da3c2fc385812:.eval/check_readonly.py --expect 17b9087c0ec52bde89363b1276acda8e5b9b7bf3f13eab4154503b54b529fca8:.eval/baseline.json -- python .eval/check_readonly.py verify WeakTests
       - type: exit-success
       - type: prompt
     rubric:
@@ -166,7 +172,8 @@ stimuli:
           pattern: (collection|state|structural|quantity|product.?id)
       - type: run-command
         config:
-          command: python .eval/check_readonly.py verify WeakTests
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect f7bdb165ace5dd131552a50901c913184a803a198515367f716da3c2fc385812:.eval/check_readonly.py --expect 17b9087c0ec52bde89363b1276acda8e5b9b7bf3f13eab4154503b54b529fca8:.eval/baseline.json -- python .eval/check_readonly.py verify WeakTests
       - type: exit-success
       - type: prompt
     rubric:
@@ -202,7 +209,8 @@ stimuli:
           pattern: (mutation|would.*pass|would.*miss|gap|not.*detect)
       - type: run-command
         config:
-          command: python .eval/check_readonly.py verify WeakTests
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect f7bdb165ace5dd131552a50901c913184a803a198515367f716da3c2fc385812:.eval/check_readonly.py --expect 17b9087c0ec52bde89363b1276acda8e5b9b7bf3f13eab4154503b54b529fca8:.eval/baseline.json -- python .eval/check_readonly.py verify WeakTests
       - type: exit-success
       - type: prompt
     rubric:
@@ -238,7 +246,8 @@ stimuli:
           pattern: (priority|first|critical|high)
       - type: run-command
         config:
-          command: python .eval/check_readonly.py verify WeakTests
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect f7bdb165ace5dd131552a50901c913184a803a198515367f716da3c2fc385812:.eval/check_readonly.py --expect 17b9087c0ec52bde89363b1276acda8e5b9b7bf3f13eab4154503b54b529fca8:.eval/baseline.json -- python .eval/check_readonly.py verify WeakTests
       - type: exit-success
       - type: prompt
     rubric:
@@ -276,7 +285,8 @@ stimuli:
           pattern: (code.testing.(agent|generator)|test.generat|generat.*(agent|workflow))
       - type: run-command
         config:
-          command: python .eval/check_readonly.py verify WeakTests
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='53458ed13636b37c0975cfc765e1c50f456b29a08399bce0eacf576f1cb52085';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect f7bdb165ace5dd131552a50901c913184a803a198515367f716da3c2fc385812:.eval/check_readonly.py --expect 17b9087c0ec52bde89363b1276acda8e5b9b7bf3f13eab4154503b54b529fca8:.eval/baseline.json -- python .eval/check_readonly.py verify WeakTests
       - type: exit-success
       - type: prompt
     rubric:
