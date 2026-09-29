@@ -70,6 +70,7 @@ stimuli:
           dest: fixtures/python-multimodule
       commands:
         - git init -q
+        - python3 -m pip install --quiet pytest==8.3.5
     graders:
       - type: run-command
         config:
@@ -207,6 +208,8 @@ stimuli:
         config:
           path: fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs
           value: ExpectedException
+      # Compile against the pinned legacy APIs first. Moq 4.2's proxy emitter
+      # cannot run on .NET 8; only the temporary execution harness uses newer Moq.
       - type: run-command
         config:
           command: >-
@@ -214,11 +217,23 @@ stimuli:
             p=pathlib.Path('fixtures/classic-mstest/.eval-validation/GeneratedTests.csproj');
             p.parent.mkdir(parents=True,exist_ok=True);
             p.write_bytes(base64.b64decode('PFByb2plY3QgU2RrPSJNaWNyb3NvZnQuTkVULlNkayI+CiAgPFByb3BlcnR5R3JvdXA+CiAgICA8VGFyZ2V0RnJhbWV3b3JrPm5ldDguMDwvVGFyZ2V0RnJhbWV3b3JrPgogICAgPEVuYWJsZURlZmF1bHRDb21waWxlSXRlbXM+ZmFsc2U8L0VuYWJsZURlZmF1bHRDb21waWxlSXRlbXM+CiAgICA8SW1wbGljaXRVc2luZ3M+ZGlzYWJsZTwvSW1wbGljaXRVc2luZ3M+CiAgICA8TnVsbGFibGU+ZGlzYWJsZTwvTnVsbGFibGU+CiAgICA8SXNUZXN0UHJvamVjdD50cnVlPC9Jc1Rlc3RQcm9qZWN0PgogICAgPE5vV2Fybj4kKE5vV2Fybik7TlUxNzAxPC9Ob1dhcm4+CiAgPC9Qcm9wZXJ0eUdyb3VwPgogIDxJdGVtR3JvdXA+CiAgICA8UGFja2FnZVJlZmVyZW5jZSBJbmNsdWRlPSJNaWNyb3NvZnQuTkVULlRlc3QuU2RrIiBWZXJzaW9uPSIxNy4xMy4wIiAvPgogICAgPFBhY2thZ2VSZWZlcmVuY2UgSW5jbHVkZT0iTVNUZXN0LlRlc3RBZGFwdGVyIiBWZXJzaW9uPSIzLjUuMiIgLz4KICAgIDxQYWNrYWdlUmVmZXJlbmNlIEluY2x1ZGU9Ik1TVGVzdC5UZXN0RnJhbWV3b3JrIiBWZXJzaW9uPSIzLjUuMiIgLz4KICAgIDxQYWNrYWdlUmVmZXJlbmNlIEluY2x1ZGU9Ik1vcSIgVmVyc2lvbj0iNC4yLjE1MTAuMjIwNSIgLz4KICAgIDxQYWNrYWdlUmVmZXJlbmNlIEluY2x1ZGU9Ik5CdWlsZGVyIiBWZXJzaW9uPSI2LjEuMCIgLz4KICAgIDxQYWNrYWdlUmVmZXJlbmNlIEluY2x1ZGU9IlN5c3RlbS5Db2RlRG9tIiBWZXJzaW9uPSI4LjAuMCIgLz4KICAgIDxQYWNrYWdlUmVmZXJlbmNlIEluY2x1ZGU9IlN5c3RlbS5TZWN1cml0eS5QZXJtaXNzaW9ucyIgVmVyc2lvbj0iOC4wLjAiIC8+CiAgPC9JdGVtR3JvdXA+CiAgPEl0ZW1Hcm91cD4KICAgIDxDb21waWxlIEluY2x1ZGU9Ii4uL3NyYy9EaXNjb3VudFNlcnZpY2UuY3MiIC8+CiAgICA8Q29tcGlsZSBJbmNsdWRlPSIuLi9zcmMvVGllcmVkRGlzY291bnRQb2xpY3kuY3MiIC8+CiAgICA8Q29tcGlsZSBJbmNsdWRlPSIuLi90ZXN0cy9GaXh0dXJlQmFzZS5jcyIgLz4KICAgIDxDb21waWxlIEluY2x1ZGU9Ii4uL3Rlc3RzL0Rpc2NvdW50U2VydmljZVRlc3RzLmNzIiAvPgogICAgPENvbXBpbGUgSW5jbHVkZT0iLi4vdGVzdHMvRGlzY291bnRTZXJ2aWNlQm91bmRhcnlUZXN0cy5jcyIgLz4KICAgIDxDb21waWxlIEluY2x1ZGU9Ii4uL3Rlc3RzL1RpZXJlZERpc2NvdW50UG9saWN5VGVzdHMuY3MiIC8+CiAgPC9JdGVtR3JvdXA+CjwvUHJvamVjdD4K'))"
+            && dotnet add
+            fixtures/classic-mstest/.eval-validation/GeneratedTests.csproj
+            package Moq --version 4.20.72 --no-restore
+            && dotnet build
+            fixtures/classic-mstest/.eval-validation/GeneratedTests.csproj
+            --verbosity minimal
+            && python3 -c "import pathlib;
+            p=pathlib.Path('fixtures/classic-mstest/.eval-validation/GeneratedTests.csproj');
+            p.write_text(p.read_text().replace('4.2.1510.2205','4.20.72'))"
             && dotnet test
             fixtures/classic-mstest/.eval-validation/GeneratedTests.csproj
-            --list-tests --verbosity minimal
+            --verbosity minimal
+            && dotnet test
+            fixtures/classic-mstest/.eval-validation/GeneratedTests.csproj
+            --list-tests --no-build --verbosity minimal
           expected_exit_code: 0
-          stdout_matches: '(?is)Apply_HundredPercent_ReturnsZero.*Apply_AboveThreshold_ReturnsExactDiscountedValue'
+          stdout_matches: '(?is)Passed:\s+[1-9][0-9]*.*Apply_HundredPercent_ReturnsZero.*Apply_AboveThreshold_ReturnsExactDiscountedValue'
           timeout: 10m
       - type: output-matches
         config:
@@ -364,6 +379,7 @@ stimuli:
           dest: fixtures/python-workspace-integrity
       commands:
         - git init -q && git config maintenance.auto false && git config gc.auto 0 && git -c user.email=eval@example.com -c user.name=eval add fixtures/python-workspace-integrity && git -c user.email=eval@example.com -c user.name=eval commit -qm baseline && rm -rf fixtures/python-workspace-integrity/core fixtures/python-workspace-integrity/io fixtures/python-workspace-integrity/tests_real
+        - python3 -m pip install --quiet pytest==8.3.5
     graders:
       - type: run-command
         config:
@@ -469,10 +485,11 @@ stimuli:
           dest: fixtures/failing-suite
       commands:
         - git init -q
+        - python3 -m pip install --quiet pytest==8.3.5
     graders:
       - type: run-command
         config:
-          command: sh -c "cd fixtures/failing-suite && python3 -m pip install --quiet pytest && python3 -m pytest -q"
+          command: sh -c "cd fixtures/failing-suite && python3 -m pytest -q"
           expected_exit_code: 0
           timeout: 5m
       - type: run-command
@@ -645,6 +662,7 @@ stimuli:
           dest: fixtures/python-single-function
       commands:
         - git init -q
+        - python3 -m pip install --quiet pytest==8.3.5
     graders:
       - type: run-command
         config:
@@ -709,6 +727,9 @@ stimuli:
       files:
         - src: fixtures/partial-suite
           dest: fixtures/partial-suite
+      commands:
+        - git init -q
+        - python3 -m pip install --quiet pytest==8.3.5
     graders:
       - type: run-command
         config:

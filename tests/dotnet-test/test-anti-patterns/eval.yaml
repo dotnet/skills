@@ -44,17 +44,14 @@ stimuli:
 
               CRITICAL
               1. GetUser_NonExistentId_ReturnsNull — no assertion. It fetches the result but never verifies it, so it does not verify anything and cannot catch a regression. Fix: Assert.IsNull(result).
-              2. AddUser_DuplicateId — swallowed exception. It wraps the duplicate add in try/catch and returns without asserting; it also silently passes when no exception is thrown. Fix: Assert.ThrowsException<InvalidOperationException>(() => repo.Add(dup)).
-              3. DeleteUser_RemovesUser — self-comparing assertion. It asserts repo.Count equals repo.Count (compares Count to itself), which always passes regardless of whether the delete worked. Fix: assert the count dropped by one and that GetUser returns null for the deleted id.
+              2. AddUser_DuplicateId_ThrowsException — swallowed exception. It wraps the duplicate add in try/catch and returns without asserting; it also silently passes when no exception is thrown. Fix: Assert.ThrowsException<InvalidOperationException>(() => repo.Add(dup)).
+              3. DeleteUser_RemovesFromRepository — self-comparing assertion. It asserts repo.Count equals repo.Count (compares Count to itself), which always passes regardless of whether the delete worked. Fix: assert the count dropped by one and that GetById returns null for the deleted id.
 
               WARNING
-              4. UpdateUser_ChangesName — negative assertion. It only checks the name is not equal to the old value instead of asserting the expected new value. Fix: Assert.AreEqual("NewName", updated.Name).
-              5. AddUser_NullUser — broad Assert.ThrowsException<Exception> instead of the specific ArgumentNullException, so an unrelated failure would still pass. Fix: assert the specific ArgumentNullException.
+              4. UpdateUser_ChangesName — negative assertion. It only checks the name is not equal to the old value instead of asserting the expected new value. Fix: Assert.AreEqual("Alicia", user.Name).
+              5. AddUser_NullUser_ThrowsArgumentNullException — exact exception type mismatch. MSTest's Assert.ThrowsException<T> requires the exact type, so Assert.ThrowsException<Exception> fails when UserRepository.Add correctly throws ArgumentNullException. It does not silently accept unrelated derived exceptions. Fix: use Assert.ThrowsException<ArgumentNullException>.
 
-              INFO
-              6. The static HttpClient field is never disposed and appears unused; remove it or manage its lifetime.
-
-              Summary: 3 Critical, 2 Warning, 1 Info. Fix the Critical assertion-free and swallowed-exception tests first. I did not edit any files.
+              Summary: 3 Critical, 2 Warning. Fix the Critical assertion-free and swallowed-exception tests first. I did not edit any files.
     graders:
       - type: output-matches
         config:
@@ -67,7 +64,10 @@ stimuli:
           pattern: (Assert\.AreEqual.*itself|self.compar|always.pass|compare.*to itself)
       - type: output-matches
         config:
-          pattern: (Assert\.ThrowsException.*<Exception>|broad.*exception|specific.*exception)
+          pattern: (?i)(exact.*(exception|type)|(exception|type).*exact)
+      - type: output-matches
+        config:
+          pattern: ArgumentNullException
       - type: exit-success
       - type: prompt
     rubric:
@@ -77,9 +77,9 @@ stimuli:
       - Identified that DeleteUser compares repo.Count to itself (always passes regardless of whether the delete worked)
       - Identified that UpdateUser uses a negative assertion (not equal to old value) instead of asserting the expected
         new value
-      - Identified that AddUser_NullUser uses broad Assert.ThrowsException<Exception> instead of the specific
-        ArgumentNullException
-      - Identified that the static HttpClient field is never disposed and appears unused
+      - Identified that AddUser_NullUser_ThrowsArgumentNullException fails because MSTest Assert.ThrowsException<T>
+        requires the exact exception type, so Exception does not match the thrown ArgumentNullException,
+        rather than claiming it silently accepts unrelated derived exceptions
       - Provided concrete fixes for the critical and high severity findings
       - Every finding names a specific location — the test method it applies to — rather than issuing a general
         warning about the suite
@@ -134,7 +134,7 @@ stimuli:
 
               INFO
               4. CreateOrder_MultipleItems_Test is too large and mixes several concerns, making failures hard to localize. Split it into focused tests.
-              5. Assert.ThrowsException<Exception> is too broad; assert the specific exception type.
+              5. ProcessOrder_InvalidId_Throws has an exact exception type mismatch. MSTest requires the exact type, so Assert.ThrowsException<Exception> fails when ProcessOrder throws InvalidOperationException. Fix: use Assert.ThrowsException<InvalidOperationException>.
 
               Summary: 1 Critical, 2 Warning, 2 Info. Fix the shared static state first — it is the root of the order dependency. I did not edit any files.
     graders:
@@ -147,6 +147,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (reflect|private|internal.*state|implementation.*detail|coupling)
+      - type: output-matches
+        config:
+          pattern: (exact.*(exception|type)|InvalidOperationException)
       - type: exit-success
       - type: prompt
     rubric:
@@ -155,7 +158,8 @@ stimuli:
       - Identified Thread.Sleep and DateTime.Now as flakiness risks in ProcessOrder_SetsTimestamp
       - Identified reflection-based access to private _orders field as implementation coupling
       - Recognized that CreateOrder_MultipleItems_Test is too large and tests multiple concerns
-      - Flagged the broad exception type in Assert.ThrowsException<Exception>
+      - Identified that ProcessOrder_InvalidId_Throws fails because MSTest requires an exact exception type and
+        Exception does not match the thrown InvalidOperationException
     constraints:
       reject_tools:
         - bash
@@ -231,7 +235,7 @@ stimuli:
       `Payments.Tests/PaymentProcessorTests.cs` for .NET test anti-patterns
       using the full anti-pattern catalog (missing assertions, swallowed
       exceptions, always-true/self-comparing assertions, flakiness, magic
-      values, duplicate tests, broad exception types, etc.) and tell me
+      values, duplicate tests, incorrect exception assertions, etc.) and tell me
       what (if anything) genuinely needs fixing — be careful not to invent
       issues that aren't really there.
 
@@ -266,7 +270,7 @@ stimuli:
               - Always-true or self-comparing assertions — none; each compares the result to an independent expected value.
               - Flakiness — no Thread.Sleep, no wall-clock time, gateway is a fake.
               - Magic values and duplicate tests — the currency cases are already data-driven with [DataRow].
-              - Broad exception types — the thrown exceptions are the specific expected types.
+              - Incorrect exception assertions — each typed assertion exactly matches the expected exception type.
 
               Positive patterns worth keeping: the sealed test class, injected FakeGateway, specific ArgumentOutOfRangeException assertions, data-driven currency cases, and clear Arrange-Act-Assert structure.
 
