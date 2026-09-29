@@ -88,6 +88,47 @@
     ]
   },
   {
+    "name": "successful-documented-non-build-noop",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "117",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/58/merge",
+        "sha": "bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "noop",
+          "message": "[non-build-failure] Build compiled cleanly across all legs; pipeline failure is in a non-build stage (test/Helix) — out of scope for build-failure analysis."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 1
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 1
+      }
+    ]
+  },
+  {
     "name": "contradictory-outputs",
     "request": {
       "schemaVersion": 1,

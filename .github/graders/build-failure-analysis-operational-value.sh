@@ -162,7 +162,7 @@ noop_shape=$(printf '%s\n' "$request" | jq -r '
             or
             ($message | test(
                 "^\\[non-build-failure\\] (Build|The available binlogs) compiled cleanly"
-                + ".+(pipeline failure|this is) (is |in )?(a )?non-build"
+                + ".+(pipeline failure|this is) (is )?(in )?(a )?non-build"
                 + ".+out of scope( for build-failure analysis)?\\.$";
                 "i"
             ))
