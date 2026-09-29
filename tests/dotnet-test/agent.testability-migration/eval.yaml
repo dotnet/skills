@@ -18,8 +18,10 @@ stimuli:
       files:
         - src: ./fixtures/full-pipeline
           dest: FullPipeline
+        - src: ../agent.test-quality-auditor/graders/check_readonly.py
+          dest: .eval/check_readonly.py
       commands:
-        - mkdir -p .eval-baseline && cp -R FullPipeline .eval-baseline/FullPipeline
+        - python .eval/check_readonly.py snapshot FullPipeline
       skills:
         - ../../plugins/dotnet-test/skills/detect-static-dependencies
         - ../../plugins/dotnet-test/skills/generate-testability-wrappers
@@ -33,16 +35,22 @@ stimuli:
           pattern: (File\.|Directory\.|file system|filesystem)
       - type: output-matches
         config:
-          pattern: (TimeProvider|IFileSystem|System\.IO\.Abstractions|wrapper|abstraction)
+          pattern: TimeProvider
       - type: output-matches
         config:
-          pattern: (Environment\.|Console\.|environment|console)
+          pattern: (IFileSystem|System\.IO\.Abstractions|wrapper|abstraction)
+      - type: output-matches
+        config:
+          pattern: (Environment\.|environment|configuration)
+      - type: output-matches
+        config:
+          pattern: (Console\.|console|logging|TextWriter|ILogger)
       - type: output-matches
         config:
           pattern: (increment|step|phase|first|order|sequence)
       - type: run-command
         config:
-          command: diff -ru .eval-baseline/FullPipeline FullPipeline
+          command: python .eval/check_readonly.py verify FullPipeline
           expected_exit_code: 0
           timeout: 1m
       - type: exit-success
@@ -52,7 +60,7 @@ stimuli:
       - Recommended TimeProvider for replacing DateTime.UtcNow calls
       - Recommended System.IO.Abstractions or a wrapper for File/Directory calls
       - Proposed an incremental migration plan rather than changing everything at once
-      - Produced concrete code changes or clear next steps
+      - Produced clear next steps without modifying source or project configuration
 
   - name: "Targeted request: just migrate DateTime to TimeProvider"
     prompt: >
@@ -67,6 +75,14 @@ stimuli:
       files:
         - src: ./fixtures/full-pipeline
           dest: FullPipeline
+        - src: ../agent.test-quality-auditor/graders/check_readonly.py
+          dest: .eval/check_readonly.py
+        - src: graders/check_time_scope.py
+          dest: .eval/check_time_scope.py
+        - src: graders/TimeContract
+          dest: .eval/TimeContract
+      commands:
+        - python .eval/check_readonly.py snapshot FullPipeline
       skills:
         - ../../plugins/dotnet-test/skills/migrate-static-to-wrapper
     graders:
@@ -80,25 +96,16 @@ stimuli:
           value: DateTime.UtcNow
       - type: file-contains
         config:
-          path: "**/SubscriptionManager.cs"
-          value: GetUtcNow
-      - type: file-contains
-        config:
           path: "**/Program.cs"
           value: TimeProvider.System
       - type: run-command
         config:
-          command: >-
-            python -c "import pathlib,re,sys;
-            text=pathlib.Path('FullPipeline/Services/SubscriptionManager.cs').read_text();
-            required=['File.','Directory.','Environment.','Console.'];
-            sys.exit(0 if re.search(r'SubscriptionManager\s*\(\s*(?:System\.)?TimeProvider\b', text, re.S)
-            and all(value in text for value in required) else 1)"
+          command: python .eval/check_time_scope.py
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
         config:
-          command: dotnet build FullPipeline
+          command: dotnet run --project .eval/TimeContract
           expected_exit_code: 0
           timeout: 5m
       - type: exit-success
@@ -124,6 +131,14 @@ stimuli:
       files:
         - src: ./fixtures/full-pipeline
           dest: FullPipeline
+        - src: ../agent.test-quality-auditor/graders/check_readonly.py
+          dest: .eval/check_readonly.py
+        - src: graders/check_time_scope.py
+          dest: .eval/check_time_scope.py
+        - src: graders/TimeContract
+          dest: .eval/TimeContract
+      commands:
+        - python .eval/check_readonly.py snapshot FullPipeline
       skills:
         - ../../plugins/dotnet-test/skills/migrate-static-to-wrapper
         - ../../plugins/dotnet-test/skills/code-testing-agent
@@ -142,13 +157,14 @@ stimuli:
           value: TimeProvider.System
       - type: run-command
         config:
-          command: >-
-            python -c "import pathlib,sys;
-            text=pathlib.Path('FullPipeline/Services/SubscriptionManager.cs').read_text();
-            required=['File.','Directory.','Environment.','Console.'];
-            sys.exit(0 if all(value in text for value in required) else 1)"
+          command: python .eval/check_time_scope.py
           expected_exit_code: 0
           timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet run --project .eval/TimeContract
+          expected_exit_code: 0
+          timeout: 5m
       - type: run-command
         config:
           command: sh -c "test_project=$(find FullPipeline -name '*Tests.csproj' -print -quit); test -n \"$test_project\" && dotnet test \"$test_project\""
@@ -215,6 +231,10 @@ stimuli:
       files:
         - src: ./fixtures/full-pipeline
           dest: FullPipeline
+        - src: ../agent.test-quality-auditor/graders/check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot FullPipeline
       skills:
         - ../../plugins/dotnet-test/skills/detect-static-dependencies
     graders:
@@ -232,7 +252,7 @@ stimuli:
           pattern: (priority|rank|order|first)
       - type: run-command
         config:
-          command: sh -c "grep -Rqs 'DateTime.UtcNow' FullPipeline && grep -Rqs 'File\\.' FullPipeline"
+          command: python .eval/check_readonly.py verify FullPipeline
           expected_exit_code: 0
           timeout: 1m
       - type: prompt

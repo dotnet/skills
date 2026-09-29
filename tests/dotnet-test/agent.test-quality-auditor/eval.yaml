@@ -21,6 +21,10 @@ stimuli:
           dest: WeakTests/ShoppingCart.cs
         - src: fixtures/weak-tests/ShoppingCartTests.cs
           dest: WeakTests/ShoppingCartTests.cs
+        - src: graders/check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot WeakTests
       skills:
         - ../../plugins/dotnet-test/skills/test-anti-patterns
         - ../../plugins/dotnet-test/skills/assertion-quality
@@ -41,6 +45,21 @@ stimuli:
       - type: output-matches
         config:
           pattern: (summary|priorit|rank|critical|sever)
+      - type: output-matches
+        config:
+          pattern: (AddItem_Works|cart\.AddItem)
+      - type: output-matches
+        config:
+          pattern: (GetTotal_ReturnsValue|total,\s*total)
+      - type: output-matches
+        config:
+          pattern: (RemoveItem|remov.*item)
+      - type: output-matches
+        config:
+          pattern: (GetTotalWithDiscount|discount)
+      - type: run-command
+        config:
+          command: python .eval/check_readonly.py verify WeakTests
       - type: exit-success
       - type: prompt
     rubric:
@@ -66,6 +85,10 @@ stimuli:
           dest: WeakTests/ShoppingCart.cs
         - src: fixtures/weak-tests/ShoppingCartTests.cs
           dest: WeakTests/ShoppingCartTests.cs
+        - src: graders/check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot WeakTests
       skills:
         - ../../plugins/dotnet-test/skills/test-anti-patterns
     graders:
@@ -84,6 +107,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: (priorit|rank|critical|sever)
+      - type: output-matches
+        config:
+          pattern: (Throws|expected.*(value|total|exception)|assert.*(count|item|total)|verif.*(count|item|total))
+      - type: run-command
+        config:
+          command: python .eval/check_readonly.py verify WeakTests
       - type: exit-success
       - type: prompt
     rubric:
@@ -107,6 +136,10 @@ stimuli:
           dest: WeakTests/ShoppingCart.cs
         - src: fixtures/weak-tests/ShoppingCartTests.cs
           dest: WeakTests/ShoppingCartTests.cs
+        - src: graders/check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot WeakTests
       skills:
         - ../../plugins/dotnet-test/skills/assertion-quality
     graders:
@@ -119,6 +152,21 @@ stimuli:
       - type: output-matches
         config:
           pattern: (exception|collection|state|structural|missing.*type|more.*assert)
+      - type: output-matches
+        config:
+          pattern: (AreEqual|equalit|equal)
+      - type: output-matches
+        config:
+          pattern: (IsNotNull|null)
+      - type: output-matches
+        config:
+          pattern: (exception|Throws)
+      - type: output-matches
+        config:
+          pattern: (collection|state|structural|quantity|product.?id)
+      - type: run-command
+        config:
+          command: python .eval/check_readonly.py verify WeakTests
       - type: exit-success
       - type: prompt
     rubric:
@@ -139,6 +187,10 @@ stimuli:
           dest: WeakTests/ShoppingCart.cs
         - src: fixtures/weak-tests/ShoppingCartTests.cs
           dest: WeakTests/ShoppingCartTests.cs
+        - src: graders/check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot WeakTests
       skills:
         - ../../plugins/dotnet-test/skills/test-gap-analysis
     graders:
@@ -148,6 +200,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (mutation|would.*pass|would.*miss|gap|not.*detect)
+      - type: run-command
+        config:
+          command: python .eval/check_readonly.py verify WeakTests
       - type: exit-success
       - type: prompt
     rubric:
@@ -168,6 +223,10 @@ stimuli:
           dest: WeakTests/ShoppingCart.cs
         - src: fixtures/weak-tests/ShoppingCartTests.cs
           dest: WeakTests/ShoppingCartTests.cs
+        - src: graders/check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot WeakTests
       skills:
         - ../../plugins/dotnet-test/skills/test-smell-detection
     graders:
@@ -177,6 +236,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (priority|first|critical|high)
+      - type: run-command
+        config:
+          command: python .eval/check_readonly.py verify WeakTests
       - type: exit-success
       - type: prompt
     rubric:
@@ -201,12 +263,23 @@ stimuli:
           dest: WeakTests/ShoppingCart.cs
         - src: fixtures/weak-tests/ShoppingCartTests.cs
           dest: WeakTests/ShoppingCartTests.cs
+        - src: graders/check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot WeakTests
     graders:
       - type: output-matches
         config:
-          pattern: (out.*scope|not.*cover|cannot|does not|generat|writ.*test|different)
+          pattern: (out.*scope|not.*(role|job|audit)|cannot|does not|different.*(job|task|workflow)|diagnostic)
+      - type: output-matches
+        config:
+          pattern: (code.testing.(agent|generator)|test.generat|generat.*(agent|workflow))
+      - type: run-command
+        config:
+          command: python .eval/check_readonly.py verify WeakTests
       - type: exit-success
       - type: prompt
     rubric:
       - Did not attempt to run a test quality audit
       - Recognized that generating new tests is outside the scope of quality auditing
+      - Redirected to a test-generation workflow without writing tests or modifying the supplied project
