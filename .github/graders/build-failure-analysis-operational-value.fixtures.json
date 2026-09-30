@@ -791,6 +791,47 @@
     ]
   },
   {
+    "name": "prefixed-now-matches-stale-reason",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "125",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/66/merge",
+        "sha": "f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "noop",
+          "message": "[stale-revision] PR head changed earlier but now matches the analyzed SHA."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 0
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 1
+      }
+    ]
+  },
+  {
     "name": "successful-incomplete-binlogs",
     "request": {
       "schemaVersion": 1,
@@ -849,6 +890,47 @@
         {
           "type": "noop",
           "message": "[stale-revision] PR head changed."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 1
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 1
+      }
+    ]
+  },
+  {
+    "name": "successful-base-branch-advanced",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "126",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/67/merge",
+        "sha": "f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "noop",
+          "message": "[stale-revision] The base branch advanced while analysis was running."
         }
       ],
       "config": {}

@@ -201,7 +201,7 @@ def frontmatter(path: Path) -> dict:
     return data
 
 
-def grader_evaluator_paths(path: Path) -> list[Path]:
+def grader_evaluator_paths(path: Path) -> list[str]:
     # gh-aw v0.89.15 automatically installs graders.*.run files as package
     # resources, including repository-root .github/graders paths. Mirror that
     # installer behavior here; package-manifest resources cannot target
@@ -210,7 +210,7 @@ def grader_evaluator_paths(path: Path) -> list[Path]:
     if not isinstance(graders, dict):
         return []
 
-    result: list[Path] = []
+    result: list[str] = []
     for grader in graders.values():
         if not isinstance(grader, dict):
             continue
@@ -220,13 +220,25 @@ def grader_evaluator_paths(path: Path) -> list[Path]:
         evaluator_path = Path(evaluator)
         if evaluator_path.is_absolute() or ".." in evaluator_path.parts:
             raise RuntimeError(f"{path} references invalid grader evaluator {evaluator}")
-        result.append(evaluator_path)
+        result.append(evaluator)
     return result
 
 
-def resolve_grader_evaluator(repo_root: Path, evaluator: Path) -> Path:
+def resolve_grader_evaluator(
+    repo_root: Path,
+    workflow_source: Path,
+    workflow_destination: Path,
+    evaluator: str,
+) -> tuple[Path, Path]:
     repo_root = repo_root.resolve()
-    source = repo_root / evaluator
+    evaluator_path = Path(evaluator)
+    if evaluator.startswith("./"):
+        relative = Path(evaluator[2:])
+        source = workflow_source.parent / relative
+        destination = workflow_destination.parent / relative
+    else:
+        source = repo_root / evaluator_path
+        destination = evaluator_path
     if source.is_symlink():
         raise RuntimeError(f"grader evaluator must not be a symbolic link: {evaluator}")
     resolved = source.resolve()
@@ -234,7 +246,9 @@ def resolve_grader_evaluator(repo_root: Path, evaluator: Path) -> Path:
         raise RuntimeError(f"grader evaluator escapes the repository root: {evaluator}")
     if not resolved.is_file():
         raise RuntimeError(f"missing grader evaluator {evaluator}")
-    return resolved
+    if destination.is_absolute() or ".." in destination.parts:
+        raise RuntimeError(f"invalid grader evaluator destination: {evaluator}")
+    return resolved, destination
 
 
 def package_destination(include: str) -> Path:
@@ -284,20 +298,35 @@ def validate_package(repo_root: Path, manifest: Path) -> None:
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
 
-        evaluator_paths = {
-            evaluator
-            for include in workflow_includes
-            for evaluator in grader_evaluator_paths(manifest.parent / include)
-        }
-        for evaluator in sorted(evaluator_paths):
-            try:
-                source = resolve_grader_evaluator(repo_root, evaluator)
-            except RuntimeError as error:
-                raise RuntimeError(
-                    f"{manifest.relative_to(repo_root)} references invalid grader evaluator "
-                    f"{evaluator}: {error}"
-                ) from error
-            destination = scratch / evaluator
+        evaluator_resources: dict[Path, Path] = {}
+        for include in workflow_includes:
+            workflow_source = manifest.parent / include
+            workflow_destination = package_destination(include)
+            for evaluator in grader_evaluator_paths(workflow_source):
+                try:
+                    source, destination = resolve_grader_evaluator(
+                        repo_root,
+                        workflow_source,
+                        workflow_destination,
+                        evaluator,
+                    )
+                except RuntimeError as error:
+                    raise RuntimeError(
+                        f"{manifest.relative_to(repo_root)} references invalid grader evaluator "
+                        f"{evaluator}: {error}"
+                    ) from error
+                existing = evaluator_resources.get(destination)
+                if existing is not None and existing.read_bytes() != source.read_bytes():
+                    raise RuntimeError(
+                        f"{manifest.relative_to(repo_root)} installs conflicting grader "
+                        f"evaluators at {destination}"
+                    )
+                evaluator_resources[destination] = source
+
+        for destination_relative, source in sorted(
+            evaluator_resources.items(), key=lambda item: str(item[0])
+        ):
+            destination = scratch / destination_relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
 

@@ -76,7 +76,7 @@ graders:
 
             self.assertEqual(
                 VALIDATOR.grader_evaluator_paths(workflow),
-                [Path(".github/graders/example-operational-value.sh")],
+                [".github/graders/example-operational-value.sh"],
             )
 
     def test_stages_automatic_grader_resource_in_installed_layout(self) -> None:
@@ -131,8 +131,53 @@ graders:
 
             with self.assertRaisesRegex(RuntimeError, "must not be a symbolic link"):
                 VALIDATOR.resolve_grader_evaluator(
-                    repo_root, Path(".github/graders/escape.sh")
+                    repo_root,
+                    repo_root / ".github" / "workflows" / "example.md",
+                    Path(".github/workflows/example.md"),
+                    ".github/graders/escape.sh",
                 )
+
+    def test_stages_workflow_local_grader_beside_installed_workflow(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            package = repo_root / "agentic-workflows" / "example"
+            workflow = package / "workflows" / "example.md"
+            evaluator = package / "workflows" / "graders" / "local.sh"
+            evaluator.parent.mkdir(parents=True)
+            (package / "aw.yml").write_text(
+                """includes:
+  - workflows/example.md
+""",
+                encoding="utf-8",
+            )
+            workflow.write_text(
+                """---
+on: workflow_dispatch
+graders:
+  operational-value:
+    run: ./graders/local.sh
+---
+""",
+                encoding="utf-8",
+            )
+            evaluator.write_text("#!/usr/bin/env bash\nprintf '[]\\n'\n", encoding="utf-8")
+
+            def verify_staging(command: list[str], cwd: Path) -> None:
+                if command[:3] != ["gh", "aw", "compile"]:
+                    return
+                self.assertEqual(
+                    (
+                        cwd
+                        / ".github"
+                        / "workflows"
+                        / "graders"
+                        / evaluator.name
+                    ).read_bytes(),
+                    evaluator.read_bytes(),
+                )
+
+            with mock.patch.object(VALIDATOR, "run", side_effect=verify_staging):
+                VALIDATOR.validate_package(repo_root, package / "aw.yml")
 
 
 class ActiveWorkflowTests(unittest.TestCase):

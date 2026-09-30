@@ -198,15 +198,17 @@ noop_shape=$(printf '%s\n' "$request" | jq -r '
                 ($message | test(
                     "^\\[stale-revision\\] .*"
                     + "(not changed|unchanged|still matches|still current|"
-                    + "is current|remains? current)";
+                    + "is current|remains? current|now matches|matches the analyzed)";
                     "i"
                 ) | not)
                 and
                 ($message | test(
                     "^\\[stale-revision\\] ("
                     + "(unable|could not) to read (the )?(current )?PR head SHA\\.?"
-                    + "|.*(PR (revision|head|merge)|merge commit)"
-                    + ".*(moved|changed|differs|no longer).*$"
+                    + "|PR (revision|head) (moved|changed)\\.?"
+                    + "|PR (revision|head) no longer matches (the )?analyzed SHA\\.?"
+                    + "|(PR )?merge commit differs from (the )?analyzed merge SHA\\.?"
+                    + "|The base branch advanced while analysis was running\\."
                     + ")";
                     "i"
                 ))
