@@ -1,0 +1,7 @@
+<Project>
+  <!-- Enable net8.0-specific defaults for this single-targeting project. -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <DefineConstants>$(DefineConstants);NET8_FEATURES</DefineConstants>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+</Project>

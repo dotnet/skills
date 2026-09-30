@@ -6,8 +6,9 @@ public static class MetricsCollector
 {
     /// <summary>
     /// Analyse events from a "with-skill" run to detect which custom subagents
-    /// (plugin-defined agents) were invoked. Counts any event whose type contains
-    /// "subagent" (Started, Completed, Failed, Selected, Deselected) and extracts
+    /// (plugin-defined agents) were invoked. Counts direct
+    /// <c>agent.primary_selected</c> evidence and SDK events whose type contains
+    /// "subagent" (Started, Completed, Failed, Selected, Deselected), then extracts
     /// unique agent names from the event data.
     /// </summary>
     public static SubagentActivationInfo ExtractSubagentActivation(
@@ -19,7 +20,7 @@ public static class MetricsCollector
         foreach (var evt in events)
         {
             var t = evt.Type.ToLowerInvariant();
-            if (t.Contains("subagent"))
+            if (t.Contains("subagent") || t == "agent.primary_selected")
             {
                 subagentEventCount++;
                 var name = GetStringValue(evt.Data, "agentName") ?? "";
@@ -109,6 +110,7 @@ public static class MetricsCollector
         var toolCallBreakdown = new Dictionary<string, int>();
         int turnCount = 0;
         int errorCount = 0;
+        int terminalErrorCount = 0;
 
         foreach (var evt in events)
         {
@@ -149,9 +151,15 @@ public static class MetricsCollector
                     break;
                 }
 
-                case "runner.timeout":
                 case "session.error":
                 case "runner.error":
+                {
+                    errorCount++;
+                    terminalErrorCount++;
+                    break;
+                }
+
+                case "runner.timeout":
                 {
                     errorCount++;
                     break;
@@ -191,6 +199,7 @@ public static class MetricsCollector
             TurnCount = turnCount,
             WallTimeMs = wallTimeMs,
             ErrorCount = errorCount,
+            TerminalErrorCount = terminalErrorCount,
             TimedOut = events.Any(e => e.Type == "runner.timeout"),
             AgentOutput = agentOutput,
             Events = events,

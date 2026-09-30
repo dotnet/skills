@@ -72,12 +72,73 @@ jobs:
       - name: Check eval quality
         env:
           BASE_REF: ${{ github.base_ref }}
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
         run: |
+          COMPARISON_REF=""
           # On a pull request, additionally reject new entries in the
           # underpowered allowlist relative to the base branch — otherwise a PR
           # could add a below-floor eval and exempt it in the same change.
           if [ -n "$BASE_REF" ]; then
-            python eng/eval-quality/check_eval_quality.py --base-ref "origin/$BASE_REF"
+            COMPARISON_REF="origin/$BASE_REF"
+          elif [ "$EVENT_NAME" = "push" ] &&
+               [ -n "$PUSH_BEFORE" ] &&
+               [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ] &&
+               git cat-file -e "$PUSH_BEFORE^{commit}"; then
+            # A push can contain multiple commits. Compare with the event's
+            # pre-push tip so suites changed by any commit are checked.
+            COMPARISON_REF="$PUSH_BEFORE"
+          elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            # Manual runs validate the selected ref against main. The repository
+            # still has grandfathered migration debt, so repository-wide audits
+            # remain an explicit local operation.
+            COMPARISON_REF="origin/main"
+          fi
+
+          if [ -n "$COMPARISON_REF" ]; then
+            # Checker, adapter, and workflow changes own the repository-wide
+            # contract. Run both the base and current checker over every spec
+            # in the current tree and reject any drop in detected errors. This
+            # exercises all specs without making pre-existing migration debt a
+            # blocker for unrelated PRs.
+            if git diff --name-only "$COMPARISON_REF"...HEAD |
+              grep -Eq '^(\.github/workflows/eval-quality\.yml|eng/eval-quality/(check_eval_quality|selftest_eval_quality)\.py|eng/vally-adapter/adapt\.mjs)$'; then
+              BASE_CHECKER="$(mktemp --suffix=.py)"
+              BASE_LOG="$(mktemp)"
+              CURRENT_LOG="$(mktemp)"
+              git show "$COMPARISON_REF:eng/eval-quality/check_eval_quality.py" > "$BASE_CHECKER"
+              # The base checker predates the explicit --all switch and audits
+              # every spec by default.
+              python "$BASE_CHECKER" > "$BASE_LOG" 2>&1 || true
+              python eng/eval-quality/check_eval_quality.py --all > "$CURRENT_LOG" 2>&1 || true
+              python - "$BASE_LOG" "$CURRENT_LOG" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          def error_count(path):
+              text = pathlib.Path(path).read_text(encoding="utf-8")
+              match = re.search(r"(\d+) error\(s\)\.", text)
+              if match:
+                  return int(match.group(1))
+              if "No errors." in text:
+                  return 0
+              raise SystemExit(f"Could not read eval-quality result from {path}")
+
+          base_count = error_count(sys.argv[1])
+          current_count = error_count(sys.argv[2])
+          current_text = pathlib.Path(sys.argv[2]).read_text(encoding="utf-8")
+          if "checked all " not in current_text:
+              raise SystemExit("Current checker did not audit every eval spec")
+          print(f"Repository-wide contract audit: base={base_count}, current={current_count}")
+          if current_count < base_count:
+              raise SystemExit(
+                  "The current checker detects fewer repository-wide defects than the base checker")
+          PY
+            fi
+            python eng/eval-quality/check_eval_quality.py --base-ref "$COMPARISON_REF"
           else
-            python eng/eval-quality/check_eval_quality.py
+            # Unusual push events have no safe comparison base. A full audit is
+            # safer than silently checking only HEAD^.
+            python eng/eval-quality/check_eval_quality.py --all
           fi
