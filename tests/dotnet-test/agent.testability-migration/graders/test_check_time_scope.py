@@ -12,12 +12,18 @@ public class SubscriptionManager
 {
     public Subscription CreateTrial(string userId)
     {
-        return new Subscription { UserId = userId };
+        return new Subscription
+        {
+            UserId = userId,
+            StartedAt = DateTime.UtcNow,
+            ExpiresAt = DateTime.UtcNow.AddDays(14),
+            Plan = "trial"
+        };
     }
 
     public bool IsActive(Subscription sub)
     {
-        return true;
+        return DateTime.UtcNow < sub.ExpiresAt;
     }
 
     public void ExportSubscription(Subscription sub)
@@ -30,6 +36,9 @@ SUBSCRIPTION = """
 public class Subscription
 {
     public string UserId { get; set; } = "";
+    public DateTime StartedAt { get; set; }
+    public DateTime ExpiresAt { get; set; }
+    public string Plan { get; set; } = "";
 }
 """
 
@@ -156,6 +165,54 @@ class TimeScopeTests(unittest.TestCase):
                     encoding="utf-8",
                 )
                 with self.assertRaisesRegex(ValueError, "Unexpected SubscriptionManager member"):
+                    verify()
+            finally:
+                os.chdir(previous)
+
+    def test_only_time_access_can_change_in_time_methods(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            source = workspace / "FullPipeline/Services/SubscriptionManager.cs"
+            program = workspace / "FullPipeline/Program.cs"
+            project = workspace / "FullPipeline/FullPipeline.csproj"
+            source.parent.mkdir(parents=True)
+            source.write_text(TARGET + SUBSCRIPTION, encoding="utf-8")
+            program.write_text("var builder = CreateBuilder();\nRun(builder);\n", encoding="utf-8")
+            project.write_text("<Project />\n", encoding="utf-8")
+            baseline = {
+                path.relative_to(workspace).as_posix(): path.read_bytes().hex()
+                for path in (source, program, project)
+            }
+            (workspace / ".eval").mkdir()
+            (workspace / ".eval/baseline.json").write_text(
+                json.dumps(baseline, sort_keys=True), encoding="utf-8"
+            )
+            migrated = (TARGET + SUBSCRIPTION).replace(
+                "DateTime.UtcNow", "_timeProvider.GetUtcNow().UtcDateTime"
+            )
+            migrated = migrated.replace(
+                "public class SubscriptionManager\n{",
+                "public class SubscriptionManager\n{\n"
+                "    private readonly TimeProvider _timeProvider;\n"
+                "    public SubscriptionManager(TimeProvider timeProvider) "
+                "{ _timeProvider = timeProvider; }",
+            )
+            previous = Path.cwd()
+            try:
+                os.chdir(workspace)
+                source.write_text(migrated, encoding="utf-8")
+                verify()
+                source.write_text(migrated.replace('Plan = "trial"', 'Plan = "changed"'), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "CreateTrial"):
+                    verify()
+                source.write_text(
+                    migrated.replace(
+                        "_timeProvider.GetUtcNow().UtcDateTime < sub.ExpiresAt",
+                        "_timeProvider.GetUtcNow().UtcDateTime <= sub.ExpiresAt",
+                    ),
+                    encoding="utf-8",
+                )
+                with self.assertRaisesRegex(ValueError, "IsActive"):
                     verify()
             finally:
                 os.chdir(previous)

@@ -112,7 +112,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect bec423c9c2f1ee9c1206d557a3ce13d9ceb94e46982ce52b093f5b3fe1613e81:.eval/check_time_scope.py --expect 70c443c393a8973de19071d890cab67074b5db552c531c6b5c993fa689b82579:.eval/baseline.json -- python .eval/check_time_scope.py
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 0065ceb2aa76bac3a3bef417267e51c1b8342f4bb586a67861784a436bb108d7:.eval/check_time_scope.py --expect 70c443c393a8973de19071d890cab67074b5db552c531c6b5c993fa689b82579:.eval/baseline.json -- python .eval/check_time_scope.py
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -179,7 +179,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect bec423c9c2f1ee9c1206d557a3ce13d9ceb94e46982ce52b093f5b3fe1613e81:.eval/check_time_scope.py --expect 70c443c393a8973de19071d890cab67074b5db552c531c6b5c993fa689b82579:.eval/baseline.json -- python .eval/check_time_scope.py
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 0065ceb2aa76bac3a3bef417267e51c1b8342f4bb586a67861784a436bb108d7:.eval/check_time_scope.py --expect 70c443c393a8973de19071d890cab67074b5db552c531c6b5c993fa689b82579:.eval/baseline.json -- python .eval/check_time_scope.py
           expected_exit_code: 0
           timeout: 1m
       - type: run-command

@@ -72,12 +72,33 @@ def has_prefix(member, signature):
     return tuple(member[:len(signature)]) == signature
 
 
+def normalize_time_access(member):
+    normalized = []
+    index = 0
+    while index < len(member):
+        if member[index:index + 3] == ["DateTime", ".", "UtcNow"]:
+            normalized.append("<UTC_NOW>")
+            index += 3
+        elif (
+            index + 7 <= len(member)
+            and re.fullmatch(r"[A-Za-z_]\w*", member[index])
+            and member[index + 1:index + 7]
+            == [".", "GetUtcNow", "(", ")", ".", "UtcDateTime"]
+        ):
+            normalized.append("<UTC_NOW>")
+            index += 7
+        else:
+            normalized.append(member[index])
+            index += 1
+    return normalized
+
+
 def validate_manager_members(current_source, original_source):
-    original_export = next(
-        member
-        for member in top_level_members(original_source, MANAGER_SIGNATURE)
-        if has_prefix(member, SIGNATURE)
-    )
+    original_members = top_level_members(original_source, MANAGER_SIGNATURE)
+    original_by_signature = {
+        signature: next(member for member in original_members if has_prefix(member, signature))
+        for signature in (CREATE_TRIAL_SIGNATURE, IS_ACTIVE_SIGNATURE, SIGNATURE)
+    }
     required = {CREATE_TRIAL_SIGNATURE: 0, IS_ACTIVE_SIGNATURE: 0, SIGNATURE: 0}
     constructors = 0
     fields = 0
@@ -85,7 +106,11 @@ def validate_manager_members(current_source, original_source):
         matched = next((signature for signature in required if has_prefix(member, signature)), None)
         if matched:
             required[matched] += 1
-            if matched == SIGNATURE and member != original_export:
+            expected = original_by_signature[matched]
+            if matched in (CREATE_TRIAL_SIGNATURE, IS_ACTIVE_SIGNATURE):
+                if normalize_time_access(member) != normalize_time_access(expected):
+                    raise ValueError(f"Time-only migration changed non-time behavior in {matched[2]}")
+            elif member != expected:
                 raise ValueError("Time-only migration changed ExportSubscription")
         elif has_prefix(member, ("public", "SubscriptionManager", "(")):
             constructors += 1
