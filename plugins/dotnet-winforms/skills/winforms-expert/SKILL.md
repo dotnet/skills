@@ -6,7 +6,9 @@ description: >-
   System.Windows.Forms, WinForms Form or UserControl designer files (*.Designer.cs or
   *.Designer.vb), Visual Studio WinForms Designer, TableLayoutPanel, BindingSource,
   DataGridView, Control.InvokeAsync, component-tray ownership, or custom control
-  serialization. DO NOT USE when none of these Windows Forms markers is present.
+  serialization. DO NOT USE FOR: WPF or WPF XAML, including Window.InputBindings,
+  KeyBinding, commands, or DataContext; .NET MAUI; Avalonia; or any request where none
+  of the listed Windows Forms markers is present.
 license: MIT
 ---
 
@@ -21,15 +23,17 @@ usability whenever the environment permits.
 
 ## Execution Contract
 
-Before editing, locate any task-specific validator, test script, or documented verification
-command in the workspace. After editing:
+Before editing, list the workspace root and locate any task-specific validator, test script, or
+documented verification command. Read its scenario selector and required arguments before choosing
+an implementation. After editing:
 
 1. Run that narrow validator first and fix every failure it attributes to the change.
 2. Run the focused project build after the validator passes.
-3. Report those commands separately from runtime UI and Designer round-trip checks.
+3. If the build or any later edit changes source, rerun the narrow validator.
+4. Report those commands separately from runtime UI and Designer round-trip checks.
 
 A successful build never substitutes for an available layout, binding, serialization, or
-designer-safety validator.
+designer-safety validator. Do not finish after merely reading a validator or after a build succeeds.
 
 Use the repository's actual command and arguments; the sequence should look like:
 
@@ -121,9 +125,10 @@ the existing project and failure identify one.
 | A designer-created `Timer`, `BindingSource`, image list, or similar component outlives the Form | Create the `components` container and pass it to the component constructor | Add ad hoc disposal while leaving designer ownership inconsistent | Closing the Form disposes the container-owned component and the component remains designer-managed |
 | Adding/removing list items does not refresh a bound WinForms list control | Use `BindingList<T>` or the repository's adapter that raises WinForms list-change notifications | Treat `ObservableCollection<T>` as a drop-in WinForms `DataSource` | Mutate the list after binding and observe the control update |
 | Nested content clips at DPI, font, or localization changes | Inspect `AutoSize`, `AutoSizeMode`, `Dock`, `MinimumSize`, `MaximumSize`, and row/column styles from the leaf through every parent; remove the actual growth cap while preserving intentional minimums; also inspect sibling controls positioned against the growing chain and keep them in responsive layout | Assume `AutoSize = true` is sufficient, increase one fixed `Size`, bypass a parent container, or leave a sibling where expanded content can overlap it | Exercise resize plus the relevant DPI/font/text expansion |
-| UI work is posted but completion/errors are lost | Await the background operation; update controls on the captured WinForms context or await `InvokeAsync` when execution can be off-context; restore control state in `finally`; handle cancellation only when the operation has a real cancellation path | Use `_ =`, `BeginInvoke`, a dead cancellation catch, or an application-wide exception hook as the normal path | Exercise success and failure, plus cancellation only when the UI can actually request it |
+| UI work is posted but completion/errors are lost | Put the operation in a `Task`-returning method that callers/tests can await; let the required `async void` event handler do only `await RefreshAsync()`; update controls on the captured WinForms context or await `InvokeAsync` when execution can be off-context; restore control state in `finally` | Keep the whole operation inside `async void`, use `_ =`, `BeginInvoke`, a dead cancellation catch, or an application-wide exception hook as the normal path | Await the task-returning method through success and failure; verify the UI entry point delegates to it |
 | Text must be localizable | Use the existing `.resx` and `ComponentResourceManager.ApplyResources` serialization pattern | Leave fallback UI text hard-coded in `InitializeComponent` | Build, switch culture when possible, and perform a Designer save/reopen |
 | A VB app needs startup, single-instance, or unhandled-UI hooks | Extend `ApplicationEvents.vb`; qualify `Microsoft.VisualBasic.ApplicationServices` event-argument types when ambiguous; restore, activate, and bring the existing `MainForm` forward; log `e.Exception`; set `e.ExitApplication = True` explicitly | Invent `Program.vb`, add `Sub Main`, replace generated startup, or leave post-error continuation implicit | The configured `StartupObject` and generated application file remain unchanged, no new entry point exists, and the final report states the exit choice |
+| Review finds no actual designer defect | Leave tracked project/source files byte-for-byte unchanged and report why the suspicious construct is harmless | Clean up warnings, reformat generated code, or modernize unrelated syntax | Run the narrow available check and focused build; confirm the source diff is empty |
 | The workspace contains a task-specific validator or test script | Run the narrow repository-provided check after editing and before the generic build; treat its failure as evidence that the change is incomplete | Skip the specialized check because the project compiles, or claim a Designer round trip from static validation | Report the exact validator and build commands separately, then state whether runtime UI and Designer round-trip checks were actually available |
 
 ## Workflow
@@ -232,8 +237,11 @@ For custom `Component`/`Control` properties, choose one intentional CodeDOM seri
 | Never serialize | `[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]` | Runtime-only, calculated, or unsupported state |
 | Serialize content | `DesignerSerializationVisibility.Content` plus designer-compatible mutable content | Owned nested objects/collections intentionally edited in the property grid |
 
-Do not combine contradictory policies. Test property-grid editing and save/reload behavior for
-custom serialization changes.
+Import `System.ComponentModel` (or fully qualify its attributes). Keep default metadata and runtime
+initialization directly aligned: for `[DefaultValue(typeof(Color), "Yellow")]`, initialize the
+property or its backing field directly with `Color.Yellow`; do not hide the actual default behind a
+second constant or factory. Do not combine contradictory policies. Test property-grid editing and
+save/reload behavior for custom serialization changes.
 
 ### 6. Check usability and accessibility
 
