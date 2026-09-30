@@ -1,0 +1,49 @@
+name: agentic-workflow-validation
+
+on:
+  pull_request:
+    paths:
+      - ".github/agents/**"
+      - ".github/aw/**"
+      - ".github/workflows/**"
+      - "agentic-workflows/**"
+      - "eng/agentic-workflows/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/agents/**"
+      - ".github/aw/**"
+      - ".github/workflows/**"
+      - "agentic-workflows/**"
+      - "eng/agentic-workflows/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install validation dependencies
+        run: python -m pip install --quiet pyyaml==6.0.3
+
+      - name: Install gh-aw
+        uses: github/gh-aw-actions/setup-cli@e93dc06546adbe250a4bdf7d27cee653f22312a0 # v0.89.15
+        with:
+          version: v0.89.15
+
+      - name: Validate active and packaged workflows
+        run: |
+          python -m unittest eng/agentic-workflows/test_validate_agentic_workflows.py
+          python eng/agentic-workflows/validate_agentic_workflows.py
