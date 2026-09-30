@@ -246,14 +246,15 @@ stimuli:
       and destroy the chart when the component is removed.
     environment: *interactive-server-project
     graders:
-      - type: file-contains
+      - type: run-command
         config:
-          path: '**/SalesChart.razor'
-          value: OnParametersSet
-      - type: file-contains
-        config:
-          path: '**/SalesChart.razor'
-          value: OnAfterRenderAsync
+          command: >-
+            python3 -c "from pathlib import Path; import sys;
+            files=list(Path('.').glob('**/SalesChart.razor'))+list(Path('.').glob('**/SalesChart.razor.cs'));
+            text='\n'.join(p.read_text() for p in files);
+            sys.exit(0 if files and 'OnAfterRenderAsync' in text else 1)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: file-contains
         config:
           path: '**/SalesChart.razor.js'

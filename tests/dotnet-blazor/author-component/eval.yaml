@@ -277,9 +277,6 @@ stimuli:
     graders:
       - type: output-contains
         config:
-          substring: OnParametersSet
-      - type: output-contains
-        config:
           substring: IReadOnlyList
       - type: output-contains
         config:
@@ -289,9 +286,9 @@ stimuli:
           pattern: RenderFragment
       - type: prompt
     rubric:
-      - Keeps parent-owned parameters immutable and synchronizes a private local view when parameters change
+      - Keeps parent-owned parameters immutable; if local UI state is used, synchronizes it when parameters change
       - Uses a typed template for rendering items and a typed callback for selection
-      - Handles a replaced item collection and selected value without stale local state
+      - Handles a replaced item collection and selected value by rendering current parameters directly or synchronizing local state
       - Uses stable keys for repeated item elements
   - name: Author a composable tab set
     tags:

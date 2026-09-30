@@ -365,15 +365,16 @@ stimuli:
             python3 -c "from pathlib import Path; import re, sys;
             files=list(Path('.').glob('*.http'));
             text='\n'.join(p.read_text() for p in files);
+            ids=re.findall(r'(?im)^(?:GET|DELETE)\s+\{\{[^}]+\}\}/api/catalog/(\d+)\s*$', text);
             checks=[re.search(r'(?im)^@(?:baseUrl|host)\s*=', text),
             re.search(r'(?im)^GET\s+\{\{[^}]+\}\}/api/catalog\s*$', text),
-            re.search(r'(?im)^GET\s+\{\{[^}]+\}\}/api/catalog/(?:1|999)\s*$', text),
+            re.search(r'(?im)^GET\s+\{\{[^}]+\}\}/api/catalog/\d+\s*$', text),
             re.search(r'(?im)^POST\s+\{\{[^}]+\}\}/api/catalog\s*$', text),
-            re.search(r'(?im)^DELETE\s+\{\{[^}]+\}\}/api/catalog/(?:1|999)\s*$', text),
+            re.search(r'(?im)^DELETE\s+\{\{[^}]+\}\}/api/catalog/\d+\s*$', text),
             re.search(r'(?i)Content-Type:\s*application/json', text),
             re.search(r'(?i)\"name\"\s*:', text),
             re.search(r'(?i)\"price\"\s*:', text),
-            re.search(r'/api/catalog/(?:999|404|9999)', text)];
+            any(value != '1' for value in ids)];
             sys.exit(0 if files and all(checks) else 1)"
           expected_exit_code: 0
           timeout: 1m

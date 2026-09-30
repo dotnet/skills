@@ -459,6 +459,8 @@ stimuli:
       files:
         - src: fixtures/global.json
           dest: global.json
+        - src: fixtures/global.json
+          dest: .eval-baseline/global.json
         - src: fixtures/already-webapp/AlreadyWebApp.csproj
           dest: AlreadyWebApp.csproj
         - src: fixtures/already-webapp/Program.cs
@@ -487,6 +489,8 @@ stimuli:
           dest: .eval-baseline/Components/Layout/MainLayout.razor.txt
         - src: fixtures/already-webapp/Components/Pages/Home.razor
           dest: .eval-baseline/Components/Pages/Home.razor.txt
+      commands:
+        - find . -type f -not -path './.eval-baseline/*' -not -path '*/bin/*' -not -path '*/obj/*' | sed 's#^\./##' | sort > .eval-baseline/files.txt
     graders:
       - type: run-command
         config:
@@ -502,7 +506,9 @@ stimuli:
             && diff -u .eval-baseline/Components/Routes.razor.txt Components/Routes.razor
             && diff -u .eval-baseline/Components/_Imports.razor.txt Components/_Imports.razor
             && diff -u .eval-baseline/Components/Layout/MainLayout.razor.txt Components/Layout/MainLayout.razor
-            && diff -u .eval-baseline/Components/Pages/Home.razor.txt Components/Pages/Home.razor"
+            && diff -u .eval-baseline/Components/Pages/Home.razor.txt Components/Pages/Home.razor
+            && diff -u .eval-baseline/global.json global.json
+            && find . -type f -not -path './.eval-baseline/*' -not -path '*/bin/*' -not -path '*/obj/*' | sed 's#^\./##' | sort | diff -u .eval-baseline/files.txt -"
           expected_exit_code: 0
           timeout: 1m
       - type: exit-success

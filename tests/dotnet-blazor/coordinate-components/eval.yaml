@@ -161,14 +161,6 @@ stimuli:
         config:
           path: '**/Program.cs'
           value: AddScoped
-      - type: file-contains
-        config:
-          path: '**/*.cs'
-          value: event Action
-      - type: file-contains
-        config:
-          path: '**/*.razor'
-          value: Dispose
       - type: run-command
         config:
           command: dotnet build --no-restore
@@ -177,8 +169,8 @@ stimuli:
       - type: prompt
     rubric:
       - Stores per-user cart state in a scoped service rather than a server singleton
-      - Notifies every subscribed component after add and remove operations
-      - Subscribes and unsubscribes with the same delegate so navigation does not leak components
+      - Notifies every consumer after add and remove operations through a change event or cascading source
+      - Manual subscriptions, if used, are removed with the same delegate; framework-managed cascading subscriptions require no manual cleanup
       - Keeps the page and badge synchronized without forcing a browser reload
   - name: Cascade two values of the same type
     tags:

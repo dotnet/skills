@@ -1,7 +1,7 @@
 ---
 license: MIT
 name: collect-user-input
-description: Build forms, validate data, and collect or edit user-entered values in Blazor. USE ONLY WHEN the task contains input controls, editable values, submission, upload, search/filter binding, or field-level errors. Covers EditForm, built-in input components, DataAnnotationsValidator, custom validation, SSR form patterns (SupplyParameterFromForm, FormName, AntiforgeryToken, Enhance), and @bind. NEVER USE for display components whose only interaction is notifying a parent about selection. DO NOT USE for project scaffolding (see create-blazor-project) or prerendering issues (see support-prerendering).
+description: Build forms, validate data, and collect or edit user-entered values in Blazor. USE ONLY WHEN form submission, validation, field errors, editable values, upload, or search/filter binding is the primary task. Covers EditForm, built-in input components, DataAnnotationsValidator, custom validation, SSR form patterns (SupplyParameterFromForm, FormName, AntiforgeryToken, Enhance), and @bind. NEVER USE for display-only selection components or when an input is incidental to a reusable component whose primary challenge is lifecycle, async cancellation, or disposal (use author-component). DO NOT USE for project scaffolding (see create-blazor-project) or prerendering issues (see support-prerendering).
 ---
 
 # Collect User Input
