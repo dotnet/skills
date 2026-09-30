@@ -463,6 +463,47 @@
     ]
   },
   {
+    "name": "prefixed-not-out-of-scope-reason",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "120",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/61/merge",
+        "sha": "efefefefefefefefefefefefefefefefefefefef",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "noop",
+          "message": "[non-build-failure] Build compiled cleanly; pipeline failure is in a non-build stage but is not out of scope."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 0
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 1
+      }
+    ]
+  },
+  {
     "name": "prefixed-missing-nothing-reason",
     "request": {
       "schemaVersion": 1,
@@ -545,6 +586,129 @@
     ]
   },
   {
+    "name": "prefixed-none-leg-list-reason",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "121",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/62/merge",
+        "sha": "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "noop",
+          "message": "[incomplete-binlogs] Missing legs: none."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 0
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 1
+      }
+    ]
+  },
+  {
+    "name": "prefixed-zero-leg-list-reason",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "122",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/63/merge",
+        "sha": "f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "noop",
+          "message": "[incomplete-binlogs] Missing build legs: zero."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 0
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 1
+      }
+    ]
+  },
+  {
+    "name": "prefixed-contradictory-leg-suffix-reason",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "123",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/64/merge",
+        "sha": "f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "noop",
+          "message": "[incomplete-binlogs] Missing legs: linux-x64, but all logs were actually published."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 0
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 1
+      }
+    ]
+  },
+  {
     "name": "prefixed-merge-later-reason",
     "request": {
       "schemaVersion": 1,
@@ -562,6 +726,47 @@
         {
           "type": "noop",
           "message": "[stale-revision] Please merge this later after a human review."
+        }
+      ],
+      "config": {}
+    },
+    "expected": [
+      {
+        "id": "build-failure-analysis-terminal-outcome-conformance",
+        "value": 0
+      },
+      {
+        "id": "summary-comment-count",
+        "value": 0
+      },
+      {
+        "id": "review-comment-count",
+        "value": 0
+      },
+      {
+        "id": "noop-count",
+        "value": 1
+      }
+    ]
+  },
+  {
+    "name": "prefixed-not-changed-stale-reason",
+    "request": {
+      "schemaVersion": 1,
+      "run": {
+        "id": "124",
+        "attempt": 1,
+        "repository": "dotnet/runtime",
+        "workflow": "Build Failure Analysis",
+        "ref": "refs/pull/65/merge",
+        "sha": "f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3",
+        "eventName": "check_run"
+      },
+      "event": {},
+      "outputs": [
+        {
+          "type": "noop",
+          "message": "[stale-revision] PR head has not changed; analysis is still current."
         }
       ],
       "config": {}

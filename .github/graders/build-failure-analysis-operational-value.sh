@@ -160,37 +160,57 @@ noop_shape=$(printf '%s\n' "$request" | jq -r '
         (.outputs[0].message | gsub("^\\s+|\\s+$"; "")) as $message
         | ($message | test("^\\[build-succeeded\\] Build succeeded — no analysis required\\.$"))
             or
-            ($message | test(
-                "^\\[non-build-failure\\] (Build|The available binlogs) compiled cleanly"
-                + ".+(pipeline failure|this is) (is )?(in )?(a )?non-build"
-                + ".+out of scope( for build-failure analysis)?\\.$";
-                "i"
-            ))
+            (
+                ($message | test(
+                    "^\\[non-build-failure\\] .*"
+                    + "(not out of scope|isn.t out of scope|remains? in scope|"
+                    + "still in scope|not (a )?non-build)";
+                    "i"
+                ) | not)
+                and
+                ($message | test(
+                    "^\\[non-build-failure\\] (Build|The available binlogs) compiled cleanly"
+                    + ".+(pipeline failure|this is) (is )?(in )?(a )?non-build"
+                    + ".+out of scope( for build-failure analysis)?\\.$";
+                    "i"
+                ))
+            )
             or
             (
                 ($message | test(
-                    "^\\[incomplete-binlogs\\] (no|none|zero)\\b";
+                    "^\\[incomplete-binlogs\\] .*\\b(no|none|zero|nothing)\\b";
                     "i"
                 ) | not)
                 and
                 ($message | test(
                     "^\\[incomplete-binlogs\\] ("
-                    + "missing (build )?legs?:\\s*\\S.+"
-                    + "|.+ failed without publishing (binary )?logs\\.?"
+                    + "missing (build )?legs?:\\s*"
+                    + "[a-z0-9_.-]+(?:\\s*(?:,|and)\\s*[a-z0-9_.-]+)*\\.?"
+                    + "|[a-z0-9_.-]+(?:\\s*(?:,|and)\\s*[a-z0-9_.-]+)*"
+                    + " failed without publishing (binary )?logs\\.?"
                     + "|(?:.+ )?completeness could not be verified(?: .+)?"
                     + ")$";
                     "i"
                 ))
             )
             or
-            ($message | test(
-                "^\\[stale-revision\\] ("
-                + "(unable|could not) to read (the )?(current )?PR head SHA\\.?"
-                + "|.*(PR (revision|head|merge)|merge commit)"
-                + ".*(moved|changed|differs|no longer).*$"
-                + ")";
-                "i"
-            ))
+            (
+                ($message | test(
+                    "^\\[stale-revision\\] .*"
+                    + "(not changed|unchanged|still matches|still current|"
+                    + "is current|remains? current)";
+                    "i"
+                ) | not)
+                and
+                ($message | test(
+                    "^\\[stale-revision\\] ("
+                    + "(unable|could not) to read (the )?(current )?PR head SHA\\.?"
+                    + "|.*(PR (revision|head|merge)|merge commit)"
+                    + ".*(moved|changed|differs|no longer).*$"
+                    + ")";
+                    "i"
+                ))
+            )
     end
 ')
 
