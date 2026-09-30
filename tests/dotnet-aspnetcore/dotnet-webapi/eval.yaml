@@ -355,6 +355,18 @@ stimuli:
           dest: .eval-baseline/Program.cs
         - src: fixtures/http-file/CatalogApi.csproj
           dest: .eval-baseline/CatalogApi.csproj
+      commands:
+        - >-
+          python3 -c "from pathlib import Path; import hashlib, json, stat;
+          root=Path('.');
+          skipped=lambda p: p.parts and (p.parts[0] in ('.eval-baseline','bin','obj') or p.suffix=='.http');
+          files=[p for p in root.rglob('*') if not skipped(p) and (p.is_file() or p.is_symlink())];
+          assert not any(p.is_symlink() for p in files);
+          manifest={p.relative_to(root).as_posix(): {'sha256': hashlib.sha256(p.read_bytes()).hexdigest(),
+          'inode': p.stat().st_ino, 'mode': stat.S_IMODE(p.stat().st_mode), 'size': p.stat().st_size,
+          'mtime_ns': p.stat().st_mtime_ns, 'ctime_ns': p.stat().st_ctime_ns} for p in files};
+          baseline=Path('.eval-baseline'); baseline.mkdir(exist_ok=True);
+          baseline.joinpath('manifest.json').write_text(json.dumps(manifest, sort_keys=True))"
     graders:
       - type: file-exists
         config:
@@ -381,8 +393,15 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            sh -c "diff -u .eval-baseline/Program.cs Program.cs
-            && diff -u .eval-baseline/CatalogApi.csproj CatalogApi.csproj"
+            python3 -c "from pathlib import Path; import hashlib, json, stat, sys;
+            root=Path('.');
+            skipped=lambda p: p.parts and (p.parts[0] in ('.eval-baseline','bin','obj') or p.suffix=='.http');
+            files=[p for p in root.rglob('*') if not skipped(p) and (p.is_file() or p.is_symlink())];
+            expected=json.loads(Path('.eval-baseline/manifest.json').read_text());
+            actual={p.relative_to(root).as_posix(): {'sha256': hashlib.sha256(p.read_bytes()).hexdigest(),
+            'inode': p.stat().st_ino, 'mode': stat.S_IMODE(p.stat().st_mode), 'size': p.stat().st_size,
+            'mtime_ns': p.stat().st_mtime_ns, 'ctime_ns': p.stat().st_ctime_ns} for p in files if not p.is_symlink()};
+            sys.exit(0 if not any(p.is_symlink() for p in files) and actual==expected else 1)"
           expected_exit_code: 0
           timeout: 1m
       - type: exit-success
@@ -392,7 +411,7 @@ stimuli:
       - Every supplied catalog route has a representative request with the correct HTTP method
       - The create request contains a realistic JSON body and content type
       - A missing-resource request documents how to exercise the API's 404 behavior
-      - The existing API source and project configuration remain byte-for-byte unchanged
+      - Every supplied source, project, and config file remains untouched and byte-for-byte unchanged, with no added, removed, renamed, recreated, or symlinked file
 
   - name: Keep Web API guidance dormant for a Blazor form
     tags:
