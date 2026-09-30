@@ -47,7 +47,7 @@ stimuli:
         - src: ../fixtures/global.json
           dest: global.json
       commands:
-        - dotnet new blazor --interactivity server --no-https --force
+        - mkdir -p "${XDG_DATA_HOME:-$HOME/.local/share}/NuGet/Migrations" && touch "${XDG_DATA_HOME:-$HOME/.local/share}/NuGet/Migrations/1" && dotnet new blazor --interactivity server --no-https --force
     graders:
       - type: file-exists
         config:
@@ -121,7 +121,7 @@ stimuli:
         - src: ../fixtures/global.json
           dest: global.json
       commands:
-        - dotnet new blazor --interactivity auto --no-https --force
+        - mkdir -p "${XDG_DATA_HOME:-$HOME/.local/share}/NuGet/Migrations" && touch "${XDG_DATA_HOME:-$HOME/.local/share}/NuGet/Migrations/1" && dotnet new blazor --interactivity auto --no-https --force
     graders:
       - type: file-exists
         config:
@@ -164,7 +164,7 @@ stimuli:
         - src: ../fixtures/global.json
           dest: global.json
       commands:
-        - dotnet new blazor --interactivity none --no-https --force
+        - mkdir -p "${XDG_DATA_HOME:-$HOME/.local/share}/NuGet/Migrations" && touch "${XDG_DATA_HOME:-$HOME/.local/share}/NuGet/Migrations/1" && dotnet new blazor --interactivity none --no-https --force
     graders:
       - type: file-exists
         config:
@@ -270,7 +270,7 @@ stimuli:
         - src: ../fixtures/global.json
           dest: global.json
       commands:
-        - dotnet new blazor --interactivity webassembly --no-https --force
+        - mkdir -p "${XDG_DATA_HOME:-$HOME/.local/share}/NuGet/Migrations" && touch "${XDG_DATA_HOME:-$HOME/.local/share}/NuGet/Migrations/1" && dotnet new blazor --interactivity webassembly --no-https --force
     graders:
       - type: file-contains
         config:

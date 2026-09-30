@@ -34,7 +34,8 @@ stimuli:
         - src: ../fixtures/global.json
           dest: global.json
       commands:
-        - dotnet new blazor --interactivity server --no-https --force
+        # Avoid the parallel NuGet first-use mutex race; see dotnet/runtime#125632.
+        - mkdir -p "${XDG_DATA_HOME:-$HOME/.local/share}/NuGet/Migrations" && touch "${XDG_DATA_HOME:-$HOME/.local/share}/NuGet/Migrations/1" && dotnet new blazor --interactivity server --no-https --force
     graders:
       - type: file-exists
         config:
