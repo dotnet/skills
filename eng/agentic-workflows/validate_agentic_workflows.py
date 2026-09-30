@@ -224,6 +224,19 @@ def grader_evaluator_paths(path: Path) -> list[Path]:
     return result
 
 
+def resolve_grader_evaluator(repo_root: Path, evaluator: Path) -> Path:
+    repo_root = repo_root.resolve()
+    source = repo_root / evaluator
+    if source.is_symlink():
+        raise RuntimeError(f"grader evaluator must not be a symbolic link: {evaluator}")
+    resolved = source.resolve()
+    if not resolved.is_relative_to(repo_root):
+        raise RuntimeError(f"grader evaluator escapes the repository root: {evaluator}")
+    if not resolved.is_file():
+        raise RuntimeError(f"missing grader evaluator {evaluator}")
+    return resolved
+
+
 def package_destination(include: str) -> Path:
     path = Path(include)
     if not path.parts:
@@ -277,12 +290,13 @@ def validate_package(repo_root: Path, manifest: Path) -> None:
             for evaluator in grader_evaluator_paths(manifest.parent / include)
         }
         for evaluator in sorted(evaluator_paths):
-            source = repo_root / evaluator
-            if not source.is_file():
+            try:
+                source = resolve_grader_evaluator(repo_root, evaluator)
+            except RuntimeError as error:
                 raise RuntimeError(
-                    f"{manifest.relative_to(repo_root)} references missing grader evaluator "
-                    f"{evaluator}"
-                )
+                    f"{manifest.relative_to(repo_root)} references invalid grader evaluator "
+                    f"{evaluator}: {error}"
+                ) from error
             destination = scratch / evaluator
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)

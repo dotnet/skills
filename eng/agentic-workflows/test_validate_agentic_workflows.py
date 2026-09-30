@@ -116,6 +116,24 @@ graders:
             with mock.patch.object(VALIDATOR, "run", side_effect=verify_staging):
                 VALIDATOR.validate_package(repo_root, package / "aw.yml")
 
+    def test_rejects_grader_evaluator_symlink_escape(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo_root = root / "repo"
+            evaluator = repo_root / ".github" / "graders" / "escape.sh"
+            outside = root / "outside.sh"
+            evaluator.parent.mkdir(parents=True)
+            outside.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+            try:
+                evaluator.symlink_to(outside)
+            except OSError as error:
+                self.skipTest(f"symbolic links are unavailable: {error}")
+
+            with self.assertRaisesRegex(RuntimeError, "must not be a symbolic link"):
+                VALIDATOR.resolve_grader_evaluator(
+                    repo_root, Path(".github/graders/escape.sh")
+                )
+
 
 class ActiveWorkflowTests(unittest.TestCase):
     def test_detects_block_and_inline_triggers(self) -> None:
