@@ -254,7 +254,7 @@ static extern object GetByMethod(PublicClass instance);
 static extern string GetSomeValue([UnsafeAccessorType("PrivateLib.PrivateClass, PrivateLib")] object instance);
 ```
 
-The string is a fully-qualified type name (assembly qualification is optional but more robust); generic types use the open/closed format (`List\`1[[!0]]`) and nested classes use `+`.
+The string is a fully-qualified type name (assembly qualification is optional but more robust); generic types use the open/closed format (``List`1[[!0]]``) and nested classes use `+`.
 
 **Limits (as of .NET 10):** still cannot be used when a generic type's type argument cannot be represented, nor for fields or `ref`-returning methods that would themselves need `[UnsafeAccessorType]`. In those cases keep the reflection and annotate it.
 
