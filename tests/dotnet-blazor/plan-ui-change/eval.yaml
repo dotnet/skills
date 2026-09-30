@@ -50,7 +50,7 @@ stimuli:
         - src: ../fixtures/global.json
           dest: global.json
       commands:
-        - mkdir -p "${XDG_DATA_HOME:-$HOME/.local/share}/NuGet/Migrations" && touch "${XDG_DATA_HOME:-$HOME/.local/share}/NuGet/Migrations/1" && dotnet new blazor --interactivity server --no-https --force
+        - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor --interactivity server --no-https --force
     graders:
       - type: file-contains
         config:

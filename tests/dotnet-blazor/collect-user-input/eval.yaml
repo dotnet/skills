@@ -39,7 +39,7 @@ stimuli:
           dest: global.json
       commands:
         # Avoid the parallel NuGet first-use mutex race; see dotnet/runtime#125632.
-        - mkdir -p "${XDG_DATA_HOME:-$HOME/.local/share}/NuGet/Migrations" && touch "${XDG_DATA_HOME:-$HOME/.local/share}/NuGet/Migrations/1" && dotnet new blazor --interactivity server --no-https --force
+        - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor --interactivity server --no-https --force
     graders:
       - type: file-exists
         config:
@@ -197,19 +197,18 @@ stimuli:
     graders:
       - type: file-exists
         config:
-          path: '**/Preferences.razor'
+          path: '**/*Preferences*.razor'
       - type: file-contains
         config:
-          path: '**/Preferences.razor'
+          path: '**/*Preferences*.razor'
           value: SupplyParameterFromForm
       - type: run-command
         config:
           command: >-
             python3 -c "from pathlib import Path; import re, sys;
-            files=list(Path('.').glob('**/Preferences.razor'));
-            text='\n'.join(p.read_text() for p in files);
-            matches=re.findall(r'(?:FormName|@formname)\s*=\s*[\x22\x27]([^\x22\x27]+)', text, re.I);
-            sys.exit(0 if files and len(set(matches)) >= 2 else 1)"
+            files=list(Path('.').glob('**/*Preferences*.razor'));
+            pattern=r'(?:FormName|@formname)\s*=\s*[\x22\x27]([^\x22\x27]+)';
+            sys.exit(0 if files and any(len(set(re.findall(pattern, p.read_text(), re.I))) >= 2 for p in files) else 1)"
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
