@@ -7,6 +7,36 @@ import subprocess
 import tempfile
 
 
+PINNED_PROJECT = """<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <IsTestProject>true</IsTestProject>
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageReference Include="MSTest.TestAdapter" Version="3.5.2" />
+    <PackageReference Include="MSTest.TestFramework" Version="3.5.2" />
+    <PackageReference Include="Moq" Version="4.2.1510.2205" />
+    <PackageReference Include="NBuilder" Version="6.1.0" />
+    <PackageReference Include="System.CodeDom" Version="8.0.0" />
+    <PackageReference Include="System.Security.Permissions" Version="8.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../src/DiscountService.cs" />
+    <Compile Include="../src/TieredDiscountPolicy.cs" />
+    <Compile Include="../tests/FixtureBase.cs" />
+    <Compile Include="../tests/DiscountServiceTests.cs" />
+    <Compile Include="../tests/DiscountServiceBoundaryTests.cs" />
+    <Compile Include="../tests/TieredDiscountPolicyTests.cs" />
+  </ItemGroup>
+</Project>
+"""
+
+
 @dataclass(frozen=True)
 class Mutation:
     name: str
@@ -46,14 +76,13 @@ def run_tests(project):
 def verify(root):
     root = Path(root).resolve()
     validation = root / ".eval-validation" / "GeneratedTests.csproj"
-    if not validation.is_file():
-        raise ValueError("Missing generated classic validation project")
-    project_text = validation.read_text(encoding="utf-8")
-    if "4.2.1510.2205" in project_text:
-        validation.write_text(
-            project_text.replace("4.2.1510.2205", "4.20.72"),
-            encoding="utf-8",
-        )
+    validation.parent.mkdir(exist_ok=True)
+    validation.write_text(PINNED_PROJECT, encoding="utf-8")
+    subprocess.run(
+        ["dotnet", "build", str(validation), "--verbosity", "minimal"],
+        cwd=validation.parent, check=True, capture_output=True, text=True, timeout=120,
+    )
+    validation.write_text(PINNED_PROJECT.replace("4.2.1510.2205", "4.20.72"), encoding="utf-8")
     subprocess.run(
         ["dotnet", "restore", str(validation)],
         cwd=validation.parent, check=True, capture_output=True, text=True, timeout=120,

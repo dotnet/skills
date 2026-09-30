@@ -29,10 +29,7 @@ def sources(root):
                 pending.append(path)
             elif path.is_file() and (path.suffix.lower() in SOURCE_SUFFIXES or path.name in CONFIG_NAMES):
                 protected.append(path)
-    return {
-        path.as_posix(): path.read_text(encoding="utf-8-sig")
-        for path in sorted(protected)
-    }
+    return {path.as_posix(): path.read_bytes().hex() for path in sorted(protected)}
 
 
 def main():

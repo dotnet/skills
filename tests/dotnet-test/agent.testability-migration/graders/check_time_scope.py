@@ -6,6 +6,9 @@ import re
 
 
 SIGNATURE = ("public", "void", "ExportSubscription", "(", "Subscription", "sub", ")")
+BASELINE = Path(".eval/baseline.json")
+SOURCE = Path("FullPipeline/Services/SubscriptionManager.cs")
+PROJECT = Path("FullPipeline/FullPipeline.csproj")
 
 
 def tokens(source):
@@ -35,15 +38,31 @@ def export_body(source):
     return source_tokens[start:end + 1]
 
 
-def main():
-    baseline = json.loads(Path(".eval/baseline.json").read_text(encoding="utf-8"))
-    path = "FullPipeline/Services/SubscriptionManager.cs"
-    if export_body(Path(path).read_text(encoding="utf-8-sig")) != export_body(baseline[path]):
+def baseline_bytes(baseline, path):
+    try:
+        return bytes.fromhex(baseline[path.as_posix()])
+    except (KeyError, ValueError) as error:
+        raise ValueError(f"Invalid authenticated baseline entry: {path}") from error
+
+
+def verify():
+    baseline = json.loads(BASELINE.read_text(encoding="utf-8"))
+    for path in (SOURCE, PROJECT):
+        if path.is_symlink() or not path.is_file():
+            raise ValueError(f"Missing or symlinked protected file: {path}")
+    original_source = baseline_bytes(baseline, SOURCE).decode("utf-8-sig")
+    if export_body(SOURCE.read_text(encoding="utf-8-sig")) != export_body(original_source):
         raise ValueError(
             "Time-only migration changed ExportSubscription "
             "(filesystem/environment/console behavior)"
         )
-    print("ExportSubscription unchanged (ignoring formatting/comments).")
+    if PROJECT.read_bytes() != baseline_bytes(baseline, PROJECT):
+        raise ValueError("Time-only migration changed the production project file")
+    print("ExportSubscription and the production project are unchanged.")
+
+
+def main():
+    verify()
 
 
 if __name__ == "__main__":

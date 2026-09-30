@@ -25,6 +25,7 @@ class ClassicPreservationTests(unittest.TestCase):
         tests = self.root / "tests"
         tests.mkdir(parents=True)
         (tests / "DiscountServiceTests.cs").write_text("existing test\n", encoding="utf-8")
+        (tests / "FixtureBase.cs").write_text("fixture base\n", encoding="utf-8")
         (tests / "packages.config").write_text("<packages />\n", encoding="utf-8")
         (tests / "Discounts.Tests.csproj").write_text(PROJECT, encoding="utf-8")
         self.run_checker("snapshot", success=True)
@@ -37,6 +38,8 @@ class ClassicPreservationTests(unittest.TestCase):
         self.assertEqual(result.returncode == 0, success, result.stdout + result.stderr)
 
     def add_generated_items(self):
+        for name in ("DiscountServiceBoundaryTests.cs", "TieredDiscountPolicyTests.cs"):
+            (self.root / "tests" / name).write_text("// generated\n", encoding="utf-8")
         project = self.root / "tests/Discounts.Tests.csproj"
         text = project.read_text(encoding="utf-8").replace(
             '    <None Include="packages.config" />',
@@ -60,6 +63,16 @@ class ClassicPreservationTests(unittest.TestCase):
         (self.root / "tests/packages.config").write_text("<packages><package /></packages>\n")
         self.run_checker("verify", success=False)
 
+    def test_fixture_base_change_fails(self):
+        self.add_generated_items()
+        (self.root / "tests/FixtureBase.cs").write_text("changed\n", encoding="utf-8")
+        self.run_checker("verify", success=False)
+
+    def test_unexpected_existing_test_file_fails(self):
+        self.add_generated_items()
+        (self.root / "tests/DecoyTests.cs").write_text("decoy\n", encoding="utf-8")
+        self.run_checker("verify", success=False)
+
     def test_other_project_change_fails(self):
         self.add_generated_items()
         project = self.root / "tests/Discounts.Tests.csproj"
@@ -78,6 +91,15 @@ class ClassicPreservationTests(unittest.TestCase):
             ),
             encoding="utf-8",
         )
+        self.run_checker("verify", success=False)
+
+    def test_generated_test_symlink_fails(self):
+        self.add_generated_items()
+        target = self.workspace / "replacement.cs"
+        target.write_text("// replacement\n", encoding="utf-8")
+        generated = self.root / "tests/DiscountServiceBoundaryTests.cs"
+        generated.unlink()
+        generated.symlink_to(target)
         self.run_checker("verify", success=False)
 
 

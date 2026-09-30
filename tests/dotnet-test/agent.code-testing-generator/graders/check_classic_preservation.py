@@ -12,6 +12,7 @@ ALLOWED_COMPILE_ITEMS = {
     "DiscountServiceBoundaryTests.cs",
     "TieredDiscountPolicyTests.cs",
 }
+ALLOWED_NEW_FILES = ALLOWED_COMPILE_ITEMS
 
 
 def digest(path):
@@ -45,13 +46,31 @@ def normalized_project(path, *, allow_generated):
 
 def state(root, *, verify):
     tests = root / "tests"
-    return {
-        "DiscountServiceTests.cs": digest(tests / "DiscountServiceTests.cs"),
-        "packages.config": digest(tests / "packages.config"),
-        "Discounts.Tests.csproj": normalized_project(
-            tests / "Discounts.Tests.csproj", allow_generated=verify
-        ),
-    }
+    if tests.is_symlink() or not tests.is_dir():
+        raise ValueError(f"Missing or symlinked tests directory: {tests}")
+    files = {}
+    for path in sorted(tests.iterdir()):
+        if path.name in ALLOWED_NEW_FILES:
+            if not verify:
+                raise ValueError(f"Baseline unexpectedly contains generated test file: {path}")
+            if path.is_symlink() or not path.is_file():
+                raise ValueError(f"Generated test must be a regular file: {path}")
+            continue
+        if path.name == "Discounts.Tests.csproj":
+            files[path.name] = normalized_project(path, allow_generated=verify)
+        elif path.is_file():
+            files[path.name] = digest(path)
+        else:
+            raise ValueError(f"Unexpected supplied test entry: {path}")
+    if verify:
+        generated = {
+            path.name
+            for path in tests.iterdir()
+            if path.name in ALLOWED_NEW_FILES and path.is_file() and not path.is_symlink()
+        }
+        if generated != ALLOWED_NEW_FILES:
+            raise ValueError(f"Expected generated test files {sorted(ALLOWED_NEW_FILES)}")
+    return files
 
 
 def main():

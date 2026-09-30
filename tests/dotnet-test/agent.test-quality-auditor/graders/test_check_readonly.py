@@ -57,6 +57,15 @@ class ReadonlyTests(unittest.TestCase):
         self.assertEqual(sources(self.root), before)
         self.run_checker("verify", success=True)
 
+    def test_sibling_generated_test_project_is_allowed(self):
+        sibling = self.workspace / "Protected.Tests"
+        sibling.mkdir()
+        (sibling / "Protected.Tests.csproj").write_text("<Project />\n", encoding="utf-8")
+        (sibling / "ServiceTests.cs").write_text("public class ServiceTests {}\n", encoding="utf-8")
+        self.run_checker("verify", success=True)
+        (self.root / "Project.csproj").write_text("<Project Sdk=\"changed\" />\n", encoding="utf-8")
+        self.run_checker("verify", success=False)
+
     def test_protected_source_and_configuration_changes_fail(self):
         for name in ("Service.cs", "Project.csproj"):
             with self.subTest(name=name):
@@ -65,6 +74,18 @@ class ReadonlyTests(unittest.TestCase):
                 path.write_bytes(b"changed")
                 self.run_checker("verify", success=False)
                 path.write_bytes(original)
+
+    def test_line_ending_and_bom_changes_fail(self):
+        path = self.root / "Service.cs"
+        original = path.read_bytes()
+        for changed in (
+            original.replace(b"\n", b"\r\n"),
+            b"\xef\xbb\xbf" + original,
+        ):
+            with self.subTest(changed=changed[:3]):
+                path.write_bytes(changed)
+                self.run_checker("verify", success=False)
+        path.write_bytes(original)
 
     def test_added_and_deleted_protected_sources_fail(self):
         added = self.root / "Added.cs"
