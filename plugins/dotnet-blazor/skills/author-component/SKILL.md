@@ -11,6 +11,7 @@ description: >
   interop or calling browser APIs from Blazor (use use-js-interop), tasks whose
   primary problem is form submission, validation, field errors, or input/search
   binding without a component lifecycle concern (use collect-user-input),
+  complex pages or multi-region feature decomposition (use plan-ui-change),
   prerendering issues (use support-prerendering),
   HTTP data fetching patterns (use fetch-and-send-data), coordinating state between
   unrelated components (use coordinate-components).

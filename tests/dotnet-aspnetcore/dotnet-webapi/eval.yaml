@@ -206,7 +206,7 @@ stimuli:
             python3 -c "from pathlib import Path; import re, sys;
             text=Path('Program.cs').read_text();
             ok='TypedResults.Ok' in text and 'TypedResults.NotFound' in text
-            and re.search(r'(?:Task\s*<\s*)?Results\s*<\s*Ok\s*<\s*ProductResponse\s*>\s*,\s*NotFound\s*>', text)
+            and re.search(r'(?:Task\s*<\s*)?Results\s*<\s*(?:Ok\s*<\s*ProductResponse\s*>\s*,\s*NotFound|NotFound\s*,\s*Ok\s*<\s*ProductResponse\s*>)\s*>', text)
             and 'CancellationToken' in text and '/api/products/{id:int}' in text;
             sys.exit(0 if ok else 1)"
           expected_exit_code: 0
