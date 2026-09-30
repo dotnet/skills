@@ -57,6 +57,21 @@ class ClassicBehaviorDefinitionTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "did not detect"):
                 verify(root)
 
+    def test_zero_test_baseline_is_rejected(self):
+        root = self.make_fixture()
+        with patch("check_classic_behavior.subprocess.run"), \
+                patch("check_classic_behavior.run_tests", return_value=(0, "Passed: 0")):
+            with self.assertRaisesRegex(ValueError, "must pass"):
+                verify(root)
+
+    def test_zero_failed_mutation_is_not_a_kill(self):
+        root = self.make_fixture()
+        outcomes = [(0, "Passed: 12"), (1, "Failed: 0")]
+        with patch("check_classic_behavior.subprocess.run"), \
+                patch("check_classic_behavior.run_tests", side_effect=outcomes):
+            with self.assertRaisesRegex(ValueError, "did not detect"):
+                verify(root)
+
     def test_evaluator_owned_project_starts_with_pinned_moq(self):
         self.assertIn('Moq" Version="4.2.1510.2205', PINNED_PROJECT)
 

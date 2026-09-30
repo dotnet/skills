@@ -21,7 +21,8 @@ class AuthenticatedArtifactTests(unittest.TestCase):
 
     @staticmethod
     def sha(path):
-        return hashlib.sha256(path.read_bytes()).hexdigest()
+        canonical = path.read_bytes().replace(b"\r\n", b"\n")
+        return hashlib.sha256(canonical).hexdigest()
 
     def run_auth(self, *, success):
         result = subprocess.run(
@@ -105,6 +106,10 @@ class AuthenticatedArtifactTests(unittest.TestCase):
             text=True,
         )
         self.assertNotEqual(0, result.returncode)
+
+    def test_crlf_artifact_matches_canonical_digest(self):
+        self.checker.write_bytes(b"print('checker ran')\r\n")
+        self.run_auth(success=True)
 
 
 if __name__ == "__main__":

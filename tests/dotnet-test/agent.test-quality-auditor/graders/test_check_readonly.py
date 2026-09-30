@@ -24,9 +24,15 @@ class ReadonlyTests(unittest.TestCase):
         self.outside = self.workspace / ".eval" / "replacement"
         self.outside.mkdir()
 
-    def run_checker(self, mode, *, success):
+    def run_checker(self, mode, *, success, allowed=()):
         result = subprocess.run(
-            [sys.executable, str(CHECKER), mode, "Protected"],
+            [
+                sys.executable,
+                str(CHECKER),
+                mode,
+                "Protected",
+                *(argument for path in allowed for argument in ("--allow", path)),
+            ],
             cwd=self.workspace, capture_output=True, text=True,
         )
         self.assertEqual(result.returncode == 0, success, result.stdout + result.stderr)
@@ -65,6 +71,21 @@ class ReadonlyTests(unittest.TestCase):
         self.run_checker("verify", success=True)
         (self.root / "Project.csproj").write_text("<Project Sdk=\"changed\" />\n", encoding="utf-8")
         self.run_checker("verify", success=False)
+
+    def test_narrowly_allowed_file_can_change_but_other_files_remain_protected(self):
+        self.root.joinpath("Service.cs").write_text("changed\n", encoding="utf-8")
+        self.run_checker(
+            "verify", success=True, allowed=("Protected/Service.cs",)
+        )
+        self.root.joinpath("Project.csproj").write_text("<Project Sdk=\"changed\" />\n", encoding="utf-8")
+        self.run_checker(
+            "verify", success=False, allowed=("Protected/Service.cs",)
+        )
+
+    def test_allowed_file_must_exist_in_baseline_and_after_run(self):
+        self.run_checker("verify", success=False, allowed=("Protected/Unknown.cs",))
+        self.root.joinpath("Service.cs").unlink()
+        self.run_checker("verify", success=False, allowed=("Protected/Service.cs",))
 
     def test_protected_source_and_configuration_changes_fail(self):
         for name in ("Service.cs", "Project.csproj"):

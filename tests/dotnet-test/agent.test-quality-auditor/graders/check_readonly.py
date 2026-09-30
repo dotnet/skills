@@ -1,8 +1,8 @@
 """Snapshot source/configuration before advisory runs; allow build/report artifacts."""
 
+import argparse
 import json
 from pathlib import Path
-import sys
 
 
 SOURCE_SUFFIXES = {".cs", ".csproj", ".props", ".targets", ".sln", ".slnx", ".config"}
@@ -33,19 +33,34 @@ def sources(root):
 
 
 def main():
-    mode, root = sys.argv[1:]
-    actual = sources(root)
-    if mode == "snapshot":
-        assert actual, f"No source files under {root}"
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("mode", choices=("snapshot", "verify"))
+    parser.add_argument("root")
+    parser.add_argument("--allow", action="append", default=[])
+    args = parser.parse_args()
+    actual = sources(args.root)
+    if args.mode == "snapshot":
+        if args.allow:
+            raise ValueError("--allow is valid only for verification")
+        assert actual, f"No source files under {args.root}"
         BASELINE.parent.mkdir(exist_ok=True)
         BASELINE.write_text(json.dumps(actual, sort_keys=True), encoding="utf-8")
-    elif mode == "verify":
-        expected = json.loads(BASELINE.read_text(encoding="utf-8"))
-        changed = sorted(path for path in expected.keys() | actual.keys() if expected.get(path) != actual.get(path))
-        assert not changed, f"Read-only request changed source/configuration: {changed}"
-        print("Source/configuration unchanged.")
     else:
-        raise ValueError(f"Unknown mode: {mode}")
+        expected = json.loads(BASELINE.read_text(encoding="utf-8"))
+        allowed = {Path(path).as_posix() for path in args.allow}
+        unknown = sorted(allowed - expected.keys())
+        if unknown:
+            raise ValueError(f"Allowed path is not in the authenticated baseline: {unknown}")
+        missing = sorted(allowed - actual.keys())
+        if missing:
+            raise ValueError(f"Allowed path is missing after the run: {missing}")
+        changed = sorted(
+            path
+            for path in expected.keys() | actual.keys()
+            if path not in allowed and expected.get(path) != actual.get(path)
+        )
+        assert not changed, f"Read-only request changed source/configuration: {changed}"
+        print("Protected source/configuration unchanged.")
 
 
 if __name__ == "__main__":

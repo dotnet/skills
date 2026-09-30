@@ -37,7 +37,9 @@ class EvalAuthenticationDigestTests(unittest.TestCase):
         canonical = RUNNER.read_bytes().replace(b"\r\n", b"\n")
         expected = hashlib.sha256(canonical).hexdigest()
         for path in EVALS:
-            digests = PATTERN.findall(path.read_text(encoding="utf-8-sig"))
+            text = path.read_text(encoding="utf-8-sig")
+            self.assertNotIn("hashlib.sha256(p.read_bytes()).hexdigest()", text, path)
+            digests = PATTERN.findall(text)
             self.assertTrue(digests, path)
             self.assertEqual({expected}, set(digests), path)
 

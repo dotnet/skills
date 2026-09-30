@@ -336,7 +336,7 @@ stimuli:
 
               **Medium - conditional promotion with one untested branch.** The `if` in `PromoteMember_ReachesGoldAtThreshold` means the below-threshold path never executes, so the test proves nothing about members who have not earned Gold.
 
-              **Not a smell.** `TierNames` is `static readonly` and never mutated, so sharing it is fine, and `GoldThreshold` is a named constant rather than an unexplained literal. Neither should be reported.
+              **Not a smell.** `TierNames` is an array whose elements are technically mutable, but this fixture only reads it, so it does not create the shared-state hazard present in the other fields. `GoldThreshold` is a named constant rather than an unexplained literal. Neither should be reported.
               Fix the sequencing hazard first: remove the gates and move the ledger and tier into instance fields, or rebuild them in a `[TestInitialize]` method, so every test starts from a known state. Explicit sequencing only hides the coupling.
     environment:
       files:
@@ -365,5 +365,5 @@ stimuli:
       - Named the never-reset static AwardedPoints and _tierIndex as the highest-severity finding
       - Explained that static gates force a predecessor sequence and that later tests fail under isolation or when a predecessor does not signal
       - Pointed at the concrete coupling - the 550 total is only reachable because an earlier test already appended to the same list
-      - Left the immutable TierNames array and the named GoldThreshold constant unflagged
+      - Left TierNames unflagged because the fixture only reads its elements, and left the named GoldThreshold constant unflagged
       - Recommended real per-test isolation such as instance fields or TestInitialize instead of explicit sequencing

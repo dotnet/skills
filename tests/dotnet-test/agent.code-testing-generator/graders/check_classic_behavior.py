@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -73,6 +74,11 @@ def run_tests(project):
     return result.returncode, result.stdout + result.stderr
 
 
+def positive_count(label, output):
+    match = re.search(rf"\b{label}:\s*([1-9][0-9]*)\b", output, re.IGNORECASE)
+    return int(match.group(1)) if match else 0
+
+
 def verify(root):
     root = Path(root).resolve()
     validation = root / ".eval-validation" / "GeneratedTests.csproj"
@@ -88,7 +94,7 @@ def verify(root):
         cwd=validation.parent, check=True, capture_output=True, text=True, timeout=120,
     )
     code, output = run_tests(validation)
-    if code != 0 or "Passed:" not in output:
+    if code != 0 or positive_count("Passed", output) == 0:
         raise ValueError(f"Original generated tests must pass:\n{output}")
     with tempfile.TemporaryDirectory(prefix="classic-behavior-") as directory:
         work = Path(directory) / "classic"
@@ -102,7 +108,7 @@ def verify(root):
             try:
                 source.write_text(original.replace(mutation.before, mutation.after), encoding="utf-8")
                 code, output = run_tests(project)
-                if code == 0 or "Failed:" not in output:
+                if code == 0 or positive_count("Failed", output) == 0:
                     raise ValueError(f"Generated tests did not detect {mutation.name}")
             finally:
                 source.write_text(original, encoding="utf-8")

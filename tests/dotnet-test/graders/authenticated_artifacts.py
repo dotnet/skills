@@ -22,7 +22,8 @@ def digest(path):
             raise ValueError(f"Symlinked evaluator artifact path: {path}")
     if not artifact.is_file():
         raise ValueError(f"Missing evaluator artifact: {path}")
-    return hashlib.sha256(artifact.read_bytes()).hexdigest()
+    canonical = artifact.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(canonical).hexdigest()
 
 
 def main():
