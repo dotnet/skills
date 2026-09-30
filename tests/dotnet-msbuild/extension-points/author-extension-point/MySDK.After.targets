@@ -1,0 +1,9 @@
+<Project>
+  <Target Name="TeamBAfterCodeGeneration" AfterTargets="CoreMySDKBuild">
+    <Message Text="Team B after code generation" Importance="high" />
+  </Target>
+
+  <Target Name="TeamCAfterCodeGeneration" AfterTargets="CoreMySDKBuild">
+    <Message Text="Team C after code generation" Importance="high" />
+  </Target>
+</Project>

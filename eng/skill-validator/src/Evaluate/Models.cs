@@ -24,6 +24,12 @@ public enum FailureKind
     [JsonStringEnumMemberName("skill_not_activated")]
     SkillNotActivated,
 
+    [JsonStringEnumMemberName("unexpected_activation")]
+    UnexpectedActivation,
+
+    [JsonStringEnumMemberName("execution_error")]
+    ExecutionError,
+
     [JsonStringEnumMemberName("noise_degradation")]
     NoiseDegradation,
 }
@@ -181,6 +187,7 @@ public sealed class RunMetrics
     public int TurnCount { get; set; }
     public long WallTimeMs { get; set; }
     public int ErrorCount { get; set; }
+    public int TerminalErrorCount { get; set; }
     public bool TimedOut { get; set; }
     public List<AssertionResult> AssertionResults { get; set; } = [];
     public bool TaskCompleted { get; set; }
@@ -211,6 +218,7 @@ public sealed class RunMetrics
         TurnCount = TurnCount,
         WallTimeMs = WallTimeMs,
         ErrorCount = ErrorCount,
+        TerminalErrorCount = TerminalErrorCount,
         TimedOut = TimedOut,
         AssertionResults = [.. AssertionResults],
         TaskCompleted = TaskCompleted,

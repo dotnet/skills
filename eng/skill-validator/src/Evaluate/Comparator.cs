@@ -68,28 +68,32 @@ public static class Comparator
         IReadOnlyList<ScenarioComparison> comparisons,
         double minImprovement,
         bool requireCompletion,
-        double confidenceLevel = 0.95) =>
+        double confidenceLevel = 0.95,
+        IReadOnlyList<ScenarioComparison>? reportedComparisons = null) =>
         ComputeVerdictCore(
             skill,
             comparisons,
             minImprovement,
             requireCompletion,
             confidenceLevel,
-            pluginIsDiagnosticOnly: false);
+            pluginIsDiagnosticOnly: false,
+            reportedComparisons);
 
     public static SkillVerdict ComputeAgentVerdict(
         SkillInfo agent,
         IReadOnlyList<ScenarioComparison> comparisons,
         double minImprovement,
         bool requireCompletion,
-        double confidenceLevel = 0.95) =>
+        double confidenceLevel = 0.95,
+        IReadOnlyList<ScenarioComparison>? reportedComparisons = null) =>
         ComputeVerdictCore(
             agent,
             comparisons,
             minImprovement,
             requireCompletion,
             confidenceLevel,
-            pluginIsDiagnosticOnly: true);
+            pluginIsDiagnosticOnly: true,
+            reportedComparisons);
 
     private static SkillVerdict ComputeVerdictCore(
         SkillInfo skill,
@@ -97,8 +101,10 @@ public static class Comparator
         double minImprovement,
         bool requireCompletion,
         double confidenceLevel,
-        bool pluginIsDiagnosticOnly)
+        bool pluginIsDiagnosticOnly,
+        IReadOnlyList<ScenarioComparison>? reportedComparisons)
     {
+        var scenariosForReport = reportedComparisons ?? comparisons;
         if (comparisons.Count == 0)
         {
             return new SkillVerdict
@@ -106,7 +112,7 @@ public static class Comparator
                 SkillName = skill.Name,
                 SkillPath = skill.Path,
                 Passed = false,
-                Scenarios = [],
+                Scenarios = scenariosForReport,
                 OverallImprovementScore = 0,
                 Reason = "No scenarios to evaluate",
                 FailureKind = FailureKind.NoScenarios,
@@ -136,7 +142,7 @@ public static class Comparator
                     SkillName = skill.Name,
                     SkillPath = skill.Path,
                     Passed = false,
-                    Scenarios = comparisons,
+                    Scenarios = scenariosForReport,
                     OverallImprovementScore = overallImprovementScore,
                     NormalizedGain = normalizedGain,
                     ConfidenceInterval = ci,
@@ -168,7 +174,7 @@ public static class Comparator
             SkillName = skill.Name,
             SkillPath = skill.Path,
             Passed = passed,
-            Scenarios = comparisons,
+            Scenarios = scenariosForReport,
             OverallImprovementScore = overallImprovementScore,
             NormalizedGain = normalizedGain,
             ConfidenceInterval = ci,

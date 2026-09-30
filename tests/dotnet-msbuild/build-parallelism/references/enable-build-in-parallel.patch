@@ -1,0 +1,13 @@
+diff --git a/build-parallel-task/build.proj b/build-parallel-task/build.proj
+--- a/build-parallel-task/build.proj
++++ b/build-parallel-task/build.proj
+@@ -7,6 +7,7 @@
+-
++
+   <Target Name="BuildAll">
+     <MSBuild Projects="@(ProjectsToBuild)"
+-             Targets="Restore;Build" />
++             Targets="Restore;Build"
++             BuildInParallel="true" />
+   </Target>
+ </Project>

@@ -425,6 +425,7 @@ public class CollectMetricsTests
         var result = MetricsCollector.CollectMetrics(events, "", 1000, "/tmp/work");
 
         Assert.AreEqual(2, result.ErrorCount);
+        Assert.AreEqual(2, result.TerminalErrorCount);
     }
 
     [TestMethod]
@@ -447,6 +448,7 @@ public class CollectMetricsTests
         var result = MetricsCollector.CollectMetrics(events, "partial output", 1000, "/tmp/work");
 
         Assert.AreEqual(1, result.ErrorCount);
+        Assert.AreEqual(0, result.TerminalErrorCount);
     }
 
     [TestMethod]
@@ -501,6 +503,7 @@ public class CollectMetricsTests
 
         Assert.IsTrue(result.TimedOut);
         Assert.AreEqual(1, result.ErrorCount);
+        Assert.AreEqual(0, result.TerminalErrorCount);
     }
 
     [TestMethod]
@@ -530,6 +533,7 @@ public class CollectMetricsTests
 
         Assert.IsFalse(result.TimedOut);
         Assert.AreEqual(1, result.ErrorCount);
+        Assert.AreEqual(1, result.TerminalErrorCount);
     }
 
     [TestMethod]
@@ -545,6 +549,7 @@ public class CollectMetricsTests
 
         Assert.IsTrue(result.TimedOut);
         Assert.AreEqual(2, result.ErrorCount);
+        Assert.AreEqual(1, result.TerminalErrorCount);
     }
 }
 
@@ -637,6 +642,35 @@ public class ExtractSubagentActivationTests
 
         Assert.IsEmpty(result.InvokedAgents);
         Assert.AreEqual(0, result.SubagentEventCount);
+    }
+
+    [TestMethod]
+    public void CountsSuccessfulPrimaryAgentSelectionAsActivation()
+    {
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("agent.primary_selected", D(("agentName", JsonValue.Create("msbuild")))),
+        };
+
+        var result = MetricsCollector.ExtractSubagentActivation(events);
+
+        Assert.AreSequenceEqual(["msbuild"], result.InvokedAgents);
+        Assert.AreEqual(1, result.SubagentEventCount);
+    }
+
+    [TestMethod]
+    public void DeduplicatesPrimarySelectionWithSdkSubagentEvents()
+    {
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("agent.primary_selected", D(("agentName", JsonValue.Create("msbuild")))),
+            MakeEvent("subagent.selected", D(("agentName", JsonValue.Create("MSBuild")))),
+        };
+
+        var result = MetricsCollector.ExtractSubagentActivation(events);
+
+        Assert.AreSequenceEqual(["msbuild"], result.InvokedAgents);
+        Assert.AreEqual(2, result.SubagentEventCount);
     }
 
     [TestMethod]

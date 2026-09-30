@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Update="Legacy\**\*.cs">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
+    <Compile Include="$(IntermediateOutputPath)BuildInfo.g.cs" />
+  </ItemGroup>
+
+  <Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile"
+          Inputs="$(MSBuildProjectFullPath)"
+          Outputs="$(IntermediateOutputPath)BuildInfo.g.cs">
+    <WriteLinesToFile File="$(IntermediateOutputPath)BuildInfo.g.cs"
+                      Lines="namespace AlreadyCorrect%3B%0Ainternal static class BuildInfo { internal const string Value = &quot;generated&quot;%3B }"
+                      Overwrite="true" />
+    <ItemGroup>
+      <FileWrites Include="$(IntermediateOutputPath)BuildInfo.g.cs" />
+    </ItemGroup>
+  </Target>
+</Project>
