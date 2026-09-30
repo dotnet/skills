@@ -25,6 +25,10 @@ ALLOWED_WARNINGS = (
         r"(?i)\.github[\\/]+workflows[\\/]+devops-health-groom\.md: warning: "
         r"Schedule uses fixed daily time \(06:00 UTC\)\."
     ),
+    re.compile(
+        r"(?i)\.github[\\/]+workflows[\\/]+msbuild-quality-review\.md: warning: "
+        r"pull_request_target is a very dangerous trigger\."
+    ),
 )
 
 
