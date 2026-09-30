@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <Target Name="ReportCompileItems" BeforeTargets="Build">
+    <Message Importance="high"
+             Text="Compiling %(Compile.Filename)%(Compile.Extension) (CopyToOutputDirectory=%(Compile.CopyToOutputDirectory))" />
+  </Target>
+</Project>

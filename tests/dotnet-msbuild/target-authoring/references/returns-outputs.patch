@@ -1,0 +1,7 @@
+diff --git a/returns-outputs/ReturnsOutputs.csproj b/returns-outputs/ReturnsOutputs.csproj
+--- a/returns-outputs/ReturnsOutputs.csproj
++++ b/returns-outputs/ReturnsOutputs.csproj
+@@ -7,2 +7,2 @@
+-  <Target Name="GetApiVersion" Outputs="@(ApiVersion)">
++  <Target Name="GetApiVersion" Returns="@(ApiVersion)">
+     <ItemGroup>

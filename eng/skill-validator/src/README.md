@@ -197,7 +197,7 @@ The expensive part of an evaluation is the agent investigation, not the judging.
    skill-validator evaluate rejudge <treatment-results-dir> --baseline-dir <baseline-results-dir>
    ```
 
-   `rejudge` pairs each treatment scenario with its baseline by the shared key (prompt SHA + target SHA), runs the same pairwise/independent judges `evaluate` runs inline, writes the reports, and applies the usual pass/fail gates (`--min-improvement`, `--require-completion`, …). Baseline and treatment must share the same `--model`; the judge model defaults to the value persisted in the treatment `sessions.db` (then the baseline's), and a mismatch between the two persisted judge models is rejected unless you pass `--judge-model`.
+   `rejudge` pairs each treatment scenario with its baseline by the shared key (prompt SHA + target SHA), runs the same pairwise/independent judges `evaluate` runs inline, writes the reports, and applies the usual pass/fail gates (`--min-improvement`, `--require-completion`, …). Accounting is fail-closed: failed or nonterminal sessions, unmatched baseline or treatment runs, and duplicate required roles stop the command before judging or publishing a partial verdict. Baseline and treatment must share the same `--model`; the judge model defaults to the value persisted in the treatment `sessions.db` (then the baseline's), and a mismatch between the two persisted judge models is rejected unless you pass `--judge-model`.
 
 Without `--baseline-dir`, `rejudge` keeps its original single-directory behavior: it re-judges baseline+treatment runs that live in the **same** `sessions.db`.
 

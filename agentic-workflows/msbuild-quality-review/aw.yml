@@ -1,0 +1,16 @@
+manifest-version: "1"
+min-version: v0.89.15
+name: MSBuild Quality Review
+description: Reviews changed MSBuild files for correctness, incrementality, and maintainability.
+license: MIT
+includes:
+  - workflows/msbuild-quality-review-shared.md
+  - workflows/msbuild-quality-review.md
+  - agents/msbuild-quality-reviewer.agent.md
+config:
+  - type: copilot-auth
+    strategy: prompt-if-actions-auth-unavailable
+  - type: repo-variable
+    name: MSBUILD_QUALITY_REVIEW_EXCLUDED_PATHS
+    prompt: Additional paths to exclude from MSBuild quality review
+    description: Optional newline-, comma-, or semicolon-separated glob patterns for fixtures or generated files.

@@ -171,6 +171,17 @@ public static class EvalSchema
     private static CommandAssertionArgs BuildShellCommandAssertion(RawVallyGraderConfig config)
     {
         var command = config.Command!;
+        if (config.Args is not null)
+        {
+            return new CommandAssertionArgs(
+                CommandToRun: command,
+                ExpectedExitCode: config.ExpectedExitCode ?? 0,
+                ExpectedStdOutContains: config.StdoutContains,
+                ExpectedStdOutMatches: config.StdoutMatches,
+                Timeout: ParseDurationSeconds(config.Timeout),
+                ArgumentList: [.. config.Args]);
+        }
+
         return new CommandAssertionArgs(
             CommandToRun: OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/sh",
             ExpectedExitCode: config.ExpectedExitCode ?? 0,
@@ -448,6 +459,7 @@ public static class EvalSchema
         public string? Path { get; set; }
         public string? Value { get; set; }
         public string? Command { get; set; }
+        public List<string>? Args { get; set; }
         public int? ExpectedExitCode { get; set; }
         public string? Timeout { get; set; }
         public string? StdoutContains { get; set; }
