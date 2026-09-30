@@ -419,13 +419,40 @@ function mean(nums) {
   return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
 }
 
-function continuedAfterSkillActivation(record) {
+function skillNameFromActivationEvent(event) {
+  if (
+    event?.type !== "skill_activation"
+    && event?.type !== "skill.invoked"
+    && event?.type !== "skill.loaded"
+    && event?.type !== "skill.activated"
+  ) {
+    return null;
+  }
+  return event?.data?.name ?? event?.data?.skillName ?? null;
+}
+
+function targetActivationCount(record, targetSkillName = null) {
+  if (!targetSkillName) {
+    return record.trajectory?.metrics?.skillActivationCount ?? 0;
+  }
+
+  const target = targetSkillName.toLowerCase();
+  return (record.trajectory?.events ?? []).filter((event) =>
+    skillNameFromActivationEvent(event)?.toLowerCase() === target
+  ).length;
+}
+
+function continuedAfterSkillActivation(record, targetSkillName = null) {
   const events = record.trajectory?.events;
   if (!Array.isArray(events) || events.length === 0) return null;
 
   let activated = false;
   for (const event of events) {
-    if (event?.type === "skill_activation" || event?.type === "skill.invoked") {
+    const activatedSkill = skillNameFromActivationEvent(event);
+    if (
+      activatedSkill
+      && (!targetSkillName || activatedSkill.toLowerCase() === targetSkillName.toLowerCase())
+    ) {
       activated = true;
       continue;
     }
@@ -441,7 +468,7 @@ function continuedAfterSkillActivation(record) {
   return activated ? false : null;
 }
 
-function postActivationFromRecords(records) {
+function postActivationFromRecords(records, targetSkillName = null) {
   const summary = {
     activatedRuns: 0,
     continuedRuns: 0,
@@ -452,11 +479,11 @@ function postActivationFromRecords(records) {
 
   for (const record of records ?? []) {
     const metrics = record.trajectory?.metrics;
-    const activationCount = metrics?.skillActivationCount ?? 0;
+    const activationCount = targetActivationCount(record, targetSkillName);
     if (activationCount <= 0) continue;
 
     summary.activatedRuns += 1;
-    const orderedContinuation = continuedAfterSkillActivation(record);
+    const orderedContinuation = continuedAfterSkillActivation(record, targetSkillName);
     if (orderedContinuation === true) {
       summary.continuedRuns += 1;
       continue;
@@ -505,7 +532,7 @@ function postActivationFromRecords(records) {
  * (wall time + token usage), activation, and timeout. With runs:1 there is one
  * record; multiple runs are averaged (activation/timeout are OR'd).
  */
-function roleFromRecords(records) {
+function roleFromRecords(records, targetSkillName = null) {
   if (!records || records.length === 0) return null;
 
   const overallScore = (() => {
@@ -531,7 +558,9 @@ function roleFromRecords(records) {
     };
   }
 
-  const activated = records.some((r) => (r.trajectory?.metrics?.skillActivationCount ?? 0) > 0);
+  const activated = records.some((record) =>
+    targetActivationCount(record, targetSkillName) > 0
+  );
   const timedOut = records.some((r) => r.trajectory?.endReason === "agent_timeout");
 
   return {
@@ -539,7 +568,7 @@ function roleFromRecords(records) {
     activated,
     timedOut,
     metrics,
-    postActivation: postActivationFromRecords(records),
+    postActivation: postActivationFromRecords(records, targetSkillName),
   };
 }
 
@@ -1574,22 +1603,31 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
 
   const { baselineByStim, skilledByStim, pluginByStim, hasPlugin } = roles;
 
-  // The authoritative scenario set is every stimulus that actually ran, in any
-  // variant, unioned with anything compare reported.
+  const observedStimulusNames = new Set([
+    ...skilledByStim.keys(),
+    ...baselineByStim.keys(),
+    ...(pluginByStim ? pluginByStim.keys() : []),
+    ...compareByStim.keys(),
+  ]);
+
+  // The authoritative scenario set includes every observed stimulus plus every
+  // declared dormancy contract. A missing dormant stimulus is retained as an
+  // explicit contract failure rather than disappearing from the verdict.
   const stimulusNames = [
     ...new Set([
-      ...skilledByStim.keys(),
-      ...baselineByStim.keys(),
-      ...(pluginByStim ? pluginByStim.keys() : []),
-      ...compareByStim.keys(),
+      ...observedStimulusNames,
+      ...nonActivation,
     ]),
   ].sort();
 
   const scenarios = stimulusNames.map((name) => {
     const st = compareByStim.get(name);
-    const baseline = roleFromRecords(baselineByStim.get(name));
-    const skilled = roleFromRecords(skilledByStim.get(name));
-    const plugin = hasPlugin ? roleFromRecords(pluginByStim.get(name)) : null;
+    const targetSkillName = targetKind === "skill" ? identity.skill : null;
+    const baseline = roleFromRecords(baselineByStim.get(name), targetSkillName);
+    const skilled = roleFromRecords(skilledByStim.get(name), targetSkillName);
+    const plugin = hasPlugin
+      ? roleFromRecords(pluginByStim.get(name), targetSkillName)
+      : null;
 
     // Per-scenario preference record, computed once rather than re-derived by
     // each renderer. Dormancy rows retain this evidence even though they do not
@@ -1629,6 +1667,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
       preferenceGateExclusionReason: nonActivation.has(name)
         ? "activation_contract_only"
         : null,
+      observedInAnyRole: observedStimulusNames.has(name),
       timedOut: Boolean(skilled?.timedOut),
       skillActivationIsolated: {
         activated: Boolean(skilled?.activated),
@@ -1715,25 +1754,38 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
   // not identify which sibling skill emitted the activity event.
   const activationContractScenarios = scenarios
     .filter((scenario) => scenario.expectActivation === false)
-    .map((scenario) => ({
-      scenarioName: scenario.scenarioName,
-      expected: "dormant",
-      observed: (targetKind === "agent"
+    .map((scenario) => {
+      const observedInIsolatedRole = skilledByStim.has(scenario.scenarioName);
+      const activated = targetKind === "agent"
         ? scenario.agentActivationIsolated?.activated
-        : scenario.skillActivationIsolated?.activated)
-        ? "activated"
-        : "dormant",
-      satisfied: !(targetKind === "agent"
-        ? scenario.agentActivationIsolated?.activated
-        : scenario.skillActivationIsolated?.activated),
-    }));
-  const activationContractFailures = activationContractScenarios.filter(
-    (scenario) => !scenario.satisfied,
-  );
-  const observedStimulusNames = new Set(stimulusNames);
+        : scenario.skillActivationIsolated?.activated;
+      return {
+        scenarioName: scenario.scenarioName,
+        expected: "dormant",
+        observed: activated
+          ? "activated"
+          : observedInIsolatedRole
+            ? "dormant"
+            : "missing",
+        satisfied: observedInIsolatedRole && !activated,
+      };
+    });
   const unmatchedDormancyStimuli = [...nonActivation]
     .filter((name) => !observedStimulusNames.has(name))
     .sort();
+  const activationContractFailures = activationContractScenarios.filter(
+    (scenario) => !scenario.satisfied,
+  );
+  for (const scenarioName of unmatchedDormancyStimuli) {
+    if (!activationContractFailures.some((failure) => failure.scenarioName === scenarioName)) {
+      activationContractFailures.push({
+        scenarioName,
+        expected: "dormant",
+        observed: "missing",
+        satisfied: false,
+      });
+    }
+  }
   if (unmatchedDormancyStimuli.length > 0) {
     warn(
       `${identity.plugin}/${identity.skill}: ${unmatchedDormancyStimuli.length} dormancy annotation(s) ` +

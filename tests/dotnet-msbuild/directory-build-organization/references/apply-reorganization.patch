@@ -1,0 +1,230 @@
+diff --git a/src/ContosoApp.Api/ContosoApp.Api.csproj b/src/ContosoApp.Api/ContosoApp.Api.csproj
+--- a/src/ContosoApp.Api/ContosoApp.Api.csproj
++++ b/src/ContosoApp.Api/ContosoApp.Api.csproj
+@@ -2,18 +2,12 @@
+
+   <PropertyGroup>
+     <TargetFramework>net8.0</TargetFramework>
+-    <Nullable>enable</Nullable>
+-    <ImplicitUsings>enable</ImplicitUsings>
+-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+-    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+-    <Company>Contoso</Company>
+-    <Authors>Contoso Engineering</Authors>
+   </PropertyGroup>
+
+   <ItemGroup>
+-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+-    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+-    <PackageReference Include="System.Text.Json" Version="8.0.5" />
++    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
++    <PackageReference Include="Swashbuckle.AspNetCore" />
++    <PackageReference Include="System.Text.Json" />
+   </ItemGroup>
+
+   <ItemGroup>
+@@ -21,12 +15,4 @@
+     <ProjectReference Include="..\ContosoApp.Services\ContosoApp.Services.csproj" />
+   </ItemGroup>
+
+-  <PropertyGroup>
+-    <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
+-  </PropertyGroup>
+-
+-  <Target Name="PrintBuildInfo" BeforeTargets="Build">
+-    <Message Importance="high" Text="Building $(AssemblyName) [$(Configuration)]" />
+-  </Target>
+-
+ </Project>
+diff --git a/src/ContosoApp.Core/ContosoApp.Core.csproj b/src/ContosoApp.Core/ContosoApp.Core.csproj
+--- a/src/ContosoApp.Core/ContosoApp.Core.csproj
++++ b/src/ContosoApp.Core/ContosoApp.Core.csproj
+@@ -2,25 +2,11 @@
+
+   <PropertyGroup>
+     <TargetFramework>net8.0</TargetFramework>
+-    <Nullable>enable</Nullable>
+-    <ImplicitUsings>enable</ImplicitUsings>
+-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+-    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+-    <Company>Contoso</Company>
+-    <Authors>Contoso Engineering</Authors>
+   </PropertyGroup>
+
+   <ItemGroup>
+-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+-    <PackageReference Include="System.Text.Json" Version="8.0.5" />
++    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
++    <PackageReference Include="System.Text.Json" />
+   </ItemGroup>
+
+-  <PropertyGroup>
+-    <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
+-  </PropertyGroup>
+-
+-  <Target Name="PrintBuildInfo" BeforeTargets="Build">
+-    <Message Importance="high" Text="Building $(AssemblyName) [$(Configuration)]" />
+-  </Target>
+-
+ </Project>
+diff --git a/src/ContosoApp.Services/ContosoApp.Services.csproj b/src/ContosoApp.Services/ContosoApp.Services.csproj
+--- a/src/ContosoApp.Services/ContosoApp.Services.csproj
++++ b/src/ContosoApp.Services/ContosoApp.Services.csproj
+@@ -2,29 +2,15 @@
+
+   <PropertyGroup>
+     <TargetFramework>net8.0</TargetFramework>
+-    <Nullable>enable</Nullable>
+-    <ImplicitUsings>enable</ImplicitUsings>
+-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+-    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+-    <Company>Contoso</Company>
+-    <Authors>Contoso Engineering</Authors>
+   </PropertyGroup>
+
+   <ItemGroup>
+-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.1" />
+-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
++    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
++    <PackageReference Include="Newtonsoft.Json" />
+   </ItemGroup>
+
+   <ItemGroup>
+     <ProjectReference Include="..\ContosoApp.Core\ContosoApp.Core.csproj" />
+   </ItemGroup>
+
+-  <PropertyGroup>
+-    <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
+-  </PropertyGroup>
+-
+-  <Target Name="PrintBuildInfo" BeforeTargets="Build">
+-    <Message Importance="high" Text="Building $(AssemblyName) [$(Configuration)]" />
+-  </Target>
+-
+ </Project>
+diff --git a/test/ContosoApp.Api.Tests/ContosoApp.Api.Tests.csproj b/test/ContosoApp.Api.Tests/ContosoApp.Api.Tests.csproj
+--- a/test/ContosoApp.Api.Tests/ContosoApp.Api.Tests.csproj
++++ b/test/ContosoApp.Api.Tests/ContosoApp.Api.Tests.csproj
+@@ -2,20 +2,13 @@
+
+   <PropertyGroup>
+     <TargetFramework>net8.0</TargetFramework>
+-    <Nullable>enable</Nullable>
+-    <ImplicitUsings>enable</ImplicitUsings>
+-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+-    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+-    <Company>Contoso</Company>
+-    <Authors>Contoso Engineering</Authors>
+-    <IsPackable>false</IsPackable>
+   </PropertyGroup>
+
+   <ItemGroup>
+-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+-    <PackageReference Include="xunit" Version="2.7.1" />
+-    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.6" />
+-    <PackageReference Include="NSubstitute" Version="5.1.0" />
++    <PackageReference Include="Microsoft.NET.Test.Sdk" />
++    <PackageReference Include="xunit" />
++    <PackageReference Include="xunit.runner.visualstudio" />
++    <PackageReference Include="NSubstitute" />
+   </ItemGroup>
+
+   <ItemGroup>
+diff --git a/test/ContosoApp.Core.Tests/ContosoApp.Core.Tests.csproj b/test/ContosoApp.Core.Tests/ContosoApp.Core.Tests.csproj
+--- a/test/ContosoApp.Core.Tests/ContosoApp.Core.Tests.csproj
++++ b/test/ContosoApp.Core.Tests/ContosoApp.Core.Tests.csproj
+@@ -2,20 +2,13 @@
+
+   <PropertyGroup>
+     <TargetFramework>net8.0</TargetFramework>
+-    <Nullable>enable</Nullable>
+-    <ImplicitUsings>enable</ImplicitUsings>
+-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+-    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+-    <Company>Contoso</Company>
+-    <Authors>Contoso Engineering</Authors>
+-    <IsPackable>false</IsPackable>
+   </PropertyGroup>
+
+   <ItemGroup>
+-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
+-    <PackageReference Include="xunit" Version="2.8.1" />
+-    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.1" />
+-    <PackageReference Include="NSubstitute" Version="5.1.0" />
++    <PackageReference Include="Microsoft.NET.Test.Sdk" />
++    <PackageReference Include="xunit" />
++    <PackageReference Include="xunit.runner.visualstudio" />
++    <PackageReference Include="NSubstitute" />
+   </ItemGroup>
+
+   <ItemGroup>
+diff --git a/Directory.Build.props b/Directory.Build.props
+new file mode 100644
+--- /dev/null
++++ b/Directory.Build.props
+@@ -0,0 +1,12 @@
++<Project>
++
++  <PropertyGroup>
++    <Nullable>enable</Nullable>
++    <ImplicitUsings>enable</ImplicitUsings>
++    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
++    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
++    <Company>Contoso</Company>
++    <Authors>Contoso Engineering</Authors>
++  </PropertyGroup>
++
++</Project>
+diff --git a/Directory.Build.targets b/Directory.Build.targets
+new file mode 100644
+--- /dev/null
++++ b/Directory.Build.targets
+@@ -0,0 +1,11 @@
++<Project>
++
++  <PropertyGroup>
++    <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
++  </PropertyGroup>
++
++  <Target Name="PrintBuildInfo" BeforeTargets="Build">
++    <Message Importance="high" Text="Building $(AssemblyName) [$(Configuration)]" />
++  </Target>
++
++</Project>
+diff --git a/Directory.Packages.props b/Directory.Packages.props
+new file mode 100644
+--- /dev/null
++++ b/Directory.Packages.props
+@@ -0,0 +1,18 @@
++<Project>
++
++  <PropertyGroup>
++    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
++  </PropertyGroup>
++
++  <ItemGroup>
++    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.1" />
++    <PackageVersion Include="Swashbuckle.AspNetCore" Version="6.5.0" />
++    <PackageVersion Include="System.Text.Json" Version="8.0.5" />
++    <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
++    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
++    <PackageVersion Include="xunit" Version="2.8.1" />
++    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.1" />
++    <PackageVersion Include="NSubstitute" Version="5.1.0" />
++  </ItemGroup>
++
++</Project>
+diff --git a/test/Directory.Build.props b/test/Directory.Build.props
+new file mode 100644
+--- /dev/null
++++ b/test/Directory.Build.props
+@@ -0,0 +1,9 @@
++<Project>
++
++  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
++
++  <PropertyGroup>
++    <IsPackable>false</IsPackable>
++  </PropertyGroup>
++
++</Project>
