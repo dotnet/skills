@@ -85,7 +85,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 2b36ef066a5c70912e063be95ab599012cb8952e330ce99ec0c7bfaf63f3bd4a:.eval/check_production.py --expect 1f16f9c6aac20e0068ba01ad2bb48f3e3fe3e0f7741e967d376d315141a15927:.eval/production.json -- python .eval/check_production.py verify fixtures/python-multimodule/analytics fixtures/python-multimodule/textkit
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py --expect 1f16f9c6aac20e0068ba01ad2bb48f3e3fe3e0f7741e967d376d315141a15927:.eval/production.json -- python .eval/check_production.py verify fixtures/python-multimodule/analytics fixtures/python-multimodule/textkit
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -172,7 +172,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 2b36ef066a5c70912e063be95ab599012cb8952e330ce99ec0c7bfaf63f3bd4a:.eval/check_production.py --expect f928dc1fae1c54deac21f8e5cf1010ce17d1ddab3643e32af6164054c4e3f335:.eval/production.json -- python .eval/check_production.py verify fixtures/classic-mstest/src
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py --expect f928dc1fae1c54deac21f8e5cf1010ce17d1ddab3643e32af6164054c4e3f335:.eval/production.json -- python .eval/check_production.py verify fixtures/classic-mstest/src
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -340,7 +340,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 2b36ef066a5c70912e063be95ab599012cb8952e330ce99ec0c7bfaf63f3bd4a:.eval/check_production.py --expect 5850a0210af59a60314166d31644c134ffb07f29472f7b571d74071c004e2cfe:.eval/production.json -- python .eval/check_production.py verify fixtures/go-multipackage/money fixtures/go-multipackage/shipping fixtures/go-multipackage/order
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py --expect 5850a0210af59a60314166d31644c134ffb07f29472f7b571d74071c004e2cfe:.eval/production.json -- python .eval/check_production.py verify fixtures/go-multipackage/money fixtures/go-multipackage/shipping fixtures/go-multipackage/order
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -432,7 +432,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 2b36ef066a5c70912e063be95ab599012cb8952e330ce99ec0c7bfaf63f3bd4a:.eval/check_production.py --expect 947cb612b934e7a93bcda6c67df9f27a3d900585882591b3e6b74dd5c9669d1f:.eval/production.json -- python .eval/check_production.py verify fixtures/python-workspace-integrity/synthstr
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py --expect 947cb612b934e7a93bcda6c67df9f27a3d900585882591b3e6b74dd5c9669d1f:.eval/production.json -- python .eval/check_production.py verify fixtures/python-workspace-integrity/synthstr
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -504,7 +504,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 2b36ef066a5c70912e063be95ab599012cb8952e330ce99ec0c7bfaf63f3bd4a:.eval/check_production.py --expect f4a4fddac767f934a23990683499087896fec172289012f3b57f7bfeb4178169:.eval/production.json -- python .eval/check_production.py verify fixtures/typescript-vitest-cart/src
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py --expect f4a4fddac767f934a23990683499087896fec172289012f3b57f7bfeb4178169:.eval/production.json -- python .eval/check_production.py verify fixtures/typescript-vitest-cart/src
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -555,7 +555,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 2b36ef066a5c70912e063be95ab599012cb8952e330ce99ec0c7bfaf63f3bd4a:.eval/check_production.py --expect afa521e5def55421ce82f4d550979c3286a29e88ebc729ec01ecdc284a5a4ee7:.eval/production.json -- python .eval/check_production.py verify fixtures/failing-suite/ledger
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py --expect afa521e5def55421ce82f4d550979c3286a29e88ebc729ec01ecdc284a5a4ee7:.eval/production.json -- python .eval/check_production.py verify fixtures/failing-suite/ledger
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -728,7 +728,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 2b36ef066a5c70912e063be95ab599012cb8952e330ce99ec0c7bfaf63f3bd4a:.eval/check_production.py --expect d330cb9ebb42eed6c6b6d6523e477b481cfd6cc2a457c3a2ebf035dced10f340:.eval/production.json -- python .eval/check_production.py verify fixtures/python-single-function/textkit
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py --expect d330cb9ebb42eed6c6b6d6523e477b481cfd6cc2a457c3a2ebf035dced10f340:.eval/production.json -- python .eval/check_production.py verify fixtures/python-single-function/textkit
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -804,7 +804,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 2b36ef066a5c70912e063be95ab599012cb8952e330ce99ec0c7bfaf63f3bd4a:.eval/check_production.py --expect 8dd6dfd8cc988acf64db006d49f97d9eb9084121031546fd73a015a012148f20:.eval/production.json -- python .eval/check_production.py verify fixtures/partial-suite/ledger
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py --expect 8dd6dfd8cc988acf64db006d49f97d9eb9084121031546fd73a015a012148f20:.eval/production.json -- python .eval/check_production.py verify fixtures/partial-suite/ledger
           expected_exit_code: 0
           timeout: 1m
       - type: run-command

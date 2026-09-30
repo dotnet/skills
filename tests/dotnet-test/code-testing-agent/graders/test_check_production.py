@@ -34,6 +34,27 @@ class ProductionIntegrityTests(unittest.TestCase):
             (self.root / "src" / directory / "generated").write_bytes(b"build output")
         self.run_checker("verify", success=True)
 
+    def test_source_under_excluded_directory_fails(self):
+        for directory, name in (
+            ("bin", "hidden.py"),
+            ("obj", "hidden.go"),
+            ("__pycache__", "hidden.cs"),
+        ):
+            with self.subTest(directory=directory):
+                path = self.root / "src" / directory
+                path.mkdir(exist_ok=True)
+                hidden = path / name
+                hidden.write_text("hidden production\n", encoding="utf-8")
+                self.run_checker("verify", success=False)
+                hidden.unlink()
+
+    def test_symlinked_excluded_directory_fails(self):
+        target = self.root / "replacement-obj"
+        target.mkdir()
+        link = self.root / "src/obj"
+        link.symlink_to(target, target_is_directory=True)
+        self.run_checker("verify", success=False)
+
     def test_modified_production_fails(self):
         (self.root / "src/service.go").write_bytes(b"package changed\n")
         self.run_checker("verify", success=False)

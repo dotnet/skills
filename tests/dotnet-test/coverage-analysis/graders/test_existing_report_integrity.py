@@ -54,6 +54,12 @@ class ExistingReportIntegrityTests(unittest.TestCase):
         (self.workspace / "TestResults/coverage.cobertura.xml").unlink()
         self.run_guard(False)
 
+    def test_symlinked_report_parent_fails(self):
+        target = self.workspace / "replacement-results"
+        (self.workspace / "TestResults").rename(target)
+        (self.workspace / "TestResults").symlink_to(target, target_is_directory=True)
+        self.run_guard(False)
+
 
 if __name__ == "__main__":
     unittest.main()
