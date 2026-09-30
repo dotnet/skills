@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <Target Name="GenerateRuntimeSettings" BeforeTargets="BeforeBuild">
+    <PropertyGroup>
+      <_GeneratedDataDir>$(IntermediateOutputPath)Generated\</_GeneratedDataDir>
+      <_GeneratedDataFile>$(_GeneratedDataDir)runtime-settings.json</_GeneratedDataFile>
+    </PropertyGroup>
+
+    <MakeDir Directories="$(_GeneratedDataDir)" />
+    <WriteLinesToFile
+      File="$(_GeneratedDataFile)"
+      Overwrite="true"
+      Lines="{ &quot;Mode&quot;: &quot;Generated&quot; }" />
+
+    <ItemGroup>
+      <FileWrites Include="$(_GeneratedDataFile)" />
+    </ItemGroup>
+  </Target>
+
+</Project>
