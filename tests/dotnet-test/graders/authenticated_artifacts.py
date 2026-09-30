@@ -7,10 +7,22 @@ import subprocess
 
 
 def digest(path):
-    path = Path(path)
-    if path.is_symlink() or not path.is_file():
-        raise ValueError(f"Missing or symlinked evaluator artifact: {path}")
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    root = Path.cwd()
+    supplied = Path(path)
+    try:
+        relative = supplied.relative_to(root) if supplied.is_absolute() else supplied
+    except ValueError as error:
+        raise ValueError(f"Evaluator artifact escapes the working directory: {path}") from error
+    if relative.is_absolute() or ".." in relative.parts:
+        raise ValueError(f"Evaluator artifact escapes the working directory: {path}")
+    artifact = root
+    for part in relative.parts:
+        artifact /= part
+        if artifact.is_symlink():
+            raise ValueError(f"Symlinked evaluator artifact path: {path}")
+    if not artifact.is_file():
+        raise ValueError(f"Missing evaluator artifact: {path}")
+    return hashlib.sha256(artifact.read_bytes()).hexdigest()
 
 
 def main():

@@ -28,11 +28,12 @@ class AuthenticatedArtifactTests(unittest.TestCase):
             [
                 sys.executable,
                 str(RUNNER),
-                "--expect", f"{self.sha(self.checker)}:{self.checker}",
-                "--expect", f"{self.sha(self.baseline)}:{self.baseline}",
+                "--expect", f"{self.sha(self.checker)}:checker.py",
+                "--expect", f"{self.sha(self.baseline)}:baseline.json",
                 "--",
-                sys.executable, str(self.checker),
+                sys.executable, "checker.py",
             ],
+            cwd=self.root,
             capture_output=True, text=True,
         )
         self.assertEqual(result.returncode == 0, success, result.stdout + result.stderr)
@@ -47,9 +48,10 @@ class AuthenticatedArtifactTests(unittest.TestCase):
         result = subprocess.run(
             [
                 sys.executable, str(RUNNER),
-                "--expect", f"{checker_hash}:{self.checker}",
-                "--expect", f"{baseline_hash}:{self.baseline}",
+                "--expect", f"{checker_hash}:checker.py",
+                "--expect", f"{baseline_hash}:baseline.json",
             ],
+            cwd=self.root,
             capture_output=True, text=True,
         )
         self.assertNotEqual(0, result.returncode)
@@ -61,9 +63,10 @@ class AuthenticatedArtifactTests(unittest.TestCase):
         result = subprocess.run(
             [
                 sys.executable, str(RUNNER),
-                "--expect", f"{checker_hash}:{self.checker}",
-                "--expect", f"{baseline_hash}:{self.baseline}",
+                "--expect", f"{checker_hash}:checker.py",
+                "--expect", f"{baseline_hash}:baseline.json",
             ],
+            cwd=self.root,
             capture_output=True, text=True,
         )
         self.assertNotEqual(0, result.returncode)
@@ -74,8 +77,32 @@ class AuthenticatedArtifactTests(unittest.TestCase):
         self.checker.unlink()
         self.checker.symlink_to(target)
         result = subprocess.run(
-            [sys.executable, str(RUNNER), "--expect", f"{self.sha(target)}:{self.checker}"],
+            [sys.executable, str(RUNNER), "--expect", f"{self.sha(target)}:checker.py"],
+            cwd=self.root,
             capture_output=True, text=True,
+        )
+        self.assertNotEqual(0, result.returncode)
+
+    def test_symlinked_parent_directory_fails(self):
+        real_eval = self.root / "real-eval"
+        real_eval.mkdir()
+        target = real_eval / "checker.py"
+        target.write_text("print('bypass')\n", encoding="utf-8")
+        (self.root / ".eval").symlink_to(real_eval, target_is_directory=True)
+        result = subprocess.run(
+            [sys.executable, str(RUNNER), "--expect", f"{self.sha(target)}:.eval/checker.py"],
+            cwd=self.root,
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(0, result.returncode)
+
+    def test_parent_traversal_fails(self):
+        result = subprocess.run(
+            [sys.executable, str(RUNNER), "--expect", f"{self.sha(self.checker)}:../checker.py"],
+            cwd=self.root,
+            capture_output=True,
+            text=True,
         )
         self.assertNotEqual(0, result.returncode)
 

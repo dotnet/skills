@@ -55,7 +55,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='d818ffeaf34b1f33b1a65e740b7acb708026e02d3d6673da8b2c2c1f2c2e39f3';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect a7c764075d0badfc5b12df7d391a1148dca973428c4a5ddcb602424c4c406556:.eval/check_readonly.py --expect 70c443c393a8973de19071d890cab67074b5db552c531c6b5c993fa689b82579:.eval/baseline.json -- python .eval/check_readonly.py verify FullPipeline
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='b7b1fb79c07785e73059c6c4772f95c2c5b70bd8e476511f8e7a26255eca99b3';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect a7c764075d0badfc5b12df7d391a1148dca973428c4a5ddcb602424c4c406556:.eval/check_readonly.py --expect 70c443c393a8973de19071d890cab67074b5db552c531c6b5c993fa689b82579:.eval/baseline.json -- python .eval/check_readonly.py verify FullPipeline
           expected_exit_code: 0
           timeout: 1m
       - type: exit-success
@@ -106,13 +106,13 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='d818ffeaf34b1f33b1a65e740b7acb708026e02d3d6673da8b2c2c1f2c2e39f3';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 358a2b7c644a8dd8442a5cd63cffee2f5fff6e9314ff13ae66f799e28f2cd6bc:.eval/check_time_scope.py --expect 70c443c393a8973de19071d890cab67074b5db552c531c6b5c993fa689b82579:.eval/baseline.json -- python .eval/check_time_scope.py
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='b7b1fb79c07785e73059c6c4772f95c2c5b70bd8e476511f8e7a26255eca99b3';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 358a2b7c644a8dd8442a5cd63cffee2f5fff6e9314ff13ae66f799e28f2cd6bc:.eval/check_time_scope.py --expect 70c443c393a8973de19071d890cab67074b5db552c531c6b5c993fa689b82579:.eval/baseline.json -- python .eval/check_time_scope.py
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='d818ffeaf34b1f33b1a65e740b7acb708026e02d3d6673da8b2c2c1f2c2e39f3';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 8768d99d41e0021669c2179a2415572c2c0c9177dfc1dc4e7d09f91996ace148:.eval/TimeContract/Program.cs --expect ea3bdafcaa215400ffb53b2fc21bdd0347f67a59a5dd1a7d9e9697492ebb3cb3:.eval/TimeContract/TimeContract.csproj -- dotnet run --project .eval/TimeContract
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='b7b1fb79c07785e73059c6c4772f95c2c5b70bd8e476511f8e7a26255eca99b3';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 8768d99d41e0021669c2179a2415572c2c0c9177dfc1dc4e7d09f91996ace148:.eval/TimeContract/Program.cs --expect ea3bdafcaa215400ffb53b2fc21bdd0347f67a59a5dd1a7d9e9697492ebb3cb3:.eval/TimeContract/TimeContract.csproj -- dotnet run --project .eval/TimeContract
           expected_exit_code: 0
           timeout: 5m
       - type: exit-success
@@ -167,19 +167,19 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='d818ffeaf34b1f33b1a65e740b7acb708026e02d3d6673da8b2c2c1f2c2e39f3';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect a7c764075d0badfc5b12df7d391a1148dca973428c4a5ddcb602424c4c406556:.eval/check_readonly.py --expect 70c443c393a8973de19071d890cab67074b5db552c531c6b5c993fa689b82579:.eval/baseline.json -- python .eval/check_readonly.py verify FullPipeline
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='b7b1fb79c07785e73059c6c4772f95c2c5b70bd8e476511f8e7a26255eca99b3';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect a7c764075d0badfc5b12df7d391a1148dca973428c4a5ddcb602424c4c406556:.eval/check_readonly.py --expect 70c443c393a8973de19071d890cab67074b5db552c531c6b5c993fa689b82579:.eval/baseline.json -- python .eval/check_readonly.py verify FullPipeline
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='d818ffeaf34b1f33b1a65e740b7acb708026e02d3d6673da8b2c2c1f2c2e39f3';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 358a2b7c644a8dd8442a5cd63cffee2f5fff6e9314ff13ae66f799e28f2cd6bc:.eval/check_time_scope.py --expect 70c443c393a8973de19071d890cab67074b5db552c531c6b5c993fa689b82579:.eval/baseline.json -- python .eval/check_time_scope.py
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='b7b1fb79c07785e73059c6c4772f95c2c5b70bd8e476511f8e7a26255eca99b3';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 358a2b7c644a8dd8442a5cd63cffee2f5fff6e9314ff13ae66f799e28f2cd6bc:.eval/check_time_scope.py --expect 70c443c393a8973de19071d890cab67074b5db552c531c6b5c993fa689b82579:.eval/baseline.json -- python .eval/check_time_scope.py
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='d818ffeaf34b1f33b1a65e740b7acb708026e02d3d6673da8b2c2c1f2c2e39f3';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 8768d99d41e0021669c2179a2415572c2c0c9177dfc1dc4e7d09f91996ace148:.eval/TimeContract/Program.cs --expect ea3bdafcaa215400ffb53b2fc21bdd0347f67a59a5dd1a7d9e9697492ebb3cb3:.eval/TimeContract/TimeContract.csproj -- dotnet run --project .eval/TimeContract
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='b7b1fb79c07785e73059c6c4772f95c2c5b70bd8e476511f8e7a26255eca99b3';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 8768d99d41e0021669c2179a2415572c2c0c9177dfc1dc4e7d09f91996ace148:.eval/TimeContract/Program.cs --expect ea3bdafcaa215400ffb53b2fc21bdd0347f67a59a5dd1a7d9e9697492ebb3cb3:.eval/TimeContract/TimeContract.csproj -- dotnet run --project .eval/TimeContract
           expected_exit_code: 0
           timeout: 5m
       - type: run-command
@@ -270,7 +270,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='d818ffeaf34b1f33b1a65e740b7acb708026e02d3d6673da8b2c2c1f2c2e39f3';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect a7c764075d0badfc5b12df7d391a1148dca973428c4a5ddcb602424c4c406556:.eval/check_readonly.py --expect 70c443c393a8973de19071d890cab67074b5db552c531c6b5c993fa689b82579:.eval/baseline.json -- python .eval/check_readonly.py verify FullPipeline
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes()).hexdigest()=='b7b1fb79c07785e73059c6c4772f95c2c5b70bd8e476511f8e7a26255eca99b3';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect a7c764075d0badfc5b12df7d391a1148dca973428c4a5ddcb602424c4c406556:.eval/check_readonly.py --expect 70c443c393a8973de19071d890cab67074b5db552c531c6b5c993fa689b82579:.eval/baseline.json -- python .eval/check_readonly.py verify FullPipeline
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
