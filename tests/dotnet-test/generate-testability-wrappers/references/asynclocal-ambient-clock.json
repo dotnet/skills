@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "generate-testability-wrappers-asynclocal-ambient-clock",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "You ruled out a DI container and cannot change the released public static signatures, so use an internal ambient clock backed by `AsyncLocal<T>`. Expose the internal override only to the test assembly with `InternalsVisibleTo`; the public API remains unchanged.\n\n```csharp\nusing System.Runtime.CompilerServices;\nusing System.Threading;\n\n[assembly: InternalsVisibleTo(\"Contoso.Retention.Tests\")]\n\npublic static class RetentionPolicy\n{\n    private static readonly AsyncLocal<Func<DateTimeOffset>?> s_clockOverride = new();\n\n    private static DateTimeOffset UtcNow\n        => s_clockOverride.Value?.Invoke() ?? TimeProvider.System.GetUtcNow();\n\n    public static bool IsExpired(DateTimeOffset createdAt, TimeSpan retention)\n        => UtcNow - createdAt > retention;\n\n    public static DateTimeOffset NextSweep(DateTimeOffset lastSweep)\n    {\n        var now = UtcNow;\n        var scheduled = lastSweep.AddDays(1);\n        return scheduled < now ? now : scheduled;\n    }\n\n    public static string StampFileName(string prefix)\n        => $\"{prefix}_{UtcNow.UtcDateTime:yyyyMMddHHmmss}.log\";\n\n    internal static IDisposable OverrideClock(TimeProvider provider)\n    {\n        ArgumentNullException.ThrowIfNull(provider);\n        var previous = s_clockOverride.Value;\n        Func<DateTimeOffset> current = provider.GetUtcNow;\n        s_clockOverride.Value = current;\n        return new ClockScope(current, previous);\n    }\n\n    private sealed class ClockScope(\n        Func<DateTimeOffset> current,\n        Func<DateTimeOffset>? previous) : IDisposable\n    {\n        private bool _disposed;\n\n        public void Dispose()\n        {\n            if (_disposed)\n                return;\n            if (!ReferenceEquals(s_clockOverride.Value, current))\n                throw new InvalidOperationException(\"Clock scopes must be disposed in LIFO order.\");\n\n            s_clockOverride.Value = previous;\n            _disposed = true;\n        }\n    }\n}\n```\n\nThis replaces every `DateTime.UtcNow` read, including both decisions in `NextSweep`, while preserving `DateTimeOffset` and UTC filename semantics. `AsyncLocal` flows across `await`, so parallel tests do not share overrides. The disposable scope restores nested values, ignores duplicate disposal, and rejects out-of-order disposal instead of replaying stale state. Tests can use `FakeTimeProvider`, and only the precisely named friend test assembly can call the internal override. Production still defaults to `TimeProvider.System`; the trade-off is one `AsyncLocal.Value` read per clock access."
+    }
+  ]
+}
