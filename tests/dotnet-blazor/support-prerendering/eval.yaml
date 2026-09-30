@@ -381,6 +381,6 @@ stimuli:
     graders:
       - type: prompt
     rubric:
-      - Implements ordinary static server rendering without persistent component state or renderer interactivity checks
-      - Does not disable or configure prerendering when no interactive runtime exists
-      - Stayed dormant and did not hijack the static-only request with interactive handoff machinery
+      - Recognizes that no prerender-to-interactive handoff exists for this static-only request
+      - Does not prescribe persistent component state, renderer interactivity checks, or prerender configuration
+      - Gives focused static-server guidance or asks for project context and does not activate the interactive handoff workflow

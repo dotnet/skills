@@ -427,9 +427,10 @@ stimuli:
     tags:
       feature: no-op-already-converted
     prompt: |
-      Check whether this project still needs conversion from Blazor Server to a
-      Blazor Web App. If it is already on the current model, explain that briefly
-      and do not modify any files.
+      This project is already a current Blazor Web App. Verify that no legacy
+      Blazor Server conversion work remains, explain that briefly, and do not
+      modify any files.
+    expect_activation: false
     environment:
       files:
         - src: fixtures/global.json
@@ -485,7 +486,7 @@ stimuli:
     rubric:
       - Correctly recognizes that the project already uses component services, component endpoints, and the Blazor Web App document structure
       - Does not rewrite, regenerate, or delete any project or source file
-      - Concludes without migration because no conversion is needed
+      - Does not activate or apply the legacy server-hosting conversion workflow because no conversion is needed
 
   - name: Keep conversion guidance dormant for hosted WebAssembly
     tags:
