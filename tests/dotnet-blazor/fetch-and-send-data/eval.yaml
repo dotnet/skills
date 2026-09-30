@@ -9,6 +9,9 @@ stimuli:
   - name: Recipe browser with resilient data loading
     tags:
       feature: parameter-driven-reload
+      capability: parameter-driven-reload
+      risk: medium
+      journey: build-data-flow
     prompt: |
       I have a Blazor Web App with Interactive Server (per-page).
 
@@ -81,6 +84,9 @@ stimuli:
   - name: Real-time shipment tracker with Auto interactivity
     tags:
       feature: auto-data-abstraction
+      capability: auto-data-abstraction
+      risk: medium
+      journey: build-data-flow
     prompt: |
       I have a Blazor Web App using Auto interactivity mode (per-page). Pages
       may run on Server first, then switch to WebAssembly.
@@ -152,6 +158,9 @@ stimuli:
   - name: Stream a static SSR report
     tags:
       feature: static-streaming-load
+      capability: static-streaming-load
+      risk: medium
+      journey: build-data-flow
     prompt: |
       In this static SSR Blazor app, add /sales-report. It calls an injected
       SalesReportService.GetAsync(CancellationToken), which takes several seconds,
@@ -190,6 +199,9 @@ stimuli:
   - name: Use an error boundary for a simple initial load
     tags:
       feature: simple-load-error-boundary
+      capability: simple-load-error-boundary
+      risk: medium
+      journey: build-data-flow
     prompt: |
       Add an interactive /featured-products page that calls
       ProductService.GetFeaturedAsync once when the component starts. Show a
@@ -225,6 +237,9 @@ stimuli:
   - name: Submit an order without duplicate requests
     tags:
       feature: data-submission
+      capability: data-submission
+      risk: medium
+      journey: build-data-flow
     prompt: |
       Add an interactive OrderSummary component with a Place Order button. It
       sends the supplied OrderDraft to OrderClient.CreateAsync and shows the new
@@ -259,6 +274,9 @@ stimuli:
   - name: Register a WebAssembly API client
     tags:
       feature: wasm-http-client
+      capability: wasm-http-client
+      risk: medium
+      journey: build-data-flow
     prompt: |
       In this Interactive WebAssembly Blazor Web App, add a typed
       WeatherApiClient for https://weather.example/ and an interactive /forecast
@@ -296,6 +314,9 @@ stimuli:
   - name: Avoid reload for display-only query changes
     tags:
       feature: reload-guard
+      capability: reload-guard
+      risk: medium
+      journey: build-data-flow
     prompt: |
       Add an interactive /customers/{CustomerId:int} page with a ?tab= query
       parameter. CustomerService.GetAsync(CustomerId, CancellationToken) should
@@ -330,6 +351,9 @@ stimuli:
   - name: Distinguish timeout from user cancellation
     tags:
       feature: cancellation-classification
+      capability: cancellation-classification
+      risk: medium
+      journey: build-data-flow
     prompt: |
       Add an interactive /audit-log page using AuditClient.GetAsync. It needs a
       Retry button and a specific timeout message, but navigation away or a newer
@@ -373,6 +397,9 @@ stimuli:
   - name: Load matching services in both Auto hosts
     tags:
       feature: auto-service-registration
+      capability: auto-service-registration
+      risk: medium
+      journey: build-data-flow
     prompt: |
       In this Interactive Auto app, add an InventoryClient abstraction used by a
       Client-project component. During server execution it may call an injected
@@ -407,6 +434,9 @@ stimuli:
   - name: Stay dormant for field validation
     tags:
       feature: routing-boundary
+      capability: routing-boundary
+      risk: routing
+      journey: decline-off-target
     prompt: |
       Add an EditForm where a duplicate email returned by a registration service
       appears beside the Email field and clears when the user edits that field.

@@ -8,6 +8,9 @@ stimuli:
   - name: Convert a basic interactive server app
     tags:
       feature: hosting-model
+      capability: hosting-model
+      risk: high
+      journey: migrate-legacy-blazor
     prompt: |
       Convert the supplied legacy Blazor Server project to the current Blazor Web
       App hosting model while preserving interactive server behavior. Replace the
@@ -71,6 +74,9 @@ stimuli:
   - name: Migrate cascading authentication state
     tags:
       feature: authentication-state
+      capability: authentication-state
+      risk: high
+      journey: migrate-legacy-blazor
     prompt: |
       Convert the supplied authenticated Blazor Server project to a Blazor Web
       App. Preserve AuthorizeRouteView and the redirect shown to unauthorized
@@ -132,6 +138,9 @@ stimuli:
   - name: Preserve disabled prerendering
     tags:
       feature: prerender-semantics
+      capability: prerender-semantics
+      risk: high
+      journey: migrate-legacy-blazor
     prompt: |
       Convert the supplied Blazor Server project to a Blazor Web App without
       changing its rendering lifecycle. The old host uses Server rather than
@@ -189,6 +198,9 @@ stimuli:
   - name: Preserve configured circuit behavior
     tags:
       feature: circuit-options
+      capability: circuit-options
+      risk: high
+      journey: migrate-legacy-blazor
     prompt: |
       Convert the supplied Blazor Server project to a Blazor Web App. The current
       circuit configuration enables detailed errors and retains disconnected
@@ -250,6 +262,9 @@ stimuli:
   - name: Preserve authentication pipeline order
     tags:
       feature: middleware-order
+      capability: middleware-order
+      risk: high
+      journey: migrate-legacy-blazor
     prompt: |
       Convert the supplied Blazor Server application to a Blazor Web App while
       preserving its controllers and authentication pipeline. Add any middleware
@@ -309,6 +324,9 @@ stimuli:
   - name: Preserve the host document and error UI
     tags:
       feature: document-shell
+      capability: document-shell
+      risk: high
+      journey: migrate-legacy-blazor
     prompt: |
       Convert the supplied Blazor Server application to a Blazor Web App. Preserve
       its viewport metadata, isolated stylesheet, and environment-specific error
@@ -367,6 +385,9 @@ stimuli:
   - name: Convert a Startup-based application
     tags:
       feature: startup-hosting
+      capability: startup-hosting
+      risk: high
+      journey: migrate-legacy-blazor
     prompt: |
       Convert the supplied application from the legacy Blazor Server hosting
       model to a Blazor Web App. This project still uses Program.cs plus
@@ -426,6 +447,9 @@ stimuli:
   - name: Leave an existing Blazor Web App unchanged
     tags:
       feature: no-op-already-converted
+      capability: no-op-already-converted
+      risk: routing
+      journey: decline-off-target
     prompt: |
       This project is already a current Blazor Web App. Verify that no legacy
       Blazor Server conversion work remains, explain that briefly, and do not
@@ -491,6 +515,9 @@ stimuli:
   - name: Keep conversion guidance dormant for hosted WebAssembly
     tags:
       feature: dormancy-webassembly
+      capability: dormancy-webassembly
+      risk: routing
+      journey: decline-off-target
     prompt: |
       Migrate my hosted Blazor WebAssembly solution to the newest supported
       hosted WebAssembly layout. It has separate Client, Server, and Shared

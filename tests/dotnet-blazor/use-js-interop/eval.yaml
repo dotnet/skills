@@ -9,6 +9,9 @@ stimuli:
   - name: Auto-saving notepad that survives page reloads
     tags:
       feature: browser-storage-lifecycle
+      capability: browser-storage-lifecycle
+      risk: medium
+      journey: integrate-browser-api
     prompt: |
       I need a `Notepad` component for my Blazor Web App.
 
@@ -61,6 +64,9 @@ stimuli:
   - name: User activity tracker that detects idle timeout
     tags:
       feature: js-to-dotnet-callback
+      capability: js-to-dotnet-callback
+      risk: medium
+      journey: integrate-browser-api
     prompt: |
       I need a `UserActivityTracker` component for my Blazor Web App.
 
@@ -105,6 +111,9 @@ stimuli:
   - name: Responsive layout that adapts to screen size
     tags:
       feature: viewport-observer
+      capability: viewport-observer
+      risk: medium
+      journey: integrate-browser-api
     prompt: |
       My Blazor Web App needs to adapt its layout based on the browser viewport width. I need:
 
@@ -166,6 +175,9 @@ stimuli:
   - name: Infinite scroll list using IntersectionObserver
     tags:
       feature: intersection-observer
+      capability: intersection-observer
+      risk: medium
+      journey: integrate-browser-api
     prompt: |
       I need an `InfiniteScrollList` component for my Blazor Web App that loads more items
       as the user scrolls.
@@ -223,6 +235,9 @@ stimuli:
   - name: Update a chart after parameters change
     tags:
       feature: deferred-parameter-interop
+      capability: deferred-parameter-interop
+      risk: medium
+      journey: integrate-browser-api
     prompt: |
       Add a SalesChart component that receives IReadOnlyList<SalesPoint>. A
       collocated JavaScript module creates a third-party chart on first render and
@@ -260,6 +275,9 @@ stimuli:
   - name: Monitor clipboard changes from JavaScript
     tags:
       feature: callback-error-handling
+      capability: callback-error-handling
+      risk: medium
+      journey: integrate-browser-api
     prompt: |
       Add a ClipboardMonitor component that starts listening for browser copy
       events after first render and displays the last copied text. JavaScript must
@@ -303,6 +321,9 @@ stimuli:
   - name: Focus a validated field without string ids
     tags:
       feature: element-reference-interop
+      capability: element-reference-interop
+      risk: medium
+      journey: integrate-browser-api
     prompt: |
       Add a FocusableEditor component with a textarea and a public FocusAsync
       method that its parent can call after validation fails. Use a collocated
@@ -336,6 +357,9 @@ stimuli:
   - name: Wrap a map widget with deterministic cleanup
     tags:
       feature: third-party-widget-lifecycle
+      capability: third-party-widget-lifecycle
+      risk: medium
+      journey: integrate-browser-api
     prompt: |
       Add a LocationMap component that receives latitude, longitude, and zoom.
       A collocated JavaScript module owns a map widget instance, applies all three
@@ -374,6 +398,9 @@ stimuli:
   - name: Stay dormant for CSS-only responsiveness
     tags:
       feature: routing-boundary
+      capability: routing-boundary
+      risk: routing
+      journey: decline-off-target
     prompt: |
       Make a card grid switch from four columns to one column below 768px. This
       is purely presentational; no component state or C# callback needs the

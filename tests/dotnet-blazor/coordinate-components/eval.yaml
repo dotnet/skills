@@ -9,6 +9,9 @@ stimuli:
   - name: Warehouse dashboard with site selector and live stock alerts
     tags:
       feature: scoped-state-fanout
+      capability: scoped-state-fanout
+      risk: medium
+      journey: share-component-state
     prompt: |
       I have a Blazor Web App using per-page interactivity (InteractiveServer).
 
@@ -82,6 +85,9 @@ stimuli:
   - name: Theme state across interactive islands
     tags:
       feature: root-cascade-interactive-islands
+      capability: root-cascade-interactive-islands
+      risk: medium
+      journey: share-component-state
     prompt: |
       I have a Blazor Web App with per-page Interactive Server mode (not global).
       The MainLayout renders statically (no @rendermode attribute on it).
@@ -139,6 +145,9 @@ stimuli:
   - name: Share a cart across unrelated interactive components
     tags:
       feature: scoped-service-state
+      capability: scoped-service-state
+      risk: medium
+      journey: share-component-state
     prompt: |
       Add a CartState service to this per-page Interactive Server app. Product
       cards on /catalog add items, a CartBadge component in the navigation shows
@@ -174,6 +183,9 @@ stimuli:
   - name: Cascade two values of the same type
     tags:
       feature: named-cascading-values
+      capability: named-cascading-values
+      risk: medium
+      journey: share-component-state
     prompt: |
       Build an interactive ComparisonPanel component that receives two
       CultureInfo values, one for source formatting and one for target
@@ -205,6 +217,9 @@ stimuli:
   - name: Fan out external hub updates safely
     tags:
       feature: external-event-dispatch
+      capability: external-event-dispatch
+      risk: medium
+      journey: share-component-state
     prompt: |
       Add a scoped PresenceState service and two unrelated components,
       OnlineUserCount and UserList. A supplied PresenceHubClient raises a
@@ -241,6 +256,9 @@ stimuli:
   - name: Register shared state for Auto execution
     tags:
       feature: auto-mode-shared-state
+      capability: auto-mode-shared-state
+      risk: medium
+      journey: share-component-state
     prompt: |
       In this per-page Interactive Auto app, add a FavoritesState used by a
       FavoritesButton and FavoritesSummary. The components live in the Client
@@ -280,6 +298,9 @@ stimuli:
   - name: Split a broad preference object into granular cascades
     tags:
       feature: granular-cascade-design
+      capability: granular-cascade-design
+      risk: medium
+      journey: share-component-state
     prompt: |
       Refactor a settings shell that currently cascades one mutable AppState
       containing Theme, Locale, CartItems, and ConnectionStatus. A cart change is
@@ -312,6 +333,9 @@ stimuli:
   - name: Preserve state through enhanced navigation
     tags:
       feature: circuit-navigation-lifetime
+      capability: circuit-navigation-lifetime
+      risk: medium
+      journey: share-component-state
     prompt: |
       Add a scoped DraftState service for an Interactive Server app. A composer
       on /compose updates a draft title and body, while a DraftStatus component
@@ -345,6 +369,9 @@ stimuli:
   - name: Stay dormant for direct parent-child communication
     tags:
       feature: routing-boundary
+      capability: routing-boundary
+      risk: routing
+      journey: decline-off-target
     prompt: |
       Write a ProductList parent and ProductCard child. The parent passes each
       Product to its card, and clicking a card sends that Product directly back

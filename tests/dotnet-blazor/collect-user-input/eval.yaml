@@ -9,6 +9,9 @@ stimuli:
   - name: Event registration with custom validation
     tags:
       feature: server-field-validation
+      capability: server-field-validation
+      risk: medium
+      journey: build-input-flow
     prompt: |
       I have an existing Blazor Web App with Interactive Server (per-page).
 
@@ -67,6 +70,9 @@ stimuli:
   - name: Multi-step booking form with cross-field validation
     tags:
       feature: multi-step-cross-field-validation
+      capability: multi-step-cross-field-validation
+      risk: medium
+      journey: build-input-flow
     prompt: |
       I have a Blazor Web App with per-page interactivity (Server mode).
 
@@ -132,6 +138,9 @@ stimuli:
   - name: Submit a static SSR contact form
     tags:
       feature: static-ssr-form
+      capability: static-ssr-form
+      risk: medium
+      journey: build-input-flow
     prompt: |
       Add a static SSR /contact page to this Blazor Web App. It must post a
       ContactRequest with required Name, valid Email, Subject, and Message fields.
@@ -174,6 +183,9 @@ stimuli:
   - name: Isolate two static SSR forms on one page
     tags:
       feature: multiple-static-forms
+      capability: multiple-static-forms
+      risk: medium
+      journey: build-input-flow
     prompt: |
       Create a static SSR /account/preferences page with two independent forms:
       one changes the display name and one changes the notification email.
@@ -212,6 +224,9 @@ stimuli:
   - name: Upload a bounded document interactively
     tags:
       feature: interactive-file-upload
+      capability: interactive-file-upload
+      risk: medium
+      journey: build-input-flow
     prompt: |
       Add an interactive /upload-document page. The user selects one PDF up to
       5 MB, sees its name and size before upload, and submits it to an injected
@@ -245,6 +260,9 @@ stimuli:
   - name: Build dependent interactive filters
     tags:
       feature: reactive-input-binding
+      capability: reactive-input-binding
+      risk: medium
+      journey: build-input-flow
     prompt: |
       Add an interactive ProductFilter component with Category and Subcategory
       selects plus a search box. Categories and their subcategories are supplied
@@ -278,6 +296,9 @@ stimuli:
   - name: Edit one inventory row inline
     tags:
       feature: inline-editing
+      capability: inline-editing
+      risk: medium
+      journey: build-input-flow
     prompt: |
       Create an interactive InventoryRowEditor component. It receives an
       InventoryItem parameter and normally renders read-only values. Edit creates
@@ -312,6 +333,9 @@ stimuli:
   - name: Prevent duplicate checkout submission
     tags:
       feature: submission-lifecycle
+      capability: submission-lifecycle
+      risk: medium
+      journey: build-input-flow
     prompt: |
       Add an interactive /checkout page with an EditForm for ShippingAddress and
       a Place Order button that calls OrderService.PlaceAsync. A slow request must
@@ -345,6 +369,9 @@ stimuli:
   - name: Stay dormant for a read-only component
     tags:
       feature: routing-boundary
+      capability: routing-boundary
+      risk: routing
+      journey: decline-off-target
     prompt: |
       Write a reusable ProductCard Blazor component that only displays a product
       name, price, and image and notifies its parent when the card is selected.

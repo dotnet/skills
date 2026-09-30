@@ -9,6 +9,9 @@ stimuli:
   - name: Login and account management in a globally interactive app
     tags:
       feature: identity-static-boundary
+      capability: identity-static-boundary
+      risk: high
+      journey: secure-application
     prompt: |
       I have a Blazor Web App with Interactive Server mode applied globally
       (all pages are interactive by default).
@@ -75,6 +78,9 @@ stimuli:
   - name: Multi-tier app with WebAssembly auth
     tags:
       feature: wasm-auth-state-handoff
+      capability: wasm-auth-state-handoff
+      risk: high
+      journey: secure-application
     prompt: |
       I have a Blazor Web App using Auto interactivity mode (per-page). Some
       pages will run on Server, others on WebAssembly.
@@ -128,6 +134,9 @@ stimuli:
   - name: Protect an interactive server admin area
     tags:
       feature: role-authorization
+      capability: role-authorization
+      risk: high
+      journey: secure-application
     prompt: |
       Add authentication plumbing to this globally interactive Server app and
       create /admin restricted to the Admin role. The page must enforce access at
@@ -163,6 +172,9 @@ stimuli:
   - name: Implement a mutable authentication state provider
     tags:
       feature: custom-authentication-state
+      capability: custom-authentication-state
+      risk: high
+      journey: secure-application
     prompt: |
       In this Interactive Server app, implement a development-only
       AuthenticationStateProvider with SignIn(email, roles) and SignOut methods.
@@ -196,6 +208,9 @@ stimuli:
   - name: Keep per-page Identity endpoints static
     tags:
       feature: per-page-identity
+      capability: per-page-identity
+      risk: high
+      journey: secure-application
     prompt: |
       Add simple ASP.NET Core Identity login, register, and logout endpoints to
       this per-page Interactive Server app. Normal application pages opt into
@@ -231,6 +246,9 @@ stimuli:
   - name: Authorize both an Auto page and its API
     tags:
       feature: auto-api-authorization
+      capability: auto-api-authorization
+      risk: high
+      journey: secure-application
     prompt: |
       Add an Interactive Auto /orders page that calls GET /api/orders. Both the
       page and API require an authenticated user, and the API additionally
@@ -265,6 +283,9 @@ stimuli:
   - name: Apply a claim-based authorization policy
     tags:
       feature: policy-authorization
+      capability: policy-authorization
+      risk: high
+      journey: secure-application
     prompt: |
       Add a CanApproveExpense authorization policy to this Interactive Server
       app. It requires an authenticated user with Department=Finance and either
@@ -299,6 +320,9 @@ stimuli:
   - name: Redirect anonymous users without looping
     tags:
       feature: unauthorized-routing
+      capability: unauthorized-routing
+      risk: high
+      journey: secure-application
     prompt: |
       Configure this globally interactive Server app so protected routes redirect
       anonymous users to /account/login?returnUrl=..., while authenticated users
@@ -333,6 +357,9 @@ stimuli:
   - name: Stay dormant for non-auth shared state
     tags:
       feature: routing-boundary
+      capability: routing-boundary
+      risk: routing
+      journey: decline-off-target
     prompt: |
       Add a per-user theme preference service so unrelated interactive Blazor
       components can switch between light and dark mode and update together.

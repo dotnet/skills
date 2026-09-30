@@ -8,6 +8,9 @@ stimuli:
   - name: Implement a new minimal product API
     tags:
       feature: minimal-api-crud
+      capability: minimal-api-crud
+      risk: high
+      journey: build-http-api
     prompt: |
       Complete the supplied .NET 10 starter project as a product API. Products
       have a name, price, category (Electronics, Clothing, Food, or Books), and
@@ -64,6 +67,9 @@ stimuli:
   - name: Add centralized exception-to-problem-details handling
     tags:
       feature: exception-handling
+      capability: exception-handling
+      risk: high
+      journey: build-http-api
     prompt: |
       Add centralized error handling to the supplied .NET 10 minimal API.
       KeyNotFoundException must produce 404, ArgumentException 400,
@@ -111,6 +117,9 @@ stimuli:
   - name: Extend an existing controller API with order endpoints
     tags:
       feature: controller-extension
+      capability: controller-extension
+      risk: high
+      journey: build-http-api
     prompt: |
       Extend the supplied controller-based API with an OrdersController. Add GET
       collection, GET-by-ID, and POST endpoints. An order has a customer ID,
@@ -168,6 +177,9 @@ stimuli:
   - name: Repair a TypedResults handler that does not compile
     tags:
       feature: typed-results
+      capability: typed-results
+      risk: high
+      journey: build-http-api
     prompt: |
       The supplied minimal API fails to compile with CS1593 on its GET-by-ID
       endpoint. Fix the handler while keeping typed 200 and 404 results and the
@@ -210,6 +222,9 @@ stimuli:
   - name: Enable automatic validation for a minimal API request
     tags:
       feature: minimal-api-validation
+      capability: minimal-api-validation
+      risk: high
+      journey: build-http-api
     prompt: |
       The supplied .NET 10 minimal API has data annotations on
       CreateContactRequest, but invalid requests are not rejected before the
@@ -258,6 +273,9 @@ stimuli:
   - name: Preserve an existing JSON contract while adding string enums
     tags:
       feature: json-contract
+      capability: json-contract
+      risk: high
+      journey: build-http-api
     prompt: |
       Configure the supplied controller API so ShipmentStatus values are written
       and read as enum names instead of integers. Preserve the API's existing
@@ -316,6 +334,9 @@ stimuli:
   - name: Create an HTTP request file for every catalog route
     tags:
       feature: http-request-file
+      capability: http-request-file
+      risk: high
+      journey: build-http-api
     prompt: |
       Add a .http request file for the supplied catalog API. Include runnable
       requests for list, get-by-ID, create, and delete, with a realistic JSON
@@ -375,6 +396,9 @@ stimuli:
   - name: Keep Web API guidance dormant for a Blazor form
     tags:
       feature: dormancy-blazor
+      capability: dormancy-blazor
+      risk: routing
+      journey: decline-off-target
     prompt: |
       Build a Blazor component with an EditForm for editing a customer profile.
       Add validation messages, disable the submit button while saving, and show a
@@ -391,6 +415,9 @@ stimuli:
   - name: Keep Web API guidance dormant for a SignalR hub
     tags:
       feature: dormancy-signalr
+      capability: dormancy-signalr
+      risk: routing
+      journey: decline-off-target
     prompt: |
       Add a SignalR ChatHub with a SendMessage method that broadcasts the user
       and message to connected clients. Register and map the hub at /chatHub.

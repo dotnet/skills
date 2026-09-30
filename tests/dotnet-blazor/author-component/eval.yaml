@@ -9,6 +9,9 @@ stimuli:
   - name: Author a cancellable local search component
     tags:
       feature: cancellable-component-work
+      capability: cancellable-component-work
+      risk: medium
+      journey: build-component
     prompt: |
       Write a Blazor component called ProductSearch that will be used on a catalog browsing page. Here are the service contracts the application already registers in DI:
 
@@ -63,6 +66,9 @@ stimuli:
   - name: Author a multi-step review workflow with shared state
     tags:
       feature: component-data-flow
+      capability: component-data-flow
+      risk: medium
+      journey: build-component
     prompt: |
       Author a set of Blazor components for a document review workflow.
       Here are the models and service:
@@ -122,6 +128,9 @@ stimuli:
   - name: Author a generic data table component
     tags:
       feature: generic-template-component
+      capability: generic-template-component
+      risk: medium
+      journey: build-component
     prompt: |
       Write a generic Blazor component called DataTable that works with any item type.
       The parent should be able to customize how headers and rows are rendered by passing
@@ -164,6 +173,9 @@ stimuli:
   - name: Author a real-time notification badge component
     tags:
       feature: external-event-lifecycle
+      capability: external-event-lifecycle
+      risk: medium
+      journey: build-component
     prompt: |
       Write a Blazor component called NotificationBadge. Here are the service contracts:
 
@@ -207,6 +219,9 @@ stimuli:
   - name: Author a sortable list with code-behind pattern
     tags:
       feature: code-behind-parameter-copy
+      capability: code-behind-parameter-copy
+      risk: medium
+      journey: build-component
     prompt: |
       Write a Blazor component called SortableList using the code-behind pattern
       (SortableList.razor + SortableList.razor.cs). It should work with any item type.
@@ -247,6 +262,9 @@ stimuli:
   - name: Synchronize a selectable list with changing parameters
     tags:
       feature: parameter-synchronization
+      capability: parameter-synchronization
+      risk: medium
+      journey: build-component
     prompt: |
       Write a reusable Blazor component named SelectableList<TItem>. The parent
       supplies an IReadOnlyList<TItem>, a selected item, and an ItemTemplate.
@@ -278,6 +296,9 @@ stimuli:
   - name: Author a composable tab set
     tags:
       feature: composable-child-content
+      capability: composable-child-content
+      risk: medium
+      journey: build-component
     prompt: |
       Write a small Blazor TabSet and Tab pair. Consumers should declare tabs as
       child content, each tab supplies a title and arbitrary body content, and the
@@ -308,6 +329,9 @@ stimuli:
   - name: Repair blocking async component code
     tags:
       feature: async-safety-review
+      capability: async-safety-review
+      risk: medium
+      journey: build-component
     prompt: |
       Review and rewrite this Blazor component so it remains responsive and
       reports asynchronous failures through the renderer. Return the corrected
@@ -349,6 +373,9 @@ stimuli:
   - name: Stay dormant for form validation work
     tags:
       feature: routing-boundary
+      capability: routing-boundary
+      risk: routing
+      journey: decline-off-target
     prompt: |
       Build a Blazor registration form with EditForm, data annotations, inline
       ValidationMessage components, and server-returned field errors that clear

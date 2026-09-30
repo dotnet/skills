@@ -9,6 +9,9 @@ stimuli:
   - name: Project management Kanban board
     tags:
       feature: multi-column-dashboard
+      capability: multi-column-dashboard
+      risk: medium
+      journey: build-complex-ui
     prompt: |
       Build a Blazor page for a project management Kanban board. This is a complex
       multi-section layout. Use these service contracts and add a small stub
@@ -73,6 +76,9 @@ stimuli:
   - name: E-commerce product catalog with filters and pagination
     tags:
       feature: filter-grid-pagination
+      capability: filter-grid-pagination
+      risk: medium
+      journey: build-complex-ui
     prompt: |
       Build a Blazor page for browsing a product catalog. Use these service
       contracts and add a small stub implementation plus DI registration so the
@@ -139,6 +145,9 @@ stimuli:
   - name: Release pipeline workspace with staged progress
     tags:
       feature: staged-workflow-layout
+      capability: staged-workflow-layout
+      risk: medium
+      journey: build-complex-ui
     prompt: |
       Build a Blazor page for a software release pipeline workspace. This has
       several distinct visual regions and shared state. Use these service
@@ -212,6 +221,9 @@ stimuli:
   - name: Application settings page with nested tab panels
     tags:
       feature: nested-settings-sections
+      capability: nested-settings-sections
+      risk: medium
+      journey: build-complex-ui
     prompt: |
       Build a Blazor page for an application settings dashboard. This has multiple
       nested sections. Use these service contracts and add a small stub
@@ -298,6 +310,9 @@ stimuli:
   - name: Team chat interface with message threads
     tags:
       feature: multi-panel-chat
+      capability: multi-panel-chat
+      risk: medium
+      journey: build-complex-ui
     prompt: |
       Build a Blazor page for a team messaging app. This is a complex multi-panel
       layout with a sidebar, main area, and collapsible thread panel. Use these
@@ -371,6 +386,9 @@ stimuli:
   - name: Analytics dashboard with coordinated regions
     tags:
       feature: analytics-dashboard-decomposition
+      capability: analytics-dashboard-decomposition
+      risk: medium
+      journey: build-complex-ui
     prompt: |
       Build an interactive /analytics page for this Blazor app. The page has a
       date-range toolbar, KPI summary cards, a sales-by-region chart placeholder,
@@ -409,6 +427,9 @@ stimuli:
   - name: Document workspace with outline and inspector
     tags:
       feature: editor-workspace-decomposition
+      capability: editor-workspace-decomposition
+      risk: medium
+      journey: build-complex-ui
     prompt: |
       Build an interactive /documents/{Id:int} workspace. It has a left outline
       tree, a central document editor, and a right properties inspector. Selecting
@@ -448,6 +469,9 @@ stimuli:
   - name: Travel booking results with comparison drawer
     tags:
       feature: search-results-decomposition
+      capability: search-results-decomposition
+      risk: medium
+      journey: build-complex-ui
     prompt: |
       Build an interactive /travel/search page with a search criteria bar,
       filter sidebar, sortable paged result list, selected-trip comparison tray,
@@ -486,6 +510,9 @@ stimuli:
   - name: Stay dormant for one reusable component
     tags:
       feature: routing-boundary
+      capability: routing-boundary
+      risk: routing
+      journey: decline-off-target
     prompt: |
       Write one reusable RatingBadge component. It receives a numeric rating,
       renders filled and empty stars, and raises EventCallback<int> when the user

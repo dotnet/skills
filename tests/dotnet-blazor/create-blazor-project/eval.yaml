@@ -9,6 +9,9 @@ stimuli:
   - name: University course catalog with enrollment form
     tags:
       feature: static-ssr-selection
+      capability: static-ssr-selection
+      risk: medium
+      journey: choose-app-architecture
     prompt: |
       Recommend the exact `dotnet new blazor` command and initial architecture
       for a university course catalog. Do not run commands or create files.
@@ -47,6 +50,9 @@ stimuli:
   - name: Recipe community with interactive ratings on static pages
     tags:
       feature: server-per-page-selection
+      capability: server-per-page-selection
+      risk: medium
+      journey: choose-app-architecture
     prompt: |
       Recommend the exact `dotnet new blazor` command and project structure for
       a recipe sharing community. Do not run commands or create files.
@@ -87,6 +93,9 @@ stimuli:
   - name: Global logistics tracking for worldwide users
     tags:
       feature: auto-global-selection
+      capability: auto-global-selection
+      risk: medium
+      journey: choose-app-architecture
     prompt: |
       Recommend the exact `dotnet new blazor` command and initial project
       structure for a logistics company that tracks shipments. Do not run
@@ -132,6 +141,9 @@ stimuli:
   - name: Internal operations dashboard with global interactivity
     tags:
       feature: server-global-selection
+      capability: server-global-selection
+      risk: medium
+      journey: choose-app-architecture
     prompt: |
       Recommend the exact `dotnet new blazor` command and architecture for a new
       internal operations dashboard. Do not run commands or create files.
@@ -169,6 +181,9 @@ stimuli:
   - name: Offline field inspection application
     tags:
       feature: webassembly-global-selection
+      capability: webassembly-global-selection
+      risk: medium
+      journey: choose-app-architecture
     prompt: |
       Recommend the exact `dotnet new blazor` command and architecture for a new
       field inspection app. Do not run commands or create files.
@@ -209,6 +224,9 @@ stimuli:
   - name: Public news site with one live election widget
     tags:
       feature: sparse-interactivity-selection
+      capability: sparse-interactivity-selection
+      risk: medium
+      journey: choose-app-architecture
     prompt: |
       Recommend the exact `dotnet new blazor` command and architecture for a
       public news site. Do not run commands or create files.
@@ -245,6 +263,9 @@ stimuli:
   - name: Mixed storefront with low-latency configurator
     tags:
       feature: auto-per-page-selection
+      capability: auto-per-page-selection
+      risk: medium
+      journey: choose-app-architecture
     prompt: |
       Recommend the exact `dotnet new blazor` command and architecture for a
       global storefront. Do not run commands or create files.
@@ -285,6 +306,9 @@ stimuli:
   - name: Staff portal with individual accounts
     tags:
       feature: identity-scaffolding
+      capability: identity-scaffolding
+      risk: medium
+      journey: choose-app-architecture
     prompt: |
       Recommend the exact `dotnet new blazor` command and architecture for a new
       staff self-service portal. Do not run commands or create files.
@@ -322,6 +346,9 @@ stimuli:
   - name: Stay dormant for an existing app feature
     tags:
       feature: routing-boundary
+      capability: routing-boundary
+      risk: routing
+      journey: decline-off-target
     prompt: |
       I already have a Blazor Web App using Interactive Server. Add a reusable
       sortable ProductTable component to the existing project. Do not scaffold a

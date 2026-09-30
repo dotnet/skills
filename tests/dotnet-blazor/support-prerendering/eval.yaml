@@ -9,6 +9,9 @@ stimuli:
   - name: Equipment inventory loaded once
     tags:
       feature: persistent-initial-data
+      capability: persistent-initial-data
+      risk: medium
+      journey: preserve-prerender-state
     prompt: |
       I have an existing Blazor Web App with Interactive Server (per-page).
 
@@ -62,6 +65,9 @@ stimuli:
   - name: Notifications page with live polling
     tags:
       feature: interactive-only-background-work
+      capability: interactive-only-background-work
+      risk: medium
+      journey: preserve-prerender-state
     prompt: |
       I have an existing Blazor Web App with Interactive Server (per-page).
 
@@ -113,6 +119,9 @@ stimuli:
   - name: Disable prerendering for a browser-only chart
     tags:
       feature: disable-prerendering
+      capability: disable-prerendering
+      risk: medium
+      journey: preserve-prerender-state
     prompt: |
       Add an interactive /floor-map page containing a FloorMap component whose
       third-party chart library requires a real browser DOM during its first
@@ -148,6 +157,9 @@ stimuli:
   - name: Exclude an HttpContext page from global interactive routing
     tags:
       feature: static-routing-exclusion
+      capability: static-routing-exclusion
+      risk: medium
+      journey: preserve-prerender-state
     prompt: |
       This Blazor Web App applies Interactive Server globally. Add a /download
       page that inspects request headers and writes a file response using
@@ -182,6 +194,9 @@ stimuli:
   - name: Supply a client service during WebAssembly prerendering
     tags:
       feature: prerender-service-availability
+      capability: prerender-service-availability
+      risk: medium
+      journey: preserve-prerender-state
     prompt: |
       In this per-page Interactive WebAssembly app, add a Client-project
       ExchangeRates component that injects IExchangeRateService. The client
@@ -225,6 +240,9 @@ stimuli:
   - name: Persist repeated component instances independently
     tags:
       feature: keyed-persistent-state
+      capability: keyed-persistent-state
+      risk: medium
+      journey: preserve-prerender-state
     prompt: |
       Add an interactive /stores page that renders StoreSummary for several
       store ids. Each StoreSummary loads its own summary during prerendering and
@@ -260,6 +278,9 @@ stimuli:
   - name: Preserve Auto profile data across activation
     tags:
       feature: auto-persistent-state
+      capability: auto-persistent-state
+      risk: medium
+      journey: preserve-prerender-state
     prompt: |
       In this Interactive Auto app, add a Client-project /profile/{UserId:int}
       component. It loads a ProfileDto through IProfileService during prerendering,
@@ -300,6 +321,9 @@ stimuli:
   - name: Start a live connection only after activation
     tags:
       feature: renderer-interactivity-detection
+      capability: renderer-interactivity-detection
+      risk: medium
+      journey: preserve-prerender-state
     prompt: |
       Add an interactive /live-orders page. It prerenders an initial order list
       from OrderService, then starts an injected LiveOrderConnection only after
@@ -339,6 +363,9 @@ stimuli:
   - name: Keep a client-only service optional during prerender
     tags:
       feature: optional-prerender-service
+      capability: optional-prerender-service
+      risk: medium
+      journey: preserve-prerender-state
     prompt: |
       A Client-project DeviceStatus component injects IBrowserBatteryService,
       which only has a WebAssembly implementation. Keep prerendering enabled for
@@ -374,6 +401,9 @@ stimuli:
   - name: Stay dormant for a static SSR page
     tags:
       feature: routing-boundary
+      capability: routing-boundary
+      risk: routing
+      journey: decline-off-target
     prompt: |
       Add a static SSR /about page that reads company information from a
       server-side service and renders it once. The app has no interactive render
