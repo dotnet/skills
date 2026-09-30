@@ -11,6 +11,10 @@ stimuli:
       activates every ICommand with reflection. Remove that runtime discovery so the project builds with its enabled
       compatibility analyzers and still registers both commands with the same names and behavior. Do not suppress the
       diagnostics or preserve the whole assembly.
+    tags:
+      capability: replace-runtime-discovery
+      risk: high
+      journey: remove-reflection
     environment:
       files:
         - src: fixtures/common/global.json
@@ -67,6 +71,10 @@ stimuli:
       supplied as Type values through PluginDescriptor, and the factory must continue to create them. Express only the
       member requirement that Activator.CreateInstance needs, and keep the warning visible if a future caller cannot
       satisfy that contract.
+    tags:
+      capability: preserve-constructor-dataflow
+      risk: high
+      journey: fix-trim-warning
     environment:
       files:
         - src: fixtures/common/global.json
@@ -121,6 +129,10 @@ stimuli:
       no longer follow the constructor requirement through that bag. Refactor the API and its caller so the Type keeps
       a precise contract while the remaining request values can stay in object[]. Preserve the dispatch result and do
       not suppress the warning.
+    tags:
+      capability: repair-boxed-type-flow
+      risk: high
+      journey: fix-trim-warning
     environment:
       files:
         - src: fixtures/common/global.json
@@ -175,6 +187,10 @@ stimuli:
       Keep the emitted formatter as the fast path for runtimes that support dynamic code, but make FormatterFactory
       usable under Native AOT by selecting the existing StaticFormatter there. The analyzer should be clean. Any
       suppression must cover only a diagnostic proven false by the runtime guard and must explain that invariant.
+    tags:
+      capability: isolate-dynamic-code
+      risk: high
+      journey: support-native-aot
     environment:
       files:
         - src: fixtures/common/global.json
@@ -229,6 +245,10 @@ stimuli:
       That extensibility contract cannot be replaced with a closed list. Make the public API accurately communicate
       both limitations so the library builds with its analyzers, without claiming that a suppression or broad member
       annotation makes arbitrary native code available.
+    tags:
+      capability: declare-runtime-generic-boundary
+      risk: high
+      journey: design-compatible-api
     environment:
       files:
         - src: fixtures/common/global.json
@@ -277,6 +297,10 @@ stimuli:
       Fix the IL2026 and IL3050 failures in this small serializer while preserving its JSON output. Message is owned by
       this project and is the only serialized type. Remove runtime metadata discovery instead of propagating or
       suppressing the warnings, then run the supplied program.
+    tags:
+      capability: use-generated-json-metadata
+      risk: high
+      journey: remove-reflection
     environment:
       files:
         - src: fixtures/common/global.json
@@ -332,6 +356,10 @@ stimuli:
       CounterInterop must read the fixed `_count` field from the sealed VendorCounter type, which comes from a package
       we cannot change. Remove the FieldInfo lookup and keep the same result on .NET 9. The field name and owning type
       are compile-time constants; do not keep reflection or hide warnings.
+    tags:
+      capability: replace-private-member-reflection
+      risk: medium
+      journey: remove-reflection
     environment:
       files:
         - src: fixtures/common/global.json
@@ -387,6 +415,10 @@ stimuli:
       it with a fixed registry would break the contract. Make the library analyzer-clean by exposing the real trimming
       limitation to callers. Do not suppress it, root an entire assembly, or imply that the scan is safe in trimmed
       applications.
+    tags:
+      capability: declare-assembly-scanning-boundary
+      risk: high
+      journey: design-compatible-api
     environment:
       files:
         - src: fixtures/common/global.json
@@ -438,6 +470,10 @@ stimuli:
       will remain JIT-only, but the rest of the net9.0 surface should be checked for trimming problems. Configure the
       strongest honest compatibility property without producing warnings on the older target, then build all target
       frameworks.
+    tags:
+      capability: select-trimmable-property
+      risk: medium
+      journey: configure-library-analysis
     environment:
       files:
         - src: fixtures/common/global.json
@@ -485,6 +521,10 @@ stimuli:
       This net9.0 library already enables trim analysis and contains no JIT-only or runtime-discovery features. Update
       the project to make the strongest accurate compatibility declaration without redundant properties, then verify
       the library remains warning-free.
+    tags:
+      capability: select-aot-compatible-property
+      risk: medium
+      journey: configure-library-analysis
     environment:
       files:
         - src: fixtures/common/global.json
@@ -532,6 +572,10 @@ stimuli:
       Review this small net9.0 app for AOT and trimming work. It already declares compatibility, builds with warnings
       treated as errors, and has no reflection or dynamic-code paths. If the supplied build and runtime check confirm
       that state, leave every source and project file byte-for-byte unchanged and report that no migration is needed.
+    tags:
+      capability: recognize-already-compatible
+      risk: low
+      journey: verify-existing-compatibility
     environment:
       files:
         - src: fixtures/common/global.json
@@ -578,6 +622,10 @@ stimuli:
       public properties are returned and how hidden properties behave. Please explain the runtime reflection semantics
       only; I am not changing deployment mode.
     expect_activation: false
+    tags:
+      capability: boundary-jit-reflection
+      risk: routing
+      journey: avoid-over-broad-activation
     graders:
       - type: exit-success
       - type: prompt
@@ -593,6 +641,10 @@ stimuli:
       Help me design a benchmark and reduce the hot-path latency. We do not trim or publish with Native AOT, and there
       are no IL analyzer warnings.
     expect_activation: false
+    tags:
+      capability: boundary-jit-performance
+      risk: routing
+      journey: avoid-over-broad-activation
     graders:
       - type: exit-success
       - type: prompt
@@ -608,6 +660,10 @@ stimuli:
       branch throws before ownership transfers. I need correct disposal and exception behavior. There are no IL2xxx or
       IL3xxx diagnostics and this project is not being trimmed.
     expect_activation: false
+    tags:
+      capability: boundary-non-il-analyzer
+      risk: routing
+      journey: redirect-out-of-scope
     graders:
       - type: exit-success
       - type: prompt
@@ -623,6 +679,10 @@ stimuli:
       release command and deployment checklist to publish a self-contained linux-x64 Native AOT binary and package it
       in our container image. Do not review or change the source.
     expect_activation: false
+    tags:
+      capability: boundary-native-publishing
+      risk: routing
+      journey: redirect-out-of-scope
     graders:
       - type: exit-success
       - type: prompt
@@ -637,6 +697,10 @@ stimuli:
       Our net48 WinForms application uses reflection for add-ins. We are planning a future move to modern .NET, but
       today I only need a staged framework-migration plan and a risk inventory. Do not edit the current project.
     expect_activation: false
+    tags:
+      capability: boundary-net-framework
+      risk: routing
+      journey: defer-until-retargeted
     graders:
       - type: exit-success
       - type: prompt
