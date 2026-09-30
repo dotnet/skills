@@ -431,12 +431,14 @@ test("marks observed agents outside the manifest as unexpected", () => {
   try {
     const evalFile = writeAgentEval(root);
     writeFileSync(join(root, "expected.txt"), "tests/demo/agent.other/eval.yaml\n");
+    const scenarios = [1, 2, 3, 4, 5].map(winningScenario);
+    scenarios.at(-1).pairwiseResult.overallWinner = "baseline";
     const { output, result } = runAdapter(root, {
       skillName: "router",
       skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
       skillKind: "agent",
       passed: true,
-      scenarios: [1, 2, 3, 4, 5].map(winningScenario),
+      scenarios,
     });
 
     assert.equal(result.status, 0, result.stderr);
@@ -445,8 +447,11 @@ test("marks observed agents outside the manifest as unexpected", () => {
     );
     assert.equal(adapted.evalFile, evalFile);
     assert.equal(adapted.expectedEval, false);
+    assert.equal(adapted.verdicts[0].signTest.wins, 4);
+    assert.equal(adapted.verdicts[0].signTest.losses, 1);
     assert.equal(adapted.verdicts[0].state, "INVALID_INCONCLUSIVE");
     assert.equal(adapted.verdicts[0].stateReason.code, "unexpected_eval");
+    assert.equal(adapted.verdicts[0].noChangeDiagnosis, null);
     const summary = JSON.parse(
       readFileSync(join(output, "adapter-summary.json"), "utf8"),
     );

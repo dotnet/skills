@@ -596,6 +596,7 @@ function main() {
       verdict.passed = false;
       verdict.regressed = false;
       verdict.preferenceRegressed = false;
+      verdict.noChangeDiagnosis = null;
       verdict.errors ??= [];
       verdict.errors.push({
         phase: "agent_adapter",
