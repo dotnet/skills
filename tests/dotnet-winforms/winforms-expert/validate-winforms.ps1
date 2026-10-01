@@ -233,6 +233,298 @@ function Get-InitializeComponentBody([string] $Text, [string] $Path)
     Fail "InitializeComponent has unbalanced braces in $Path"
 }
 
+function Get-CSharpBlockBody(
+    [string] $Text,
+    [int] $OpenBrace,
+    [string] $Description)
+{
+    $depth = 0
+    $state = "code"
+
+    for ($index = $OpenBrace; $index -lt $Text.Length; $index++)
+    {
+        $character = $Text[$index]
+        $next = if ($index + 1 -lt $Text.Length)
+        {
+            $Text[$index + 1]
+        }
+        else
+        {
+            [char] 0
+        }
+
+        switch ($state)
+        {
+            "line-comment"
+            {
+                if ($character -eq "`n")
+                {
+                    $state = "code"
+                }
+                continue
+            }
+            "block-comment"
+            {
+                if ($character -eq '*' -and $next -eq '/')
+                {
+                    $state = "code"
+                    $index++
+                }
+                continue
+            }
+            "string"
+            {
+                if ($character -eq '\')
+                {
+                    $index++
+                }
+                elseif ($character -eq '"')
+                {
+                    $state = "code"
+                }
+                continue
+            }
+            "verbatim-string"
+            {
+                if ($character -eq '"' -and $next -eq '"')
+                {
+                    $index++
+                }
+                elseif ($character -eq '"')
+                {
+                    $state = "code"
+                }
+                continue
+            }
+            "character"
+            {
+                if ($character -eq '\')
+                {
+                    $index++
+                }
+                elseif ($character -eq "'")
+                {
+                    $state = "code"
+                }
+                continue
+            }
+        }
+
+        if ($character -eq '/' -and $next -eq '/')
+        {
+            $state = "line-comment"
+            $index++
+        }
+        elseif ($character -eq '/' -and $next -eq '*')
+        {
+            $state = "block-comment"
+            $index++
+        }
+        elseif ($character -eq '"')
+        {
+            $state = if ($index -gt 0 -and $Text[$index - 1] -eq '@')
+            {
+                "verbatim-string"
+            }
+            else
+            {
+                "string"
+            }
+        }
+        elseif ($character -eq "'")
+        {
+            $state = "character"
+        }
+        elseif ($character -eq '{')
+        {
+            $depth++
+        }
+        elseif ($character -eq '}')
+        {
+            $depth--
+            if ($depth -eq 0)
+            {
+                return $Text.Substring(
+                    $OpenBrace + 1,
+                    $index - $OpenBrace - 1
+                )
+            }
+        }
+    }
+
+    Fail "$Description has unbalanced braces."
+}
+
+function Get-CSharpMethodBody(
+    [string] $Text,
+    [string] $SignaturePattern,
+    [string] $Description)
+{
+    $signature = [regex]::Match(
+        $Text,
+        $SignaturePattern,
+        [System.Text.RegularExpressions.RegexOptions]::Singleline
+    )
+    if (-not $signature.Success)
+    {
+        Fail "$Description was not found."
+    }
+
+    $openBrace = $signature.Index + $signature.Length - 1
+    return Get-CSharpBlockBody $Text $openBrace $Description
+}
+
+function Get-CSharpStatementEnd(
+    [string] $Text,
+    [int] $StartIndex,
+    [string] $Description)
+{
+    $parenthesisDepth = 0
+    $braceDepth = 0
+    $bracketDepth = 0
+    $state = "code"
+
+    for ($index = $StartIndex; $index -lt $Text.Length; $index++)
+    {
+        $character = $Text[$index]
+        $next = if ($index + 1 -lt $Text.Length)
+        {
+            $Text[$index + 1]
+        }
+        else
+        {
+            [char] 0
+        }
+
+        switch ($state)
+        {
+            "line-comment"
+            {
+                if ($character -eq "`n")
+                {
+                    $state = "code"
+                }
+                continue
+            }
+            "block-comment"
+            {
+                if ($character -eq '*' -and $next -eq '/')
+                {
+                    $state = "code"
+                    $index++
+                }
+                continue
+            }
+            "string"
+            {
+                if ($character -eq '\')
+                {
+                    $index++
+                }
+                elseif ($character -eq '"')
+                {
+                    $state = "code"
+                }
+                continue
+            }
+            "verbatim-string"
+            {
+                if ($character -eq '"' -and $next -eq '"')
+                {
+                    $index++
+                }
+                elseif ($character -eq '"')
+                {
+                    $state = "code"
+                }
+                continue
+            }
+            "character"
+            {
+                if ($character -eq '\')
+                {
+                    $index++
+                }
+                elseif ($character -eq "'")
+                {
+                    $state = "code"
+                }
+                continue
+            }
+        }
+
+        if ($character -eq '/' -and $next -eq '/')
+        {
+            $state = "line-comment"
+            $index++
+        }
+        elseif ($character -eq '/' -and $next -eq '*')
+        {
+            $state = "block-comment"
+            $index++
+        }
+        elseif ($character -eq '"')
+        {
+            $state = if ($index -gt 0 -and $Text[$index - 1] -eq '@')
+            {
+                "verbatim-string"
+            }
+            else
+            {
+                "string"
+            }
+        }
+        elseif ($character -eq "'")
+        {
+            $state = "character"
+        }
+        elseif ($character -eq '(')
+        {
+            $parenthesisDepth++
+        }
+        elseif ($character -eq ')')
+        {
+            $parenthesisDepth--
+        }
+        elseif ($character -eq '{')
+        {
+            $braceDepth++
+        }
+        elseif ($character -eq '}')
+        {
+            $braceDepth--
+        }
+        elseif ($character -eq '[')
+        {
+            $bracketDepth++
+        }
+        elseif ($character -eq ']')
+        {
+            $bracketDepth--
+        }
+        elseif (
+            $character -eq ';' -and
+            $parenthesisDepth -eq 0 -and
+            $braceDepth -eq 0 -and
+            $bracketDepth -eq 0
+        )
+        {
+            return $index
+        }
+
+        if (
+            $parenthesisDepth -lt 0 -or
+            $braceDepth -lt 0 -or
+            $bracketDepth -lt 0
+        )
+        {
+            Fail "$Description has unbalanced delimiters."
+        }
+    }
+
+    Fail "$Description has no terminating semicolon."
+}
+
 function Test-DesignerSafety
 {
     $designerFiles = @(Get-ChildItem -Path . -Filter *.Designer.cs -Recurse -File)
@@ -470,42 +762,43 @@ switch ($Scenario)
     "async-ui-refresh"
     {
         Assert-Matches $designer '_refreshButton\.Click\s*\+=\s*RefreshButton_Click\s*;' "The Refresh button is not wired to its named handler."
-        Assert-Matches $codeBehind '\basync\s+void\s+RefreshButton_Click\s*\(' "The event handler does not await its asynchronous work."
-        $handlerStart = [regex]::Match($codeBehind, '\basync\s+void\s+RefreshButton_Click\s*\(').Index
-        $handlerCode = $codeBehind.Substring($handlerStart)
-        $usesAwaitedMarshal = $handlerCode -match '\bawait\s+(?:\w+\.)?InvokeAsync\s*\('
-        $awaitMatch = [regex]::Match($handlerCode, '\bawait\b')
+        $handlerBody = Get-CSharpMethodBody `
+            $codeBehind `
+            '\basync\s+void\s+RefreshButton_Click\s*\([^)]*\)\s*\{' `
+            "The async RefreshButton_Click event handler"
+        $delegation = [regex]::Match(
+            $handlerBody,
+            '(?s)^\s*await\s+(?<method>[A-Za-z_]\w*)\s*\([^;]*\)\s*;\s*$'
+        )
+        if (-not $delegation.Success)
+        {
+            Fail "RefreshButton_Click must only await a Task-returning refresh method."
+        }
+
+        $operationName = $delegation.Groups['method'].Value
+        $escapedOperationName = [regex]::Escape($operationName)
+        $operationBody = Get-CSharpMethodBody `
+            $codeBehind `
+            "\b(?:(?:public|private|protected|internal|static|async|virtual|override|sealed|new)\s+)*(?:System\.Threading\.Tasks\.)?Task(?:\s*<[^>{}]+>)?\s+$escapedOperationName\s*\([^)]*\)\s*\{" `
+            "The Task-returning $operationName method awaited by RefreshButton_Click"
+
+        $usesAwaitedMarshal = $operationBody -match '\bawait\s+(?:\w+\.)?InvokeAsync\s*\('
+        $awaitMatch = [regex]::Match($operationBody, '\bawait\b')
         if (-not $awaitMatch.Success)
         {
             Fail "The asynchronous refresh operation is not awaited."
         }
-        $awaitedTaskRun = [regex]::Match(
-            $handlerCode,
-            '\bawait\s+Task\.Run\s*\('
-        )
-        $completionBoundary = if ($awaitedTaskRun.Success)
-        {
-            $handlerCode.IndexOf(
-                '});',
-                $awaitedTaskRun.Index,
-                [System.StringComparison]::Ordinal
-            )
-        }
-        else
-        {
-            $handlerCode.IndexOf(
-                ';',
-                $awaitMatch.Index,
-                [System.StringComparison]::Ordinal
-            )
-        }
-        $statusUpdateAfterAwait = $handlerCode.IndexOf(
+        $completionBoundary = Get-CSharpStatementEnd `
+            $operationBody `
+            $awaitMatch.Index `
+            "The awaited refresh operation"
+        $statusUpdateAfterAwait = $operationBody.IndexOf(
             '_statusLabel.Text',
             $completionBoundary + 1,
             [System.StringComparison]::Ordinal
         )
         $usesCapturedUiContext =
-            $handlerCode -notmatch '\.ConfigureAwait\s*\(\s*false\s*\)' -and
+            $operationBody -notmatch '\.ConfigureAwait\s*\(\s*false\s*\)' -and
             $completionBoundary -ge 0 -and
             $statusUpdateAfterAwait -ge 0
         if (-not $usesAwaitedMarshal -and -not $usesCapturedUiContext)
@@ -513,7 +806,7 @@ switch ($Scenario)
             Fail "The status update is not performed on an awaited WinForms UI context."
         }
         $finallyMatch = [regex]::Match(
-            $handlerCode,
+            $operationBody,
             '(?is)\bfinally\s*\{(?<body>.*?)\}'
         )
         if (-not $finallyMatch.Success)
@@ -523,13 +816,13 @@ switch ($Scenario)
         $finallyBody = $finallyMatch.Groups['body'].Value
         Assert-Matches $finallyBody '_refreshButton\.Enabled\s*=\s*true\b' "The Refresh button is not re-enabled when the refresh fails."
         if (
-            $handlerCode -match '\.ConfigureAwait\s*\(\s*false\s*\)' -and
+            $operationBody -match '\.ConfigureAwait\s*\(\s*false\s*\)' -and
             $finallyBody -notmatch '(?is)\bawait\s+(?:\w+\.)?InvokeAsync\s*\('
         )
         {
             Fail "The failure cleanup is not marshaled back to the WinForms UI context."
         }
-        Assert-NotMatches $handlerCode '_\s*=\s*Task\.Run|\.BeginInvoke\s*\(' "Fire-and-forget work remains in the refresh path."
+        Assert-NotMatches ($handlerBody + "`n" + $operationBody) '_\s*=\s*Task\.Run|\.BeginInvoke\s*\(' "Fire-and-forget work remains in the refresh path."
         Assert-NotMatches $designer '\bTask\b' "Asynchronous logic was placed in the designer file."
     }
     "vb-application-events"
