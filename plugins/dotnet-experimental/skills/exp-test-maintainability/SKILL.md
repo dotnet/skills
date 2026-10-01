@@ -123,6 +123,15 @@ Look for test methods with near-identical bodies differing only in input values 
 - Prefer `[DataRow]` with `DisplayName` over `[DynamicData]` when all values are compile-time constants. Reserve `[DynamicData]` for computed or complex values.
 - Add `DisplayName` for non-obvious parameter values. `[DataRow("Gold", 100.0, 90.0)]` is self-explanatory; `[DataRow(3, 7, 42)]` is not.
 
+**Framework legality and readability gate:**
+- xUnit `[InlineData]` accepts only attribute-compatible constants. Do not put `decimal`, records,
+  DTOs, arrays created at runtime, or other complex objects in `[InlineData]`; use typed
+  `TheoryData<...>` exposed through `[MemberData]` or `[ClassData]`.
+- Keep a complex scenario cohesive. Prefer one named case record that contains the input,
+  configuration, and expected result over a long positional row of primitive values.
+- Ensure the test runner can identify the case. Use a descriptive case name or a case type whose
+  `ToString()` gives useful output rather than hiding meaning in argument positions.
+
 #### Category 4: Duplicated setup/teardown logic
 
 Look for initialization or cleanup code repeated across test classes.
