@@ -6,6 +6,10 @@ defaults:
   runs: 3
 stimuli:
   - name: Diagnose a failed build from its only surviving artifact
+    tags:
+      capability: artifact-only-root-cause
+      risk: high
+      journey: diagnose-build-failure
     prompt: |
       The CI checkout is gone; failure.binlog is the only artifact available.
       Explain why this build failed and the smallest repair the repository owner
@@ -33,6 +37,10 @@ stimuli:
       - Stated that a repair and rebuild could not be performed without the original checkout, without searching unrelated paths.
 
   - name: Capture a failing invocation without repairing it
+    tags:
+      capability: capture-without-repair
+      risk: high
+      journey: capture-build-evidence
     prompt: |
       Capture a binary log for this exact failing command and tell me the artifact
       path and original exit code:
@@ -57,6 +65,10 @@ stimuli:
       - Left the project and missing-input condition unchanged and stopped after capture rather than diagnosing or repairing it.
 
   - name: Separate dependency waits from expensive compilation
+    tags:
+      capability: dependency-wait-attribution
+      risk: high
+      journey: diagnose-build-performance
     prompt: |
       A successful parallel .NET solution build took 12 seconds. Its recorded
       summary lists ResolveProjectReferences at 21 seconds across parent projects,
@@ -73,6 +85,10 @@ stimuli:
       - Proposed comparing equivalent successful builds and preserving their required outputs before claiming an improvement.
 
   - name: Reject an unsupported build speedup claim
+    tags:
+      capability: comparable-build-measurements
+      risk: medium
+      journey: diagnose-build-performance
     prompt: |
       We changed an MSBuild setting and want to claim it cut build time in half.
       Before: dotnet build -t:Rebuild, 40 seconds, including restore.
@@ -88,6 +104,10 @@ stimuli:
       - Avoided destructive cache clearing or shared-server shutdown as a generic prerequisite.
 
   - name: Repair stale generation after input membership changes
+    tags:
+      capability: input-membership-invalidation
+      risk: high
+      journey: repair-incremental-build
     prompt: |
       A custom MSBuild target combines every Specs/*.json into obj/catalog.txt.
       It declares Inputs="@(Specs)" and Outputs="obj/catalog.txt". Editing an
@@ -103,6 +123,10 @@ stimuli:
       - Preserved output completeness and did not invent a stamp that hides relevant changes or an invalid Incremental target attribute.
 
   - name: Preserve a new hook when an optional predecessor is absent
+    tags:
+      capability: optional-hook-composition
+      risk: high
+      journey: review-build-authoring
     prompt: |
       Our custom .targets imports a hook like this:
       <Import Project="$(BeforeHook)" Condition="Exists('$(BeforeHook)')" />
@@ -119,6 +143,10 @@ stimuli:
       - Covered both present and absent optional-file cases without claiming all semicolon-separated MSBuild imports are invalid.
 
   - name: Review framework conditions without breaking valid F sharp items
+    tags:
+      capability: evaluation-order-and-source-order
+      risk: high
+      journey: review-build-authoring
     prompt: |
       Review these build-file fragments, not the application code.
       Directory.Build.props contains:
@@ -141,6 +169,10 @@ stimuli:
       - Kept existing constants and package versions rather than turning the review into a broader migration.
 
   - name: Leave a valid packed import contract unchanged
+    tags:
+      capability: packed-import-contract
+      risk: high
+      journey: review-build-authoring
     prompt: |
       Please review this NuGet build import before I add an Exists guard.
       In the package, build/net8.0/Example.props imports
@@ -158,6 +190,10 @@ stimuli:
       - Did not propose unrelated package upgrades or source-tree restructuring.
 
   - name: Keep runtime CPU profiling out of build diagnosis
+    tags:
+      capability: runtime-profiling-boundary
+      risk: medium
+      journey: route-runtime-diagnostics
     prompt: |
       Our ASP.NET Core service builds successfully but consumes one CPU core
       at 100 percent while handling requests. What runtime evidence should I
@@ -170,6 +206,10 @@ stimuli:
       - Did not run a build-performance workflow, request an MSBuild binlog, modify build settings, or install tools.
 
   - name: Keep failing assertions out of build troubleshooting
+    tags:
+      capability: assertion-failure-boundary
+      risk: medium
+      journey: route-test-failure
     prompt: |
       dotnet test built the solution successfully. One xUnit assertion failed:
       expected invoice.Total to be 12.50, actual 12.49. How should I investigate
@@ -182,6 +222,10 @@ stimuli:
       - Did not collect build logs, change project files, or migrate the test framework.
 
   - name: Keep a C sharp rename out of build authoring
+    tags:
+      capability: source-refactoring-boundary
+      risk: medium
+      journey: route-source-refactoring
     prompt: |
       I need to rename a public C# method CalculateTotal to CalculateInvoiceTotal
       across a solution. What's a safe refactoring and compatibility plan?
@@ -194,6 +238,10 @@ stimuli:
       - Did not turn the source refactoring into an MSBuild review, binlog capture, or project cleanup.
 
   - name: Keep SDK installation separate from build analysis
+    tags:
+      capability: sdk-installation-boundary
+      risk: medium
+      journey: route-sdk-installation
     prompt: |
       I only want to install the .NET SDK selected by global.json on this
       machine. The file requests version 10.0.100 with rollForward set to
@@ -206,6 +254,10 @@ stimuli:
       - Did not rewrite global.json, collect a binlog, or start a build troubleshooting workflow.
 
   - name: Keep framework migration separate from build cleanup
+    tags:
+      capability: framework-migration-boundary
+      risk: medium
+      journey: route-framework-migration
     prompt: |
       Plan an upgrade of a working ASP.NET Core app from .NET 8 to .NET 10,
       including framework and API compatibility risks. Don't edit files yet.
@@ -217,6 +269,10 @@ stimuli:
       - Did not replace the requested migration plan with MSBuild anti-pattern cleanup or build-performance experiments.
 
   - name: Keep legacy project conversion with the migration workflow
+    tags:
+      capability: project-system-migration-boundary
+      risk: medium
+      journey: route-project-migration
     prompt: |
       I have a working non-SDK-style .NET Framework csproj using packages.config.
       I want a plan to migrate it to SDK style while retaining its framework
@@ -229,6 +285,10 @@ stimuli:
       - Did not apply generic XML cleanup, silently change frameworks or package versions, or start a build investigation.
 
   - name: Keep an npm failure outside MSBuild
+    tags:
+      capability: non-msbuild-boundary
+      risk: medium
+      journey: route-non-msbuild-failure
     prompt: |
       npm run build fails in a Vite TypeScript application with TS2307:
       Cannot find module '@app/config'. There are no .NET projects.
