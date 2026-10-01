@@ -1,26 +1,43 @@
 name: exp-test-maintainability
 description: Evaluates the dotnet-experimental/exp-test-maintainability skill
 type: capability
-config:
-  timeout: 2m
+defaults:
+  timeout: 5m
+  runs: 2
 stimuli:
   - name: Recommend data-driven patterns with display names for unclear parameters
     prompt: |
       I keep adding test cases to my Validation.Tests project and each new case
       needs a whole new method. Can you analyze the project and suggest a better structure?
+    tags:
+      capability: copy-paste-parameterization
+      risk: medium
+      journey: consolidate-growing-validation-suite
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maintainability-data-driven-validation"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The invalid and valid input methods repeat one test shape with different values. Consolidate each group into a parameterized test using DataRow, and give opaque rows a DisplayName so a failed case is clear in test output. Keep the focused assertions and naming; the rest of the suite is already structured well.
     environment:
       files:
         - src: fixtures/data-driven-candidate/Validation.Tests/Validation.Tests.csproj
           dest: Validation.Tests/Validation.Tests.csproj
         - src: fixtures/data-driven-candidate/Validation.Tests/InputValidatorTests.cs
           dest: Validation.Tests/InputValidatorTests.cs
+        - src: fixtures/data-driven-candidate/Validation.Tests/InputValidator.cs
+          dest: Validation.Tests/InputValidator.cs
     graders:
       - type: output-matches
         config:
-          pattern: (DataRow|InlineData|TestCase|data.driven|parameteriz)
+          pattern: (?i)(DataRow|InlineData|TestCase|data.driven|parameteriz)
       - type: output-matches
         config:
-          pattern: (DisplayName|display.name)
+          pattern: (?i)(DisplayName|display.name)
       - type: exit-success
       - type: prompt
     rubric:
@@ -38,16 +55,32 @@ stimuli:
     prompt: |
       Can you review my Auth.Tests project for maintainability? I want to make sure
       the tests will be easy to update as the codebase evolves.
+    tags:
+      capability: calibrated-no-op-review
+      risk: low
+      journey: validate-healthy-test-suite
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maintainability-well-maintained-auth"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This suite is already well-maintained and needs no major refactoring. CreateTokenService keeps construction clear, and the labeled parameterized cases are easy to diagnose. Any change here would be optional polish, not a structural fix.
     environment:
       files:
         - src: fixtures/well-maintained/Auth.Tests/Auth.Tests.csproj
           dest: Auth.Tests/Auth.Tests.csproj
         - src: fixtures/well-maintained/Auth.Tests/TokenServiceTests.cs
           dest: Auth.Tests/TokenServiceTests.cs
+        - src: fixtures/well-maintained/Auth.Tests/TokenService.cs
+          dest: Auth.Tests/TokenService.cs
     graders:
       - type: output-matches
         config:
-          pattern: (well.maintained|good shape|clean|solid|maintainable|easy to maintain|no.*(major|significant))
+          pattern: (?i)(well.maintained|good shape|clean|solid|maintainable|easy to maintain|no.*(major|significant))
       - type: exit-success
       - type: prompt
     rubric:
@@ -66,19 +99,35 @@ stimuli:
       I feel like my test code has a lot of copy-paste. Can you analyze
       my OrderService.Tests project and tell me what patterns are repeated
       and where I could refactor?
+    tags:
+      capability: repeated-construction-analysis
+      risk: medium
+      journey: reduce-test-setup-boilerplate
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maintainability-order-construction"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The same FakeLogger, FakeEmailService, and FakeInventoryService construction is repeated in every processor test, and similar Order objects appear across both classes. Extract a CreateProcessor helper and a customizable CreateOrder factory, while keeping scenario-specific values in each test. This removes repeated setup without hiding test intent.
     environment:
       files:
         - src: fixtures/heavy-boilerplate/OrderService.Tests/OrderService.Tests.csproj
           dest: OrderService.Tests/OrderService.Tests.csproj
         - src: fixtures/heavy-boilerplate/OrderService.Tests/OrderProcessorTests.cs
           dest: OrderService.Tests/OrderProcessorTests.cs
+        - src: fixtures/heavy-boilerplate/OrderService.Tests/OrderService.cs
+          dest: OrderService.Tests/OrderService.cs
     graders:
       - type: output-matches
         config:
-          pattern: "(factory|helper|extract|CreateProcessor|CreateOrder|shared|reuse|common)"
+          pattern: "(?i)(factory|helper|extract|CreateProcessor|CreateOrder|shared|reuse|common)"
       - type: output-matches
         config:
-          pattern: "(3|4|5|6|7|8|multiple|every|all|each|repeated)"
+          pattern: "(?i)(3|4|5|6|7|8|multiple|every|all|each|repeated)"
       - type: exit-success
       - type: prompt
     rubric:
@@ -98,25 +147,322 @@ stimuli:
     prompt: |
       Can you check my Calculator.Tests project for any repeated code patterns
       that I should clean up? I have two test classes in there.
+    tags:
+      capability: proportional-refactoring
+      risk: low
+      journey: review-small-test-suite
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maintainability-minimal-calculator"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The project is clean and has little meaningful boilerplate. CalculatorTests already uses a shared instance and parameterized data. As optional polish, a few near-identical ScientificCalculator cases could become parameterized tests, but a base class, fixture, or builder would add more indirection than value.
     environment:
       files:
         - src: fixtures/minimal-boilerplate/Calculator.Tests/Calculator.Tests.csproj
           dest: Calculator.Tests/Calculator.Tests.csproj
         - src: fixtures/minimal-boilerplate/Calculator.Tests/CalculatorTests.cs
           dest: Calculator.Tests/CalculatorTests.cs
+        - src: fixtures/minimal-boilerplate/Calculator.Tests/Calculator.cs
+          dest: Calculator.Tests/Calculator.cs
     graders:
       - type: output-matches
         config:
-          pattern: "(clean|minimal|good|well.structured|no.*(major|significant)|already|little.*(duplicat|boilerplate)|minor)"
+          pattern: "(?i)(clean|minimal|good|well.structured|no.*(major|significant)|already|little.*(duplicat|boilerplate)|minor)"
       - type: exit-success
       - type: prompt
     rubric:
       - Recognized that CalculatorTests already uses parameterized data-driven tests and a shared field instance effectively
-      - Identified that ScientificCalculatorTests has individual test methods that could be consolidated into parameterized tests (e.g., SquareRoot positive/zero cases, Power squared/zero/negative exponent cases)
-      - Noted that the overall code is well-structured and any suggestions are minor improvements, not critical refactorings
+      - Treated any consolidation in ScientificCalculatorTests as optional polish rather than a required refactoring
+      - Noted that the overall code is well-structured and has little meaningful boilerplate
       - Did not recommend over-engineered patterns like base classes or shared fixtures for these simple test classes
     constraints:
       reject_tools:
         - bash
         - edit
         - create
+
+  - name: Extract repeated assertion groups without hiding scenario intent
+    prompt: |
+      Three customer mapping tests repeat the same property checks. Review
+      CustomerMapperTests.cs and suggest a maintainable way to reduce that
+      repetition without making failures harder to understand.
+    tags:
+      capability: repeated-assertion-analysis
+      risk: medium
+      journey: simplify-mapping-tests
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maintainability-repeated-assertions"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The same four property assertions occur in all three methods. Extract a small AssertCustomer helper that accepts the expected values and keeps individual property failures visible. Do not collapse the scenarios into one opaque assertion or remove their distinct active/inactive cases.
+    environment:
+      files:
+        - src: fixtures/repeated-assertions/CustomerMapperTests.cs
+          dest: CustomerMapperTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(assert.*helper|helper.*assert|extract.*assert|shared.*assert)
+      - type: output-matches
+        config:
+          pattern: (?i)(three|3|each|all.*tests|repeated)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified the repeated four-property assertion group across all three test methods
+      - Recommended a focused assertion helper that preserves useful per-property failure information
+      - Kept the active, inactive, and Unicode scenarios independently understandable
+      - Explained the readability trade-off instead of applying DRY mechanically
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+
+  - name: Consolidate repeated lifecycle setup across test classes
+    prompt: |
+      Our file importer tests repeat temporary-directory setup and cleanup in
+      several classes. Analyze TemporaryFileTests.cs and recommend a structure
+      that removes the duplication while keeping tests isolated.
+    tags:
+      capability: duplicated-lifecycle-analysis
+      risk: high
+      journey: centralize-temporary-resource-management
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maintainability-shared-lifecycle"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              All three fixtures repeat the same SetUp and TearDown lifecycle. Move temporary-directory ownership into a composable helper that creates a unique directory per test and implements cleanup. Prefer composition over a shared base class so each importer test remains isolated and explicit.
+    environment:
+      files:
+        - src: fixtures/shared-lifecycle/TemporaryFileTests.cs
+          dest: TemporaryFileTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(SetUp|TearDown|setup|cleanup|lifecycle)
+      - type: output-matches
+        config:
+          pattern: (?i)(helper|fixture|composition|temporary.*director)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified identical temporary-directory creation and recursive cleanup in all three classes
+      - Recommended a reusable resource helper or fixture with unique state per test
+      - Preserved test isolation and deterministic cleanup
+      - Discussed why composition is safer than coupling unrelated tests through inheritance
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+
+  - name: Centralize repeated HTTP test infrastructure across classes
+    prompt: |
+      Each API client test class builds the same recording handler and
+      HttpClient configuration. Review ApiClientTests.cs and show how to share
+      the infrastructure without sharing mutable request state between tests.
+    tags:
+      capability: repeated-infrastructure-analysis
+      risk: high
+      journey: reuse-http-test-harness
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maintainability-http-infrastructure"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The handler, HttpClient, and BaseAddress construction repeats in three classes. Extract a factory that returns a fresh client and RecordingHandler pair for each test. Share the construction code, not the mutable handler instance, so recorded requests cannot leak between tests.
+    environment:
+      files:
+        - src: fixtures/repeated-infrastructure/ApiClientTests.cs
+          dest: ApiClientTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(factory|helper|harness|shared.*infrastructure|extract)
+      - type: output-matches
+        config:
+          pattern: (?i)(fresh|new.*each|per.test|not.*share|mutable.*state|isolation)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified repeated RecordingHandler, HttpClient, and BaseAddress construction across three classes
+      - Recommended a shared factory or harness that creates fresh state for each test
+      - Explicitly avoided sharing the mutable RecordingHandler between tests
+      - Kept endpoint-specific expectations local to each test
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+
+  - name: Avoid extraction below the repetition threshold
+    prompt: |
+      These two invoice tests construct similar calculators. Review
+      InvoiceServiceTests.cs and tell me whether a helper or builder would make
+      the suite easier to maintain.
+    tags:
+      capability: repetition-threshold-calibration
+      risk: medium
+      journey: decide-whether-to-refactor-small-suite
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maintainability-two-occurrence-boundary"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Keep the two explicit constructions. They occur only twice, differ in the customer discount policy, and make each scenario readable. A helper or builder would add indirection before there is enough repetition to justify it; reconsider only if a third similar case appears.
+    environment:
+      files:
+        - src: fixtures/two-occurrence-boundary/InvoiceServiceTests.cs
+          dest: InvoiceServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(only two|two occurrences|twice|below.*threshold|third.*case)
+      - type: output-matches
+        config:
+          pattern: (?i)(keep|do not|don.t|avoid).*(explicit|helper|builder|extract)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recognized that two similar constructions do not meet the skill's extraction threshold
+      - Recommended keeping the current explicit setup because the policy difference communicates scenario intent
+      - Avoided proposing a helper, builder, base class, or shared mutable fixture
+      - Gave a clear future condition for reconsidering extraction
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+
+  - name: Consolidate complex copy-paste cases with a data source
+    prompt: |
+      CurrencyConverterTests.cs has several Fact methods with the same shape,
+      but each case constructs different Money and ExchangeRate records.
+      Recommend a maintainable xUnit structure that keeps each conversion case
+      readable in test output.
+    tags:
+      capability: complex-data-parameterization
+      risk: medium
+      journey: consolidate-currency-conversion-cases
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maintainability-complex-member-data"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The four Fact methods share one arrange-act-assert shape and differ only in Money and ExchangeRate records. Convert them to one Theory backed by MemberData that yields named complex cases. Keep source, target, rate, input, and expected Money together so each row remains readable and failures identify the conversion.
+    environment:
+      files:
+        - src: fixtures/complex-data-candidate/CurrencyConverterTests.cs
+          dest: CurrencyConverterTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(Theory|MemberData|ClassData|data source|parameteriz)
+      - type: output-matches
+        config:
+          pattern: (?i)(Money|ExchangeRate|complex).*(case|data|record|input)
+      - type: output-matches
+        config:
+          pattern: (?i)(name|display|readable|identify).*(case|conversion|failure|output)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified all four Fact methods as one copy-paste test shape
+      - Recommended xUnit Theory with MemberData, ClassData, or an equivalent source for complex records
+      - Kept each source-target-rate-input-expected tuple together as one understandable case
+      - Preserved readable failure identification instead of creating opaque positional rows
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+
+  - name: Stay dormant for direct test refactoring
+    prompt: |
+      Refactor CalculatorTests.cs now. Replace the duplicate test methods with
+      parameterized tests and edit the file for me.
+    expect_activation: false
+    tags:
+      capability: dormancy-direct-refactoring
+      risk: high
+      journey: request-test-code-change
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maintainability-dormancy-refactor"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is an implementation request, not an analysis-only maintainability review. Edit the requested tests directly, preserve behavior, and run the relevant test project. Do not replace the work with a maintainability report.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(edit|refactor|implement|change).*(test|file)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Treated the request as direct implementation work rather than an analysis report
+      - Did not derail into a broad maintainability assessment
+      - Preserved the user's requested scope and validation expectation
+      - Did not reward raw report length or unrelated refactoring suggestions
+
+  - name: Stay dormant when the user wants new tests
+    prompt: |
+      Write MSTest coverage for a new PaymentCalculator class. Include happy
+      paths, invalid inputs, and boundary cases.
+    expect_activation: false
+    tags:
+      capability: dormancy-new-test-authoring
+      risk: medium
+      journey: create-new-unit-tests
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maintainability-dormancy-new-tests"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This request is about authoring new MSTest coverage. Create focused tests for normal, invalid, and boundary behavior, then run them. Do not turn it into a duplicate-code assessment of tests that do not yet exist.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(write|create|add).*(MSTest|tests|coverage)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Stayed focused on creating the requested tests
+      - Did not perform a maintainability analysis of nonexistent test code
+      - Covered the requested behavioral categories
+      - Did not reward raw test count over meaningful coverage

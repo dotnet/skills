@@ -1,6 +1,6 @@
 ---
 name: exp-mock-usage-analysis
-description: "Audits .NET test mock usage by tracing each mock setup through the production code's execution path to find dead, unreachable, redundant, or replaceable mocks. Use when the user asks to audit mock usage, find unused or unnecessary mock setups, check if mocks are needed, reduce mock duplication or over-mocking, simplify test setup, or review whether mock configurations like ILogger/IOptions should use real implementations instead. Supports Moq, NSubstitute, and FakeItEasy."
+description: "Read-only audit of .NET mock setups against the production method's control flow. Use only when both test code and production code are available and the user asks which Moq, NSubstitute, or FakeItEasy configurations are dead, unreachable, overwritten, duplicated, replaceable, or correctly placed. Trace guards and branches before recommending removal. DO NOT USE FOR: writing or editing tests/mocks, changing packages, migrating mock frameworks, or reviewing sleeps, order dependence, shared state, assertions, or other non-mock test smells."
 license: MIT
 ---
 
@@ -56,6 +56,8 @@ For **each test method**, do the following:
 | **Unreachable** | The production code returns early, throws, or branches away before reaching this mock call | `UpdateStock` setup when the test expects the method to throw `ArgumentOutOfRangeException` on the first line |
 | **Unused** | The mock method is never called by the production method under test at all, regardless of inputs | `GetLowStockProducts` setup when testing `Reserve`, which never calls that method |
 | **Redundant** | Identical mock configurations are duplicated across multiple tests instead of being shared | Five tests each creating `new Mock<IPaymentGateway>()` with the same default setup |
+| **Overwritten** | A later setup for the same invocation replaces an earlier setup before the system under test runs | Two `Setup(...GetRate(...))` calls in one test where only the final return value can apply |
+| **Redundant no-op** | The call is reached, but a loose mock would behave the same without the setup | A non-verifiable Moq setup for a void method on a loose mock with no callback, throw, sequence, or base-call suppression |
 
 Pay special attention to:
 - **Early returns and guard clauses** — setups for mocks called after a guard clause are unreachable when the guard triggers
@@ -63,12 +65,22 @@ Pay special attention to:
 - **Branch-specific logic** — if a method dispatches by channel/type, setups for other channels are unused
 - **Verify-only tests** — tests that only call `.Verify`/`.Received`/`.MustHaveHappened` without asserting on the method's return value
 
+Do not collapse these classifications. A reached void call with an empty Moq setup is not dead or
+unreachable. Classify it as a redundant no-op only after confirming the mock is loose, `CallBase`
+does not make the setup suppress a real implementation, and the setup is not `Verifiable` or used by
+later verification. State the exact number of setups to remove after classifying them so the count
+and recommendations cannot disagree.
+
 ### Step 3: Check for replaceable mocks
 
 Flag mocks of stable framework types that should use real implementations:
 - `Mock<ILogger<T>>` → `NullLogger<T>.Instance` (unless log output is asserted)
 - `Mock<IOptions<T>>` → `Options.Create(new T { ... })`
 - Mocks of DTOs, records, or value objects → use `new T { ... }` directly
+
+When showing a replacement, copy the real constructor or initializer shape from the provided type.
+Do not invent parameter types or constructor signatures. Compile or otherwise validate concrete code
+examples when the surrounding task permits it.
 
 Explicitly confirm which mocks are **correctly placed** — external boundaries (databases, HTTP clients, message queues, third-party APIs) and security-sensitive types should remain mocked.
 
@@ -78,6 +90,10 @@ For each finding, state:
 1. The specific test method and mock setup line
 2. Why the setup is unnecessary (trace the production code path to explain)
 3. A concrete fix — which lines to remove, what to replace them with, or how to extract shared setup
+
+Use a compact table with columns for test, setup, classification, reached path, and action. Reconcile
+the table before the summary: every removal must appear once, and the stated removal total must equal
+the table.
 
 When multiple tests duplicate mock configurations, provide a before/after example showing how to extract shared setup into a fixture or helper method.
 
