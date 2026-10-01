@@ -1,13 +1,17 @@
 ---
 name: dotnet-webapi
 description: >
-  Creates and modifies request/response ASP.NET Core HTTP API endpoints with
-  correct status semantics, OpenAPI metadata, and error handling.
-  USE ONLY FOR: controllers or minimal APIs that handle discrete HTTP requests,
+  ASP.NET Core request/response HTTP API implementation workflow.
+  MUST USE FOR: creating, implementing, repairing, or extending Web APIs,
+  minimal API or controller endpoints, HTTP status semantics,
   OpenAPI/Swagger, .http request files, and global HTTP API error handling.
-  DO NOT USE FOR: general C# coding style, EF Core data access or query
+  MUST NOT USE FOR: SignalR Hub or Hub<T>, IHubContext, Clients.All/Caller/Group,
+  MapHub, hub broadcasts, SignalR persistent connections, or SignalR server-push
+  messaging; general C# coding style; EF Core data access or query
   optimization (use optimizing-ef-core-queries), frontend/Blazor work, gRPC
-  services, or persistent real-time hub and message-broadcasting flows.
+  services, or other persistent real-time messaging flows. A SignalR-only task
+  has no request/response HTTP API endpoint; answer it without loading this
+  workflow even when it registers services or maps a hub route.
 license: MIT
 ---
 
