@@ -16,6 +16,14 @@ assert SPEC and SPEC.loader
 VALIDATOR = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(VALIDATOR)
 
+STAGER_MODULE_PATH = Path(__file__).with_name("stage_agentic_workflow_package.py")
+STAGER_SPEC = importlib.util.spec_from_file_location(
+    "stage_agentic_workflow_package", STAGER_MODULE_PATH
+)
+assert STAGER_SPEC and STAGER_SPEC.loader
+STAGER = importlib.util.module_from_spec(STAGER_SPEC)
+STAGER_SPEC.loader.exec_module(STAGER)
+
 
 class PackagePathTests(unittest.TestCase):
     def test_resolves_package_file_inside_staging_root(self) -> None:
@@ -199,6 +207,66 @@ class ActiveWorkflowTests(unittest.TestCase):
                 {path.name for path in VALIDATOR.expected_active_locks(workflows)},
                 {"block.lock.yml", "scalar.lock.yml", "flow.lock.yml"},
             )
+
+
+class LocalPackageStagingTests(unittest.TestCase):
+    def test_stages_package_using_installed_layout(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            package = root / "agentic-workflows" / "example"
+            consumer = root / "consumer"
+            workflow = package / "workflows" / "example.md"
+            agent = package / "agents" / "example.agent.md"
+            workflow.parent.mkdir(parents=True)
+            agent.parent.mkdir(parents=True)
+            consumer.mkdir()
+            manifest = package / "aw.yml"
+            manifest.write_text(
+                """includes:
+  - workflows/example.md
+  - agents/example.agent.md
+""",
+                encoding="utf-8",
+            )
+            workflow.write_text("---\non: workflow_dispatch\n---\n", encoding="utf-8")
+            agent.write_text("---\nname: example\n---\n", encoding="utf-8")
+
+            staged = STAGER.stage_package(manifest, consumer)
+
+            self.assertEqual(
+                staged,
+                [
+                    Path(".github/agents/example.agent.md"),
+                    Path(".github/workflows/example.md"),
+                ],
+            )
+            self.assertEqual(
+                (consumer / ".github" / "workflows" / "example.md").read_bytes(),
+                workflow.read_bytes(),
+            )
+            self.assertEqual(
+                (consumer / ".github" / "agents" / "example.agent.md").read_bytes(),
+                agent.read_bytes(),
+            )
+
+    def test_refuses_to_overwrite_conflicting_consumer_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            package = root / "agentic-workflows" / "example"
+            consumer = root / "consumer"
+            workflow = package / "workflows" / "example.md"
+            destination = consumer / ".github" / "workflows" / "example.md"
+            workflow.parent.mkdir(parents=True)
+            destination.parent.mkdir(parents=True)
+            manifest = package / "aw.yml"
+            manifest.write_text("includes:\n  - workflows/example.md\n", encoding="utf-8")
+            workflow.write_text("---\non: workflow_dispatch\n---\n", encoding="utf-8")
+            destination.write_text("consumer\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "Refusing to overwrite"):
+                STAGER.stage_package(manifest, consumer)
+
+            self.assertEqual(destination.read_text(encoding="utf-8"), "consumer\n")
 
 
 if __name__ == "__main__":

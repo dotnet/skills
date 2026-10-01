@@ -1,0 +1,37 @@
+{
+  "schema_version": "1",
+  "source_roots": [
+    "test",
+    "tests",
+    "samples"
+  ],
+  "excluded_globs": [
+    "**/bin/**",
+    "**/obj/**",
+    "**/fixtures/**"
+  ],
+  "generated_globs": [
+    "**/Generated/**",
+    "**/generated/**",
+    "**/*.Designer.cs",
+    "**/*.g.cs",
+    "**/*.generated.cs"
+  ],
+  "ignore_attribute_names": [
+    "Ignore",
+    "IgnoreAttribute"
+  ],
+  "test_attribute_names": [
+    "TestMethod",
+    "TestMethodAttribute",
+    "DataTestMethod",
+    "DataTestMethodAttribute"
+  ],
+  "verification": {
+    "command": [
+      "bash",
+      ".github/workflows/unskip-closed-tests-verify.sh"
+    ],
+    "timeout_seconds": 1800
+  }
+}
