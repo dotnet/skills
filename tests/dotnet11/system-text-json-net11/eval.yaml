@@ -1,263 +1,858 @@
 name: system-text-json-net11
 description: Evaluates the dotnet11/system-text-json-net11 skill
 type: capability
+tags:
+  executionShard: dotnet11
 defaults:
-  timeout: 5m
+  timeout: 8m
+  runs: 1
+environment:
+  files:
+    - src: graders/verify.mjs
+      dest: .eval/verify.mjs
+    - src: fixtures/NuGet.Config
+      dest: NuGet.Config
+    - src: fixtures/global.json
+      dest: global.json
 stimuli:
-  - name: Serialize JSON in .NET 11 with PascalCase property names
+  - name: Replace a custom PascalCase policy with the .NET 11 API
+    tags:
+      capability: pascal-case-property-names
+      risk: unnecessary-custom-serialization-code
+      journey: modernize-json-serialization
     prompt: |
-      I'm starting a new console app on .NET 11 and I need to serialize this record to JSON:
-
-      ```csharp
-      public record Person(string name, int age);
-      ```
-
-      In the output JSON the property names should be PascalCase (so `Name` and `Age`,
-      not `name`/`age` or `firstName` style). I want to use whatever the framework
-      provides out of the box rather than writing my own naming-policy class.
-
-      Please show me the full program targeting `net11.0` and run it so I can see the
-      JSON output.
+      This `app` project targets .NET 11 and already prints the JSON shape I need,
+      but it carries a custom naming-policy class only to capitalize property
+      names. Simplify that workaround, keep the same output, and run the project.
+    environment:
+      files:
+        - src: fixtures/pascal-properties
+          dest: app
+    golden_patch:
+      path: references/pascal-properties.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "system-text-json-net11-pascal-properties"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I will replace the custom policy and run the project.
+            tool_calls:
+              - tool_call_id: edit_1
+                function_name: apply_patch
+                arguments: { path: app/Program.cs }
+              - tool_call_id: run_1
+                function_name: bash
+                arguments: { command: "dotnet run --project app/App.csproj" }
+            observation:
+              results:
+                - source_call_id: edit_1
+                  content: Replaced the custom naming policy with JsonNamingPolicy.PascalCase.
+                - source_call_id: run_1
+                  content: "{\"Name\":\"Jane\",\"Age\":30}\nProcess exited with code 0."
+          - step_id: 2
+            source: agent
+            message: "Replaced the custom naming-policy class with `JsonNamingPolicy.PascalCase`. The project ran successfully and printed `{\"Name\":\"Jane\",\"Age\":30}`."
     graders:
-      - type: exit-success
-      - type: output-matches
+      - type: run-command
         config:
-          pattern: JsonNamingPolicy\.PascalCase
-      - type: output-matches
-        config:
-          pattern: net11\.0
-      - type: output-not-matches
-        config:
-          pattern: (?m)^\s*(?:(?:public|private|protected|internal|sealed|abstract|partial|static|new|file)\s+)*class\s+\w+(?:\s*<[^>\r\n]+>)?\s*:\s*(?:(?:global::)?System\.Text\.Json\.)?JsonNamingPolicy\b
-      - type: output-matches
-        config:
-          pattern: '"Name"'
-      - type: output-matches
-        config:
-          pattern: '"Age"'
+          command: node .eval/verify.mjs pascal-properties app
+          expected_exit_code: 0
+          stdout_matches: PASS pascal-properties
+          timeout: 3m
       - type: prompt
     rubric:
-      - Uses the new built-in JsonNamingPolicy.PascalCase static property (added in .NET 11) and does not implement a
-        custom JsonNamingPolicy subclass
-      - Targets net11.0 in the project / file-based app
-      - Actually runs the program and shows JSON output with PascalCase property names (e.g. "Name", "Age")
+      - Replaced the custom naming-policy implementation with the .NET 11 built-in PascalCase policy
+      - Preserved the requested serialized property names and produced working code
+      - Reported the validation result without claiming behavior that was not observed
 
-  - name: Type-safe JsonTypeInfo access without exceptions in .NET 11
+  - name: Remove per-member casing attributes during deserialization
+    tags:
+      capability: pascal-case-deserialization
+      risk: repetitive-member-annotations
+      journey: simplify-json-contract
     prompt: |
-      In a .NET 11 library I'm working on, I have a `JsonSerializerOptions` instance
-      and I want to get the JSON metadata for a specific type `T` in a strongly-typed
-      way (i.e. I want back a `JsonTypeInfo<T>`, not a non-generic `JsonTypeInfo` that
-      I have to cast).
-
-      I also need a way to *probe* whether metadata for `T` is available without
-      having an exception thrown at me if it isn't — so I can branch on "have it"
-      vs "don't have it". I'd rather not wrap things in try/catch.
-
-      Show me a minimal `net11.0` program that demonstrates both: getting the typed
-      metadata when it's available, and checking-without-throwing for a case where
-      it might not be. Run the program.
+      In `app`, the record uses an attribute on every positional member so
+      PascalCase JSON can bind to lowercase C# member names. This project is now
+      on .NET 11. Remove the repetitive workaround without renaming the members,
+      and run the app to prove the values still deserialize.
+    environment:
+      files:
+        - src: fixtures/pascal-deserialization
+          dest: app
+    golden_patch:
+      path: references/pascal-deserialization.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "system-text-json-net11-pascal-deserialization"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I will remove the member attributes, configure one policy, and run the project.
+            tool_calls:
+              - tool_call_id: edit_1
+                function_name: apply_patch
+                arguments: { path: app/Program.cs }
+              - tool_call_id: run_1
+                function_name: bash
+                arguments: { command: "dotnet run --project app/App.csproj" }
+            observation:
+              results:
+                - source_call_id: edit_1
+                  content: Removed JsonPropertyName attributes and added JsonNamingPolicy.PascalCase.
+                - source_call_id: run_1
+                  content: "Jane|30\nProcess exited with code 0."
+          - step_id: 2
+            source: agent
+            message: "Removed the per-member attributes and configured `JsonNamingPolicy.PascalCase` once on the serializer options. The app ran successfully and printed `Jane|30`."
     graders:
-      - type: exit-success
-      - type: output-contains
+      - type: run-command
         config:
-          substring: "GetTypeInfo<"
-      - type: output-contains
-        config:
-          substring: "TryGetTypeInfo<"
-      - type: output-matches
-        config:
-          pattern: out\s+(var|JsonTypeInfo)
-      - type: output-matches
-        config:
-          pattern: net11\.0
-      - type: output-not-matches
-        config:
-          pattern: \bcatch\b\s*(\(|\{)
-      - type: output-matches
-        config:
-          pattern: (True|False|found|Found|JsonTypeInfo)
+          command: node .eval/verify.mjs pascal-deserialization app
+          expected_exit_code: 0
+          stdout_matches: PASS pascal-deserialization
+          timeout: 3m
       - type: prompt
     rubric:
-      - Uses the new generic JsonSerializerOptions.GetTypeInfo<T>() overload (added in .NET 11) for the typed-access part
-      - Uses the new generic JsonSerializerOptions.TryGetTypeInfo<T>(out JsonTypeInfo<T>? info) overload (added in .NET
-        11) for the probing part
-      - Does NOT wrap GetTypeInfo in try/catch as a workaround
-      - Targets net11.0 and actually runs the program
+      - Removed the per-member JSON-name attributes and configured one built-in PascalCase policy
+      - Preserved successful deserialization of both values
+      - Kept the change focused on the JSON contract instead of renaming the record members
 
-  - name: "Non-activation: camelCase JSON serialization on .NET 8"
+  - name: Configure PascalCase dictionary keys without pre-transforming data
+    tags:
+      capability: pascal-case-dictionary-keys
+      risk: data-copy-and-key-rewrite
+      journey: serialize-dictionary-contract
     prompt: |
-      I have a .NET 8 console app and I need to serialize this record to JSON with
-      camelCase property names:
+      The `app` project currently creates a second dictionary only to capitalize
+      its keys before serialization. The project now targets .NET 11. Remove that
+      data rewrite while preserving the JSON contract, and run the app.
+    environment:
+      files:
+        - src: fixtures/pascal-dictionary
+          dest: app
+    golden_patch:
+      path: references/pascal-dictionary.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "system-text-json-net11-pascal-dictionary"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I will remove the copied dictionary and validate the dictionary-key policy.
+            tool_calls:
+              - tool_call_id: edit_1
+                function_name: apply_patch
+                arguments: { path: app/Program.cs }
+              - tool_call_id: run_1
+                function_name: bash
+                arguments: { command: "dotnet run --project app/App.csproj" }
+            observation:
+              results:
+                - source_call_id: edit_1
+                  content: Configured DictionaryKeyPolicy with JsonNamingPolicy.PascalCase.
+                - source_call_id: run_1
+                  content: "{\"PendingOrders\":2,\"ActiveUsers\":5}\nProcess exited with code 0."
+          - step_id: 2
+            source: agent
+            message: "Removed the manual key transformation and set `DictionaryKeyPolicy = JsonNamingPolicy.PascalCase`. The app ran successfully and printed both PascalCase keys."
+    graders:
+      - type: run-command
+        config:
+          command: node .eval/verify.mjs pascal-dictionary app
+          expected_exit_code: 0
+          stdout_matches: PASS pascal-dictionary
+          timeout: 3m
+      # The runtime grader compiles the new .NET 11 API and checks exact output.
+      # General-purpose judges can carry stale framework API inventories.
+    rubric:
+      - Applied the built-in PascalCase policy specifically to dictionary keys
+      - Removed the manual key-copy or string-casing workaround
+      - Preserved both expected JSON keys in executable output
 
-      ```csharp
-      public record Person(string Name, int Age);
-      ```
+  - name: Fix nested dictionary keys without changing property casing
+    tags:
+      capability: nested-dictionary-key-policy
+      risk: property-policy-misapplied-to-dictionary-keys
+      journey: troubleshoot-mixed-json-casing
+    prompt: |
+      In this .NET 11 `app`, object property names are already PascalCase, but
+      keys inside the nested `stats` dictionary still come out as
+      `pendingOrders`. Fix only the dictionary-key behavior and run the project.
+    environment:
+      files:
+        - src: fixtures/nested-dictionary
+          dest: app
+    golden_patch:
+      path: references/nested-dictionary.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "system-text-json-net11-nested-dictionary"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I will correct the dictionary-key configuration and run the project.
+            tool_calls:
+              - tool_call_id: edit_1
+                function_name: apply_patch
+                arguments: { path: app/Program.cs }
+              - tool_call_id: run_1
+                function_name: bash
+                arguments: { command: "dotnet run --project app/App.csproj" }
+            observation:
+              results:
+                - source_call_id: edit_1
+                  content: Added DictionaryKeyPolicy without changing PropertyNamingPolicy.
+                - source_call_id: run_1
+                  content: "{\"Stats\":{\"PendingOrders\":2}}\nProcess exited with code 0."
+          - step_id: 2
+            source: agent
+            message: "Kept the property policy and added `DictionaryKeyPolicy = JsonNamingPolicy.PascalCase`. The run printed `{\"Stats\":{\"PendingOrders\":2}}`."
+    graders:
+      - type: run-command
+        config:
+          command: node .eval/verify.mjs nested-dictionary app
+          expected_exit_code: 0
+          stdout_matches: PASS nested-dictionary
+          timeout: 3m
+      # The verifier distinguishes property and dictionary-key configuration.
+    rubric:
+      - Added the separate dictionary-key policy while preserving the existing property policy
+      - Corrected the nested dictionary key without pre-transforming data
+      - Demonstrated both casing levels through successful execution
 
-      Show me a minimal program targeting `net8.0` that produces output like
-      `{"name":"Jane","age":30}` and run it.
+  - name: Retrieve typed metadata without a non-generic cast
+    tags:
+      capability: typed-json-metadata
+      risk: invalid-runtime-metadata-cast
+      journey: modernize-metadata-access
+    prompt: |
+      `app` targets .NET 11, but it still calls the non-generic metadata API and
+      casts the result before serializing an `Order`. Remove the cast without
+      weakening the variable type, keep the resolver configuration, and run the
+      project.
+    environment:
+      files:
+        - src: fixtures/typed-metadata
+          dest: app
+    golden_patch:
+      path: references/typed-metadata.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "system-text-json-net11-typed-metadata"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I will replace the cast with typed metadata access and run the project.
+            tool_calls:
+              - tool_call_id: edit_1
+                function_name: apply_patch
+                arguments: { path: app/Program.cs }
+              - tool_call_id: run_1
+                function_name: bash
+                arguments: { command: "dotnet run --project app/App.csproj" }
+            observation:
+              results:
+                - source_call_id: edit_1
+                  content: Replaced the non-generic lookup and cast with options.GetTypeInfo<Order>().
+                - source_call_id: run_1
+                  content: "{\"Id\":42,\"Total\":19.95}\nProcess exited with code 0."
+          - step_id: 2
+            source: agent
+            message: "The code now retrieves `JsonTypeInfo<Order>` through `GetTypeInfo<Order>()` and keeps the configured resolver. The project ran successfully and serialized the order without a cast."
+    graders:
+      - type: run-command
+        config:
+          command: node .eval/verify.mjs typed-metadata app
+          expected_exit_code: 0
+          stdout_matches: PASS typed-metadata
+          timeout: 3m
+      # The compiler/runtime verifier is authoritative for this .NET 11 API;
+      # general-purpose judges can retain the earlier non-generic API inventory.
+    rubric:
+      - Replaced the non-generic lookup and cast with strongly typed metadata access
+      - Retained a resolver that makes metadata available at runtime
+      - Used the typed metadata in successful serialization
+
+  - name: Probe source-generated metadata without exception control flow
+    tags:
+      capability: no-throw-metadata-probe
+      risk: exceptions-used-for-expected-control-flow
+      journey: branch-on-metadata-availability
+    prompt: |
+      This source-generated `app` checks one covered message type and one
+      uncovered type, but it uses exceptions to detect missing metadata. On
+      .NET 11, replace exception control flow with a direct availability check,
+      handle both results explicitly, and run the project.
+    environment:
+      files:
+        - src: fixtures/metadata-probe
+          dest: app
+    golden_patch:
+      path: references/metadata-probe.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "system-text-json-net11-metadata-probe"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I will replace exception control flow with the no-throw probe and run both branches.
+            tool_calls:
+              - tool_call_id: edit_1
+                function_name: apply_patch
+                arguments: { path: app/Program.cs }
+              - tool_call_id: run_1
+                function_name: bash
+                arguments: { command: "dotnet run --project app/App.csproj" }
+            observation:
+              results:
+                - source_call_id: edit_1
+                  content: Used TryGetTypeInfo<T> for both message types and removed try/catch.
+                - source_call_id: run_1
+                  content: "Known=True\nUnknown=False\nProcess exited with code 0."
+          - step_id: 2
+            source: agent
+            message: "Replaced the exception-based check with `TryGetTypeInfo<T>` for both types. The app ran successfully and printed `Known=True` and `Unknown=False`."
+    graders:
+      - type: run-command
+        config:
+          command: node .eval/verify.mjs metadata-probe app
+          expected_exit_code: 0
+          stdout_matches: PASS metadata-probe
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Used the generic no-throw metadata probe for both covered and uncovered types
+      - Removed exception handling used only to detect metadata availability
+      - Demonstrated the true and false branches with executable output
+
+  - name: Make a .NET 11 file-based JSON app runnable
+    tags:
+      capability: file-based-json-app
+      risk: reflection-disabled-runtime-failure
+      journey: repair-file-based-app
+    prompt: |
+      `app.cs` is a .NET 11 file-based app. It should serialize lowercase record
+      members as PascalCase JSON, but `dotnet run app.cs` currently fails. The
+      file also carries a custom casing policy. Simplify the code, fix the
+      runtime failure, and run it.
+    environment:
+      files:
+        - src: fixtures/file-based-app/app.cs
+          dest: app.cs
+    golden_patch:
+      path: references/file-based-app.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "system-text-json-net11-file-based-app"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I will use the built-in policy, add an explicit resolver, and run the file.
+            tool_calls:
+              - tool_call_id: edit_1
+                function_name: apply_patch
+                arguments: { path: app.cs }
+              - tool_call_id: run_1
+                function_name: bash
+                arguments: { command: "dotnet run app.cs" }
+            observation:
+              results:
+                - source_call_id: edit_1
+                  content: Added JsonNamingPolicy.PascalCase and DefaultJsonTypeInfoResolver.
+                - source_call_id: run_1
+                  content: "{\"Name\":\"Jane\",\"Age\":30}\nProcess exited with code 0."
+          - step_id: 2
+            source: agent
+            message: "Replaced the custom policy with `JsonNamingPolicy.PascalCase` and added `DefaultJsonTypeInfoResolver` for the file-based app. `dotnet run app.cs` completed successfully and printed `{\"Name\":\"Jane\",\"Age\":30}`."
+    graders:
+      - type: run-command
+        config:
+          command: node .eval/verify.mjs file-based-app .
+          expected_exit_code: 0
+          stdout_matches: PASS file-based-app
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Used the built-in PascalCase policy instead of a custom naming-policy class
+      - Configured an explicit metadata resolver required by System.Text.Json in a file-based app
+      - Produced the requested JSON through a successful file-based execution
+      - Did not reward redundant verifier commands over the required successful dotnet run
+
+  - name: Replace a custom enum naming policy
+    tags:
+      capability: pascal-case-enum-values
+      risk: duplicate-enum-naming-code
+      journey: simplify-string-enum-serialization
+    prompt: |
+      The `app` project targets .NET 11 and serializes enum values as strings.
+      It carries a custom naming-policy class only to keep those strings in
+      PascalCase. Simplify the workaround, preserve the exact JSON, and run it.
+    environment:
+      files:
+        - src: fixtures/pascal-enum
+          dest: app
+    golden_patch:
+      path: references/pascal-enum.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "system-text-json-net11-pascal-enum"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I will replace the enum workaround and run the project.
+            tool_calls:
+              - tool_call_id: edit_1
+                function_name: apply_patch
+                arguments: { path: app/Program.cs }
+              - tool_call_id: run_1
+                function_name: bash
+                arguments: { command: "dotnet run --project app/App.csproj" }
+            observation:
+              results:
+                - source_call_id: edit_1
+                  content: Replaced the custom policy passed to JsonStringEnumConverter.
+                - source_call_id: run_1
+                  content: "{\"Status\":\"AwaitingPayment\"}\nProcess exited with code 0."
+          - step_id: 2
+            source: agent
+            message: "Replaced the custom enum naming class with `JsonNamingPolicy.PascalCase`. The project ran successfully and preserved `{\"Status\":\"AwaitingPayment\"}`."
+    graders:
+      - type: run-command
+        config:
+          command: node .eval/verify.mjs pascal-enum app
+          expected_exit_code: 0
+          stdout_matches: PASS pascal-enum
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Reused the .NET 11 built-in PascalCase policy for string enum values
+      - Removed the custom naming-policy implementation
+      - Preserved the exact enum JSON through successful execution
+
+  - name: Deserialize with typed metadata without a cast
+    tags:
+      capability: typed-json-deserialization-metadata
+      risk: invalid-deserialization-metadata-cast
+      journey: modernize-typed-deserialization
+    prompt: |
+      In the .NET 11 `app`, deserialization still gets metadata through the
+      non-generic API and casts it before use. Remove that cast without weakening
+      the metadata type, keep the resolver, and run the project.
+    environment:
+      files:
+        - src: fixtures/typed-deserialization
+          dest: app
+    golden_patch:
+      path: references/typed-deserialization.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "system-text-json-net11-typed-deserialization"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I will remove the metadata cast and validate deserialization.
+            tool_calls:
+              - tool_call_id: edit_1
+                function_name: apply_patch
+                arguments: { path: app/Program.cs }
+              - tool_call_id: run_1
+                function_name: bash
+                arguments: { command: "dotnet run --project app/App.csproj" }
+            observation:
+              results:
+                - source_call_id: edit_1
+                  content: Replaced the non-generic metadata lookup with GetTypeInfo<Order>().
+                - source_call_id: run_1
+                  content: "42|19.95\nProcess exited with code 0."
+          - step_id: 2
+            source: agent
+            message: "The app now obtains `JsonTypeInfo<Order>` through `GetTypeInfo<Order>()` and uses it for deserialization without a cast. The run printed `42|19.95`."
+    graders:
+      - type: run-command
+        config:
+          command: node .eval/verify.mjs typed-deserialization app
+          expected_exit_code: 0
+          stdout_matches: PASS typed-deserialization
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Replaced the non-generic lookup and cast with typed metadata access
+      - Preserved the configured resolver and used the typed metadata for deserialization
+      - Demonstrated the deserialized values through successful execution
+
+  - name: Probe empty options without catching metadata exceptions
+    tags:
+      capability: empty-resolver-metadata-probe
+      risk: expected-metadata-miss-throws
+      journey: test-unconfigured-metadata-availability
+    prompt: |
+      This .NET 11 `app` intentionally leaves `JsonSerializerOptions`
+      unconfigured and needs to report whether metadata is available. It
+      currently catches an exception for the expected miss. Replace that control
+      flow with a direct check and run the project.
+    environment:
+      files:
+        - src: fixtures/empty-options-probe
+          dest: app
+    golden_patch:
+      path: references/empty-options-probe.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "system-text-json-net11-empty-options-probe"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I will replace the expected exception with a direct metadata check.
+            tool_calls:
+              - tool_call_id: edit_1
+                function_name: apply_patch
+                arguments: { path: app/Program.cs }
+              - tool_call_id: run_1
+                function_name: bash
+                arguments: { command: "dotnet run --project app/App.csproj" }
+            observation:
+              results:
+                - source_call_id: edit_1
+                  content: Replaced try/catch with TryGetTypeInfo<Person>(out _).
+                - source_call_id: run_1
+                  content: "Available=False\nProcess exited with code 0."
+          - step_id: 2
+            source: agent
+            message: "Replaced exception control flow with `TryGetTypeInfo<Person>(out _)`. The unconfigured options now report `Available=False` without throwing."
+    graders:
+      - type: run-command
+        config:
+          command: node .eval/verify.mjs empty-options-probe app
+          expected_exit_code: 0
+          stdout_matches: PASS empty-options-probe
+          timeout: 3m
+      # The runtime grader compiles TryGetTypeInfo<T> and proves the false path;
+      # general-purpose judges can carry the pre-.NET-11 API inventory.
+    rubric:
+      - Used the .NET 11 no-throw generic metadata check for unconfigured options
+      - Removed exception handling for the expected unavailable-metadata result
+      - Demonstrated the false result through successful execution
+
+  - name: Serialize optional payloads only when metadata is available
+    tags:
+      capability: conditional-serialization-metadata
+      risk: optional-payload-probe-throws
+      journey: serialize-supported-plugin-payloads
+    prompt: |
+      This .NET 11 `app` receives optional plugin payloads. It should serialize
+      types covered by its source-generated context and print `SKIPPED` for
+      unsupported types, but the expected miss currently uses exception control
+      flow. Replace that pattern with a direct availability check and run both
+      payloads.
+    environment:
+      files:
+        - src: fixtures/conditional-serialization
+          dest: app
+    golden_patch:
+      path: references/conditional-serialization.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "system-text-json-net11-conditional-serialization"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I will replace the exception probe and run both payload types.
+            tool_calls:
+              - tool_call_id: edit_1
+                function_name: apply_patch
+                arguments: { path: app/Program.cs }
+              - tool_call_id: run_1
+                function_name: bash
+                arguments: { command: "dotnet run --project app/App.csproj" }
+            observation:
+              results:
+                - source_call_id: edit_1
+                  content: Used TryGetTypeInfo<T> before conditional serialization.
+                - source_call_id: run_1
+                  content: "{\"Text\":\"hello\"}\nSKIPPED\nProcess exited with code 0."
+          - step_id: 2
+            source: agent
+            message: "The helper now uses `TryGetTypeInfo<T>` and serializes only when typed metadata is available. The supported payload printed JSON and the unsupported payload printed `SKIPPED` without throwing."
+    graders:
+      - type: run-command
+        config:
+          command: node .eval/verify.mjs conditional-serialization app
+          expected_exit_code: 0
+          stdout_matches: PASS conditional-serialization
+          timeout: 3m
+      # Runtime evidence is authoritative for this preview API.
+    rubric:
+      - Used the no-throw generic metadata check before optional serialization
+      - Serialized the supported payload with typed metadata and skipped the unsupported payload
+      - Removed exception handling for the expected unsupported-type path
+      - Did not reward redundant verifier commands over the required successful dotnet run
+
+  - name: Preserve an already-correct .NET 11 implementation
+    tags:
+      capability: correct-implementation-no-op
+      risk: unnecessary-code-churn
+      journey: verify-existing-json-implementation
+    prompt: |
+      Review the `app` project for its use of the new .NET 11 System.Text.Json
+      APIs. If it already uses the right property policy, dictionary-key policy,
+      typed metadata API, and resolver, do not change any file. Run it and report
+      whether a change was needed.
+    environment:
+      files:
+        - src: fixtures/already-correct
+          dest: app
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "system-text-json-net11-already-correct"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I will inspect the existing configuration and run it without editing files.
+            tool_calls:
+              - tool_call_id: inspect_1
+                function_name: bash
+                arguments: { command: "cat app/Program.cs && cat app/App.csproj" }
+              - tool_call_id: run_1
+                function_name: bash
+                arguments: { command: "dotnet run --project app/App.csproj" }
+            observation:
+              results:
+                - source_call_id: inspect_1
+                  content: |-
+                    <TargetFramework>net11.0</TargetFramework>
+                    PropertyNamingPolicy = JsonNamingPolicy.PascalCase,
+                    DictionaryKeyPolicy = JsonNamingPolicy.PascalCase,
+                    TypeInfoResolver = new DefaultJsonTypeInfoResolver()
+                    JsonTypeInfo<Person> typeInfo = options.GetTypeInfo<Person>();
+                - source_call_id: run_1
+                  content: "{\"Name\":\"Jane\",\"Age\":30,\"Stats\":{\"PendingOrders\":2}}\nProcess exited with code 0."
+          - step_id: 2
+            source: agent
+            message: |-
+              The project is already correct, so no files need changes. It uses the .NET 11 PascalCase policy for properties and dictionary keys, configures a default metadata resolver, and calls the generic metadata API without a cast. The validation run completed with `{"Name":"Jane","Age":30,"Stats":{"PendingOrders":2}}`.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(already correct|no (file )?changes? (were )?(needed|required)|nothing to change)
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs'),c=require('crypto'),cp=require('child_process');
+            const p='.eval/verify.mjs';
+            if(c.createHash('sha256').update(fs.readFileSync(p)).digest('hex')!=='c128890aec934cea284c188f7f31fdcbcf319a28d1a49bef1b7e393e4e05df85')process.exit(2);
+            const r=cp.spawnSync(process.execPath,[p,...process.argv.slice(1)],{stdio:'inherit'});
+            process.exit(r.status??1)" already-correct app
+          expected_exit_code: 0
+          stdout_matches: PASS already-correct
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Correctly recognized that every requested .NET 11 API was already configured
+      - Left all source and project files byte-for-byte unchanged
+      - Ran the existing program and reported its observed JSON output
+
+  - name: Report preview SDK validation without implying GA
+    tags:
+      capability: sdk-availability-reporting
+      risk: preview-sdk-reported-as-ga
+      journey: validate-with-pinned-preview-sdk
+    prompt: |
+      This repository is pinned to a .NET 11 preview SDK. Review the `app`
+      project, run it without changing correct code, and report the exact SDK
+      used. Be explicit that the validation is on a preview rather than GA.
+    environment:
+      files:
+        - src: fixtures/sdk-reporting
+          dest: app
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "system-text-json-net11-sdk-reporting"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I will inspect the pinned SDK and run the existing project without editing it.
+            tool_calls:
+              - tool_call_id: sdk_1
+                function_name: bash
+                arguments: { command: "dotnet --version" }
+              - tool_call_id: run_1
+                function_name: bash
+                arguments: { command: "dotnet run --project app/App.csproj" }
+            observation:
+              results:
+                - source_call_id: sdk_1
+                  content: 11.0.100-preview.3.26207.106
+                - source_call_id: run_1
+                  content: "{\"Name\":\"Jane\",\"Age\":30}\nProcess exited with code 0."
+          - step_id: 2
+            source: agent
+            message: "No code change was needed. I validated the app with SDK `11.0.100-preview.3.26207.106`; this is a preview SDK, not GA. The observed output was `{\"Name\":\"Jane\",\"Age\":30}`."
+    graders:
+      - type: output-matches
+        config:
+          pattern: 11\.0\.100-preview\.[0-9.]+
+      - type: output-matches
+        config:
+          pattern: (?i)preview
+      - type: output-matches
+        config:
+          pattern: '"Name".*"Age"'
+      - type: output-not-matches
+        config:
+          pattern: (?i)(general availability|GA release|stable SDK)
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs'),c=require('crypto'),cp=require('child_process');
+            const p='.eval/verify.mjs';
+            if(c.createHash('sha256').update(fs.readFileSync(p)).digest('hex')!=='c128890aec934cea284c188f7f31fdcbcf319a28d1a49bef1b7e393e4e05df85')process.exit(2);
+            const r=cp.spawnSync(process.execPath,[p,...process.argv.slice(1)],{stdio:'inherit'});
+            process.exit(r.status??1)" sdk-reporting app
+          expected_exit_code: 0
+          stdout_matches: PASS sdk-reporting
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Reported the exact SDK version used for the successful validation
+      - Clearly identified the SDK as a preview rather than implying a GA release
+      - Left the correct project unchanged and reported the observed JSON output
+
+  - name: "Non-activation: use the established camelCase policy on .NET 8"
     expect_activation: false
+    tags:
+      capability: dormancy-established-policy
+      risk: version-feature-hijack
+      journey: choose-json-policy-on-net8
+    prompt: |
+      In a `net8.0` service, which built-in System.Text.Json option should I set
+      so `Person.Name` is written as `name`? I only need the configuration line.
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "system-text-json-net11-net8-camelcase"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: "`options.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;`"
     graders:
-      - type: exit-success
-      - type: output-matches
-        config:
-          pattern: net8\.0
       - type: output-matches
         config:
           pattern: JsonNamingPolicy\.CamelCase
       - type: output-not-matches
         config:
-          pattern: JsonNamingPolicy\.PascalCase
-      - type: output-not-matches
-        config:
-          pattern: net11\.0
-      - type: output-matches
-        config:
-          pattern: '"name"'
-      - type: output-matches
-        config:
-          pattern: '"age"'
+          pattern: (JsonNamingPolicy\.PascalCase|net11\.0)
       - type: prompt
     rubric:
-      - Solves the task using only pre-.NET 11 APIs (JsonNamingPolicy.CamelCase, standard JsonSerializer.Serialize)
-      - Targets net8.0 and produces camelCase JSON output
-      - The specialized .NET 11 guidance stayed dormant and did not add unrelated APIs or extra work
+      - Answered with the established camelCase policy available on .NET 8
+      - Did not introduce .NET 11 APIs or unrelated migration work
+      - The specialized .NET 11 guidance stayed dormant and did not hijack the request
 
-  - name: Deserialize PascalCase JSON into lowercase members on .NET 11
-    prompt: |
-      In a new .NET 11 console app, deserialize `{"Name":"Jane","Age":30}` into
-      this record without decorating every member:
-
-      ```csharp
-      public record Person(string name, int age);
-      ```
-
-      Use the framework's built-in naming support, print the resulting values, and run
-      the program.
-    graders:
-      - type: exit-success
-      - type: output-matches
-        config:
-          pattern: JsonNamingPolicy\.PascalCase
-      - type: output-not-matches
-        config:
-          pattern: (?m)^\s*\[\s*JsonPropertyName\s*\(
-      - type: output-matches
-        config:
-          pattern: (?i)Jane
-      - type: output-matches
-        config:
-          pattern: \b30\b
-      - type: prompt
-    rubric:
-      - Uses the built-in PascalCase naming policy instead of per-member annotations or a custom policy
-      - Targets .NET 11 and demonstrates successful deserialization by running the program
-
-  - name: Apply PascalCase to dictionary keys on .NET 11
-    prompt: |
-      I need a `net11.0` console program that serializes a
-      `Dictionary<string, int>` containing keys `pendingOrders` and `activeUsers`.
-      The JSON object keys must become `PendingOrders` and `ActiveUsers` using only
-      built-in System.Text.Json functionality. Show the program and run it.
-    graders:
-      - type: exit-success
-      - type: output-matches
-        config:
-          pattern: DictionaryKeyPolicy\s*=\s*JsonNamingPolicy\.PascalCase
-      - type: output-matches
-        config:
-          pattern: '"PendingOrders"'
-      - type: output-matches
-        config:
-          pattern: '"ActiveUsers"'
-      - type: output-not-matches
-        config:
-          pattern: (?m)^\s*(?:(?:public|private|protected|internal|sealed|abstract|partial|static|new|file)\s+)*class\s+\w+(?:\s*<[^>\r\n]+>)?\s*:\s*(?:(?:global::)?System\.Text\.Json\.)?JsonNamingPolicy\b
-      - type: prompt
-    rubric:
-      - Configures the dictionary-key policy with the .NET 11 built-in PascalCase policy
-      - Runs the program and shows both dictionary keys transformed correctly
-
-  - name: Serialize with strongly typed metadata without casting
-    prompt: |
-      Show a minimal `net11.0` program that gets `JsonTypeInfo<Order>` from
-      `JsonSerializerOptions` without a cast, uses that metadata in a
-      `JsonSerializer.Serialize` call, and prints the JSON. Run the program.
-
-      ```csharp
-      public record Order(int Id, decimal Total);
-      ```
-    graders:
-      - type: exit-success
-      - type: output-contains
-        config:
-          substring: "GetTypeInfo<Order>"
-      - type: output-matches
-        config:
-          pattern: JsonTypeInfo<Order>
-      - type: output-not-matches
-        config:
-          pattern: (?m)^\s*JsonTypeInfo<Order>\s+\w+\s*=\s*\(JsonTypeInfo<Order>\)
-      - type: output-matches
-        config:
-          pattern: JsonSerializer\.Serialize\(
-      - type: output-matches
-        config:
-          pattern: '"Id"'
-      - type: prompt
-    rubric:
-      - Retrieves strongly typed metadata through the generic .NET 11 API with a configured resolver
-      - Passes the typed metadata to serialization without casting from non-generic metadata
-      - Runs the program and reports its JSON output
-
-  - name: Probe source-generated metadata without exception control flow
-    prompt: |
-      In a `net11.0` app I have a source-generated `JsonSerializerContext` that
-      covers `KnownMessage` but not `UnknownMessage`. Demonstrate how to ask a
-      `JsonSerializerOptions` configured with that context whether metadata exists
-      for each type, branch on the result, and print both outcomes. A missing type
-      must not throw and must not be handled with try/catch. Run the program.
-    graders:
-      - type: exit-success
-      - type: output-contains
-        config:
-          substring: "TryGetTypeInfo<KnownMessage>"
-      - type: output-contains
-        config:
-          substring: "TryGetTypeInfo<UnknownMessage>"
-      - type: output-not-matches
-        config:
-          pattern: \bcatch\b\s*(\(|\{)
-      - type: output-matches
-        config:
-          pattern: (?i)(known).*(true|found|resolved)
-      - type: output-matches
-        config:
-          pattern: (?i)(unknown).*(false|missing|not available|not resolved)
-      - type: prompt
-    rubric:
-      - Uses the generic no-throw metadata probe for both covered and uncovered types
-      - Configures the options with the source-generated context
-      - Handles both outcomes explicitly and proves the behavior by running the program
-
-  - name: "Non-activation: Newtonsoft.Json PascalCase contract resolver"
-    prompt: |
-      My `net11.0` application is standardized on Newtonsoft.Json. Show how to
-      configure a `DefaultContractResolver` so serialized property names use
-      PascalCase, and keep the solution entirely on Newtonsoft.Json.
+  - name: "Non-activation: keep a Newtonsoft.Json contract resolver"
     expect_activation: false
+    tags:
+      capability: dormancy-alternate-json-library
+      risk: requested-library-substitution
+      journey: configure-newtonsoft-contract
+    prompt: |
+      Our `net11.0` application is standardized on Newtonsoft.Json. Show the
+      `DefaultContractResolver` configuration for PascalCase names. Do not switch
+      libraries.
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "system-text-json-net11-newtonsoft"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              PascalCase is the default with Newtonsoft.Json's `DefaultContractResolver`:
+              ```csharp
+              var settings = new JsonSerializerSettings
+              {
+                  ContractResolver = new DefaultContractResolver()
+              };
+              string json = JsonConvert.SerializeObject(value, settings);
+              ```
+              This keeps the selected library and does not apply a camelCase naming strategy.
     graders:
-      - type: exit-success
       - type: output-matches
         config:
           pattern: (?i)(Newtonsoft\.Json|DefaultContractResolver)
       - type: output-not-matches
         config:
-          pattern: (?m)^\s*using\s+System\.Text\.Json\s*;
-      - type: output-not-matches
-        config:
-          pattern: JsonNamingPolicy\.PascalCase
+          pattern: (JsonNamingPolicy\.PascalCase|System\.Text\.Json)
       - type: prompt
     rubric:
-      - Keeps the answer on Newtonsoft.Json as requested
-      - Does not substitute System.Text.Json APIs merely because the project targets .NET 11
-      - The specialized System.Text.Json guidance stayed dormant and did not hijack the requested library choice
+      - Kept the answer on Newtonsoft.Json as requested
+      - Did not substitute System.Text.Json because of the target framework
+      - The specialized System.Text.Json guidance stayed dormant and did not hijack the requested library
+
+  - name: "Non-activation: explain the .NET 10 PascalCase boundary"
+    expect_activation: false
+    tags:
+      capability: dormancy-earlier-framework-boundary
+      risk: unavailable-api-recommendation
+      journey: implement-pascal-case-on-net10
+    prompt: |
+      I must stay on `net10.0`, but I need System.Text.Json to serialize lowercase
+      member names as PascalCase. Is there a built-in PascalCase policy in this
+      target, and what is the smallest compatible approach?
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "system-text-json-net11-net10-boundary"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              `net10.0` does not provide `JsonNamingPolicy.PascalCase`. Keep the target and use a small custom `JsonNamingPolicy` implementation, or explicit `JsonPropertyName` attributes when the contract is limited. Do not reference the .NET 11-only property in a .NET 10 build.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(not (available|provided)|does not (have|provide)|\.NET 11)
+      - type: output-matches
+        config:
+          pattern: (?i)(custom.*JsonNamingPolicy|JsonPropertyName)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:\w+\.)?PropertyNamingPolicy\s*=\s*JsonNamingPolicy\.PascalCase
+      - type: output-not-matches
+        config:
+          pattern: JsonStringEnumConverter\s*\(\s*JsonNamingPolicy\.PascalCase
+      # This version boundary is compiler-proven locally (CS0117 on net10.0);
+      # avoid a model judge whose API-version memory can be stale.
+    rubric:
+      - Correctly stated that the built-in PascalCase policy is unavailable on net10.0
+      - Proposed a compatible fallback without changing the requested target framework
+      - Did not present the .NET 11-only API as compilable on .NET 10
+      - The specialized .NET 11 guidance stayed dormant at the earlier framework boundary

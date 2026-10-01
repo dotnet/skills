@@ -1,0 +1,20 @@
+diff --git a/app/Program.cs b/app/Program.cs
+--- a/app/Program.cs
++++ b/app/Program.cs
+@@ -1,15 +1,7 @@
+ using System.Text.Json;
+ 
+ var options = new JsonSerializerOptions();
+-var available = true;
+-try
+-{
+-    _ = options.GetTypeInfo<Person>();
+-}
+-catch (NotSupportedException)
+-{
+-    available = false;
+-}
++var available = options.TryGetTypeInfo<Person>(out _);
+ 
+ Console.WriteLine($"Available={available}");
+ 
