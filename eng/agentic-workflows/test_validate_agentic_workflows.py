@@ -7,6 +7,7 @@ import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 MODULE_PATH = Path(__file__).with_name("validate_agentic_workflows.py")
@@ -57,6 +58,126 @@ class PackagePathTests(unittest.TestCase):
                 VALIDATOR.resolve_package_include(
                     manifest, str((root / "outside.md").resolve()), root / "scratch"
                 )
+
+    def test_discovers_automatic_grader_package_resource(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workflow = Path(temp_dir) / "workflows" / "example.md"
+            workflow.parent.mkdir(parents=True)
+            workflow.write_text(
+                """---
+on: workflow_dispatch
+graders:
+  operational-value:
+    run: .github/graders/example-operational-value.sh
+---
+""",
+                encoding="utf-8",
+            )
+
+            self.assertEqual(
+                VALIDATOR.grader_evaluator_paths(workflow),
+                [".github/graders/example-operational-value.sh"],
+            )
+
+    def test_stages_automatic_grader_resource_in_installed_layout(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            package = repo_root / "agentic-workflows" / "example"
+            workflow = package / "workflows" / "example.md"
+            evaluator = repo_root / ".github" / "graders" / "example-operational-value.sh"
+            workflow.parent.mkdir(parents=True)
+            evaluator.parent.mkdir(parents=True)
+            (package / "aw.yml").write_text(
+                """includes:
+  - workflows/example.md
+""",
+                encoding="utf-8",
+            )
+            workflow.write_text(
+                """---
+on: workflow_dispatch
+graders:
+  operational-value:
+    run: .github/graders/example-operational-value.sh
+---
+""",
+                encoding="utf-8",
+            )
+            evaluator.write_text("#!/usr/bin/env bash\nprintf '[]\\n'\n", encoding="utf-8")
+
+            def verify_staging(command: list[str], cwd: Path) -> None:
+                if command[:3] != ["gh", "aw", "compile"]:
+                    return
+                self.assertEqual(
+                    (cwd / ".github" / "graders" / evaluator.name).read_bytes(),
+                    evaluator.read_bytes(),
+                )
+
+            with mock.patch.object(VALIDATOR, "run", side_effect=verify_staging):
+                VALIDATOR.validate_package(repo_root, package / "aw.yml")
+
+    def test_rejects_grader_evaluator_symlink_escape(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo_root = root / "repo"
+            evaluator = repo_root / ".github" / "graders" / "escape.sh"
+            outside = root / "outside.sh"
+            evaluator.parent.mkdir(parents=True)
+            outside.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+            try:
+                evaluator.symlink_to(outside)
+            except OSError as error:
+                self.skipTest(f"symbolic links are unavailable: {error}")
+
+            with self.assertRaisesRegex(RuntimeError, "must not be a symbolic link"):
+                VALIDATOR.resolve_grader_evaluator(
+                    repo_root,
+                    repo_root / ".github" / "workflows" / "example.md",
+                    Path(".github/workflows/example.md"),
+                    ".github/graders/escape.sh",
+                )
+
+    def test_stages_workflow_local_grader_beside_installed_workflow(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            package = repo_root / "agentic-workflows" / "example"
+            workflow = package / "workflows" / "example.md"
+            evaluator = package / "workflows" / "graders" / "local.sh"
+            evaluator.parent.mkdir(parents=True)
+            (package / "aw.yml").write_text(
+                """includes:
+  - workflows/example.md
+""",
+                encoding="utf-8",
+            )
+            workflow.write_text(
+                """---
+on: workflow_dispatch
+graders:
+  operational-value:
+    run: ./graders/local.sh
+---
+""",
+                encoding="utf-8",
+            )
+            evaluator.write_text("#!/usr/bin/env bash\nprintf '[]\\n'\n", encoding="utf-8")
+
+            def verify_staging(command: list[str], cwd: Path) -> None:
+                if command[:3] != ["gh", "aw", "compile"]:
+                    return
+                self.assertEqual(
+                    (
+                        cwd
+                        / ".github"
+                        / "workflows"
+                        / "graders"
+                        / evaluator.name
+                    ).read_bytes(),
+                    evaluator.read_bytes(),
+                )
+
+            with mock.patch.object(VALIDATOR, "run", side_effect=verify_staging):
+                VALIDATOR.validate_package(repo_root, package / "aw.yml")
 
 
 class ActiveWorkflowTests(unittest.TestCase):
