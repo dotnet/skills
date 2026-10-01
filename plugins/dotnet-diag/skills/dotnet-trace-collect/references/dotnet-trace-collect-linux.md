@@ -33,7 +33,7 @@ sudo dotnet-trace collect-linux -p <PID>
 sudo dotnet-trace collect-linux -n <process-name>
 
 # Trace for a specific duration
-sudo dotnet-trace collect-linux --duration 00:00:30
+sudo dotnet-trace collect-linux --duration 00:00:00:30 -o /tmp/trace.nettrace
 
 # Trace with specific providers
 sudo dotnet-trace collect-linux --providers Microsoft-Windows-DotNETRuntime

@@ -155,7 +155,15 @@ foreach (var part in parts)
 return sb.ToString();
 ```
 
-**Impact: Eliminates N-1 intermediate string allocations per chain. For `+=` in loops, eliminates O(n²) total allocation.**
+**Impact:** Each `string.Replace` scans its input, but it can return the original string when no
+replacement occurs. Count a new result allocation only for calls whose pattern is present and whose
+replacement changes the string. Chained calls still add repeated scans; for `+=` in loops, repeated
+concatenation can produce O(n²) total copying/allocation.
+
+Do not automatically add `IndexOf` or `Contains` before `Replace`. A precheck performs another scan
+and can make the common-match case slower. Use a precheck only when representative inputs are
+mostly misses and a benchmark shows the extra scan wins; otherwise prefer a single-pass
+transformation when the chain is materially hot.
 
 ### Cache char.ToString() for Known Character Sets
 🟡 **DO** cache `char.ToString()` results when the set of characters is small and known | .NET Core+
