@@ -1,16 +1,33 @@
 name: setup-local-sdk
 description: Evaluates the dotnet/setup-local-sdk skill
 type: capability
-config:
+defaults:
   timeout: 10m
 stimuli:
   - name: Detect incompatible .NET host version
     prompt: I already ran dotnet --version and it printed 9.0.306. I want to set up a local .NET 11 preview SDK for my project using the global.json SDK paths feature. Is that possible?
+    tags:
+      capability: host-prerequisite-check
+      risk: unsupported-sdk-resolution
+      journey: assess-local-preview-setup
     constraints:
       reject_tools:
         - bash
         - powershell
         - web_fetch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: setup-local-sdk-host-prerequisite
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Your 9.0.306 host is too old for the global.json paths feature.
+              install .NET 10 or later system-wide first, then return to the
+              project-local setup. I would not download or run dotnet-install
+              until that prerequisite is met.
     graders:
       - type: output-contains
         config:
@@ -26,16 +43,20 @@ stimuli:
           pattern: '(install|upgrade).{0,80}(\.NET 10|10)'
       - type: output-not-matches
         config:
-          pattern: '(--install-dir|Let me download|Downloading and installing|dotnet-install\.(sh|ps1))'
+          pattern: '(--install-dir|Let me download|Downloading and installing)'
       - type: prompt
     rubric:
-      - The agent detected that version 9.0.306 is below the .NET 10 requirement
-      - The agent explained that .NET 10+ is required for the paths feature
-      - The agent told the user to install .NET 10+ system-wide first
-      - The agent did not proceed with local SDK installation commands before the host SDK prerequisite was met
+      - Detected that version 9.0.306 is below the .NET 10 requirement
+      - Explained that .NET 10 or later is required for the global.json paths feature
+      - Directed the user to install a compatible host SDK before any local SDK download
+      - Did not proceed with local installation commands before the prerequisite was met
 
-  - name: Create team install scripts
+  - name: Create exact-version team install scripts
     prompt: This repo already has a global.json for a .NET 11 preview. Create install scripts and repo configuration, including a clear missing-SDK message, so teammates can reproduce the project-local SDK setup on any OS after cloning. Preserve the existing global.json sections. Don't download the SDK now.
+    tags:
+      capability: reproducible-team-scripts
+      risk: destructive-config-rewrite
+      journey: share-local-sdk-setup
     environment:
       files:
         - src: ./fixtures/create-team-install-scripts/global.json
@@ -47,12 +68,22 @@ stimuli:
       - type: file-exists
         config:
           path: install*.ps1
-      - type: output-matches
+      - type: file-contains
         config:
-          pattern: 'install[^\s]*\.sh'
-      - type: output-matches
+          path: install*.sh
+          value: --version
+      - type: file-contains
         config:
-          pattern: 'install[^\s]*\.ps1'
+          path: install*.ps1
+          value: -Version
+      - type: file-contains
+        config:
+          path: install*.sh
+          value: 11.0.100-preview.3.26207.106
+      - type: file-contains
+        config:
+          path: install*.ps1
+          value: 11.0.100-preview.3.26207.106
       - type: file-contains
         config:
           path: global.json
@@ -60,23 +91,7 @@ stimuli:
       - type: file-contains
         config:
           path: global.json
-          value: version
-      - type: file-contains
-        config:
-          path: global.json
-          value: msbuild-sdks
-      - type: file-contains
-        config:
-          path: global.json
-          value: tools
-      - type: file-contains
-        config:
-          path: global.json
           value: errorMessage
-      - type: file-contains
-        config:
-          path: global.json
-          value: 11.0.100-preview.3.26207.106
       - type: file-contains
         config:
           path: global.json
@@ -93,12 +108,6 @@ stimuli:
         config:
           path: global.json
           value: 4.5.6
-      - type: output-matches
-        config:
-          pattern: '(merge|preserve|backup|back up|existing)'
-      - type: output-matches
-        config:
-          pattern: '(teammates|team|clone|after cloning)'
       - type: file-not-contains
         config:
           path: install*.sh
@@ -107,20 +116,45 @@ stimuli:
         config:
           path: install*.ps1
           value: $env:PATH
+      - type: file-not-contains
+        config:
+          path: install*.sh
+          value: --channel
+      - type: file-not-contains
+        config:
+          path: install*.ps1
+          value: -Channel
       - type: prompt
     rubric:
-      - The agent created cross-platform scripts that teammates can run after cloning
-      - The agent configured missing-SDK guidance that points teammates to the install scripts
-      - The agent avoided dropping existing global.json settings
-      - The agent made the setup reproducible without requiring teammates to change PATH
+      - Created cross-platform scripts that use the exact SDK version already pinned by the repository
+      - Configured missing-SDK guidance that points teammates to the scripts
+      - Preserved the existing MSBuild SDK and tool sections while updating only SDK settings
+      - Avoided PATH changes and a long download during script creation
 
-  - name: Plan a project-local .NET 11 preview setup without downloading
+  - name: Plan a local preview setup without downloading
     prompt: I want to try the latest .NET 11 preview in my project without affecting my global install. Show me the exact commands and configuration you would use to set it up locally, but do not download or install anything now.
+    tags:
+      capability: preview-install-plan
+      risk: global-install-pollution
+      journey: evaluate-preview-sdk
     constraints:
       reject_tools:
         - bash
         - powershell
         - web_fetch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: setup-local-sdk-preview-plan
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Use dotnet-install with --channel 11.0 --quality preview and
+              --install-dir .dotnet. Add .dotnet/ to .gitignore, then configure
+              global.json with paths [".dotnet", "$host$"]. This keeps the
+              system installation unchanged.
     graders:
       - type: output-contains
         config:
@@ -142,8 +176,415 @@ stimuli:
           pattern: '(export\s+PATH|setx\s+PATH|\$env:PATH\s*=|set\s+PATH=)'
       - type: prompt
     rubric:
-      - The agent described a project-local SDK setup that does not change the system-wide installation
-      - The agent configured SDK resolution (global.json paths) so the local SDK is preferred with the host install as fallback
-      - The agent excluded the local SDK directory from source control
-      - The agent explained how to clean up
-      - The agent presented the plan/commands without actually downloading or installing the SDK
+      - Described a project-local preview SDK setup without changing the system installation
+      - Configured local-first SDK resolution with host fallback
+      - Excluded the local SDK directory from source control
+      - Presented commands without downloading or installing the SDK
+
+  - name: Configure an already installed exact stable SDK
+    prompt: The project-local binary .dotnet/dotnet already reports 10.0.203. Update this repo's global.json and .gitignore to use that exact stable SDK locally with system fallback. Preserve all unrelated settings. Do not download anything.
+    tags:
+      capability: exact-stable-configuration
+      risk: unintended-sdk-roll-forward
+      journey: pin-installed-local-sdk
+    environment:
+      files:
+        - src: ./fixtures/existing-config/global.json
+          dest: global.json
+        - src: ./fixtures/existing-config/gitignore
+          dest: .gitignore
+    graders:
+      - type: file-contains
+        config:
+          path: global.json
+          value: '"version": "10.0.203"'
+      - type: file-contains
+        config:
+          path: global.json
+          value: '"rollForward": "disable"'
+      - type: file-contains
+        config:
+          path: global.json
+          value: '"paths"'
+      - type: file-contains
+        config:
+          path: global.json
+          value: '"$host$"'
+      - type: file-not-contains
+        config:
+          path: global.json
+          value: allowPrerelease
+      - type: file-contains
+        config:
+          path: global.json
+          value: Example.Sdk
+      - type: file-contains
+        config:
+          path: global.json
+          value: 1.2.3
+      - type: file-contains
+        config:
+          path: global.json
+          value: dotnet-example
+      - type: file-contains
+        config:
+          path: global.json
+          value: 4.5.6
+      - type: file-contains
+        config:
+          path: .gitignore
+          value: .dotnet/
+      - type: file-not-exists
+        config:
+          path: install-dotnet.*
+      - type: prompt
+    rubric:
+      - Pinned the exact stable version and disabled roll-forward
+      - Added local-first SDK resolution with host fallback
+      - Omitted prerelease configuration for a stable SDK
+      - Preserved unrelated global.json settings and avoided an unnecessary download
+
+  - name: Configure an already installed preview SDK
+    prompt: The local .dotnet/dotnet binary already reports 11.0.100-preview.3.26207.106. Wire this repo to prefer that preview SDK, keep the system SDK as fallback, and preserve the existing global.json sections. Do not install or download anything.
+    tags:
+      capability: installed-preview-configuration
+      risk: preview-resolution-disabled
+      journey: activate-installed-preview
+    environment:
+      files:
+        - src: ./fixtures/existing-config/global.json
+          dest: global.json
+        - src: ./fixtures/existing-config/gitignore
+          dest: .gitignore
+    graders:
+      - type: file-contains
+        config:
+          path: global.json
+          value: '"version": "11.0.100-preview.3.26207.106"'
+      - type: file-contains
+        config:
+          path: global.json
+          value: '"allowPrerelease": true'
+      - type: file-contains
+        config:
+          path: global.json
+          value: '"rollForward": "disable"'
+      - type: file-contains
+        config:
+          path: global.json
+          value: '"paths"'
+      - type: file-contains
+        config:
+          path: global.json
+          value: '"$host$"'
+      - type: file-contains
+        config:
+          path: global.json
+          value: Example.Sdk
+      - type: file-contains
+        config:
+          path: global.json
+          value: 1.2.3
+      - type: file-contains
+        config:
+          path: global.json
+          value: dotnet-example
+      - type: file-contains
+        config:
+          path: global.json
+          value: 4.5.6
+      - type: file-contains
+        config:
+          path: .gitignore
+          value: .dotnet/
+      - type: file-not-exists
+        config:
+          path: install-dotnet.*
+      - type: prompt
+    rubric:
+      - Enabled prerelease SDK resolution for the installed preview
+      - Disabled roll-forward because the user supplied an exact SDK version
+      - Preferred the project-local SDK while retaining host fallback
+      - Preserved unrelated global.json settings
+      - Avoided downloading an SDK that was already present
+
+  - name: Plan a Linux MAUI Android workload setup
+    prompt: On Linux, I need the Android part of MAUI on a project-local .NET 11 preview SDK. The local SDK is not installed yet. Give me the safe order and exact workload command, but do not run downloads now.
+    tags:
+      capability: local-workload-plan
+      risk: wrong-dotnet-root
+      journey: prepare-linux-mobile-workload
+    constraints:
+      reject_tools:
+        - bash
+        - powershell
+        - web_fetch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: setup-local-sdk-linux-workload
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Install the preview into .dotnet, configure global.json and
+              .gitignore, then run ./.dotnet/dotnet workload install
+              maui-android. Linux does not support the full maui meta-workload,
+              and the system dotnet must not install this local workload.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(\./\.dotnet/dotnet|\.\\\.dotnet\\dotnet\.exe)[\s\S]{0,80}workload install[\s\S]{0,40}maui-android'
+      - type: output-matches
+        config:
+          pattern: '(?i)(global\.json|paths)[\s\S]{0,500}(\.gitignore|gitignore)'
+      - type: prompt
+    rubric:
+      - Configured the base local SDK before attempting workload installation
+      - Selected the Android MAUI workload requested by the user
+      - Used the project-local dotnet binary so workload metadata goes to the correct SDK root
+      - Did not perform any download
+
+  - name: Plan replacement of an existing local SDK
+    prompt: This repo already has a .dotnet directory. Replace its local SDK with exactly 10.0.203, keep the system SDK untouched, and show the commands you would use. Do not execute them.
+    tags:
+      capability: existing-sdk-replacement-plan
+      risk: accidental-system-modification
+      journey: replace-project-sdk
+    constraints:
+      reject_tools:
+        - bash
+        - powershell
+        - web_fetch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: setup-local-sdk-replacement
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Remove only the repository's .dotnet directory, then run the
+              official dotnet-install script with --version 10.0.203 and
+              --install-dir .dotnet. Configure global.json with rollForward
+              "disable" and paths [".dotnet", "$host$"]. Do not change PATH or
+              remove the system SDK.
+    graders:
+      - type: output-contains
+        config:
+          substring: 10.0.203
+      - type: output-matches
+        config:
+          pattern: '(--version|-Version).{0,30}10\.0\.203'
+      - type: output-matches
+        config:
+          pattern: '(--install-dir|-InstallDir).{0,30}\.dotnet'
+      - type: output-matches
+        config:
+          pattern: '(rollForward.{0,30}disable|disable.{0,30}rollForward)'
+      - type: output-not-matches
+        config:
+          pattern: '(export\s+PATH|setx\s+PATH|\$env:PATH\s*=|uninstall.{0,40}(system|global))'
+      - type: prompt
+    rubric:
+      - Replaced only the project-local SDK and left the system installation untouched
+      - Used exact-version installation flags and exact SDK roll-forward behavior
+      - Kept the install destination inside the repository
+      - Presented the plan without executing it
+
+  - name: Remove local SDK resolution while preserving the SDK pin
+    prompt: Undo this repo's project-local SDK setup. Keep the existing SDK version pin and unrelated global.json settings, but remove local path resolution and the custom install-script error message. Also stop ignoring .dotnet. Do not delete any files outside this repo.
+    tags:
+      capability: local-setup-cleanup
+      risk: unrelated-config-loss
+      journey: revert-project-sdk-isolation
+    environment:
+      files:
+        - src: ./fixtures/cleanup/global.json
+          dest: global.json
+        - src: ./fixtures/cleanup/gitignore
+          dest: .gitignore
+    graders:
+      - type: file-contains
+        config:
+          path: global.json
+          value: '"version": "11.0.100-preview.3.26207.106"'
+      - type: file-not-contains
+        config:
+          path: global.json
+          value: '"paths"'
+      - type: file-not-contains
+        config:
+          path: global.json
+          value: errorMessage
+      - type: file-contains
+        config:
+          path: global.json
+          value: Example.Sdk
+      - type: file-contains
+        config:
+          path: global.json
+          value: 1.2.3
+      - type: file-contains
+        config:
+          path: global.json
+          value: dotnet-example
+      - type: file-contains
+        config:
+          path: global.json
+          value: 4.5.6
+      - type: file-not-contains
+        config:
+          path: .gitignore
+          value: .dotnet/
+      - type: prompt
+    rubric:
+      - Removed only the project-local resolution settings and install-script guidance
+      - Preserved the SDK version pin, prerelease policy, roll-forward policy, and unrelated sections
+      - Removed the matching source-control ignore entry
+      - Kept cleanup scoped to the current repository
+
+  - name: Leave an already configured exact SDK setup unchanged
+    prompt: The repo should use the already-installed local SDK 10.0.203 exactly, with system fallback and no prerelease selection. Verify the configuration and leave it unchanged if it is already correct. Do not download anything.
+    tags:
+      capability: sdk-configuration-noop
+      risk: unnecessary-config-rewrite
+      journey: verify-local-sdk-setup
+    environment:
+      files:
+        - src: ./fixtures/already-configured/global.json
+          dest: global.json
+        - src: ./fixtures/already-configured/gitignore
+          dest: .gitignore
+        - src: ./fixtures/already-configured/global.json
+          dest: .expected/global.json
+        - src: ./fixtures/already-configured/gitignore
+          dest: .expected/.gitignore
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: setup-local-sdk-configuration-noop
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              The exact stable SDK version, disabled roll-forward, local-first
+              paths, host fallback, and .dotnet ignore entry are already
+              correct. No repository file needed an edit, and no installation
+              artifact or network operation was necessary.
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs');
+            if(!fs.readFileSync('global.json').equals(fs.readFileSync('.expected/global.json')))process.exit(1);
+            if(!fs.readFileSync('.gitignore').equals(fs.readFileSync('.expected/.gitignore')))process.exit(1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-not-exists
+        config:
+          path: install-dotnet.*
+      - type: prompt
+    rubric:
+      - Recognized that the exact stable SDK, roll-forward policy, paths order, and source-control ignore were already correct
+      - Left global.json and .gitignore unchanged
+      - Did not create install scripts or attempt a download
+
+  - name: Diagnose local SDK not being selected
+    prompt: My host SDK is .NET 10, .dotnet/dotnet reports 11.0.100-preview.3.26207.106, but running dotnet --version from the repo still prints 10.0.203. What should I inspect and correct before reinstalling anything?
+    tags:
+      capability: sdk-resolution-troubleshooting
+      risk: unnecessary-reinstallation
+      journey: repair-local-sdk-selection
+    constraints:
+      reject_tools:
+        - bash
+        - powershell
+        - web_fetch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: setup-local-sdk-resolution-troubleshooting
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Inspect global.json in the repository and parent directories.
+              Confirm its sdk.paths puts ".dotnet" before "$host$", that the
+              preview version matches 11.0.100-preview.3.26207.106, and that
+              allowPrerelease is true. Correct resolution configuration before
+              reinstalling because the local binary already works.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(parent|up the tree|ancestor).{0,100}global\.json|global\.json.{0,100}(parent|up the tree|ancestor)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(paths[\s\S]{0,300}\.dotnet[\s\S]{0,300}\$host\$|paths[\s\S]{0,300}\$host\$[\s\S]{0,300}\.dotnet)'
+      - type: output-matches
+        config:
+          pattern: '(allowPrerelease|preview)'
+      - type: output-not-matches
+        config:
+          pattern: '(download|reinstall|install script).{0,40}(first|now|immediately)'
+      - type: prompt
+    rubric:
+      - Treated the working local binary as evidence that installation is already complete
+      - Checked global.json location and local-first paths ordering
+      - Checked preview eligibility and the pinned version
+      - Prioritized correcting resolution configuration over reinstalling
+
+  - name: Stay dormant for a system-wide SDK install
+    prompt: How should I install .NET 10 system-wide for every user on this machine and add it to the machine PATH?
+    tags:
+      capability: routing-boundary
+      risk: global-install-hijack
+      journey: request-system-sdk
+    expect_activation: false
+    constraints:
+      reject_tools:
+        - bash
+        - powershell
+    graders:
+      - type: prompt
+    rubric:
+      - Treated the request as a system-wide installation rather than a project-local SDK workflow
+      - The project-local SDK workflow stayed dormant
+
+  - name: Stay dormant for a runtime-only install
+    prompt: How should I put only the ASP.NET Core runtime in a private folder so I can launch an already-published application? I do not need an SDK.
+    tags:
+      capability: routing-boundary
+      risk: runtime-sdk-confusion
+      journey: request-private-runtime
+    expect_activation: false
+    constraints:
+      reject_tools:
+        - bash
+        - powershell
+    graders:
+      - type: prompt
+    rubric:
+      - Treated the request as runtime deployment rather than SDK resolution
+      - The project-local SDK workflow stayed dormant
+
+  - name: Stay dormant for a non-SDK-style build
+    prompt: This legacy .NET Framework project builds with MSBuild.exe and packages.config. Help me select the Visual Studio build tools installation it should use.
+    tags:
+      capability: routing-boundary
+      risk: legacy-project-hijack
+      journey: configure-legacy-build
+    expect_activation: false
+    constraints:
+      reject_tools:
+        - bash
+        - powershell
+    graders:
+      - type: prompt
+    rubric:
+      - Recognized that the project does not use SDK-style dotnet commands
+      - The project-local SDK workflow stayed dormant

@@ -6,7 +6,10 @@ description: >
   reproducible team setups — without modifying the system-wide installation.
   USE FOR: trying .NET previews safely, testing specific SDK versions, installing MAUI
   or other workloads on a preview, updating or replacing an existing local SDK,
-  creating reproducible team/CI install scripts, configuring global.json paths.
+  creating reproducible team/CI install scripts, pinning or wiring an
+  already-installed exact stable or preview project-local SDK, configuring or
+  troubleshooting global.json paths when a local SDK is not selected, removing
+  or reverting project-local SDK resolution.
   DO NOT USE FOR: system-wide SDK installs, .NET hosts older than 10, runtime-only
   installs, or projects not using SDK-style commands.
 ---
@@ -87,6 +90,11 @@ if (Test-Path -LiteralPath .\.dotnet) { "exists" } else { "not found" }
 ```
 
 If `.dotnet/` exists, ask: update with the new version, or skip and keep it?
+If the user already supplied output from the project-local binary (for example,
+`.dotnet/dotnet --version`), treat that output as authoritative: skip the local-directory
+existence check and configure `global.json` and `.gitignore` from the stated version.
+Do not stop or ask for clarification because the agent workspace does not contain
+the user's local SDK directory.
 
 ### Step 5 — Download and run the install script
 
@@ -144,6 +152,8 @@ Record the exact version string (e.g., `11.0.100-preview.2.26159.112`) for `glob
 - `paths`: `.dotnet` first (local priority), `$host$` = system-wide fallback.
 - `rollForward: "latestFeature"`: use for latest-preview or floating feature-band installs.
 - Exact version requests: use `rollForward: "disable"` so SDK resolution doesn't move to a different feature band.
+  This applies when wiring an already-installed exact SDK too: replace any existing permissive
+  `rollForward` value with `disable`.
 - `allowPrerelease`: set to `true` only when installing a prerelease SDK. Omit for stable versions.
 - `errorMessage`: include only when team install scripts are created (Step 10). Otherwise omit.
 
