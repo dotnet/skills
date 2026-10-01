@@ -54,6 +54,9 @@ stimuli:
       - type: file-exists
         config:
           path: "**/*.binlog"
+      - type: file-not-exists
+        config:
+          path: schemas/prod.json
       - type: run-command
         config:
           command: node
@@ -62,7 +65,13 @@ stimuli:
             - |
               const fs = require('node:fs');
               const path = require('node:path');
+              const { createHash } = require('node:crypto');
               const { spawnSync } = require('node:child_process');
+              const project = fs.readFileSync('Build.proj', 'utf8').replace(/\r\n/g, '\n');
+              if (createHash('sha256').update(project).digest('hex') !==
+                  '48bb2afa1aaece1ad91e8f92f748354ccbbf6bcfbcf962844b12147afe77628e') {
+                throw new Error('Build.proj was changed instead of only capturing the failure');
+              }
               const logs = fs.readdirSync('.', { recursive: true }).filter(file =>
                 file.toLowerCase().endsWith('.binlog') && fs.statSync(file).isFile() &&
                 fs.statSync(file).size > 0);
@@ -77,7 +86,7 @@ stimuli:
                   return false;
                 }
                 const recorded = replay.stdout + replay.stderr;
-                return recorded.includes('ValidateSchema') &&
+                return recorded.includes('(Build target(s))') && recorded.includes('ValidateSchema') &&
                   recorded.split(/\r?\n/).some(line => line.includes('Build.proj') &&
                     /error SCHEMA1001: Required schema 'schemas\/prod\.json' is missing for configuration 'Release'\./.test(line));
               });
