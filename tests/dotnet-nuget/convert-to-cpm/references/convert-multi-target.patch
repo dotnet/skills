@@ -1,0 +1,49 @@
+diff --git a/multi-target-repository/Directory.Packages.props b/multi-target-repository/Directory.Packages.props
+new file mode 100644
+--- /dev/null
++++ b/multi-target-repository/Directory.Packages.props
+@@ -0,0 +1,9 @@
++<Project>
++  <PropertyGroup>
++    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
++  </PropertyGroup>
++  <ItemGroup>
++    <PackageVersion Include="Contoso.Json" Version="8.0.0" />
++    <PackageVersion Include="Contoso.Logging" Version="1.0.0" />
++  </ItemGroup>
++</Project>
+diff --git a/multi-target-repository/apps/App/App.csproj b/multi-target-repository/apps/App/App.csproj
+--- a/multi-target-repository/apps/App/App.csproj
++++ b/multi-target-repository/apps/App/App.csproj
+@@ -4,6 +4,6 @@
+     <TargetFramework>net8.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Contoso.Logging" Version="1.0.0" />
++    <PackageReference Include="Contoso.Logging" />
+   </ItemGroup>
+ </Project>
+diff --git a/multi-target-repository/tools/Tool/Tool.csproj b/multi-target-repository/tools/Tool/Tool.csproj
+--- a/multi-target-repository/tools/Tool/Tool.csproj
++++ b/multi-target-repository/tools/Tool/Tool.csproj
+@@ -4,6 +4,6 @@
+     <TargetFramework>net8.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Contoso.Json" Version="8.0.0" />
++    <PackageReference Include="Contoso.Json" />
+   </ItemGroup>
+ </Project>
+diff --git a/multi-target-repository/convert-to-cpm.md b/multi-target-repository/convert-to-cpm.md
+new file mode 100644
+--- /dev/null
++++ b/multi-target-repository/convert-to-cpm.md
+@@ -0,0 +1,8 @@
++# Central Package Management conversion
++
++## Scope
++Both `apps/App/App.csproj` and `tools/Tool/Tool.csproj` use the common `Directory.Packages.props`.
++
++## Validation
++Each target was restored, built, and run separately. Target-keyed baseline and after-conversion
++binlogs and package snapshots were retained for review.

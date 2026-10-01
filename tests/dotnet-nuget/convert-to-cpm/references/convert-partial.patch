@@ -1,0 +1,32 @@
+diff --git a/partial-cpm/Directory.Packages.props b/partial-cpm/Directory.Packages.props
+--- a/partial-cpm/Directory.Packages.props
++++ b/partial-cpm/Directory.Packages.props
+@@ -3,6 +3,7 @@
+     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+   </PropertyGroup>
+   <ItemGroup>
++    <PackageVersion Include="Contoso.Json" Version="9.0.0" />
+     <PackageVersion Include="Contoso.Logging" Version="1.0.0" />
+   </ItemGroup>
+ </Project>
+diff --git a/partial-cpm/App/App.csproj b/partial-cpm/App/App.csproj
+--- a/partial-cpm/App/App.csproj
++++ b/partial-cpm/App/App.csproj
+@@ -6,5 +6,5 @@
+   <ItemGroup>
+     <PackageReference Include="Contoso.Logging" />
+-    <PackageReference Include="Contoso.Json" VersionOverride="9.0.0" />
++    <PackageReference Include="Contoso.Json" />
+   </ItemGroup>
+ </Project>
+diff --git a/partial-cpm/convert-to-cpm.md b/partial-cpm/convert-to-cpm.md
+new file mode 100644
+--- /dev/null
++++ b/partial-cpm/convert-to-cpm.md
+@@ -0,0 +1,6 @@
++# Central Package Management conversion
++
++## Outcome
++The existing central package scope was completed without relocation.
++
++Baseline and after-conversion build/package evidence was retained for review.

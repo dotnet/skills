@@ -1,0 +1,84 @@
+diff --git a/moderate-version-conflicts/Directory.Packages.props b/moderate-version-conflicts/Directory.Packages.props
+new file mode 100644
+--- /dev/null
++++ b/moderate-version-conflicts/Directory.Packages.props
+@@ -0,0 +1,12 @@
++<Project>
++  <PropertyGroup>
++    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
++  </PropertyGroup>
++  <ItemGroup>
++    <PackageVersion Include="Contoso.Hosting" Version="8.0.0" />
++    <PackageVersion Include="Contoso.Json" Version="10.0.0" />
++    <PackageVersion Include="Contoso.Telemetry" Version="1.1.0" />
++    <PackageVersion Include="Contoso.Testing" Version="2.0.0" />
++    <PackageVersion Include="Fabrikam.Identity" Version="1.2.0" />
++  </ItemGroup>
++</Project>
+diff --git a/moderate-version-conflicts/Api/Api.csproj b/moderate-version-conflicts/Api/Api.csproj
+--- a/moderate-version-conflicts/Api/Api.csproj
++++ b/moderate-version-conflicts/Api/Api.csproj
+@@ -4,7 +4,7 @@
+     <TargetFramework>net8.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Contoso.Json" Version="10.0.0" />
+-    <PackageReference Include="Fabrikam.Identity" Version="1.2.0" />
++    <PackageReference Include="Contoso.Json" />
++    <PackageReference Include="Fabrikam.Identity" />
+   </ItemGroup>
+ </Project>
+diff --git a/moderate-version-conflicts/Shared/Shared.csproj b/moderate-version-conflicts/Shared/Shared.csproj
+--- a/moderate-version-conflicts/Shared/Shared.csproj
++++ b/moderate-version-conflicts/Shared/Shared.csproj
+@@ -3,7 +3,7 @@
+     <TargetFramework>net8.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Contoso.Json" Version="10.0.0" />
+-    <PackageReference Include="Fabrikam.Identity" Version="1.0.0" />
++    <PackageReference Include="Contoso.Json" />
++    <PackageReference Include="Fabrikam.Identity" />
+   </ItemGroup>
+ </Project>
+diff --git a/moderate-version-conflicts/Tests/Tests.csproj b/moderate-version-conflicts/Tests/Tests.csproj
+--- a/moderate-version-conflicts/Tests/Tests.csproj
++++ b/moderate-version-conflicts/Tests/Tests.csproj
+@@ -3,7 +3,7 @@
+     <TargetFramework>net8.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Contoso.Testing" Version="2.0.0" />
+-    <PackageReference Include="Contoso.Json" Version="10.0.0" />
++    <PackageReference Include="Contoso.Testing" />
++    <PackageReference Include="Contoso.Json" />
+   </ItemGroup>
+ </Project>
+diff --git a/moderate-version-conflicts/Worker/Worker.csproj b/moderate-version-conflicts/Worker/Worker.csproj
+--- a/moderate-version-conflicts/Worker/Worker.csproj
++++ b/moderate-version-conflicts/Worker/Worker.csproj
+@@ -4,8 +4,8 @@
+     <TargetFramework>net8.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Contoso.Hosting" Version="8.0.0" />
+-    <PackageReference Include="Contoso.Json" Version="8.0.0" />
+-    <PackageReference Include="Contoso.Telemetry" Version="1.1.0" />
++    <PackageReference Include="Contoso.Hosting" />
++    <PackageReference Include="Contoso.Json" />
++    <PackageReference Include="Contoso.Telemetry" />
+   </ItemGroup>
+ </Project>
+diff --git a/moderate-version-conflicts/convert-to-cpm.md b/moderate-version-conflicts/convert-to-cpm.md
+new file mode 100644
+--- /dev/null
++++ b/moderate-version-conflicts/convert-to-cpm.md
+@@ -0,0 +1,8 @@
++# Central Package Management conversion
++
++## Outcome
++Contoso.Json changed from 8.0.0 to 10.0.0 in Worker and Fabrikam.Identity changed
++from 1.0.0 to 1.2.0 in Shared. These version changes carry compatibility risk.
++
++Restore, build, and application execution passed after conversion. Baseline and
++after-conversion binlogs and package snapshots were retained for review.

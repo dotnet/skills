@@ -1,16 +1,19 @@
 ---
 name: convert-to-cpm
 description: >
-  Convert .NET projects and solutions (.sln, .slnx) to NuGet Central Package Management
-  (CPM) using Directory.Packages.props. USE FOR: converting to CPM, centralizing or
-  aligning NuGet package versions across multiple projects, inlining MSBuild version
-  properties from Directory.Build.props into Directory.Packages.props, resolving version
-  conflicts or mismatches across a solution or repository, updating or bumping or syncing
-  package versions across projects. Also activate when packages are out of sync, drifting,
-  or inconsistent -- even without the user mentioning CPM. Provides baseline build capture,
-  version conflict resolution, build validation with binlog comparison, and a structured
-  post-conversion report. DO NOT USE FOR: packages.config projects (must migrate to
-  PackageReference first) or repositories that already have CPM fully enabled.
+  Finish partial or incomplete NuGet Central Package Management (CPM) migrations, maintain
+  NuGet package versions, or convert .NET projects and solutions (.sln, .slnx) with
+  Directory.Packages.props. USE FOR: "finish/complete the existing CPM migration"; removing
+  VersionOverride; adding missing versions to an existing or nested central file; aligning, bumping, syncing, or
+  fixing drifted package versions, including "use the highest version but do not centralize"
+  and requests to keep project, property, conditional, or shared-props layout;
+  "convert/adopt/enable CPM"; resolving conflicts; or inlining MSBuild version properties.
+  Also activate
+  for a CPM request on packages.config only to stop and require PackageReference migration,
+  or to verify that a questioned CPM setup is complete and should stay unchanged. Provides
+  before/after build and package evidence. DO NOT USE FOR: source authentication,
+  packing/signing/publishing a
+  package, or an already-CPM repository when the user did not ask about package policy.
 license: MIT
 ---
 
@@ -27,6 +30,12 @@ Do this before running builds or changing files.
 3. **Conversion mode** -- Use only when the user explicitly asks to adopt, enable, or convert to CPM. Follow the workflow below.
 
 If the scope is unclear, ask once before proceeding.
+
+Completing a partial CPM migration is Conversion mode. It still requires the baseline,
+after-conversion validation, package comparison, evidence artifacts, and final report; do not
+downgrade it to a package-maintenance shortcut because a central file already exists.
+Never finish a partial migration after only editing XML. Run the baseline and final commands
+and write the report even when the version change is neutral or the project appears trivial.
 
 ### Default execution plan
 
@@ -101,7 +110,9 @@ Present conflicts and their impact. Explicitly classify major-version alignment 
 
 - Create or update each required `Directory.Packages.props` at its computed management scope with `ManagePackageVersionsCentrally` set to `true`.
 - Add one alphabetically sorted `PackageVersion` per package, preserving required target-framework conditions.
+- Before validation, compare each central file's `PackageVersion Include` sequence with an ordinal sort. Reorder the file when they differ; never append a new item after an existing unsorted position.
 - Remove only `Version` from managed `PackageReference` items in projects and imported files.
+- Remove `VersionOverride` when its version moves into the applicable central file; preserve it only when the chosen policy requires that package to remain an explicit exception.
 - Preserve conditions, whitespace, and all other metadata such as `PrivateAssets`, `IncludeAssets`, `ExcludeAssets`, `GeneratePathProperty`, and `Aliases`.
 - Use `VersionOverride` only when the chosen strategy requires it.
 

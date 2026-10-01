@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Builder;
-
-var builder = WebApplication.CreateBuilder(args);
-builder.Build().Run();
+#if !OFFLINE_NUGET_PACKAGE
+#error The offline NuGet package build asset was not imported.
+#endif
+System.Console.WriteLine("PASS");
