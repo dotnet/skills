@@ -32,7 +32,6 @@ describe('OrderService', () => {
   it('confirms order resolves', async () => {
     const svc = new OrderService();
     const o = svc.create('alice', 1, 100);
-    // BUG: missing await. expect(...).resolves silently passes even if promise rejects.
     expect(Promise.resolve(svc.confirm(o.id))).resolves.toBeDefined();
   });
 

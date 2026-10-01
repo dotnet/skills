@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/agents/**"
       - ".github/aw/**"
+      - ".github/graders/**"
       - ".github/workflows/**"
       - "agentic-workflows/**"
       - "eng/agentic-workflows/**"
@@ -13,6 +14,7 @@ on:
     paths:
       - ".github/agents/**"
       - ".github/aw/**"
+      - ".github/graders/**"
       - ".github/workflows/**"
       - "agentic-workflows/**"
       - "eng/agentic-workflows/**"
@@ -47,3 +49,6 @@ jobs:
         run: |
           python -m unittest eng/agentic-workflows/test_validate_agentic_workflows.py
           python eng/agentic-workflows/validate_agentic_workflows.py
+
+      - name: Test build-failure operational-value grader
+        run: python eng/agentic-workflows/test_build_failure_analysis_operational_value.py
