@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "maui-shell-parameters-advisory",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Register the target once in the shell constructor:\n\n```csharp\nRouting.RegisterRoute(\"productdetails\", typeof(ProductDetailsPage));\n```\n\nPass a scalar ID in the URI and await navigation:\n\n```csharp\nstring id = Uri.EscapeDataString(selectedProduct.Id);\nawait Shell.Current.GoToAsync($\"productdetails?id={id}\");\n```\n\nPass the object without serializing it by using the parameter overload:\n\n```csharp\nvar parameters = new ShellNavigationQueryParameters\n{\n    [\"product\"] = selectedProduct\n};\nawait Shell.Current.GoToAsync(\"productdetails\", parameters);\n```\n\nKeep both receiving paths in the view model:\n\n```csharp\npublic sealed class ProductDetailsViewModel : IQueryAttributable\n{\n    public string? ProductId { get; private set; }\n    public Product? Product { get; private set; }\n\n    public void ApplyQueryAttributes(IDictionary<string, object> query)\n    {\n        if (query.TryGetValue(\"id\", out var id))\n            ProductId = id?.ToString();\n\n        if (query.TryGetValue(\"product\", out var product) &&\n            product is Product selected)\n            Product = selected;\n    }\n}\n```\n\nShell applies query attributes after the page has assigned this view model as its binding context."
+    }
+  ]
+}

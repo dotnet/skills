@@ -115,7 +115,7 @@ protected override Window CreateWindow(IActivationState? activationState)
 1. **Identify transient state** — draft text, scroll position, form inputs, timer values.
 2. **Save in `OnStopped`** — use `Preferences` for small values or file serialization for larger state.
 3. **Restore in `OnResumed`** — read back saved values and apply to your view model.
-4. **Also save in `OnDestroying`** on Android — the back button can skip `Stopped` entirely.
+4. **Do not use `OnDestroying` as a durability boundary** — it represents Window teardown, not a guaranteed final-save callback. Abrupt OS process termination can occur without it.
 5. **Keep handlers fast** — complete within 1–2 seconds to avoid ANR on Android or watchdog kills on iOS.
 
 ```csharp
@@ -132,14 +132,13 @@ protected override void OnResumed()
     _viewModel.DraftText = Preferences.Get("draft_text", string.Empty);
     _viewModel.ScrollY = Preferences.Get("scroll_y", 0.0);
 }
-
-protected override void OnDestroying()
-{
-    base.OnDestroying();
-    // Android back-button can skip Stopped
-    Preferences.Set("draft_text", _viewModel.DraftText);
-}
 ```
+
+For user-initiated termination, the documented Window transition is
+`Deactivated` → `Stopped` → `Destroying`, so the `OnStopped` save occurs before
+teardown. For data that must survive abrupt OS process death, persist
+incrementally while the user edits or at other application-specific checkpoints;
+no final lifecycle callback, including `Destroying`, is guaranteed.
 
 ## Platform Lifecycle Mapping
 
@@ -215,7 +214,7 @@ builder.ConfigureLifecycleEvents(events =>
 
 2. **Deactivated ≠ Stopped.** A dialog, split-screen, or notification pull-down triggers `Deactivated` without `Stopped`. Do not perform heavy saves in `OnDeactivated` — the app may never actually background.
 
-3. **Android back button skips Stopped.** On Android, pressing back may call `Destroying` directly without `Stopped`. Place critical save logic in both `OnStopped` and `OnDestroying`.
+3. **Destroying is not a guaranteed final-save callback.** Normal user termination transitions through `Deactivated` → `Stopped` → `Destroying`, and `Destroying` is useful for Window teardown. Abrupt OS process death may deliver no final callback, so save background state in `OnStopped` and persist critical user data incrementally rather than duplicating the save in `OnDestroying`.
 
 4. **Multi-window apps fire events independently.** On iPad, Mac Catalyst, and desktop Windows each `Window` instance fires its own lifecycle events. Do not assume a single global lifecycle.
 

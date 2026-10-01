@@ -1,0 +1,31 @@
+diff --git a/repair/AppShell.xaml b/repair/AppShell.xaml
+--- a/repair/AppShell.xaml
++++ b/repair/AppShell.xaml
+@@ -3,13 +3,11 @@
+        xmlns:views="clr-namespace:Shop.Views"
+        x:Class="Shop.AppShell">
+     <FlyoutItem Title="Home">
+-        <ShellContent>
+-            <views:HomePage />
+-        </ShellContent>
++        <ShellContent Route="home"
++                      ContentTemplate="{DataTemplate views:HomePage}" />
+     </FlyoutItem>
+     <FlyoutItem Title="Orders">
+-        <ShellContent>
+-            <views:OrdersPage />
+-        </ShellContent>
++        <ShellContent Route="orders"
++                      ContentTemplate="{DataTemplate views:OrdersPage}" />
+     </FlyoutItem>
+ </Shell>
+diff --git a/repair/AppShell.xaml.cs b/repair/AppShell.xaml.cs
+--- a/repair/AppShell.xaml.cs
++++ b/repair/AppShell.xaml.cs
+@@ -5,5 +5,6 @@
+     public AppShell()
+     {
+         InitializeComponent();
++        Routing.RegisterRoute("orderdetails", typeof(OrderDetailsPage));
+     }
+ }

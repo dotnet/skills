@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "maui-shell-flyout-tabs",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "```xml\n<Shell xmlns=\"http://schemas.microsoft.com/dotnet/2021/maui\"\n       xmlns:x=\"http://schemas.microsoft.com/winfx/2009/xaml\"\n       xmlns:views=\"clr-namespace:Shop.Views\"\n       x:Class=\"Shop.AppShell\"\n       FlyoutBehavior=\"Flyout\">\n\n    <FlyoutItem Title=\"Dashboard\" Route=\"dashboard\">\n        <ShellContent Title=\"Dashboard\"\n                      Route=\"dashboardhome\"\n                      ContentTemplate=\"{DataTemplate views:DashboardPage}\" />\n    </FlyoutItem>\n\n    <FlyoutItem Title=\"Products\" Route=\"products\">\n        <Tab Title=\"Products\" Route=\"producttabs\">\n            <ShellContent Title=\"Active\"\n                          Route=\"active\"\n                          ContentTemplate=\"{DataTemplate views:ActiveProductsPage}\" />\n            <ShellContent Title=\"Archived\"\n                          Route=\"archived\"\n                          ContentTemplate=\"{DataTemplate views:ArchivedProductsPage}\" />\n        </Tab>\n    </FlyoutItem>\n\n    <FlyoutItem Title=\"Settings\" Route=\"settings\">\n        <ShellContent Title=\"Settings\"\n                      Route=\"settingshome\"\n                      ContentTemplate=\"{DataTemplate views:SettingsPage}\" />\n    </FlyoutItem>\n</Shell>\n```\n\nMultiple `ShellContent` children in the Products `Tab` produce the requested Active and Archived top tabs. Every hierarchy element used for navigation has a stable route, and `ContentTemplate` keeps page creation lazy.\n\n```csharp\npublic AppShell()\n{\n    InitializeComponent();\n    Routing.RegisterRoute(\"productdetails\", typeof(ProductDetailsPage));\n}\n```\n\n`ProductDetailsPage` is outside the visual hierarchy, so it needs the explicit route registration."
+    }
+  ]
+}
