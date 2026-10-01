@@ -1,187 +1,1291 @@
 name: technology-selection
 description: Evaluates the dotnet-ai/technology-selection skill
 type: capability
-config:
+tags:
+  executionShard: heavy
+defaults:
   timeout: 6m
+  runs: 3
+environment:
+  commands:
+    - >-
+      git init -q && git config maintenance.auto false && git config gc.auto 0 &&
+      git -c user.email=eval@example.com -c user.name=eval add -A &&
+      git -c user.email=eval@example.com -c user.name=eval commit -qm baseline &&
+      git tag eval-baseline
 stimuli:
-  - name: ML.NET classification on tabular data
-    prompt: "Add a support ticket classifier to this .NET 10 Web API. Tickets have a Subject (string), Description (string),
-      Priority (int 1-3), and Category should be predicted as one of: Billing, Technical, General. Use the provided
-      training data CSV. Show me the full implementation including model training, evaluation metrics, and a prediction
-      endpoint."
+  - name: Select ML.NET for multiclass ticket classification
+    prompt: >-
+      Review TicketClassifier and recommend the implementation approach for
+      predicting Billing, Technical, or General from the ticket CSV. Include a
+      reproducible training and evaluation plan plus the safe ASP.NET Core
+      serving pattern. Do not edit the project yet.
+    tags:
+      capability: ml-net-multiclass-selection
+      risk: wrong-model-or-unsafe-serving
+      journey: design-tabular-classifier
     environment:
       files:
-        - src: ./fixtures/ml-net-classification-on-tabular-data/TicketClassifier/TicketClassifier.csproj
-          dest: TicketClassifier/TicketClassifier.csproj
-        - src: ./fixtures/ml-net-classification-on-tabular-data/TicketClassifier/Program.cs
-          dest: TicketClassifier/Program.cs
-        - src: ./fixtures/ml-net-classification-on-tabular-data/TicketClassifier/Data/tickets.csv
-          dest: TicketClassifier/Data/tickets.csv
+        - { src: ./fixtures/ml-net-classification-on-tabular-data/TicketClassifier, dest: TicketClassifier }
+        - { src: ./fixtures/ml-net-classification-on-tabular-data/TicketClassifier, dest: .expected/TicketClassifier }
+        - { src: ./fixtures/verify-identical.mjs, dest: verify-identical.mjs }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "technology-selection-mlnet-multiclass"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Use ML.NET (`Microsoft.ML`) for this structured multiclass
+              problem, but the supplied six-row CSV is too small for a credible
+              train/test estimate. Require more representative labeled data
+              before reporting performance. With adequate data, create
+              `MLContext(seed: 42)`, use `TrainTestSplit`, evaluate a held-out
+              set with MicroAccuracy, MacroAccuracy, and LogLoss, and serve
+              through `PredictionEnginePool<TInput,TOutput>`.
     graders:
-      - type: output-contains
+      - type: output-matches
+        config: { pattern: "(?i)(ML\\.?NET|Microsoft\\.ML)" }
+      - type: output-matches
+        config: { pattern: "(?i)(MLContext\\s*\\(\\s*seed|fixed seed|reproducible seed)" }
+      - type: output-matches
+        config: { pattern: "(?i)(TrainTestSplit|held[- ]out|test set)" }
+      - type: output-matches
+        config: { pattern: "(?i)(too (small|few)|insufficient.*(data|validation|evidence)|more (representative )?(labeled )?data|cannot.*credible)" }
+      - type: output-matches
+        config: { pattern: "(?i)PredictionEnginePool" }
+      - type: run-command
         config:
-          substring: MLContext
-      - type: output-contains
+          command: node
+          args: [verify-identical.mjs, TicketClassifier, .expected/TicketClassifier]
+          expected_exit_code: 0
+          stdout_matches: "^PASS:"
+      - type: run-command
         config:
-          substring: "new MLContext(seed:"
-      - type: output-contains
-        config:
-          substring: TrainTestSplit
+          command: >-
+            node -e "const {spawnSync}=require('child_process');
+            const d=spawnSync('git',['diff','--quiet','eval-baseline','--','.']);
+            const s=spawnSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'});
+            if(d.status!==0||s.status!==0||s.stdout.trim())process.exit(1)"
+          expected_exit_code: 0
       - type: exit-success
       - type: prompt
     rubric:
-      - Uses ML.NET (Microsoft.ML) for classification — does NOT use an LLM for this structured data task
-      - Sets a random seed on MLContext for reproducibility
-      - Splits data into train/test sets and evaluates on held-out test data
-      - Logs or reports evaluation metrics appropriate for multiclass classification (e.g., MicroAccuracy,
-        MacroAccuracy, LogLoss)
-      - Uses PredictionEnginePool in the ASP.NET Core endpoint — not a singleton PredictionEngine
-  - name: LLM integration with MEAI abstraction
-    prompt: Add a document summarization endpoint to this .NET 10 Web API. The endpoint should accept a document text and
-      return a concise summary.
+      - Selected ML.NET instead of a generative model for structured multiclass prediction
+      - Recognized that the six-row fixture cannot support credible performance evidence
+      - Proposed repeatable evaluation on unseen data with metrics that reveal multiclass error
+      - Produced a serving design that remains safe under concurrent ASP.NET Core requests
+      - Kept the project unchanged because the user requested a recommendation first
+    constraints: { reject_tools: [bash, powershell, edit, create] }
+
+  - name: Select MEAI for a single-response summarization endpoint
+    prompt: >-
+      Review DocSummary and propose the .NET architecture for a document
+      summarization endpoint. Each request is one document in and one summary
+      out, with no tools or multi-step workflow. Include reliability, model,
+      and secret-handling decisions. Do not edit the project.
+    tags:
+      capability: meai-single-response-selection
+      risk: unnecessary-orchestration-or-secret-leak
+      journey: design-llm-endpoint
     environment:
       files:
-        - src: ./fixtures/llm-integration-with-meai-abstraction/DocSummary/DocSummary.csproj
-          dest: DocSummary/DocSummary.csproj
-        - src: ./fixtures/llm-integration-with-meai-abstraction/DocSummary/Program.cs
-          dest: DocSummary/Program.cs
-        - src: ./fixtures/llm-integration-with-meai-abstraction/DocSummary/appsettings.json
-          dest: DocSummary/appsettings.json
+        - { src: ./fixtures/llm-integration-with-meai-abstraction/DocSummary, dest: DocSummary }
+        - { src: ./fixtures/llm-integration-with-meai-abstraction/DocSummary, dest: .expected/DocSummary }
+        - { src: ./fixtures/verify-identical.mjs, dest: verify-identical.mjs }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "technology-selection-meai-summary"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Use Microsoft.Extensions.AI with an injected `IChatClient`; this
+              bounded prompt-response endpoint does not need an agent loop.
+              Register through `AddChatClient`, set Temperature and
+              MaxOutputTokens, add retry, timeout, and cancellation, pin a
+              dated model, and load credentials from secure configuration.
     graders:
-      - type: output-contains
+      - type: output-matches
+        config: { pattern: "(?i)(Microsoft\\.Extensions\\.AI|IChatClient)" }
+      - type: output-matches
+        config: { pattern: "(?i)AddChatClient" }
+      - type: output-matches
+        config: { pattern: "(?i)(Temperature.*MaxOutputTokens|MaxOutputTokens.*Temperature)" }
+      - type: output-matches
+        config: { pattern: "(?i)retry" }
+      - type: output-matches
+        config: { pattern: "(?i)timeout" }
+      - type: output-matches
+        config: { pattern: "(?i)cancellation" }
+      - type: output-not-matches
+        config: { pattern: "(?i)(sk-[a-z0-9]|apiKey\\s*=)" }
+      - type: run-command
         config:
-          substring: IChatClient
-      - type: output-contains
+          command: node
+          args: [verify-identical.mjs, DocSummary, .expected/DocSummary]
+          expected_exit_code: 0
+          stdout_matches: "^PASS:"
+      - type: run-command
         config:
-          substring: Temperature
-      - type: output-not-contains
-        config:
-          substring: sk-
-      - type: output-not-contains
-        config:
-          substring: apiKey = "
+          command: >-
+            node -e "const {spawnSync}=require('child_process');
+            const d=spawnSync('git',['diff','--quiet','eval-baseline','--','.']);
+            const s=spawnSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'});
+            if(d.status!==0||s.status!==0||s.stdout.trim())process.exit(1)"
+          expected_exit_code: 0
       - type: exit-success
       - type: prompt
     rubric:
-      - Uses Microsoft.Extensions.AI (IChatClient) as the abstraction layer — does not call Azure.AI.OpenAI or OpenAI
-        SDK directly in business logic
-      - Registers the AI client via dependency injection using AddChatClient
-      - Sets Temperature and MaxOutputTokens explicitly in ChatOptions
-      - Implements retry logic (e.g., RetryingChatClient or Polly-based)
-      - Loads API keys from configuration or environment — not hardcoded in source
-      - Pins to a specific dated model version (e.g., gpt-4o-2024-08-06) rather than an unversioned alias
-  - name: Select ML.NET for tabular churn prediction
-    prompt: I have a .NET 10 project and want to add an AI-powered feature that flags customers who are likely to
-      churn. The provided CSV has Age, Income, Region, PurchaseHistory, and Churned columns. Implement it, and tell me
-      which technology you chose and why.
+      - Selected an abstraction appropriate for one bounded prompt-response workflow
+      - Kept provider-specific code behind dependency injection
+      - Bounded generation and failure behavior, prevented secret exposure, and avoided silent model drift
+      - Did not introduce agent orchestration where the request has no tools or iterative work
+    constraints: { reject_tools: [bash, powershell, edit, create] }
+
+  - name: Reject an LLM for structured churn prediction
+    prompt: >-
+      The product request says to use GPT to flag likely churn from Age,
+      Income, Region, and PurchaseHistory in customers.csv. Review
+      ChurnPredictor and recommend the technology and validation approach you
+      would approve. Do not change the files.
+    tags:
+      capability: reject-llm-for-tabular-prediction
+      risk: nondeterministic-high-cost-classifier
+      journey: review-ai-technology-request
     environment:
       files:
-        - src: ./fixtures/reject-llm-for-tabular-classification/ChurnPredictor/ChurnPredictor.csproj
-          dest: ChurnPredictor/ChurnPredictor.csproj
-        - src: ./fixtures/reject-llm-for-tabular-classification/ChurnPredictor/Program.cs
-          dest: ChurnPredictor/Program.cs
-        - src: ./fixtures/reject-llm-for-tabular-classification/ChurnPredictor/Data/customers.csv
-          dest: ChurnPredictor/Data/customers.csv
+        - { src: ./fixtures/reject-llm-for-tabular-classification/ChurnPredictor, dest: ChurnPredictor }
+        - { src: ./fixtures/reject-llm-for-tabular-classification/ChurnPredictor, dest: .expected/ChurnPredictor }
+        - { src: ./fixtures/verify-identical.mjs, dest: verify-identical.mjs }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "technology-selection-reject-llm"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Do not use GPT for this tabular prediction. Use ML.NET binary
+              classification with Churned as the label, but the supplied
+              five-row CSV is insufficient for credible validation. Collect
+              representative labeled data first. Then use a fixed seed, a
+              training/test split, and held-out AUC and F1. This remains
+              reproducible, local, and avoids per-request model cost.
     graders:
-      - type: output-contains
+      - type: output-matches
+        config: { pattern: "(?i)(ML\\.?NET|Microsoft\\.ML)" }
+      - type: output-matches
+        config: { pattern: "(?i)((do not|would not|reject).*(GPT|LLM)|(GPT|LLM).*(wrong fit|unnecessary|not appropriate))" }
+      - type: output-matches
+        config: { pattern: "(?i)(AUC|F1|precision|recall)" }
+      - type: output-matches
+        config: { pattern: "(?i)(too (small|few)|insufficient.*(data|validation|evidence)|more (representative )?(labeled )?data|cannot.*credible)" }
+      - type: run-command
         config:
-          substring: ML.NET
+          command: node
+          args: [verify-identical.mjs, ChurnPredictor, .expected/ChurnPredictor]
+          expected_exit_code: 0
+          stdout_matches: "^PASS:"
+      - type: run-command
+        config:
+          command: >-
+            node -e "const {spawnSync}=require('child_process');
+            const d=spawnSync('git',['diff','--quiet','eval-baseline','--','.']);
+            const s=spawnSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'});
+            if(d.status!==0||s.status!==0||s.stdout.trim())process.exit(1)"
+          expected_exit_code: 0
       - type: exit-success
       - type: prompt
     rubric:
-      - Selects ML.NET (Microsoft.ML) for churn prediction — does not use an LLM, GPT, or a generative AI service for
-        this tabular prediction task
-      - Explains why that technology fits, with at least one substantive reason grounded in the task (e.g.,
-        determinism/reproducibility, cost, latency, or suitability for structured tabular data)
-      - Implements binary classification over the provided CSV — trains on the Churned label using the Age, Income,
-        Region, and PurchaseHistory columns and produces a churn prediction
-  - name: Agentic workflow with guardrails
-    prompt: Build a .NET 10 console app that uses an AI agent to research a topic by searching the web, then summarize
-      findings. The agent should have access to a web search tool and a note-taking tool.
+      - Overrode the requested GPT choice because this is standard tabular classification
+      - Recognized that the five-row fixture cannot support credible performance evidence
+      - Proposed binary classification over the supplied features and label
+      - Proposed validation that can estimate unseen-data performance despite the fixture's data limitations
+      - Explained the decision using reproducibility, latency, or cost
+    constraints: { reject_tools: [bash, powershell, edit, create] }
+
+  - name: Select Agent Framework for a bounded tool-using workflow
+    prompt: >-
+      Review ResearchAgent and propose the architecture for an assistant that
+      searches the web, records notes, and summarizes the findings. The workflow
+      may call either tool several times. Cover loop control, observability, and
+      cost containment. Do not edit the project.
+    tags:
+      capability: agent-framework-tool-orchestration
+      risk: runaway-hand-rolled-agent-loop
+      journey: design-tool-using-agent
     environment:
       files:
-        - src: ./fixtures/agentic-workflow-with-guardrails/ResearchAgent/ResearchAgent.csproj
-          dest: ResearchAgent/ResearchAgent.csproj
-        - src: ./fixtures/agentic-workflow-with-guardrails/ResearchAgent/Program.cs
-          dest: ResearchAgent/Program.cs
+        - { src: ./fixtures/agentic-workflow-with-guardrails/ResearchAgent, dest: ResearchAgent }
+        - { src: ./fixtures/agentic-workflow-with-guardrails/ResearchAgent, dest: .expected/ResearchAgent }
+        - { src: ./fixtures/verify-identical.mjs, dest: verify-identical.mjs }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "technology-selection-agent-framework"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              `Program.cs` is only a placeholder, so add one bounded orchestration layer rather than a raw chat loop:
+
+              1. Register the provider as an `IChatClient` through Microsoft.Extensions.AI, then construct one Microsoft Agent Framework (`Microsoft.Agents.AI`) agent.
+              2. Expose WebSearch and TakeNote as described functions with typed inputs and outputs. The agent sequence is search -> evaluate results -> record useful notes -> repeat only when needed -> summarize the accumulated notes.
+              3. Set `MaximumIterations`, a total token or cost budget, a wall-clock timeout, and request cancellation. Stop with a partial-results status when a limit is reached.
+              4. Log the run ID, selected tool, duration, result count, token usage, and stop reason. Do not log raw queries, notes, or document text when they may be sensitive.
+              5. Keep one agent unless a measured requirement needs specialization; this workflow does not justify a multi-agent topology.
     graders:
-      - type: output-contains
+      - type: output-matches
+        config: { pattern: "(?i)(Microsoft\\.Agents\\.AI|Agent Framework)" }
+      - type: output-matches
+        config: { pattern: "(?i)(Microsoft\\.Extensions\\.AI|IChatClient)" }
+      - type: output-matches
+        config: { pattern: "(?i)MaximumIterations" }
+      - type: output-matches
+        config: { pattern: "(?i)(token budget|cost budget|cost ceiling)" }
+      - type: run-command
         config:
-          substring: MaximumIterations
-      - type: output-contains
+          command: node
+          args: [verify-identical.mjs, ResearchAgent, .expected/ResearchAgent]
+          expected_exit_code: 0
+          stdout_matches: "^PASS:"
+      - type: run-command
         config:
-          substring: Microsoft.Agents.AI
-      - type: output-contains
-        config:
-          substring: Microsoft.Extensions.AI
+          command: >-
+            node -e "const {spawnSync}=require('child_process');
+            const d=spawnSync('git',['diff','--quiet','eval-baseline','--','.']);
+            const s=spawnSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'});
+            if(d.status!==0||s.status!==0||s.stdout.trim())process.exit(1)"
+          expected_exit_code: 0
       - type: exit-success
       - type: prompt
     rubric:
-      - Uses Microsoft Agent Framework (Microsoft.Agents.AI) for orchestration — not raw LLM calls in a loop
-      - Builds on top of Microsoft.Extensions.AI (IChatClient) as the foundation layer
-      - Sets MaximumIterations to cap the agentic loop and prevent runaway execution
-      - Defines explicit tool/function schemas with descriptions for each tool
-      - Implements observability by logging agent steps (tool selected, input, output)
-      - Mentions or implements a cost ceiling or token budget
-  - name: Natural-language scenario decomposition — RAG chatbot
-    prompt: I want to build a web-based LLM driven chatbot using C# that allows customers to get help with our internal
-      product PDF documentation and Blazor. I want to use Postgres for data storage along with just a file folder for
-      our documentation. Show me your plan before continuing with the implementation.
+      - Selected orchestration because the workflow has iterative tool calls
+      - Kept orchestration decoupled from provider-specific business logic
+      - Bounded iterations and total consumption and required safe observability
+      - Produced a workflow that cannot continue indefinitely or bypass its stop conditions
+    constraints: { reject_tools: [bash, powershell, edit, create] }
+
+  - name: Decompose a PDF RAG chatbot with PostgreSQL and Blazor
+    prompt: >-
+      Review HelpChatbot and give me the architecture plan for a customer-help
+      chatbot over the PDF files in Docs. Keep PostgreSQL for storage, a normal
+      file folder for documents, and Blazor for the UI. Stop after the plan and
+      do not edit or scaffold anything.
+    tags:
+      capability: rag-decomposition-with-user-constraints
+      risk: invented-infrastructure-or-package
+      journey: plan-document-chatbot
     environment:
       files:
-        - src: ./fixtures/natural-language-scenario-decomposition-rag-chatbot/HelpChatbot/HelpChatbot.csproj
-          dest: HelpChatbot/HelpChatbot.csproj
-        - src: ./fixtures/natural-language-scenario-decomposition-rag-chatbot/HelpChatbot/Program.cs
-          dest: HelpChatbot/Program.cs
-        - src: ./fixtures/natural-language-scenario-decomposition-rag-chatbot/HelpChatbot/Docs/product-guide.pdf
-          dest: HelpChatbot/Docs/product-guide.pdf
+        - { src: ./fixtures/natural-language-scenario-decomposition-rag-chatbot/HelpChatbot, dest: HelpChatbot }
+        - { src: ./fixtures/natural-language-scenario-decomposition-rag-chatbot/HelpChatbot, dest: .expected/HelpChatbot }
+        - { src: ./fixtures/verify-identical.mjs, dest: verify-identical.mjs }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "technology-selection-rag-postgres"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Ingestion reads PDFs from the folder, semantically chunks them,
+              generates embeddings through IEmbeddingGenerator, and stores
+              vectors plus source metadata through Microsoft.Extensions.VectorData
+              and pgvector. Query filters by a minimum similarity score and
+              sends grounded chunks to IChatClient with citations. Keep Blazor
+              as the UI.
     graders:
-      - type: output-contains
+      - type: output-matches
+        config: { pattern: "(?i)(IEmbeddingGenerator|Microsoft\\.Extensions\\.AI)" }
+      - type: output-matches
+        config: { pattern: "(?i)(Microsoft\\.Extensions\\.VectorData|pgvector)" }
+      - type: output-matches
+        config: { pattern: "(?i)((semantic|paragraph).*(chunk|split)|(chunk|split).*(semantic|paragraph))" }
+      - type: output-matches
+        config: { pattern: "(?i)Blazor" }
+      - type: run-command
         config:
-          substring: Microsoft.Extensions.AI
+          command: node
+          args: [verify-identical.mjs, HelpChatbot, .expected/HelpChatbot]
+          expected_exit_code: 0
+          stdout_matches: "^PASS:"
+      - type: run-command
+        config:
+          command: >-
+            node -e "const {spawnSync}=require('child_process');
+            const d=spawnSync('git',['diff','--quiet','eval-baseline','--','.']);
+            const s=spawnSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'});
+            if(d.status!==0||s.status!==0||s.stdout.trim())process.exit(1)"
+          expected_exit_code: 0
       - type: exit-success
       - type: prompt
     rubric:
-      - Presents a plan or architecture breakdown before diving into code — decomposes the vague request into
-        identifiable capability needs (chat, document ingestion, vector search, embedding, UI)
-      - Selects Microsoft.Extensions.AI (MEAI) as the abstraction layer and identifies a concrete LLM provider (e.g.,
-        OpenAI, Azure.AI.OpenAI, or Azure.AI.Inference)
-      - Identifies the need for document ingestion and chunking of PDF files — references
-        Microsoft.Extensions.AI.DataIngestion or implements equivalent parsing/chunking
-      - Selects Microsoft.Extensions.VectorData.Abstractions with a pgvector connector for PostgreSQL-based vector
-        storage
-      - Uses Blazor for the web UI as requested — does not substitute a different frontend framework
-      - Reads documents from a file folder as specified — does not require a cloud blob store or other infrastructure
-        the user did not ask for
-      - Does not hallucinate NuGet package names — uses real, existing packages for the selected providers
-  - name: RAG pipeline with vector search
-    prompt: I need to add a RAG-based Q&A feature to a .NET 10 Web API. The app has a collection of product documentation
-      markdown files. Users should be able to ask questions and get answers grounded in the documentation. I need
-      document ingestion with chunking and a query endpoint. Show me your plan and architecture only — do not write any
-      code.
+      - Decomposed ingestion, vector retrieval, grounded generation, and UI
+      - Preserved PostgreSQL, the document folder, and Blazor
+      - Produced relevant, attributable grounded answers without inventing replacement infrastructure
+      - Produced only a plan and made no workspace changes
+    constraints: { reject_tools: [bash, powershell, edit, create] }
+
+  - name: Plan incremental RAG indexing without stale vectors
+    prompt: >-
+      Review ProductQA and design the ingestion and query pipeline for the
+      markdown files in Docs. The folder changes weekly: documents are added,
+      edited, renamed, and deleted. I only want a plan, not code or project
+      edits. Explain how the index avoids stale vectors, repeated embedding
+      work, duplicate context, and irrelevant retrieval.
+    tags:
+      capability: incremental-rag-index-reconciliation
+      risk: stale-duplicate-or-wasteful-rag
+      journey: design-changing-document-index
     environment:
       files:
-        - src: ./fixtures/rag-pipeline-with-vector-search/ProductQA/ProductQA.csproj
-          dest: ProductQA/ProductQA.csproj
-        - src: ./fixtures/rag-pipeline-with-vector-search/ProductQA/Program.cs
-          dest: ProductQA/Program.cs
-        - src: ./fixtures/rag-pipeline-with-vector-search/ProductQA/Docs/getting-started.md
-          dest: ProductQA/Docs/getting-started.md
-        - src: ./fixtures/rag-pipeline-with-vector-search/ProductQA/Docs/configuration.md
-          dest: ProductQA/Docs/configuration.md
+        - { src: ./fixtures/rag-pipeline-with-vector-search/ProductQA, dest: ProductQA }
+        - { src: ./fixtures/rag-pipeline-with-vector-search/ProductQA, dest: .expected/ProductQA }
+        - { src: ./fixtures/verify-identical.mjs, dest: verify-identical.mjs }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "technology-selection-rag-incremental"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use two explicit pipelines:
+
+              **Ingestion:** maintain a manifest with stable source identity, current path, normalized-content hash, chunk hashes, and index generation. Parse headings and paragraphs into semantic chunks. Use hashes as embedding-cache keys, not as the sole document identity, so duplicate files remain distinct. A rename with unchanged content updates path metadata without re-embedding; changed chunks are re-embedded, and deleted sources remove orphan vectors. Build a complete new generation and switch it atomically.
+
+              **Query:** embed the question once, retrieve a bounded top-k set, deduplicate duplicate context, and discard hits below a configured minimum similarity score. Build the `IChatClient` prompt only from the surviving chunks and require source IDs in the response. If no hit clears the threshold, return a no-grounded-answer result rather than asking the model to guess.
+
+              Persisted chunk hashes form the embedding cache and invalidation key, so unchanged content is never re-embedded. Return document and section citations with each answer. This is an architecture-only request; no project files need to change.
     graders:
-      - type: output-contains
+      - type: output-matches
+        config: { pattern: "(?i)((semantic|paragraph).*(chunk|split)|(chunk|split).*(semantic|paragraph))" }
+      - type: output-matches
+        config: { pattern: "(?i)(minimum similarity|similarity threshold|score threshold)" }
+      - type: output-matches
+        config: { pattern: "(?i)((cache|persist).*(embedding)|(embedding).*(cache|persist))" }
+      - type: output-matches
+        config: { pattern: "(?i)(source attribution|citation|source identifiers?)" }
+      - type: output-matches
+        config: { pattern: "(?i)(delete|removed|reconcile|tombstone|stale vector)" }
+      - type: output-matches
+        config: { pattern: "(?i)(hash|content fingerprint|checksum)" }
+      - type: output-matches
+        config: { pattern: "(?i)(stable source|source identity|document identity)" }
+      - type: output-matches
+        config: { pattern: "(?i)(rename).*(without|avoid|not).*(re-?embed)|(update.*path metadata)" }
+      - type: output-matches
+        config: { pattern: "(?i)(atomic|generation switch|snapshot switch)" }
+      - type: output-matches
+        config: { pattern: "(?i)(deduplicat|duplicate context)" }
+      - type: run-command
         config:
-          substring: chunk
-      - type: output-contains
+          command: node
+          args: [verify-identical.mjs, ProductQA, .expected/ProductQA]
+          expected_exit_code: 0
+          stdout_matches: "^PASS:"
+      - type: run-command
         config:
-          substring: embedding
+          command: >-
+            node -e "const {spawnSync}=require('child_process');
+            const d=spawnSync('git',['diff','--quiet','eval-baseline','--','.']);
+            const s=spawnSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'});
+            if(d.status!==0||s.status!==0||s.stdout.trim())process.exit(1)"
+          expected_exit_code: 0
       - type: exit-success
       - type: prompt
     rubric:
-      - Describes a chunking strategy for documents (semantic or paragraph-based, not naive fixed-size)
-      - Selects Microsoft.Extensions.VectorData or a vector database for storing and querying embeddings
-      - Mentions setting a minimum similarity score threshold to filter out irrelevant results
-      - Includes source attribution in the design — tracks which document chunks contributed to the answer
-      - Plans to cache embeddings rather than re-embedding content on every query
-      - Selects Microsoft.Extensions.AI (IEmbeddingGenerator) for the embedding abstraction layer
+      - Covered both ingestion and query-time retrieval
+      - Preserved document meaning during ingestion and excluded irrelevant context at query time
+      - Reconciled added, changed, renamed, and deleted documents without leaving stale vectors
+      - Reused unchanged embeddings and prevented duplicate retrieved context
+      - Preserved source metadata for citations
+      - Honored the plan-only request without modifying the project
+    constraints: { reject_tools: [bash, powershell, edit, create] }
+
+  - name: Select ONNX Runtime for an existing model artifact
+    prompt: >-
+      Review ModelHost. The vision team already supplies a versioned
+      classifier.onnx file and preprocessing contract; this service only needs
+      low-latency production inference. Recommend the .NET integration and
+      lifecycle safeguards. Do not edit the project.
+    tags:
+      capability: onnx-production-inference-selection
+      risk: per-request-model-load-or-contract-drift
+      journey: integrate-pretrained-model
+    environment:
+      files:
+        - { src: ./fixtures/onnx-inference/ModelHost, dest: ModelHost }
+        - { src: ./fixtures/onnx-inference/ModelHost, dest: .expected/ModelHost }
+        - { src: ./fixtures/verify-identical.mjs, dest: verify-identical.mjs }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "technology-selection-onnx"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Use Microsoft.ML.OnnxRuntime. Validate input and output names,
+              types, and dimensions at startup, including `pixels` shaped
+              `[1,3,224,224]` and `probabilities` shaped `[1,12]`. Register and
+              warm one InferenceSession through DI, bound input and batch
+              sizes, dispose native-backed results, and pin the model artifact
+              version with its preprocessing contract.
+    graders:
+      - type: output-matches
+        config: { pattern: "(?i)(Microsoft\\.ML\\.OnnxRuntime|ONNX Runtime)" }
+      - type: output-matches
+        config: { pattern: "(?i)InferenceSession" }
+      - type: output-matches
+        config: { pattern: "(?i)((input|output).*(name|type|dimension|shape)|(name|type|dimension|shape).*(input|output))" }
+      - type: output-matches
+        config: { pattern: "(?i)((single|singleton|reuse|one).*(session)|(session).*(single|singleton|reuse|one))" }
+      - type: output-matches
+        config: { pattern: "(?i)pixels" }
+      - type: output-matches
+        config: { pattern: "(?i)probabilities" }
+      - type: output-matches
+        config: { pattern: "(?i)224" }
+      - type: output-matches
+        config: { pattern: "(?i)(dispose|using).*(result|native)|(result|native).*(dispose|using)" }
+      - type: output-matches
+        config: { pattern: "(?i)(bound|limit).*(input|batch)|(input|batch).*(bound|limit)" }
+      - type: output-matches
+        config: { pattern: "(?i)(artifact|model).*(version|pin)|(version|pin).*(artifact|model)" }
+      - type: run-command
+        config:
+          command: node
+          args: [verify-identical.mjs, ModelHost, .expected/ModelHost]
+          expected_exit_code: 0
+          stdout_matches: "^PASS:"
+      - type: run-command
+        config:
+          command: >-
+            node -e "const {spawnSync}=require('child_process');
+            const d=spawnSync('git',['diff','--quiet','eval-baseline','--','.']);
+            const s=spawnSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'});
+            if(d.status!==0||s.status!==0||s.stdout.trim())process.exit(1)"
+          expected_exit_code: 0
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Selected ONNX Runtime because the model is already trained and exported
+      - Detected model-contract incompatibility before traffic and avoided repeated model-load overhead
+      - Addressed native-resource disposal, bounded inputs, and artifact versioning
+      - Did not propose training a replacement model inside the service
+    constraints: { reject_tools: [bash, powershell, edit, create] }
+
+  - name: Select OllamaSharp for an offline field assistant
+    prompt: >-
+      Review FieldAssistant. It must summarize maintenance notes on laptops that
+      may be disconnected for weeks, and policy forbids sending notes to a cloud
+      service. Recommend the .NET client architecture and local runtime
+      safeguards. Do not edit the project.
+    tags:
+      capability: offline-llm-selection
+      risk: privacy-breach-or-unbounded-local-load
+      journey: design-air-gapped-assistant
+    environment:
+      files:
+        - { src: ./fixtures/offline-llm/FieldAssistant, dest: FieldAssistant }
+        - { src: ./fixtures/offline-llm/FieldAssistant, dest: .expected/FieldAssistant }
+        - { src: ./fixtures/verify-identical.mjs, dest: verify-identical.mjs }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "technology-selection-ollama"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Use OllamaSharp behind Microsoft.Extensions.AI and IChatClient.
+              Configure the endpoint and model outside code, verify the model is
+              installed before serving, and set prompt, output-token, timeout,
+              cancellation, memory, and concurrency limits. Measure latency and
+              memory on the target 16 GB laptops. Because policy forbids cloud
+              transmission, fail cleanly when the local model is unavailable;
+              do not add a cloud fallback.
+    graders:
+      - type: output-matches
+        config: { pattern: "(?i)OllamaSharp" }
+      - type: output-matches
+        config: { pattern: "(?i)(Microsoft\\.Extensions\\.AI|IChatClient)" }
+      - type: output-matches
+        config: { pattern: "(?i)((verify|check).*(model).*(installed|present|available))" }
+      - type: output-matches
+        config: { pattern: "(?i)(timeout|cancellation|memory|concurrency|token)" }
+      - type: output-matches
+        config: { pattern: "(?i)(16\\s*GB|target (laptop|hardware))" }
+      - type: output-matches
+        config: { pattern: "(?i)(fail|unavailable|not installed).*(model)|(model).*(fail|unavailable|not installed)" }
+      - type: output-matches
+        config: { pattern: "(?i)(no cloud|do not.*cloud|without.*cloud|cloud fallback.*(not|never))" }
+      - type: run-command
+        config:
+          command: node
+          args: [verify-identical.mjs, FieldAssistant, .expected/FieldAssistant]
+          expected_exit_code: 0
+          stdout_matches: "^PASS:"
+      - type: run-command
+        config:
+          command: >-
+            node -e "const {spawnSync}=require('child_process');
+            const d=spawnSync('git',['diff','--quiet','eval-baseline','--','.']);
+            const s=spawnSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'});
+            if(d.status!==0||s.status!==0||s.stdout.trim())process.exit(1)"
+          expected_exit_code: 0
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Selected local inference because cloud transmission is prohibited
+      - Kept business logic independent from the selected local model host
+      - Externalized configuration and checked model availability
+      - Bounded local resource use and required target-hardware measurement
+    constraints: { reject_tools: [bash, powershell, edit, create] }
+
+  - name: Select Copilot SDK for a repository workflow extension
+    prompt: >-
+      Review RepoAssistant. It must run as a custom GitHub Copilot developer
+      workflow that understands the current repository, asks for permission
+      before protected actions, and reports session usage. Recommend the correct
+      .NET integration and lifecycle. Do not edit the project.
+    tags:
+      capability: copilot-sdk-extension-selection
+      risk: generic-llm-client-or-permission-bypass
+      journey: design-copilot-workflow
+    environment:
+      files:
+        - { src: ./fixtures/copilot-sdk/RepoAssistant, dest: RepoAssistant }
+        - { src: ./fixtures/copilot-sdk/RepoAssistant, dest: .expected/RepoAssistant }
+        - { src: ./fixtures/verify-identical.mjs, dest: verify-identical.mjs }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "technology-selection-copilot-sdk"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Use GitHub.Copilot.SDK because the workflow runs in the Copilot
+              agent runtime. Pin the pre-1.0 package, reuse one CopilotClient,
+              create a bounded disposable session per workflow, set the working
+              directory and permission handler, default unattended permission
+              requests to deny, and subscribe to error, usage, and completion
+              events.
+    graders:
+      - type: output-matches
+        config: { pattern: "(?i)(GitHub\\.Copilot\\.SDK|Copilot SDK)" }
+      - type: output-matches
+        config: { pattern: "(?i)CopilotClient" }
+      - type: output-matches
+        config: { pattern: "(?i)((permission).*(deny|handler)|(deny).*(permission))" }
+      - type: output-matches
+        config: { pattern: "(?i)((usage|completion|error).*(event|subscribe)|(subscribe).*(usage|completion|error))" }
+      - type: run-command
+        config:
+          command: node
+          args: [verify-identical.mjs, RepoAssistant, .expected/RepoAssistant]
+          expected_exit_code: 0
+          stdout_matches: "^PASS:"
+      - type: run-command
+        config:
+          command: >-
+            node -e "const {spawnSync}=require('child_process');
+            const d=spawnSync('git',['diff','--quiet','eval-baseline','--','.']);
+            const s=spawnSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'});
+            if(d.status!==0||s.status!==0||s.stdout.trim())process.exit(1)"
+          expected_exit_code: 0
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Selected the Copilot SDK because the request targets the Copilot runtime
+      - Avoided per-workflow client startup and released session resources after each workflow
+      - Made repository context, permissions, cancellation, and telemetry explicit
+      - Did not substitute a generic hosted LLM client
+    constraints: { reject_tools: [bash, powershell, edit, create] }
+
+  - name: Select a hybrid prediction and explanation architecture
+    prompt: >-
+      Review ClaimsAssistant. It must predict fraud risk from structured claim
+      fields, then produce a plain-language explanation. The prediction must
+      remain reproducible when the explanation service is unavailable. Recommend
+      the architecture and failure boundaries. Do not edit the project.
+    tags:
+      capability: hybrid-ml-and-llm-selection
+      risk: llm-as-system-of-record
+      journey: design-risk-explanation-service
+    environment:
+      files:
+        - { src: ./fixtures/hybrid-risk-explanation/ClaimsAssistant, dest: ClaimsAssistant }
+        - { src: ./fixtures/hybrid-risk-explanation/ClaimsAssistant, dest: .expected/ClaimsAssistant }
+        - { src: ./fixtures/verify-identical.mjs, dest: verify-identical.mjs }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "technology-selection-hybrid"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Use ML.NET for the authoritative fraud score and IChatClient only
+              for a plain-language explanation from approved evidence. Persist
+              the score and model version first. Validate explanation output and
+              fall back to a deterministic explanation if the LLM is unavailable;
+              never let generation change the prediction. The supplied four-row
+              CSV is only a schema example and is insufficient for training or
+              credible performance evidence.
+    graders:
+      - type: output-matches
+        config: { pattern: "(?i)(ML\\.?NET|Microsoft\\.ML)" }
+      - type: output-matches
+        config: { pattern: "(?i)(IChatClient|Microsoft\\.Extensions\\.AI)" }
+      - type: output-matches
+        config: { pattern: "(?i)(((fall\\s*back|fallback|optional|degrade).*(explanation|LLM))|((explanation|LLM).*(fall\\s*back|fallback|optional|degrade)))" }
+      - type: output-matches
+        config: { pattern: "(?i)((score|prediction).*(persist|authoritative)|(persist|authoritative).*(score|prediction))" }
+      - type: output-matches
+        config: { pattern: "(?i)(too (small|few)|insufficient.*(train|data|performance)|schema example)" }
+      - type: run-command
+        config:
+          command: node
+          args: [verify-identical.mjs, ClaimsAssistant, .expected/ClaimsAssistant]
+          expected_exit_code: 0
+          stdout_matches: "^PASS:"
+      - type: run-command
+        config:
+          command: >-
+            node -e "const {spawnSync}=require('child_process');
+            const d=spawnSync('git',['diff','--quiet','eval-baseline','--','.']);
+            const s=spawnSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'});
+            if(d.status!==0||s.status!==0||s.stdout.trim())process.exit(1)"
+          expected_exit_code: 0
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Kept reproducible structured prediction separate from non-deterministic explanation
+      - Kept the deterministic score authoritative and independent of explanation availability
+      - Required validated explanation output and a deterministic fallback
+      - Did not let the LLM calculate or override the fraud score
+    constraints: { reject_tools: [bash, powershell, edit, create] }
+
+  - name: Select ML.NET for structured demand regression
+    prompt: >-
+      Review DemandForecast and recommend the technology for predicting next
+      week's unit demand from price, promotion, store region, and recent sales
+      history. This is an architecture decision only; do not edit the project.
+    tags:
+      capability: ml-net-regression-selection
+      risk: generative-model-for-numeric-prediction
+      journey: design-demand-forecast
+    environment:
+      files:
+        - { src: ./fixtures/selection-boundaries/DemandForecast, dest: DemandForecast }
+        - { src: ./fixtures/selection-boundaries/DemandForecast, dest: .expected/DemandForecast }
+        - { src: ./fixtures/verify-identical.mjs, dest: verify-identical.mjs }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "technology-selection-regression"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Use ML.NET regression, not a generative LLM, because the inputs
+              and target are structured numeric data. With representative
+              history, train reproducibly with a fixed MLContext seed, keep a
+              time-aware holdout, and report RMSE, MAE, and R-squared against a
+              simple seasonal baseline. Monitor drift by store and promotion.
+    graders:
+      - type: output-matches
+        config: { pattern: "(?i)(ML\\.?NET|Microsoft\\.ML)" }
+      - type: output-matches
+        config: { pattern: "(?i)(regression)" }
+      - type: output-matches
+        config: { pattern: "(?i)(RMSE|MAE|R.?squared|R²)" }
+      - type: output-matches
+        config: { pattern: "(?i)(fixed seed|MLContext\\s*\\(\\s*seed|reproduc)" }
+      - type: run-command
+        config:
+          command: node
+          args: [verify-identical.mjs, DemandForecast, .expected/DemandForecast]
+          expected_exit_code: 0
+          stdout_matches: "^PASS:"
+      - type: run-command
+        config:
+          command: >-
+            node -e "const {spawnSync}=require('child_process');
+            const d=spawnSync('git',['diff','--quiet','eval-baseline','--','.']);
+            const s=spawnSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'});
+            if(d.status!==0||s.status!==0||s.stdout.trim())process.exit(1)"
+          expected_exit_code: 0
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Selected deterministic regression for structured demand prediction
+      - Proposed time-aware unseen-data validation against a meaningful baseline
+      - Included error metrics and drift monitoring that support production decisions
+      - Did not use a generative model as the numeric predictor
+      - Made no workspace changes
+    constraints: { reject_tools: [bash, powershell, edit, create] }
+
+  - name: Select ML.NET for sensor anomaly detection
+    prompt: >-
+      Review PumpMonitor and recommend the .NET technology for detecting
+      unusual pressure and vibration patterns from timestamped sensor readings.
+      The system must run locally at the plant. Give a plan only and do not edit
+      files.
+    tags:
+      capability: ml-net-anomaly-detection-selection
+      risk: cloud-or-llm-for-sensor-detection
+      journey: design-local-anomaly-monitor
+    environment:
+      files:
+        - { src: ./fixtures/selection-boundaries/PumpMonitor, dest: PumpMonitor }
+        - { src: ./fixtures/selection-boundaries/PumpMonitor, dest: .expected/PumpMonitor }
+        - { src: ./fixtures/verify-identical.mjs, dest: verify-identical.mjs }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "technology-selection-anomaly"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Use ML.NET anomaly detection locally rather than an LLM or cloud
+              text service. Establish a clean operating baseline, use
+              time-ordered validation, tune the alert threshold from false
+              alarm and missed-failure costs, and monitor sensor drift. Keep
+              inference deterministic and version the preprocessing contract.
+    graders:
+      - type: output-matches
+        config: { pattern: "(?i)(ML\\.?NET|Microsoft\\.ML)" }
+      - type: output-matches
+        config: { pattern: "(?i)(anomal|change point|spike detection)" }
+      - type: output-matches
+        config: { pattern: "(?i)(threshold|false alarm|false positive)" }
+      - type: output-matches
+        config: { pattern: "(?i)(local|on[- ]prem|plant)" }
+      - type: run-command
+        config:
+          command: node
+          args: [verify-identical.mjs, PumpMonitor, .expected/PumpMonitor]
+          expected_exit_code: 0
+          stdout_matches: "^PASS:"
+      - type: run-command
+        config:
+          command: >-
+            node -e "const {spawnSync}=require('child_process');
+            const d=spawnSync('git',['diff','--quiet','eval-baseline','--','.']);
+            const s=spawnSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'});
+            if(d.status!==0||s.status!==0||s.stdout.trim())process.exit(1)"
+          expected_exit_code: 0
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Selected local anomaly detection for timestamped numeric sensor data
+      - Defined threshold selection using operational false-alarm and missed-failure costs
+      - Preserved deterministic local operation and versioned preprocessing
+      - Did not route the sensor detector through a language model
+      - Made no workspace changes
+    constraints: { reject_tools: [bash, powershell, edit, create] }
+
+  - name: Keep one bounded function call on IChatClient
+    prompt: >-
+      Review StockLookup. Each request asks the model to decide whether to call
+      one read-only inventory lookup function, then return a short answer. There
+      is no iterative planning or multi-step loop. Recommend the architecture
+      only and do not edit the project.
+    tags:
+      capability: bounded-function-invocation-selection
+      risk: unnecessary-agent-framework
+      journey: design-single-tool-call
+    environment:
+      files:
+        - { src: ./fixtures/selection-boundaries/StockLookup, dest: StockLookup }
+        - { src: ./fixtures/selection-boundaries/StockLookup, dest: .expected/StockLookup }
+        - { src: ./fixtures/verify-identical.mjs, dest: verify-identical.mjs }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "technology-selection-single-tool"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Use Microsoft.Extensions.AI with IChatClient and one described
+              read-only function. Bound function invocation to one call,
+              validate its arguments, pass cancellation, and return a safe
+              no-data result when the lookup fails. Agent Framework is not
+              needed because there is no iterative tool loop.
+    graders:
+      - type: output-matches
+        config: { pattern: "(?i)(IChatClient|Microsoft\\.Extensions\\.AI)" }
+      - type: output-matches
+        config: { pattern: "(?i)(function|tool).*(one|single|bounded)|(one|single|bounded).*(function|tool)" }
+      - type: output-matches
+        config: { pattern: "(?i)(validate).*(argument|input)|(argument|input).*(validate)" }
+      - type: output-matches
+        config: { pattern: "(?i)(Agent Framework).*(not needed|unnecessary)|(not needed|unnecessary).*(Agent Framework)" }
+      - type: run-command
+        config:
+          command: node
+          args: [verify-identical.mjs, StockLookup, .expected/StockLookup]
+          expected_exit_code: 0
+          stdout_matches: "^PASS:"
+      - type: run-command
+        config:
+          command: >-
+            node -e "const {spawnSync}=require('child_process');
+            const d=spawnSync('git',['diff','--quiet','eval-baseline','--','.']);
+            const s=spawnSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'});
+            if(d.status!==0||s.status!==0||s.stdout.trim())process.exit(1)"
+          expected_exit_code: 0
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Selected a bounded function-invocation design without iterative orchestration
+      - Validated tool inputs and defined safe failure behavior
+      - Preserved cancellation and the read-only tool boundary
+      - Avoided adding an agent loop to a one-call workflow
+      - Made no workspace changes
+    constraints: { reject_tools: [bash, powershell, edit, create] }
+
+  - name: Preserve an existing Semantic Kernel investment
+    prompt: >-
+      Review ExistingKernel. The application already has production Semantic
+      Kernel plugins, memory connectors, telemetry, and team-owned deployment
+      procedures. We are adding one more summarization flow. Recommend whether
+      to migrate frameworks now. Do not edit the project.
+    tags:
+      capability: preserve-existing-semantic-kernel
+      risk: unnecessary-framework-migration
+      journey: extend-established-ai-stack
+    environment:
+      files:
+        - { src: ./fixtures/selection-boundaries/ExistingKernel, dest: ExistingKernel }
+        - { src: ./fixtures/selection-boundaries/ExistingKernel, dest: .expected/ExistingKernel }
+        - { src: ./fixtures/verify-identical.mjs, dest: verify-identical.mjs }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "technology-selection-existing-sk"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Keep Semantic Kernel for this incremental flow. The existing
+              plugins, memory connectors, telemetry, operating procedures, and
+              team expertise are a concrete investment; a framework migration
+              adds risk without user value. Add the summarization flow inside
+              the current boundary and evaluate migration separately only when
+              a measured limitation justifies it.
+    graders:
+      - type: output-matches
+        config: { pattern: "(?i)Semantic Kernel" }
+      - type: output-matches
+        config: { pattern: "(?i)(keep|retain|continue|do not migrate|no migration)" }
+      - type: output-matches
+        config: { pattern: "(?i)(existing|investment|plugins|memory|telemetry|team)" }
+      - type: output-matches
+        config: { pattern: "(?i)(measured|limitation|separate).*(migrat)|(migrat).*(measured|limitation|separate)" }
+      - type: run-command
+        config:
+          command: node
+          args: [verify-identical.mjs, ExistingKernel, .expected/ExistingKernel]
+          expected_exit_code: 0
+          stdout_matches: "^PASS:"
+      - type: run-command
+        config:
+          command: >-
+            node -e "const {spawnSync}=require('child_process');
+            const d=spawnSync('git',['diff','--quiet','eval-baseline','--','.']);
+            const s=spawnSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'});
+            if(d.status!==0||s.status!==0||s.stdout.trim())process.exit(1)"
+          expected_exit_code: 0
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Preserved a working production framework with substantial existing investment
+      - Avoided migration risk that does not improve the requested summarization flow
+      - Separated future migration evaluation from the immediate feature
+      - Made no workspace changes
+    constraints: { reject_tools: [bash, powershell, edit, create] }
+
+  - name: Select the CPU ONNX Runtime package
+    prompt: >-
+      Review CpuScoring. It deploys to Linux containers with no GPU devices or
+      accelerator execution providers. The trained model is already in ONNX
+      format. Recommend the package and session lifecycle. Do not edit files.
+    tags:
+      capability: onnx-cpu-package-selection
+      risk: incompatible-gpu-package
+      journey: deploy-cpu-model-inference
+    environment:
+      files:
+        - { src: ./fixtures/selection-boundaries/CpuScoring, dest: CpuScoring }
+        - { src: ./fixtures/selection-boundaries/CpuScoring, dest: .expected/CpuScoring }
+        - { src: ./fixtures/verify-identical.mjs, dest: verify-identical.mjs }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "technology-selection-onnx-cpu"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Use the CPU `Microsoft.ML.OnnxRuntime` package, not a GPU-specific
+              package, because the deployment has no compatible execution
+              provider. Create and warm one InferenceSession, validate the model
+              contract at startup, bound request and batch sizes, and measure
+              latency on the target Linux CPU.
+    graders:
+      - type: output-matches
+        config: { pattern: "(?i)Microsoft\\.ML\\.OnnxRuntime(?!\\.)" }
+      - type: output-matches
+        config: { pattern: "(?i)(CPU|no GPU|without GPU)" }
+      - type: output-not-matches
+        config: { pattern: "(?i)OnnxRuntime\\.(Gpu|DirectML)" }
+      - type: output-matches
+        config: { pattern: "(?i)InferenceSession" }
+      - type: run-command
+        config:
+          command: node
+          args: [verify-identical.mjs, CpuScoring, .expected/CpuScoring]
+          expected_exit_code: 0
+          stdout_matches: "^PASS:"
+      - type: run-command
+        config:
+          command: >-
+            node -e "const {spawnSync}=require('child_process');
+            const d=spawnSync('git',['diff','--quiet','eval-baseline','--','.']);
+            const s=spawnSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'});
+            if(d.status!==0||s.status!==0||s.stdout.trim())process.exit(1)"
+          expected_exit_code: 0
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Selected a package compatible with the actual CPU-only deployment
+      - Avoided introducing an unusable GPU dependency
+      - Reused a validated warmed session and bounded resource use
+      - Required target-hardware latency measurement
+      - Made no workspace changes
+    constraints: { reject_tools: [bash, powershell, edit, create] }
+
+  - name: Honor Azure AI Search in a RAG design
+    prompt: >-
+      Review SearchBackedQA. The organization already operates Azure AI Search
+      and requires this application to use it for vector storage. Recommend the
+      .NET RAG architecture without replacing that service. Do not edit files.
+    tags:
+      capability: rag-provider-constraint
+      risk: unrequested-vector-store-substitution
+      journey: design-enterprise-rag
+    environment:
+      files:
+        - { src: ./fixtures/selection-boundaries/SearchBackedQA, dest: SearchBackedQA }
+        - { src: ./fixtures/selection-boundaries/SearchBackedQA, dest: .expected/SearchBackedQA }
+        - { src: ./fixtures/verify-identical.mjs, dest: verify-identical.mjs }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "technology-selection-rag-provider"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Keep Azure AI Search as the vector provider. Use
+              IEmbeddingGenerator for embeddings, Microsoft.Extensions.VectorData
+              abstractions where the connector supports the required features,
+              semantic chunking, persisted source metadata, a minimum similarity
+              threshold, and citations. Do not substitute pgvector or another
+              store the organization did not request.
+    graders:
+      - type: output-matches
+        config: { pattern: "(?i)Azure AI Search" }
+      - type: output-matches
+        config: { pattern: "(?i)(IEmbeddingGenerator|Microsoft\\.Extensions\\.VectorData)" }
+      - type: output-matches
+        config: { pattern: "(?i)(similarity threshold|minimum similarity|score threshold)" }
+      - type: output-matches
+        config: { pattern: "(?i)(citation|source attribution|source metadata)" }
+      - type: output-not-matches
+        config: { pattern: "(?i)(replace|switch|migrate).*(pgvector|Qdrant|Pinecone)" }
+      - type: run-command
+        config:
+          command: node
+          args: [verify-identical.mjs, SearchBackedQA, .expected/SearchBackedQA]
+          expected_exit_code: 0
+          stdout_matches: "^PASS:"
+      - type: run-command
+        config:
+          command: >-
+            node -e "const {spawnSync}=require('child_process');
+            const d=spawnSync('git',['diff','--quiet','eval-baseline','--','.']);
+            const s=spawnSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'});
+            if(d.status!==0||s.status!==0||s.stdout.trim())process.exit(1)"
+          expected_exit_code: 0
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Preserved the required enterprise vector service
+      - Added grounded retrieval quality controls and source attribution
+      - Kept the architecture portable without replacing user-selected infrastructure
+      - Made no workspace changes
+    constraints: { reject_tools: [bash, powershell, edit, create] }
+
+  - name: Validate structured LLM extraction with a fallback
+    prompt: >-
+      Review InvoiceExtraction. Each request sends one invoice text and expects
+      a typed result with vendor, invoice number, date, currency, and total.
+      There are no tools. Recommend the .NET architecture and invalid-output
+      behavior. Do not edit the project.
+    tags:
+      capability: structured-llm-output-validation
+      risk: unvalidated-nondeterministic-output
+      journey: design-invoice-extraction
+    environment:
+      files:
+        - { src: ./fixtures/selection-boundaries/InvoiceExtraction, dest: InvoiceExtraction }
+        - { src: ./fixtures/selection-boundaries/InvoiceExtraction, dest: .expected/InvoiceExtraction }
+        - { src: ./fixtures/verify-identical.mjs, dest: verify-identical.mjs }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "technology-selection-structured-output"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Use IChatClient for this single prompt-response request and ask
+              for a typed schema. Validate vendor, invoice number, ISO date,
+              ISO currency, and decimal total before accepting the result.
+              Retry only bounded transient failures; when output is missing or
+              invalid, return a deterministic validation failure or manual-review
+              result rather than inventing fields. Agent Framework is unnecessary.
+    graders:
+      - type: output-matches
+        config: { pattern: "(?i)(IChatClient|Microsoft\\.Extensions\\.AI)" }
+      - type: output-matches
+        config: { pattern: "(?i)(schema|typed|structured output)" }
+      - type: output-matches
+        config: { pattern: "(?i)(validate|validation).*(date|currency|total)|(date|currency|total).*(validate|validation)" }
+      - type: output-matches
+        config: { pattern: "(?i)(manual review|validation failure|fallback|invalid output)" }
+      - type: output-matches
+        config: { pattern: "(?i)(Agent Framework).*(unnecessary|not needed)|(unnecessary|not needed).*(Agent Framework)" }
+      - type: run-command
+        config:
+          command: node
+          args: [verify-identical.mjs, InvoiceExtraction, .expected/InvoiceExtraction]
+          expected_exit_code: 0
+          stdout_matches: "^PASS:"
+      - type: run-command
+        config:
+          command: >-
+            node -e "const {spawnSync}=require('child_process');
+            const d=spawnSync('git',['diff','--quiet','eval-baseline','--','.']);
+            const s=spawnSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'});
+            if(d.status!==0||s.status!==0||s.stdout.trim())process.exit(1)"
+          expected_exit_code: 0
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Selected a bounded prompt-response architecture without tool orchestration
+      - Required typed validation for every business-critical field
+      - Defined deterministic invalid-output and manual-review behavior
+      - Prevented fabricated invoice values from becoming accepted data
+      - Made no workspace changes
+    constraints: { reject_tools: [bash, powershell, edit, create] }
+
+  - name: Leave an already-correct MEAI architecture unchanged
+    prompt: >-
+      Review the existing .NET AI architecture documented in
+      CorrectSummary/architecture.md. Program.cs is only a placeholder and is
+      outside this design review. Identify concrete architecture defects; if
+      there are none, say so and do not edit any files.
+    tags:
+      capability: no-op-correct-ai-architecture
+      risk: unnecessary-framework-churn
+      journey: review-existing-llm-design
+    environment:
+      files:
+        - { src: ./fixtures/already-correct-meai/CorrectSummary, dest: CorrectSummary }
+        - { src: ./fixtures/already-correct-meai/CorrectSummary, dest: .expected/CorrectSummary }
+        - { src: ./fixtures/verify-identical.mjs, dest: verify-identical.mjs }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "technology-selection-noop"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              The architecture is already correct: business logic depends on
+              IChatClient, composition uses AddChatClient, ChatOptions bounds
+              output, and credentials come from configuration. This is one
+              prompt-response call, so Agent Framework is not needed. No files
+              should change.
+    graders:
+      - type: output-matches
+        config: { pattern: "(?i)(already (correct|appropriate)|no (change|problem|issue)|nothing to fix|sound as[- ]is)" }
+      - type: output-matches
+        config: { pattern: "(?i)(IChatClient|Microsoft\\.Extensions\\.AI)" }
+      - type: output-matches
+        config: { pattern: "(?i)((Agent Framework).*(unnecessary|not needed)|(unnecessary|not needed).*(Agent Framework))" }
+      - type: run-command
+        config:
+          command: node
+          args: [verify-identical.mjs, CorrectSummary, .expected/CorrectSummary]
+          expected_exit_code: 0
+          stdout_matches: "^PASS:"
+      - type: run-command
+        config:
+          command: >-
+            node -e "const {spawnSync}=require('child_process');
+            const d=spawnSync('git',['diff','--quiet','eval-baseline','--','.']);
+            const s=spawnSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'});
+            if(d.status!==0||s.status!==0||s.stdout.trim())process.exit(1)"
+          expected_exit_code: 0
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Correctly found no architecture defect and preserved the current behavior
+      - Did not add agent orchestration to a single prompt-response endpoint
+      - Made no edits because there is no technology-selection defect
+    constraints: { reject_tools: [bash, powershell, edit, create] }
+
+  - name: Stay dormant for a pure ETL normalization request
+    prompt: >-
+      Review OrderImport. It reads CSV exports, normalizes currency and
+      timestamps, removes duplicate order IDs, and writes validated rows to SQL.
+      Recommend the implementation approach. Do not edit the project.
+    expect_activation: false
+    tags:
+      capability: dormancy-pure-etl
+      risk: incorrect-ai-activation
+      journey: route-data-engineering-request
+    environment:
+      files:
+        - { src: ./fixtures/pure-etl/OrderImport, dest: OrderImport }
+        - { src: ./fixtures/pure-etl/OrderImport, dest: .expected/OrderImport }
+        - { src: ./fixtures/verify-identical.mjs, dest: verify-identical.mjs }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "technology-selection-dormancy-etl"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              This is deterministic ETL, not an AI or ML feature. Use ordinary
+              CSV parsing, validation, normalization, deduplication keyed by
+              order ID, and transactional writes with idempotent checkpoints.
+    graders:
+      - type: output-matches
+        config: { pattern: "(?i)(ETL|data pipeline|deterministic pipeline)" }
+      - type: output-matches
+        config: { pattern: "(?i)(not.*(AI|ML)|no.*(AI|ML)|AI.*(unnecessary|not needed))" }
+      - type: run-command
+        config:
+          command: node
+          args: [verify-identical.mjs, OrderImport, .expected/OrderImport]
+          expected_exit_code: 0
+          stdout_matches: "^PASS:"
+      - type: run-command
+        config:
+          command: >-
+            node -e "const {spawnSync}=require('child_process');
+            const d=spawnSync('git',['diff','--quiet','eval-baseline','--','.']);
+            const s=spawnSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'});
+            if(d.status!==0||s.status!==0||s.stdout.trim())process.exit(1)"
+          expected_exit_code: 0
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Treated AI and ML technology selection as out of scope for this deterministic ETL request
+      - Recognized the task as deterministic data engineering rather than prediction or language generation
+      - Recommended deterministic parsing, validation, deduplication, and transactional persistence
+      - Did not introduce AI, vector search, or agent orchestration
+      - Did not reward answer length or unrelated AI advice
+    constraints: { reject_tools: [bash, powershell, edit, create] }
+
+  - name: Stay dormant for a custom deep-learning training loop
+    prompt: >-
+      Review VisionTrainer. We need to train a new convolutional network from
+      scratch with custom augmentations, distributed GPU training, and experiment
+      tracking. What training stack should we use? Do not edit the project.
+    expect_activation: false
+    tags:
+      capability: dormancy-custom-deep-learning-training
+      risk: incorrect-dotnet-training-recommendation
+      journey: route-model-training-request
+    environment:
+      files:
+        - { src: ./fixtures/custom-deep-learning-training/VisionTrainer, dest: VisionTrainer }
+        - { src: ./fixtures/custom-deep-learning-training/VisionTrainer, dest: .expected/VisionTrainer }
+        - { src: ./fixtures/verify-identical.mjs, dest: verify-identical.mjs }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "technology-selection-dormancy-training"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Use Python with PyTorch or TensorFlow for custom distributed
+              training and experiment tracking. Use the ecosystem's distributed
+              data-parallel support, checkpointing, mixed precision, and
+              experiment tracking rather than recreating a training loop in an
+              application framework.
+    graders:
+      - type: output-matches
+        config: { pattern: "(?i)(PyTorch|TensorFlow)" }
+      - type: run-command
+        config:
+          command: node
+          args: [verify-identical.mjs, VisionTrainer, .expected/VisionTrainer]
+          expected_exit_code: 0
+          stdout_matches: "^PASS:"
+      - type: run-command
+        config:
+          command: >-
+            node -e "const {spawnSync}=require('child_process');
+            const d=spawnSync('git',['diff','--quiet','eval-baseline','--','.']);
+            const s=spawnSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'});
+            if(d.status!==0||s.status!==0||s.stdout.trim())process.exit(1)"
+          expected_exit_code: 0
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Treated application-framework AI guidance as out of scope for this model-training request
+      - Recognized that custom distributed model training needs a dedicated training stack
+      - Routed training to a mature Python deep-learning stack
+      - Covered distributed execution, checkpointing, and experiment tracking
+      - Did not recreate distributed model training in an application framework
+      - Did not reward verbose but incorrectly scoped application guidance
+    constraints: { reject_tools: [bash, powershell, edit, create] }
