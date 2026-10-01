@@ -1,0 +1,22 @@
+diff --git a/NativeMethods.cs b/NativeMethods.cs
+--- a/NativeMethods.cs
++++ b/NativeMethods.cs
+@@ -1,12 +1,12 @@
+ using System.Runtime.InteropServices;
+ 
+-internal static class NativeMethods
++internal static partial class NativeMethods
+ {
+-    [DllImport("compresslib", EntryPoint = "compress_buffer")]
+-    internal static extern unsafe int CompressBuffer(
++    [LibraryImport("compresslib", EntryPoint = "compress_buffer")]
++    internal static unsafe partial int CompressBuffer(
+         byte* input,
+-        ulong inputLength,
++        nuint inputLength,
+         byte* output,
+-        ulong outputLength,
+-        ulong* bytesWritten);
++        nuint outputLength,
++        nuint* bytesWritten);
+ }

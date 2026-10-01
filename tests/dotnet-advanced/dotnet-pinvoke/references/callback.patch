@@ -1,0 +1,36 @@
+diff --git a/CallbackNative.cs b/CallbackNative.cs
+--- a/CallbackNative.cs
++++ b/CallbackNative.cs
+@@ -6,13 +6,29 @@
+     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+     private delegate void Callback(int level, IntPtr message);
+ 
++    private static Callback? s_callback;
++
+     [DllImport("callbacklib", EntryPoint = "set_log_callback", CallingConvention = CallingConvention.Cdecl)]
+     private static extern void SetCallback(Callback? callback);
+ 
+     internal static void Register(Action<int, string> sink)
+     {
+-        Callback callback = (level, message) =>
+-            sink(level, Marshal.PtrToStringUTF8(message) ?? string.Empty);
+-        SetCallback(callback);
++        s_callback = (level, message) =>
++        {
++            try
++            {
++                sink(level, Marshal.PtrToStringUTF8(message) ?? string.Empty);
++            }
++            catch
++            {
++            }
++        };
++        SetCallback(s_callback);
++    }
++
++    internal static void Unregister()
++    {
++        SetCallback(null);
++        s_callback = null;
+     }
+ }

@@ -1,68 +1,647 @@
 name: dotnet-pinvoke
-description: Evaluates the dotnet/dotnet-pinvoke skill
+description: Evaluates the dotnet-advanced/dotnet-pinvoke skill
 type: capability
-config:
-  timeout: 1m
+defaults:
+  timeout: 8m
+  runs: 3
+scoring:
+  weights: {}
 stimuli:
-  - name: Generate LibraryImport declaration from C header (.NET 8+)
+  - name: Correct a .NET 8 buffer declaration for pointer-sized lengths
     prompt: |
-      I have the following C header for a cross-platform library targeting .NET 8:
-
-      ```c
-      int32_t compress_buffer(const uint8_t* input, size_t input_len,
-                              uint8_t* output, size_t output_len,
-                              size_t* bytes_written);
-      ```
-
-      Write a C# class named NativeCompression that exposes a P/Invoke
-      to call this function from a shared library called "compresslib".
+      `NativeMethods.cs` is the managed declaration for the function in
+      `native.h`. The production library targets .NET 8 on Windows and Linux.
+      Correct the declaration so it matches the header on both 32-bit and
+      64-bit processes. Keep the export name and library name unchanged, and
+      build the supplied project. No native binary is needed for this task.
+    tags:
+      capability: author-library-import
+      risk: platform-width-corruption
+      journey: generate-cross-platform-declaration
+    environment:
+      files:
+        - src: fixtures/common/InteropFixture.csproj
+          dest: InteropFixture.csproj
+        - src: fixtures/modern-size/native.h
+          dest: native.h
+        - src: fixtures/modern-size/NativeMethods.cs
+          dest: NativeMethods.cs
+    golden_patch:
+      path: references/modern-size.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dotnet-pinvoke-modern-size"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            tool_calls:
+              - tool_call_id: build-modern-size
+                function_name: powershell
+                arguments:
+                  command: dotnet build InteropFixture.csproj --nologo
+            observation:
+              results:
+                - source_call_id: build-modern-size
+                  content: Build succeeded. 0 Warning(s), 0 Error(s).
+            message: |-
+              Updated `NativeMethods.cs` to use the .NET 8 source-generated declaration while preserving the `compresslib` library and `compress_buffer` export. Every `size_t` value, including `bytes_written`, is now pointer-sized, and the input and output buffers retain their const and writable pointer directions. `dotnet build InteropFixture.csproj --nologo` completed successfully without loading a native binary.
     graders:
-      - type: output-matches
+      - type: file-contains
         config:
-          pattern: LibraryImport
-      - type: output-matches
+          path: NativeMethods.cs
+          value: LibraryImport
+      - type: file-contains
         config:
-          pattern: compresslib
-      - type: output-matches
+          path: NativeMethods.cs
+          value: nuint
+      - type: file-contains
         config:
-          pattern: nuint
-      - type: output-matches
+          path: NativeMethods.cs
+          value: partial
+      - type: file-not-contains
         config:
-          pattern: static partial
+          path: NativeMethods.cs
+          value: ulong
+      - type: run-command
+        config:
+          command: dotnet build InteropFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 3m
+      - type: exit-success
       - type: prompt
+        config:
+          evidence: [trajectory, diff]
     rubric:
-      - Uses LibraryImport instead of DllImport since the target is .NET 8
-      - Maps size_t to nuint, not ulong
-      - The method signature is declared as static partial
-      - Parameter types correctly map from the C header to .NET types
-  - name: Generate LibraryImport declaration from C header (.NET Framework)
+      - Produces a declaration that compiles for .NET 8 without loading the native library
+      - Uses pointer-sized managed types for every size_t value, including the output count
+      - Preserves the native export name, parameter direction, and const or writable buffer semantics
+      - Uses the source-generated interop form suitable for the stated target
+
+  - name: Make an x86 declaration compatible with a legacy application
     prompt: |
-      I have the following C header for a Windows library targeting .NET Framework (x86):
-
-      ```c
-      int32_t compress_buffer(const uint8_t* input, size_t input_len,
-                              uint8_t* output, size_t output_len,
-                              size_t* bytes_written);
-      ```
-
-      Write a C# class named NativeCompression that exposes a P/Invoke
-      to call this function from a shared library called "compresslib".
+      `LegacyNative.cs` was copied from a newer service, but its real consumer is
+      a .NET Framework 4.8 x86 application. Update the declaration to match
+      `native.h` and remain source-compatible with that application. The supplied
+      .NET 8 project is only a portable syntax check; do not change the target
+      described above. Build the project after the edit.
+    tags:
+      capability: author-legacy-dll-import
+      risk: x86-stack-corruption
+      journey: port-declaration-to-framework
+    environment:
+      files:
+        - src: fixtures/common/InteropFixture.csproj
+          dest: InteropFixture.csproj
+        - src: fixtures/legacy-x86/native.h
+          dest: native.h
+        - src: fixtures/legacy-x86/LegacyNative.cs
+          dest: LegacyNative.cs
+    golden_patch:
+      path: references/legacy-x86.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dotnet-pinvoke-legacy-x86"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            tool_calls:
+              - tool_call_id: build-legacy-x86
+                function_name: powershell
+                arguments:
+                  command: dotnet build InteropFixture.csproj --nologo
+            observation:
+              results:
+                - source_call_id: build-legacy-x86
+                  content: Build succeeded. 0 Warning(s), 0 Error(s).
+            message: |-
+              Updated `LegacyNative.cs` to a .NET Framework-compatible runtime declaration. The three `size_t` values use `UIntPtr`, the method remains an external entry point, and the x86 declaration explicitly uses the header's cdecl convention. The supplied syntax-check project builds successfully.
     graders:
-      - type: output-matches
+      - type: file-contains
         config:
-          pattern: DllImport
-      - type: output-matches
+          path: LegacyNative.cs
+          value: DllImport
+      - type: file-contains
         config:
-          pattern: compresslib
-      - type: output-matches
+          path: LegacyNative.cs
+          value: UIntPtr
+      - type: file-contains
         config:
-          pattern: UIntPtr
-      - type: output-matches
+          path: LegacyNative.cs
+          value: CallingConvention.Cdecl
+      - type: file-contains
         config:
-          pattern: static extern
+          path: LegacyNative.cs
+          value: extern
+      - type: file-not-contains
+        config:
+          path: LegacyNative.cs
+          value: LibraryImport
+      - type: file-not-contains
+        config:
+          path: LegacyNative.cs
+          value: nuint
+      - type: run-command
+        config:
+          command: dotnet build InteropFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 3m
+      - type: exit-success
       - type: prompt
+        config:
+          evidence: [trajectory, diff]
     rubric:
-      - Uses DllImport instead of LibraryImport since the target is .NET Framework
-      - Maps size_t to UIntPtr, not ulong (nuint is not available on .NET Framework)
-      - The method signature is declared as static extern
-      - Parameter types correctly map from the C header to .NET types
+      - Produces a declaration that is usable by .NET Framework 4.8 rather than relying on newer source generation
+      - Represents size_t with the legacy pointer-sized type instead of a fixed-width integer
+      - Preserves the cdecl contract required by the 32-bit native export
+      - Keeps input, output, and count parameters aligned with the native header
+
+  - name: Review explicit UTF encodings without rewriting correct code
+    prompt: |
+      Review `TextNative.cs` against `native.h` for string encoding or declaration
+      defects. This .NET 8 library runs on Windows and Linux. Do not edit any
+      files. If the declarations are already correct, say so and explain why.
+    tags:
+      capability: review-string-marshalling
+      risk: unnecessary-rewrite
+      journey: review-correct-declarations
+    environment:
+      files:
+        - src: fixtures/common/InteropFixture.csproj
+          dest: InteropFixture.csproj
+        - src: fixtures/string-review/native.h
+          dest: native.h
+        - src: fixtures/string-review/TextNative.cs
+          dest: TextNative.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dotnet-pinvoke-string-review"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            tool_calls:
+              - tool_call_id: inspect-managed-declarations
+                function_name: view
+                arguments:
+                  path: TextNative.cs
+              - tool_call_id: inspect-native-header
+                function_name: view
+                arguments:
+                  path: native.h
+            observation:
+              results:
+                - source_call_id: inspect-managed-declarations
+                  content: |-
+                    [LibraryImport("textlib", EntryPoint = "set_name_utf8",
+                        StringMarshalling = StringMarshalling.Utf8)]
+                    internal static partial int SetName(string name);
+
+                    [LibraryImport("textlib", EntryPoint = "set_title_utf16",
+                        StringMarshalling = StringMarshalling.Utf16)]
+                    internal static partial int SetTitle(string title);
+                - source_call_id: inspect-native-header
+                  content: |-
+                    int32_t set_name_utf8(const char* name);
+                    int32_t set_title_utf16(const char16_t* title);
+            message: |-
+              No changes are needed. `set_name_utf8` uses `StringMarshalling.Utf8`, which matches the header's `const char*` UTF-8 contract. `set_title_utf16` uses `StringMarshalling.Utf16`, which matches `const char16_t*`. Neither declaration relies on ANSI, `CharSet.Auto`, or a platform-dependent default.
+    constraints:
+      reject_tools: [bash, edit, create]
+    graders:
+      - type: file-contains
+        config:
+          path: TextNative.cs
+          value: StringMarshalling.Utf8
+      - type: file-contains
+        config:
+          path: TextNative.cs
+          value: StringMarshalling.Utf16
+      - type: file-not-contains
+        config:
+          path: TextNative.cs
+          value: CharSet.Auto
+      - type: diff-empty
+      - type: run-command
+        config:
+          command: dotnet build InteropFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 3m
+      - type: exit-success
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - Correctly concludes that both declarations match their documented encodings and need no edit
+      - Explains that the narrow string is encoded as UTF-8 and the char16_t string as UTF-16
+      - Does not invent an ANSI or platform-dependent encoding issue
+      - Respects the review-only boundary and leaves every supplied file unchanged
+
+  - name: Give an owned native resource exception-safe lifetime
+    prompt: |
+      `ResourceNative.cs` wraps the API in `native.h`, but callers sometimes leak
+      the resource when later managed work throws. Replace the raw owning pointer
+      with an exception-safe managed ownership type. Ensure the native close
+      function is called exactly once for valid resources, and build the project.
+    tags:
+      capability: design-safe-handle
+      risk: native-resource-leak
+      journey: repair-handle-ownership
+    environment:
+      files:
+        - src: fixtures/common/InteropFixture.csproj
+          dest: InteropFixture.csproj
+        - src: fixtures/safe-handle/native.h
+          dest: native.h
+        - src: fixtures/safe-handle/ResourceNative.cs
+          dest: ResourceNative.cs
+    golden_patch:
+      path: references/safe-handle.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dotnet-pinvoke-safe-handle"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            tool_calls:
+              - tool_call_id: build-safe-handle
+                function_name: powershell
+                arguments:
+                  command: dotnet build InteropFixture.csproj --nologo
+            observation:
+              results:
+                - source_call_id: build-safe-handle
+                  content: Build succeeded. 0 Warning(s), 0 Error(s).
+            message: |-
+              Replaced the public raw owning pointer with `ResourceHandle`. Valid resources are released through `close_resource` from the handle's disposal or finalization path, invalid opens are rejected without leaking, and callers no longer receive an owning `IntPtr`. The project builds successfully without loading `resourcelib`.
+    graders:
+      - type: file-contains
+        config:
+          path: ResourceNative.cs
+          value: SafeHandle
+      - type: file-contains
+        config:
+          path: ResourceNative.cs
+          value: ReleaseHandle
+      - type: file-not-contains
+        config:
+          path: ResourceNative.cs
+          value: public static IntPtr Open(
+      - type: run-command
+        config:
+          command: >-
+            python -c "from pathlib import Path; import re, sys;
+            s=Path('ResourceNative.cs').read_text();
+            release=re.search(r'ReleaseHandle\s*\(\s*\)\s*(?:=>|\{).*?CloseResource\s*\(\s*(?:this\.)?handle\s*\)',s,re.S);
+            sys.exit(0 if release else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build InteropFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 3m
+      - type: exit-success
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - Exposes an owning handle whose finalization and disposal paths release the native resource
+      - Uses the library's close function from the ownership type and avoids a public raw owning pointer
+      - Treats zero or minus one as invalid and prevents duplicate release
+      - Leaves a declaration that compiles without requiring the native library at build time
+
+  - name: Keep a stored native callback alive until unregister
+    prompt: |
+      The library in `native.h` stores the callback until it is explicitly
+      unregistered. `CallbackNative.cs` works in short tests but later crashes
+      after garbage collections. Fix the lifetime bug, preserve the x86 calling
+      convention from the header, provide a matching unregister path, and build
+      the project. The callback must not let managed exceptions cross into native
+      code.
+    tags:
+      capability: root-stored-callback
+      risk: callback-use-after-collection
+      journey: repair-callback-lifetime
+    environment:
+      files:
+        - src: fixtures/common/InteropFixture.csproj
+          dest: InteropFixture.csproj
+        - src: fixtures/callback/native.h
+          dest: native.h
+        - src: fixtures/callback/CallbackNative.cs
+          dest: CallbackNative.cs
+    golden_patch:
+      path: references/callback.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dotnet-pinvoke-callback-lifetime"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            tool_calls:
+              - tool_call_id: build-callback
+                function_name: powershell
+                arguments:
+                  command: dotnet build InteropFixture.csproj --nologo
+            observation:
+              results:
+                - source_call_id: build-callback
+                  content: Build succeeded. 0 Warning(s), 0 Error(s).
+            message: |-
+              The registered delegate is now held by a static field for the full native registration lifetime. Unregistration removes the native callback before clearing that root, the cdecl ABI is preserved, and managed exceptions are contained inside the callback. The project builds successfully.
+    graders:
+      - type: file-contains
+        config:
+          path: CallbackNative.cs
+          value: UnmanagedFunctionPointer(CallingConvention.Cdecl)
+      - type: run-command
+        config:
+          command: >-
+            python -c "from pathlib import Path; import re, sys;
+            s=Path('CallbackNative.cs').read_text();
+            rooted=re.search(r'static\s+(?:readonly\s+)?Callback\??\s+(?P<name>[A-Za-z_]\w*)',s);
+            name=re.escape(rooted.group('name')) if rooted else r'(?!x)x';
+            registered=re.search(name+r'\s*=.*?SetCallback\s*\(\s*'+name+r'\s*\)',s,re.S);
+            cleared=re.search(r'SetCallback\s*\(\s*null\s*\).*?'+name+r'\s*=\s*null',s,re.S);
+            null_assignments=re.findall(name+r'\s*=\s*null',s);
+            guarded=('try' in s and 'catch' in s);
+            sys.exit(0 if rooted and registered and cleared and len(null_assignments)==1 and guarded else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build InteropFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 3m
+      - type: exit-success
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - Keeps the delegate strongly reachable for the full period in which native code can call it
+      - Clears the root only after the native registration has been removed
+      - Preserves the cdecl callback ABI needed by the 32-bit contract
+      - Prevents exceptions from escaping the managed callback into native code
+
+  - name: Capture the native error code at the failing call
+    prompt: |
+      `DeviceNative.cs` wraps a Windows vendor library and should throw a
+      `Win32Exception` with the error reported by `open_device_w`, but production
+      logs often contain an unrelated stale code. Correct the .NET 8 declaration
+      and error retrieval so the code is captured from the failing native call.
+      Keep the UTF-16 contract in `native.h` and build the project.
+    tags:
+      capability: preserve-native-error
+      risk: stale-error-code
+      journey: repair-error-path
+    environment:
+      files:
+        - src: fixtures/common/InteropFixture.csproj
+          dest: InteropFixture.csproj
+        - src: fixtures/last-error/native.h
+          dest: native.h
+        - src: fixtures/last-error/DeviceNative.cs
+          dest: DeviceNative.cs
+    golden_patch:
+      path: references/last-error.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dotnet-pinvoke-last-error"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            tool_calls:
+              - tool_call_id: build-last-error
+                function_name: powershell
+                arguments:
+                  command: dotnet build InteropFixture.csproj --nologo
+            observation:
+              results:
+                - source_call_id: build-last-error
+                  content: Build succeeded. 0 Warning(s), 0 Error(s).
+            message: |-
+              The UTF-16 declaration now preserves the native last-error value, and the failure path immediately reads that preserved value for `Win32Exception`. This prevents later managed work from replacing the error reported by `open_device_w`. The project builds successfully without invoking the vendor library.
+    graders:
+      - type: file-contains
+        config:
+          path: DeviceNative.cs
+          value: SetLastError = true
+      - type: file-contains
+        config:
+          path: DeviceNative.cs
+          value: Marshal.GetLastPInvokeError()
+      - type: file-contains
+        config:
+          path: DeviceNative.cs
+          value: StringMarshalling.Utf16
+      - type: file-not-contains
+        config:
+          path: DeviceNative.cs
+          value: Marshal.GetLastWin32Error()
+      - type: run-command
+        config:
+          command: dotnet build InteropFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 3m
+      - type: exit-success
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - Configures the source-generated declaration to preserve the native last-error value
+      - Reads the preserved error immediately on the failure path and passes it to Win32Exception
+      - Keeps the wide-character path explicitly UTF-16
+      - Produces code that compiles without invoking the unavailable native export
+
+  - name: Match a packed native record including its one-byte flag
+    prompt: |
+      `PacketHeader.cs` must match the packed structure in `native.h`.
+      `Program.cs` reports FAIL because the managed size or offsets differ.
+      Correct only `PacketHeader.cs`, then run the project until it reports PASS.
+    tags:
+      capability: map-packed-struct
+      risk: native-layout-corruption
+      journey: fix-struct-layout
+    environment:
+      files:
+        - src: fixtures/packed-struct/PackedStruct.csproj
+          dest: PackedStruct.csproj
+        - src: fixtures/packed-struct/native.h
+          dest: native.h
+        - src: fixtures/packed-struct/PacketHeader.cs
+          dest: PacketHeader.cs
+        - src: fixtures/packed-struct/Program.cs
+          dest: Program.cs
+    golden_patch:
+      path: references/packed-struct.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dotnet-pinvoke-packed-struct"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            tool_calls:
+              - tool_call_id: run-packed-struct
+                function_name: powershell
+                arguments:
+                  command: dotnet run --project PackedStruct.csproj
+            observation:
+              results:
+                - source_call_id: run-packed-struct
+                  content: PASS
+            message: |-
+              Updated only `PacketHeader.cs` to match the header's one-byte packing and one-byte C boolean. The supplied runtime check now verifies the expected size and field offsets and prints `PASS`.
+    graders:
+      - type: file-contains
+        config:
+          path: PacketHeader.cs
+          value: Pack = 1
+      - type: file-contains
+        config:
+          path: PacketHeader.cs
+          value: UnmanagedType.U1
+      - type: run-command
+        config:
+          command: dotnet run --project PackedStruct.csproj
+          expected_exit_code: 0
+          stdout_matches: PASS
+          timeout: 3m
+      - type: exit-success
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - Matches the header's one-byte packing, field order, and fixed native widths
+      - Represents the C boolean as one byte rather than the default platform boolean marshalling
+      - Produces the expected size and field offsets verified by the supplied runtime check
+      - Limits the edit to the managed structure requested by the developer
+
+  - name: Free a returned string with its matching allocator
+    prompt: |
+      `VersionNative.cs` wraps the allocation contract in `native.h`. It sometimes
+      corrupts the process heap when obtaining the version string. Repair the
+      ownership and cleanup path so every non-null returned pointer is released
+      by the correct allocator even if conversion throws, and build the project.
+    tags:
+      capability: match-native-allocator
+      risk: process-heap-corruption
+      journey: repair-returned-string-ownership
+    environment:
+      files:
+        - src: fixtures/common/InteropFixture.csproj
+          dest: InteropFixture.csproj
+        - src: fixtures/allocator/native.h
+          dest: native.h
+        - src: fixtures/allocator/VersionNative.cs
+          dest: VersionNative.cs
+    golden_patch:
+      path: references/allocator.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dotnet-pinvoke-allocator-pair"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            tool_calls:
+              - tool_call_id: build-allocator
+                function_name: powershell
+                arguments:
+                  command: dotnet build InteropFixture.csproj --nologo
+            observation:
+              results:
+                - source_call_id: build-allocator
+                  content: Build succeeded. 0 Warning(s), 0 Error(s).
+            message: |-
+              The returned UTF-8 pointer is still decoded inside the protected block, but cleanup now uses the library's paired `widget_free_version` export through `FreeVersion`. The `finally` path releases every non-null allocation even if conversion throws, and the project builds successfully.
+    graders:
+      - type: file-contains
+        config:
+          path: VersionNative.cs
+          value: finally
+      - type: file-not-contains
+        config:
+          path: VersionNative.cs
+          value: FreeHGlobal
+      - type: file-not-contains
+        config:
+          path: VersionNative.cs
+          value: FreeCoTaskMem
+      - type: run-command
+        config:
+          command: >-
+            python -c "from pathlib import Path; import re, sys;
+            s=Path('VersionNative.cs').read_text();
+            cleanup=re.search(r'finally\s*\{.*?FreeVersion\s*\(',s,re.S);
+            sys.exit(0 if cleanup else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build InteropFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 3m
+      - type: exit-success
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - Uses the library's paired free export rather than a managed allocator with an unrelated contract
+      - Guarantees cleanup with a finally path after a successful non-null allocation
+      - Decodes the returned bytes as the UTF-8 string documented by the header
+      - Leaves declarations that compile without trying to load the native library
+
+  - name: Leave COM projection work to the appropriate interop model
+    prompt: |
+      I have a Windows-only .NET 8 desktop app and a vendor-supplied type library
+      for an Automation server. I need generated managed interfaces for its
+      coclasses, events, IDispatch members, and registration-free activation.
+      Please set up the project and generate the projection.
+    tags:
+      capability: boundary-com-projection
+      risk: incorrect-skill-activation
+      journey: decline-off-target
+    expect_activation: false
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dotnet-pinvoke-com-boundary"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This request is for COM type-library projection, not direct native exports. Use the project's COM support and a type-library importer or generated COM interfaces appropriate to the desktop stack, then configure registration-free COM activation from the vendor manifest. Hand-written native function declarations or function-pointer wrappers would not model coclasses, IDispatch events, or COM activation correctly.
+    graders:
+      - type: diff-empty
+      - type: exit-success
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+          prompt: >-
+            This is a routing and dormancy contract. The correct outcome is to
+            recognize that direct native-export guidance does not apply, leave
+            the empty workspace unchanged rather than fabricate vendor artifacts,
+            and redirect the request to COM type-library projection tooling.
+            Do not penalize the response for declining the off-target
+            implementation.
+    rubric:
+      - Recognizes that a type-library-based COM projection is a different interop model from direct native exports
+      - Does not invent hand-written native function declarations or function-pointer wrappers for the COM interfaces
+      - Directs the work toward COM type-library tooling and the desktop project's COM configuration
+      - Avoids unrelated file changes or native-library loading work
+      - Direct native-export declaration guidance stayed dormant for this COM-only request

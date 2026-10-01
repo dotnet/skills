@@ -1,0 +1,12 @@
+name: Draft package publish
+on:
+  workflow_dispatch:
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - run: dotnet pack src/Policy/Policy.csproj -c Release -o artifacts
