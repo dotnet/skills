@@ -1,140 +1,431 @@
 name: optimizing-ef-core-queries
+tags:
+  executionShard: heavy
 description: Evaluates the dotnet-data/optimizing-ef-core-queries skill
 type: capability
-config:
-  timeout: 30m
-# The skill is exercised with one open-ended "audit" scenario rather than a set
-# of single-fix micro-tasks. The stimulus stages a self-contained service class
-# (its entity model and DbContext live in the same file) that deliberately packs
-# most of the anti-patterns the skill addresses, and asks the agent to make it
-# faster IN PLACE and explain each change.
-#
-# Grading is hybrid. The prompt/rubric judge scores review completeness, so the
-# skill earns preference when its systematic coverage catches the subtler issues
-# an unaided review tends to miss — for example recommending an index that code
-# alone can't add. A micro-benchmark harness (staged into perf/) then times each
-# rewritten method against a preserved copy of the original body over the same
-# seeded in-memory SQLite database: one run-command grader per benchmarkable method
-# requires the agent's version to return identical results AND run at least 10% faster
-# (improved=True), giving the grader objective per-method signal. Eleven of the twelve
-# methods have a result-preserving, signature-stable faster form and are benchmarked;
-# GetOrderPage is the exception — its only real fix, keyset paging, pages by the last
-# key seen rather than a page number, so the frozen signature rules out an in-place
-# switch and the rubric grades the recommendation instead. The rubric additionally
-# credits recognitions the benchmarks can't see, such as that keyset recommendation
-# and a missing-index one.
+defaults:
+  timeout: 8m
+  runs: 1
 stimuli:
-  - name: Audit a back-office operations service riddled with query problems
+  - name: Collapse per-customer query loops into one database query
     prompt: |
-      Our internal back-office service has gotten slow in production: the ops-dashboard tiles, the
-      order and product lookups, and the nightly maintenance jobs have all degraded as the tables
-      grew into the millions of rows. The code is in `SalesOperationsService.cs` (the entity model
-      and DbContext are in the same file so you can see the columns and relationships).
-
-      Go through the service and make it faster: apply your optimizations directly in
-      `SalesOperationsService.cs`, and for each method you change, explain what was slow and why
-      your fix helps. Keep the public API and the data model exactly as they are — same namespace,
-      class, entity types, records and DbContext, and the same method names, parameters and return
-      types (you may add private helpers or fields) — so the rest of the app and its tests keep
-      compiling. Every method you change must return the same results as it did before.
-
-      Work through every method: optimize the ones that can be improved, and briefly note any that
-      are already efficient.
-    environment:
+      The dashboard method GetCustomerSales in SalesOperationsService.cs gets much slower as
+      customer count grows. Optimize that method in place without changing its signature or
+      results. Explain the database work that caused the slowdown and why your change removes it.
+      Do not edit anything under perf/.
+    tags:
+      capability: remove-n-plus-one-aggregation
+      risk: high
+      journey: optimize-dashboard-query
+    environment: &query-environment
       files:
         - src: audit-fixtures/SalesOperationsService.cs
           dest: SalesOperationsService.cs
         - src: benchmark-fixtures
           dest: perf
+    golden_trajectory:
+      inline: &customer-sales-reference
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-query-customer-sales"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              GetCustomerSales issued one orders query per customer and applied Year to the date column. The result-preserving fix is one projected database query that groups each customer's orders through a half-open date range and computes Count and Sum in SQL. This removes the N+1 round trips, avoids client aggregation, and leaves the date column bare for a seek.
     graders:
+      - &harness-integrity
+        type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const crypto = require("crypto");
+              const fs = require("fs");
+              const path = require("path");
+              const names = ["Baseline.cs", "Program.cs", "SalesBenchmarks.csproj", "Seed.cs", "Timing.cs"];
+              const hash = crypto.createHash("sha256");
+              for (const name of names) {
+                hash.update(name); hash.update(Buffer.from([0]));
+                hash.update(fs.readFileSync(path.join("perf", name))); hash.update(Buffer.from([0]));
+              }
+              process.exit(hash.digest("hex") === "deb2f9a67ee8c95240722032bc542887d7c14e04ce8a39450894b3ab0855a89b" ? 0 : 1);
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: dotnet
+          args: [run, -c, Release, --project, perf, --, --method, GetCustomerSales]
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
       - type: output-matches
         config:
-          pattern: (N\+1|per[- ]customer|round[- ]trip|Cartesian|keyset|projection|index|scan|memory|SaveChanges)
-      - type: exit-success
+          pattern: (N\+1|per[- ]customer|round[- ]trip)
       - type: prompt
-      # One micro-benchmark per benchmarkable method (11 of the 12): each requires the
-      # agent's rewrite to return identical results and run at least 10% faster than the
-      # preserved original body (improved=True). GetOrderPage has no in-place faster form
-      # under its frozen page-number signature, so it is graded by the rubric instead.
-      - type: run-command
-        config:
-          command: dotnet run -c Release --project perf -- --method GetCustomerSales
-          expected_exit_code: 0
-          stdout_contains: improved=True
-          timeout: 6m
-      - type: run-command
-        config:
-          command: dotnet run -c Release --project perf -- --method GetCustomerDetail
-          expected_exit_code: 0
-          stdout_contains: improved=True
-          timeout: 6m
-      - type: run-command
-        config:
-          command: dotnet run -c Release --project perf -- --method HasOrders
-          expected_exit_code: 0
-          stdout_contains: improved=True
-          timeout: 6m
-      - type: run-command
-        config:
-          command: dotnet run -c Release --project perf -- --method GetUnpaidInvoices
-          expected_exit_code: 0
-          stdout_contains: improved=True
-          timeout: 6m
-      - type: run-command
-        config:
-          command: dotnet run -c Release --project perf -- --method ListActiveProducts
-          expected_exit_code: 0
-          stdout_contains: improved=True
-          timeout: 6m
-      - type: run-command
-        config:
-          command: dotnet run -c Release --project perf -- --method GetProductForCard
-          expected_exit_code: 0
-          stdout_contains: improved=True
-          timeout: 6m
-      - type: run-command
-        config:
-          command: dotnet run -c Release --project perf -- --method ApplyCategoryDiscount
-          expected_exit_code: 0
-          stdout_contains: improved=True
-          timeout: 6m
-      - type: run-command
-        config:
-          command: dotnet run -c Release --project perf -- --method CountActiveProducts
-          expected_exit_code: 0
-          stdout_contains: improved=True
-          timeout: 6m
-      - type: run-command
-        config:
-          command: dotnet run -c Release --project perf -- --method GetOrdersOverTotal
-          expected_exit_code: 0
-          stdout_contains: improved=True
-          timeout: 6m
-      - type: run-command
-        config:
-          command: dotnet run -c Release --project perf -- --method GetPendingOrders
-          expected_exit_code: 0
-          stdout_contains: improved=True
-          timeout: 6m
-      - type: run-command
-        config:
-          command: dotnet run -c Release --project perf -- --method SearchProducts
-          expected_exit_code: 0
-          stdout_contains: improved=True
-          timeout: 6m
     rubric:
-      - "Identifies GetCustomerSales as issuing a separate orders query for every customer (an N+1) and recommends collapsing it into a single set-based query"
-      - "Recognizes that GetCustomerSales computes each customer's order count and total in memory after loading the rows, and that those aggregates should be computed by the database"
-      - "Identifies that GetCustomerSales filters orders by the year of a date column, wrapping the column in a function that prevents an index seek, and recommends a sargable date-range comparison instead"
-      - "Flags GetCustomerDetail as loading two independent related collections in one query, causing a Cartesian row explosion, and recommends splitting it into separate queries"
-      - "Notes that HasOrders uses a count-everything existence check where a short-circuiting existence test would be cheaper"
-      - "Recognizes that GetOrdersOverTotal pulls every order into memory before filtering by total, and that the filter should run in the database"
-      - "Recognizes that GetOrderPage uses offset paging that makes the database walk and discard every row before the requested page, so deep pages get progressively slower, and recommends keyset/seek pagination that continues from the last row already shown"
-      - "Recommends adding an index to support the frequent pending-orders status filter and date ordering"
-      - "Notes that GetUnpaidInvoices returns entities for a read-only export while still tracking them, and recommends running it without change tracking"
-      - "Identifies that ListActiveProducts loads full Product entities — including the wide Description and Image columns — and only projects to a few fields in memory afterward, and recommends projecting to those fields in the database so the wide columns are never read"
-      - "Recognizes that SearchProducts materializes full product rows (including the wide description and image columns) before projecting, and should project to the needed fields in the database"
-      - "Recognizes that GetProductForCard is a minimal query on an extremely hot path where the remaining cost is EF Core re-translating the same query on every call, and recommends eliminating that repeated per-call translation cost while returning identical results"
-      - "Identifies that ApplyCategoryDiscount saves changes once per product inside the loop, issuing a round-trip per row, and recommends a single set-based update"
-      - "Recognizes that CountActiveProducts loads the entire product table into memory before counting, and that the count should be performed by the database"
-    timeout: 600
+      - Replaced the per-customer query loop with one database-side projection and aggregation
+      - Preserved the method signature and returned customer sales values
+      - Replaced the year function on the date column with an equivalent half-open date range
+      - Explained both the round-trip reduction and database-side aggregation without requiring one exact implementation
+
+  - name: Split independent collection loads without changing results
+    prompt: |
+      GetCustomerDetail in SalesOperationsService.cs becomes very slow for customers with many
+      orders, order lines, and invoices. Optimize only that method, preserve its signature and
+      returned graph, and explain the cause. Do not edit anything under perf/.
+    tags:
+      capability: avoid-cartesian-collection-join
+      risk: high
+      journey: optimize-customer-detail
+    environment: *query-environment
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-query-customer-detail"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The independent collection Includes multiply order-line and invoice rows in one result set. Keep the same loaded graph but execute it as split queries so each collection is read separately and parent data is not duplicated across a Cartesian product.
+    golden_patch:
+      path: references/customer-detail-split.patch
+    graders:
+      - *harness-integrity
+      - type: file-contains
+        config:
+          path: SalesOperationsService.cs
+          value: AsSplitQuery
+      - type: run-command
+        config:
+          command: dotnet
+          args: [run, -c, Release, --project, perf, --, --method, GetCustomerDetail]
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: prompt
+    rubric:
+      - Prevented Cartesian row multiplication while returning the same customer, orders, lines, and invoices
+      - Preserved the public method contract and did not replace eager loading with lazy loading
+      - Explained that independent collection joins duplicate rows and parent data
+
+  - name: Keep filtering and projection in SQL
+    prompt: |
+      GetOrdersOverTotal in SalesOperationsService.cs uses too much memory and time when the orders
+      table is large. Optimize that method in place, preserve its signature and results, and explain
+      where the filtering and projection should execute. Do not edit anything under perf/.
+    tags:
+      capability: move-client-filter-to-database
+      risk: high
+      journey: optimize-support-query
+    environment: *query-environment
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-query-order-filter"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              AsEnumerable switches the query to client-side processing before the threshold filter. Keep the expression as IQueryable so SQL applies the minimum-total predicate and projects only OrderRow columns before materialization.
+    graders:
+      - *harness-integrity
+      - type: run-command
+        config:
+          command: dotnet
+          args: [run, -c, Release, --project, perf, --, --method, GetOrdersOverTotal]
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: prompt
+    rubric:
+      - Kept the total filter and OrderRow projection in the database query
+      - Avoided loading all Order entities before filtering
+      - Preserved the method signature and result set
+
+  - name: Project narrow product cards before materialization
+    prompt: |
+      ListActiveProducts in SalesOperationsService.cs reads wide Product rows even though the page
+      only needs a card with id, name, and price. Optimize that method without changing its public
+      contract or results. Do not edit anything under perf/.
+    tags:
+      capability: project-before-materialization
+      risk: medium
+      journey: optimize-product-grid
+    environment: *query-environment
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-query-product-projection"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Move the ProductCard projection before ToList so SQL selects only Id, Name, and Price. The filter stays server-side, and the wide Description and Image columns are never transferred or materialized.
+    graders:
+      - *harness-integrity
+      - type: run-command
+        config:
+          command: dotnet
+          args: [run, -c, Release, --project, perf, --, --method, ListActiveProducts]
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: prompt
+    rubric:
+      - Projected ProductCard inside the database query before materialization
+      - Avoided reading the wide description and image columns
+      - Preserved filtering, signature, and returned values
+
+  - name: Keep a hot status queue server-side and identify its missing index
+    prompt: |
+      GetPendingOrders in SalesOperationsService.cs powers a fulfillment queue that refreshes every
+      few seconds and now scans millions of rows. Optimize the method without changing its signature
+      or returned rows. The database schema is managed by a DBA rather than EF migrations, so also
+      state the supporting index the DBA should review. Do not edit anything under perf/.
+    tags:
+      capability: server-filter-with-index-recommendation
+      risk: high
+      journey: optimize-fulfillment-queue
+    environment: *query-environment
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-query-pending-orders-index"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Keep the status filter, CreatedAt ordering, and OrderRow projection on IQueryable so SQL returns only pending rows and needed columns. Because the queue repeatedly filters by Status and orders by CreatedAt, ask the DBA to review a composite index with Status first and CreatedAt second, with an appropriate unique tie-breaker or included output columns for the actual provider. The code change removes client materialization; the index is a separate schema fix owned by the DBA.
+    golden_patch:
+      path: references/pending-orders-server-filter.patch
+    graders:
+      - *harness-integrity
+      - type: run-command
+        config:
+          command: dotnet
+          args: [run, -c, Release, --project, perf, --, --method, GetPendingOrders]
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: prompt
+    rubric:
+      - Kept the Status filter, CreatedAt ordering, and OrderRow projection in the database query
+      - Preserved the method signature and exact returned rows
+      - Recommended a supporting index led by Status and then CreatedAt, while leaving the externally managed schema unchanged
+      - Distinguished the query rewrite from the separate DBA-owned index change
+
+  - name: Remove repeated translation from a hot lookup
+    prompt: |
+      GetProductForCard in SalesOperationsService.cs is a minimal indexed lookup, but it runs
+      thousands of times per second on reused pooled contexts and query translation is now visible
+      in profiles. Optimize this hot path without changing its signature or returned data. Do not
+      edit anything under perf/.
+    tags:
+      capability: compile-hot-query-shape
+      risk: medium
+      journey: optimize-hot-lookup
+    environment: *query-environment
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-query-compiled-lookup"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The SQL shape is already narrow and indexed. Cache the translated query as a static compiled delegate that accepts the context and id, then call that delegate from GetProductForCard. This removes repeated expression translation while preserving the lookup result.
+    graders:
+      - *harness-integrity
+      - type: output-matches
+        config:
+          pattern: (CompileQuery|compiled query|compiled delegate)
+      - type: run-command
+        config:
+          command: dotnet
+          args: [run, -c, Release, --project, perf, --, --method, GetProductForCard]
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: prompt
+    rubric:
+      - Removed repeated LINQ translation with a reusable compiled query or equivalent EF Core facility
+      - Kept the projection narrow and preserved the public method contract
+      - Did not claim that tracking or an additional index was the measured bottleneck
+
+  - name: Replace per-row saves with one set-based update
+    prompt: |
+      ApplyCategoryDiscount in SalesOperationsService.cs takes minutes for large categories. Make
+      it perform the same price and timestamp update with one database operation, keep the method
+      signature unchanged, and do not edit anything under perf/.
+    tags:
+      capability: use-set-based-bulk-update
+      risk: high
+      journey: optimize-nightly-maintenance
+    environment: *query-environment
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-query-bulk-update"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Loading every product and calling SaveChanges inside the loop creates a select plus one update round trip per row. Use ExecuteUpdate with the category predicate and set both Price and UpdatedAt in one SQL UPDATE, preserving the final values without materializing entities.
+    golden_patch:
+      path: references/category-discount-bulk.patch
+    graders:
+      - *harness-integrity
+      - type: file-contains
+        config:
+          path: SalesOperationsService.cs
+          value: ExecuteUpdate
+      - type: run-command
+        config:
+          command: dotnet
+          args: [run, -c, Release, --project, perf, --, --method, ApplyCategoryDiscount]
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: prompt
+    rubric:
+      - Replaced entity materialization and per-row SaveChanges calls with one set-based update
+      - Updated both price and timestamp for exactly the selected category
+      - Preserved the method signature and final database values
+
+  - name: Count matching rows in the database
+    prompt: |
+      CountActiveProducts in SalesOperationsService.cs allocates heavily as the catalog grows.
+      Optimize only that method while keeping the same signature and result. Do not edit anything
+      under perf/.
+    tags:
+      capability: aggregate-in-database
+      risk: medium
+      journey: optimize-admin-count
+    environment: *query-environment
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-query-server-count"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Execute Count with the active-product predicate on IQueryable. The database returns one scalar instead of transferring and materializing the whole Products table.
+    graders:
+      - *harness-integrity
+      - type: run-command
+        config:
+          command: dotnet
+          args: [run, -c, Release, --project, perf, --, --method, CountActiveProducts]
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: prompt
+    rubric:
+      - Executed the filtered count in the database
+      - Avoided materializing Product entities
+      - Preserved the method signature and integer result
+
+  - name: Preserve a page-number contract that cannot use keyset pagination
+    prompt: |
+      Review GetOrderPage in SalesOperationsService.cs. Deep pages are slow, but callers must keep
+      supplying pageIndex and pageSize and the public API cannot change in this release. Explain the
+      real long-term fix and whether an in-place rewrite can deliver it. Do not edit any files.
+    tags:
+      capability: recognize-pagination-contract-limit
+      risk: high
+      journey: plan-deep-page-fix
+    environment: *query-environment
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-query-pagination-noop"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Skip/Take is offset pagination, so the database must walk and discard all rows before a deep page. Keyset pagination keeps latency stable by continuing after the last unique key, but that requires a last-seen key rather than pageIndex. Under the frozen signature there is no honest in-place keyset rewrite. Keep the file unchanged and plan a versioned cursor API ordered by the indexed unique Id.
+    graders:
+      - *harness-integrity
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const crypto = require("crypto");
+              const fs = require("fs");
+              const actual = crypto.createHash("sha256").update(fs.readFileSync("SalesOperationsService.cs")).digest("hex");
+              process.exit(actual === "bc102983f74ebf1b6cb14874208615836993b9e3ca6c3039307cbcef6fa2d76a" ? 0 : 1);
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (keyset|seek).*(last|cursor|continuation|key)
+      - type: prompt
+    rubric:
+      - Explained why offset work grows with page depth
+      - Recommended a cursor or last-seen-key contract ordered by a unique indexed key
+      - Recognized that the frozen page-number signature prevents an honest in-place keyset rewrite
+      - Left all files unchanged
+
+  - name: Stay dormant for a Dapper repository
+    prompt: |
+      DapperRepository.cs uses Dapper over SQL Server. Its product search is slow when the name
+      filter starts with a wildcard. Review it and recommend the smallest safe performance fix.
+      Do not replace Dapper or introduce Entity Framework.
+    expect_activation: false
+    tags:
+      capability: boundary-non-ef-data-access
+      risk: routing
+      journey: redirect-dapper-query
+    environment:
+      files:
+        - src: dormancy/DapperRepository.cs
+          dest: DapperRepository.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-query-dormancy-dapper"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Keep Dapper. A leading-wildcard LIKE cannot seek a normal name index. If product behavior permits prefix matching, change the pattern to @term + '%' and verify the plan uses the index. If true substring search is required, keep the semantics and use SQL Server full-text search instead. Do not introduce DbContext or EF Core APIs.
+    graders:
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const crypto = require("crypto");
+              const fs = require("fs");
+              const data = fs.readFileSync("DapperRepository.cs", "utf8").replace(/\r\n/g, "\n");
+              const actual = crypto.createHash("sha256").update(data).digest("hex");
+              process.exit(actual === "1865e1b25fffd331cf279011ccee4432f30d646175bfc279f391319a76dbee6a" ? 0 : 1);
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (?i)(Dapper|SQL)
+      - type: output-matches
+        config:
+          pattern: (?i)(prefix|full[- ]text|wildcard|LIKE)
+      - type: output-not-matches
+        config:
+          pattern: (AsNoTracking|AsSplitQuery|Include\()
+      - type: prompt
+    rubric:
+      - The EF Core optimization skill stayed dormant because the repository uses Dapper
+      - Kept the Dapper data-access stack and did not introduce EF Core
+      - Explained that a leading wildcard prevents a normal index seek
+      - Preserved substring semantics unless the user accepts prefix matching, with full-text search as the alternative
