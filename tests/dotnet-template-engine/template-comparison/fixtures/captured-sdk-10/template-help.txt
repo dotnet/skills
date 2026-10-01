@@ -1,0 +1,61 @@
+Captured with .NET SDK 10.0.100. Each section is the output of a sequential
+dotnet new <short-name> --help command.
+
+[webapi]
+Frameworks: net8.0, net9.0, net10.0 (default net10.0)
+Auth: --auth None|IndividualB2C|SingleOrg|Windows (default None)
+Options: --aot, --use-controllers, --no-https
+Classifications: Web, Web API, API, Service
+
+[webapp]
+Frameworks: net8.0, net9.0, net10.0 (default net10.0)
+Auth: --auth None|Individual|SingleOrg|Windows (default None)
+Options: --no-https
+Not exposed: --aot, --use-controllers, container/Docker option
+Classifications: Web, MVC, Razor Pages
+
+[blazor]
+Frameworks: net8.0, net9.0, net10.0
+Auth: --auth None|Individual
+Interactivity: --interactivity None|Server|WebAssembly|Auto
+Options: --all-interactive, --empty, --no-https
+Classifications: Web, Blazor
+
+[blazorwasm]
+Frameworks: net8.0, net9.0, net10.0
+Auth: --auth None|Individual
+Options: --pwa, --empty
+Hosting: standalone WebAssembly; no live server is required after assets load
+Classifications: Web, Blazor, WebAssembly, PWA
+
+[worker]
+Frameworks: net8.0, net9.0, net10.0
+Options: --aot, --use-program-main
+Generated shape: Generic Host, BackgroundService, DI, configuration, logging
+
+[console]
+Frameworks: net8.0, net9.0, net10.0
+Options: --aot, --use-program-main
+Generated shape: direct application entry point; no hosted-service lifecycle
+
+[mvc]
+Frameworks: net8.0, net9.0, net10.0
+Auth: --auth None|Individual|SingleOrg|Windows
+Generated shape: Controllers, Views, Models; conventional/attribute routing
+
+[grpc]
+Frameworks: net8.0, net9.0, net10.0
+Options: --no-https
+Generated shape: Protos/greet.proto, Services/GreeterService.cs, Program.cs
+Transport: HTTP/2 and Protocol Buffers; unary and streaming contracts
+
+[classlib]
+Frameworks: net8.0, net9.0, net10.0
+Generated shape: ordinary .NET library with Class1.cs
+Not exposed: Razor component support or static web asset support
+
+[razorclasslib]
+Frameworks: net8.0, net9.0, net10.0
+Options: --support-pages-and-views
+Generated shape: Razor components, _Imports.razor, wwwroot static assets
+Classifications: Web, Razor, Library
