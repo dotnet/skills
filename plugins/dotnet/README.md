@@ -31,7 +31,8 @@ skills in the [dotnet-msbuild plugin](../dotnet-msbuild/README.md). The existing
 plugin's skills and agents remain supported, unchanged alternative entry points;
 installing both plugins does not require running both workflows for one task.
 
-Authoring cleanup preserves the current framework and project system. Framework
+Authoring review includes advisory XML, import, and packed-layout questions without a checkout
+or failed build, and preserves the current framework and project system. Framework
 upgrades, legacy-project conversion, package-format migration, and C# source
 refactoring are outside this entry's scope.
 

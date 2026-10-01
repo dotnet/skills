@@ -1,27 +1,28 @@
 ---
 name: msbuild
-description: "Diagnose MSBuild build failures and build-time performance, or review MSBuild XML while preserving the current framework and project system. DO NOT USE FOR: .NET/framework/API version upgrades, non-SDK-to-SDK project conversion, packages.config migration, C# symbol renames or source refactoring, SDK installation alone, runtime profiling, failing assertions after a successful build, or non-MSBuild builds. USE FOR: failing dotnet build, restore, pack, publish, or MSBuild-based test builds; .binlog capture or analysis; slow evaluation, compilation, or copying; build timing comparisons and incremental/no-change builds; reviewing .csproj, .vbproj, .fsproj, .props, .targets, and Directory.Build XML, item/property conditions, imports, hooks, and NuGet build extensions. A working project that only needs a migration plan is out of scope; build-file cleanup here does not convert project systems or upgrade frameworks."
+description: "Use only for MSBuild failure investigation, build-performance analysis, or review of existing build XML/extension contracts. A plan to convert a working legacy/non-SDK project to SDK style or migrate packages.config is a project-system migration, NOT a build-file review: do not activate, even to check scope. Framework/API upgrades are also excluded. Activate for advisory Import/Exists hook and NuGet packed-import questions even without a checkout or failed build; .csproj/.fsproj/.vbproj/.props/.targets conditions; custom-target inputs/outputs; .binlog capture/replay; failing dotnet build/restore/pack/publish or MSBuild-based test builds; slow evaluation, compilation, copying, or no-change builds; and controlled timing comparisons. Exclude SDK installation alone, C# refactoring, runtime profiling, assertions after successful builds, and non-MSBuild builds."
 license: MIT
 ---
 
 # MSBuild troubleshooting
 
-This is the entry skill. Choose **troubleshooting**, **performance**, or **modernization**, then
+This is the entry skill. Choose **troubleshooting**, **performance**, or **authoring review**, then
 read only the relevant local references. The references retain the content and identities of
 the original MSBuild skills, with correctness fixes; they are not separate skills to activate.
 
 ## Start with the task and evidence
 
-Discover the relevant project/solution, shared build files, SDK selection, and repository build
-instructions in the current workspace. Preserve the original command, working directory,
+For tasks that need a checkout, discover the relevant project/solution, shared build files, SDK
+selection, and repository build instructions in the current workspace. Preserve the original command, working directory,
 configuration, target framework, runtime identifier, global properties, and target.
 Ask only for consequential information that cannot be discovered.
 
 An existing `.binlog` can be the only available artifact. Analyze it before requesting a new
-build; paths inside it do not prove a checkout exists locally. A static review or advisory
-question need not produce a binlog at all.
+build; paths inside it do not prove a checkout exists locally. For a self-contained static review
+or advisory question, use the supplied XML and relevant references; do not require a checkout,
+restore, build, or binlog.
 
-For a mixed request, fix correctness before measuring successful builds, and keep modernization
+For a mixed request, fix correctness before measuring successful builds, and keep authoring review
 separate from a performance experiment. A failing test assertion after a successful build is not
 an MSBuild failure.
 
@@ -39,7 +40,7 @@ an MSBuild failure.
 
 After a repair, rerun the original failing scenario and check affected dependents. If only a log
 is available, provide an evidence-backed proposed fix and say it was not applied or rebuilt.
-Do not turn a targeted failure investigation into solution-wide modernization.
+Do not turn a targeted failure investigation into solution-wide authoring cleanup.
 
 ## 2. Diagnose and improve build performance
 
@@ -65,16 +66,16 @@ equivalent builds without losing required behavior.
 Stop when the suspected bottleneck is not supported by evidence, results fall within noise, or
 correctness regresses. Report missing measurements rather than manufacturing a complete baseline.
 
-## 3. Modernize build authoring
+## 3. Review build authoring
 
 **Goal:** improve project/build-file structure and extension contracts while preserving behavior.
-Modernization here means MSBuild authoring cleanup, not an implicit framework, package, language,
+This route means MSBuild authoring cleanup, not an implicit framework, package, language,
 or legacy project-system migration.
 
 | Requested change | Read | Preserve |
 | --- | --- | --- |
 | Review/clean up project files, shared properties, item declarations, or custom targets | [msbuild-antipatterns](references/msbuild-antipatterns.md) | Intentional overrides, F# source order, required imports, package assets, and actual input/output contracts. |
-| Improve hooks, imports, shared-file discovery, or NuGet build extensions | [extension-points](references/extension-points.md) | Prior hooks, evaluation order, direct/transitive consumer behavior, and the packed layout. |
+| Review/improve hooks, imports, shared-file discovery, or NuGet build extensions | [extension-points](references/extension-points.md) | Prior hooks, evaluation order, direct/transitive consumer behavior, and the packed layout. |
 | Restructure generation or copying as part of cleanup | [incremental-build](references/incremental-build.md) and [copy-to-output-directory](references/copy-to-output-directory.md), as applicable | First-build and no-change behavior, invalidation, generated-item registration, and output completeness. |
 
 Record the existing contract before editing. Review only relevant catalog entries; a matching text
@@ -98,7 +99,7 @@ configurations, relevant consumers, and affected incremental/pack/publish behavi
 
 ## Completion
 
-Return the selected task, the cause/bottleneck or modernization decision, supporting evidence,
+Return the selected task, the cause/bottleneck or authoring decision, supporting evidence,
 and the minimal change made or proposed. State when no change is needed. Give the exact
 verification and result, distinguishing successful, failed, and not-run checks; performance work
 also needs comparable measurements and uncertainty. Keep the response proportional to the task.
