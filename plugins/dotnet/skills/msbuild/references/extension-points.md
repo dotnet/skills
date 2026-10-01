@@ -154,13 +154,19 @@ relative path, not an invented framework directory.
 A source folder is not necessarily the layout of its `.nupkg`. Before reporting a missing
 `build` or `buildTransitive` import:
 
-1. Inspect every `.nuspec` in the project directory and its **immediate parent**; do not search
-   unrelated ancestors. Resolve the relevant `<file src="..." target="...">` mappings.
-2. Inspect the project's `Pack`/`PackagePath` item metadata and SDK packaging properties such as
+1. Inspect the effective `NuspecFile`, `NuspecBasePath`, and `NuspecProperties` for the original
+   pack configuration, including imported assignments and command-line global properties.
+   Follow the configured relative or absolute `NuspecFile` even when it is outside the project
+   directory and its parent. Resolve its `<file src="..." target="...">` mappings using the
+   effective base path and property substitutions. An unavailable configured file is missing
+   evidence, not proof that the packed import is absent.
+2. When no custom nuspec is configured, inspect `.nuspec` files in the project directory and its
+   **immediate parent** as a bounded discovery fallback; do not search unrelated ancestors.
+3. Inspect the project's `Pack`/`PackagePath` item metadata and SDK packaging properties such as
    `BuildOutputTargetFolder` and `IncludeBuildOutput`.
-3. Project the destination paths, including renamed files and per-TFM copies. Prefer inspecting
+4. Project the destination paths, including renamed files and per-TFM copies. Prefer inspecting
    the actual package when one is available.
-4. Flag the import only if its target is absent from both the applicable source layout and the
+5. Flag the import only if its target is absent from both the applicable source layout and the
    packed contract. A required file guaranteed by packaging must not gain an `Exists()` guard
    that would silently hide a broken package.
 

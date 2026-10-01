@@ -328,8 +328,12 @@ required build file, or broken package contract.
 
 **NuGet forwarders need a packed-layout check.** Files in `build`/`buildTransitive` can import
 paths that do not exist in source but are created by `.nuspec` mappings, `PackagePath` metadata,
-or SDK pack conventions. Inspect every `.nuspec` in the project and its immediate parent,
-plus the project's packaging items; do not search unrelated ancestors.
+or SDK pack conventions. First inspect the effective `NuspecFile`, `NuspecBasePath`, and
+`NuspecProperties`, including imports and global-property overrides. Follow the configured
+nuspec even outside the project tree and resolve its mappings with those settings. Only when
+no custom nuspec is configured, inspect nearby `.nuspec` files in the project and its immediate
+parent as a bounded fallback. Inspect the project's packaging items too; do not search unrelated
+ancestors or treat an unavailable configured nuspec as proof of a broken import.
 
 Only flag the target if it is absent from both applicable source and projected package layouts.
 See [source tree vs packed layout](extension-points.md#source-tree-vs-packed-layout).

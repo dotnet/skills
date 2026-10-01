@@ -54,6 +54,38 @@ stimuli:
       - type: file-exists
         config:
           path: "**/*.binlog"
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require('node:fs');
+              const path = require('node:path');
+              const { spawnSync } = require('node:child_process');
+              const logs = fs.readdirSync('.', { recursive: true }).filter(file =>
+                file.toLowerCase().endsWith('.binlog') && fs.statSync(file).isFile() &&
+                fs.statSync(file).size > 0);
+              if (logs.length === 0) throw new Error('No nonempty captured binlog found');
+              const capturedFailure = logs.some(file => {
+                const replay = spawnSync('dotnet',
+                  ['msbuild', path.resolve(file), '-nologo', '-v:diag', '-tl:off'],
+                  { encoding: 'utf8', timeout: 30000, maxBuffer: 8 * 1024 * 1024 });
+                if (replay.error) throw replay.error;
+                if (replay.status !== 0) {
+                  console.error('Cannot replay ' + file + ': ' + replay.stderr);
+                  return false;
+                }
+                const recorded = replay.stdout + replay.stderr;
+                return recorded.includes('ValidateSchema') &&
+                  recorded.split(/\r?\n/).some(line => line.includes('Build.proj') &&
+                    /error SCHEMA1001: Required schema 'schemas\/prod\.json' is missing for configuration 'Release'\./.test(line));
+              });
+              if (!capturedFailure) {
+                throw new Error('No binlog records the original Build.proj SCHEMA1001 failure, schema, and Release configuration');
+              }
+          expected_exit_code: 0
+          timeout: 2m
       - type: file-contains
         config:
           path: Build.proj
@@ -178,13 +210,16 @@ stimuli:
       In the package, build/net8.0/Example.props imports
       ../../buildTransitive/net8.0/Example.props without a condition.
       The source tree only has buildTransitive/common/Example.props.
-      The nuspec in the project directory maps that source file to
+      An imported Packaging.props sets NuspecFile to
+      ../../eng/packaging/Example.nuspec and NuspecBasePath to the project
+      directory. There is no nuspec in the project directory or its immediate
+      parent. The configured nuspec maps that source file to
       buildTransitive/net8.0/Example.props, and the produced nupkg contains it.
       Is a guard or directory reorganization needed? No other changes are requested.
     graders:
       - type: prompt
     rubric:
-      - Resolved the import against the packed layout rather than concluding it is broken because the source directory differs.
+      - Followed the configured NuspecFile outside the project and its parent, accounted for NuspecBasePath, and resolved the import against the packed layout.
       - Recognized the required file is supplied by the package contract and left the valid import unchanged.
       - Explained that an existence guard could hide a broken package if that required file were omitted later.
       - Did not propose unrelated package upgrades or source-tree restructuring.
