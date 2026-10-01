@@ -803,17 +803,16 @@ stimuli:
               string json = JsonConvert.SerializeObject(value, settings);
               ```
               This keeps the selected library and does not apply a camelCase naming strategy.
+              Do not switch to System.Text.Json merely because the project targets .NET 11.
     graders:
       - type: output-matches
         config:
           pattern: (?i)(Newtonsoft\.Json|DefaultContractResolver)
-      - type: output-not-matches
-        config:
-          pattern: (JsonNamingPolicy\.PascalCase|System\.Text\.Json)
       - type: prompt
     rubric:
       - Kept the answer on Newtonsoft.Json as requested
-      - Did not substitute System.Text.Json because of the target framework
+      - Did not recommend adopting or using System.Text.Json code or configuration
+      - May name or contrast System.Text.Json only to explain that it must not replace the requested Newtonsoft.Json solution
       - The specialized System.Text.Json guidance stayed dormant and did not hijack the requested library
 
   - name: "Non-activation: explain the .NET 10 PascalCase boundary"
