@@ -1,0 +1,22 @@
+diff --git a/app/Program.cs b/app/Program.cs
+--- a/app/Program.cs
++++ b/app/Program.cs
+@@ -12,15 +12,12 @@ Console.WriteLine(SerializeIfKnown(new UnknownPayload("secret")));
+ 
+ string SerializeIfKnown<T>(T value)
+ {
+-    try
++    if (options.TryGetTypeInfo<T>(out JsonTypeInfo<T>? info) && info is not null)
+     {
+-        JsonTypeInfo<T> info = options.GetTypeInfo<T>();
+         return JsonSerializer.Serialize(value, info);
+     }
+-    catch (NotSupportedException)
+-    {
+-        return "SKIPPED";
+-    }
++
++    return "SKIPPED";
+ }
+ 
+ record KnownPayload(string Text);
