@@ -170,6 +170,14 @@ function Get-CSharpStatementEnd(
         }
         elseif ($character -eq '}')
         {
+            if (
+                $parenthesisDepth -eq 0 -and
+                $braceDepth -eq 0 -and
+                $bracketDepth -eq 0
+            )
+            {
+                return $index
+            }
             $braceDepth--
         }
         elseif ($character -eq '[')
@@ -181,7 +189,7 @@ function Get-CSharpStatementEnd(
             $bracketDepth--
         }
         elseif (
-            $character -eq ';' -and
+            $character -in @(';', ',') -and
             $parenthesisDepth -eq 0 -and
             $braceDepth -eq 0 -and
             $bracketDepth -eq 0
@@ -344,6 +352,57 @@ function Get-CSharpCodeMask([string] $Text)
     return -join $characters
 }
 
+function Get-VisualBasicCodeMask([string] $Text)
+{
+    $characters = $Text.ToCharArray()
+    $state = "code"
+
+    for ($index = 0; $index -lt $characters.Length; $index++)
+    {
+        $character = $characters[$index]
+        $next = if ($index + 1 -lt $characters.Length) { $characters[$index + 1] } else { [char] 0 }
+
+        if ($state -eq "code")
+        {
+            if ($character -eq '"')
+            {
+                $characters[$index] = ' '
+                $state = "string"
+            }
+            elseif ($character -eq "'")
+            {
+                $characters[$index] = ' '
+                $state = "comment"
+            }
+            continue
+        }
+
+        if ($character -ne "`r" -and $character -ne "`n")
+        {
+            $characters[$index] = ' '
+        }
+
+        if ($state -eq "string")
+        {
+            if ($character -eq '"' -and $next -eq '"')
+            {
+                $characters[$index + 1] = ' '
+                $index++
+            }
+            elseif ($character -eq '"')
+            {
+                $state = "code"
+            }
+        }
+        elseif ($state -eq "comment" -and $character -eq "`n")
+        {
+            $state = "code"
+        }
+    }
+
+    return -join $characters
+}
+
 function Get-CSharpAssignmentExpressions(
     [string] $Source,
     [string] $StartPattern,
@@ -395,6 +454,25 @@ function Get-QueryInfo([string] $Source, [string] $Path)
         }
     }
 
+    $objectInitializer = [regex]::Match(
+        $Source,
+        '(?is)\b(?:var|SqlCommand)\s+(?<command>\w+)[^=\r\n]*=\s*new\s+SqlCommand(?:\s*\([^;{}]*\))?\s*\{(?<initializer>.*?)\}'
+    )
+    if ($objectInitializer.Success)
+    {
+        $commandText = [regex]::Match(
+            $objectInitializer.Groups["initializer"].Value,
+            "(?is)\bCommandText\s*=\s*$sqlLiteral"
+        )
+        if ($commandText.Success -and $commandText.Groups["sql"].Value -match '(?i)\bSELECT\b')
+        {
+            return [pscustomobject]@{
+                Command = $objectInitializer.Groups["command"].Value
+                Sql = $commandText.Groups["sql"].Value
+            }
+        }
+    }
+
     $sqlVariable = [regex]::Match(
         $Source,
         "(?is)\b(?:var|string|String|Dim)\s+(?<variable>\w+)[^=\r\n]*=\s*$sqlLiteral"
@@ -406,6 +484,17 @@ function Get-QueryInfo([string] $Source, [string] $Path)
             $Source,
             "(?is)\b(?<command>\w+)\.CommandText\s*=\s*$escapedVariable\b"
         )
+        if (-not $commandAssignment.Success)
+        {
+            $objectInitializerAssignment = [regex]::Match(
+                $Source,
+                "(?is)\b(?:var|SqlCommand)\s+(?<command>\w+)[^=\r\n]*=\s*new\s+SqlCommand(?:\s*\([^;{}]*\))?\s*\{.*?\bCommandText\s*=\s*$escapedVariable\b"
+            )
+            if ($objectInitializerAssignment.Success)
+            {
+                $commandAssignment = $objectInitializerAssignment
+            }
+        }
         if (-not $commandAssignment.Success)
         {
             $commandAssignment = [regex]::Match(
@@ -515,8 +604,16 @@ function Test-ExpressionUsesInput(
     [System.Collections.Generic.HashSet[string]] $Visited)
 {
     $escapedInput = [regex]::Escape($InputName)
+    $codeExpression = if ($IsVisualBasic)
+    {
+        Get-VisualBasicCodeMask $Expression
+    }
+    else
+    {
+        Get-CSharpCodeMask $Expression
+    }
     $hasTwoWildcards = [regex]::Matches($Expression, '%').Count -ge 2
-    if ($Expression -match "(?i)\b$escapedInput\b")
+    if ($codeExpression -match "(?i)\b$escapedInput\b")
     {
         return (
             -not $RequireContains -or
@@ -525,7 +622,7 @@ function Test-ExpressionUsesInput(
         )
     }
 
-    $identifiers = [regex]::Matches($Expression, '\b[A-Za-z_]\w*\b') |
+    $identifiers = [regex]::Matches($codeExpression, '\b[A-Za-z_]\w*\b') |
         ForEach-Object { $_.Value } |
         Select-Object -Unique
 
@@ -798,14 +895,14 @@ foreach ($sourceFile in $sourceFiles)
     {
         Get-CSharpAssignmentExpressions `
             $source `
-            '(?is)\.(?:CommandText|SelectCommand)\s*=\s*' `
+            '(?is)(?:\.\s*)?(?:CommandText|SelectCommand)\s*=\s*' `
             "A CommandText or SelectCommand assignment"
     }
     else
     {
         [regex]::Matches(
             $source,
-            '(?im)\.(?:CommandText|SelectCommand)\s*=\s*(?<expression>[^\r\n]+)'
+            '(?im)(?:\.\s*)?(?:CommandText|SelectCommand)\s*=\s*(?<expression>[^\r\n]+)'
         )
     }
 
@@ -867,7 +964,7 @@ foreach ($sourceFile in $sourceFiles)
         $escapedName = [regex]::Escape($name)
         $usedAsCommandText =
             $source -match "(?is)new\s+(?:SqlCommand|OleDbCommand|SqlDataAdapter|OleDbDataAdapter)\s*\(\s*$escapedName\b" -or
-            $source -match "(?is)\.(?:CommandText|SelectCommand)\s*=\s*$escapedName\b"
+            $source -match "(?is)(?:\.\s*)?(?:CommandText|SelectCommand)\s*=\s*$escapedName\b"
 
         if ($usedAsCommandText)
         {

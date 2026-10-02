@@ -628,7 +628,7 @@ function Test-VbDesignerSafety
 
         $methods = [regex]::Matches(
             $text,
-            '(?im)^\s*(?:Private|Protected|Public|Friend)\s+(?:(?:Overrides|Overridable|Shared)\s+)*Sub\s+(?<name>\w+)\s*\('
+            '(?im)^\s*(?:Private|Protected|Public|Friend)\s+(?:(?:Overrides|Overridable|Shared|Async)\s+)*(?:Sub|Function)\s+(?<name>\w+)\s*\('
         )
         foreach ($method in $methods)
         {
@@ -637,6 +637,10 @@ function Test-VbDesignerSafety
                 Fail "Logic method '$($method.Groups['name'].Value)' was moved into $($designerFile.Name)."
             }
         }
+
+        Assert-NotMatches $text `
+            '(?im)^\s*(?:Private|Protected|Public|Friend)\s+(?:(?:Overrides|Overridable|Shared|ReadOnly|WriteOnly|Default)\s+)*Property\s+\w+' `
+            "A property was moved into $($designerFile.Name)."
     }
 
     if (-not $hasInitializeComponent)
@@ -895,7 +899,11 @@ switch ($Scenario)
     "designer-constructor"
     {
         $program = Read-Source "Program.cs"
-        Assert-Matches $codeBehind 'public\s+MainForm\s*\(\s*\)' "MainForm still has no parameterless construction path for the Designer."
+        $designerConstructorBody = Get-CSharpMethodBody `
+            $codeBehind `
+            '\bpublic\s+MainForm\s*\(\s*\)\s*\{' `
+            "The parameterless MainForm constructor"
+        Assert-Matches $designerConstructorBody '\bInitializeComponent\s*\(\s*\)\s*;' "The parameterless MainForm constructor does not initialize the Designer controls."
         Assert-Matches $codeBehind 'public\s+MainForm\s*\(\s*ICustomerService\s+\w+\s*\)' "The runtime service constructor was removed."
         Assert-Matches $program 'new\s+MainForm\s*\(\s*new\s+CustomerService\s*\(\s*\)\s*\)' "The runtime composition root no longer supplies CustomerService."
         Assert-NotMatches $codeBehind 'new\s+CustomerService\s*\(' "MainForm constructs a production service in its designer path."
