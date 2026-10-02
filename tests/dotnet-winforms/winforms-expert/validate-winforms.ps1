@@ -600,7 +600,23 @@ function Test-DesignerSafety
         }
 
         Assert-NotMatches $body '\b(if|for|foreach|while|goto|switch|try|catch|lock|await)\b' "Control flow found inside InitializeComponent in $($designerFile.Name)."
-        Assert-NotMatches $body '(?m)^\s*(?:var|Button|Label|TextBox|ComboBox|ListBox|ListView|TreeView|Panel|GroupBox|TableLayoutPanel|FlowLayoutPanel|BindingSource|PictureBox|DataGridView|StatusStrip|ToolStrip|MenuStrip|TabControl|TabPage|SplitContainer|StatusBadge)\s+\w+\s*=' "A control or component is stored in a local variable inside InitializeComponent in $($designerFile.Name)."
+        $localDeclarations = [regex]::Matches(
+            $body,
+            '(?m)^\s*(?:var|(?:global::)?[A-Za-z_][\w.<>?,\[\]]*)\s+(?<name>[A-Za-z_]\w*)\s*=\s*new\b'
+        )
+        foreach ($declaration in $localDeclarations)
+        {
+            $localName = $declaration.Groups['name'].Value
+            $escapedLocalName = [regex]::Escape($localName)
+            $addedToSerializedCollection =
+                $body -match "(?is)\b(?:Controls|Items|Columns|Nodes|TabPages|DropDownItems)\s*\.\s*(?:Add|AddRange)\s*\([^;]*\b$escapedLocalName\b"
+            $assignedToSerializedField =
+                $body -match "(?im)^\s*(?:this\.)?_[A-Za-z_]\w*\s*=\s*$escapedLocalName\s*;"
+            if ($addedToSerializedCollection -or $assignedToSerializedField)
+            {
+                Fail "Local '$localName' is used as serialized designer state in $($designerFile.Name); controls and components must use class-level fields."
+            }
+        }
     }
 }
 

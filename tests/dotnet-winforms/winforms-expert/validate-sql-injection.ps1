@@ -403,6 +403,136 @@ function Get-VisualBasicCodeMask([string] $Text)
     return -join $characters
 }
 
+function Get-SqlCodeMask([string] $Text)
+{
+    $characters = $Text.ToCharArray()
+    $state = "code"
+
+    for ($index = 0; $index -lt $characters.Length; $index++)
+    {
+        $character = $characters[$index]
+        $next = if ($index + 1 -lt $characters.Length) { $characters[$index + 1] } else { [char] 0 }
+
+        if ($state -eq "code")
+        {
+            if ($character -eq "'")
+            {
+                $characters[$index] = ' '
+                $state = "string"
+            }
+            elseif ($character -eq '"')
+            {
+                $characters[$index] = ' '
+                $state = "quoted-identifier"
+            }
+            elseif ($character -eq '-' -and $next -eq '-')
+            {
+                $characters[$index] = ' '
+                $characters[$index + 1] = ' '
+                $state = "line-comment"
+                $index++
+            }
+            elseif ($character -eq '/' -and $next -eq '*')
+            {
+                $characters[$index] = ' '
+                $characters[$index + 1] = ' '
+                $state = "block-comment"
+                $index++
+            }
+            continue
+        }
+
+        if ($character -ne "`r" -and $character -ne "`n")
+        {
+            $characters[$index] = ' '
+        }
+
+        switch ($state)
+        {
+            "string"
+            {
+                if ($character -eq "'" -and $next -eq "'")
+                {
+                    $characters[$index + 1] = ' '
+                    $index++
+                }
+                elseif ($character -eq "'")
+                {
+                    $state = "code"
+                }
+            }
+            "quoted-identifier"
+            {
+                if ($character -eq '"' -and $next -eq '"')
+                {
+                    $characters[$index + 1] = ' '
+                    $index++
+                }
+                elseif ($character -eq '"')
+                {
+                    $state = "code"
+                }
+            }
+            "line-comment"
+            {
+                if ($character -eq "`n")
+                {
+                    $state = "code"
+                }
+            }
+            "block-comment"
+            {
+                if ($character -eq '*' -and $next -eq '/')
+                {
+                    $characters[$index + 1] = ' '
+                    $state = "code"
+                    $index++
+                }
+            }
+        }
+    }
+
+    return -join $characters
+}
+
+function Get-CSharpInterpolationExpressions([string] $Expression)
+{
+    $expressions = [System.Collections.Generic.List[string]]::new()
+    $standardPattern = '(?s)(?:\$@|@\$|\$)"(?<content>(?:\\.|""|[^"])*)"'
+    foreach ($stringMatch in [regex]::Matches($Expression, $standardPattern))
+    {
+        foreach ($holeMatch in [regex]::Matches(
+            $stringMatch.Groups["content"].Value,
+            '(?s)(?<!\{)\{(?!\{)(?<hole>.*?)(?<!\})\}(?!\})'
+        ))
+        {
+            $expressions.Add(
+                (Get-CSharpCodeMask $holeMatch.Groups["hole"].Value)
+            )
+        }
+    }
+
+    $rawPattern = '(?s)(?<dollars>\$+)(?<quotes>"{3,})(?<content>.*?)\k<quotes>'
+    foreach ($stringMatch in [regex]::Matches($Expression, $rawPattern))
+    {
+        $braceCount = $stringMatch.Groups["dollars"].Value.Length
+        $opening = '(?<!\{)' + (('\{' * $braceCount) -join '') + '(?!\{)'
+        $closing = '(?<!\})' + (('\}' * $braceCount) -join '') + '(?!\})'
+        $holePattern = "(?s)$opening(?<hole>.*?)$closing"
+        foreach ($holeMatch in [regex]::Matches(
+            $stringMatch.Groups["content"].Value,
+            $holePattern
+        ))
+        {
+            $expressions.Add(
+                (Get-CSharpCodeMask $holeMatch.Groups["hole"].Value)
+            )
+        }
+    }
+
+    return $expressions.ToArray()
+}
+
 function Get-CSharpAssignmentExpressions(
     [string] $Source,
     [string] $StartPattern,
@@ -581,8 +711,9 @@ function Get-PredicatePlaceholders(
     {
         foreach ($match in [regex]::Matches($Sql, $pattern))
         {
+            $predicateCode = Get-SqlCodeMask $match.Groups["predicate"].Value
             foreach ($placeholder in [regex]::Matches(
-                $match.Groups["predicate"].Value,
+                $predicateCode,
                 $placeholderPattern
             ))
             {
@@ -611,6 +742,16 @@ function Test-ExpressionUsesInput(
     else
     {
         Get-CSharpCodeMask $Expression
+    }
+    if (-not $IsVisualBasic)
+    {
+        $interpolationExpressions = @(
+            Get-CSharpInterpolationExpressions $Expression
+        )
+        if ($interpolationExpressions.Count -gt 0)
+        {
+            $codeExpression += "`n" + ($interpolationExpressions -join "`n")
+        }
     }
     $hasTwoWildcards = [regex]::Matches($Expression, '%').Count -ge 2
     if ($codeExpression -match "(?i)\b$escapedInput\b")
