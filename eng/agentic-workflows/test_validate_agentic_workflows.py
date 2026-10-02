@@ -270,6 +270,61 @@ class LocalPackageStagingTests(unittest.TestCase):
                 (consumer / ".github" / "workflows" / "example.md").exists()
             )
 
+    def test_rejects_symlinked_destination_parent_without_partial_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            package = root / "agentic-workflows" / "example"
+            consumer = root / "consumer"
+            outside = root / "outside"
+            workflow = package / "workflows" / "example.md"
+            agent = package / "agents" / "example.agent.md"
+            evaluator = root / ".github" / "graders" / "example.sh"
+            workflow.parent.mkdir(parents=True)
+            agent.parent.mkdir(parents=True)
+            evaluator.parent.mkdir(parents=True)
+            (consumer / ".github").mkdir(parents=True)
+            outside.mkdir()
+            manifest = package / "aw.yml"
+            manifest.write_text(
+                """includes:
+  - agents/example.agent.md
+  - workflows/example.md
+""",
+                encoding="utf-8",
+            )
+            workflow.write_text(
+                """---
+on: workflow_dispatch
+graders:
+  operational-value:
+    run: .github/graders/example.sh
+---
+""",
+                encoding="utf-8",
+            )
+            agent.write_text("---\nname: example\n---\n", encoding="utf-8")
+            evaluator.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+            try:
+                (consumer / ".github" / "graders").symlink_to(
+                    outside, target_is_directory=True
+                )
+            except OSError as error:
+                self.skipTest(f"symbolic links are unavailable: {error}")
+
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "Consumer destination component must not be a symbolic link",
+            ):
+                STAGER.stage_package(manifest, consumer)
+
+            self.assertFalse((outside / "example.sh").exists())
+            self.assertFalse(
+                (consumer / ".github" / "agents" / "example.agent.md").exists()
+            )
+            self.assertFalse(
+                (consumer / ".github" / "workflows" / "example.md").exists()
+            )
+
     def test_stages_package_using_installed_layout(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

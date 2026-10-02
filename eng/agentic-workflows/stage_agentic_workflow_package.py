@@ -92,10 +92,7 @@ def stage_package(manifest: Path, destination_root: Path) -> list[Path]:
         operations.items(), key=lambda item: str(item[0])
     ):
         destination = destination_root / relative_destination
-        if destination.is_symlink():
-            raise RuntimeError(
-                f"Consumer destination must not be a symbolic link: {relative_destination}"
-            )
+        reject_symlink_components(destination_root, destination)
         if destination.exists() and destination.read_bytes() != source.read_bytes():
             raise RuntimeError(
                 f"Refusing to overwrite conflicting consumer file: {relative_destination}"
@@ -111,6 +108,18 @@ def stage_package(manifest: Path, destination_root: Path) -> list[Path]:
         staged.append(relative_destination)
 
     return staged
+
+
+def reject_symlink_components(destination_root: Path, destination: Path) -> None:
+    relative_destination = destination.relative_to(destination_root)
+    current = destination_root
+    for component in relative_destination.parts:
+        current /= component
+        if current.is_symlink():
+            raise RuntimeError(
+                "Consumer destination component must not be a symbolic link: "
+                f"{current.relative_to(destination_root)}"
+            )
 
 
 def main() -> int:
