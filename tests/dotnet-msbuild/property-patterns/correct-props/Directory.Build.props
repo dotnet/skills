@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion Condition="'$(LangVersion)' == ''">12</LangVersion>
+    <Nullable Condition="'$(Nullable)' == ''">enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);REPO_BUILD</DefineConstants>
+    <NoWarn>$(NoWarn);NU5125</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <ArtifactsDir Condition="'$(ArtifactsDir)' != '' and !HasTrailingSlash('$(ArtifactsDir)')">$(ArtifactsDir)\</ArtifactsDir>
+  </PropertyGroup>
+</Project>

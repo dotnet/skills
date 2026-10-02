@@ -1,13 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
     <PackageReference Include="MSTest" Version="3.8.2" />
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="NSubstitute" Version="5.3.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="OrderServiceTests.cs" />
+    <ProjectReference Include="OrderService.csproj" />
   </ItemGroup>
 </Project>

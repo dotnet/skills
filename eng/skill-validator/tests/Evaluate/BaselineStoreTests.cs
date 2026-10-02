@@ -4,6 +4,8 @@ using SkillValidator.Evaluate;
 
 namespace SkillValidator.Tests;
 
+[TestClass]
+[DoNotParallelize]
 public class BaselineStoreTests
 {
     private const string Model = "model-x";
@@ -27,19 +29,19 @@ public class BaselineStoreTests
     private static string TempPath() =>
         Path.Combine(Path.GetTempPath(), $"sv-baseline-test-{Guid.NewGuid():N}.json");
 
-    [Fact]
+    [TestMethod]
     public void ComputePromptSha_IsDeterministicAndPromptSensitive()
     {
         var a = BaselineStore.ComputePromptSha("do the thing");
         var b = BaselineStore.ComputePromptSha("do the thing");
         var c = BaselineStore.ComputePromptSha("do something else");
 
-        Assert.Equal(a, b);
-        Assert.NotEqual(a, c);
-        Assert.Equal(64, a.Length); // SHA-256 hex
+        Assert.AreEqual(a, b);
+        Assert.AreNotEqual(a, c);
+        Assert.AreEqual(64, a.Length); // SHA-256 hex
     }
 
-    [Fact]
+    [TestMethod]
     public void SaveThenLoad_RoundTripsBaselinePerScenario()
     {
         var path = TempPath();
@@ -52,19 +54,19 @@ public class BaselineStoreTests
             store.Record(s2, runs: 5, MakeBaseline(overallScore: 2, output: "out-2"));
             store.Save(path);
 
-            Assert.True(File.Exists(path));
+            Assert.IsTrue(File.Exists(path));
 
             var loaded = BaselineStore.Load(path, Model, Judge);
-            Assert.True(loaded.IsReuse);
-            Assert.Equal(2, loaded.Count);
+            Assert.IsTrue(loaded.IsReuse);
+            Assert.AreEqual(2, loaded.Count);
 
             var b1 = loaded.TryGetBaseline(s1);
             var b2 = loaded.TryGetBaseline(s2);
-            Assert.NotNull(b1);
-            Assert.NotNull(b2);
-            Assert.Equal("out-1", b1!.Metrics.AgentOutput);
-            Assert.Equal(4, b1.JudgeResult.OverallScore);
-            Assert.Equal("out-2", b2!.Metrics.AgentOutput);
+            Assert.IsNotNull(b1);
+            Assert.IsNotNull(b2);
+            Assert.AreEqual("out-1", b1!.Metrics.AgentOutput);
+            Assert.AreEqual(4, b1.JudgeResult.OverallScore);
+            Assert.AreEqual("out-2", b2!.Metrics.AgentOutput);
         }
         finally
         {
@@ -72,7 +74,7 @@ public class BaselineStoreTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void ComputeScenarioKey_IsDeterministicAndSensitive()
     {
         var a = BaselineStore.ComputeScenarioKey(Scenario("s", "prompt one"), null);
@@ -80,16 +82,16 @@ public class BaselineStoreTests
         var diffPrompt = BaselineStore.ComputeScenarioKey(Scenario("s", "prompt two"), null);
         var diffTarget = BaselineStore.ComputeScenarioKey(Scenario("s", "prompt one") with { Rubric = ["x"] }, null);
 
-        Assert.Equal(a, a2);                  // stable for identical inputs
-        Assert.NotEqual(a, diffPrompt);       // sensitive to prompt (prompt SHA)
-        Assert.NotEqual(a, diffTarget);       // sensitive to evaluation criteria (target SHA)
+        Assert.AreEqual(a, a2);                  // stable for identical inputs
+        Assert.AreNotEqual(a, diffPrompt);       // sensitive to prompt (prompt SHA)
+        Assert.AreNotEqual(a, diffTarget);       // sensitive to evaluation criteria (target SHA)
 
         // The key embeds both the prompt SHA and the target SHA.
         Assert.Contains(BaselineStore.ComputePromptSha("prompt one"), a);
         Assert.Contains(BaselineStore.ComputeTargetSha(Scenario("s", "prompt one"), null), a);
     }
 
-    [Fact]
+    [TestMethod]
     public void ComputeScenarioKeyCached_MatchesStaticAndIsStableAcrossCalls()
     {
         var cache = BaselineStore.ForKeyCache();
@@ -99,11 +101,11 @@ public class BaselineStoreTests
         var first = cache.ComputeScenarioKeyCached(scenario, null);
         var second = cache.ComputeScenarioKeyCached(scenario, null);
 
-        Assert.Equal(expected, first);   // cached variant equals the canonical static computation
-        Assert.Equal(first, second);     // repeated lookups (memoized) stay identical
+        Assert.AreEqual(expected, first);   // cached variant equals the canonical static computation
+        Assert.AreEqual(first, second);     // repeated lookups (memoized) stay identical
     }
 
-    [Fact]
+    [TestMethod]
     public void Load_ThrowsOnModelMismatch()
     {
         var path = TempPath();
@@ -113,7 +115,7 @@ public class BaselineStoreTests
             store.Record(Scenario("alpha", "prompt one"), runs: 3, MakeBaseline());
             store.Save(path);
 
-            var ex = Assert.Throws<InvalidOperationException>(() => BaselineStore.Load(path, "model-y", Judge));
+            var ex = Assert.ThrowsExactly<InvalidOperationException>(() => BaselineStore.Load(path, "model-y", Judge));
             Assert.Contains(Model, ex.Message);
             Assert.Contains("model-y", ex.Message);
         }
@@ -123,7 +125,7 @@ public class BaselineStoreTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void Load_ThrowsOnJudgeModelMismatch()
     {
         var path = TempPath();
@@ -133,7 +135,7 @@ public class BaselineStoreTests
             store.Record(Scenario("alpha", "prompt one"), runs: 3, MakeBaseline());
             store.Save(path);
 
-            var ex = Assert.Throws<InvalidOperationException>(() => BaselineStore.Load(path, Model, "judge-y"));
+            var ex = Assert.ThrowsExactly<InvalidOperationException>(() => BaselineStore.Load(path, Model, "judge-y"));
             Assert.Contains(Judge, ex.Message);
             Assert.Contains("judge-y", ex.Message);
         }
@@ -143,7 +145,7 @@ public class BaselineStoreTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void Load_ThrowsOnUnsupportedVersion()
     {
         var path = TempPath();
@@ -158,7 +160,7 @@ public class BaselineStoreTests
                 Scenarios: []);
             File.WriteAllText(path, JsonSerializer.Serialize(file, SkillValidatorJsonContext.Default.BaselineFile));
 
-            var ex = Assert.Throws<InvalidOperationException>(() => BaselineStore.Load(path, Model, Judge));
+            var ex = Assert.ThrowsExactly<InvalidOperationException>(() => BaselineStore.Load(path, Model, Judge));
             Assert.Contains("unsupported version", ex.Message);
         }
         finally
@@ -167,13 +169,13 @@ public class BaselineStoreTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void Load_ThrowsWhenFileMissing()
     {
-        Assert.Throws<FileNotFoundException>(() => BaselineStore.Load(TempPath(), Model, Judge));
+        Assert.ThrowsExactly<FileNotFoundException>(() => BaselineStore.Load(TempPath(), Model, Judge));
     }
 
-    [Fact]
+    [TestMethod]
     public void FindMissingScenarios_ReturnsScenariosWithoutCachedBaseline()
     {
         var path = TempPath();
@@ -187,7 +189,7 @@ public class BaselineStoreTests
             var loaded = BaselineStore.Load(path, Model, Judge);
             var missing = loaded.FindMissingScenarios([(present, null), (Scenario("beta", "prompt two"), null)]);
 
-            Assert.Single(missing);
+            Assert.ContainsSingle(missing);
             Assert.StartsWith("beta", missing[0]);
         }
         finally
@@ -196,12 +198,12 @@ public class BaselineStoreTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void WriteStore_IsNotReuse()
     {
         var store = BaselineStore.ForWrite(Model, Judge);
-        Assert.False(store.IsReuse);
-        Assert.Null(store.TryGetBaseline(Scenario("alpha", "prompt one")));
+        Assert.IsFalse(store.IsReuse);
+        Assert.IsNull(store.TryGetBaseline(Scenario("alpha", "prompt one")));
     }
 
     private static string MakeEvalDirWithFixture(string fixtureName, string fixtureContent)
@@ -216,7 +218,7 @@ public class BaselineStoreTests
     private static EvalScenario FixtureScenario(string name, string prompt) =>
         new(name, prompt, new SetupConfig(CopyTestFiles: true));
 
-    [Fact]
+    [TestMethod]
     public void ComputeTargetSha_DiffersByFixtureContentAndIsStable()
     {
         var evalA = MakeEvalDirWithFixture("build.binlog", "AAAA");
@@ -229,13 +231,13 @@ public class BaselineStoreTests
             var shaA2 = BaselineStore.ComputeTargetSha(scenario, evalA);
             var shaB = BaselineStore.ComputeTargetSha(scenario, evalB);
 
-            Assert.Equal(shaA1, shaA2);     // stable for identical inputs
-            Assert.NotEqual(shaA1, shaB);   // sensitive to fixture content
-            Assert.Equal(64, shaA1.Length);
+            Assert.AreEqual(shaA1, shaA2);     // stable for identical inputs
+            Assert.AreNotEqual(shaA1, shaB);   // sensitive to fixture content
+            Assert.AreEqual(64, shaA1.Length);
 
             // No setup → a stable, distinct constant.
             var noSetup = BaselineStore.ComputeTargetSha(Scenario("s", "investigate build.binlog"), evalA);
-            Assert.NotEqual(shaA1, noSetup);
+            Assert.AreNotEqual(shaA1, noSetup);
         }
         finally
         {
@@ -244,7 +246,7 @@ public class BaselineStoreTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void ComputeTargetSha_DiffersByEvaluationCriteria()
     {
         const string prompt = "investigate the failure";
@@ -257,18 +259,18 @@ public class BaselineStoreTests
         var shaBase = BaselineStore.ComputeTargetSha(baseScenario, null);
 
         // Each criterion that shapes the cached result must change the identity.
-        Assert.NotEqual(shaBase, BaselineStore.ComputeTargetSha(withRubric, null));
-        Assert.NotEqual(shaBase, BaselineStore.ComputeTargetSha(withAssertion, null));
-        Assert.NotEqual(shaBase, BaselineStore.ComputeTargetSha(withTurns, null));
-        Assert.NotEqual(shaBase, BaselineStore.ComputeTargetSha(withExpectTools, null));
+        Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withRubric, null));
+        Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withAssertion, null));
+        Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withTurns, null));
+        Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withExpectTools, null));
 
         // Same criteria → stable identity.
-        Assert.Equal(
+        Assert.AreEqual(
             BaselineStore.ComputeTargetSha(withRubric, null),
             BaselineStore.ComputeTargetSha(baseScenario with { Rubric = ["Did it find the root cause?"] }, null));
     }
 
-    [Fact]
+    [TestMethod]
     public void Record_IsFirstWriterWins_ForSameScenarioIdentity()
     {
         var path = TempPath();
@@ -283,10 +285,10 @@ public class BaselineStoreTests
             store.Record(scenario, runs: 5, MakeBaseline(output: "first"));
             store.Record(scenario, runs: 5, MakeBaseline(output: "second"));
 
-            Assert.Equal(1, store.Count);
+            Assert.AreEqual(1, store.Count);
             store.Save(path);
             var loaded = BaselineStore.Load(path, Model, Judge);
-            Assert.Equal("first", loaded.TryGetBaseline(scenario)!.Metrics.AgentOutput);
+            Assert.AreEqual("first", loaded.TryGetBaseline(scenario)!.Metrics.AgentOutput);
         }
         finally
         {
@@ -294,7 +296,7 @@ public class BaselineStoreTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void ComputeTargetSha_IncludesNestedFixtureFiles()
     {
         // copy_test_files copies subdirectories recursively, so nested fixture content
@@ -313,7 +315,7 @@ public class BaselineStoreTests
             File.WriteAllText(nestedFile, "v2");
             var after = BaselineStore.ComputeTargetSha(scenario, evalPath);
 
-            Assert.NotEqual(before, after); // nested file change invalidates reuse
+            Assert.AreNotEqual(before, after); // nested file change invalidates reuse
         }
         finally
         {
@@ -321,7 +323,7 @@ public class BaselineStoreTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void ComputeTargetSha_HashesFixtures_WhenEvalPathIsBareFilename()
     {
         // A bare filename (no directory component) must still hash sibling fixtures:
@@ -339,7 +341,7 @@ public class BaselineStoreTests
             File.WriteAllText(Path.Combine(evalDir, "build.binlog"), "BBBB");
             var shaB = BaselineStore.ComputeTargetSha(scenario, "eval.yaml");
 
-            Assert.NotEqual(shaA, shaB); // fixture content participates in identity
+            Assert.AreNotEqual(shaA, shaB); // fixture content participates in identity
         }
         finally
         {
@@ -348,7 +350,7 @@ public class BaselineStoreTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void ComputeTargetSha_IncludesExplicitDirectorySourceContents()
     {
         var root = Path.Combine(Path.GetTempPath(), $"sv-explicit-dir-{Guid.NewGuid():N}");
@@ -369,7 +371,7 @@ public class BaselineStoreTests
             File.WriteAllText(nestedFile, "v2");
             var after = BaselineStore.ComputeTargetSha(scenario, evalPath);
 
-            Assert.NotEqual(before, after);
+            Assert.AreNotEqual(before, after);
         }
         finally
         {
@@ -377,7 +379,7 @@ public class BaselineStoreTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void ComputeTargetSha_DistinguishesReplacementDirectorySources()
     {
         var root = Path.Combine(Path.GetTempPath(), $"sv-replacement-dir-{Guid.NewGuid():N}");
@@ -401,7 +403,7 @@ public class BaselineStoreTests
                 Setup = new SetupConfig(Files: [new SetupFile("Project", "fixtures/project-b")]),
             };
 
-            Assert.NotEqual(
+            Assert.AreNotEqual(
                 BaselineStore.ComputeTargetSha(scenarioA, evalPath),
                 BaselineStore.ComputeTargetSha(scenarioB, evalPath));
         }
@@ -411,7 +413,7 @@ public class BaselineStoreTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void Clone_ProducesIndependentCopy()
     {
         var source = MakeBaseline(output: "src").Metrics;
@@ -425,14 +427,14 @@ public class BaselineStoreTests
 
         // Mutating the clone must not leak back into the source — the cached baseline
         // can be reused concurrently across parallel target evaluations.
-        Assert.Equal(10, source.JudgeInputTokens);
-        Assert.Equal(4, source.ToolCallBreakdown["bash"]);
-        Assert.Empty(source.AssertionResults);
-        Assert.NotSame(source.ToolCallBreakdown, clone.ToolCallBreakdown);
-        Assert.NotSame(source.AssertionResults, clone.AssertionResults);
+        Assert.AreEqual(10, source.JudgeInputTokens);
+        Assert.AreEqual(4, source.ToolCallBreakdown["bash"]);
+        Assert.IsEmpty(source.AssertionResults);
+        Assert.AreNotSame(source.ToolCallBreakdown, clone.ToolCallBreakdown);
+        Assert.AreNotSame(source.AssertionResults, clone.AssertionResults);
     }
 
-    [Fact]
+    [TestMethod]
     public void SamePromptDifferentFixture_DoesNotReuseBaseline()
     {
         var path = TempPath();
@@ -453,13 +455,13 @@ public class BaselineStoreTests
             var loaded = BaselineStore.Load(path, Model, Judge);
 
             // Case A reuses its baseline; case B must NOT (different targetSha).
-            Assert.NotNull(loaded.TryGetBaseline(scenarioA, evalA));
-            Assert.Equal("A-baseline", loaded.TryGetBaseline(scenarioA, evalA)!.Metrics.AgentOutput);
-            Assert.Null(loaded.TryGetBaseline(scenarioB, evalB));
+            Assert.IsNotNull(loaded.TryGetBaseline(scenarioA, evalA));
+            Assert.AreEqual("A-baseline", loaded.TryGetBaseline(scenarioA, evalA)!.Metrics.AgentOutput);
+            Assert.IsNull(loaded.TryGetBaseline(scenarioB, evalB));
 
             // FindMissingScenarios surfaces case B (with its eval path) despite the shared prompt.
             var missing = loaded.FindMissingScenarios([(scenarioA, evalA), (scenarioB, evalB)]);
-            Assert.Single(missing);
+            Assert.ContainsSingle(missing);
             Assert.StartsWith("case-B", missing[0]);
             Assert.Contains(evalB, missing[0]);
         }

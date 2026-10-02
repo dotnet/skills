@@ -1,0 +1,23 @@
+> Task :app:compileDebugJavaWithJavac FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugJavaWithJavac'.
+> Compilation failed; see the compiler error output for details.
+error: cannot find symbol
+    InventoryRepository repo = new InventoryRepository();
+    ^
+  symbol:   class InventoryRepository
+  location: class MainActivity
+1 error
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+
+* Get more help at https://help.gradle.org
+
+BUILD FAILED in 4s
+17 actionable tasks: 2 executed, 15 up-to-date
