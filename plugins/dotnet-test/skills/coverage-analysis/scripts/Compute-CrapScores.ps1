@@ -22,13 +22,15 @@ param(
 
 # Merge methods across all Cobertura files using a stable key (Class|Method|Signature|File).
 # Line hits are accumulated so a line is counted as covered if any input coverage file covered it.
-$methodMap = @{}
+$methodMap = [System.Collections.Generic.Dictionary[string, object]]::new([StringComparer]::Ordinal)
+$overallLineHits = [System.Collections.Generic.Dictionary[string, int]]::new([StringComparer]::Ordinal)
+$overallBranchData = [System.Collections.Generic.Dictionary[string, object]]::new([StringComparer]::Ordinal)
 $overallLineRate = 0.0
 $overallBranchRate = 0.0
-$totalLinesCovered = 0
-$totalLinesValid = 0
-$totalBranchesCovered = 0
-$totalBranchesValid = 0
+$unlocatedLinesCovered = 0.0
+$unlocatedLinesValid = 0.0
+$unlocatedBranchesCovered = 0.0
+$unlocatedBranchesValid = 0.0
 $fallbackLineRates = [System.Collections.Generic.List[double]]::new()
 $fallbackBranchRates = [System.Collections.Generic.List[double]]::new()
 
@@ -45,24 +47,49 @@ foreach ($filePath in $CoberturaPath) {
         exit 2
     }
 
-    # Prefer aggregate numerator/denominator attributes when present.
-    if ($null -ne $cobertura.coverage.'lines-covered' -and $null -ne $cobertura.coverage.'lines-valid') {
-        $totalLinesCovered += [double]$cobertura.coverage.'lines-covered'
-        $totalLinesValid += [double]$cobertura.coverage.'lines-valid'
-    } elseif ($cobertura.coverage.'line-rate') {
-        $fallbackLineRates.Add([double]$cobertura.coverage.'line-rate')
-    }
-    if ($null -ne $cobertura.coverage.'branches-covered' -and $null -ne $cobertura.coverage.'branches-valid') {
-        $totalBranchesCovered += [double]$cobertura.coverage.'branches-covered'
-        $totalBranchesValid += [double]$cobertura.coverage.'branches-valid'
-    } elseif ($cobertura.coverage.'branch-rate') {
-        $fallbackBranchRates.Add([double]$cobertura.coverage.'branch-rate')
-    }
+    $reportHasLineData = $false
+    $reportHasBranchData = $false
 
     foreach ($package in $cobertura.coverage.packages.package) {
         foreach ($class in $package.classes.class) {
             $className = $class.name
             $fileName  = $class.filename
+
+            $classLines = @($class.lines.line | Where-Object { $null -ne $_ })
+            if ($classLines.Count -eq 0) {
+                $classLines = @($class.methods.method | ForEach-Object { $_.lines.line })
+            }
+            foreach ($line in $classLines) {
+                $lineNo = $line.number
+                $lineKey = "$fileName|$lineNo"
+                $hits = [int]$line.hits
+                $reportHasLineData = $true
+                if ($overallLineHits.ContainsKey($lineKey)) {
+                    $overallLineHits[$lineKey] = [Math]::Max($overallLineHits[$lineKey], $hits)
+                } else {
+                    $overallLineHits[$lineKey] = $hits
+                }
+
+                if (($line.branch -eq 'true') -and $line.'condition-coverage' -and ($line.'condition-coverage' -match '\((\d+)/(\d+)\)')) {
+                    $covered = [int]$Matches[1]
+                    $total = [int]$Matches[2]
+                    $reportHasBranchData = $true
+                    if ($overallBranchData.ContainsKey($lineKey)) {
+                        $existingCovered = $overallBranchData[$lineKey].Covered
+                        $existingTotal = $overallBranchData[$lineKey].Total
+                        if ($existingTotal -ne $total) {
+                            Write-Warning ("Branch total mismatch for {0} at line {1}: {2} vs {3}" -f $fileName, $lineNo, $existingTotal, $total)
+                        }
+                        $mergedTotal = [Math]::Max($existingTotal, $total)
+                        # Cobertura does not identify which outcomes were covered, so summing
+                        # overlapping reports could count the same branch more than once.
+                        $mergedCovered = [Math]::Min([Math]::Max($existingCovered, $covered), $mergedTotal)
+                        $overallBranchData[$lineKey] = @{ Covered = $mergedCovered; Total = $mergedTotal }
+                    } else {
+                        $overallBranchData[$lineKey] = @{ Covered = $covered; Total = $total }
+                    }
+                }
+            }
 
             foreach ($method in $class.methods.method) {
                 $key = "$className|$($method.name)|$($method.signature)|$fileName"
@@ -93,6 +120,24 @@ foreach ($filePath in $CoberturaPath) {
                     }
                 }
             }
+
+        }
+    }
+
+    if (-not $reportHasLineData) {
+        if ($null -ne $cobertura.coverage.'lines-covered' -and $null -ne $cobertura.coverage.'lines-valid') {
+            $unlocatedLinesCovered += [double]$cobertura.coverage.'lines-covered'
+            $unlocatedLinesValid += [double]$cobertura.coverage.'lines-valid'
+        } elseif ($cobertura.coverage.'line-rate') {
+            $fallbackLineRates.Add([double]$cobertura.coverage.'line-rate')
+        }
+    }
+    if (-not $reportHasBranchData) {
+        if ($null -ne $cobertura.coverage.'branches-covered' -and $null -ne $cobertura.coverage.'branches-valid') {
+            $unlocatedBranchesCovered += [double]$cobertura.coverage.'branches-covered'
+            $unlocatedBranchesValid += [double]$cobertura.coverage.'branches-valid'
+        } elseif ($cobertura.coverage.'branch-rate') {
+            $fallbackBranchRates.Add([double]$cobertura.coverage.'branch-rate')
         }
     }
 }
@@ -129,25 +174,30 @@ foreach ($entry in $methodMap.Values) {
 $hotspots = $results | Sort-Object CrapScore -Descending | Select-Object -First $TopN
 $flagged  = $results | Where-Object { $_.CrapScore -gt $CrapThreshold }
 
-if ($totalLinesValid -gt 0) {
-    $overallLineRate = $totalLinesCovered / $totalLinesValid
+$overallCoveredLines = $unlocatedLinesCovered
+$overallTotalLines = $unlocatedLinesValid
+if ($overallLineHits.Count -gt 0) {
+    $overallCoveredLines += ($overallLineHits.Values | Where-Object { $_ -gt 0 } | Measure-Object).Count
+    $overallTotalLines += $overallLineHits.Count
+}
+if ($overallTotalLines -gt 0) {
+    $overallLineRate = [double]$overallCoveredLines / [double]$overallTotalLines
+} elseif ($fallbackLineRates.Count -gt 0) {
+    $overallLineRate = ($fallbackLineRates | Measure-Object -Average).Average
 } else {
-    # Fallback approximation when Cobertura aggregate counters and per-file rates are unavailable.
-    # This uses merged method line totals and may under/over-estimate if Cobertura
-    # includes executable lines outside method nodes.
-    $mergedTotalLines = ($results | Measure-Object -Property TotalLines -Sum).Sum
-    $mergedCoveredLines = ($results | Measure-Object -Property CoveredLines -Sum).Sum
-    if ($mergedTotalLines -gt 0) {
-        $overallLineRate = [double]$mergedCoveredLines / [double]$mergedTotalLines
-    } elseif ($fallbackLineRates.Count -gt 0) {
-        $overallLineRate = ($fallbackLineRates | Measure-Object -Average).Average
-    } else {
-        $overallLineRate = 0.0
-    }
+    $overallLineRate = 0.0
 }
 
-if ($totalBranchesValid -gt 0) {
-    $overallBranchRate = $totalBranchesCovered / $totalBranchesValid
+$overallCoveredBranches = $unlocatedBranchesCovered
+$overallTotalBranches = $unlocatedBranchesValid
+if ($overallBranchData.Count -gt 0) {
+    foreach ($branch in $overallBranchData.Values) {
+        $overallCoveredBranches += $branch.Covered
+        $overallTotalBranches += $branch.Total
+    }
+}
+if ($overallTotalBranches -gt 0) {
+    $overallBranchRate = [double]$overallCoveredBranches / [double]$overallTotalBranches
 } elseif ($fallbackBranchRates.Count -gt 0) {
     $overallBranchRate = ($fallbackBranchRates | Measure-Object -Average).Average
 } else {
