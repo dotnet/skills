@@ -112,13 +112,16 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (Route:.*optimizing-ef-core-queries|EF Core.*quer(y|ies).*(skill|workflow))
-      - type: output-matches
-        config:
           pattern: /plugin install dotnet-data@dotnet-agent-skills
+      - type: run-command
+        config:
+          command: dotnet build
+          expected_exit_code: 0
+          timeout: 2m
       - type: exit-success
       - type: prompt
     rubric:
+      - Completed the query optimization and verified that the affected project still builds
       - Selected EF Core query optimization as the primary owner
       - Distinguished the data-access bottleneck from generic ASP.NET Core or C# performance work
       - Preserved the response contract in the proposed ownership
@@ -131,17 +134,31 @@ stimuli:
       risk: high
       journey: diagnose
     prompt: |
-      The solution builds locally but fails in CI. I have an MSBuild .binlog showing a target that
-      skips unexpectedly because a property differs. Find the root cause.
+      The CI checkout is gone and failure.binlog is the only surviving artifact. Find the recorded
+      root cause and describe the smallest repository repair. Do not search unrelated checkouts.
+    environment:
+      files:
+        - src: ../msbuild/fixtures/missing-schema/Build.proj
+          dest: Build.proj
+      commands:
+        - dotnet msbuild Build.proj -t:Build -p:Configuration=Release -p:SchemaFile=schemas/prod.json -bl:failure.binlog > capture.log 2>&1 || exit 0
+        - >-
+          node -e "const fs=require('fs'); const log=fs.statSync('failure.binlog');
+          if (!log.isFile() || log.size === 0) throw new Error('Expected failure.binlog');
+          fs.unlinkSync('Build.proj'); fs.unlinkSync('capture.log');"
     graders:
-      - type: output-matches
+      - type: output-contains
         config:
-          pattern: (Route:.*msbuild|MSBuild.*binlog.*(analysis|workflow|skill))
+          substring: SCHEMA1001
+      - type: output-not-matches
+        config:
+          pattern: /plugin install dotnet-msbuild@dotnet-agent-skills
       - type: exit-success
       - type: prompt
     rubric:
+      - Identified the missing schemas/prod.json input recorded by the ValidateSchema target
+      - Proposed restoring the required schema or correcting its configured path
       - Routed the existing binary log to the core MSBuild entry workflow
-      - Did not choose binlog generation because the artifact already exists
       - Distinguished MSBuild evaluation from a C# compiler defect
       - Did not require installing the overlapping dotnet-msbuild plugin for a request covered by the core dotnet plugin
 
@@ -153,17 +170,38 @@ stimuli:
       journey: migrate
     prompt: |
       Convert this NUnit test project to MSTest while preserving the test intent, lifecycle hooks,
-      and parameterized cases.
+      and parameterized cases. Complete the conversion and run the tests now.
+    environment:
+      files:
+        - src: fixtures/nunit-migration
+          dest: .
     graders:
       - type: output-matches
         config:
-          pattern: (Route:.*migrate-nunit-to-mstest|NUnit.*MSTest.*(migration|workflow|skill))
-      - type: output-matches
-        config:
           pattern: /plugin install dotnet-test-migration@dotnet-agent-skills
+      - type: file-not-contains
+        config:
+          path: "**/*.cs"
+          value: NUnit
+      - type: file-not-contains
+        config:
+          path: "**/*.csproj"
+          value: NUnit
+      - type: file-contains
+        config:
+          path: "**/*.cs"
+          value: Microsoft.VisualStudio.TestTools.UnitTesting
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_matches: Passed!
+          timeout: 3m
       - type: exit-success
       - type: prompt
     rubric:
+      - Completed the NUnit-to-MSTest conversion and ran the migrated tests successfully
+      - Preserved parameterized cases and per-test lifecycle behavior
       - Selected the exact NUnit-to-MSTest migration workflow
       - Did not route to generic test writing, test running, or C# refactoring
       - Treated migration as the primary lifecycle
@@ -205,13 +243,14 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (Route:.*(dotnet-trace-collect|analyzing-dotnet-performance)|runtime.*(diagnostic|performance).*(skill|workflow))
+          pattern: /plugin install dotnet-diag@dotnet-agent-skills
       - type: output-matches
         config:
-          pattern: /plugin install dotnet-diag@dotnet-agent-skills
+          pattern: (dotnet-trace|dotnet-counters|dotnet-gcdump|nettrace|trace artifact)
       - type: exit-success
       - type: prompt
     rubric:
+      - Advanced the investigation with concrete evidence collection rather than stopping after installation guidance
       - Selected runtime diagnostics or trace collection before code optimization
       - Distinguished process CPU and allocation evidence from build performance
       - Did not prematurely choose vectorization or microbenchmarking
@@ -273,16 +312,31 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (Route:.*(template-instantiation|create-blazor-project).*(->|then).*author-component|template.*then.*component)
-      - type: output-matches
-        config:
           pattern: /plugin install dotnet-template-engine@dotnet-agent-skills
       - type: output-matches
         config:
           pattern: /plugin install dotnet-blazor@dotnet-agent-skills
+      - type: file-exists
+        config:
+          path: "**/*.csproj"
+      - type: file-contains
+        config:
+          path: "**/*.razor"
+          value: EditForm
+      - type: file-contains
+        config:
+          path: "**/*.razor"
+          value: DataAnnotationsValidator
+      - type: run-command
+        config:
+          command: sh -c "dotnet build \"$(find . -name '*.csproj' -print -quit)\""
+          expected_exit_code: 0
+          timeout: 3m
       - type: exit-success
       - type: prompt
     rubric:
+      - Created the project and implemented a reusable validated form component in the same run
+      - Verified that the generated project builds
       - Used a project creation workflow before a component authoring workflow
       - Kept the two independently owned phases in an explicit sequence
       - Did not load unrelated Blazor skills
@@ -313,7 +367,11 @@ stimuli:
       journey: migrate
     prompt: |
       I am using Codex CLI. Convert this NUnit test project to MSTest while preserving its
-      parameterized tests and lifecycle hooks.
+      parameterized tests and lifecycle hooks. Complete the conversion and run the tests now.
+    environment:
+      files:
+        - src: fixtures/nunit-migration
+          dest: .
     graders:
       - type: output-matches
         config:
@@ -324,12 +382,27 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: /plugin install dotnet-test-migration@dotnet-agent-skills
+      - type: file-not-contains
+        config:
+          path: "**/*.cs"
+          value: NUnit
+      - type: file-not-contains
+        config:
+          path: "**/*.csproj"
+          value: NUnit
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_matches: Passed!
+          timeout: 3m
       - type: exit-success
       - type: prompt
     rubric:
+      - Completed and validated the migration instead of stopping after marketplace guidance
       - Selected the dotnet-test-migration plugin for the requested conversion
       - Used the Codex marketplace flow instead of Copilot or Claude slash-command installation
-      - Required the user to install the plugin before claiming the migration workflow was available
+      - Clearly distinguished the local fallback from the unavailable specialist workflow
 
   - name: Recover an installed but undiscovered plugin
     tags:
