@@ -73,6 +73,10 @@ library contract, or an external service client.
 Inspect only likely manifests and nearby owning files. Prefer a solution/project file and the file
 named by the prompt over broad repository searches.
 
+Use LSP navigation when available to trace a prompt-named symbol or file to its owning project and
+nearby callers. Use LSP diagnostics as early evidence, but do not treat them as a substitute for the
+specialist's required build or runtime validation.
+
 | Evidence | Solution or concern |
 |---|---|
 | `Microsoft.NET.Sdk.Web`, controllers, endpoints, middleware, OpenAPI | ASP.NET Core |
@@ -201,8 +205,8 @@ or runtime semantics.
 3. Preserve public signatures, serialization shape, ownership, cancellation, disposal, and
    multi-target behavior unless the request explicitly changes them.
 4. Implement the smallest complete fix through the affected call path.
-5. Build the narrowest affected project and run focused tests or the executable path that proves the
-   original symptom is gone.
+5. Check LSP diagnostics when available, then build the narrowest affected project and run focused
+   tests or the executable path that proves the original symptom is gone.
 
 Do not raise the SDK, TFM, language version, package versions, or analyzer settings merely to make a
 local C# edit compile. Do not edit generated files. Do not use broad casts, null-forgiving
