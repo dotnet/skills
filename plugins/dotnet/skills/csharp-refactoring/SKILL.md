@@ -1,6 +1,6 @@
 ---
 name: csharp-refactoring
-description: "Performs safe, behavior-preserving refactoring of C#/.NET code, verified with build, tests, and analyzers. USE FOR: rename or move a symbol/type/file; extract a method/type/interface; inline a wrapper/method/local; merge or consolidate near-identical classes or duplicate helpers; split or modernize C# code; generated/partial declarations; public, serialized, friend-assembly, or multi-targeted contracts; and mixed requests where a feature, bug fix, package/framework upgrade, public nullability change, or other behavior/contract change is presented as a refactor and must be separated or declined. DO NOT USE FOR: ordinary feature or bug-fix requests not framed as refactoring; upgrades after reclassification (use dotnet-upgrade); new tests; or formatting-only passes (use dotnet format)."
+description: "Performs safe, behavior-preserving refactoring of C#/.NET code, verified with build, tests, and analyzers. USE FOR: rename or move a symbol/type/file; extract a method/type/interface; inline a wrapper/method/local, including a shipped legacy wrapper that needs obsolete compatibility; merge or consolidate near-identical classes or duplicate helpers; split or modernize C# code; generated/partial declarations; public, serialized, friend-assembly, or multi-targeted contracts; and mixed requests where a feature, bug fix, package/framework upgrade, public nullability change, or other behavior/contract change is presented as a refactor and must be separated or declined. DO NOT USE FOR: ordinary feature or bug-fix requests not framed as refactoring; upgrades after reclassification (use dotnet-upgrade); new tests; or formatting-only passes (use dotnet format)."
 license: MIT
 ---
 
@@ -70,7 +70,7 @@ Use the first matching row instead of applying the requested operation mechanica
 | Situation | Do | Never |
 |---|---|---|
 | Inline an internal, unshipped pass-through wrapper | Migrate every binding reference to the target, remove the wrapper, then compile to catch misses. | Keep dead indirection "for compatibility" when no compatibility boundary exists. |
-| Inline or remove a shipped/public wrapper | Migrate ordinary in-repo callers, but retain an `[Obsolete]` forwarding entry point unless the request explicitly authorizes a breaking change. | Delete a shipped API merely because all current source callers were migrated. |
+| Inline or remove a shipped/public wrapper | Migrate ordinary in-repo callers, but retain an `[Obsolete]` forwarding entry point unless the request explicitly authorizes a breaking change. The compatibility attribute is part of the required result, not optional cleanup. | Delete a shipped API merely because all current source callers were migrated, or keep an unmarked legacy entry point. |
 | Rename a member reached by a string, reflection, DI, or configuration | Rename binding-based callers; preserve the observed external name with a forwarding shim or metadata, and exercise the old-name path. | Rewrite an external/configured name just to make the new source name consistent. |
 | Extract duplicated logic whose callers pass different values | Extract the algorithm and pass each caller's existing inputs through unchanged. | Collapse distinct inputs, evaluation order, rounding, or side effects into one caller's version. |
 | Rename code compiled under `#if` or multiple TFMs | Update every source branch and validate each target framework explicitly. | Treat a green default-target build as evidence for unbuilt branches. |
@@ -141,6 +141,11 @@ PublicApiAnalyzers, and/or `ApiCompat`/`<EnablePackageValidation>` — not inter
 needs `[TypeForwardedTo]` in the original assembly; a move within one assembly does not. A public
 *rename* needs an `[Obsolete]` shim, not a forwarder. For a provably local/private change, skip these
 checks.
+
+When PublicApiAnalyzers files govern a public rename, keep the old signature in
+`PublicAPI.Shipped.txt` and add the new signature to `PublicAPI.Unshipped.txt`.
+`PublicAPI.Shipped.txt` is immutable history: never add the new name there.
+Do not report the rename complete until both records are correct.
 
 ## Stop and ask when
 

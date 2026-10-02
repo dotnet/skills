@@ -5,6 +5,10 @@ defaults:
   timeout: 15m
 stimuli:
   - name: Rename a shipped public method without breaking existing callers
+    tags:
+      capability: public-symbol-rename
+      risk: shipped-api-break
+      journey: rename-public-method
     prompt: "In the Billing class library, rename the shipped public method `AppSettingsHelper.ParseIntSetting` to `ParseIntegerSetting` and migrate this solution's ordinary callers, while preserving compatibility for existing callers of the old public API. Keep `LegacyParseIntSetting_RemainsCompatible` as a dedicated old-name compatibility test. `PublicAPI.Shipped.txt` records the shipped surface. The solution is at Fixture.sln."
     environment: &fixture-environment
       files:
@@ -40,6 +44,8 @@ stimuli:
           dest: tests/Billing.Tests/Billing.Tests.csproj
         - src: tests/Billing.Tests/BillingTests.cs
           dest: tests/Billing.Tests/BillingTests.cs
+        - src: validation.mjs
+          dest: validation.mjs
     graders:
       - type: file-contains
         config:
@@ -60,39 +66,21 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "from pathlib import Path; import re, sys;
-            source = Path('src/Billing/AppSettingsHelper.cs').read_text();
-            tests = Path('tests/Billing.Tests/BillingTests.cs').read_text();
-            shim = re.search(r'ParseIntSetting\s*\([^)]*\)\s*(?:=>|\{)(?P<body>.*?)(?:;|\})',
-            source, re.S);
-            compatibility_test = re.search(
-            r'LegacyParseIntSetting_RemainsCompatible\s*\(\)\s*\{(?P<body>.*?)\n\s*\}',
-            tests, re.S);
-            ordinary_tests = tests[:compatibility_test.start()] + tests[compatibility_test.end():]
-            if compatibility_test else tests;
-            sys.exit(0 if shim and 'ParseIntegerSetting' in shim.group('body')
-            and compatibility_test
-            and 'ParseIntSetting(' in compatibility_test.group('body')
-            and 'ParseIntSetting(' not in ordinary_tests else 1)"
+            node validation.mjs public-rename
           expected_exit_code: 0
           timeout: 1m
       - &fixture-integrity
         type: run-command
         config:
           command: >-
-            python3 -c "from pathlib import Path; import re, sys;
-            expected = '<TargetFrameworks>net8.0;net10.0</TargetFrameworks>';
-            source_project = Path('src/Billing/Billing.csproj').read_text();
-            test_project = Path('tests/Billing.Tests/Billing.Tests.csproj').read_text();
-            tests = Path('tests/Billing.Tests/BillingTests.cs').read_text();
-            sys.exit(0 if expected in source_project and expected in test_project
-            and len(re.findall(r'\[Fact\]', tests)) >= 17 else 1)"
+            node validation.mjs fixture-integrity
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
+          stdout_matches: &tests-ran '(?i)\bPassed:\s*[1-9][0-9]*\b'
           timeout: 5m
       - type: file-contains
         config:
@@ -110,6 +98,10 @@ stimuli:
       - Rebuilds and re-runs the existing tests after the rename to confirm behavior is preserved
 
   - name: Rename a member declared by a generated partial source
+    tags:
+      capability: generated-partial-rename
+      risk: generated-source-divergence
+      journey: rename-generated-member
     prompt: "Rename the private `Coupons.RateFor` helper to `DiscountRateFor` everywhere it is declared and called, preserving behavior. The solution is at Fixture.sln."
     environment: *fixture-environment
     graders:
@@ -134,6 +126,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
+          stdout_matches: *tests-ran
           timeout: 5m
       - type: prompt
     rubric:
@@ -142,6 +135,10 @@ stimuli:
       - Rebuilds and re-runs the tests so generation occurs again and proves the renamed declaration and caller agree
 
   - name: Consolidate duplicate public helpers without breaking shipped callers
+    tags:
+      capability: duplicate-helper-consolidation
+      risk: public-wrapper-removal
+      journey: consolidate-public-helpers
     prompt: "`ConfigReader` duplicates the parsing implementation in `AppSettingsHelper`. Consolidate the implementation so there is one source of truth, but preserve the shipped `ConfigReader.ReadInt` and `ReadBool` APIs for existing callers. Migrate this solution's callers where appropriate and verify Fixture.sln."
     environment: *fixture-environment
     graders:
@@ -150,16 +147,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "from pathlib import Path; import re, sys;
-            paths = (path for path in Path('src/Billing').rglob('*.cs')
-            if 'bin' not in path.parts and 'obj' not in path.parts);
-            text = '\n'.join(path.read_text(encoding='utf-8', errors='ignore') for path in paths);
-            match = re.search(r'class\s+ConfigReader\b[^{]*\{(?P<body>.*?)\n\}', text, re.S);
-            body = match.group('body') if match else '';
-            sys.exit(0 if 'ReadInt' in body and 'ReadBool' in body
-            and 'AppSettingsHelper.ParseIntSetting' in body
-            and 'AppSettingsHelper.ParseBoolSetting' in body
-            and 'TryParse' not in body else 1)"
+            node validation.mjs config-reader
           expected_exit_code: 0
           timeout: 1m
       - type: file-contains
@@ -171,6 +159,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
+          stdout_matches: *tests-ran
           timeout: 5m
       - type: prompt
     rubric:
@@ -179,6 +168,10 @@ stimuli:
       - Re-runs the build and tests after consolidating to prove behavior and existing callers remain intact
 
   - name: Inline a pass-through wrapper and update callers
+    tags:
+      capability: internal-wrapper-inline
+      risk: missed-binding-reference
+      journey: remove-internal-wrapper
     prompt: "`LegacyTax.ApplyTaxWrapper` does nothing but forward to `TaxRules.Apply`. Inline it: update every caller to call `TaxRules.Apply` directly and remove the wrapper, without changing behavior. The solution is at Fixture.sln."
     environment: *fixture-environment
     graders:
@@ -189,6 +182,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
+          stdout_matches: *tests-ran
           timeout: 5m
       # The pass-through wrapper is actually gone.
       - type: file-not-contains
@@ -204,6 +198,10 @@ stimuli:
       - Works only in the provided repository workspace and does not inspect or modify another clone, worktree, or temporary directory
 
   - name: Merge two near-identical types into one parameterized type
+    tags:
+      capability: type-consolidation
+      risk: semantic-value-drift
+      journey: merge-pricing-types
     prompt: "`GoldPricing` and `SilverPricing` are near-identical. Consolidate them into a single parameterized pricing type and update any usages, without changing behavior. The solution is at Fixture.sln."
     environment: *fixture-environment
     graders:
@@ -214,6 +212,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
+          stdout_matches: *tests-ran
           timeout: 5m
       # The two near-identical classes are actually gone (merged into one type).
       - type: file-not-contains
@@ -231,6 +230,10 @@ stimuli:
       - Updates all usages and re-runs the build and tests to prove behavior is unchanged
 
   - name: Decline a framework and package upgrade dressed up as a refactor
+    tags:
+      capability: refactor-classification
+      risk: hidden-upgrade
+      journey: reclassify-upgrade-request
     prompt: Upgrade the Billing project in Fixture.sln to a newer target framework and bump all its NuGet packages to their latest major versions, treating this as a behavior-preserving refactor.
     environment: *fixture-environment
     graders:
@@ -262,6 +265,10 @@ stimuli:
       - Gives a decisive, actionable handoff without offering to execute the upgrade inside the refactoring workflow or asking whether to proceed anyway
 
   - name: Decline a new-feature request dressed up as a refactor
+    tags:
+      capability: refactor-classification
+      risk: hidden-feature
+      journey: reclassify-feature-request
     prompt: 'In Fixture.sln, add a new "platinum" loyalty tier at 15% off and wire it into the pricing tiers so orders can use it, treating this as a behavior-preserving refactor.'
     environment: *fixture-environment
     graders:
@@ -281,6 +288,10 @@ stimuli:
       - Stops before editing instead of implementing first and merely acknowledging afterward that behavior changed
 
   - name: Keep behavior-changing bug fixes out of a behavior-preserving refactor
+    tags:
+      capability: mixed-request-separation
+      risk: unauthorized-behavior-change
+      journey: separate-refactor-and-fix
     prompt: "In Fixture.sln, rename `OrderProcessor.DoStuff` to `ComputeInvoice` and, while you are there, change the free-shipping threshold from $100 to $50. Treat the whole change as one behavior-preserving refactor."
     environment: *fixture-environment
     graders:
@@ -301,6 +312,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
+          stdout_matches: *tests-ran
           timeout: 5m
       - type: prompt
     rubric:
@@ -309,6 +321,10 @@ stimuli:
       - Keeps the existing $100 threshold and does not claim the combined request is behavior-preserving
 
   - name: Preserve a serialized name while renaming a C# property
+    tags:
+      capability: serialization-contract-preservation
+      risk: wire-contract-break
+      journey: rename-serialized-property
     prompt: "Rename `CustomerProfile.LoyaltyLevel` to `Tier` and migrate its C# callers, but preserve the existing JSON property name so serialized payloads do not change. Verify the solution at Fixture.sln."
     environment: *fixture-environment
     graders:
@@ -329,6 +345,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
+          stdout_matches: *tests-ran
           timeout: 5m
       - type: prompt
     rubric:
@@ -337,6 +354,10 @@ stimuli:
       - Runs the tests that exercise the serialized payload after the refactor
 
   - name: Keep a shipped nullable contract out of a refactor
+    tags:
+      capability: public-nullability-classification
+      risk: source-contract-break
+      journey: assess-nullability-change
     prompt: "Simplify `AppSettingsHelper.ParseBoolSetting` by changing its shipped `string? raw` parameter to `string raw`. Treat this nullable-annotation cleanup as behavior-preserving and verify Fixture.sln."
     environment: *fixture-environment
     graders:
@@ -353,6 +374,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
+          stdout_matches: *tests-ran
           timeout: 5m
       - type: prompt
     rubric:
@@ -362,6 +384,10 @@ stimuli:
       - Classifies the requested contract change before attempting edits; compiler or analyzer feedback is not a substitute for that decision
 
   - name: Rename one binding without touching same-text symbols
+    tags:
+      capability: binding-aware-rename
+      risk: textual-overreplacement
+      journey: rename-colliding-symbol
     prompt: "Rename only `OrderProcessor.DoStuff` to `CalculateInvoice` and migrate its callers. Do not rename unrelated members or text that happen to contain `DoStuff`. Verify Fixture.sln."
     environment: *fixture-environment
     graders:
@@ -386,6 +412,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
+          stdout_matches: *tests-ran
           timeout: 5m
       - type: prompt
     rubric:
@@ -394,6 +421,10 @@ stimuli:
       - Uses the compiler and tests to catch missed references without applying a repository-wide textual replacement
 
   - name: Extract subtotal calculation without changing arithmetic
+    tags:
+      capability: method-extraction
+      risk: arithmetic-drift
+      journey: extract-subtotal-helper
     prompt: "Extract the subtotal loop in `OrderProcessor.DoStuff` into a private `CalculateSubtotal` method without changing invoice behavior. Verify Fixture.sln."
     environment: *fixture-environment
     graders:
@@ -408,13 +439,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "from pathlib import Path; import sys;
-            text = Path('src/Billing/OrderProcessor.cs').read_text();
-            method = text.split('public Invoice DoStuff', 1)[1].split(
-            'private static decimal CalculateSubtotal', 1)[0]
-            if 'public Invoice DoStuff' in text
-            and 'private static decimal CalculateSubtotal' in text else '';
-            sys.exit(0 if 'foreach' not in method and 'CalculateSubtotal(lines)' in method else 1)"
+            node validation.mjs subtotal-extraction
           expected_exit_code: 0
           timeout: 1m
       - *fixture-integrity
@@ -422,6 +447,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
+          stdout_matches: *tests-ran
           timeout: 5m
       - type: prompt
     rubric:
@@ -430,6 +456,10 @@ stimuli:
       - Re-runs the multi-targeted tests after extraction
 
   - name: Rename an internal member used by a friend assembly
+    tags:
+      capability: friend-assembly-rename
+      risk: cross-assembly-reference-break
+      journey: rename-internal-api
     prompt: "Rename `PricingMath.ApplyDiscount` to `CalculateDiscount` and migrate all callers, including callers from friend assemblies. Preserve behavior and verify Fixture.sln."
     environment: *fixture-environment
     graders:
@@ -454,6 +484,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
+          stdout_matches: *tests-ran
           timeout: 5m
       - type: prompt
     rubric:
@@ -462,6 +493,10 @@ stimuli:
       - Rebuilds and re-runs tests so missed cross-assembly references fail compilation
 
   - name: Preserve a shipped wrapper while inlining ordinary callers
+    tags:
+      capability: compatibility-wrapper-preservation
+      risk: shipped-wrapper-removal
+      journey: migrate-legacy-wrapper-callers
     prompt: "Inline uses of `LegacyCurrencyFormatter.FormatCurrency` into `CurrencyFormatter.Format` and migrate this solution's ordinary callers, but preserve compatibility for existing callers of the shipped legacy API. Keep `LegacyCurrencyFormatter_RemainsCompatible` as an old-entry-point compatibility test. Verify Fixture.sln."
     environment: *fixture-environment
     graders:
@@ -484,23 +519,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "from pathlib import Path; import re, sys;
-            source = Path('src/Billing/Pricing.cs').read_text();
-            tests = Path('tests/Billing.Tests/BillingTests.cs').read_text();
-            shim = re.search(r'FormatCurrency\s*\([^)]*\)\s*(?:=>|\{)(?P<body>.*?)(?:;|\})',
-            source, re.S);
-            compatibility_test = re.search(
-            r'LegacyCurrencyFormatter_RemainsCompatible\s*\(\)\s*\{(?P<body>.*?)\n\s*\}',
-            tests, re.S);
-            ordinary_caller = re.search(
-            r'RenderCurrency\s*\([^)]*\)\s*(?:=>|\{)(?P<body>.*?)(?:;|\})',
-            source, re.S);
-            sys.exit(0 if shim and 'CurrencyFormatter.Format' in shim.group('body')
-            and compatibility_test and 'LegacyCurrencyFormatter.FormatCurrency('
-            in compatibility_test.group('body')
-            and ordinary_caller and 'CurrencyFormatter.Format' in ordinary_caller.group('body')
-            and 'LegacyCurrencyFormatter.FormatCurrency' not in ordinary_caller.group('body')
-            else 1)"
+            node validation.mjs wrapper-compatibility
           expected_exit_code: 0
           timeout: 1m
       - *fixture-integrity
@@ -508,6 +527,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
+          stdout_matches: *tests-ran
           timeout: 5m
       - type: prompt
     rubric:
@@ -517,6 +537,10 @@ stimuli:
       - Reports the refactor, preserved public boundary, and actual validation result concisely
 
   - name: Rename a method without breaking a configured reflection name
+    tags:
+      capability: reflection-name-preservation
+      risk: runtime-lookup-break
+      journey: rename-reflected-method
     prompt: "Rename the private `ReceiptRenderer.RenderReceipt` implementation to `FormatReceipt` and migrate ordinary C# callers, but preserve the externally configured reflection name `RenderReceipt`. Keep `ReceiptRenderer_ConfiguredOldName_RemainsCompatible` exercising the old configured name and verify Fixture.sln."
     environment: *fixture-environment
     graders:
@@ -531,13 +555,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "from pathlib import Path; import re, sys;
-            source = Path('src/Billing/Pricing.cs').read_text();
-            tests = Path('tests/Billing.Tests/BillingTests.cs').read_text();
-            shim = re.search(r'private\s+string\s+RenderReceipt\s*\([^)]*\)\s*(?:=>|\{)(?P<body>.*?)(?:;|\})',
-            source, re.S);
-            sys.exit(0 if shim and 'FormatReceipt' in shim.group('body')
-            and 'InvokeConfigured(\"RenderReceipt\", 12.5m)' in tests else 1)"
+            node validation.mjs reflection-compatibility
           expected_exit_code: 0
           timeout: 1m
       - *fixture-integrity
@@ -545,6 +563,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
+          stdout_matches: *tests-ran
           timeout: 5m
       - type: prompt
     rubric:
@@ -554,6 +573,10 @@ stimuli:
       - Reports the runtime-name boundary and the validation evidence
 
   - name: Rename a helper used in every target-framework branch
+    tags:
+      capability: multi-target-rename
+      risk: inactive-branch-break
+      journey: rename-conditional-helper
     prompt: "Rename `PlatformInfo.Label` to `FormatLabel` everywhere it is declared and used, including every conditional-compilation branch, without changing the platform labels. Validate both target frameworks in Fixture.sln."
     environment: *fixture-environment
     graders:
@@ -564,9 +587,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "from pathlib import Path; import re, sys;
-            text = Path('src/Billing/PlatformInfo.cs').read_text();
-            sys.exit(0 if not re.search(r'\bLabel\s*\(', text) else 1)"
+            node validation.mjs platform-rename
           expected_exit_code: 0
           timeout: 1m
       - *fixture-integrity
@@ -574,19 +595,25 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --framework net8.0 --verbosity normal
           expected_exit_code: 0
+          stdout_matches: *tests-ran
           timeout: 5m
       - type: run-command
         config:
           command: dotnet test Fixture.sln --framework net10.0 --verbosity normal
           expected_exit_code: 0
+          stdout_matches: *tests-ran
           timeout: 5m
       - type: prompt
     rubric:
-      - Updates the declaration and references in every #if branch rather than validating only the active/default target
+      - "Updates the declaration and references in every #if branch rather than validating only the active/default target"
       - Preserves the net8 and net10 platform-label values
       - Reports separate successful validation for both target frameworks
 
   - name: Extract shared discount logic without collapsing distinct inputs
+    tags:
+      capability: duplicate-logic-extraction
+      risk: distinct-input-collapse
+      journey: extract-tier-discount
     prompt: "Refactor the duplicated tier-discount calculations in `OrderProcessor.DoStuff` into one private `ApplyTierDiscount(decimal amount, string tier)` helper. Preserve the existing difference between the invoice total base and quote base, including shipping, and verify Fixture.sln."
     environment: *fixture-environment
     graders:
@@ -597,12 +624,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "from pathlib import Path; import sys;
-            text = Path('src/Billing/OrderProcessor.cs').read_text();
-            sys.exit(0 if 'ApplyTierDiscount(subtotal, tier)' in text
-            and 'ApplyTierDiscount(quoteBase, tier)' in text
-            and text.count('tier == \"gold\"') == 1
-            and text.count('tier == \"silver\"') == 1 else 1)"
+            node validation.mjs discount-extraction
           expected_exit_code: 0
           timeout: 1m
       - *fixture-integrity
@@ -610,6 +632,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
+          stdout_matches: *tests-ran
           timeout: 5m
       - type: prompt
     rubric:
@@ -619,6 +642,10 @@ stimuli:
       - Reports the preserved semantic difference and actual validation result
 
   - name: Stay dormant for an ordinary feature request
+    tags:
+      capability: routing-boundary
+      risk: feature-request-hijack
+      journey: implement-loyalty-feature
     prompt: Add a platinum loyalty tier at 15% off and make it available to orders.
     expect_activation: false
     graders:
@@ -626,3 +653,75 @@ stimuli:
     rubric:
       - Treats the request as ordinary feature work rather than applying a behavior-preserving refactoring workflow
       - The specialized refactoring workflow stayed dormant and did not hijack the feature request
+
+  - name: Leave an already completed private rename unchanged
+    prompt: "The `OrderProcessor.DoStuff` to `CalculateInvoice` rename should already be complete in Fixture.sln. Verify the solution, but do not change any source or test file if the rename and callers are already correct."
+    tags:
+      capability: refactor-noop
+      risk: unnecessary-edit
+      journey: verify-completed-rename
+    environment:
+      files:
+        - src: Fixture.sln
+          dest: Fixture.sln
+        - src: global.json
+          dest: global.json
+        - src: src
+          dest: src
+        - src: tests
+          dest: tests
+        - src: validation.mjs
+          dest: validation.mjs
+        - src: Fixture.sln
+          dest: .expected/Fixture.sln
+        - src: global.json
+          dest: .expected/global.json
+        - src: src
+          dest: .expected/src
+        - src: tests
+          dest: .expected/tests
+      commands:
+        - node validation.mjs prepare-noop .
+        - node validation.mjs prepare-noop .expected
+        - git init
+        - git add .
+        - git -c user.name=Eval -c user.email=eval@example.invalid commit -m baseline
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: csharp-refactoring-completed-rename-noop
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              The binding rename and callers are already correct, so I left
+              every source and test file unchanged. `dotnet test Fixture.sln
+              --verbosity normal` passes all 17 tests for both target
+              frameworks.
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs'),path=require('path');
+            function files(root){const out=[];function walk(dir){for(const e of fs.readdirSync(dir,{withFileTypes:true})){
+            if(e.name==='bin'||e.name==='obj')continue;const full=path.join(dir,e.name);
+            if(e.isDirectory())walk(full);else out.push(path.relative(root,full))}}walk(path.join(root,'src'));
+            walk(path.join(root,'tests'));return out.sort()}
+            const actual=files('.');
+            const expected=files('.expected');
+            if(JSON.stringify(actual)!==JSON.stringify(expected))process.exit(1);
+            for(const p of expected)if(!fs.readFileSync(p).equals(fs.readFileSync(path.join('.expected',p))))process.exit(1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          stdout_matches: *tests-ran
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Recognized that the requested rename and every binding caller were already correct
+      - Left all source and test files byte-for-byte unchanged
+      - Verified the existing solution and reported the observed test result
