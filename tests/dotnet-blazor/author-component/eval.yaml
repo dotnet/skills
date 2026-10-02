@@ -1,20 +1,28 @@
 name: author-component
 description: Evaluates the dotnet-blazor/author-component skill
 type: capability
-config:
-  timeout: 3m
+tags:
+  executionShard: components
+defaults:
+  timeout: 6m
+  runs: 1
 stimuli:
-  - name: Author a data-loading search component
+  - name: Author a cancellable local search component
+    tags:
+      feature: cancellable-component-work
+      capability: cancellable-component-work
+      risk: medium
+      journey: build-component
     prompt: |
       Write a Blazor component called ProductSearch that will be used on a catalog browsing page. Here are the service contracts the application already registers in DI:
 
       ```csharp
       public record Product(int Id, string Name, decimal Price, string ImageUrl);
 
-      public interface IProductService
+      public interface IProductSearchIndex
       {
           /// <summary>
-          /// Searches products by query string. Throws on network failure.
+          /// Searches an in-memory product index by query string.
           /// Respects the cancellation token — callers should cancel when results are no longer needed.
           /// </summary>
           Task<List<Product>> SearchAsync(string query, CancellationToken ct);
@@ -29,7 +37,7 @@ stimuli:
 
       The component should:
       - Have a search text input. When the user stops typing for 300ms, search automatically
-      - Call IProductService.SearchAsync to fetch results
+      - Call IProductSearchIndex.SearchAsync to get results
       - Display each product as a card showing Name, Price, and ImageUrl
       - Notify the parent when a card is clicked so it can navigate to the product detail page
       - Handle all the states the component can be in (fetching, nothing found, failure, etc.)
@@ -56,49 +64,47 @@ stimuli:
       - Implements IAsyncDisposable and cancels/disposes resources in DisposeAsync
       - Uses a private field for mutable state — does not mutate [Parameter] properties
       - Debounces search input with Task.Delay + CancellationTokenSource
-  - name: Author a multi-step wizard with async validation and shared state
+  - name: Author a multi-step review workflow with shared state
+    tags:
+      feature: component-data-flow
+      capability: component-data-flow
+      risk: medium
+      journey: build-component
     prompt: |
-      Author a set of Blazor components for a checkout wizard with async validation.
+      Author a set of Blazor components for a document review workflow.
       Here are the models and service:
 
       ```csharp
-      public class ShippingInfo
+      public class ReviewDocument
       {
-          public string Name { get; set; } = "";
-          public string Address { get; set; } = "";
-          public string City { get; set; } = "";
-          public string ZipCode { get; set; } = "";
+          public int Id { get; set; }
+          public string Title { get; set; } = "";
+          public string Summary { get; set; } = "";
       }
 
-      public class PaymentInfo
+      public class ReviewDecision
       {
-          public string CardNumber { get; set; } = "";
-          public string ExpiryDate { get; set; } = "";
+          public bool Approved { get; set; }
+          public string Notes { get; set; } = "";
       }
 
-      public class Order
+      public interface IReviewPolicy
       {
-          public ShippingInfo Shipping { get; set; } = new();
-          public PaymentInfo Payment { get; set; } = new();
-      }
-
-      public interface IAddressValidator
-      {
-          Task<bool> ValidateAddressAsync(string address, string city, string zip, CancellationToken ct);
+          Task<bool> CanApproveAsync(int documentId, CancellationToken ct);
       }
       ```
 
       Write the .razor component code for:
-      1. CheckoutWizard.razor — manages which step is active and holds the order state.
-         When "Place Order" is clicked, the parent of CheckoutWizard receives the completed order.
-      2. ShippingStep.razor — collects shipping address fields. When "Next" is clicked,
-         validates the address asynchronously using IAddressValidator. While validating,
-         show a loading indicator and disable the button. If the user goes back and
-         changes fields then clicks Next again, cancel the previous validation.
-      3. PaymentStep.razor — collects payment info, has "Back" and "Place Order" buttons.
+      1. ReviewWorkflow.razor — owns the active step, the document, and the decision.
+         When "Complete Review" is clicked, the parent receives the completed decision.
+      2. DocumentSummaryStep.razor — displays the document and raises a callback for Next.
+      3. ApprovalStep.razor — receives the document and decision. Before enabling approval,
+         checks IReviewPolicy.CanApproveAsync. While checking, show a loading indicator.
+         If the document parameter changes, cancel the previous check and start a new one.
+         It exposes Back and Complete callbacks.
 
-      The wizard must handle disposal correctly — if the user navigates away mid-validation,
-      the pending async operation should be cancelled cleanly.
+      The workflow must handle disposal correctly — if the component is removed while
+      the policy check is running, the pending operation should be cancelled cleanly.
     graders:
       - type: output-contains
         config:
@@ -111,16 +117,21 @@ stimuli:
           substring: CancellationToken
       - type: output-matches
         config:
-          pattern: (CheckoutWizard|ShippingStep|PaymentStep)
+          pattern: (ReviewWorkflow|DocumentSummaryStep|ApprovalStep)
       - type: prompt
     rubric:
-      - Parent (CheckoutWizard) owns the order state and passes data to children via [Parameter]
+      - Parent (ReviewWorkflow) owns the state and passes data to children via [Parameter]
       - Children communicate back to the parent through EventCallback
       - Steps are separate component files, not inline blocks in the parent
-      - ShippingStep cancels the previous validation when a new one starts — uses CancellationTokenSource that is replaced on each attempt
+      - ApprovalStep cancels the previous policy check when the document changes
       - Implements IAsyncDisposable and cancels the CTS in DisposeAsync — pending validations are cancelled when navigating away
       - Parameters are public auto-properties with { get; set; }
   - name: Author a generic data table component
+    tags:
+      feature: generic-template-component
+      capability: generic-template-component
+      risk: medium
+      journey: build-component
     prompt: |
       Write a generic Blazor component called DataTable that works with any item type.
       The parent should be able to customize how headers and rows are rendered by passing
@@ -161,6 +172,11 @@ stimuli:
       - Uses EventCallback<TItem> for OnRowClick
       - Items parameter is IReadOnlyList<TItem> or List<TItem>
   - name: Author a real-time notification badge component
+    tags:
+      feature: external-event-lifecycle
+      capability: external-event-lifecycle
+      risk: medium
+      journey: build-component
     prompt: |
       Write a Blazor component called NotificationBadge. Here are the service contracts:
 
@@ -202,6 +218,11 @@ stimuli:
       - Event handler properly dispatches exceptions to the renderer
       - Polls using Task.Delay in a loop or PeriodicTimer
   - name: Author a sortable list with code-behind pattern
+    tags:
+      feature: code-behind-parameter-copy
+      capability: code-behind-parameter-copy
+      risk: medium
+      journey: build-component
     prompt: |
       Write a Blazor component called SortableList using the code-behind pattern
       (SortableList.razor + SortableList.razor.cs). It should work with any item type.
@@ -239,3 +260,128 @@ stimuli:
       - Copies Items to a local field in OnParametersSet
       - Uses @key in the loop for efficient diffing
       - Uses EventCallback to notify the parent of reorder
+  - name: Synchronize a selectable list with changing parameters
+    tags:
+      feature: parameter-synchronization
+      capability: parameter-synchronization
+      risk: medium
+      journey: build-component
+    prompt: |
+      Write a reusable Blazor component named SelectableList<TItem>. The parent
+      supplies an IReadOnlyList<TItem>, a selected item, and an ItemTemplate.
+      Clicking an item notifies the parent through a callback.
+
+      The parent can replace either the item list or selected item after the
+      component is already rendered. The component may keep local UI state, but
+      it must never mutate the supplied collection or selected parameter. Show
+      the complete component and a small usage example.
+    graders:
+      - type: output-contains
+        config:
+          substring: IReadOnlyList
+      - type: output-contains
+        config:
+          substring: EventCallback
+      - type: output-matches
+        config:
+          pattern: RenderFragment
+      - type: prompt
+    rubric:
+      - Keeps parent-owned parameters immutable; if local UI state is used, synchronizes it when parameters change
+      - Uses a typed template for rendering items and a typed callback for selection
+      - Handles a replaced item collection and selected value by rendering current parameters directly or synchronizing local state
+      - Uses stable keys for repeated item elements
+  - name: Author a composable tab set
+    tags:
+      feature: composable-child-content
+      capability: composable-child-content
+      risk: medium
+      journey: build-component
+    prompt: |
+      Write a small Blazor TabSet and Tab pair. Consumers should declare tabs as
+      child content, each tab supplies a title and arbitrary body content, and the
+      TabSet displays one active tab at a time. The first registered tab is active
+      by default, clicking another tab changes the active body, and removing a tab
+      must not leave the TabSet pointing at a dead child.
+
+      Show both component files and a usage example. Use built-in Blazor APIs only.
+    graders:
+      - type: output-contains
+        config:
+          substring: CascadingValue
+      - type: output-matches
+        config:
+          pattern: RenderFragment
+      - type: output-contains
+        config:
+          substring: '[CascadingParameter]'
+      - type: output-matches
+        config:
+          pattern: (Dispose|RemoveTab)
+      - type: prompt
+    rubric:
+      - Composes tabs through child content instead of requiring a separate list model
+      - Registers each Tab with its containing TabSet through a cascading parent reference
+      - Activates the first tab and changes the rendered body when another tab is selected
+      - Removes disposed tabs and selects a valid remaining tab when the active child disappears
+  - name: Repair blocking async component code
+    tags:
+      feature: async-safety-review
+      capability: async-safety-review
+      risk: medium
+      journey: build-component
+    prompt: |
+      Review and rewrite this Blazor component so it remains responsive and
+      reports asynchronous failures through the renderer. Return the corrected
+      component and briefly explain the defects.
+
+      ```razor
+      @inject IReportService Reports
+
+      <button @onclick="Generate">Generate</button>
+      <p>@status</p>
+
+      @code {
+          private string status = "Idle";
+
+          private void Generate()
+          {
+              Task.Run(() =>
+              {
+                  var report = Reports.CreateAsync().Result;
+                  status = report.Name;
+                  StateHasChanged();
+              });
+          }
+      }
+      ```
+    graders:
+      - type: output-matches
+        config:
+          pattern: async Task
+      - type: output-contains
+        config:
+          substring: await
+      - type: prompt
+    rubric:
+      - Removes blocking and thread-pool escape primitives from the event handler
+      - Awaits the service operation on the component synchronization context
+      - Relies on the event lifecycle to re-render after completion instead of calling StateHasChanged from a worker thread
+      - Leaves exceptions observable by the Blazor renderer or routes them through DispatchExceptionAsync
+  - name: Stay dormant for form validation work
+    tags:
+      feature: routing-boundary
+      capability: routing-boundary
+      risk: routing
+      journey: decline-off-target
+    prompt: |
+      Build a Blazor registration form with EditForm, data annotations, inline
+      ValidationMessage components, and server-returned field errors that clear
+      when the user edits a field.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Solves the form binding and validation request without turning it into general component-architecture work
+      - Includes field-specific validation behavior and preserves entered values
+      - Stayed dormant and did not hijack the request with unrelated component-authoring guidance

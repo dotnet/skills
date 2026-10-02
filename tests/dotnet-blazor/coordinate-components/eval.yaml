@@ -1,10 +1,18 @@
 name: coordinate-components
 description: Evaluates the dotnet-blazor/coordinate-components skill
 type: capability
-config:
+tags:
+  executionShard: components
+defaults:
   timeout: 15m
+  runs: 1
 stimuli:
   - name: Warehouse dashboard with site selector and live stock alerts
+    tags:
+      feature: scoped-state-fanout
+      capability: scoped-state-fanout
+      risk: medium
+      journey: share-component-state
     prompt: |
       I have a Blazor Web App using per-page interactivity (InteractiveServer).
 
@@ -43,9 +51,12 @@ stimuli:
       Build the shared state service with change notification events, the
       polling mechanism, a warehouse selector component, an alert badge
       component, and a page that ties it all together.
-    environment:
+    environment: &interactive-server-project
+      files:
+        - src: ../fixtures/global.json
+          dest: global.json
       commands:
-        - dotnet new blazor --interactivity server --no-https --force
+        - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor --interactivity server --no-https --force
     graders:
       - type: file-contains
         config:
@@ -59,6 +70,11 @@ stimuli:
         config:
           path: '**/*.razor'
           value: IDisposable
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
       - type: prompt
     rubric:
       - The selected warehouse is available to all interactive page components without each one fetching it independently — shared state works despite the static layout boundary
@@ -67,37 +83,44 @@ stimuli:
       - 'Each user''s state is isolated: state services use scoped lifetime (per circuit) — not singleton, which would leak one user''s selection to another'
       - Polling is stopped and event subscriptions are removed when components are disposed — implements IDisposable or IAsyncDisposable and cleans up all resources
       - Alert updates notify ALL subscribed components (sidebar badge AND dashboard) — multiple subscribers react to the same state change
-  - name: Multi-tenant notification hub with cross-component fan-out
+  - name: Theme state across interactive islands
+    tags:
+      feature: root-cascade-interactive-islands
+      capability: root-cascade-interactive-islands
+      risk: medium
+      journey: share-component-state
     prompt: |
       I have a Blazor Web App with per-page Interactive Server mode (not global).
       The MainLayout renders statically (no @rendermode attribute on it).
 
-      I need to build an app-wide theme system with these requirements:
+      Implement an app-wide theme system in the supplied project, build it, and
+      briefly explain the state-sharing pattern. It has these requirements:
 
       1. A theme service that holds the current theme (Light/Dark/System) and
          a user's preferred accent color (string). Any component on any page
          should be able to read AND change these values.
 
-      2. When ANY component changes the theme (e.g., a toggle in the sidebar
-         on one page), all OTHER components consuming the theme must immediately
-         update — including components in the static layout area (like a theme
-         indicator in the header).
+      2. When ANY interactive component changes the theme (e.g., a toggle in the
+         sidebar on one page), all OTHER consumers, including the header theme
+         indicator rendered in the otherwise-static MainLayout region, must
+         immediately show the new value.
 
-      3. I also want a "user preferences" panel on a /settings page where the
+      3. Existing themed components already receive ThemeInfo through
+         [CascadingParameter], and that component API must remain unchanged.
+
+      4. I also want a "user preferences" panel on a /settings page where the
          user can change both theme and accent color. Saving here must update
          the header theme indicator AND any themed components on any page.
 
-      4. Each user (circuit) must have independent theme state — one user
+      5. Each user (circuit) must have independent theme state — one user
          switching to dark mode must not affect another user.
 
-      5. When navigating between pages (enhanced nav), the theme choice must
+      6. When navigating between pages (enhanced nav), the theme choice must
          persist without page reload.
 
       What's the best pattern for sharing this state app-wide across all
       pages and components, given the per-page interactivity setup?
-    environment:
-      commands:
-        - dotnet new blazor --interactivity server --no-https --force
+    environment: *interactive-server-project
     graders:
       - type: file-contains
         config:
@@ -105,12 +128,251 @@ stimuli:
           value: CascadingValue
       - type: file-contains
         config:
-          path: '**/Program.cs'
+          path: '**/*.cs'
           value: NotifyChangedAsync
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
       - type: prompt
     rubric:
-      - Uses CascadingValueSource<T> registered in DI (not <CascadingValue> in the layout) — explains this is required because CascadingValue in a static layout cannot reach interactive children
+      - Uses a root-level CascadingValueSource<T> inside the interactive renderer rather than expecting a CascadingValue from the static layout to cross the render-mode boundary
       - Calls NotifyChangedAsync when the theme changes — without this call, subscribers don't re-render even though the value object was mutated
       - Components consume the theme via [CascadingParameter] — same consumption pattern as CascadingValue but backed by DI-registered source
       - State is isolated per user — the CascadingValueSource registration is scoped (or effectively per-circuit), not singleton
-      - Theme persists across enhanced navigations without page reload — the DI-registered source survives nav events within the same circuit
+      - The header indicator is itself interactive; the answer does not promise that static SSR layout markup can update after the response
+      - Theme persists across enhanced navigations without page reload — the interactive circuit state survives nav events
+  - name: Share a cart across unrelated interactive components
+    tags:
+      feature: scoped-service-state
+      capability: scoped-service-state
+      risk: medium
+      journey: share-component-state
+    prompt: |
+      Add a CartState service to this per-page Interactive Server app. Product
+      cards on /catalog add items, a CartBadge component in the navigation shows
+      the count, and /cart can remove items. These components are not in a direct
+      parent-child relationship. Updates must appear immediately everywhere in
+      the current user's circuit, and one user's cart must never appear in
+      another user's session.
+    environment: *interactive-server-project
+    graders:
+      - type: file-contains
+        config:
+          path: '**/Program.cs'
+          value: AddScoped
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Stores per-user cart state in a scoped service rather than a server singleton
+      - Notifies every consumer after add and remove operations through a change event or cascading source
+      - Manual subscriptions, if used, are removed with the same delegate; framework-managed cascading subscriptions require no manual cleanup
+      - Keeps the page and badge synchronized without forcing a browser reload
+  - name: Cascade two values of the same type
+    tags:
+      feature: named-cascading-values
+      capability: named-cascading-values
+      risk: medium
+      journey: share-component-state
+    prompt: |
+      Build an interactive ComparisonPanel component that receives two
+      CultureInfo values, one for source formatting and one for target
+      formatting. Deep descendants should consume either culture without
+      threading both parameters through every intermediate component. Both
+      values have the same CLR type, and changing either selector should update
+      only the descendants that consume that named value.
+    environment: *interactive-server-project
+    graders:
+      - type: file-contains
+        config:
+          path: '**/*.razor'
+          value: CascadingValue
+      - type: file-contains
+        config:
+          path: '**/*.razor'
+          value: CascadingParameter
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Distinguishes the two same-typed cascading values with stable names
+      - Lets deep descendants request only the source or target culture they need
+      - Keeps changing values non-fixed so subscribers receive updates
+      - Does not replace a local subtree concern with a global singleton
+  - name: Fan out external hub updates safely
+    tags:
+      feature: external-event-dispatch
+      capability: external-event-dispatch
+      risk: medium
+      journey: share-component-state
+    prompt: |
+      Add a scoped PresenceState service and two unrelated components,
+      OnlineUserCount and UserList. A supplied PresenceHubClient raises a
+      PresenceChanged event from a background callback whenever users join or
+      leave. Both components must update from the same state snapshot, handle the
+      renderer synchronization context correctly, and stop receiving events
+      after disposal.
+      Create a minimal PresenceHubClient stub and register all services so the project builds.
+    environment: *interactive-server-project
+    graders:
+      - type: file-contains
+        config:
+          path: '**/*.razor'
+          value: InvokeAsync
+      - type: file-contains
+        config:
+          path: '**/*.razor'
+          value: Dispose
+      - type: file-contains
+        config:
+          path: '**/Program.cs'
+          value: AddScoped
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Updates one shared presence snapshot and fans the same change out to both components
+      - Marshals renderer updates through InvokeAsync because the hub event is external to the Blazor context
+      - Unsubscribes both hub and state handlers during disposal
+      - Routes callback failures to the renderer instead of silently discarding tasks
+  - name: Register shared state for Auto execution
+    tags:
+      feature: auto-mode-shared-state
+      capability: auto-mode-shared-state
+      risk: medium
+      journey: share-component-state
+    prompt: |
+      In this per-page Interactive Auto app, add a FavoritesState used by a
+      FavoritesButton and FavoritesSummary. The components live in the Client
+      project and may execute on the server during prerendering and in WebAssembly
+      later. Keep the state abstraction free of server-only dependencies and
+      register compatible services in both hosts. The browser-side state should
+      update all interactive consumers in that runtime.
+    environment:
+      files:
+        - src: ../fixtures/global.json
+          dest: global.json
+      commands:
+        - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor --interactivity auto --no-https --force
+    graders:
+      - type: file-contains
+        config:
+          path: '**/Program.cs'
+          value: FavoritesState
+      - type: file-contains
+        config:
+          path: '**/*.Client/**/Program.cs'
+          value: FavoritesState
+      - type: file-exists
+        config:
+          path: '**/*.Client/**/*.razor'
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Places interactive components and the portable state contract where both execution environments can use them
+      - Registers a compatible state service in server and client dependency injection
+      - Avoids HttpContext, DbContext, and other server-only dependencies in the shared state
+      - Does not claim in-memory state automatically transfers from prerendering into the WebAssembly runtime
+  - name: Split a broad preference object into granular cascades
+    tags:
+      feature: granular-cascade-design
+      capability: granular-cascade-design
+      risk: medium
+      journey: share-component-state
+    prompt: |
+      Refactor a settings shell that currently cascades one mutable AppState
+      containing Theme, Locale, CartItems, and ConnectionStatus. A cart change is
+      causing every themed and localized component to re-render. Implement a
+      better root-level state design so each group of consumers subscribes only
+      to the value it needs, while updates still propagate app-wide to
+      interactive subscribers.
+      Add the state types and registrations needed for the generated project to build.
+    environment: *interactive-server-project
+    graders:
+      - type: file-contains
+        config:
+          path: '**/Program.cs'
+          value: AddCascadingValue
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: NotifyChangedAsync
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Replaces the broad state object with independently notifiable concern-specific values
+      - Lets components subscribe only to theme, locale, cart, or connection state as needed
+      - Keeps mutable sources non-fixed and notifies only the affected subscriber group
+      - Avoids page reloads and a single global event that wakes every component
+  - name: Preserve state through enhanced navigation
+    tags:
+      feature: circuit-navigation-lifetime
+      capability: circuit-navigation-lifetime
+      risk: medium
+      journey: share-component-state
+    prompt: |
+      Add a scoped DraftState service for an Interactive Server app. A composer
+      on /compose updates a draft title and body, while a DraftStatus component
+      in the navigation shows whether unsaved text exists. Navigating to /preview
+      with enhanced navigation and back must preserve the draft in the same
+      circuit. Opening a new browser session must start with an empty draft.
+    environment: *interactive-server-project
+    graders:
+      - type: file-contains
+        config:
+          path: '**/Program.cs'
+          value: AddScoped
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: DraftState
+      - type: file-contains
+        config:
+          path: '**/*.razor'
+          value: Dispose
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Uses circuit-scoped state so enhanced navigation preserves the draft for one user
+      - Starts a separate state instance for a new circuit instead of sharing a singleton
+      - Notifies and cleans up navigation status subscribers without a full reload
+  - name: Stay dormant for direct parent-child communication
+    tags:
+      feature: routing-boundary
+      capability: routing-boundary
+      risk: routing
+      journey: decline-off-target
+    prompt: |
+      Write a ProductList parent and ProductCard child. The parent passes each
+      Product to its card, and clicking a card sends that Product directly back
+      to the parent so it can navigate. No other component needs the selection.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Uses parameters down and a typed EventCallback up for the direct relationship
+      - Does not introduce a global state service or cascade for state used by only one parent and child
+      - Stayed dormant and did not hijack the direct relationship with app-wide coordination infrastructure

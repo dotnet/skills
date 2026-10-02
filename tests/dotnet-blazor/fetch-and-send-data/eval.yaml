@@ -1,10 +1,18 @@
 name: fetch-and-send-data
 description: Evaluates the dotnet-blazor/fetch-and-send-data skill
 type: capability
-config:
+tags:
+  executionShard: app
+defaults:
   timeout: 15m
+  runs: 1
 stimuli:
   - name: Recipe browser with resilient data loading
+    tags:
+      feature: parameter-driven-reload
+      capability: parameter-driven-reload
+      risk: medium
+      journey: build-data-flow
     prompt: |
       I have a Blazor Web App with Interactive Server (per-page).
 
@@ -38,9 +46,12 @@ stimuli:
 
       4. If the user navigates away from the page, all ongoing work should stop
          immediately.
-    environment:
+    environment: &interactive-server-project
+      files:
+        - src: ../fixtures/global.json
+          dest: global.json
       commands:
-        - dotnet new blazor --interactivity server --no-https --force
+        - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor --interactivity server --no-https --force
     graders:
       - type: file-exists
         config:
@@ -57,6 +68,11 @@ stimuli:
         config:
           path: '**/Recipes.razor'
           value: ILogger
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
       - type: prompt
     rubric:
       - Uses OnParametersSetAsync (not OnInitializedAsync) because the data depends on a route parameter that changes during navigation — guards with a tracked value to skip reloading when only the sort parameter changes
@@ -67,6 +83,11 @@ stimuli:
       - Shows a Retry button when an error is set, wired to the load method so the user can attempt the operation again
       - Implements IAsyncDisposable that cancels and disposes the CancellationTokenSource — does NOT catch OperationCanceledException in DisposeAsync because ComponentBase handles self-cancellation automatically
   - name: Real-time shipment tracker with Auto interactivity
+    tags:
+      feature: auto-data-abstraction
+      capability: auto-data-abstraction
+      risk: medium
+      journey: build-data-flow
     prompt: |
       I have a Blazor Web App using Auto interactivity mode (per-page). Pages
       may run on Server first, then switch to WebAssembly.
@@ -102,9 +123,12 @@ stimuli:
 
       5. When the user leaves the page, all pending requests must stop
          immediately.
-    environment:
+    environment: &auto-project
+      files:
+        - src: ../fixtures/global.json
+          dest: global.json
       commands:
-        - dotnet new blazor --interactivity auto --no-https --force
+        - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor --interactivity auto --no-https --force
     graders:
       - type: file-exists
         config:
@@ -121,9 +145,307 @@ stimuli:
         config:
           path: '**/*.razor'
           value: IAsyncDisposable
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
       - type: prompt
     rubric:
       - Uses OnParametersSetAsync because the route parameter changes during navigation — cancels previous in-flight requests when TrackingNumber changes
       - Handles errors with user-facing messages and a retry mechanism — logs through ILogger and never displays exception.Message
       - Implements IAsyncDisposable that cancels and disposes the CancellationTokenSource — stops all pending requests on disposal
       - The data access pattern works regardless of execution environment — component depends on an abstraction, not a concrete server-only service
+  - name: Stream a static SSR report
+    tags:
+      feature: static-streaming-load
+      capability: static-streaming-load
+      risk: medium
+      journey: build-data-flow
+    prompt: |
+      In this static SSR Blazor app, add /sales-report. It calls an injected
+      SalesReportService.GetAsync(CancellationToken), which takes several seconds,
+      then renders totals and rows. The browser should receive the page shell and
+      a loading placeholder before the service completes. No interactive render
+      mode, retry button, or JavaScript is needed.
+      Create a minimal service, result model, and DI registration so the project builds.
+    environment:
+      files:
+        - src: ../fixtures/global.json
+          dest: global.json
+      commands:
+        - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor --interactivity none --no-https --force
+    graders:
+      - type: file-exists
+        config:
+          path: '**/SalesReport.razor'
+      - type: file-contains
+        config:
+          path: '**/SalesReport.razor'
+          value: StreamRendering
+      - type: file-not-contains
+        config:
+          path: '**/SalesReport.razor'
+          value: '@rendermode'
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Uses streaming SSR so the loading UI reaches the browser before the slow service finishes
+      - Loads through a server-side service without adding an unnecessary HttpClient or interactive runtime
+      - Renders a complete result once data arrives and keeps the route static
+  - name: Use an error boundary for a simple initial load
+    tags:
+      feature: simple-load-error-boundary
+      capability: simple-load-error-boundary
+      risk: medium
+      journey: build-data-flow
+    prompt: |
+      Add an interactive /featured-products page that calls
+      ProductService.GetFeaturedAsync once when the component starts. Show a
+      loading placeholder and then product cards. The application already wraps
+      page content in an ErrorBoundary with a friendly failure view. There is no
+      retry requirement and no parameter-driven reload. Keep the component
+      simple and let unexpected service failures reach the existing boundary.
+      Create a minimal ProductService stub, product model, and DI registration.
+    environment: *interactive-server-project
+    graders:
+      - type: file-exists
+        config:
+          path: '**/FeaturedProducts.razor'
+      - type: file-contains
+        config:
+          path: '**/FeaturedProducts.razor'
+          value: OnInitializedAsync
+      - type: file-not-contains
+        config:
+          path: '**/FeaturedProducts.razor'
+          value: catch (Exception
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Loads once during initialization because no changing parameter controls the request
+      - Uses explicit loading and loaded states
+      - Lets unexpected failures reach the existing ErrorBoundary instead of duplicating generic catch logic
+      - Does not add retry, cancellation replacement, or parameter guards that the scenario does not need
+  - name: Submit an order without duplicate requests
+    tags:
+      feature: data-submission
+      capability: data-submission
+      risk: medium
+      journey: build-data-flow
+    prompt: |
+      Add an interactive OrderSummary component with a Place Order button. It
+      sends the supplied OrderDraft to OrderClient.CreateAsync and shows the new
+      order number. While saving, disable the action and ignore repeated clicks.
+      On failure, log the exception, show a safe message, preserve the draft, and
+      allow retry. Cancel the request if the component is removed.
+      Create minimal order models, an OrderClient stub, and DI registration.
+    environment: *interactive-server-project
+    graders:
+      - type: file-exists
+        config:
+          path: '**/OrderSummary.razor'
+      - type: file-contains
+        config:
+          path: '**/OrderSummary.razor'
+          value: CancellationTokenSource
+      - type: file-contains
+        config:
+          path: '**/OrderSummary.razor'
+          value: ILogger
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Prevents duplicate requests in both the UI state and submit handler
+      - Passes a cancellation token to the client and cancels owned work on disposal
+      - Logs the real exception while showing a hardcoded safe message
+      - Preserves the draft and restores a retryable state after failure
+  - name: Register a WebAssembly API client
+    tags:
+      feature: wasm-http-client
+      capability: wasm-http-client
+      risk: medium
+      journey: build-data-flow
+    prompt: |
+      In this Interactive WebAssembly Blazor Web App, add a typed
+      WeatherApiClient for https://weather.example/ and an interactive /forecast
+      page that loads a five-day forecast. Register the client in the correct
+      Program.cs, pass cancellation through the client, show loading and friendly
+      failure states, and do not use server-only services from the component.
+    environment:
+      files:
+        - src: ../fixtures/global.json
+          dest: global.json
+      commands:
+        - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor --interactivity webassembly --no-https --force
+    graders:
+      - type: file-contains
+        config:
+          path: '**/*.Client/**/Program.cs'
+          value: AddHttpClient
+      - type: file-exists
+        config:
+          path: '**/*.Client/**/*orecast*.razor'
+      - type: file-contains
+        config:
+          path: '**/*.Client/**/*.razor'
+          value: CancellationTokenSource
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Registers the typed client in the browser host and keeps the component in the Client project
+      - Uses HTTP for remote data and avoids DbContext or other server-only dependencies
+      - Propagates cancellation and presents explicit loading and safe error states
+  - name: Avoid reload for display-only query changes
+    tags:
+      feature: reload-guard
+      capability: reload-guard
+      risk: medium
+      journey: build-data-flow
+    prompt: |
+      Add an interactive /customers/{CustomerId:int} page with a ?tab= query
+      parameter. CustomerService.GetAsync(CustomerId, CancellationToken) should
+      run when CustomerId changes, but switching tab among overview, orders, and
+      notes must only change which already-loaded panel is shown. Cancel an older
+      customer request if navigation changes the id before it finishes.
+      Create a minimal CustomerService stub, model, and DI registration.
+    environment: *interactive-server-project
+    graders:
+      - type: file-exists
+        config:
+          path: '**/Customers.razor'
+      - type: file-contains
+        config:
+          path: '**/Customers.razor'
+          value: OnParametersSetAsync
+      - type: file-contains
+        config:
+          path: '**/Customers.razor'
+          value: SupplyParameterFromQuery
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Tracks the loaded customer id and skips service calls for query-only tab changes
+      - Cancels and replaces in-flight work when the route id changes
+      - Keeps loaded customer data while changing the displayed tab
+      - Captures the active request token locally so an older completion cannot corrupt current state
+  - name: Distinguish timeout from user cancellation
+    tags:
+      feature: cancellation-classification
+      capability: cancellation-classification
+      risk: medium
+      journey: build-data-flow
+    prompt: |
+      Add an interactive /audit-log page using AuditClient.GetAsync. It needs a
+      Retry button and a specific timeout message, but navigation away or a newer
+      reload should cancel silently. Other failures must be logged and shown as a
+      generic safe message. The component must never display exception.Message.
+      Create a minimal AuditClient stub, result model, and DI registration.
+    environment: *interactive-server-project
+    graders:
+      - type: file-exists
+        config:
+          path: '**/AuditLog.razor'
+      - type: file-contains
+        config:
+          path: '**/AuditLog.razor'
+          value: OperationCanceledException
+      - type: file-contains
+        config:
+          path: '**/AuditLog.razor'
+          value: IsCancellationRequested
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=list(Path('.').glob('**/AuditLog.razor'));
+            text='\n'.join(p.read_text() for p in files);
+            text=re.sub(r'\b\w*[Ll]og\w*\s*\.\s*Log\w*\s*\(.*?\)\s*;', '', text, flags=re.S);
+            sys.exit(0 if files and '.Message' not in text else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Shows the timeout message only for cancellation not requested by the component's active token
+      - Lets self-initiated cancellation remain silent during navigation or replacement
+      - Logs non-cancellation failures and shows no raw exception details
+      - Provides a retry path that starts a fresh request
+  - name: Load matching services in both Auto hosts
+    tags:
+      feature: auto-service-registration
+      capability: auto-service-registration
+      risk: medium
+      journey: build-data-flow
+    prompt: |
+      In this Interactive Auto app, add an InventoryClient abstraction used by a
+      Client-project component. During server execution it may call an injected
+      server implementation; after WebAssembly takes over it must call the same
+      API contract over HttpClient. Register compatible implementations in both
+      Program.cs files and add the API endpoint required by the browser client.
+    environment: *auto-project
+    graders:
+      - type: file-contains
+        config:
+          path: '**/Program.cs'
+          value: InventoryClient
+      - type: file-contains
+        config:
+          path: '**/*.Client/**/Program.cs'
+          value: InventoryClient
+      - type: file-contains
+        config:
+          path: '**/*.Client/**/Program.cs'
+          value: HttpClient
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Gives the shared component one execution-neutral abstraction
+      - Registers a server implementation and an HTTP client implementation under the same contract
+      - Exposes the server data through an API used by the browser implementation
+      - Keeps server-only types out of the Client project
+  - name: Stay dormant for field validation
+    tags:
+      feature: routing-boundary
+      capability: routing-boundary
+      risk: routing
+      journey: decline-off-target
+    prompt: |
+      Add an EditForm where a duplicate email returned by a registration service
+      appears beside the Email field and clears when the user edits that field.
+      The data service already exists; the problem is form validation behavior.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Implements field-specific form validation without expanding into a general data-loading architecture
+      - Keeps entered values and allows correction and resubmission
+      - Stayed dormant and did not hijack validation with unrelated API-client or loading-state work

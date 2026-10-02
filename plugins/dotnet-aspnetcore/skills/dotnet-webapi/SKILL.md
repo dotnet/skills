@@ -1,14 +1,17 @@
 ---
 name: dotnet-webapi
 description: >
-  Guides creation and modification of ASP.NET Core Web API endpoints with
-  correct HTTP semantics, OpenAPI metadata, and error handling.
-  USE FOR: adding new API endpoints (controllers or minimal APIs), wiring up
-  OpenAPI/Swagger, creating .http test files, setting up global error handling
-  middleware.
-  DO NOT USE FOR: general C# coding style, EF Core data access or query
+  ASP.NET Core request/response HTTP API implementation workflow.
+  MUST USE FOR: creating, implementing, repairing, or extending Web APIs,
+  minimal API or controller endpoints, HTTP status semantics,
+  OpenAPI/Swagger, .http request files, and global HTTP API error handling.
+  MUST NOT USE FOR: SignalR Hub or Hub<T>, IHubContext, Clients.All/Caller/Group,
+  MapHub, hub broadcasts, SignalR persistent connections, or SignalR server-push
+  messaging; general C# coding style; EF Core data access or query
   optimization (use optimizing-ef-core-queries), frontend/Blazor work, gRPC
-  services, or SignalR hubs.
+  services, or other persistent real-time messaging flows. A SignalR-only task
+  has no request/response HTTP API endpoint; answer it without loading this
+  workflow even when it registers services or maps a hub route.
 license: MIT
 ---
 
