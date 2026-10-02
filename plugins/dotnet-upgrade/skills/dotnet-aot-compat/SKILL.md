@@ -2,17 +2,17 @@
 name: dotnet-aot-compat
 description: >
   Make .NET projects and libraries compatible with Native AOT and trimming by
-  systematically resolving IL trim/AOT analyzer warnings, and by replacing
-  reflection-heavy code with source generators, [UnsafeAccessor], or trimming-safe
-  islands when the reflective surface itself should be removed rather than
-  annotated. USE FOR: making projects or libraries AOT-compatible, fixing trimming
-  warnings, resolving IL warnings (IL2026, IL2070, IL2067, IL2072, IL3050), adding
-  DynamicallyAccessedMembers annotations, enabling IsAotCompatible/IsTrimmable,
-  designing a trimming-safe public API, isolating a dynamic-only code path behind
-  RuntimeFeature.IsDynamicCodeSupported. DO NOT USE FOR: .NET Framework (net4x)
-  projects — they don't support the trim/AOT analyzers at all, so there are no IL
-  warnings to fix; publishing native AOT binaries; optimizing binary size unrelated
-  to trim/AOT warnings.
+  resolving IL analyzer warnings and replacing reflection-heavy code with source
+  generators, [UnsafeAccessor], or trimming-safe islands. USE FOR: making code or
+  build configuration AOT-compatible; fixing trimming/AOT warnings (IL2026, IL2070,
+  IL2067, IL2072, IL3050); adding DynamicallyAccessedMembers; enabling
+  IsAotCompatible/IsTrimmable; designing trimming-safe APIs; isolating dynamic-only
+  paths behind RuntimeFeature.IsDynamicCodeSupported. DO NOT USE FOR: .NET Framework
+  (net4x); or a project already proven AOT-compatible and warning-free when the
+  primary request is only native publishing, RID/self-contained packaging,
+  containerization, deployment, distribution, symbol stripping, or size reduction.
+  If code or build configuration still needs compatibility remediation, use this
+  skill even when publishing is the final goal.
   INVOKES: no tools — pure knowledge skill.
 license: MIT
 ---
