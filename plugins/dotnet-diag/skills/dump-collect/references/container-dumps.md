@@ -62,6 +62,7 @@ Or in the Dockerfile (baked into the image):
 
 ```dockerfile
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
+WORKDIR /app
 
 # Configure crash dump collection
 ENV DOTNET_DbgEnableMiniDump=1
@@ -69,10 +70,13 @@ ENV DOTNET_DbgMiniDumpType=4
 ENV DOTNET_DbgMiniDumpName="/dumps/%e_%p_%t.dmp"
 ENV DOTNET_EnableCrashReport=1
 
-# Create dump directory
-RUN mkdir -p /dumps
+# This example expects published output in ./publish in the Docker build context.
+COPY ./publish/ ./
 
-COPY --from=build /app .
+# Create the image-layer directory for UID 10001. A host bind mount still needs
+# matching host-side ownership; see Non-Root Users below.
+RUN install -d -o 10001 -g 10001 -m 0770 /dumps
+USER 10001:10001
 ENTRYPOINT ["dotnet", "myapp.dll"]
 ```
 
@@ -105,6 +109,7 @@ docker run --cap-add=SYS_PTRACE \
 
 ```dockerfile
 FROM mcr.microsoft.com/dotnet/runtime-deps:10.0
+WORKDIR /app
 
 # Copy createdump from the runtime (match your .NET version)
 COPY --from=mcr.microsoft.com/dotnet/runtime:10.0 /usr/share/dotnet/shared/Microsoft.NETCore.App/ /tmp/runtime/
@@ -115,9 +120,12 @@ ENV DOTNET_DbgEnableMiniDump=1
 ENV DOTNET_DbgMiniDumpType=4
 ENV DOTNET_DbgMiniDumpName="/dumps/%e_%p_%t.dmp"
 
-RUN mkdir -p /dumps
+RUN install -d -o 10001 -g 10001 -m 0770 /dumps
 
-COPY --from=build /app .
+# This example expects the NativeAOT publish output in the Docker build context.
+COPY ./publish/myapp ./myapp
+RUN chmod 0755 ./myapp
+USER 10001:10001
 ENTRYPOINT ["./myapp"]
 ```
 
@@ -284,6 +292,9 @@ kubectl exec <pod> -- dotnet-dump collect -p <pid> --output /dumps/myapp.dmp
 kubectl cp <pod>:/dumps/myapp.dmp ./myapp.dmp
 ```
 
+These commands are non-interactive. Do not add `-t` or `-it`; allocating a TTY can alter output and
+is unnecessary for process listing, dump collection, or verification.
+
 ### Deployment-Level Configuration
 
 To apply dump collection to all pods in a Deployment:
@@ -326,8 +337,8 @@ spec:
 # Check env vars inside the container
 docker exec <container> env | grep DOTNET_Dbg
 
-# Check dump directory exists and is writable
-docker exec <container> ls -la /dumps/
+# Check the configured container identity can write the destination
+docker exec --user <uid>:<gid> <container> sh -c 'test -w /dumps && echo writable'
 
 # Check createdump is available (NativeAOT)
 docker exec <container> ls -la /app/createdump 2>/dev/null || echo "createdump not co-located"
@@ -344,8 +355,8 @@ ls -la /tmp/dumps/*.dmp
 # Check env vars
 kubectl exec <pod> -- env | grep DOTNET_Dbg
 
-# Check dump directory
-kubectl exec <pod> -- ls -la /dumps/
+# Check the running container identity and destination writability
+kubectl exec <pod> -- sh -c 'id && test -w /dumps && echo writable'
 
 # After a crash, list dumps
 kubectl exec <pod> -- sh -c 'ls -la /dumps/*.dmp' 2>/dev/null
@@ -358,11 +369,27 @@ kubectl cp <pod>:/dumps/ ./dumps/
 
 ### Non-Root Users
 
-If your container runs as a non-root user, ensure the dump directory is writable:
+If your container runs as a non-root user, ensure the dump directory is writable. A bind mount
+**hides the image-layer ownership** configured by a Dockerfile, so `chown /dumps` while building the
+image does not make `-v ./dumps:/dumps` writable. Prepare and verify the host directory for the same
+numeric UID/GID before starting the container:
+
+```bash
+mkdir -p ./dumps
+sudo chown 10001:10001 ./dumps
+sudo chmod 0770 ./dumps
+sudo -u '#10001' test -w ./dumps && echo "host dump directory writable"
+
+docker run --user 10001:10001 --cap-add=SYS_PTRACE \
+  -v "$(pwd)/dumps:/dumps" \
+  myapp
+```
+
+The image should still create the mount point for non-bind-mount cases:
 
 ```dockerfile
-RUN mkdir -p /dumps && chown -R app:app /dumps
-USER app
+RUN install -d -o 10001 -g 10001 -m 0770 /dumps
+USER 10001:10001
 ```
 
 For Kubernetes, use an init container or `securityContext.fsGroup`:
@@ -374,7 +401,9 @@ securityContext:
   fsGroup: 1000    # matches the app user's group
 ```
 
-When using `runAsNonRoot: true`, the dump directory must be writable by the non-root user. Use `fsGroup` to grant group write access to the mounted volume, or set permissions in the Dockerfile.
+When using `runAsNonRoot: true`, the mounted volume must be writable by the non-root user. Use
+`fsGroup` or an init container to set volume ownership; Dockerfile permissions do not change a
+PVC, `emptyDir`, or host-mounted directory.
 
 ### Alpine / musl-Based Images
 

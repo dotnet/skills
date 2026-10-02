@@ -1,219 +1,542 @@
 name: android-tombstone-symbolication
 description: Evaluates the dotnet-diag/android-tombstone-symbolication skill
 type: capability
-config:
-  timeout: 5m
+defaults:
+  timeout: 6m
 stimuli:
-  - name: Symbolicate .NET frames in an Android tombstone
-    prompt: I have an Android tombstone file at tombstone_sample.txt from a crashed .NET MAUI app. Please symbolicate the
-      .NET runtime frames in the backtrace to show function names and source locations.
+  - name: Produce an offline Mono tombstone symbolication plan
+    prompt: >-
+      A customer sent tombstone_sample.txt after our Android app aborted. I am
+      on an offline machine without LLVM installed. Inspect the capture, tell me
+      exactly which runtime frames can be resolved, and give me a command I can
+      run later on a prepared machine. Do not download or install anything.
+    tags:
+      capability: mono-buildid-and-offsets
+      risk: high
+      journey: triage-android-native-crash
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./tombstone_sample.txt
+          dest: tombstone_sample.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "android-tombstone-offline-mono"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The capture is an arm64 Android tombstone with four .NET runtime frames in `libmonosgen-2.0.so`. They all use BuildId `1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be`; the first runtime-relative PC is `0x222098`.
+
+              On a prepared machine, obtain the matching ELF debug file for that exact BuildId from:
+              `https://msdl.microsoft.com/download/symbols/_.debug/elf-buildid-sym-1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be/_.debug`
+
+              Then resolve the first frame with:
+              `llvm-symbolizer --obj=libmonosgen-2.0.so.debug -f -C 0x222098`
+
+              Repeat for `0x2241ac`, `0x1abc80`, and `0x16de04`. These are already library-relative offsets, so no load address must be added. I did not fetch symbols or install LLVM.
+    graders:
+      - type: file-exists
+        config:
+          path: tombstone_sample.txt
+      - type: run-command
+        config:
+          command: >-
+            python -c "from pathlib import Path; t=Path('tombstone_sample.txt').read_text();
+            assert 'libmonosgen-2.0.so' in t and '1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be' in t;
+            print('fixture-ok')"
+          expected_exit_code: 0
+          stdout_matches: fixture-ok
+      - type: output-matches
+        config:
+          pattern: '(?i)libmonosgen-2\.0\.so'
+      - type: output-matches
+        config:
+          pattern: '1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be'
+      - type: output-matches
+        config:
+          pattern: '(?is)(?:llvm-symbolizer[\s\S]*--obj=[^\s`]+[\s\S]*(?:0x)?0*222098|Symbolicate-Tombstone\.ps1[\s\S]*-TombstoneFile\s+\S*tombstone_sample\.txt[\s\S]*-LlvmSymbolizer\s+\S*llvm-symbolizer)'
+      - type: output-matches
+        config:
+          pattern: '(?:elf-buildid-sym-1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be|Symbolicate-Tombstone\.ps1[\s\S]*tombstone_sample\.txt)'
+      - type: output-not-matches
+        config:
+          pattern: '(?i)(installed LLVM|downloaded (the )?symbols)'
+      - type: prompt
+    rubric:
+      - Identified the Mono runtime frames and their exact BuildId
+      - Used the captured library-relative offsets without adding a load address
+      - Provided a reproducible command for resolving the captured frames later
+      - Respected the offline constraint
+
+  - name: Distinguish a CoreCLR Android crash from Mono
+    prompt: >-
+      Review tombstone_coreclr.txt and prepare a short handoff for the runtime
+      team. State which .NET runtime is present, preserve the first unresolved
+      frame, and include the exact symbol lookup inputs. This machine has no
+      network access.
+    tags:
+      capability: coreclr-runtime-discrimination
+      risk: high
+      journey: handoff-coreclr-crash
+    environment:
+      files:
+        - src: ./tombstone_coreclr.txt
+          dest: tombstone_coreclr.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "android-tombstone-coreclr-handoff"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Runtime handoff: this is a CoreCLR Android crash, not Mono. The .NET frames are in `libcoreclr.so` with BuildId `4ca7e2f19b3d605847a1c8e3f5b7d9a2c4e6f801`.
+
+              Preserve frame `#01` as `libcoreclr.so pc 0x3a81f0` until symbols are available. The matching debug object key is `elf-buildid-sym-4ca7e2f19b3d605847a1c8e3f5b7d9a2c4e6f801`, and the later resolution command is:
+              `llvm-symbolizer --obj=libcoreclr.so.debug -f -C 0x3a81f0`
+
+              No network action was taken.
+    graders:
+      - type: file-exists
+        config:
+          path: tombstone_coreclr.txt
+      - type: output-matches
+        config:
+          pattern: '(?i)CoreCLR[\s\S]*libcoreclr\.so'
+      - type: output-matches
+        config:
+          pattern: '4ca7e2f19b3d605847a1c8e3f5b7d9a2c4e6f801'
+      - type: output-matches
+        config:
+          pattern: '(?i)llvm-symbolizer[\s\S]*(0x)?0*3a81f0'
+      - type: output-not-matches
+        config:
+          pattern: '(?i)(Mono-based|(?:runtime|classification)\s*:\s*Mono\b|this is (?:a )?Mono\b)'
+      - type: prompt
+    rubric:
+      - Correctly classified the runtime as CoreCLR
+      - Preserved the first unresolved frame with its library-relative offset
+      - Included the exact BuildId needed to obtain matching symbols
+      - Did not misclassify the capture as a Mono crash
+
+  - name: Separate NativeAOT app symbols from runtime component symbols
+    prompt: >-
+      We shipped an Android NativeAOT build and received
+      tombstone_nativeaot.txt. Explain which frames can use Microsoft-provided
+      symbols and which require our build artifacts. I need concrete identifiers
+      for both groups, but no downloads.
+    tags:
+      capability: nativeaot-symbol-ownership
+      risk: high
+      journey: triage-nativeaot-crash
+    environment:
+      files:
+        - src: ./tombstone_nativeaot.txt
+          dest: tombstone_nativeaot.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "android-tombstone-nativeaot-ownership"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a NativeAOT layout: the runtime code is linked into `libNativeAotApp.so`, so there is no separate `libcoreclr.so` or `libmonosgen-2.0.so`.
+
+              Frames #01-#04 in `libNativeAotApp.so` require the app's own unstripped binary or debug artifact matching BuildId `8b2d4f6a1c3e5078a9b1d3f5e7c2a4b6d8e0f213`. They must not be looked up as Microsoft runtime-library symbols.
+
+              Frame #05 is in the .NET BCL native component `libSystem.Native.so`. Its BuildId is `5e7c2a4b6d8e0f2138b2d4f6a1c3e5079a1b3d5f`, so that component can use the Microsoft ELF symbol key `elf-buildid-sym-5e7c2a4b6d8e0f2138b2d4f6a1c3e5079a1b3d5f`. No symbols were downloaded.
     graders:
       - type: output-matches
         config:
-          pattern: libmonosgen-2\.0\.so
+          pattern: '(?i)NativeAOT[\s\S]*libNativeAotApp\.so'
       - type: output-matches
         config:
-          pattern: elf-buildid-sym-1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be
+          pattern: '8b2d4f6a1c3e5078a9b1d3f5e7c2a4b6d8e0f213'
       - type: output-matches
         config:
-          pattern: llvm-symbolizer
+          pattern: 'libSystem\.Native\.so[\s\S]*5e7c2a4b6d8e0f2138b2d4f6a1c3e5079a1b3d5f'
       - type: output-matches
         config:
-          pattern: (0x)?0*222098
-      - type: output-matches
-        config:
-          pattern: --obj=
-      - type: output-matches
-        config:
-          pattern: msdl\.microsoft\.com
+          pattern: '(?i)(own|app|build).{0,40}(symbols|artifact|unstripped)'
       - type: prompt
     rubric:
-      - Identified that the tombstone contains .NET runtime frames from libmonosgen-2.0.so
-      - Extracted the BuildId 1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be from the backtrace
-      - Constructed the full symbol server URL with the BuildId in the elf-buildid-sym path
-      - Showed the llvm-symbolizer command with --obj pointing to the debug symbols file and a PC offset from the
-        tombstone
-      - Produced or described a symbolicated backtrace with function names and source file locations
-  - name: Recognize tombstone with no .NET frames
-    prompt: I have an Android tombstone file at tombstone_no_dotnet.txt from a crashed app. Please symbolicate the .NET
-      runtime frames.
+      - Distinguished application-owned NativeAOT symbols from Microsoft runtime component symbols
+      - Reported the exact BuildId for the application binary
+      - Reported the exact BuildId for the BCL native component
+      - Avoided treating the statically linked app as a Mono or CoreCLR shared-library crash
+
+  - name: Preserve thread context across a multi-thread tombstone
+    prompt: >-
+      Inspect tombstone_multithread.txt. I need an offline report of every
+      thread that contains .NET frames, including the shared identity used to
+      resolve them. Do not collapse the report to only the first backtrace.
+    tags:
+      capability: multi-thread-frame-inventory
+      risk: high
+      journey: inspect-cross-thread-runtime-state
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./tombstone_multithread.txt
+          dest: tombstone_multithread.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "android-tombstone-multithread-inventory"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The .NET frame inventory spans three thread contexts:
+
+              - the crashing thread has seven `libmonosgen-2.0.so` frames;
+              - `SGen worker` has two `libmonosgen-2.0.so` frames;
+              - `Finalizer` has one `libmonosgen-2.0.so` frame.
+
+              `HeapTaskDaemon` is present but its captured frames are Android runtime frames, not .NET frames. All ten .NET frames share BuildId `1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be`, so one matching debug object can resolve the offsets from all three relevant thread contexts. No network access is needed to produce this inventory.
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python -c "from pathlib import Path; t=Path('tombstone_multithread.txt').read_text();
+            assert 'SGen worker' in t and 'Finalizer' in t and t.count('1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be') == 10;
+            print('threads-ok')"
+          expected_exit_code: 0
+          stdout_matches: threads-ok
+      - type: output-matches
+        config:
+          pattern: '(?i)crashing thread[\s\S]*SGen worker[\s\S]*Finalizer'
+      - type: output-matches
+        config:
+          pattern: '(?i)(ten|10) .NET frames'
+      - type: output-matches
+        config:
+          pattern: '1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be'
+      - type: prompt
+    rubric:
+      - Reported every thread context that contains .NET frames
+      - Kept the non-.NET HeapTaskDaemon context distinct from the runtime frames
+      - Recognized that one BuildId applies across the relevant threads
+      - Preserved enough thread context for a useful runtime-team handoff
+
+  - name: Handle runtime frames without BuildIds
+    prompt: >-
+      Analyze tombstone_no_buildid.txt on an offline machine. Tell me what can
+      and cannot be resolved from this capture, and give the next artifact I
+      should request from the build owner. Do not invent missing identifiers.
+    tags:
+      capability: missing-buildid-restraint
+      risk: high
+      journey: recover-incomplete-tombstone
+    environment:
+      files:
+        - src: ./tombstone_no_buildid.txt
+          dest: tombstone_no_buildid.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "android-tombstone-missing-buildid"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The capture contains four `libmonosgen-2.0.so` frames and one `libSystem.Native.so` frame, but none of those .NET frames includes a BuildId. The PC offsets, including `0x222098`, can be preserved, but this file alone cannot select an exact debug object or form a trustworthy Microsoft symbol-server key.
+
+              Request the original unstripped runtime libraries or the exact runtime pack/build artifacts used for this APK. A raw device tombstone with BuildIds, or `readelf -n` output for the matching installed `.so` files, would also supply the missing identity. No BuildId can be inferred safely from the offsets.
     graders:
       - type: output-matches
         config:
-          pattern: (no .NET|not a .NET|no .net|no dotnet|no managed|not .NET|does not contain .NET|doesn.t contain .NET|no mono|no
-            CoreCLR|no libmonosgen|no libcoreclr)
+          pattern: '(?i)libmonosgen-2\.0\.so[\s\S]*(no|missing|without).{0,20}BuildId'
       - type: output-matches
         config:
-          pattern: (libc\.so|libart\.so|libutils\.so|libnativeapp\.so)
+          pattern: '(?i)(unstripped|runtime pack|build artifacts|readelf)'
+      - type: output-matches
+        config:
+          pattern: '(?is)(?:(?:cannot|can.t|must not|no|without)[\s\S]{0,80}(?:infer|invent|guess|substitut|symbol.server|exact debug)|(?:symbol.server|exact debug|BuildId)[\s\S]{0,80}(?:cannot|can.t|unavailable|not resolvable))'
+      - type: output-not-matches
+        config:
+          pattern: 'elf-buildid-sym-[0-9a-f]{32,40}'
       - type: prompt
     rubric:
-      - Correctly identified that the tombstone contains no .NET runtime libraries (no libmonosgen-2.0.so or
-        libcoreclr.so)
-      - Did NOT attempt to download symbols from the Microsoft symbol server
-      - Did NOT fabricate or hallucinate symbolicated .NET frames
-      - Mentioned that the crash involves native Android/ART libraries (libc, libart, libutils) rather than .NET
-  - name: Symbolicate CoreCLR frames in an Android tombstone
-    prompt: I have an Android tombstone file at tombstone_coreclr.txt from a crashed .NET Android app. Please symbolicate
-      the .NET runtime frames in the backtrace.
+      - Identified the .NET libraries and preserved their offsets
+      - Explained that exact symbol selection is impossible without a BuildId or matching binary
+      - Requested a realistic artifact that can recover the missing identity
+      - Did not fabricate a BuildId or symbol-server URL
+
+  - name: Keep separate symbol identities for multiple runtime libraries
+    prompt: >-
+      Prepare a symbol-request manifest from tombstone_multi_buildid.txt. Group
+      the .NET frames by library and list the exact identity needed for each
+      group. The manifest must make it impossible to reuse one library's symbols
+      for another.
+    tags:
+      capability: multi-library-buildid-mapping
+      risk: high
+      journey: prepare-symbol-request
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./tombstone_multi_buildid.txt
+          dest: tombstone_multi_buildid.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "android-tombstone-multi-library-manifest"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Symbol-request manifest:
+
+              - `libmonosgen-2.0.so` -> BuildId `1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be`; offsets include `0x222098`, `0x222234`, `0x19bac0`, and `0x19bc14`.
+              - `libSystem.Native.so` -> BuildId `7a3b5c9d1e4f6082a3c5d7e9f1b2d4a6c8e0f213`; offsets are `0x8f14` and `0x12a48`.
+              - `libSystem.Globalization.Native.so` -> BuildId `2f4a6b8c0d2e4f6a8c0e2f4a6b8c0d2e4f6a8c0e`; offset is `0x3b20`.
+
+              Each BuildId needs its own `elf-buildid-sym-<BuildId>` debug object. A debug file from one row must not be reused for another row.
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python -c "from pathlib import Path; t=Path('tombstone_multi_buildid.txt').read_text();
+            assert len(set(x.split('BuildId: ')[1].split(')')[0] for x in t.splitlines() if 'libSystem.' in x or 'libmonosgen' in x)) == 3;
+            print('buildids-ok')"
+          expected_exit_code: 0
+          stdout_matches: buildids-ok
+      - type: output-matches
+        config:
+          pattern: 'libmonosgen-2\.0\.so[\s\S]*1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be'
+      - type: output-matches
+        config:
+          pattern: 'libSystem\.Native\.so[\s\S]*7a3b5c9d1e4f6082a3c5d7e9f1b2d4a6c8e0f213'
+      - type: output-matches
+        config:
+          pattern: 'libSystem\.Globalization\.Native\.so[\s\S]*2f4a6b8c0d2e4f6a8c0e2f4a6b8c0d2e4f6a8c0e'
+      - type: prompt
+    rubric:
+      - Mapped each .NET library to its own exact BuildId
+      - Preserved representative offsets for every library group
+      - Made clear that debug objects are not interchangeable across BuildIds
+      - Produced a manifest that can be used without re-reading the tombstone
+
+  - name: Parse a tombstone captured through logcat prefixes
+    prompt: >-
+      Our CI artifact fixtures/logcat-prefixed.txt is copied directly from
+      logcat, including timestamps and tags on every line. Extract the .NET
+      native frames and give me a compact offline symbol request.
+    tags:
+      capability: logcat-prefix-normalization
+      risk: medium
+      journey: triage-ci-logcat-capture
+    environment:
+      files:
+        - src: ./fixtures/logcat-prefixed.txt
+          dest: logcat-prefixed.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "android-tombstone-logcat-prefixes"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              After removing the logcat timestamp/tag prefixes, the capture contains two .NET native frames:
+
+              - `#01 libmonosgen-2.0.so pc 0x222098`, BuildId `1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be`
+              - `#02 libSystem.Native.so pc 0x8f14`, BuildId `7a3b5c9d1e4f6082a3c5d7e9f1b2d4a6c8e0f213`
+
+              Request one matching ELF debug object for each BuildId. The prefixes do not change the captured offsets or identities, and no network access is required to prepare this request.
+    graders:
+      - type: file-exists
+        config:
+          path: logcat-prefixed.txt
+      - type: output-matches
+        config:
+          pattern: 'libmonosgen-2\.0\.so[\s\S]*(0x)?0*222098[\s\S]*1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be'
+      - type: output-matches
+        config:
+          pattern: 'libSystem\.Native\.so[\s\S]*(0x)?0*8f14[\s\S]*7a3b5c9d1e4f6082a3c5d7e9f1b2d4a6c8e0f213'
+      - type: output-matches
+        config:
+          pattern: '(?i)(logcat|timestamp|tag).{0,40}(prefix|strip|remove)'
+      - type: prompt
+    rubric:
+      - Parsed frame records despite the logcat prefixes
+      - Reported both .NET libraries with their exact offsets and BuildIds
+      - Kept the two symbol identities separate
+      - Produced an offline-ready symbol request
+
+  - name: Limit a multi-thread capture to the crashing thread
+    prompt: >-
+      For the first-pass incident note, read tombstone_multithread.txt but report
+      only the crashing thread. Include the number of .NET frames in that scope
+      and the exact identity and offsets needed for later resolution. Do not
+      include background-thread frames.
+    tags:
+      capability: crashing-thread-scope
+      risk: medium
+      journey: create-first-pass-incident-note
+    environment:
+      files:
+        - src: ./tombstone_multithread.txt
+          dest: tombstone_multithread.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "android-tombstone-crashing-thread-only"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Crashing-thread-only incident note: the first backtrace contains seven .NET frames, all in `libmonosgen-2.0.so` with BuildId `1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be`.
+
+              The offsets are `0x222098`, `0x2241ac`, `0x1abc80`, `0x1abd14`, `0x16dfa4`, `0x16db6c`, and `0x16de04`. This note intentionally excludes the later `SGen worker` and `Finalizer` backtraces.
     graders:
       - type: output-matches
         config:
-          pattern: libcoreclr\.so
+          pattern: '(?i)(?:(?:seven|7)[^\r\n]{0,30}\.NET[^\r\n]{0,30}frames|\.NET[^\r\n]{0,30}(?:frames|frame count)[^\r\n]{0,20}(?:seven|7))'
       - type: output-matches
         config:
-          pattern: elf-buildid-sym-4ca7e2f19b3d605847a1c8e3f5b7d9a2c4e6f801
+          pattern: '0x222098[\s\S]*0x2241ac[\s\S]*0x1abc80[\s\S]*0x1abd14[\s\S]*0x16dfa4[\s\S]*0x16db6c[\s\S]*0x16de04'
       - type: output-matches
         config:
-          pattern: llvm-symbolizer
+          pattern: '1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be'
       - type: output-matches
         config:
-          pattern: (0x)?0*3a81f0
+          pattern: '(?is)(?:(?:exclude|excluded|not include|omits?)[^\r\n]{0,80}(?:SGen worker|Finalizer|background)|(?:SGen worker|Finalizer|background)[^\r\n]{0,80}(?:exclude|excluded|not include|omits?|not parsed))'
       - type: prompt
     rubric:
-      - Identified that the tombstone contains .NET runtime frames from libcoreclr.so
-      - Extracted the BuildId 4ca7e2f19b3d605847a1c8e3f5b7d9a2c4e6f801 from the backtrace
-      - Constructed the full symbol server URL with the BuildId in the elf-buildid-sym path
-      - Showed the llvm-symbolizer command with --obj and a PC offset from the tombstone
-      - Did NOT assume the app is Mono-based — correctly identified it as CoreCLR (JIT)
-  - name: Recognize NativeAOT tombstone with app binary and libSystem.Native.so
-    prompt: I have an Android tombstone file at tombstone_nativeaot.txt from a crashed .NET Android app compiled with
-      NativeAOT. Please symbolicate the .NET runtime frames in the backtrace.
+      - Scoped the report to the crashing thread
+      - Reported the correct .NET frame count for that scope
+      - Preserved every .NET offset from the crashing thread
+      - Explicitly excluded background-thread frames
+
+  - name: Route a native Android crash without .NET frames
+    prompt: >-
+      Please review tombstone_no_dotnet.txt and tell me where this Android native
+      crash most likely belongs. I want a concise handoff and do not want any
+      tools installed.
+    tags:
+      capability: native-only-tombstone-handoff
+      risk: routing
+      journey: route-native-android-crash
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./tombstone_no_dotnet.txt
+          dest: tombstone_no_dotnet.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "android-tombstone-dormancy-native-only"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This capture has no .NET runtime or BCL native frames. The failing path is native Android code: `libc.so` calls into the application's `libnativeapp.so`, with ART trampoline frames above it. Route the handoff to the app's JNI/native owner and use the unstripped `libnativeapp.so` matching BuildId `f4c2a1b8e7d3096542f1a8c3b5e7d9f2a1b4c6e8`. There is no reason to request Microsoft .NET runtime symbols or install a .NET crash workflow.
     graders:
       - type: output-matches
         config:
-          pattern: (NativeAOT|native.AOT|nativeaot|statically.link|app.binary|libNativeAotApp)
+          pattern: '(?is)(?:(?:no \.NET|not (?:a )?\.NET|native Android)[\s\S]*(?:libnativeapp\.so|JNI)|(?:libnativeapp\.so|JNI)[\s\S]*(?:no \.NET|not (?:a )?\.NET|native Android))'
       - type: output-matches
         config:
-          pattern: libSystem\.Native\.so
-      - type: output-matches
+          pattern: 'f4c2a1b8e7d3096542f1a8c3b5e7d9f2a1b4c6e8'
+      - type: output-not-matches
         config:
-          pattern: elf-buildid-sym-5e7c2a4b6d8e0f2138b2d4f6a1c3e5079a1b3d5f
+          pattern: 'msdl\.microsoft\.com|elf-buildid-sym-'
       - type: prompt
     rubric:
-      - Recognized that this is a NativeAOT app — the runtime is statically linked into the app binary
-        (libNativeAotApp.so), not a separate libcoreclr.so or libmonosgen-2.0.so
-      - Identified libSystem.Native.so as a .NET BCL native component that can be symbolicated via the Microsoft symbol
-        server
-      - Explained that the app binary (libNativeAotApp.so) requires the app's own debug symbols, not symbols from the
-        Microsoft symbol server
-      - Did NOT confuse this with a Mono or CoreCLR JIT app
-  - name: Symbolicate multi-thread tombstone
-    prompt: I have an Android tombstone file at tombstone_multithread.txt from a crashed .NET MAUI app. The tombstone
-      includes backtraces from multiple threads. Please symbolicate all the .NET runtime frames across all threads.
+      - Recognized that the crash contains no .NET frames
+      - Routed the incident to the native application or JNI owner
+      - Preserved the app-native library identity needed for that handoff
+      - Avoided requesting Microsoft .NET symbols or installing unrelated tools
+      - Stopped the .NET symbolication workflow after confirming that no .NET frames were present
+
+  - name: Stay dormant for an Apple crash report
+    prompt: >-
+      crashlog_ios.txt is the crash report from our mobile app. Identify its
+      format and tell the iOS engineer what symbol artifact and platform tool
+      they need next.
+    expect_activation: false
+    tags:
+      capability: dormancy-apple-crash-format
+      risk: routing
+      journey: route-apple-crash
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./crashlog_ios.txt
+          dest: crashlog_ios.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "android-tombstone-dormancy-apple"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a legacy Apple `.crash` text report, not an Android tombstone. The iOS engineer needs the UUID-matched app dSYM for `MyApp` and should use Apple symbolication tooling such as `atos` or Xcode's crash organizer. Android ELF BuildIds, the Microsoft `_.debug` endpoint, and `llvm-symbolizer` are not the correct workflow for this file.
     graders:
       - type: output-matches
         config:
-          pattern: libmonosgen-2\.0\.so
+          pattern: '(?i)(Apple|iOS)[\s\S]*(legacy|\.crash|not an Android tombstone)'
       - type: output-matches
         config:
-          pattern: elf-buildid-sym-1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be
-      - type: output-matches
+          pattern: '(?i)dSYM[\s\S]*(atos|Xcode)'
+      - type: output-not-matches
         config:
-          pattern: (SGen.worker|Finalizer)
-      - type: output-matches
-        config:
-          pattern: (HeapTaskDaemon|SGen.worker|Finalizer)
-      - type: output-matches
-        config:
-          pattern: llvm-symbolizer
+          pattern: 'elf-buildid-sym-|--obj='
       - type: prompt
     rubric:
-      - Identified .NET frames from the crashing thread and at least one background thread (SGen worker or Finalizer)
-      - Recognized that the SGen worker and Finalizer threads also contain libmonosgen-2.0.so frames
-      - Used the same BuildId to symbolicate frames across all threads (they share the same libmonosgen-2.0.so)
-      - Showed the llvm-symbolizer command or the automation script for symbolication
-  - name: Handle .NET frames with no BuildId metadata
-    prompt: I have an Android tombstone file at tombstone_no_buildid.txt from a crashed .NET app. Please symbolicate the
-      .NET runtime frames.
+      - Correctly identified the Apple crash-report format
+      - Redirected the user to UUID-matched dSYMs and Apple tooling
+      - Did not apply Android ELF symbol lookup steps
+      - Did not install or invoke unrelated tools
+
+  - name: Stay dormant for an already managed exception
+    prompt: >-
+      CI captured fixtures/managed-exception-logcat.txt when checkout failed.
+      Summarize the actionable failure and the code location the application
+      team should inspect first.
+    expect_activation: false
+    tags:
+      capability: dormancy-managed-stacktrace
+      risk: routing
+      journey: triage-managed-application-failure
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./fixtures/managed-exception-logcat.txt
+          dest: managed-exception-logcat.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "android-tombstone-dormancy-managed-exception"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The failure is already a managed .NET exception with a readable stack trace: `System.InvalidOperationException: Cart is empty.` The first application frame is `CheckoutService.Submit()` in `CheckoutService.cs:line 42`, followed by `MainActivity.OnCreate` at line 18. Start with the empty-cart state and guard logic in `CheckoutService.Submit`; native tombstone symbolication is not needed.
     graders:
       - type: output-matches
         config:
-          pattern: libmonosgen-2\.0\.so
+          pattern: 'System\.InvalidOperationException[\s\S]*Cart is empty'
       - type: output-matches
         config:
-          pattern: (no BuildId|no.build.?id|missing BuildId|without
-            BuildId|BuildId.*(not|missing|absent|unavailable)|cannot.*(symbolicate|download|resolve))
+          pattern: 'CheckoutService\.Submit\(\)[\s\S]*(line )?42'
+      - type: output-matches
+        config:
+          pattern: '(?i)(managed (?:stack trace|\.NET exception)|(?:native[/ ]tombstone|tombstone|native).{0,40}(?:not needed|no .*symbolication needed)|already managed|fully managed)'
       - type: prompt
     rubric:
-      - Identified that the tombstone contains .NET runtime frames from libmonosgen-2.0.so
-      - Recognized that the .NET frames do NOT have BuildId metadata
-      - Explained that without a BuildId, debug symbols cannot be downloaded from the Microsoft symbol server
-      - "Suggested alternative approaches: obtaining the unstripped binary from the build, checking NuGet runtime pack,
-        or local build artifacts"
-      - Did NOT hallucinate or fabricate a BuildId
-  - name: Symbolicate tombstone with multiple .NET libraries and different BuildIds
-    prompt: I have an Android tombstone file at tombstone_multi_buildid.txt from a crashed .NET MAUI app. Please symbolicate
-      the .NET runtime frames in the backtrace.
-    environment:
-      files:
-        - src: .
-          dest: .
-    graders:
-      - type: output-matches
-        config:
-          pattern: libmonosgen-2\.0\.so
-      - type: output-matches
-        config:
-          pattern: libSystem\.Native\.so
-      - type: output-matches
-        config:
-          pattern: elf-buildid-sym-1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be
-      - type: output-matches
-        config:
-          pattern: elf-buildid-sym-7a3b5c9d1e4f6082a3c5d7e9f1b2d4a6c8e0f213
-      - type: output-matches
-        config:
-          pattern: (elf-buildid-sym-2f4a6b8c|libSystem\.Globalization\.Native\.so)
-      - type: output-matches
-        config:
-          pattern: msdl\.microsoft\.com
-      - type: prompt
-    rubric:
-      - "Identified .NET frames from multiple libraries: libmonosgen-2.0.so, libSystem.Native.so, and
-        libSystem.Globalization.Native.so"
-      - Extracted distinct BuildIds for each library and constructed separate symbol server download URLs
-      - Downloaded (or described downloading) debug symbols for each unique BuildId independently
-      - Showed the llvm-symbolizer command or automation script for symbolication
-  - name: Reject iOS crash log as wrong format
-    prompt: I have a crash log file at crashlog_ios.txt from a crashed app. Please symbolicate the .NET runtime frames.
-    environment:
-      files:
-        - src: .
-          dest: .
-    graders:
-      - type: output-matches
-        config:
-          pattern: (iOS|iPhone|Apple|not.*(Android|tombstone)|wrong.*(format|type)|different.*(format|process))
-      - type: prompt
-    rubric:
-      - Recognized that this is an iOS crash log, not an Android tombstone
-      - Did NOT attempt to apply the Android tombstone symbolication workflow
-      - Did NOT attempt to download symbols from the Microsoft ELF symbol server
-      - Explained that iOS crash logs require a different symbolication process (e.g., atos, dSYMs)
-    constraints:
-      reject_skills:
-        - "*"
+      - Reported the managed exception type and message
+      - Identified the first actionable application frame
+      - Directed investigation to application logic rather than native symbols
+      - Stayed dormant instead of starting a tombstone workflow

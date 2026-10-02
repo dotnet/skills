@@ -1,192 +1,608 @@
 name: dump-collect
 description: Evaluates the dotnet-diag/dump-collect skill
 type: capability
-config:
-  timeout: 2m
+tags:
+  executionShard: medium
+defaults:
+  timeout: 6m
+  runs: 1
 stimuli:
-  - name: Configure automatic crash dumps for CoreCLR app on Linux
+  - name: Configure automatic full dumps for CoreCLR on Linux
     prompt: |
-      I have a .NET 10 CoreCLR web API running on Linux. I need to configure
-      automatic crash dump collection so that when the app crashes, a full
-      dump is written to /var/dumps. Show me the environment variables to set
-      and how to verify the configuration.
-    graders:
-      - type: output-contains
-        config:
-          substring: DOTNET_DbgEnableMiniDump
-      - type: output-contains
-        config:
-          substring: DOTNET_DbgMiniDumpType
-      - type: output-contains
-        config:
-          substring: DOTNET_DbgMiniDumpName
-      - type: output-contains
-        config:
-          substring: /var/dumps
-      - type: prompt
-    rubric:
-      - Sets DOTNET_DbgEnableMiniDump=1 to enable crash dumps
-      - Sets DOTNET_DbgMiniDumpType=4 for full dumps
-      - Sets DOTNET_DbgMiniDumpName with the /var/dumps path
-      - Includes a verification step to confirm env vars are set
-      - Does not attempt to analyze dumps or install analysis tools
-  - name: Set up NativeAOT crash dumps with createdump in Kubernetes
-    prompt: |
-      I have a NativeAOT .NET 11 app running in Kubernetes. The createdump
-      tool is installed at /opt/tools/createdump. Configure automatic crash
-      dump collection and give me the pod spec changes I need.
-    graders:
-      - type: output-contains
-        config:
-          substring: DOTNET_DbgEnableMiniDump
-      - type: output-contains
-        config:
-          substring: DOTNET_DbgCreateDumpToolPath
-      - type: output-contains
-        config:
-          substring: SYS_PTRACE
-      - type: output-contains
-        config:
-          substring: /opt/tools/createdump
-      - type: prompt
-    rubric:
-      - Uses DOTNET_DbgCreateDumpToolPath for .NET 11 NativeAOT
-      - Adds SYS_PTRACE capability to the container securityContext
-      - Mounts a volume for dump output
-      - Sets DOTNET_DbgMiniDumpType=4 since NativeAOT only supports full dumps
-      - Does not attempt to analyze dumps
-  - name: Recover crash dump from macOS NativeAOT without createdump
-    prompt: |
-      My NativeAOT app just crashed on macOS. I don't have createdump
-      available. How can I find the crash dump or crash report?
+      A .NET 10 CoreCLR API runs as the Linux account apiuser and must write a
+      full crash dump under /var/dumps. Give the exact environment setup,
+      service-user verification commands, and cleanup reminder. Do not execute
+      commands or change files.
+    tags:
+      capability: coreclr-linux-automatic-dumps
+      risk: high
+      journey: configure-crash-capture
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dump-coreclr-linux-automatic"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Run before starting the service:
+              `sudo install -d -o apiuser -g apiuser -m 0770 /var/dumps`
+              `export DOTNET_DbgEnableMiniDump=1`
+              `export DOTNET_DbgMiniDumpType=4`
+              `export DOTNET_DbgMiniDumpName=/var/dumps/%e_%p_%t.dmp`
+              Verify with `env | grep DOTNET_Dbg` and `sudo -u apiuser test -w /var/dumps && echo writable`. After the incident, unset the three variables if collection was temporary so full dumps do not accumulate. These commands configure collection only; I did not execute or analyze anything.
     graders:
       - type: output-matches
         config:
-          pattern: /cores
+          pattern: '(?is)export\s+DOTNET_DbgEnableMiniDump=1.*export\s+DOTNET_DbgMiniDumpType=4.*export\s+DOTNET_DbgMiniDumpName=/var/dumps/%e_%p_%t\.dmp'
       - type: output-matches
         config:
-          pattern: DiagnosticReports|crash
+          pattern: '(?is)(env\s+\|\s+grep\s+DOTNET_Dbg).*(sudo\s+-u\s+apiuser\s+test\s+-w\s+/var/dumps)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(unset|remove).*(DOTNET_DbgEnableMiniDump|three variables)'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^\s*(?:[$>]\s*)?(?:dotnet-dump\s+analyze|lldb|windbg)\b'
+      - type: exit-success
       - type: prompt
     rubric:
-      - Checks /cores/ directory for core dump files
-      - Checks ~/Library/Logs/DiagnosticReports for .crash or .ips reports
-      - Explains that if ulimit -c unlimited was not set before the crash, the core dump may be lost
-      - Does not attempt to analyze the dump contents
-  - name: Configure CoreCLR dump collection in Alpine Docker as non-root
-    prompt: |
-      I need to set up crash dump collection for my CoreCLR app running in an
-      Alpine-based Docker container. The container runs as a non-root user.
-      Give me the Dockerfile changes and docker run command.
-    graders:
-      - type: output-contains
-        config:
-          substring: DOTNET_DbgEnableMiniDump
-      - type: output-contains
-        config:
-          substring: SYS_PTRACE
-      - type: output-matches
-        config:
-          pattern: chown|chmod|fsGroup
-      - type: prompt
-    rubric:
-      - Sets the DOTNET_DbgEnableMiniDump environment variable
-      - Adds SYS_PTRACE capability via --cap-add or securityContext
-      - Addresses dump directory permissions for non-root user
-      - Does not claim Alpine requires special workarounds for crash dumps
-      - Does not attempt to analyze dumps
-  - name: "Advisory: macOS NativeAOT crash dump recovery steps"
-    prompt: |
-      What steps would I follow to recover a crash dump on macOS if my
-      NativeAOT app crashed and I don't have createdump available?
-    graders:
-      - type: output-matches
-        config:
-          pattern: /cores
-      - type: output-matches
-        config:
-          pattern: DiagnosticReports|crash
-      - type: output-matches
-        config:
-          pattern: ulimit
-      - type: prompt
-    rubric:
-      - Describes checking /cores/ directory for core dump files
-      - Describes checking ~/Library/Logs/DiagnosticReports for crash reports
-      - Mentions that ulimit -c unlimited must have been set before the crash for a core dump to exist
-      - Provides guidance without attempting to execute commands or search the filesystem
-      - Does not attempt to analyze dump contents
-  - name: "Advisory: CoreCLR Alpine Docker non-root configuration"
-    prompt: |
-      If I had a CoreCLR app in an Alpine Docker container running as a
-      non-root user, what would I need to configure for crash dump collection?
-    graders:
-      - type: output-contains
-        config:
-          substring: DOTNET_DbgEnableMiniDump
-      - type: output-contains
-        config:
-          substring: SYS_PTRACE
-      - type: output-matches
-        config:
-          pattern: chown|chmod|mkdir|permission
-      - type: prompt
-    rubric:
-      - Explains DOTNET_DbgEnableMiniDump and related env vars
-      - Explains the need for SYS_PTRACE capability
-      - Explains dump directory ownership or permissions for non-root user
-      - Does not claim Alpine requires special workarounds for crash dumps
-      - Provides advisory guidance without attempting to execute commands
-  - name: "Advisory: NativeAOT Kubernetes dump collection setup"
-    prompt: |
-      Walk me through how I would set up crash dump collection for a
-      NativeAOT .NET 11 app in Kubernetes, assuming createdump is available
-      at /opt/tools/createdump. What pod spec changes are needed?
-    graders:
-      - type: output-contains
-        config:
-          substring: DOTNET_DbgEnableMiniDump
-      - type: output-contains
-        config:
-          substring: DOTNET_DbgCreateDumpToolPath
-      - type: output-contains
-        config:
-          substring: SYS_PTRACE
-      - type: prompt
-    rubric:
-      - Uses DOTNET_DbgCreateDumpToolPath since this is .NET 11 NativeAOT
-      - Adds SYS_PTRACE capability to the container securityContext
-      - Describes a volume mount for dump output
-      - Sets DOTNET_DbgMiniDumpType=4 since NativeAOT only supports full dumps
-      - Provides advisory guidance without attempting to modify actual cluster resources
-  - name: Detect runtime and configure crash dumps for unknown .NET app on Linux
-    prompt: |
-      I have a .NET 10 app running on Linux (PID 12345) and I need to set up
-      automatic crash dump collection. I'm not sure if it's CoreCLR or NativeAOT.
-      Help me figure out which runtime it's using and configure dumps accordingly.
-    graders:
-      - type: output-matches
-        config:
-          pattern: CorExeMain|Rhp|strings|readlink
-      - type: prompt
-    rubric:
-      - Attempts to detect the runtime before configuring dumps
-      - Uses binary inspection (strings, nm) or process inspection to distinguish CoreCLR from NativeAOT
-      - Provides appropriate configuration based on the detected runtime
-      - Does not assume one runtime or the other without checking
-      - Does not attempt to analyze dumps
-  - name: Decline dump analysis request
-    prompt: |
-      I already have a .dmp crash dump file from my .NET app. Can you help
-      me analyze it to find the root cause of the crash?
-    graders:
-      - type: output-matches
-        config:
-          pattern: out of scope|not cover|does not|cannot|only.*collect
-      - type: prompt
-    rubric:
-      - Clearly states that dump analysis is out of scope for this skill
-      - Does not attempt to open or analyze the dump file
-      - Does not install analysis tools like dotnet-dump analyze, lldb, or windbg
+      - Enables full CoreCLR crash dumps at the requested persistent path
+      - Verifies both effective variables and directory writability as apiuser
+      - Includes a cleanup step that limits disk-growth risk
     constraints:
-      reject_skills:
-        - "*"
+      reject_tools: [bash, edit, create]
+
+  - name: Capture an on-demand CoreCLR dump on Linux
+    prompt: |
+      dotnet-dump is already installed on a Linux host. Capture a full dump of
+      CoreCLR process 4242 at /var/dumps/api_4242.dmp, with a preflight check
+      and a post-capture verification. Give commands only; do not run them.
+    tags:
+      capability: coreclr-linux-on-demand
+      risk: high
+      journey: capture-running-process-dump
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dump-coreclr-linux-ondemand"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              `install -d -m 0770 /var/dumps`
+              `test -w /var/dumps && df -h /var/dumps`
+              `dotnet-dump collect -p 4242 --type Full --output /var/dumps/api_4242.dmp`
+              `test -s /var/dumps/api_4242.dmp && ls -lh /var/dumps/api_4242.dmp`
+              Stop after reporting the verified path; do not open the artifact. I did not execute these commands.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)dotnet-dump\s+collect\s+-p\s+4242\s+--type\s+Full\s+--output\s+/var/dumps/api_4242\.dmp'
+      - type: output-matches
+        config:
+          pattern: '(?is)test\s+-w\s+/var/dumps.*df\s+-h\s+/var/dumps'
+      - type: output-matches
+        config:
+          pattern: '(?i)(?:test\s+-s|ls\s+-l\w*|file)\s+/var/dumps/api_4242\.dmp'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^\s*(?:[$>]\s*)?dotnet-dump\s+analyze\b'
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Checks destination access and capacity before capture
+      - Uses the requested PID, full dump type, and output path exactly
+      - Verifies a nonempty artifact and stops before analysis
+    constraints:
+      reject_tools: [bash, edit, create]
+
+  - name: Configure NativeAOT dumps in Kubernetes
+    prompt: |
+      A .NET 11 NativeAOT service runs in Kubernetes. createdump is present at
+      /opt/tools/createdump, and dumps must survive pod replacement. Show the
+      relevant pod-spec settings only. Do not apply them.
+    tags:
+      capability: nativeaot-kubernetes-automatic-dumps
+      risk: high
+      journey: configure-container-crash-capture
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dump-nativeaot-kubernetes"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Add `SYS_PTRACE` under `securityContext.capabilities.add`. Set `DOTNET_DbgCreateDumpToolPath=/opt/tools/createdump`, `DOTNET_DbgEnableMiniDump=1`, `DOTNET_DbgMiniDumpType=4`, and `DOTNET_DbgMiniDumpName=/dumps/%e_%p_%t.dmp`. Mount `/dumps` from a PersistentVolumeClaim, not emptyDir, so artifacts survive pod replacement. Confirm the mounted directory is writable by the container identity. This is configuration guidance only; I did not apply it.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)SYS_PTRACE'
+      - type: output-matches
+        config:
+          pattern: '(?is)(?:DOTNET_DbgCreateDumpToolPath\s*[:=]\s*"?/opt/tools/createdump"?|name:\s*DOTNET_DbgCreateDumpToolPath.{0,160}?value:\s*"?/opt/tools/createdump"?)'
+      - type: output-matches
+        config:
+          pattern: '(?is)(?:DOTNET_DbgMiniDumpType\s*[:=]\s*"?4"?|name:\s*DOTNET_DbgMiniDumpType.{0,160}?value:\s*"?4"?)'
+      - type: output-matches
+        config:
+          pattern: '(?is)(PersistentVolumeClaim.*(?:/dumps|dump)|(?:/dumps|dump).*PersistentVolumeClaim)'
+      - type: output-not-matches
+        config:
+          pattern: '(?i)--no-auth'
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Configures the .NET 11 NativeAOT collector path and full-dump requirement
+      - Includes the attach capability and writable dump mount
+      - Uses persistent storage so crash evidence survives pod replacement
+    constraints:
+      reject_tools: [bash, edit, create]
+
+  - name: Recover macOS NativeAOT crash artifacts
+    prompt: |
+      A NativeAOT command-line app already crashed on macOS, and createdump was
+      not installed. Where should I look for artifacts, and what prerequisite
+      determined whether a core exists? Give read-only commands; do not run them.
+    tags:
+      capability: nativeaot-macos-crash-recovery
+      risk: medium
+      journey: locate-post-crash-artifacts
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dump-nativeaot-macos-recovery"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Read the configured core path with `sysctl kern.corefile`; `/cores` is common but not guaranteed, so check `ls -la /cores` only when it matches the configuration. Then check both `ls -la ~/Library/Logs/DiagnosticReports` and `ls -la /Library/Logs/DiagnosticReports` for retained `.crash` or `.ips` reports. `ulimit -c unlimited` had to be set before the process started; setting it after the crash cannot recover a missing core. A diagnostic report may exist depending on macOS version, reporting settings, process ownership, and retention; do not assume one is always present. Stop after locating and reporting paths. I did not execute or inspect an artifact.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)sysctl\s+kern\.corefile'
+      - type: output-matches
+        config:
+          pattern: '(?i)ls\s+-la\s+/cores'
+      - type: output-matches
+        config:
+          pattern: '(?i)ls\s+-la\s+~/Library/Logs/DiagnosticReports'
+      - type: output-matches
+        config:
+          pattern: '(?i)ls\s+-la\s+/Library/Logs/DiagnosticReports'
+      - type: output-matches
+        config:
+          pattern: '(?i)ulimit\s+-c\s+unlimited.*before'
+      - type: output-matches
+        config:
+          pattern: '(?is)(?:(?:may|might|not guaranteed|depending).{0,160}(?:crash|ips|diagnostic report)|(?:crash|ips|diagnostic report).{0,160}(?:may|might|not guaranteed|depending))'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^\s*(?:[$>]\s*)?lldb\b'
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Reads the configured core path before checking the common /cores location
+      - Checks both user and system diagnostic-report locations
+      - Correctly states that the core-size limit had to be enabled before launch
+      - Qualifies diagnostic-report availability instead of claiming it is guaranteed
+      - Stops at artifact recovery rather than opening or debugging it
+    constraints:
+      reject_tools: [bash, edit, create]
+
+  - name: Configure non-root Alpine container dumps
+    prompt: |
+      A CoreCLR service runs as UID 10001 in an Alpine-based container. Show
+      the minimal Dockerfile and docker run settings needed to write full crash
+      dumps to a host-mounted ./dumps directory. Do not build or run anything.
+    tags:
+      capability: coreclr-alpine-nonroot
+      risk: high
+      journey: configure-container-dump-permissions
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dump-alpine-nonroot"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use a self-contained image example with `WORKDIR /app`, `COPY ./publish/ ./`, `RUN install -d -o 10001 -g 10001 -m 0770 /dumps`, `ENV DOTNET_DbgEnableMiniDump=1`, `ENV DOTNET_DbgMiniDumpType=4`, `ENV DOTNET_DbgMiniDumpName=/dumps/%e_%p_%t.dmp`, and `USER 10001:10001`. Because the bind mount hides image-layer ownership, prepare the host with `mkdir -p ./dumps`, `sudo chown 10001:10001 ./dumps`, and `sudo -u '#10001' test -w ./dumps`. Start with `docker run --user 10001:10001 --cap-add=SYS_PTRACE -v "$(pwd)/dumps:/dumps" myapp`. Alpine needs no special dump workaround beyond normal permissions and capability setup. I did not execute anything.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)install\s+-d\s+-o\s+10001\s+-g\s+10001\s+-m\s+0770\s+/dumps'
+      - type: output-matches
+        config:
+          pattern: '(?is)ENV\s+DOTNET_DbgEnableMiniDump=1.*ENV\s+DOTNET_DbgMiniDumpType=4'
+      - type: output-matches
+        config:
+          pattern: '(?is)sudo\s+chown\s+10001:10001\s+\./dumps.*sudo\s+-u\s+[''"]?#10001[''"]?\s+test\s+-w\s+\./dumps'
+      - type: output-matches
+        config:
+          pattern: '(?is)docker\s+run(?=[^\r\n]*--user\s+10001:10001)(?=[^\r\n]*--cap-add=SYS_PTRACE)(?=[^\r\n]*-v\s+"?\$\(pwd\)/dumps:/dumps"?)[^\r\n]*\smyapp'
+      - type: output-not-matches
+        config:
+          pattern: '(?i)COPY\s+--from=build\b'
+      - type: output-not-matches
+        config:
+          pattern: '(?i)Alpine.*(?:unsupported|special workaround|required workaround)'
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Uses a self-contained Dockerfile without an undefined build stage
+      - Configures host bind-mount ownership and verifies it as UID 10001
+      - Enables full automatic dumps and the attach capability
+      - Avoids inventing Alpine-specific restrictions
+    constraints:
+      reject_tools: [bash, edit, create]
+
+  - name: Detect runtime before choosing Linux dump setup
+    prompt: |
+      Linux process 4242 is a modern .NET application, but I do not know
+      whether it uses CoreCLR or NativeAOT. Give exact read-only detection
+      commands and explain how the collection setup branches. Do not run them.
+    tags:
+      capability: runtime-discrimination
+      risk: high
+      journey: choose-compatible-dump-path
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dump-runtime-detection"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Resolve the executable with `BINARY=$(readlink /proc/4242/exe)`. Check the running process for CoreCLR with `grep -q 'libcoreclr\.so' /proc/4242/maps && echo CoreCLR`. If CoreCLR is not loaded, check the executable for NativeAOT Redhawk symbols with `nm "$BINARY" 2>/dev/null | grep -qi Rhp && echo NativeAOT` and use `strings` only as a fallback. For CoreCLR, use built-in automatic dump variables or dotnet-dump for on-demand capture. For NativeAOT, use OS core facilities or createdump; NativeAOT requires full dumps. If neither positive signature appears, stop rather than configure an unknown process. I did not execute anything.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)BINARY=\$\(readlink\s+/proc/4242/exe\)'
+      - type: output-matches
+        config:
+          pattern: '(?is)(?=.*/proc/4242/maps)(?=.*libcoreclr\\?\.so)(?=.*Rhp)'
+      - type: output-matches
+        config:
+          pattern: '(?is)CoreCLR.*(?:dotnet-dump|built-in).*NativeAOT.*(?:createdump|OS core|gcore)'
+      - type: output-matches
+        config:
+          pattern: '(?is)(?:if\s+neither|cannot\s+(?:identify|detect)|runtime\s+(?:is\s+)?unknown).{0,160}(?:stop|do\s+not\s+(?:configure|proceed))'
+      - type: output-not-matches
+        config:
+          pattern: '(?i)assume\s+(?:CoreCLR|NativeAOT)'
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Resolves and inspects the actual process executable before configuration
+      - Branches to runtime-compatible collection mechanisms
+      - Stops safely if the process cannot be identified
+    constraints:
+      reject_tools: [bash, edit, create]
+
+  - name: Configure Windows NativeAOT crash dumps with WER
+    prompt: |
+      A NativeAOT executable named payments.exe runs on Windows without
+      createdump. Give the elevated PowerShell settings for ten full WER dumps
+      under C:\dumps, scoped only to that executable. Do not apply them.
+    tags:
+      capability: nativeaot-windows-wer
+      risk: high
+      journey: configure-windows-crash-capture
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dump-nativeaot-windows-wer"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              In an approved elevated PowerShell session, set `$regPath = "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\payments.exe"` and `$dumpPath = "C:\dumps"`. Create the directory and key, then set `DumpFolder` to `$dumpPath` as ExpandString, `DumpCount` to `10` as DWord, and `DumpType` to `2` as DWord. WER value 2 means Full; it is not the runtime environment variable value 4. Read the properties back to verify. I did not apply these settings.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)LocalDumps\\payments\.exe'
+      - type: output-matches
+        config:
+          pattern: '(?i)DumpCount.*(?:10|\$?dumpCount).*DWord'
+      - type: output-matches
+        config:
+          pattern: '(?i)DumpType.*2.*DWord'
+      - type: output-not-matches
+        config:
+          pattern: '(?i)DumpType\s*(?:=|to)\s*4'
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Scopes WER configuration to the requested executable
+      - Uses WER full-dump value 2 and retains ten artifacts
+      - Distinguishes WER values from runtime dump-type values and requires elevation
+    constraints:
+      reject_tools: [bash, edit, create]
+
+  - name: Capture and export a CoreCLR dump from Kubernetes
+    prompt: |
+      A CoreCLR API is running in pod orders-api-7d9. dotnet-dump is already
+      present, /dumps is writable, and PID 1 is the target. Give exact commands
+      to verify the process, capture a full dump, and copy it locally. Do not
+      run them.
+    tags:
+      capability: coreclr-kubernetes-on-demand
+      risk: high
+      journey: capture-and-export-container-dump
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dump-coreclr-kubernetes"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              `kubectl exec orders-api-7d9 -- dotnet-dump ps`
+              `kubectl exec orders-api-7d9 -- dotnet-dump collect -p 1 --type Full --output /dumps/orders-api.dmp`
+              `kubectl exec orders-api-7d9 -- test -s /dumps/orders-api.dmp`
+              `kubectl cp orders-api-7d9:/dumps/orders-api.dmp ./orders-api.dmp`
+              Report both paths and stop before analysis. I did not execute these commands.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)kubectl\s+exec(?:\s+-\w+)*\s+orders-api-7d9\s+--\s+(?:dotnet-dump\s+ps|ps\s+-p\s+1\b)'
+      - type: output-matches
+        config:
+          pattern: '(?is)kubectl\s+exec(?:\s+-\w+)*\s+orders-api-7d9\s+--\s+dotnet-dump\s+collect(?=[^\r\n]*(?:-p|--process-id)\s+1)(?=[^\r\n]*--type\s+Full)(?=[^\r\n]*(?:-o|--output)\s+/dumps/[A-Za-z0-9._-]+\.dmp)[^\r\n]*'
+      - type: output-matches
+        config:
+          pattern: '(?i)kubectl\s+cp\s+orders-api-7d9:/dumps/[A-Za-z0-9._-]+\.dmp\s+\.[\\/][A-Za-z0-9._-]+\.dmp'
+      - type: output-matches
+        config:
+          pattern: '(?is)kubectl\s+exec(?:\s+-\w+)*\s+orders-api-7d9\s+--\s+(?:(?:sh|bash)\s+-c\s+[''"][^''"\r\n]*?)?(?:test\s+-s|ls\s+-l\w*|sha256sum)\s+/dumps/[A-Za-z0-9._-]+\.dmp'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^\s*(?:[$>]\s*)?dotnet-dump\s+analyze\b'
+      - type: output-not-matches
+        config:
+          pattern: '(?i)kubectl\s+exec\s+(?:-it|-ti|-t)\b'
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Verifies the target process before collection
+      - Captures a full dump at a deterministic in-pod path
+      - Verifies and exports the artifact, then stops before analysis
+    constraints:
+      reject_tools: [bash, edit, create]
+
+  - name: Capture an on-demand NativeAOT core on Linux
+    prompt: |
+      A NativeAOT process with PID 5577 is hung on Linux. gcore is installed,
+      and /var/dumps is writable. Give the exact capture and verification
+      commands. Do not execute them.
+    tags:
+      capability: nativeaot-linux-on-demand
+      risk: high
+      journey: capture-running-nativeaot-core
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dump-nativeaot-linux-ondemand"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Run `gcore -o /var/dumps/nativeapp 5577`. gcore appends the PID, so verify with `test -s /var/dumps/nativeapp.5577 && ls -lh /var/dumps/nativeapp.5577`. Report `/var/dumps/nativeapp.5577` and stop before analysis. I did not execute these commands.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)gcore\s+-o\s+/var/dumps/[A-Za-z0-9._-]+\s+5577'
+      - type: output-matches
+        config:
+          pattern: '(?i)(?:test\s+-s|ls\s+-l\w*|file)\s+/var/dumps/[A-Za-z0-9._-]+\.5577'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^\s*(?:[$>]\s*)?dotnet-dump\s+collect\b'
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Uses an on-demand mechanism compatible with NativeAOT
+      - Accounts for gcore's PID-suffixed output name
+      - Verifies and reports the artifact without analyzing it
+    constraints:
+      reject_tools: [bash, edit, create]
+
+  - name: Stay dormant for existing dump analysis
+    prompt: |
+      I already have payments.dmp from a production crash. Analyze it and tell
+      me the exception and failing thread. Do not modify any files.
+    expect_activation: false
+    tags:
+      capability: dormancy-dump-analysis
+      risk: routing
+      journey: redirect-existing-dump-analysis
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dump-dormancy-analysis"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is post-mortem analysis of an existing artifact, not dump collection. Use an analysis workflow appropriate to the operating system, such as WinDbg or Visual Studio on Windows or a debugger with SOS where supported. I will not start another capture or claim a root cause without inspecting the artifact.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?is)(?:(post-mortem|existing artifact|dump analysis).*(WinDbg|Visual Studio|SOS)|(?:provide|confirm|exact)\s+(?:the\s+)?(?:full\s+)?path.*payments\.dmp)'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^\s*(?:[$>]\s*)?(?:dotnet-dump\s+collect|gcore|procdump)\b'
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recognizes an existing-artifact analysis request
+      - Redirects to an appropriate debugger or analysis workflow
+      - Does not collect a redundant dump
+      - The target collection workflow stayed dormant
+    constraints:
+      reject_tools: [bash, edit, create]
+
+  - name: Stay dormant for performance trace collection
+    prompt: |
+      A .NET 8 Linux service has high CPU. Give me a 30-second event trace with
+      sampled stacks from PID 9010 and an explicit output file. Do not run it.
+    expect_activation: false
+    tags:
+      capability: dormancy-trace-collection
+      risk: routing
+      journey: redirect-performance-capture
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dump-dormancy-trace"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use the performance-event collection workflow for a bounded sampled-stack trace from PID 9010, with the requested duration and output path. A process memory dump is not a substitute for time-based CPU evidence. I will not run the collection.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?is)(?:performance-event|sampled-stack|event trace|dotnet-trace).*(?:PID\s*9010|(?:-p|--process-id)\s+9010|9010)'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^\s*(?:[$>]\s*)?(?:dotnet-dump\s+collect|gcore|procdump)\b'
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Routes high-CPU evidence collection to time-based tracing
+      - Explains why a memory dump is not equivalent
+      - Does not provide dump-capture commands
+      - The target collection workflow stayed dormant
+    constraints:
+      reject_tools: [bash, edit, create]
+
+  - name: Stay dormant for crash-prone source review
+    prompt: |
+      Review this unsafe C# interop wrapper and identify source defects that
+      could corrupt memory or crash the process. I want code findings only.
+      Do not edit files or collect runtime artifacts.
+    expect_activation: false
+    tags:
+      capability: dormancy-source-analysis
+      risk: routing
+      journey: redirect-crash-source-review
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dump-dormancy-source-review"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a read-only interop source review. Inspect native signatures, calling conventions, marshalling, ownership, buffer lengths, pinning, and SafeHandle use, then report only defects supported by the code. Runtime dump collection is outside the requested task.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?is)(?:(interop source review|Inspect).*(marshalling|ownership|SafeHandle)|(?:share|provide|paste).*(?:file|code|wrapper).*(?:review|analy))'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^\s*(?:[$>]\s*)?(?:dotnet-dump|gcore|procdump)\b'
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recognizes a source-level native interop review
+      - Focuses on concrete boundary-safety dimensions
+      - Does not introduce runtime collection
+      - The target collection workflow stayed dormant
+    constraints:
+      reject_tools: [bash, edit, create]
+
+  - name: Stay dormant for local benchmarking
+    prompt: |
+      Compare startup time and steady-state throughput for two dependency
+      injection containers in a local .NET 9 project. Design a repeatable
+      benchmark; do not run it or create files.
+    expect_activation: false
+    tags:
+      capability: dormancy-benchmarking
+      risk: routing
+      journey: redirect-development-benchmark
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dump-dormancy-benchmark"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use a controlled BenchmarkDotNet design with separate cold-start and resolved-service operations, parameterized registration counts, warmup and measurement iterations, and MemoryDiagnoser. Keep container construction explicit so startup and steady-state costs are not mixed. Crash-dump collection is not relevant.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?is)BenchmarkDotNet.*(cold-start|startup).*(steady-state|resolved-service)'
+      - type: output-matches
+        config:
+          pattern: '(?is)(?:(warmup|measurement).*(MemoryDiagnoser|memory)|(MemoryDiagnoser|memory).*(warmup|measurement))'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^\s*(?:[$>]\s*)?(?:dotnet-dump|gcore|procdump)\b'
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Separates startup and steady-state benchmark operations
+      - Includes scale parameters, warmup, measurement, and memory evidence
+      - Does not redirect benchmarking into dump collection
+      - The target collection workflow stayed dormant
+    constraints:
+      reject_tools: [bash, edit, create]
+
+  - name: Stay dormant for .NET Framework dump collection
+    prompt: |
+      A .NET Framework 4.8 service on Windows is hung. I need a full dump of
+      PID 6612 and have permission to use Sysinternals tools. Give advisory
+      steps only; do not execute them.
+    expect_activation: false
+    tags:
+      capability: dormancy-dotnet-framework
+      risk: routing
+      journey: redirect-framework-dump-capture
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dump-dormancy-framework"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This target is .NET Framework, so use the approved Windows/Sysinternals collection path rather than modern .NET runtime dump configuration. In an authorized shell, a full ProcDump capture for PID 6612 is the appropriate direction, with an explicit destination and post-capture size check. Stop after reporting the path; analysis is separate.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(?:Sysinternals|ProcDump)'
+      - type: output-matches
+        config:
+          pattern: '(?is)(?:(full|complete).*(?:PID\s*)?6612|(?:PID\s*)?6612.*(?:full|complete)|procdump(?:64)?\.exe\s+-ma\s+6612)'
+      - type: output-not-matches
+        config:
+          pattern: '(?i)DOTNET_DbgEnableMiniDump'
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recognizes that modern .NET runtime configuration does not apply
+      - Redirects to an authorized Windows collection mechanism
+      - Keeps artifact analysis as a separate task
+      - The target collection workflow stayed dormant
+    constraints:
+      reject_tools: [bash, edit, create]

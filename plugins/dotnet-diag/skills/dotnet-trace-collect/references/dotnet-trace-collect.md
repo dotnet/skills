@@ -52,8 +52,8 @@ dotnet-trace collect -p <PID> --providers Microsoft-DotNETCore-SampleProfiler,Mi
 # Collect with networking providers (HTTP status codes, DNS, TLS, sockets)
 dotnet-trace collect -p <PID> --providers System.Net.Http,System.Net.NameResolution,System.Net.Security,System.Net.Sockets
 
-# Collect for a fixed duration (time span in hh:mm:ss format)
-dotnet-trace collect -p <PID> --duration 00:00:30
+# Collect for a fixed duration (strict dd:hh:mm:ss format; 30 seconds)
+dotnet-trace collect -p <PID> --duration 00:00:00:30 -o trace.nettrace
 
 # Output in Speedscope format for web-based viewing
 dotnet-trace collect -p <PID> --format speedscope

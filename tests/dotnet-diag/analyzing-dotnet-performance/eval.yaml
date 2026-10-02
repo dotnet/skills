@@ -1,231 +1,554 @@
 name: analyzing-dotnet-performance
 description: Evaluates the dotnet-diag/analyzing-dotnet-performance skill
 type: capability
-config:
-  timeout: 3m
+defaults:
+  timeout: 6m
+environment:
+  files:
+    - src: ../graders/readonly_guard.py
+      dest: .eval/readonly_guard.py
 stimuli:
-  - name: Detects compiled regex startup budget and regex chain allocations
-    prompt: Analyze this string transformation library for .NET performance issues. The Underscore/Pascalize/Camelize
-      methods are called millions of times in a text processing pipeline.
+  - name: Prioritize regex startup and transformation allocations
+    prompt: |
+      Review CaseTransformExtensions.cs for performance risks. These transforms
+      run millions of times, while startup time also matters. Give prioritized
+      recommendations, but do not modify the file.
+    tags:
+      capability: regex-and-string-analysis
+      risk: hot-path-allocation
+      journey: review-text-transforms
     environment:
       files:
         - src: fixtures/inflector-and-regex.cs
           dest: CaseTransformExtensions.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "analyzing-performance-regex-transform"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Scan execution checklist: RegexOptions.Compiled 2 hits; Replace 3 hits; ToLower/ToUpper 2 hits; GeneratedRegex 1 hit. Moderate: Underscore chains two Regex.Replace calls and ToLower, so one hot-path call creates several intermediate strings; combine parsing and use an explicit casing policy such as ToLowerInvariant where semantics allow. Moderate: two compiled Regex instances add startup/JIT cost for short patterns; prefer source generation or non-compiled caching after measurement. Moderate: Pascalize allocates match.Value.ToUpper per match. Positive: Lowercase already uses GeneratedRegex. Summary: three moderate findings. Disclaimer: verify recommendations with benchmarks and human review.
     graders:
-      - type: output-contains
+      - type: output-matches
         config:
-          substring: Compiled
-      - type: output-contains
+          pattern: '(?i)Compiled.{0,120}(startup|JIT|budget|cost)'
+      - type: output-matches
         config:
-          substring: ToLower
+          pattern: '(?i)Replace.{0,120}(intermediate|allocation|string)'
+      - type: output-matches
+        config:
+          pattern: '(?i)GeneratedRegex'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect a51a14d5e31b32b727b28d206988aef01b133864ef2513d174ab384d29dea06f:CaseTransformExtensions.cs
       - type: exit-success
       - type: prompt
     rubric:
-      - Identifies the compiled regex budget — 40+ Regex with RegexOptions.Compiled is excessive for short-string
-        matching
-      - Flags the triple regex .Replace() chain in Underscore as 4 allocations per call
-      - Notes .ToLower() without culture risks Turkish I problem and allocates unnecessarily
-      - Catches Pascalize() per-match .Value.ToUpper() allocation
-      - Recognizes [GeneratedRegex] pattern as a positive finding or correct practice
-      - Suggests removing RegexOptions.Compiled from the InflectionRule class or using source-generated regex
-  - name: Detects CurrentCulture comparer and compiled regex budget in inflection rules
-    prompt: Review this inflection rule engine for performance. Rules are loaded at startup and pattern-matched on every API
-      request.
+      - Prioritized the compound Regex.Replace and casing allocations in the hot transform
+      - Distinguished startup cost from per-call cost
+      - Treated the source-generated regex as a positive pattern
+      - Left the supplied source unchanged
+
+  - name: Choose a comparer and regex construction strategy
+    prompt: |
+      This vocabulary is initialized once and checked on every request. Review
+      the implementation for startup and lookup costs. The stored words are
+      invariant ASCII tokens. Do not edit the source.
+    tags:
+      capability: comparer-and-regex-analysis
+      risk: request-path-overhead
+      journey: review-rule-engine
     environment:
       files:
         - src: fixtures/vocabulary-and-inflections.cs
           dest: WordVocabulary.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "analyzing-performance-vocabulary"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Scan execution checklist: CurrentCultureIgnoreCase 1 hit; new Regex 1 hit; RegexOptions.Compiled 1 hit. Moderate: use StringComparer.OrdinalIgnoreCase for invariant ASCII tokens; culture-aware comparison adds work and can change semantics. Moderate: every Add call creates a compiled Regex, so rule count multiplies startup and dynamic-code cost. Cache a bounded rule set, use source-generated regex only for compile-time patterns, or avoid Compiled until startup and throughput measurements justify it. Summary: two moderate findings. Disclaimer: verify with benchmarks and human review.
     graders:
-      - type: output-contains
+      - type: output-matches
         config:
-          substring: Ordinal
-      - type: output-contains
+          pattern: '(?i)OrdinalIgnoreCase'
+      - type: output-matches
         config:
-          substring: Compiled
-      - type: exit-success
+          pattern: '(?i)Compiled.{0,120}(startup|rule|cost|dynamic)'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect 2d13d31e70ea1a7c8703a4cb00153de3c789885104ea6996f356732d220358c0:WordVocabulary.cs
       - type: prompt
     rubric:
-      - Flags StringComparer.CurrentCultureIgnoreCase as ~3x slower than OrdinalIgnoreCase for the uncountables HashSet
-      - Identifies total compiled regex budget across all AddPlural/AddSingular calls creating InflectionEntry instances
-      - Suggests OrdinalIgnoreCase since the uncountable words are ASCII English words
-      - Notes that each InflectionEntry creates a new compiled Regex — with 40+ rules this is expensive at startup
-  - name: Finds per-call Dictionary allocation not hoisted to static
-    prompt: This number-to-words converter is used in a financial report generator processing 100K transactions. Review for
-      performance issues.
+      - Selected ordinal case-insensitive comparison for invariant tokens
+      - Connected per-rule compiled regex creation to startup cost
+      - Avoided recommending source generation for dynamic patterns
+      - Left the supplied source unchanged
+
+  - name: Find per-call collection and formatting allocations
+    prompt: |
+      These localized converters run for every row in a large financial export.
+      Identify the highest-value allocation reductions and explain any
+      correctness caveats. Do not modify NumberConverters.cs.
+    tags:
+      capability: collection-allocation-analysis
+      risk: batch-allocation-pressure
+      journey: review-number-converters
     environment:
       files:
         - src: fixtures/number-converter-farsi-kurdish.cs
           dest: NumberConverters.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "analyzing-performance-number-dictionaries"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Scan execution checklist: new Dictionary 2 hits; new List 1 hit; string.Format 1 hit. Moderate: both Convert methods rebuild immutable lookup dictionaries and delegates on every call; hoist them to static readonly storage if the delegates capture no request state. Info: pre-size the List when the output-part bound is known. Info: the literal string.Format boxes the long; interpolation avoids that box while preserving formatting semantics. Summary: one moderate and two informational findings. Disclaimer: verify with benchmarks and human review.
     graders:
-      - type: output-contains
+      - type: output-matches
         config:
-          substring: Dictionary
-      - type: output-contains
+          pattern: '(?is)(dictionar.{0,180}(per.?call|every (?:call|invocation|row)|static|hoist)|(per.?call|every (?:call|invocation|row)|static|hoist).{0,180}dictionar)'
+      - type: output-matches
         config:
-          substring: static
-      - type: exit-success
+          pattern: '(?i)string\.Format.{0,100}(box|boxing|interpolat)'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect 7c6264047f6fd17da0830429f003ac0542d069dadd87b1c8d5d3bf221cf76f7f:NumberConverters.cs
       - type: prompt
     rubric:
-      - Identifies the per-call new Dictionary<long, Func<>> in FarsiNumberToWordsConverter as wasteful — should be
-        static
-      - Notes each Convert() call creates ~10 allocations (dictionary + buckets + entries + closures)
-      - Identifies the same per-call Dictionary pattern in CentralKurdishNumberToWordsConverter
-      - Flags new List<string>() without initial capacity hint
-      - Catches string.Format with int boxing in FormatWithUnit — interpolation avoids the box
-  - name: Catches compound allocations in recursive number converter with ToLower
-    prompt: Analyze this localized number-to-words converter for performance. It is used for invoice generation in a billing
-      system processing thousands of invoices.
+      - Identified both per-call dictionaries as the dominant avoidable allocation
+      - Conditioned static hoisting on the delegates not capturing request state
+      - Identified the literal formatting box and a behavior-preserving alternative
+      - Left the supplied source unchanged
+
+  - name: Explain compound recursive string allocations
+    prompt: |
+      Invoice generation spends significant time in GreekConverter.Convert.
+      Review the method for allocation and globalization risks, prioritize the
+      fixes, and leave the file unchanged.
+    tags:
+      capability: compound-string-analysis
+      risk: recursive-allocation-growth
+      journey: review-localized-converter
     environment:
       files:
         - src: fixtures/number-converter-greek.cs
           dest: GreekConverter.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "analyzing-performance-greek-converter"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Scan execution checklist: ToLower 3 hits; string += 2 hits; interpolation 2 hits; recursive Convert 2 hits. Critical: for values 11 through 99, `value % 100` equals `value`, so the second branch recurses without progress until StackOverflowException. Fix the recursion before performance work. Moderate: each branch combines recursive output, ToLower, interpolation, and +=, producing several strings per branch and compounding through recursion. Accumulate tokens once and apply casing once at the boundary; use ToLowerInvariant only if invariant casing matches the product's Greek-language requirements. Summary: one critical correctness defect, one compound allocation finding, and a globalization caveat. Disclaimer: verify with tests, benchmarks, and native-language review.
     graders:
-      - type: output-contains
+      - type: output-matches
         config:
-          substring: ToLower
-      - type: output-contains
+          pattern: '(?i)(non[- ]?terminating|without progress|same value|StackOverflowException|stack overflow|infinite recursion)'
+      - type: output-matches
         config:
-          substring: allocation
-      - type: exit-success
+          pattern: '(?i)ToLower.{0,140}(compound|multiple|allocation|recursive)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(once|boundary).{0,80}ToLowerInvariant|ToLowerInvariant.{0,80}(once|boundary)'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect 7369baeadf95243f134dfac37f8a1cf2d63b13cab1950c7aa5049327b9583023:GreekConverter.cs
       - type: prompt
     rubric:
-      - Identifies .ToLower() inside string interpolation as compound allocation — 3 allocations per branch
-      - Flags result += with embedded .ToLower() in interpolation as compound allocation
-      - Counts the 8+ .ToLower() sites in the recursive converter methods
-      - Recommends StringBuilder or deferring .ToLowerInvariant() to final output
-      - Notes .ToLower() should be .ToLowerInvariant() for correctness
-  - name: Finds StringComparison.Ordinal missing and FrozenDictionary opportunities
-    prompt: Review these number-to-words converters for performance. They handle multiple locales and are called in tight
-      loops during batch report generation.
+      - Reported the non-progressing recursion and stack-overflow risk before performance findings
+      - Treated the recursive casing, interpolation, and concatenation as one compound cost
+      - Recommended applying casing once rather than at every recursive branch
+      - Preserved a globalization caveat instead of assuming invariant casing is always correct
+      - Left the supplied source unchanged
+
+  - name: Distinguish immutable and mutable dictionary candidates
+    prompt: |
+      Review MultiLocaleConverters.cs for request-path costs. Some lookup tables
+      are fixed after startup, while another cache changes at runtime. Recommend
+      only safe optimizations and do not edit the file.
+    tags:
+      capability: immutable-collection-analysis
+      risk: unsafe-cache-rewrite
+      journey: review-multilocale-lookups
     environment:
       files:
         - src: fixtures/number-converter-multi-locale.cs
           dest: MultiLocaleConverters.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "analyzing-performance-multilocale"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Scan execution checklist: StartsWith/EndsWith 2 hits; static readonly Dictionary 1 hit; mutable Dictionary 1 hit; new List 1 hit. Moderate: pass StringComparison.Ordinal to the Swedish prefix and suffix checks when these are invariant tokens. Info: Units is fixed after startup and is a FrozenDictionary candidate on .NET 8+, subject to lookup-count measurement. Do not freeze HungarianConverter._runtimeCache because Convert mutates it. Pre-size the French parts list when the input count is available. Summary: one moderate and two conditional findings. Disclaimer: verify with benchmarks and tests.
     graders:
-      - type: output-contains
+      - type: output-matches
         config:
-          substring: Ordinal
-      - type: output-contains
+          pattern: '(?i)StringComparison\.Ordinal'
+      - type: output-matches
         config:
-          substring: Dictionary
-      - type: exit-success
+          pattern: '(?i)(FrozenDictionary.{0,140}(Units|static|fixed|immutable)|(Units|static|fixed|immutable).{0,140}FrozenDictionary)'
+      - type: output-matches
+        config:
+          pattern: '(?is)((runtimeCache|runtime cache|mutat).{0,160}(do not|not|must not|leave (?:it )?(?:alone|unchanged)|leave as.is|do not touch|not recommend).{0,80}(freeze|frozen|FrozenDictionary|change|touch)?|(do not|not|must not|leave (?:it )?(?:alone|unchanged)|leave as.is|do not touch|not recommend).{0,160}(runtimeCache|runtime cache|mutat))'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect 124895705eb0b74bb5a31569bc5997077fce2df0cac19f69b5efc41a46ca432d:MultiLocaleConverters.cs
       - type: prompt
     rubric:
-      - Flags .StartsWith/.EndsWith without StringComparison.Ordinal in SwedishNumberToWordsConverter
-      - Notes static readonly Dictionary<> should be FrozenDictionary (.NET 8+) since it is never mutated
-      - Catches string += concatenation in converter branches as allocation-heavy
-      - Identifies new List<string>() without capacity hint in FrenchNumberToWordsConverterBase
-      - Does NOT flag the HungarianNumberToWordsConverter._runtimeCache Dictionary as FrozenDictionary candidate since
-        it IS mutated
-  - name: Detects Aggregate+Replace chain and struct missing IEquatable
-    prompt: This metric numeral formatting utility is used in a real-time monitoring dashboard rendering thousands of data
-      points per second. Analyze for performance bottlenecks.
+      - Added an explicit ordinal comparison for invariant prefix and suffix checks
+      - Limited frozen collection advice to the fixed lookup table
+      - Explicitly preserved the mutable runtime cache
+      - Left the supplied source unchanged
+
+  - name: Review replacement chains and value equality
+    prompt: |
+      This formatter runs for every data point on a monitoring dashboard.
+      Identify avoidable repeated work and value-type costs, while recognizing
+      patterns that are already efficient. Do not change MetricNumerals.cs.
+    tags:
+      capability: replacement-and-struct-analysis
+      risk: per-point-allocation
+      journey: review-metric-formatting
     environment:
       files:
         - src: fixtures/metric-numeral-extensions.cs
           dest: MetricNumerals.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "analyzing-performance-metric-numerals"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Scan execution checklist: Aggregate 1 hit; Replace 1 hit in the aggregate body; char.ToString 1 hit; IEquatable 0 hits; FrozenDictionary 1 hit. Moderate: the aggregate scans once per prefix and Symbol.ToString allocates per prefix; Replace allocates a new result only when the symbol is present and changes the string. Prefer a single-pass transformation if measurement shows this is hot; do not add an unconditional IndexOf precheck because it can duplicate the scan. Info: UnitPrefix should implement IEquatable<UnitPrefix> only if equality-heavy use proves boxing or comparison cost. Positive: Powers is already a FrozenDictionary. Summary: one moderate, one conditional info, one positive. Disclaimer: verify with a representative benchmark.
     graders:
-      - type: output-contains
+      - type: output-matches
         config:
-          substring: Aggregate
-      - type: output-contains
+          pattern: '(?i)Aggregate.{0,140}(Replace|intermediate|allocation)'
+      - type: output-matches
         config:
-          substring: IEquatable
-      - type: exit-success
+          pattern: '(?i)IEquatable.{0,100}(box|equality)'
+      - type: output-matches
+        config:
+          pattern: '(?is)(FrozenDictionary.{0,220}(positive|already|efficient|correct|good|optimized)|(positive|already|efficient|correct|good|optimized).{0,220}FrozenDictionary)'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect 2af72ac536d5e34ca6e64b26677c9ee7aab6b4b9844eb0e7cf40ec5616042481:MetricNumerals.cs
       - type: prompt
     rubric:
-      - Flags .Aggregate() calling .Replace() over 16 unit prefixes as creating 16 intermediate string allocations
-      - Identifies char.ToString() allocation per unit prefix lookup iteration
-      - Notes UnitPrefix struct lacks IEquatable<UnitPrefix> causing boxing on equality checks
-      - Suggests short-circuiting with .Contains() check before .Replace()
-      - Recognizes FrozenDictionary usage as a positive finding
-  - name: Finds branched Replace chain in format string manipulation
-    prompt: This data size formatting struct is used in a file transfer dashboard showing real-time throughput for thousands
-      of concurrent transfers. Review for performance.
+      - Identified both replacement and character-to-string work inside the aggregate
+      - Made equality optimization conditional on actual equality-heavy use
+      - Recognized the existing frozen dictionary as a positive pattern
+      - Left the supplied source unchanged
+
+  - name: Analyze branched format replacement without false positives
+    prompt: |
+      DataSize.Format is called for thousands of live transfer rows. Review its
+      allocation profile and the struct design, then recommend a measured next
+      step. Do not edit DataSize.cs.
+    tags:
+      capability: branched-string-analysis
+      risk: formatting-allocation
+      journey: review-data-size-formatting
     environment:
       files:
         - src: fixtures/byte-size-formatting.cs
           dest: DataSize.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "analyzing-performance-data-size"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Scan execution checklist: Contains 2 hits; Replace 3 hits; IEquatable 1 hit. Moderate: a matching unit branch allocates a replacement string and the final placeholder normalization allocates another, so the hot call can produce two intermediates. Prefer parsing the format once or a single-pass builder only after benchmarking representative formats. Positive: DataSize already implements IEquatable<DataSize>; do not report boxing as a defect. Summary: one moderate finding and one positive. Disclaimer: verify with benchmarks and output-equivalence tests.
     graders:
-      - type: output-contains
+      - type: output-matches
         config:
-          substring: Replace
-      - type: exit-success
+          pattern: '(?i)Replace.{0,140}(two|intermediate|allocation)'
+      - type: output-matches
+        config:
+          pattern: '(?is)(IEquatable.{0,240}(positive|already|correct|present|avoid.{0,40}box)|(positive|already|correct|present|avoid.{0,40}box).{0,240}IEquatable)'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect 10bdfbe4acf855a2e8168da51698dc1fed2104ecf97fcacee1fec7e9dc5d1496:DataSize.cs
       - type: prompt
     rubric:
-      - Identifies the cascading if/Replace branches as allocating a new string per branch
-      - Flags format.Replace('#.##', '0.##') as an additional intermediate allocation
-      - Suggests StringBuilder or string.Create for the format manipulation
-      - Notes the struct correctly implements IEquatable<DataSize> as a positive finding
-  - name: Finds hot-path allocations in string humanization
-    prompt: These string humanization extensions are called on every user-facing string in a CMS rendering pages with
-      hundreds of dynamic strings. Analyze for performance issues and provide recommendations without modifying the fixture.
+      - Counted the compound replacement path rather than flagging each call in isolation
+      - Recommended measurement before a more complex formatting rewrite
+      - Did not falsely report missing value equality
+      - Left the supplied source unchanged
+
+  - name: Find layered enumeration in string readability helpers
+    prompt: |
+      These helpers run on every rendered CMS label. Review the hot methods for
+      layered enumeration and hidden array allocations. Keep behavior and
+      readability in mind, and do not modify the source.
+    tags:
+      capability: linq-and-params-analysis
+      risk: render-path-allocation
+      journey: review-string-helpers
     environment:
       files:
         - src: fixtures/string-humanize-and-dehumanize.cs
           dest: StringReadability.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "analyzing-performance-string-readability"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Scan execution checklist: Cast<Match>/Select 2 hits; All 1 hit; ToLower 1 hit; params array 1 hit. Moderate: FromPascalCase layers MatchCollection casting, Select, All, and per-match ToLower before Concat; a direct loop can preserve the same casing rules with fewer iterators and strings. Moderate: Dehumanize uses Split plus Select plus substring creation. Info: the params Transform overload allocates an array at common call sites; add a single-transform overload if profiling shows frequent one-transform calls. Summary: two moderate and one conditional finding. Disclaimer: verify behavior and allocations with tests and benchmarks.
     graders:
-      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: '(?i)(Cast<Match>|Cast.{0,20}Match).{0,120}(Select|enumerat|allocation)'
+      - type: output-matches
+        config:
+          pattern: '(?i)params.{0,100}(array|allocat)'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect d4bdf0b22faeff41cb3e6abcc665f41e29c239253445f1a119d5a05a6877b1c8:StringReadability.cs
       - type: prompt
     rubric:
-      - Identifies the Cast<Match>().Select(...) pipeline in FromPascalCase as avoidable per-call enumeration and delegate allocation
-      - Identifies value.All(char.IsUpper) as avoidable enumeration in the per-match uppercase test
-      - Identifies match.Value.ToLower() inside the projection as a per-match string allocation
-      - Identifies string.Concat(words.Select(...)) in Dehumanize as avoidable enumeration and delegate allocation
-      - Identifies the params IStringTransformer[] overload in To.Transform as allocating an array for common single-transformer calls
-      - Recognizes the existing span-based Concat helpers as allocation-conscious positive findings
-      - Provides analysis and recommendations without modifying StringReadability.cs
-  - name: Finds repeated enumeration in time and collection formatting
-    prompt: This time formatting and collection display library is used in a logging framework processing millions of log
-      entries per minute. Review its performance and provide recommendations without modifying the fixture.
+      - Combined the layered LINQ and per-match casing costs into actionable findings
+      - Identified the params array only as a hot-call-site concern
+      - Preserved behavior and readability as constraints on any rewrite
+      - Left the supplied source unchanged
+
+  - name: Find repeated enumeration in time and collection formatting
+    prompt: |
+      This formatting code is used by a high-volume logging path. Identify
+      repeated enumeration and materialization that scales with each log entry,
+      then prioritize the changes. Do not edit the fixture.
+    tags:
+      capability: repeated-enumeration-analysis
+      risk: logging-throughput-loss
+      journey: review-log-formatters
     environment:
       files:
         - src: fixtures/timespan-and-collection-formatters.cs
           dest: TimeSpanFormatting.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "analyzing-performance-time-formatting"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Scan execution checklist: Where/Select 4 hits; ToList 1 hit; ToArray 1 hit; params 1 hit; Aggregate 1 hit. Moderate: SetPrecision filters, projects, and materializes before Join; stream the transformed values or build once. Moderate: FormatCollection adds a ToArray after two iterator layers even though Join accepts an enumerable. Moderate: FormatObjects uses two Select layers. Info: Transform allocates a params array and folds delegates for each call. Summary: three moderate and one conditional finding. Disclaimer: verify with representative log payloads.
     graders:
-      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: '(?is)(ToList|ToArray).{0,240}(materiali|allocat|redundan|unnecess)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(two|multiple|layer).{0,50}Select|Select.{0,80}(two|multiple|layer)'
+      - type: output-matches
+        config:
+          pattern: '(?i)params.{0,80}(array|allocat)'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect c09bc23a9338ab930921bb39767b907698e34fd18091d3289113301695c93b72:TimeSpanFormatting.cs
       - type: prompt
     rubric:
-      - Identifies the multiple enumeration passes and final list materialization in SetPrecisionOfTimeSpan
-      - Identifies the Select/Where/ToArray processing in DefaultCollectionFormatter as intermediate enumeration and array allocation
-      - Identifies the params IStringTransformer[] overload in TransformExtensions as allocating an array for common
-        single-transformer calls
-      - Identifies Enumerable.Reverse during static initialization as an avoidable intermediate allocation
-      - Identifies the two Select projections in the object-formatter overload as avoidable repeated enumeration
-      - Provides analysis and recommendations without modifying TimeSpanFormatting.cs
-  - name: Flags Span inconsistencies and compound method chains in truncation library
-    prompt: Review this text truncation library for performance. The truncation methods are called on every displayed string
-      in a content delivery system serving thousands of concurrent users.
+      - Identified avoidable final materialization in both formatter paths
+      - Identified the layered object projections
+      - Prioritized per-entry collection work above the conditional params concern
+      - Left the supplied source unchanged
+
+  - name: Compare allocation strategies across sibling truncators
+    prompt: |
+      These truncation methods are siblings and run on every displayed string.
+      Compare their allocation behavior, including shared symbol storage.
+      Recommend consistent improvements without editing Truncation.cs.
+    tags:
+      capability: cross-method-consistency-analysis
+      risk: text-path-allocation
+      journey: review-truncation-library
     environment:
       files:
         - src: fixtures/truncation-and-span.cs
           dest: Truncation.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "analyzing-performance-truncation"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Scan execution checklist: range slicing 2 hits; TrimEnd 2 hits; AsSpan 1 hit; List<char> 1 hit. Moderate: FixedLength and FixedWords allocate a substring and then TrimEnd can allocate a second string, while FixedCharacters delays allocation with a span. Apply a consistent span-first trim and convert once when semantics match. Info: the fixed punctuation set should use immutable static storage such as a char array or ReadOnlySpan<char>, not List<char>[] heap objects. Summary: one cross-method moderate finding and one info. Disclaimer: verify Unicode and truncation semantics.
     graders:
-      - type: output-contains
+      - type: output-matches
         config:
-          substring: TrimEnd
-      - type: exit-success
+          pattern: '(?is)((slice|substring).{0,180}TrimEnd.{0,180}(two|second|double|allocat)|TrimEnd.{0,180}(slice|substring).{0,180}(two|second|double|allocat))'
+      - type: output-matches
+        config:
+          pattern: '(?i)(span.first|AsSpan|ReadOnlySpan)'
+      - type: output-matches
+        config:
+          pattern: '(?i)List<char>.{0,100}(immutable|array|ReadOnlySpan|heap)'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect e8354bf52fe0007f9b5921fc2614cd4ab8845a059c09952f5aa7bc6b90df05e2:Truncation.cs
       - type: prompt
     rubric:
-      - Flags value[..n].TrimEnd() as double allocation in FixedLengthTruncator
-      - Notes inconsistent Span usage — FixedNumberOfCharactersTruncator uses AsSpan but FixedLengthTruncator and
-        FixedNumberOfWordsTruncator do not
-      - Identifies List<char>[] in Symbols class as heap-allocated when ReadOnlySpan<char> would be more efficient
-  - name: Identifies unsealed leaf classes and locale hierarchy patterns
-    prompt: Review this locale hierarchy and ordinalizer classes for performance. These classes are instantiated once per
-      locale but their virtual methods are called on every formatted string in a high-throughput localization library.
+      - Compared sibling methods and identified the two-allocation paths
+      - Recommended one final string allocation where semantics permit
+      - Replaced mutable heap-backed symbol storage with an immutable alternative
+      - Left the supplied source unchanged
+
+  - name: Apply sealing only to true leaf types
+    prompt: |
+      Virtual formatting calls are frequent in this locale hierarchy. Review
+      which classes can safely be sealed and which must remain extensible.
+      Include a ratio rather than a blanket recommendation, and do not edit.
+    tags:
+      capability: structural-sealing-analysis
+      risk: unsafe-hierarchy-change
+      journey: review-locale-hierarchy
     environment:
       files:
         - src: fixtures/unsealed-classes.cs
           dest: Locales.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "analyzing-performance-locale-sealing"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Scan execution checklist: class declarations 4; sealed classes 1; abstract base classes 1. Of the three concrete leaf classes, 1/3 is sealed: LocaleRegistry. EnglishOrdinalizer and FrenchOrdinalizer are unsealed leaves and can be sealed if external derivation is not part of the API contract, enabling better devirtualization opportunities. Ordinalizer is the abstract extension point and must remain unsealed. Positive: LocaleRegistry uses OrdinalIgnoreCase. Summary: one conditional structural finding and one positive. Disclaimer: confirm public extensibility compatibility before changing type modifiers.
     graders:
-      - type: output-contains
+      - type: output-matches
         config:
-          substring: sealed
-      - type: exit-success
+          pattern: '(?i)(1/3|one of three).{0,50}sealed'
+      - type: output-matches
+        config:
+          pattern: '(?i)(EnglishOrdinalizer|FrenchOrdinalizer).{0,120}seal'
+      - type: output-matches
+        config:
+          pattern: '(?i)Ordinalizer.{0,100}(remain|must).{0,20}unsealed|abstract.{0,60}(remain|unsealed)'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect 348f949f5cc98eb864888c7ab8631a16cb4ad56700fe8f76e7e3452c21676897:Locales.cs
       - type: prompt
     rubric:
-      - Identifies multiple unsealed leaf classes that should be sealed for JIT devirtualization
-      - Notes that DefaultOrdinalizer is a base class and should remain unsealed, but its derived classes should be
-        sealed
-      - Notes the LocaleRegistry uses correct StringComparer.OrdinalIgnoreCase as a positive finding
+      - Reported the sealed-to-leaf ratio
+      - Limited sealing advice to the two concrete leaf ordinalizers
+      - Preserved the abstract extension point and noted compatibility risk
+      - Left the supplied source unchanged
+
+  - name: Stay dormant for algorithmic complexity design
+    prompt: |
+      Our route planner uses a naive recursive search over a dense graph and
+      becomes unusable at 200 nodes. We need help choosing an algorithm with
+      better asymptotic complexity before we tune allocations.
+    expect_activation: false
+    tags:
+      capability: dormancy-algorithm-design
+      risk: routing
+      journey: choose-graph-algorithm
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "analyzing-performance-dormancy-algorithm"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Start with the route problem's constraints and choose an algorithmic model before micro-optimizing .NET API usage. For nonnegative edge weights, compare Dijkstra with an appropriate priority queue; for heuristic point-to-point routing, consider A* with an admissible heuristic. If the task is a combinatorial traveling-salesperson variant, exact search remains exponential and may require approximation or bounded dynamic programming. Measure node and edge counts, required optimality, and update frequency.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(Dijkstra|A\*|traveling.sales|dynamic programming)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(asymptotic|complexity|exponential|algorithm)'
+      - type: output-not-matches
+        config:
+          pattern: '(?i)(FrozenDictionary|GeneratedRegex|StringComparison\.Ordinal)'
+      - type: prompt
+    rubric:
+      - Addressed algorithm choice and asymptotic behavior before implementation micro-optimizations
+      - Requested the constraints needed to choose among graph algorithms
+      - Did not substitute an API anti-pattern scan for algorithm design
+      - Stayed dormant instead of activating the .NET API performance scan
+
+  - name: Stay dormant for cold startup configuration code
+    prompt: |
+      This console tool reads a 20-line JSON settings file once at startup and
+      then spends hours processing data. A reviewer wants us to replace the
+      simple LINQ used during settings validation. Is that worth doing?
+    expect_activation: false
+    tags:
+      capability: dormancy-non-hot-path
+      risk: routing
+      journey: avoid-premature-optimization
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "analyzing-performance-dormancy-startup"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Probably not. The validation runs once over 20 lines and is outside the hours-long processing hot path, so replacing readable LINQ is unlikely to affect user-visible performance. Keep the clear implementation unless profiling shows startup is a requirement or validation appears in a measured trace. Spend effort on the sustained processing phase first.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(not worth|probably not|premature|negligible|outside.{0,30}hot path|without meaningful performance benefit)'
+      - type: output-matches
+        config:
+          pattern: '(?is)((profil|measur|trace).{0,180}(startup|requirement|hot)|(startup|requirement|hot).{0,180}(profil|measur|trace))'
+      - type: prompt
+    rubric:
+      - Recognized the code as one-time work outside the important hot path
+      - Preserved readable code in the absence of measured startup impact
+      - Redirected investigation to the sustained processing phase
+      - Stayed dormant instead of applying the hot-path scanning workflow

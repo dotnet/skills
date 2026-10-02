@@ -1,14 +1,19 @@
 name: clr-activation-debugging
 description: Evaluates the dotnet-diag/clr-activation-debugging skill
 type: capability
-config:
-  timeout: 2m
+defaults:
+  timeout: 6m
 stimuli:
-  - name: Diagnose unexpected FOD dialog from native build tool
-    prompt: |
-      I'm running a build and getting unexpected .NET 3.5 Feature-on-Demand
-      install dialogs. I've captured CLR activation logs. Can you analyze
-      them and tell me what's triggering the FOD dialogs?
+  - name: Find the process that opened the framework install prompt
+    prompt: >-
+      A native-tools build started opening a .NET Framework 3.5 installation
+      prompt on some machines. I copied the three process logs into logs/.
+      Identify which process opens the prompt, explain the decision path, and
+      distinguish it from the other two processes.
+    tags:
+      capability: diagnose-fod-source
+      risk: high
+      journey: investigate-build-dialog
     environment:
       files:
         - src: fixtures/mt-fod-launched.txt
@@ -17,170 +22,637 @@ stimuli:
           dest: logs/link.exe.CLRLoad00.txt
         - src: fixtures/csc-healthy.txt
           dest: logs/csc.exe.CLRLoad00.txt
+        - src: fixture_validation.py
+          dest: .eval/fixture_validation.py
+        - src: check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot .
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "clr-activation-fod-source"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              mt.exe opens the prompt. Its DllGetClassObject request is a capped legacy bind (IsCapped 1); mt.exe.config is missing (80070002), so the v4 runtime is not considered and no runtime is found. SEM_FAILCRITICALERRORS is 0, so the shim reaches "Launching feature-on-demand installation" for NetFx3. link.exe reaches the same capped COM failure but has a nonzero error mode and only says it could have launched FOD, while csc.exe uses _CorExeMain and loads v4.0.30319 normally.
     graders:
-      - type: output-contains
-        config:
-          substring: mt.exe
-      - type: output-contains
-        config:
-          substring: SEM_FAILCRITICALERRORS
-      - type: output-contains
-        config:
-          substring: DllGetClassObject
       - type: output-matches
         config:
-          pattern: fondue|feature-on-demand|FOD
+          pattern: (?i)mt\.exe
+      - type: output-matches
+        config:
+          pattern: (?is)(DllGetClassObject[\s\S]*IsCapped|IsCapped[\s\S]*DllGetClassObject)
+      - type: output-matches
+        config:
+          pattern: (?i)SEM_FAILCRITICALERRORS
+      - type: output-matches
+        config:
+          pattern: (?i)(Launching feature-on-demand|fondue|NetFx3)
+      - type: run-command
+        config:
+          command: python .eval/fixture_validation.py logs/mt.exe.CLRLoad00.txt fod-launched
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python .eval/check_readonly.py verify .
+          expected_exit_code: 0
       - type: prompt
     rubric:
-      - Correctly identifies mt.exe as the process launching the FOD dialog
-      - "Explains that the COM activation (DllGetClassObject) takes the legacy codepath with IsCapped: 1"
-      - Notes that no config file was found for mt.exe, so v4 is invisible to the capped legacy bind
-      - Identifies SEM_FAILCRITICALERRORS as the control for whether the FOD dialog is shown vs suppressed
-      - Distinguishes between link.exe (FOD suppressed) and mt.exe (FOD launched) based on error mode
-      - Does not blame MasterVersion for the capping behavior
-  - name: Diagnose FOD suppressed but activation still failing
-    prompt: |
-      My build tool is silently failing — I suspect CLR activation issues.
-      The tool is supposed to use .NET to process debug symbols but it's
-      not working. I have CLR activation logs. Can you tell me what's
-      happening?
+      - Identified mt.exe as the only process that launches the installation prompt
+      - Traced the failure through COM activation, legacy capping, and the missing configuration file
+      - Explained that the zero process error mode permits the visible prompt
+      - Distinguished the suppressed link.exe failure from the healthy csc.exe activation
+    constraints:
+      reject_tools: [bash, powershell, edit, create]
+
+  - name: Explain the silent symbol-processing failure
+    prompt: >-
+      A native build utility silently stopped processing debug symbols. The
+      only diagnostic file is logs/mt.exe.CLRLoad00.txt. Explain what failed,
+      why there was no dialog, and what application-level configuration would
+      let the installed runtime satisfy this request.
+    tags:
+      capability: diagnose-suppressed-fod
+      risk: high
+      journey: investigate-silent-tool-failure
     environment:
       files:
         - src: fixtures/mt-fod-suppressed.txt
           dest: logs/mt.exe.CLRLoad00.txt
+        - src: fixture_validation.py
+          dest: .eval/fixture_validation.py
+        - src: check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot .
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "clr-activation-suppressed-fod"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The DllGetClassObject COM activation is a capped legacy bind. Because mt.exe.config is absent (80070002), the installed v4 runtime is invisible to this path; the fallback search resolves to v2.0.50727, which is not installed. SEM_FAILCRITICALERRORS is 32769, so the log says "Could have launched feature-on-demand installation" and the failure stays silent. Add mt.exe.config with startup useLegacyV2RuntimeActivationPolicy="true" and supportedRuntime v4.0 so this legacy path can select v4, after checking the in-process side-by-side trade-off.
     graders:
-      - type: output-contains
-        config:
-          substring: Could have launched
-      - type: output-contains
-        config:
-          substring: IsCapped
       - type: output-matches
         config:
-          pattern: v2\.0\.50727|v2\.0
+          pattern: (?i)Could have launched feature-on-demand
       - type: output-matches
         config:
-          pattern: config|\.config
+          pattern: (?i)(IsCapped|capped).*(v2\.0\.50727|v2\.0)|(v2\.0\.50727|v2\.0).*(IsCapped|capped)
+      - type: output-matches
+        config:
+          pattern: (?i)(80070002|missing.*config|config.*missing)
+      - type: output-matches
+        config:
+          pattern: (?i)useLegacyV2RuntimeActivationPolicy
+      - type: run-command
+        config:
+          command: python .eval/fixture_validation.py logs/mt.exe.CLRLoad00.txt fod-suppressed
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python .eval/check_readonly.py verify .
+          expected_exit_code: 0
       - type: prompt
     rubric:
-      - Identifies that COM activation failed — the shim could not find a suitable runtime
-      - Explains that capping restricts the legacy codepath to v2.0 and v4 is invisible
-      - Notes SEM_FAILCRITICALERRORS is set, so the FOD dialog was suppressed (silent failure)
-      - Suggests that adding an exe.config with useLegacyV2RuntimeActivationPolicy and supportedRuntime v4.0 could
-        resolve it
-      - Correctly notes the missing config file as a key factor
-  - name: Explain why same binary behaves differently under different launch methods
-    prompt: |
-      I have two CLR activation logs for the same tool (mt.exe). When I run
-      the build from my script, it works fine. When I run MSBuild directly
-      from cmd.exe, I get FOD dialogs. Both logs show the same DllGetClassObject
-      activation for the same CLSID. Why is the behavior different?
+      - Identified the failed capped COM activation and the unavailable v2 runtime
+      - Explained that the inherited nonzero error mode suppresses the installation prompt
+      - Connected the missing executable configuration to v4 being unavailable to the legacy path
+      - Proposed a configuration that makes v4 eligible and noted its compatibility trade-off
+    constraints:
+      reject_tools: [bash, powershell, edit, create]
+
+  - name: Compare direct and scripted launches of the same tool
+    prompt: >-
+      These two files came from the same mt.exe binary on the same machine.
+      Running the build directly showed an install prompt, while our wrapper
+      script did not. Compare the logs and explain both the visible difference
+      and the underlying behavior that did not change.
+    tags:
+      capability: compare-parent-error-modes
+      risk: medium
+      journey: compare-launch-environments
     environment:
       files:
         - src: fixtures/mt-fod-suppressed.txt
           dest: logs/mt-from-script.CLRLoad00.txt
         - src: fixtures/mt-fod-launched.txt
-          dest: logs/mt-from-cmdline.CLRLoad00.txt
+          dest: logs/mt-direct.CLRLoad00.txt
+        - src: fixture_validation.py
+          dest: .eval/fixture_validation.py
+        - src: check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot .
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "clr-activation-launch-comparison"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Both runs have the same DllGetClassObject capped legacy failure with no mt.exe.config on a v4-only machine. The difference is SEM_FAILCRITICALERRORS: the direct run has 0 and launches FOD, while the scripted run inherits 32769 from its parent and suppresses the dialog. The wrapper changes presentation, not runtime selection or the underlying failure. Check which parent calls SetErrorMode or otherwise establishes the inherited process error mode.
     graders:
-      - type: output-contains
-        config:
-          substring: SEM_FAILCRITICALERRORS
       - type: output-matches
         config:
-          pattern: inherit|parent
+          pattern: (?i)SEM_FAILCRITICALERRORS
+      - type: output-matches
+        config:
+          pattern: (?i)(inherit|parent|SetErrorMode)
+      - type: output-matches
+        config:
+          pattern: (?i)(same|unchanged).*(failure|bind|activation)|(failure|bind|activation).*(same|unchanged)
+      - type: run-command
+        config:
+          command: python .eval/fixture_validation.py logs/mt-from-script.CLRLoad00.txt fod-suppressed
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python .eval/fixture_validation.py logs/mt-direct.CLRLoad00.txt fod-launched
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python .eval/check_readonly.py verify .
+          expected_exit_code: 0
       - type: prompt
     rubric:
-      - Identifies that the difference is SEM_FAILCRITICALERRORS (0 in one log, nonzero in the other)
-      - Explains that SEM_FAILCRITICALERRORS is inherited from the parent process
-      - Notes that both logs have the same underlying failure — capped legacy bind on a v4-only machine
-      - Explains that the script's process tree sets the error mode, suppressing the dialog
-      - Does not claim the COM activation or capping behavior is different between the two
-  - name: Analyze healthy managed EXE activation
-    prompt: |
-      Can you look at this CLR activation log and tell me if everything
-      looks normal? This is from a C# compiler invocation.
+      - Identified the differing process error-mode values as the cause of the visible behavior
+      - Explained that child processes inherit this setting from their parent
+      - Determined that both runs have the same capped legacy activation failure
+      - Directed investigation toward the launch process instead of the mt.exe binary
+    constraints:
+      reject_tools: [bash, powershell, edit, create]
+
+  - name: Confirm a normal compiler startup
+    prompt: >-
+      Review logs/csc.exe.CLRLoad00.txt from a compiler invocation. Tell me
+      whether runtime startup succeeded and cite the evidence. Do not invent a
+      remediation if the log is healthy.
+    tags:
+      capability: recognize-healthy-managed-startup
+      risk: low
+      journey: verify-compiler-startup
     environment:
       files:
         - src: fixtures/csc-healthy.txt
           dest: logs/csc.exe.CLRLoad00.txt
+        - src: fixture_validation.py
+          dest: .eval/fixture_validation.py
+        - src: check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot .
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "clr-activation-healthy-csc"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a healthy managed executable startup. _CorExeMain reads the binary's v4.0.30319 target, the nonlegacy uncapped path decides on v4.0.30319, and "Runtime has been loaded" confirms success. There is no ERROR, capping warning, or feature-on-demand action, so no activation remediation is indicated.
     graders:
-      - type: output-contains
-        config:
-          substring: v4.0.30319
       - type: output-matches
         config:
-          pattern: success|normal|healthy|no.*(issue|error|problem)
+          pattern: (?i)(_CorExeMain|managed executable)
+      - type: output-matches
+        config:
+          pattern: v4\.0\.30319
+      - type: output-matches
+        config:
+          pattern: (?i)(healthy|normal|success|no activation (issue|problem))
+      - type: run-command
+        config:
+          command: python .eval/fixture_validation.py logs/csc.exe.CLRLoad00.txt healthy-managed-v4
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python .eval/check_readonly.py verify .
+          expected_exit_code: 0
       - type: prompt
     rubric:
-      - Identifies this as a managed EXE launch via _CorExeMain
-      - Notes the runtime was decided as v4.0.30319 successfully
-      - Confirms no errors or FOD triggers are present
-      - Does not raise false alarms about normal activation behavior
-  - name: Identify multiple activation sequences in a single log
-    prompt: |
-      I'm seeing intermittent CLR activation failures with link.exe.
-      Sometimes it works, sometimes it doesn't. Can you analyze this
-      activation log and explain what's happening?
+      - Recognized a managed executable startup rather than a COM or hosting failure
+      - Cited the successful v4 runtime decision and load
+      - Avoided false alarms and unnecessary configuration changes
+    constraints:
+      reject_tools: [bash, powershell, edit, create]
+
+  - name: Separate two activation attempts in one linker log
+    prompt: >-
+      link.exe loads managed support successfully but later symbol work fails.
+      Use logs/link.exe.CLRLoad00.txt to separate the activation attempts and
+      explain why the later request can fail even though v4 is already loaded.
+    tags:
+      capability: distinguish-multiple-activations
+      risk: high
+      journey: trace-linker-activation-sequences
     environment:
       files:
         - src: fixtures/link-multi-activation.txt
           dest: logs/link.exe.CLRLoad00.txt
+        - src: fixture_validation.py
+          dest: .eval/fixture_validation.py
+        - src: check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot .
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "clr-activation-linker-sequences"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The first activation is the ClrCreateInstance / ICLRMetaHostPolicy path. It reads link.exe.config, selects v4.0.30319, and loads that runtime. A later DllGetClassObject for CLSID {0A29FF9E-7F9C-4437-8B11-F424491E3931} starts a separate legacy capped bind. Because useLegacyV2RuntimeActivationPolicy is 0, the v4 supportedRuntime entry does not make v4 eligible for that legacy request; it fails and the nonzero error mode suppresses FOD. The repeated ComputeVersionString block after the error is the nested FOD check, not a third top-level activation.
     graders:
-      - type: output-contains
-        config:
-          substring: DllGetClassObject
       - type: output-matches
         config:
-          pattern: two|multiple|second|separate
-      - type: output-contains
+          pattern: (?is)(ClrCreateInstance|ICLRMetaHostPolicy)[\s\S]*DllGetClassObject|DllGetClassObject[\s\S]*(ClrCreateInstance|ICLRMetaHostPolicy)
+      - type: output-matches
         config:
-          substring: IsCapped
+          pattern: (?i)(separate|second|later).*(activation|bind)
+      - type: output-matches
+        config:
+          pattern: (?is)(nested|re-entrant|FOD check).*(not.*third|same activation|computation)|two separate activation sequences.*(retry|re-run|recomput).{0,80}(FOD|feature-on-demand)
+      - type: run-command
+        config:
+          command: python .eval/fixture_validation.py logs/link.exe.CLRLoad00.txt multi-activation-capped-failure
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python .eval/check_readonly.py verify .
+          expected_exit_code: 0
       - type: prompt
     rubric:
-      - Identifies that the log contains multiple activation sequences
-      - Notes the first activation (ClrCreateInstance / GetRequestedRuntime) succeeds via config file and loads v4.0
-      - Notes the second activation (DllGetClassObject) is a legacy COM activation that is capped
-      - Explains why the second activation fails despite v4.0 already being loaded — it's a separate legacy bind
-      - Identifies the CLSID being activated in the COM path
-  - name: Explain useLegacyV2RuntimeActivationPolicy in activation log
-    prompt: |
-      I see 'UseLegacyV2RuntimeActivationPolicy is set to 1' in my CLR
-      activation log. What does this mean and how does it affect runtime
-      selection?
+      - Separated the successful hosting activation from the later failing COM activation
+      - Explained why loading v4 through one path does not automatically satisfy the separate capped legacy request
+      - Identified the COM class involved in the failing request
+      - Did not count the nested feature-on-demand recomputation as another top-level activation
+    constraints:
+      reject_tools: [bash, powershell, edit, create]
+
+  - name: Explain why legacy COM activation can use v4
+    prompt: >-
+      This native tool's log shows a successful v4 startup followed by a
+      successful legacy COM request. Explain which application setting changes
+      the legacy request, why v4 remains eligible despite IsCapped being 1, and
+      the compatibility consequence of that setting.
+    tags:
+      capability: explain-legacy-policy-success
+      risk: medium
+      journey: review-runtime-policy
     environment:
       files:
         - src: fixtures/tool-with-legacy-policy.txt
           dest: logs/tool.exe.CLRLoad00.txt
-    graders:
-      - type: output-contains
-        config:
-          substring: useLegacyV2RuntimeActivationPolicy
-      - type: output-matches
-        config:
-          pattern: legacy|capp
-      - type: output-contains
-        config:
-          substring: v4.0
-      - type: prompt
-    rubric:
-      - Explains that useLegacyV2RuntimeActivationPolicy makes legacy shim API codepaths associate with v4
-      - Notes it is mostly equivalent to calling CorBindToRuntimeEx with the v4 version string
-      - "Mentions the trade-off: turns off in-proc SxS with pre-v4 runtimes"
-      - Shows that in this log, the runtime was successfully decided as v4.0 even for capped paths
-  - name: Decline non-CLR-activation issue
-    prompt: |
-      My .NET app crashes with a NullReferenceException after startup.
-      Can you analyze the CLR activation logs to find the bug?
+        - src: fixture_validation.py
+          dest: .eval/fixture_validation.py
+        - src: check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot .
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "clr-activation-legacy-policy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              tool.exe.config sets useLegacyV2RuntimeActivationPolicy to 1 and names supportedRuntime v4.0.30319. That policy lets legacy shim APIs and the capped DllGetClassObject path consider the explicit v4 runtime, so the later COM request also decides on v4.0.30319. The trade-off is that this policy disables in-process side-by-side use with pre-v4 CLR versions, so it should be enabled only when that compatibility is acceptable.
     graders:
       - type: output-matches
         config:
-          pattern: activation.*succeed|loaded.*success|not.*activation|after.*load|runtime.*error|not.*scope
+          pattern: (?i)useLegacyV2RuntimeActivationPolicy
+      - type: output-matches
+        config:
+          pattern: (?i)(IsCapped|capped).*(v4\.0\.30319|explicit v4)|(v4\.0\.30319|explicit v4).*(IsCapped|capped)
+      - type: output-matches
+        config:
+          pattern: (?i)(in-process|in-proc).*(side-by-side|SxS|pre-v4)
+      - type: run-command
+        config:
+          command: python .eval/fixture_validation.py logs/tool.exe.CLRLoad00.txt legacy-policy-v4-success
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python .eval/check_readonly.py verify .
+          expected_exit_code: 0
       - type: prompt
     rubric:
-      - Recognizes that a NullReferenceException is a runtime error, not an activation issue
-      - Explains that CLR activation logs cover runtime selection and loading, not runtime behavior after the CLR is
-        loaded
-      - Does not attempt to diagnose the NullReferenceException from activation logs
+      - Connected the successful legacy COM request to the executable configuration policy
+      - Explained that an explicit v4 choice remains valid despite capped enumeration
+      - Identified the loss of pre-v4 in-process side-by-side compatibility
     constraints:
-      reject_skills:
-        - "*"
+      reject_tools: [bash, powershell, edit, create]
+
+  - name: Diagnose an older runtime selected ahead of v4
+    prompt: >-
+      LegacyReport.exe unexpectedly starts on CLR v2 even though CLR v4 is
+      installed. Read logs/LegacyReport.exe.CLRLoad00.txt, identify the exact
+      selection rule that produced this result, and state the smallest safe
+      configuration correction.
+    tags:
+      capability: diagnose-supported-runtime-order
+      risk: high
+      journey: investigate-wrong-runtime
+    environment:
+      files:
+        - src: fixtures/wrong-runtime-order.txt
+          dest: logs/LegacyReport.exe.CLRLoad00.txt
+        - src: fixture_validation.py
+          dest: .eval/fixture_validation.py
+        - src: check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot .
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "clr-activation-wrong-runtime-order"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The config lists supportedRuntime v2.0.50727 before v4.0.30319, and both runtimes are installed. The shim uses the first installed supportedRuntime entry, so it selects and loads v2.0.50727; this is not a capping failure. If the application is compatible with CLR v4, put v4.0 first or remove the v2 entry after compatibility testing. Do not change machine-wide runtime registration to fix an application-local ordering decision.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(first|order|listed before).*(v2\.0\.50727|v2)|(v2\.0\.50727|v2).*(first|order|listed before)
+      - type: output-matches
+        config:
+          pattern: (?is)(v4\.0\.30319|v4).*(installed|available)|(installed|available).*(v4\.0\.30319|v4)
+      - type: output-matches
+        config:
+          pattern: (?i)(put|list|move|reorder).{0,120}(v4\.0|v4).{0,80}(first|before)|(v4\.0|v4).{0,80}(first|before)|remove.{0,80}v2
+      - type: run-command
+        config:
+          command: python .eval/fixture_validation.py logs/LegacyReport.exe.CLRLoad00.txt wrong-runtime-v2-selected
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python .eval/check_readonly.py verify .
+          expected_exit_code: 0
+      - type: prompt
+    rubric:
+      - Identified first-installed-match ordering in supportedRuntime entries as the cause
+      - Distinguished the wrong-version selection from a capped activation failure
+      - Recommended an application-local ordering change subject to compatibility testing
+      - Avoided unnecessary machine-wide runtime changes
+    constraints:
+      reject_tools: [bash, powershell, edit, create]
+
+  - name: Explain timing-dependent COM activation
+    prompt: >-
+      Two runs of NativeHost.exe differ only in component initialization order.
+      One COM request succeeds and the other fails. Compare the two files in
+      logs/, explain why order changes the result, and describe what must be
+      made deterministic rather than dismissing this as random flakiness.
+    tags:
+      capability: diagnose-activation-order-race
+      risk: high
+      journey: investigate-intermittent-com-startup
+    environment:
+      files:
+        - src: fixtures/order-legacy-first.txt
+          dest: logs/legacy-first.CLRLoad00.txt
+        - src: fixtures/order-com-first.txt
+          dest: logs/com-first.CLRLoad00.txt
+        - src: fixture_validation.py
+          dest: .eval/fixture_validation.py
+        - src: check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot .
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "clr-activation-order-race"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              In legacy-first, CorBindToRuntimeEx explicitly selects v4.0.30319 and binds it as the process legacy runtime before DllGetClassObject. The later capped COM request reuses that already-bound v4 runtime and succeeds. In com-first, DllGetClassObject runs before any legacy runtime is bound, so capped discovery cannot see the installed v4 runtime and fails; the later explicit bind cannot repair the earlier request. This is an initialization-order race. Serialize initialization or explicitly bind/configure v4 before concurrent COM activation.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)CorBindToRuntimeEx
+      - type: output-matches
+        config:
+          pattern: (?i)(order|race|timing)
+      - type: output-matches
+        config:
+          pattern: (?i)(already-bound|already bound|reuse).*(v4|legacy runtime)
+      - type: output-matches
+        config:
+          pattern: (?i)(serialize|before concurrent|initialize.*before|bind.*before)
+      - type: run-command
+        config:
+          command: python .eval/fixture_validation.py logs/legacy-first.CLRLoad00.txt legacy-bound-before-com
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python .eval/fixture_validation.py logs/com-first.CLRLoad00.txt com-before-legacy-bind
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python .eval/check_readonly.py verify .
+          expected_exit_code: 0
+      - type: prompt
+    rubric:
+      - Identified the explicit v4 legacy bind that precedes and satisfies COM activation in the successful run
+      - Explained why COM-first fails before a legacy runtime exists
+      - Diagnosed initialization ordering as the source of intermittency
+      - Proposed making the v4 bind or configuration happen deterministically before concurrent COM use
+    constraints:
+      reject_tools: [bash, powershell, edit, create]
+
+  - name: Correlate a native host HRESULT with its runtime request
+    prompt: >-
+      LegacyPluginHost returns HRESULT 0x80131700 while loading a plug-in. The
+      machine has .NET Framework 4.8, and its diagnostic log is in logs/. Map
+      the HRESULT to the logged failure, explain why the installed framework
+      does not satisfy the request, and give the next corrective decision.
+    tags:
+      capability: correlate-runtime-load-hresult
+      risk: high
+      journey: investigate-native-host-hresult
+    environment:
+      files:
+        - src: fixtures/hresult-runtime-load-failure.txt
+          dest: logs/LegacyPluginHost.exe.CLRLoad00.txt
+        - src: fixture_validation.py
+          dest: .eval/fixture_validation.py
+        - src: check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot .
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "clr-activation-hresult"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              0x80131700 is CLR_E_SHIM_RUNTIMELOAD: the shim could not find or load the requested runtime. The log shows CorBindToRuntimeEx explicitly requesting v2.0.50727, while only v4.0.30319 is installed, followed by "Requested runtime is not installed" and the runtime-selection error. CLR v4/Framework 4.8 does not silently replace an explicit CLR v2 request. Decide whether the plug-in truly requires CLR v2; if not, update the host/configuration to request v4 and retest compatibility, otherwise install the supported CLR v2/.NET 3.5 prerequisite.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)0x80131700.*CLR_E_SHIM_RUNTIMELOAD|CLR_E_SHIM_RUNTIMELOAD.*0x80131700
+      - type: output-matches
+        config:
+          pattern: (?i)CorBindToRuntimeEx.*v2\.0\.50727|v2\.0\.50727.*CorBindToRuntimeEx
+      - type: output-matches
+        config:
+          pattern: (?i)(v4\.0\.30319|Framework 4\.8).*(does not|cannot|not).*(replace|satisfy)|explicit.*v2
+      - type: run-command
+        config:
+          command: python .eval/fixture_validation.py logs/LegacyPluginHost.exe.CLRLoad00.txt explicit-v2-runtime-missing
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python .eval/check_readonly.py verify .
+          expected_exit_code: 0
+      - type: prompt
+    rubric:
+      - Mapped the HRESULT to a runtime-load failure
+      - Connected the failure to the explicit v2 request and the absence of CLR v2
+      - Explained why installed CLR v4 does not substitute for an explicit v2 request
+      - Presented the compatibility decision between retargeting the host and installing its declared prerequisite
+    constraints:
+      reject_tools: [bash, powershell, edit, create]
+
+  - name: Redirect a modern host framework resolution failure
+    prompt: >-
+      A self-contained migration of ModernService now fails before Main with
+      error 0x80008096. Read logs/host-trace.txt and tell me what is wrong and
+      which diagnostic or configuration area to use next.
+    expect_activation: false
+    tags:
+      capability: boundary-modern-dotnet-host
+      risk: medium
+      journey: redirect-hostfxr-failure
+    environment:
+      files:
+        - src: fixtures/modern-hostfxr.txt
+          dest: logs/host-trace.txt
+        - src: fixture_validation.py
+          dest: .eval/fixture_validation.py
+        - src: check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot .
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "clr-activation-dormancy-hostfxr"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a modern .NET hostfxr framework-resolution failure, not a .NET Framework mscoree/CLRLoad activation case. The trace requests Microsoft.NETCore.App 8.0.0, finds only 9.0.1, and the configured Minor roll-forward does not cross the major-version boundary. Inspect the runtimeconfig.json deployment choice, install the matching 8.0 runtime, or deliberately change rollForward after compatibility review. Continue with DOTNET_HOST_TRACE/hostfxr diagnostics rather than CLRLoad logging.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(modern \.NET|hostfxr|CoreCLR)
+      - type: output-matches
+        config:
+          pattern: (?i)(not.*CLRLoad|not.*\.NET Framework|mscoree.*not|framework-dependent (resolution|deployment)|shared framework)
+      - type: output-matches
+        config:
+          pattern: (?i)(runtimeconfig|rollForward|DOTNET_HOST_TRACE|install.*8\.0)
+      - type: run-command
+        config:
+          command: python .eval/fixture_validation.py logs/host-trace.txt modern-hostfxr
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python .eval/check_readonly.py verify .
+          expected_exit_code: 0
+      - type: prompt
+    rubric:
+      - The clr-activation-debugging skill stayed dormant for this modern hostfxr failure
+      - The response did not apply CLRLoad analysis or legacy .NET Framework activation remedies
+      - Recognized a modern hostfxr resolution failure rather than a .NET Framework shim problem
+      - Identified the requested 8.0 framework, installed 9.0 framework, and major-version roll-forward boundary
+      - Redirected to runtimeconfig, runtime installation, and host tracing
+      - Did not prescribe CLRLoad logging or legacy activation policy changes
+    constraints:
+      reject_tools: [bash, powershell, edit, create]
+
+  - name: Redirect an assembly binding failure after runtime startup
+    prompt: >-
+      FrameworkApp starts but then throws FileNotFoundException for
+      Contoso.Reporting. The captured diagnostic text is in
+      logs/assembly-bind.txt. Identify the failing layer and recommend the
+      correct evidence to collect next.
+    expect_activation: false
+    tags:
+      capability: boundary-assembly-binding
+      risk: medium
+      journey: redirect-fusion-failure
+    environment:
+      files:
+        - src: fixtures/fusion-bind-failure.txt
+          dest: logs/assembly-bind.txt
+        - src: fixture_validation.py
+          dest: .eval/fixture_validation.py
+        - src: check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot .
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "clr-activation-dormancy-fusion"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Runtime startup already succeeded; this text is a Fusion assembly-binder log. The default load context probes for Contoso.Reporting 4.2.0.0 and ends with 0x80070002 / FileNotFoundException, so the problem is assembly location or binding policy after CLR activation, not runtime selection. Use the complete Fusion/fuslogvw evidence, verify the deployed DLL and version/public-key identity, and inspect application binding redirects or probing paths. CLRLoad logs and legacy runtime policy do not address this failure.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(Fusion|assembly bind|binder)
+      - type: output-matches
+        config:
+          pattern: (?i)(after.*activation|post[- ]CLR[- ]activation|runtime startup.*succeed|runtime.*already loaded|not.*runtime[- ]selection|not.*activation)
+      - type: output-matches
+        config:
+          pattern: (?i)(fuslogvw|binding redirect|probing path|deployed DLL)
+      - type: run-command
+        config:
+          command: python .eval/fixture_validation.py logs/assembly-bind.txt fusion-bind-failure
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python .eval/check_readonly.py verify .
+          expected_exit_code: 0
+      - type: prompt
+    rubric:
+      - The clr-activation-debugging skill stayed dormant because runtime startup had already succeeded
+      - The response did not apply CLRLoad analysis to the Fusion assembly-binding failure
+      - Classified the evidence as an assembly-binding failure after successful runtime startup
+      - Identified the missing Contoso.Reporting assembly and its requested identity
+      - Redirected to Fusion evidence, deployment, and binding policy
+      - Avoided legacy runtime-selection remedies
+    constraints:
+      reject_tools: [bash, powershell, edit, create]

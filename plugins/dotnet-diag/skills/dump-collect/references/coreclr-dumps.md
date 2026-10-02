@@ -49,6 +49,14 @@ $env:DOTNET_EnableCrashReport = "1"
 ### Important Notes
 
 - The dump output directory must exist before the crash — CoreCLR will not create it.
+- The directory must be writable by the identity that runs the application. `chmod 755` does not
+  grant write access to a non-owner service account. Create the directory with the correct owner or
+  group, then test as that identity:
+
+  ```bash
+  sudo install -d -o <service-user> -g <service-group> -m 0770 /tmp/dumps
+  sudo -u <service-user> test -w /tmp/dumps && echo "dump directory writable"
+  ```
 - Format specifiers (`%p`, `%e`, `%h`, `%t`) require .NET 7+. On .NET 6, use a literal path.
 - The legacy `COMPlus_` prefix (e.g., `COMPlus_DbgEnableMiniDump`) still works but `DOTNET_` is preferred for .NET 6+.
 - Single-file published apps only support full dumps (`DOTNET_DbgMiniDumpType=4`), same as NativeAOT.
@@ -71,6 +79,9 @@ dotnet-dump collect -p <pid>
 
 # Specify dump type and output path
 dotnet-dump collect -p <pid> --type Full --output /tmp/dumps/myapp.dmp
+
+# Verify a non-empty artifact, report its path, and stop
+test -s /tmp/dumps/myapp.dmp && ls -lh /tmp/dumps/myapp.dmp
 ```
 
 **Supported `--type` values:** `Full`, `Heap`, `Mini`
@@ -92,9 +103,12 @@ After enabling crash dumps, verify the configuration:
 env | grep DOTNET_Dbg
 env | grep DOTNET_EnableCrashReport
 
-# Ensure dump directory exists and is writable
-ls -la /tmp/dumps/
+# Ensure the application identity can write the destination
+sudo -u <service-user> test -w /tmp/dumps && echo "dump directory writable"
 
 # After a crash, check for dump files
 ls -la /tmp/dumps/*.dmp
 ```
+
+After reporting the verified artifact path, stop. Do not open the dump or suggest an analysis
+command.

@@ -1,6 +1,6 @@
 ---
 name: dump-collect
-description: "Configure and collect crash dumps for modern .NET applications. USE FOR: enabling automatic crash dumps for CoreCLR or NativeAOT, capturing dumps from running .NET processes, setting up dump collection in Docker or Kubernetes, using dotnet-dump collect or createdump. DO NOT USE FOR: analyzing or debugging dumps, post-mortem investigation with lldb/windbg/dotnet-dump analyze, profiling or tracing, or for .NET Framework processes."
+description: "Modern .NET dump collection only (CoreCLR or NativeAOT). NEVER INVOKE FOR .NET Framework 4.x/clr.dll processes; use an approved Windows mechanism such as Sysinternals ProcDump directly. USE FOR: enabling automatic crash dumps, capturing dumps from running modern .NET processes, setting up dump collection in Docker or Kubernetes, using dotnet-dump collect or createdump. DO NOT USE FOR: analyzing or debugging dumps, post-mortem investigation with lldb/windbg/dotnet-dump analyze, profiling, or tracing."
 license: MIT
 ---
 
@@ -13,6 +13,8 @@ This skill configures and collects crash dumps for modern .NET applications (Cor
 🚨 **Read before starting any workflow.**
 
 - **Stop after dumps are enabled or collected.** Do not open, analyze, or triage dump files.
+- **End the response after collection verification and the artifact path.** Do not append analysis
+  commands, debugger suggestions, or an offer to interpret the dump.
 - **If the user already has a dump file**, this skill does not cover analysis. Let them know analysis is out of scope.
 - **Do not install analysis tools** (dotnet-dump analyze, windbg). Only install collection tools (dotnet-dump collect). Using `lldb` for on-demand dump capture on macOS is allowed — it ships with Xcode command-line tools and is not being used for analysis.
 - **Do not trace root cause** of crashes. Report the dump file location and move on.
@@ -30,15 +32,15 @@ Ask or determine:
 
 **From a binary file (Linux/macOS):**
 ```bash
-# CoreCLR — has IL metadata / managed entry point
-strings <binary> | grep -q "CorExeMain" && echo "CoreCLR"
-
 # NativeAOT — has Redhawk runtime symbols
-strings <binary> | grep -q "Rhp" && echo "NativeAOT"
-
-# On macOS/Linux, also try:
 nm <binary> 2>/dev/null | grep -qi "Rhp" && echo "NativeAOT"
+strings <binary> | grep -q "Rhp" && echo "NativeAOT"
 ```
+
+Do not identify CoreCLR from `CorExeMain` strings in an apphost executable.
+For a running process, inspect loaded modules as shown below. For a binary that
+is not running, a matching `.runtimeconfig.json` suggests a framework-dependent
+CoreCLR app but is not by itself proof of the runtime that a process loaded.
 
 **From a binary file (Windows):**
 ```powershell
@@ -51,16 +53,22 @@ dumpbin /symbols <binary.exe> | Select-String "Rhp" -Quiet
 
 **From a running process (Linux):**
 ```bash
-# Resolve the binary, then use the same file checks
+# CoreCLR — positive loaded-module evidence
+grep -q 'libcoreclr\.so' /proc/<pid>/maps && echo "CoreCLR"
+
+# NativeAOT — positive Redhawk symbol evidence after CoreCLR is excluded
 BINARY=$(readlink /proc/<pid>/exe)
-strings "$BINARY" | grep -q "CorExeMain" && echo "CoreCLR" || echo "NativeAOT"
+nm "$BINARY" 2>/dev/null | grep -qi "Rhp" && echo "NativeAOT"
 ```
 
 **From a running process (macOS):**
 ```bash
-# Resolve the binary path from the running process
+# CoreCLR — positive loaded-module evidence
+vmmap <pid> | grep -q 'libcoreclr\.dylib' && echo "CoreCLR"
+
+# NativeAOT — positive Redhawk symbol evidence after CoreCLR is excluded
 BINARY=$(ps -o comm= -p <pid>)
-strings "$BINARY" | grep -q "CorExeMain" && echo "CoreCLR" || echo "NativeAOT"
+nm "$BINARY" 2>/dev/null | grep -qi "Rhp" && echo "NativeAOT"
 ```
 
 **From a running process (Windows PowerShell):**
@@ -90,7 +98,12 @@ Based on the scenario identified in Step 1, read the relevant reference file:
 
 Follow the instructions in the loaded reference to configure or collect dumps. Always:
 
-1. **Confirm the dump output directory exists** and has write permissions before enabling collection.
+1. **Confirm the dump output directory exists and is writable by the actual service or container
+   identity**, not only by the current shell user. Use an identity-aware check such as
+   `sudo -u <service-user> test -w <directory>` on Linux, or run `test -w` as the configured
+   container UID.
 2. **Report the dump file path** back to the user after collection succeeds.
 3. **Verify configuration took effect** — for env vars, echo them; for OS settings, read them back.
 4. **Remind the user to disable automatic dumps if they were enabled temporarily** — remove or unset `DOTNET_DbgEnableMiniDump` and related env vars to avoid accumulating dump files.
+5. **Use non-interactive container commands.** `docker exec` and `kubectl exec` do not need `-t` or
+   `-it` for `dotnet-dump ps`, collection, file checks, or copy operations.

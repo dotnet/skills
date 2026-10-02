@@ -8,7 +8,7 @@ license: MIT
 
 Resolves native backtrace frames from .NET Android app crashes (MAUI, Xamarin, Mono) to function names, source files, and line numbers using ELF BuildIds and Microsoft's symbol server.
 
-**Inputs:** Tombstone file or logcat crash output, `llvm-symbolizer` (from Android NDK or any LLVM 14+ toolchain), internet access for symbol downloads.
+**Inputs:** Tombstone file or logcat crash output, `llvm-symbolizer` (from Android NDK or any LLVM 14+ toolchain), and either exact-build local debug artifacts or internet access for published symbols.
 
 **Do not use when:** The crash is a managed .NET exception (visible in logcat with a managed stack trace), the crashing library is not a .NET component (e.g., `libart.so`), or the tombstone is from iOS.
 
@@ -17,6 +17,13 @@ Resolves native backtrace frames from .NET Android app crashes (MAUI, Xamarin, M
 ## Workflow
 
 ### Step 1: Parse the Tombstone Backtrace
+
+Resolve and process the user's supplied artifact before drafting the answer:
+
+1. Try the supplied path exactly.
+2. If it is absent, search the current workspace once by basename and use the unique match.
+3. Read the resolved file and run the automation script with `-ParseOnly -SkipVersionLookup` before reporting frame counts, libraries, BuildIds, or offsets.
+4. If the file still cannot be found or parsed, report that concrete failure. Do not answer from the filename or prompt alone.
 
 Each backtrace frame has this format:
 
@@ -30,7 +37,8 @@ Symbolicate all threads by default (background threads like GC/finalizer often h
 
 **Format notes:**
 - The script auto-detects `#NN pc` frame lines with or without a `backtrace:` header, and strips logcat timestamp/tag prefixes automatically.
-- Logcat-captured tombstones often omit BuildIds. Recover via `adb shell readelf -n`, CI build artifacts, or the .NET runtime NuGet package.
+- Logcat captures and raw tombstone files can both omit BuildIds. Do not assume either format always contains them.
+- When BuildIds are absent, the robust fallback is the exact-build unstripped `.so`, `.so.dbg`, or debug-symbol archive from the APK/AAB build. A BuildId recovered from that matching binary is useful; an identifier guessed from an offset or a different runtime package is not.
 - GitHub issue pastes may mangle `#1 pc` into issue links — replace `org/repo#N pc` with `#N pc` before saving to a file.
 - If the script fails to parse a format, fall back to manual extraction of `#NN pc OFFSET library.so (BuildId: HEX)` tuples.
 
@@ -50,7 +58,7 @@ Skip `libc.so`, `libart.so`, and other Android system libraries unless the user 
 
 ### Step 3: Download Debug Symbols
 
-For each unique .NET BuildId, download debug symbols:
+Use an exact-build local unstripped binary or debug file when the user supplies one. Otherwise, when network use is allowed and a BuildId is present, download debug symbols for each unique .NET BuildId:
 
 ```
 https://msdl.microsoft.com/download/symbols/_.debug/elf-buildid-sym-<BUILDID>/_.debug
@@ -89,6 +97,12 @@ Combine original frame numbers with resolved function names and source locations
 ```
 
 For unresolved frames (`??`), keep the original line with BuildId and PC offset.
+
+Separate observation from attribution:
+
+- Report the captured signal, abort message, fault address, libraries, and resolved functions as facts.
+- Do not infer that `SIGABRT` means an unhandled managed exception, FailFast, or a native-to-managed transition unless the tombstone text or resolved symbols establish that path.
+- Background GC/finalizer/runtime threads provide context, not proof of causation. Name the faulting frame or leave the cause unresolved.
 
 ### Automation Script
 
@@ -134,14 +148,16 @@ The script identifies the exact .NET runtime version by matching BuildIds agains
 
 ## Stop Signals
 
-- **No .NET frames found**: Report parsed frames and stop.
+- **No .NET frames found**: Report parsed frames and stop. Preserve the native
+  application library name, BuildId, and relevant PC offsets when present so
+  the JNI/native owner can locate the exact matching unstripped artifact.
 - **All frames resolved**: Present symbolicated backtrace. Do not trace into source or attempt to build/debug the runtime.
 - **Symbols not available (404)**: One attempt per BuildId, then stop. Report unsymbolicated frames with BuildIds and offsets.
 - **llvm-symbolizer not available**: Use `-ParseOnly`, present manual commands. Do not install LLVM.
 
 ## Common Pitfalls
 
-- **Missing BuildIds**: Logcat tombstones often omit BuildIds. Recover via: `adb shell readelf -n /path/to/lib.so`, CI build artifacts, or the runtime NuGet package (`~/.dotnet/packs/Microsoft.NETCore.App.Runtime.Mono.android-arm64/<version>/`). Prefer pulling raw tombstone files (`adb shell cat /data/tombstones/tombstone_XX`) which always include BuildIds.
+- **Missing BuildIds**: Logcat captures and raw tombstones may omit BuildIds. First request the exact-build unstripped libraries or debug-symbol archive. If the matching installed binary is still available, recover its BuildId with `readelf -n`; use a runtime pack only when its binary is proven to match the crashed build.
 - **Symbols not found (404)**: Pre-release/internal builds may not publish symbols. Check for local unstripped `.so`/`.so.dbg` in build artifacts or the NuGet runtime pack.
 - **NativeAOT**: No runtime `.so` in the tombstone — runtime is in the app binary. `libSystem.*.so` BCL libraries still work with the symbol server; the app binary needs its own debug symbols.
 - **Wrong llvm-symbolizer version**: Use LLVM 14+ for best DWARF compatibility.
