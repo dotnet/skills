@@ -807,13 +807,17 @@ switch ($Scenario)
         }
         $finallyMatch = [regex]::Match(
             $operationBody,
-            '(?is)\bfinally\s*\{(?<body>.*?)\}'
+            '(?is)\bfinally\s*\{'
         )
         if (-not $finallyMatch.Success)
         {
             Fail "The Refresh button state is not restored in a finally block."
         }
-        $finallyBody = $finallyMatch.Groups['body'].Value
+        $finallyOpenBrace = $finallyMatch.Index + $finallyMatch.Length - 1
+        $finallyBody = Get-CSharpBlockBody `
+            $operationBody `
+            $finallyOpenBrace `
+            "The refresh-operation finally block"
         Assert-Matches $finallyBody '_refreshButton\.Enabled\s*=\s*true\b' "The Refresh button is not re-enabled when the refresh fails."
         if (
             $operationBody -match '\.ConfigureAwait\s*\(\s*false\s*\)' -and
