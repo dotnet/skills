@@ -1,125 +1,643 @@
 name: maui-dependency-injection
+tags:
+  executionShard: medium
 description: Evaluates the dotnet-maui/maui-dependency-injection skill
 type: capability
-config:
-  timeout: 2m
+defaults:
+  timeout: 6m
+  runs: 1
+scoring:
+  threshold: 1.0
+
 stimuli:
-  - name: Register services with correct lifetimes in MauiProgram.cs
+  - name: Repair stale page and service lifetimes
+    tags:
+      capability: repair-service-lifetimes
+      risk: stale-navigation-state
+      journey: fix-composition-root
     prompt: |
-      I'm building a .NET MAUI app with a data service, two ViewModels
-      (MainViewModel and DetailViewModel), and two pages (MainPage and DetailPage).
-      The data service talks to a REST API and should be shared across the app.
-      Show me how to register everything in MauiProgram.cs with the right
-      lifetimes and explain why you chose each lifetime.
+      MauiProgram.cs causes inventory state to persist between page visits.
+      Edit only that file so the shared inventory service remains app-wide while
+      both pages and both view models get fresh instances for navigation.
+    environment:
+      files:
+        - src: fixtures/repair
+          dest: repair
+        - src: graders/validate_fixture.py
+          dest: .eval/validate_fixture.py
+    golden_patch:
+      path: ./references/repair-registrations.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-di-repair-lifetimes"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I changed the shared inventory service to singleton and both pages and both view models to transient lifetimes. This preserves shared cached data while ensuring fresh navigation state. Only MauiProgram.cs changed.
     graders:
-      - type: output-contains
+      - type: run-command
         config:
-          substring: AddSingleton
-      - type: output-contains
-        config:
-          substring: AddTransient
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/validate_fixture.py');assert
+            hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e10703488afc6245dc932de9d1c52b0a46b0621e79e291deebe2e88a1251ac7d';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)"
+            repair repair
+          expected_exit_code: 0
+          timeout: 1m
       - type: output-matches
         config:
-          pattern: (?i)MauiProgram|CreateMauiApp
+          pattern: (?i)(singleton|transient|lifetime)
+      - type: exit-success
+      - type: prompt
+        config:
+          evidence:
+            - trajectory
+            - diff
+            - golden_patch
+    rubric:
+      - Kept the shared service as one app-wide instance
+      - Changed pages and view models to fresh per-resolution instances
+      - Limited the change to the requested composition-root file
+
+  - name: Preserve an already-correct registration graph
+    tags:
+      capability: recognize-correct-registration-graph
+      risk: unnecessary-lifetime-churn
+      journey: review-working-composition-root
+    prompt: |
+      Review the registration and page wiring under healthy/. The app already
+      behaves correctly. Identify a concrete correctness defect if one exists;
+      otherwise leave the complete fixture unchanged.
+    environment:
+      files:
+        - src: fixtures/healthy
+          dest: healthy
+        - src: graders/validate_fixture.py
+          dest: .eval/validate_fixture.py
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-di-noop"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The registration graph is already correct. The product service is shared, pages and view models are transient, and ProductDetailsPage receives its view model through constructor injection and assigns it as BindingContext. I found no correctness defect and made no changes.
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/validate_fixture.py');assert
+            hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e10703488afc6245dc932de9d1c52b0a46b0621e79e291deebe2e88a1251ac7d';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)"
+            noop healthy
+          expected_exit_code: 0
+          timeout: 1m
       - type: output-matches
         config:
-          pattern: (?i)builder\.Services
+          pattern: (?i)(already correct|no (correctness )?(issue|problem|change)|leave.*unchanged)
+      - type: exit-success
       - type: prompt
     rubric:
-      - Registers the data service as Singleton because it holds shared state or is expensive to create
-      - Registers ViewModels as Transient so each navigation gets a fresh instance
-      - Registers Pages as Transient so constructor injection runs each time
-      - Shows the registrations inside CreateMauiApp on builder.Services
-  - name: Shell navigation auto-resolves DI-registered pages
+      - Recognized that service, view-model, and page lifetimes fit their roles
+      - Confirmed constructor injection and BindingContext assignment are complete
+      - Left every healthy fixture byte and path unchanged with no added files
+
+  - name: Choose lifetimes for a REST-backed app
+    tags:
+      capability: choose-service-page-lifetimes
+      risk: stale-or-duplicated-state
+      journey: design-registration-graph
     prompt: |
-      I have a DetailPage and DetailViewModel registered in DI. I'm using
-      Shell navigation. How does Shell resolve my page and its ViewModel
-      automatically? Show me the full wiring from MauiProgram.cs through
-      route registration to the GoToAsync call.
+      A mobile app has one REST data service, MainViewModel, DetailViewModel,
+      MainPage, and DetailPage. The service should share cached data, while each
+      navigation should start with fresh page state. Show the registrations and
+      explain the lifetime choices.
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-di-rest-lifetimes"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Register the shared cache with `builder.Services.AddSingleton<IDataService, DataService>();`. Use `builder.Services.AddTransient<MainViewModel>();`, `AddTransient<DetailViewModel>();`, `AddTransient<MainPage>();`, and `AddTransient<DetailPage>();` so each resolution gets fresh navigation state. Singleton fits the shared service; transient fits pages and view models that should not retain prior visit state.
     graders:
-      - type: output-contains
-        config:
-          substring: AddTransient
       - type: output-matches
         config:
-          pattern: (?i)RegisterRoute|Routing
+          pattern: AddSingleton<.*(Data|Api).*Service
       - type: output-matches
         config:
-          pattern: GoToAsync
+          pattern: AddTransient<.*(ViewModel|Page)
+      - type: output-matches
+        config:
+          pattern: builder\.Services
+      - type: exit-success
       - type: prompt
     rubric:
-      - Shows registering both DetailPage and DetailViewModel as Transient in MauiProgram.cs
-      - Shows Routing.RegisterRoute for the DetailPage
-      - Explains that Shell.Current.GoToAsync triggers DI resolution of the page and its constructor dependencies
-      - Shows the Page constructor accepting the ViewModel and assigning BindingContext
-  - name: Platform-specific service registration with fallback
+      - Shared the stateful or expensive service across the app
+      - Used fresh page and view-model instances for navigation
+      - Put registrations in the application builder's service collection
+
+  - name: Wire a routed details page with constructor injection
+    tags:
+      capability: connect-route-resolution-to-constructor-injection
+      risk: unresolved-page-dependencies
+      journey: navigate-to-details-page
     prompt: |
-      I need to register an INotificationService with different implementations
-      for Android, iOS, and Windows. How do I set this up in MauiProgram.cs so
-      it doesn't break on any platform?
+      DetailPage needs DetailViewModel in its constructor, and the view model
+      needs IDataService. Show the complete wiring from registration through
+      route setup and awaited navigation, including the page constructor.
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      path: ./references/routed-details-constructor-injection.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: AddTransient<.*(DetailPage|DetailViewModel)
+      - type: output-matches
+        config:
+          pattern: Routing\.RegisterRoute
+      - type: output-matches
+        config:
+          pattern: await\s+Shell\.Current\.GoToAsync
+      - type: output-matches
+        config:
+          pattern: BindingContext
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Registered the page, view model, and required service
+      - Registered a route and awaited navigation to it
+      - Injected the view model into the page and assigned the binding context
+
+  - name: Cover every platform registration branch
+    tags:
+      capability: register-platform-specific-service
+      risk: missing-runtime-registration
+      journey: add-notification-service
+    prompt: |
+      INotificationService has Android, Apple, and Windows implementations.
+      Show a registration block that works on every target and does not leave an
+      uncovered build target with a missing service.
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-di-platform-registration"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The covered branches are ANDROID, IOS or MACCATALYST, WINDOWS, and a fallback for any other target.
+
+              Put one complete conditional registration block in `CreateMauiApp()`:
+
+              ```csharp
+              #if ANDROID
+              builder.Services.AddSingleton<INotificationService, AndroidNotificationService>();
+              #elif IOS || MACCATALYST
+              builder.Services.AddSingleton<INotificationService, AppleNotificationService>();
+              #elif WINDOWS
+              builder.Services.AddSingleton<INotificationService, WindowsNotificationService>();
+              #else
+              builder.Services.AddSingleton<INotificationService, NoOpNotificationService>();
+              #endif
+              ```
+
+              Include the fallback implementation in shared code, with the same members as the real interface:
+
+              ```csharp
+              public sealed class NoOpNotificationService : INotificationService
+              {
+                  public Task ShowAsync(
+                      string title,
+                      string message,
+                      CancellationToken cancellationToken = default) =>
+                      Task.CompletedTask;
+              }
+              ```
+
+              Android, both Apple targets, and Windows each get their intended implementation. The defined `#else` fallback keeps any additional target build resolvable rather than leaving `INotificationService` absent at runtime.
     graders:
       - type: output-matches
         config:
           pattern: "#if ANDROID"
       - type: output-matches
         config:
-          pattern: (?i)IOS|MACCATALYST
+          pattern: (?i)(IOS|MACCATALYST).*(WINDOWS)|WINDOWS.*(IOS|MACCATALYST)
       - type: output-matches
         config:
-          pattern: (?i)WINDOWS
-      - type: output-matches
-        config:
-          pattern: (?i)fallback|#else|all platform
+          pattern: (?i)(#else|fallback|NoOp)
+      - type: exit-success
       - type: prompt
     rubric:
-      - "Uses #if / #elif preprocessor directives for each platform"
-      - Covers Android, iOS/Mac Catalyst, and Windows
-      - Warns about the risk of missing a platform causing a null service at runtime
-      - "Recommends an #else fallback or no-op stub for uncovered platforms"
-  - name: Avoid AddScoped pitfall in MAUI
+      - Selected the correct implementation for Android, Apple targets, and Windows
+      - Included a safe fallback or explicitly covered every remaining target
+      - Avoided a configuration that can resolve to no service
+
+  - name: Explain scoped lifetime in a mobile app
+    tags:
+      capability: explain-scoped-lifetime
+      risk: mistaken-per-navigation-scope
+      journey: diagnose-persisting-unit-of-work
     prompt: |
-      I'm coming from ASP.NET Core and I registered my DbContext with
-      AddScoped in my MAUI app. My data seems to persist across page
-      navigations when it shouldn't. What's going on?
+      A developer moved an ASP.NET Core DbContext registration to a mobile app
+      with AddScoped and expected a new instance per page visit. Explain why
+      state still persists and give the realistic alternatives.
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-di-scoped-advisory"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              A mobile app has no HTTP-request scope. A scoped service resolved
+              from the root behaves like a singleton; MAUI's framework-created
+              scope is per window, so it still does not create one DbContext per
+              page visit.
+
+              Choose by ownership:
+
+              - `AddTransient<MyDbContext>()` gives a fresh context per container
+                resolution when the receiving page/view model owns that instance.
+              - `IServiceScopeFactory.CreateScope()` creates an explicit,
+                disposable unit-of-work boundary; resolve the context inside the
+                scope and dispose the scope when that operation ends.
+              - `AddDbContextFactory<MyDbContext>()` is usually the cleanest
+                option when a long-lived view model needs multiple short-lived
+                contexts or overlapping operations.
+
+              Do not make DbContext a singleton. The correct choice depends on
+              who creates and disposes each unit of work, not on page navigation
+              automatically creating a scope.
     graders:
       - type: output-matches
         config:
-          pattern: (?i)scoped?
+          pattern: (?i)(no|without|does not have).{0,60}(request|HTTP).{0,60}scope
       - type: output-matches
         config:
-          pattern: (?i)singleton|single.?instance
+          pattern: (?i)(root.*singleton|window.*scope|scope.*window)
       - type: output-matches
         config:
-          pattern: (?i)(no|not|doesn.t|lacks|without).*(built.?in|request|http).*(scope|pipeline)
+          pattern: (?i)(AddTransient|CreateScope|AddDbContextFactory)
+      - type: exit-success
       - type: prompt
     rubric:
-      - Explains that MAUI has no built-in request scope like ASP.NET Core's HTTP pipeline
-      - States that AddScoped without a manually created IServiceScope behaves like Singleton
-      - Recommends switching to AddTransient for per-navigation freshness or AddSingleton if sharing is intended
-      - Mentions IServiceScope as the mechanism needed if Scoped lifetime is truly required
-  - name: "Diagnose a page whose injected dependencies are missing"
+      - Distinguished request, window, root-provider, and navigation lifetimes
+      - Did not claim AddScoped creates one instance per page visit
+      - Offered transient, explicit-scope, and factory options with their trade-offs
+
+  - name: Defer service resolution until window creation
+    tags:
+      capability: handle-app-startup-resolution
+      risk: service-use-before-container-ready
+      journey: construct-root-shell
     prompt: |
-      My DetailPage takes an IDataService in its constructor. I reach it two
-      ways: it's declared in AppShell.xaml as
-      <ShellContent ContentTemplate="{DataTemplate views:DetailPage}" />, and
-      I also navigate to it with Shell.Current.GoToAsync after calling
-      Routing.RegisterRoute. One path works and the other doesn't. Explain what
-      MAUI actually does in each case and how to fix it.
+      App.xaml resources load during InitializeComponent, but AppShell needs
+      registered services. Show where to resolve or inject the shell so startup
+      does not access the container too early.
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-di-create-window"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Register the root shell with `builder.Services.AddTransient<AppShell>();`. Inject IServiceProvider into App, let InitializeComponent finish, and override CreateWindow to call `_services.GetRequiredService<AppShell>()` and return a Window for that shell. This defers service-dependent construction until the container is built instead of resolving during application XAML parsing.
+    graders:
+      - type: output-matches
+        config:
+          pattern: CreateWindow
+      - type: output-matches
+        config:
+          pattern: (?i)(IServiceProvider|GetRequiredService|constructor)
+      - type: output-matches
+        config:
+          pattern: AddTransient<AppShell>|AddSingleton<AppShell>
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Deferred service-dependent root construction until window creation
+      - Registered the shell and resolved it from the built provider
+      - Avoided service access while application XAML resources are being parsed
+
+  - name: Diagnose two page creation paths
+    tags:
+      capability: distinguish-shell-page-creation-paths
+      risk: missing-constructor-resolution
+      journey: debug-injected-page
+    prompt: |
+      DetailPage has only a constructor that takes IDataService. It works when
+      reached through a registered route but fails when declared as a Shell
+      ContentTemplate. Explain the two creation paths and practical fixes.
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-di-page-creation-paths"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The two paths do not construct pages the same way:
+
+              1. `<ShellContent ContentTemplate="{DataTemplate views:DetailPage}" />` loads the template with `Activator.CreateInstance`. It does not ask the service provider for `DetailPage`, so a page whose only constructor takes `IDataService` fails with a missing-parameterless-constructor exception. Registering `DetailPage` does not change this template path.
+              2. `Routing.RegisterRoute("details", typeof(DetailPage))` followed by `await Shell.Current.GoToAsync("details")` uses the Shell route factory and `ActivatorUtilities.GetServiceOrCreateInstance`. That path can call the injected constructor when `IDataService` is registered, and it throws a resolution exception if the dependency is missing.
+
+              For constructor injection, keep `DetailPage` out of the visual `ContentTemplate`, register its dependencies, register the route, and navigate to it:
+
+              ```csharp
+              builder.Services.AddSingleton<IDataService, DataService>();
+              builder.Services.AddTransient<DetailPage>();
+              Routing.RegisterRoute("details", typeof(DetailPage));
+              await Shell.Current.GoToAsync("details");
+              ```
+
+              If the page must remain a top-level hierarchy page, provide an intentional parameterless construction path (or a factory-owned wrapper) instead of expecting the `ContentTemplate` to resolve constructor services.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(Activator\.CreateInstance|parameterless|ContentTemplate)
+      - type: output-matches
+        config:
+          pattern: (?i)(ActivatorUtilities|service provider|registered route|GoToAsync)
+      - type: output-not-matches
+        config:
+          pattern: (?i)silently\s+null|no\s+exception\s+is\s+thrown
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Explained that the visual template path does not perform constructor injection
+      - Explained that routed navigation uses the service provider and fails on unresolved dependencies
+      - Suggested a route-based path or an explicit parameterless construction strategy
+
+  - name: Separate a cached facade from its typed HTTP transport
+    tags:
+      capability: separate-cache-and-http-registrations
+      risk: duplicate-service-abstraction
+      journey: compose-cached-rest-service
+    prompt: |
+      ProductData owns an app-wide cache and calls a remote API. A teammate
+      registered both AddSingleton<IProductData, ProductData>() and
+      AddHttpClient<IProductData, ProductData>(). Review that setup and show the
+      two safe registration designs so the cache remains shared while HTTP still
+      uses IHttpClientFactory. Do not make a singleton capture a typed client.
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      path: ./references/cached-facade-http-ownership.json
     graders:
       - type: output-contains
         config:
-          substring: ContentTemplate
-      # Regression guard: the old skill claimed unregistered pages get "silently
-      # null" dependencies with no exception. Verified false — routed pages use
-      # ActivatorUtilities.GetServiceOrCreateInstance (Routing.cs) and THROW when
-      # a dependency cannot be resolved; ContentTemplate pages use
-      # Activator.CreateInstance (ElementTemplate.cs) with no DI at all.
-      - type: output-not-matches
+          substring: IHttpClientFactory
+      - type: output-matches
         config:
-          pattern: (?i)silently\s+null|dependencies\s+are\s+silently|no\s+exception\s+is\s+thrown
+          pattern: CreateClient\(\s*"
+      - type: output-matches
+        config:
+          pattern: AddSingleton<\s*I\w*Cache\w*\s*,\s*\w*Cache\w*\s*>
+      - type: output-matches
+        config:
+          pattern: AddHttpClient<IProductData,\s*ProductData>
+      - type: exit-success
       - type: prompt
     rubric:
-      - Explains that ContentTemplate pages are created with Activator.CreateInstance and bypass DI entirely
-      - Explains that routes resolved via GoToAsync go through the service provider and inject constructor dependencies
-      - Does NOT claim that dependencies are silently set to null without an exception
-      - Recommends navigating by route, or giving the page a parameterless constructor, for the ContentTemplate case
+      - Removed the competing second registration for IProductData
+      - Showed a singleton facade using IHttpClientFactory and CreateClient per operation
+      - Showed a transient typed-client consumer using a separate singleton cache
+      - Did not advise singleton ProductData to constructor-capture a typed client
+
+  - name: Keep constructor injection in a top-level shell page
+    tags:
+      capability: compose-hierarchy-page-factory
+      risk: missing-constructor-at-runtime
+      journey: retain-injected-root-tab
+    prompt: |
+      OrdersPage must stay as a top-level ShellContent, but its constructor takes
+      OrdersViewModel. AppShell itself is created through the container. Show
+      practical lazy wiring that keeps constructor injection without resolving
+      services inside OrdersPage.
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-di-hierarchy-page-factory"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Name the slot and omit its type-only template:
+
+              ```xml
+              <ShellContent x:Name="OrdersShellContent" Route="orders" />
+              ```
+
+              Then keep resolution in the composition root:
+
+              ```csharp
+              public AppShell(IServiceProvider services)
+              {
+                  InitializeComponent();
+                  OrdersShellContent.ContentTemplate =
+                      new DataTemplate(() => services.GetRequiredService<OrdersPage>());
+              }
+              ```
+
+              Register OrdersPage and OrdersViewModel as transient. The page keeps constructor injection and contains no Handler/global-provider lookup.
+    graders:
+      - type: output-matches
+        config:
+          pattern: <ShellContent[^>]*x:Name\s*=
+      - type: output-contains
+        config:
+          substring: DataTemplate
+      - type: output-matches
+        config:
+          pattern: GetRequiredService<OrdersPage>
+      - type: output-not-matches
+        config:
+          pattern: Handler\.MauiContext|IPlatformApplication\.Current
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Kept the page in the visual hierarchy while preserving constructor injection
+      - Used a lazy DataTemplate factory owned by AppShell as the composition root
+      - Avoided service-location code inside the page
+
+  - name: Replace a page constructor service locator
+    tags:
+      capability: remove-page-service-locator
+      risk: handler-unavailable-during-construction
+      journey: repair-hidden-page-dependency
+    prompt: |
+      A page currently has `OrdersPage() :
+      this(Handler.MauiContext.Services.GetRequiredService<IOrdersService>())`.
+      Explain why that constructor is unsafe, give the preferred routed design,
+      and give one workable option if the page must remain a top-level tab.
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-di-remove-page-locator"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Handler is not attached while the page constructor runs, so Handler.MauiContext can be null; the constructor also hides a required dependency.
+
+              Prefer registering OrdersPage and its dependencies, registering a route, and using awaited GoToAsync so Shell constructs it through the service provider.
+
+              If it must remain a top-level tab, inject IServiceProvider into DI-created AppShell and assign the named ShellContent a `new DataTemplate(() => services.GetRequiredService<OrdersPage>())`. Do not resolve services in the page constructor.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)Handler.{0,80}(not|isn.t|unavailable|null|attached)
+      - type: output-matches
+        config:
+          pattern: (?i)(RegisterRoute|GoToAsync|registered route)
+      - type: output-matches
+        config:
+          pattern: DataTemplate.*GetRequiredService<OrdersPage>|GetRequiredService<OrdersPage>.*DataTemplate
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified that Handler is unavailable during page construction
+      - Preferred routed container activation for the injected page
+      - Offered a composition-root template factory rather than a page-level service locator
+
+  - name: Register a stateless typed API client once
+    tags:
+      capability: choose-single-typed-client-registration
+      risk: conflicting-http-lifetimes
+      journey: configure-stateless-api-wrapper
+    prompt: |
+      WeatherService is only a stateless wrapper around HttpClient and has no
+      cache or shared mutable state. Should it be registered as both a singleton
+      and a typed client? Show the service, view-model, and page registrations.
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-di-stateless-typed-client"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Register the abstraction once as the typed client; do not add a competing singleton:
+
+              ```csharp
+              builder.Services.AddHttpClient<IWeatherService, WeatherService>();
+              builder.Services.AddTransient<WeatherViewModel>();
+              builder.Services.AddTransient<WeatherPage>();
+              ```
+
+              IHttpClientFactory manages HttpClient handlers, and the stateless wrapper does not need app-wide identity. Pages and view models remain transient for fresh navigation state.
+    graders:
+      - type: output-matches
+        config:
+          pattern: AddHttpClient<IWeatherService,\s*WeatherService>
+      - type: output-not-matches
+        config:
+          pattern: AddSingleton<IWeatherService
+      - type: output-matches
+        config:
+          pattern: AddTransient<Weather(ViewModel|Page)>
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Chose one typed-client registration for the stateless service
+      - Avoided adding a contradictory singleton for the same abstraction
+      - Kept the page and view model fresh per resolution
+
+  - name: Stay dormant for a value converter binding issue
+    expect_activation: false
+    tags:
+      capability: boundary-xaml-data-binding
+      risk: incorrect-skill-activation
+      journey: route-binding-question
+    prompt: |
+      My Label uses an IValueConverter, but ConvertBack is called with the wrong
+      target type. Help me correct the XAML binding and converter signature.
+      Do not change any files.
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-di-dormancy-binding"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a binding/converter issue, so no service registration or file edit is needed. A `Label.Text` display binding should normally be one-way, which prevents `ConvertBack` from running:
+
+              ```xml
+              <ContentPage.Resources>
+                  <local:AmountConverter x:Key="AmountConverter" />
+              </ContentPage.Resources>
+
+              <Label Text="{Binding Amount,
+                                    Mode=OneWay,
+                                    Converter={StaticResource AmountConverter}}" />
+              ```
+
+              Use the standard converter signature and return text from `Convert`:
+
+              ```csharp
+              public sealed class AmountConverter : IValueConverter
+              {
+                  public object Convert(
+                      object? value, Type targetType, object? parameter, CultureInfo culture) =>
+                      value is decimal amount
+                          ? amount.ToString("C", culture)
+                          : string.Empty;
+
+                  public object ConvertBack(
+                      object? value, Type targetType, object? parameter, CultureInfo culture) =>
+                      BindableProperty.UnsetValue;
+              }
+              ```
+
+              If editing is actually required, use an `Entry` with `Mode=TwoWay`; then `ConvertBack` must parse the string and return the source property's type (for example `decimal`), or `BindableProperty.UnsetValue` when parsing fails. The `targetType` passed to `ConvertBack` describes that source-side type.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(IValueConverter|ConvertBack|binding)
+      - type: output-not-matches
+        config:
+          pattern: Add(Singleton|Transient|Scoped)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The service-registration workflow stayed dormant for a binding-only defect
+      - Addressed the converter and binding contract
+      - Did not introduce service registrations or lifetime changes
+      - Made no file changes

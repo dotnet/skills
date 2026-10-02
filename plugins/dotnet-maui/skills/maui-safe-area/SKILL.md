@@ -9,7 +9,9 @@ description: >-
   "keyboard avoidance", "notch insets", "status bar overlap", "iOS safe area",
   "Android edge-to-edge", "content behind status bar", "UseSafeArea migration",
   "soft input keyboard", "IgnoreSafeArea replacement".
-  DO NOT USE FOR: general layout or grid design (use Grid and StackLayout),
+  DO NOT USE FOR: ordinary Grid row/column sizing, alignment, margins, or
+  spacing when there is no status-bar, notch, home-indicator, or keyboard
+  overlap (use standard Grid and layout guidance); general layout design,
   app lifecycle handling (use maui-app-lifecycle), theming or styling
   (use maui-theming), or Shell navigation structure.
 license: MIT

@@ -1,101 +1,489 @@
 name: maui-data-binding
+tags:
+  executionShard: medium
 description: Evaluates the dotnet-maui/maui-data-binding skill
 type: capability
-config:
-  timeout: 2m
+defaults:
+  timeout: 6m
+  runs: 1
+scoring:
+  threshold: 1.0
 stimuli:
-  - name: Set up compiled bindings with x:DataType on a page
+  - name: Add compiled page bindings
     prompt: |
-      I have a .NET MAUI ContentPage called SettingsPage.xaml that currently uses
-      plain bindings with no x:DataType. The page's BindingContext is a
-      SettingsViewModel with properties: string Theme, bool NotificationsEnabled,
-      and int FontSize. Convert this page to use compiled bindings and tell me
-      how to catch binding errors at build time.
+      SettingsPage has a SettingsViewModel binding context with Theme,
+      NotificationsEnabled, and FontSize properties. Show the page-level XAML
+      change that makes these bindings compile-time checked, and the project
+      settings that turn missing compiled bindings into build failures.
+    tags:
+      capability: compiled-page-bindings
+      risk: trimming-and-binding-errors
+      journey: harden-settings-page
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      path: ./references/compiled-page-bindings.json
     graders:
+      - type: exit-success
       - type: output-contains
         config:
           substring: x:DataType
       - type: output-matches
         config:
-          pattern: (?i)SettingsViewModel
-      - type: output-matches
-        config:
-          pattern: XC0022|XC0025|WarningsAsErrors
+          pattern: XC0022|WarningsAsErrors
       - type: prompt
     rubric:
-      - Places x:DataType on the ContentPage root element pointing to SettingsViewModel
-      - Does not scatter x:DataType on child elements or use x:DataType='x:Object'
-      - Recommends enabling XC0022 and/or XC0025 as warnings-as-errors in the .csproj
-      - Explains that compiled bindings are faster and required for NativeAOT/trimming
-  - name: Implement MVVM ViewModel with ObservableObject
+      - Places the ViewModel type on the page binding scope rather than arbitrary children
+      - Enables build-time enforcement without disabling compilation through x:Object
+      - Accounts for Source-based compilation before promoting its warning
+
+  - name: Implement observable product state
     prompt: |
-      I need to create a ProductDetailViewModel for a .NET MAUI app. It should
-      have properties for Name (string), Price (decimal), IsAvailable (bool),
-      and a LoadCommand that fetches data asynchronously. Show me how to
-      implement this with proper change notification so bindings update the UI.
+      Sketch a ProductDetailViewModel with Name, Price, IsAvailable, and an
+      asynchronous LoadCommand. The UI must update when any value changes.
+      Prefer a concise implementation but explain what supplies notification.
+    tags:
+      capability: change-notification
+      risk: stale-ui
+      journey: create-product-viewmodel
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      path: ./references/observable-product-state.json
     graders:
+      - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)ObservableObject|INotifyPropertyChanged
+          pattern: ObservableObject|INotifyPropertyChanged
       - type: output-matches
         config:
-          pattern: (?i)ObservableProperty|PropertyChanged
+          pattern: ObservableProperty|PropertyChanged
       - type: output-matches
         config:
-          pattern: (?i)RelayCommand|ICommand
+          pattern: RelayCommand|ICommand
       - type: prompt
     rubric:
-      - Uses CommunityToolkit.Mvvm ObservableObject with [ObservableProperty] or implements INotifyPropertyChanged
-        manually
-      - "Includes all four members: Name, Price, IsAvailable, and a load command"
-      - Shows how the generated properties raise PropertyChanged automatically when using the toolkit
-      - Does not use a base class that doesn't implement INotifyPropertyChanged
-  - name: Create and use an IValueConverter
+      - Supplies working change notification for all editable values
+      - Supplies an asynchronous command without blocking the UI
+      - Does not present a plain property-only class as update-capable
+
+  - name: Convert order status to a display color
     prompt: |
-      In my .NET MAUI app I have a status field that is an enum:
-      enum OrderStatus { Pending, Shipped, Delivered, Cancelled }.
-      I want to display a different color for each status in a Label's TextColor.
-      Show me how to create a value converter and wire it up in XAML.
+      OrderStatus has Pending, Shipped, Delivered, and Cancelled values. Show a
+      reusable binding conversion to a Label color, including resource
+      registration, XAML use, and a safe fallback for unknown input.
+    tags:
+      capability: value-conversion
+      risk: invalid-display-state
+      journey: render-order-status
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      path: ./references/order-status-color-converter.json
     graders:
+      - type: exit-success
       - type: output-contains
         config:
           substring: IValueConverter
-      - type: output-matches
+      - type: output-contains
         config:
-          pattern: (?i)Convert
-      - type: output-matches
+          substring: x:Key
+      - type: output-contains
         config:
-          pattern: (?i)StaticResource|x:Key
+          substring: StaticResource
       - type: prompt
     rubric:
-      - Implements IValueConverter with a Convert method that maps each enum value to a Color
-      - Declares the converter in XAML resources with an x:Key
-      - Shows the binding syntax with Converter={StaticResource ...}
-      - Handles the default/fallback case in the converter
-  - name: Diagnose missing BindingContext and non-compiled bindings
+      - Maps every known status through a reusable converter
+      - Registers and consumes the converter through a XAML resource key
+      - Handles unexpected values without an invalid cast or missing return
+
+  - name: Diagnose blank labels on a page
     prompt: |
-      My .NET MAUI page shows blank labels even though my ViewModel properties
-      have values. Here is my XAML:
-      ```xml
-      <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-                   xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
-          <VerticalStackLayout>
-              <Label Text="{Binding Title}" />
-              <Label Text="{Binding Description}" />
-          </VerticalStackLayout>
-      </ContentPage>
-      ```
-      What am I doing wrong?
+      A ContentPage contains Label bindings for Title and Description, and the
+      ViewModel properties contain values, but both labels render blank. The
+      page never assigns a context and has no declared binding type. Explain
+      both defects and show focused fixes.
+    tags:
+      capability: binding-context-diagnosis
+      risk: blank-ui
+      journey: troubleshoot-empty-page
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-binding-blank-labels"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The immediate defect is the missing BindingContext: both bindings resolve against null. Assign the injected ViewModel in the page constructor and declare the same type for compiled binding checks:
+
+              ```xml
+              <ContentPage
+                  xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                  xmlns:vm="clr-namespace:MyApp.ViewModels"
+                  x:Class="MyApp.MainPage"
+                  x:DataType="vm:MainViewModel">
+                  <VerticalStackLayout>
+                      <Label Text="{Binding Title}" />
+                      <Label Text="{Binding Description}" />
+                  </VerticalStackLayout>
+              </ContentPage>
+              ```
+
+              ```csharp
+              public partial class MainPage : ContentPage
+              {
+                  public MainPage(MainViewModel viewModel)
+                  {
+                      InitializeComponent();
+                      BindingContext = viewModel;
+                  }
+              }
+              ```
+
+              BindingContext provides the runtime object, which fixes the blank labels. x:DataType does not instantiate that object; it compiles and validates Title and Description during the build.
     graders:
-      - type: output-matches
+      - type: exit-success
+      - type: output-contains
         config:
-          pattern: (?i)BindingContext
-      - type: output-matches
+          substring: BindingContext
+      - type: output-contains
         config:
-          pattern: (?i)x:DataType
+          substring: x:DataType
       - type: prompt
     rubric:
-      - Identifies that BindingContext is never set on the page
-      - Shows how to set BindingContext either in XAML or code-behind
-      - Points out the missing x:DataType and recommends compiled bindings
-      - Explains that without BindingContext, bindings resolve to null and display empty
+      - Identifies the missing BindingContext as the reason values resolve to null
+      - Adds a declared type for compile-time path checking
+      - Keeps runtime context assignment and compile-time typing conceptually distinct
+
+  - name: Type an item template independently
+    prompt: |
+      A page is typed to CatalogViewModel, but a CollectionView DataTemplate
+      binds to Product.Name and Product.Price. The compiler reports that the
+      template inherited the wrong type. Show the correct scope placement and
+      explain why the page type is not enough.
+    tags:
+      capability: template-binding-scope
+      risk: wrong-compiled-path
+      journey: fix-item-template
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-binding-template-scope"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Keep x:DataType="vm:CatalogViewModel" on the page, then declare x:DataType="model:Product" directly on the DataTemplate. A template receives each item as its BindingContext and therefore starts a new compiled-binding scope; inheriting the outer page type causes XC0024 and checks Product paths against CatalogViewModel. Do not suppress the check with x:Object or x:Null.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: DataTemplate.*x:DataType|x:DataType.*DataTemplate
+      - type: output-matches
+        config:
+          pattern: XC0024|outer.*scope|own.*scope
+      - type: prompt
+    rubric:
+      - Gives the DataTemplate its own item type
+      - Explains that a template creates a binding scope different from the page context
+      - Does not silence the warning with x:Object or x:Null
+
+  - name: Compile a relative source binding
+    prompt: |
+      A .NET 9 page uses a RelativeSource binding and already has correct
+      x:DataType values. Promoting XC0025 to an error breaks the build. What
+      project switch is required, and in what order should we enable the switch
+      and warning enforcement?
+    tags:
+      capability: source-binding-compilation
+      risk: build-break
+      journey: enforce-binding-warnings
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-binding-relative-source-compilation"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              First set MauiEnableXamlCBindingWithSourceCompilation to true in the project so bindings with Source or RelativeSource participate in XAML compilation. After that, append XC0025 to WarningsAsErrors. Keeping the existing x:DataType and relative source is correct; promoting XC0025 before enabling the switch turns an expected reflection fallback into a build failure.
+    graders:
+      - type: exit-success
+      - type: output-contains
+        config:
+          substring: MauiEnableXamlCBindingWithSourceCompilation
+      - type: output-contains
+        config:
+          substring: XC0025
+      - type: prompt
+    rubric:
+      - Enables compilation for bindings that provide an explicit source before enforcing XC0025
+      - Preserves the correct binding types rather than removing the relative source
+      - Provides a valid project property sequence
+
+  - name: Create trim-safe bindings in code
+    prompt: |
+      A net9 MAUI page is built entirely in C# and must support NativeAOT and
+      trimming. Replace reflection-based string paths with typed bindings for a
+      Label showing FullName and a two-way Entry editing Age through a converter.
+      Show the exact SetBinding calls.
+    tags:
+      capability: aot-safe-code-bindings
+      risk: trimmed-binding-failure
+      journey: build-code-only-page
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-binding-aot-code-bindings"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use the net9 typed-lambda overloads so no property name is discovered through reflection:
+
+              ```csharp
+              label.SetBinding(
+                  Label.TextProperty,
+                  static (PersonViewModel vm) => vm.FullName);
+
+              entry.SetBinding(
+                  Entry.TextProperty,
+                  static (PersonViewModel vm) => vm.Age,
+                  mode: BindingMode.TwoWay,
+                  converter: new IntToStringConverter());
+              ```
+
+              The static typed expressions preserve compile-time checking and are trim/AOT-safe. Do not construct `new Binding("FullName")` or another string path.
+    graders:
+      - type: exit-success
+      - type: output-contains
+        config:
+          substring: SetBinding
+      - type: output-matches
+        config:
+          pattern: \(\s*PersonViewModel\s+\w+\s*\)\s*=>
+      - type: output-contains
+        config:
+          substring: BindingMode.TwoWay
+      - type: prompt
+    rubric:
+      - Uses typed binding expressions for both properties instead of string paths
+      - Configures the editable Age binding as two-way and preserves the converter
+      - Produces code suitable for trimming and NativeAOT
+
+  - name: Update a bound collection from background work
+    prompt: |
+      A timer callback loads products on a worker thread and then clears and
+      repopulates an ObservableCollection bound to CollectionView. It sometimes
+      crashes on iOS. Explain the threading boundary and show a safe update
+      without claiming that binding notifications make arbitrary worker-thread
+      mutations safe.
+    tags:
+      capability: collection-thread-dispatch
+      risk: cross-thread-ui-crash
+      journey: refresh-products-in-background
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-binding-background-collection"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              ObservableCollection raises CollectionChanged on the thread that mutates it, so a worker callback must dispatch the mutation:
+
+              ```csharp
+              var loaded = await repository.LoadProductsAsync();
+              await MainThread.InvokeOnMainThreadAsync(() =>
+              {
+                  Products.Clear();
+                  foreach (var product in loaded)
+                      Products.Add(product);
+              });
+              ```
+
+              A UI-invoked async command normally resumes its captured UI context after an ordinary await. For timers, Task.Run, ConfigureAwait(false), or other uncertain callbacks, check `MainThread.IsMainThread` and dispatch the complete bound-state update when false; do not rely on PropertyChanged as a dispatcher.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: ObservableCollection|CollectionChanged
+      - type: output-matches
+        config:
+          pattern: MainThread\.(InvokeOnMainThreadAsync|BeginInvokeOnMainThread)
+      - type: output-matches
+        config:
+          pattern: (?i)(worker|background).*(thread|dispatch)|thread.*(worker|background)
+      - type: prompt
+    rubric:
+      - Identifies collection mutation, not merely property notification, as the cross-thread boundary
+      - Dispatches the clear and add operations together to the main thread
+      - Gives conditional threading guidance rather than a blanket auto-marshalling claim
+
+  - name: Repair compiled binding scopes
+    prompt: |
+      SettingsPage.xaml has a page ViewModel and an item template, but both
+      scopes fall back to reflection and one child explicitly disables type
+      checking. Edit the file so the page and item bindings are compiled. Do
+      not redesign the UI.
+    tags:
+      capability: compiled-binding-repair
+      risk: runtime-binding-failure
+      journey: repair-xaml-scopes
+    environment:
+      files:
+        - src: ./fixtures/repair/SettingsPage.xaml
+          dest: SettingsPage.xaml
+        - src: ./fixtures/repair/validate.py
+          dest: .eval/validate.py
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-binding-repair-compiled-scopes"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I changed only SettingsPage.xaml: added `x:DataType="vm:SettingsViewModel"` to ContentPage, removed `x:DataType="x:Object"` from the Title Label, and added `x:DataType="model:Option"` to the DataTemplate. The existing bindings and layout remain unchanged. I ran `python .eval/validate.py SettingsPage.xaml`; it passed, proving both binding scopes are compiled and no x:Object escape remains.
+    golden_patch:
+      path: ./references/repair.patch
+    graders:
+      - type: exit-success
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/validate.py');assert
+            hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='ac110838d633877de4bd450ace9a624ad27c008bb0884b9de5b0ee4c54b29f4a';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)"
+            SettingsPage.xaml
+          expected_exit_code: 0
+      - type: file-not-contains
+        config:
+          path: SettingsPage.xaml
+          value: x:DataType="x:Object"
+      - type: prompt
+        config:
+          evidence:
+            - trajectory
+            - diff
+            - golden_patch
+    rubric:
+      - Declares the SettingsViewModel type on the page scope
+      - Declares the Option type on the DataTemplate scope
+      - Removes the explicit reflection fallback without changing layout or bindings
+
+  - name: Leave correct compiled bindings unchanged
+    prompt: |
+      Audit noop/ for compiled-binding correctness and warning enforcement.
+      Make changes only if a binding scope is untyped or enforcement is unsafe.
+      If it is correct, leave the complete directory byte-for-byte unchanged.
+    tags:
+      capability: binding-idempotence
+      risk: needless-xaml-churn
+      journey: verify-binding-configuration
+    environment:
+      files:
+        - src: ./fixtures/noop
+          dest: noop
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-binding-noop"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The configuration is already correct; no change is needed. I inspected both files. SettingsPage.xaml already has the two required scopes:
+
+              ```xml
+              <ContentPage ... x:DataType="vm:SettingsViewModel">
+                  ...
+                  <DataTemplate x:DataType="model:Option">
+                      <Label Text="{Binding DisplayName}" />
+                  </DataTemplate>
+              </ContentPage>
+              ```
+
+              There is no `x:DataType="x:Object"` or untyped template. BindingSettings.props also has the safe ordering:
+
+              ```xml
+              <MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
+              <WarningsAsErrors>$(WarningsAsErrors);XC0022;XC0025</WarningsAsErrors>
+              ```
+
+              I ran the declared recursive file-set and SHA-256 check. It found only BindingSettings.props and SettingsPage.xaml and matched both expected hashes, so the directory is byte-for-byte unchanged. No edit is needed.
+    graders:
+      - type: exit-success
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -c
+            - "import hashlib,pathlib; root=pathlib.Path('noop'); expected={'BindingSettings.props':'84a071b6a5aae1ced8cea4e688119035a96919c119d749eef9ef2faf3c7b6ef9','SettingsPage.xaml':'fe57b3ba6c789180a906fdf8e2da031660b86b28d200d7fb223d53b33423f42f'}; files=sorted(str(p.relative_to(root)).replace('\\\\','/') for p in root.rglob('*') if p.is_file()); assert files==sorted(expected), files; [(_ for _ in ()).throw(AssertionError(name)) for name,digest in expected.items() if hashlib.sha256((root/name).read_bytes().replace(b'\\r\\n',b'\\n')).hexdigest()!=digest]"
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (?i)already.*correct|no (change|fix).*needed|left.*unchanged
+      - type: prompt
+        config:
+          evidence:
+            - trajectory
+            - repo
+    rubric:
+      - Verifies both the page and template binding scopes
+      - Verifies that Source compilation is enabled before warning enforcement
+      - Leaves every fixture file unchanged
+
+  - name: Keep collection layout tuning out of binding guidance
+    prompt: |
+      A CollectionView stutters while scrolling a grid of product cards. Its
+      bindings are already correct and update normally. I need advice on item
+      sizing, layout, and virtualization, with no file changes.
+    expect_activation: false
+    tags:
+      capability: boundary-collection-layout
+      risk: wrong-routing
+      journey: redirect-scroll-performance
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-binding-dormancy-collection"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The bindings are already functioning; the reported problem is CollectionView layout and scrolling performance. Investigate item sizing strategy, template complexity, layout choice, and virtualization/recycling behavior. Changing BindingContext, x:DataType, or converters would not address the stutter.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)CollectionView.*(layout|virtual|item sizing|template)|virtual.*CollectionView
+      - type: prompt
+    rubric:
+      - Recognizes that correct, updating bindings are not the performance defect
+      - Redirects to CollectionView layout and virtualization concerns
+      - Did not apply data-binding changes to a layout and scrolling problem
+      - Does not propose binding rewrites as the primary remedy

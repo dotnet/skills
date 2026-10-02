@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "maui-di-separate-cache-http",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Do not register IProductData twice, and do not constructor-inject a\ntransient typed client into singleton ProductData.\n\n**Option A — singleton facade with a named client factory:**\n\n```csharp\nbuilder.Services.AddHttpClient(\"products\", client =>\n    client.BaseAddress = new Uri(\"https://api.example.com/\"));\nbuilder.Services.AddSingleton<IProductData, ProductData>();\n```\n\n```csharp\npublic sealed class ProductData(IHttpClientFactory clients) : IProductData\n{\n    readonly Dictionary<int, Product> _cache = [];\n\n    public async Task<Product> GetAsync(int id)\n    {\n        if (_cache.TryGetValue(id, out var cached))\n            return cached;\n\n        using HttpClient client = clients.CreateClient(\"products\");\n        Product product =\n            (await client.GetFromJsonAsync<Product>($\"products/{id}\"))!;\n        _cache[id] = product;\n        return product;\n    }\n}\n```\n\n**Option B — transient typed consumer with a separate singleton cache:**\n\n```csharp\nbuilder.Services.AddSingleton<IProductCache, ProductCache>();\nbuilder.Services.AddHttpClient<IProductData, ProductData>();\n\npublic sealed class ProductData(\n    HttpClient client,\n    IProductCache cache) : IProductData\n{\n}\n```\n\nIn option A, the singleton creates a named client per operation. In\noption B, ProductData is transient and the separate cache owns\napp-wide state. Neither option pins a typed client in a singleton."
+    }
+  ]
+}

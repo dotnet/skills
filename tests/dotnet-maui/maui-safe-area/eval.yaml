@@ -1,108 +1,513 @@
 name: maui-safe-area
+tags:
+  executionShard: medium
 description: Evaluates the dotnet-maui/maui-safe-area skill
 type: capability
-config:
-  timeout: 2m
+defaults:
+  timeout: 6m
+  runs: 1
+scoring:
+  threshold: 1.0
 stimuli:
-  - name: Handle notch and status bar safe areas on iOS
+  - name: Migrate notch protection to net10
     prompt: |
-      I just upgraded my .NET MAUI app from .NET 9 to .NET 10. On iOS, my content
-      is now going behind the status bar and the Dynamic Island notch area. In .NET 9
-      I was using `ios:Page.UseSafeArea="True"` and it worked fine. What's the correct
-      way to handle this in .NET 10? Show me the XAML.
+      After moving an iPhone page from .NET 9 to .NET 10, its content overlaps
+      the status bar and Dynamic Island. It previously used the iOS-only page
+      safe-area property. Show the current cross-platform XAML replacement.
+    tags:
+      capability: net10-safe-area-migration
+      risk: obscured-content
+      journey: upgrade-ios-page
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-safe-area-net10-migration"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Remove the legacy iOS attached property and put the net10 cross-platform setting on the page:
+
+              ```xml
+              <ContentPage
+                  xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                  x:Class="MyApp.DetailsPage"
+                  SafeAreaEdges="Container">
+                  <VerticalStackLayout Padding="20">
+                      <Label Text="Details" />
+                  </VerticalStackLayout>
+              </ContentPage>
+              ```
+
+              `SafeAreaEdges="Container"` keeps the page inside the status bar, Dynamic Island/notch, and home-indicator container insets on supported net10 targets. Delete `ios:Page.UseSafeArea="True"` and its iOS XML namespace instead of combining the old iOS-only mechanism with the new cross-platform one.
     graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: SafeAreaEdges.{0,30}Container
+      - type: output-matches
+        config:
+          pattern: (?i)legacy|replace|old|iOS.only
+      - type: prompt
+    rubric:
+      - Uses the net10 cross-platform container inset on the page
+      - Removes rather than layers the legacy iOS-only property
+      - Provides valid focused XAML
+  - name: Make an image truly edge to edge
+    prompt: |
+      A net10 photo viewer sets the ContentPage to edge-to-edge, but the image
+      inside its Grid still has system-bar padding. Explain the remaining
+      default and show the minimum XAML needed for a full-screen image.
+    tags:
+      capability: edge-to-edge-layout
+      risk: unintended-padding
+      journey: build-photo-viewer
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-safe-area-edge-to-edge"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The remaining padding comes from the child Grid: net10 ContentPage defaults can be edge-to-edge, but Layout controls default to Container. Set None on both scopes:
+
+              ```xml
+              <ContentPage
+                  xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                  x:Class="MyApp.PhotoPage"
+                  SafeAreaEdges="None">
+                  <Grid SafeAreaEdges="None">
+                      <Image Source="photo.jpg"
+                             Aspect="AspectFill" />
+                  </Grid>
+              </ContentPage>
+              ```
+
+              With both ContentPage and Grid using SafeAreaEdges="None", the image extends behind the status and navigation bars. Do not add legacy IgnoreSafeArea or UseSafeArea properties.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)ContentPage.*None|None.*ContentPage
+      - type: output-matches
+        config:
+          pattern: (?i)Grid.*None|layout.*Container
+      - type: prompt
+    rubric:
+      - Identifies the child layout's container-safe default as the remaining inset
+      - Sets both the page and full-screen layout to edge-to-edge
+      - Avoids obsolete ignore-safe-area workarounds
+  - name: Protect a chat composer from the keyboard
+    prompt: |
+      In a net10 chat page, the message composer at the bottom is covered by the
+      software keyboard. The message list should keep container insets while the
+      bottom edge also avoids soft input. Show the four-edge XAML placement.
+    tags:
+      capability: keyboard-avoidance
+      risk: blocked-input
+      journey: build-chat-screen
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-safe-area-chat-keyboard"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Put SafeAreaEdges="Container, Container, Container, SoftInput" on the Grid that owns the message list and composer rows. The first three edges remain protected from system containers and the bottom follows the software keyboard. Do not put SoftInput on the ScrollView, because that control only applies Container and None.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: Container,\s*Container,\s*Container,\s*SoftInput
+      - type: output-matches
+        config:
+          pattern: (?i)(Grid|layout).*(SoftInput)|SoftInput.*(Grid|layout)
+      - type: prompt
+    rubric:
+      - Applies soft-input avoidance to the containing layout's bottom edge
+      - Retains container protection on the other edges
+      - Does not rely on ScrollView to honor a soft-input region it does not support
+  - name: Replace both legacy inset switches
+    prompt: |
+      A new net10 page copied code that uses the old iOS safe-area property on
+      the page and IgnoreSafeArea on a background Grid. Give the direct modern
+      replacement for each intent.
+    tags:
+      capability: legacy-api-replacement
+      risk: incompatible-layout-code
+      journey: modernize-page-insets
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-safe-area-legacy-replacements"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              On the net10 ContentPage, replace the old iOS UseSafeArea setting with SafeAreaEdges="Container". On the background Grid, replace IgnoreSafeArea="True" with SafeAreaEdges="None". These values express the two different intents directly through the cross-platform API, so the legacy properties should be removed rather than retained alongside them.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: Container.*None|None.*Container
       - type: output-contains
         config:
           substring: SafeAreaEdges
-      - type: output-matches
-        config:
-          pattern: (?i)SafeAreaEdges.{0,20}Container
-      - type: output-matches
-        config:
-          pattern: (?i)obsolete|legacy|deprecated|replaced
-      - type: output-matches
-        config:
-          pattern: (?i)cross.?platform|all platforms
       - type: prompt
     rubric:
-      - Recommends SafeAreaEdges="Container" as the replacement for ios:Page.UseSafeArea="True"
-      - Explains that UseSafeArea is obsolete/legacy in .NET 10 and should be migrated
-      - Highlights that SafeAreaEdges is cross-platform, unlike the old iOS-only API
-      - Provides correct XAML syntax showing the migration
-  - name: Edge-to-edge layout with SafeAreaEdges
+      - Replaces protected page content with container-safe edges
+      - Replaces an ignored safe area with edge-to-edge edges on the intended layout
+      - Does not preserve obsolete properties in new net10 code
+  - name: Give a net9 project compatible guidance
     prompt: |
-      I'm building a photo viewer page in my .NET MAUI app targeting .NET 10. I want
-      the image to fill the entire screen edge-to-edge, going behind the status bar
-      and navigation bar. But my image still has padding around it even though I set
-      SafeAreaEdges="None" on the ContentPage. What am I missing?
+      This application must remain on net9.0-ios for the next release. We need
+      the page to stay inside the iPhone notch and home indicator, and the new
+      cross-platform edge property does not compile. What should we use now,
+      and what should we plan to change after a net10 upgrade?
+    tags:
+      capability: target-framework-discrimination
+      risk: uncompilable-recommendation
+      journey: maintain-net9-app
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-safe-area-net9-compatible"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              While the project targets net9.0-ios, continue using ios:Page.UseSafeArea="True" because SafeAreaEdges is not available there. Record a migration task for the net10 upgrade: remove the iOS namespace property and set SafeAreaEdges="Container" on the page. Do not add the net10 property to the current target because it will not compile.
     graders:
-      - type: output-contains
-        config:
-          substring: SafeAreaEdges
-      - type: output-contains
-        config:
-          substring: None
+      - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)layout|Grid|StackLayout
+          pattern: ios:Page\.UseSafeArea|UseSafeArea
       - type: output-matches
         config:
-          pattern: (?i)Container|default
+          pattern: (?i)net10|\.NET 10
       - type: prompt
     rubric:
-      - Identifies that child layouts default to SafeAreaEdges="Container" even when the page is set to None
-      - Recommends setting SafeAreaEdges="None" on BOTH the ContentPage and the child layout (Grid, etc.)
-      - Provides complete XAML example showing None on both page and layout
-      - Does not suggest using legacy IgnoreSafeArea or UseSafeArea APIs
-  - name: Keyboard avoidance with safe area for chat UI
+      - Does not recommend unavailable net10 APIs as an immediate fix
+      - Gives the compatible iOS-specific net9 mechanism
+      - Separates present maintenance guidance from the later migration plan
+  - name: Coordinate Blazor Hybrid safe areas
     prompt: |
-      I'm building a chat messaging screen in .NET MAUI targeting .NET 10. When the
-      keyboard opens, it covers my text input at the bottom of the screen. In .NET 9
-      I used WindowSoftInputModeAdjust.Resize but that doesn't seem to work anymore.
-      How do I make the input bar move up when the keyboard appears?
+      A net10 Blazor Hybrid page is padded once by XAML and again by CSS around
+      the notch. Describe a single-owner setup where the web content handles
+      insets, including the viewport and CSS pieces.
+    tags:
+      capability: blazor-hybrid-insets
+      risk: double-padding
+      journey: fix-hybrid-layout
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-safe-area-blazor-hybrid"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Make the ContentPage hosting BlazorWebView edge-to-edge with SafeAreaEdges="None" so XAML does not add inset padding. Add viewport-fit=cover to the HTML viewport meta tag, then apply env(safe-area-inset-top), bottom, left, and right in CSS to the web layout. With CSS as the single inset owner, the notch is respected without double padding.
     graders:
+      - type: exit-success
       - type: output-contains
         config:
-          substring: SoftInput
-      - type: output-contains
-        config:
-          substring: SafeAreaEdges
+          substring: viewport-fit=cover
       - type: output-matches
         config:
-          pattern: (?i)Container.*SoftInput|SoftInput.*Container
+          pattern: env\(safe-area-inset-(top|bottom|left|right)\)
       - type: output-matches
         config:
-          pattern: (?i)ScrollView
+          pattern: SafeAreaEdges.{0,20}None
       - type: prompt
     rubric:
-      - Recommends per-edge SafeAreaEdges with SoftInput on the bottom edge for keyboard avoidance
-      - Shows the four-value XAML syntax like SafeAreaEdges="Container, Container, Container, SoftInput"
-      - Warns that SoftInput on ScrollView directly has no effect and suggests a wrapper layout
-      - Explains that WindowSoftInputModeAdjust.Resize is replaced by the new SafeAreaEdges API in .NET 10
-  - name: Avoid deprecated UseSafeArea in new .NET 10 project
+      - Lets the XAML host remain edge-to-edge so insets are not applied twice
+      - Enables full viewport coverage in the web host
+      - Uses CSS environment inset values for the web content
+
+  - name: Move keyboard avoidance off a ScrollView
     prompt: |
-      I'm starting a new .NET MAUI project on .NET 10. I found a tutorial that says
-      to add `ios:Page.UseSafeArea="True"` to my ContentPage to handle the iPhone
-      notch. Is this the right approach? Also, the tutorial mentions using
-      `IgnoreSafeArea="True"` on a Grid for a background image. Are these correct
-      for .NET 10?
+      A net10 form sets SafeAreaEdges="SoftInput" directly on its ScrollView,
+      but the last Entry is still covered by the keyboard. Explain why that
+      value has no effect there and show the smallest wrapper-based correction.
+    tags:
+      capability: scrollview-softinput-boundary
+      risk: hidden-form-input
+      journey: repair-scrollable-form
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-safe-area-scrollview-softinput"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              ScrollView manages its own content insets and only honors Container or None, so SoftInput on the ScrollView is ignored. Put keyboard avoidance on a wrapper Layout:
+
+              ```xml
+              <Grid SafeAreaEdges="Container, Container, Container, SoftInput">
+                  <ScrollView SafeAreaEdges="Container">
+                      <VerticalStackLayout>
+                          <!-- form fields -->
+                      </VerticalStackLayout>
+                  </ScrollView>
+              </Grid>
+              ```
+
+              The Grid moves above the keyboard while the ScrollView keeps container inset behavior.
     graders:
-      - type: output-contains
-        config:
-          substring: SafeAreaEdges
+      - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)obsolete|legacy|deprecated|old|replaced|do not use
+          pattern: (?i)ScrollView.*(only|honor|support).*(Container|None)|SoftInput.*(ignored|no effect)
       - type: output-matches
         config:
-          pattern: (?i)SafeArea(Edges|Regions)
-      - type: output-matches
-        config:
-          pattern: (?i)\.NET 10|net10
+          pattern: (?i)(Grid|Layout).*(SoftInput)|SoftInput.*(Grid|Layout)
       - type: prompt
     rubric:
-      - Warns that ios:Page.UseSafeArea is obsolete/legacy and should not be used in new .NET 10 code
-      - Warns that IgnoreSafeArea is also obsolete and replaced by SafeAreaEdges="None"
-      - Recommends SafeAreaEdges="Container" as replacement for UseSafeArea="True"
-      - Recommends SafeAreaEdges="None" as replacement for IgnoreSafeArea="True"
-      - Mentions that SafeAreaEdges is the new cross-platform API introduced in .NET 10
+      - Identifies the ScrollView-specific limitation rather than adjusting keyboard flags
+      - Moves SoftInput handling to a wrapper layout
+      - Keeps the scrollable content's container inset behavior explicit
+
+  - name: Distinguish Default from explicit edge to edge
+    prompt: |
+      A shared net10 control sets SafeAreaEdges="Default" because the author
+      thinks Default means no inset. On iOS its ScrollView gains automatic
+      content insets, but this screen must be edge-to-edge on every platform.
+      Which value should it use, and why?
+    tags:
+      capability: default-versus-none
+      risk: platform-dependent-insets
+      journey: normalize-cross-platform-layout
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-safe-area-default-versus-none"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use `SafeAreaEdges="None"` for an explicit edge-to-edge contract. `Default` means the platform default for that control type; it is not an alias for None. In particular, a ScrollView using Default maps to automatic content-inset adjustment on iOS, so its result is intentionally platform/control dependent. None consistently requests no safe-area padding.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)Default.*(platform|control)|platform.*Default
+      - type: output-matches
+        config:
+          pattern: (?i)None.*(edge.to.edge|no safe area|no.*padding)
+      - type: output-matches
+        config:
+          pattern: (?i)ScrollView.*(automatic|content inset)
+      - type: prompt
+    rubric:
+      - Selects None for deterministic edge-to-edge behavior
+      - Explains that Default delegates to control and platform behavior
+      - Accounts for iOS automatic ScrollView insets
+
+  - name: Compose mixed inset ownership
+    prompt: |
+      Design a net10 page with a full-bleed hero at the top, a scrollable body
+      that stays inside system bars, and a fixed bottom composer that rises with
+      the keyboard. Show where each SafeAreaEdges value belongs without padding
+      the whole page twice.
+    tags:
+      capability: mixed-inset-hierarchy
+      risk: double-padding-and-covered-input
+      journey: design-composite-page
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-safe-area-mixed-hierarchy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Give each region one inset owner:
+
+              ```xml
+              <ContentPage SafeAreaEdges="None">
+                  <Grid RowDefinitions="Auto,*,Auto">
+                      <Grid SafeAreaEdges="None"><Image Aspect="AspectFill" /></Grid>
+                      <ScrollView Grid.Row="1" SafeAreaEdges="Container">
+                          <VerticalStackLayout><!-- body --></VerticalStackLayout>
+                      </ScrollView>
+                      <Grid Grid.Row="2" SafeAreaEdges="SoftInput">
+                          <Entry Placeholder="Message" />
+                      </Grid>
+                  </Grid>
+              </ContentPage>
+              ```
+
+              The page and hero stay full bleed, the body owns container insets, and only the footer owns keyboard avoidance.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)ContentPage.*None|page.*edge.to.edge
+      - type: output-matches
+        config:
+          pattern: (?i)ScrollView.*Container|Container.*ScrollView
+      - type: output-matches
+        config:
+          pattern: (?i)(footer|bottom|Grid).*(SoftInput)|SoftInput.*(footer|bottom|Grid)
+      - type: prompt
+    rubric:
+      - Keeps the page and hero edge-to-edge
+      - Assigns container insets only to the scrollable body
+      - Assigns keyboard avoidance only to the fixed composer without double-padding the hierarchy
+
+  - name: Repair chat keyboard insets
+    prompt: |
+      ChatPage.xaml targets net10. Its bottom input remains covered because the
+      root chat layout only accounts for system containers. Edit the focused
+      XAML so the composer avoids the keyboard without adding platform-specific
+      workarounds.
+    tags:
+      capability: safe-area-repair
+      risk: blocked-input
+      journey: repair-chat-layout
+    environment:
+      files:
+        - src: ./fixtures/repair/ChatPage.xaml
+          dest: ChatPage.xaml
+        - src: ./fixtures/repair/validate.py
+          dest: .eval/validate.py
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-safe-area-repair-chat-keyboard"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I made one focused XAML change: replaced the root chat Grid's `SafeAreaEdges="Container"` with `SafeAreaEdges="Container, Container, Container, SoftInput"`. This preserves container insets on left, top, and right while moving the bottom composer above the keyboard. I left the ScrollView and page structure unchanged and added no WindowSoftInputModeAdjust or IgnoreSafeArea workaround. I ran `python .eval/validate.py ChatPage.xaml`; it passed.
+    golden_patch:
+      path: ./references/repair.patch
+    graders:
+      - type: exit-success
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/validate.py');assert
+            hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='a46687177a2eeb3600b707c19acbe9b25278ffb71b731f9f39302a4864b13799';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)"
+            ChatPage.xaml
+          expected_exit_code: 0
+      - type: prompt
+        config:
+          evidence:
+            - trajectory
+            - diff
+            - golden_patch
+    rubric:
+      - Adds soft-input protection only to the bottom edge of the root chat layout
+      - Keeps container protection on the other edges
+      - Avoids platform-specific keyboard and obsolete ignore-safe-area settings
+  - name: Leave a correct immersive layout unchanged
+    prompt: |
+      Review noop/ for the intended design: the photo must extend behind system
+      bars while its caption remains readable inside container insets. Change
+      nothing if that contract is already met, and preserve every byte.
+    tags:
+      capability: safe-area-idempotence
+      risk: layout-regression
+      journey: verify-immersive-page
+    environment:
+      files:
+        - src: ./fixtures/noop
+          dest: noop
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-safe-area-noop"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The layout already meets the contract. The net10 page and its image Grid both use None, so the photo reaches every edge. The caption Border uses Container, so only the readable overlay is inset from system UI. I made no changes.
+    graders:
+      - type: exit-success
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -c
+            - "import hashlib,pathlib; root=pathlib.Path('noop'); expected={'ImmersivePage.xaml':'69b1cce1869fbc1e9c9e423bdbadaf3e561f15f2da67468f5d0ec41d434ad945','target.txt':'afd678dd07d76af5af37c60e6aecb454e5772929b55152b59cb78c2f1aca0480'}; files=sorted(str(p.relative_to(root)).replace('\\\\','/') for p in root.rglob('*') if p.is_file()); assert files==sorted(expected), files; [(_ for _ in ()).throw(AssertionError(name)) for name,digest in expected.items() if hashlib.sha256((root/name).read_bytes().replace(b'\\r\\n',b'\\n')).hexdigest()!=digest]"
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (?i)already.*correct|meets.*contract|no (change|fix).*needed
+      - type: prompt
+    rubric:
+      - Confirms that both page and image layout are edge-to-edge
+      - Confirms that only the caption consumes container insets
+      - Leaves every fixture file unchanged
+  - name: Keep ordinary grid spacing out of safe area handling
+    prompt: |
+      A desktop settings page has uneven column widths and excessive spacing
+      between labels and entries. There is no overlap with a status bar, notch,
+      home indicator, or keyboard. Recommend a normal Grid layout fix without
+      editing files.
+    expect_activation: false
+    tags:
+      capability: boundary-general-layout
+      risk: wrong-routing
+      journey: redirect-grid-design
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-safe-area-dormancy-grid"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is ordinary Grid sizing and spacing, not a system-inset problem. Adjust ColumnDefinitions, row/column spacing, margins, and alignment. Safe-area or keyboard-inset settings would not correct uneven desktop columns.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)ColumnDefinitions|Grid.*spacing|column.*width
+      - type: prompt
+    rubric:
+      - Recognizes the absence of any system-bar or keyboard inset symptom
+      - Recommends normal Grid sizing and spacing controls
+      - Did not apply safe-area handling to ordinary desktop Grid design
+      - Does not introduce safe-area properties as a generic layout tool

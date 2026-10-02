@@ -1,76 +1,408 @@
 name: maui-app-lifecycle
+tags:
+  executionShard: medium
 description: Evaluates the dotnet-maui/maui-app-lifecycle skill
 type: capability
-config:
-  timeout: 2m
+defaults:
+  timeout: 6m
+  runs: 1
+scoring:
+  threshold: 1.0
 stimuli:
-  - name: Save and restore state on background
+  - name: Preserve a draft across background and resume
     prompt: |
-      My .NET MAUI app has a note-taking page. I need to save the user's draft
-      text when the app goes to the background and restore it when the app comes
-      back. Show me how to do this properly.
+      A note editor must save its current draft when the app is fully
+      backgrounded and restore it when the window returns. Explain where the
+      save and restore code belongs and what abrupt process termination means
+      for data that must never be lost.
+    tags:
+      capability: state-preservation
+      risk: data-loss
+      journey: design-background-resume
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-lifecycle-state-preservation"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Save the draft from the Window's OnStopped callback and restore it in OnResumed. Do not save from OnDeactivated because a transient focus loss can deactivate a still-visible app. Destroying is a Window teardown event, not a reliable final-save safeguard; abrupt OS process death can occur without a final lifecycle callback. Persist irreplaceable user data incrementally while it changes, and keep lifecycle handlers fast.
     graders:
-      - type: output-contains
-        config:
-          substring: OnStopped
-      - type: output-contains
-        config:
-          substring: OnResumed
+      - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)preferences\.set
-      - type: prompt
-    rubric:
-      - The agent saves state in OnStopped (not OnDeactivated)
-      - The agent restores state in OnResumed
-      - The agent mentions the Android back-button edge case and saving in OnDestroying
-      - The agent warns against heavy I/O in lifecycle handlers
-  - name: Window lifecycle event subscription
-    prompt: |
-      How do I subscribe to all the Window lifecycle events in my .NET MAUI app?
-      I want to log each transition for debugging purposes.
-    graders:
-      - type: output-contains
-        config:
-          substring: CreateWindow
+          pattern: (?i)OnStopped.*OnResumed|OnResumed.*OnStopped
       - type: output-matches
         config:
-          pattern: (?i)(?=.*(created|activated))(?=.*(stopped|destroying))(?=.*(resumed|deactivated))
+          pattern: (?i)(abrupt|process).*(death|kill|termination)|Destroying.*(not|isn.t).*(reliable|guaranteed)
       - type: prompt
     rubric:
-      - The agent shows how to override CreateWindow or use a custom Window subclass
-      - "The agent lists all six lifecycle events: Created, Activated, Deactivated, Stopped, Resumed, Destroying"
-      - The agent explains that Resumed does not fire on first launch
-  - name: Platform-specific lifecycle mapping
+      - Places background persistence in the stopped transition and restoration in the resumed transition
+      - Does not treat deactivation or destroying as a substitute for the stopped transition
+      - Explains that critical data needs incremental persistence because abrupt process death may deliver no final callback
+      - Keeps lifecycle work short and appropriate for transient state
+
+  - name: Instrument every window transition
     prompt: |
-      I need to run code when my app enters the background on Android (OnPause/OnStop)
-      and iOS (DidEnterBackground). How do I hook into these platform-specific
-      lifecycle events in .NET MAUI?
+      I need a concise example that logs every cross-platform Window transition
+      for one app window. Include the initial launch sequence caveat so our
+      telemetry does not report a resume on first launch.
+    tags:
+      capability: window-event-subscription
+      risk: misleading-telemetry
+      journey: add-lifecycle-observability
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-lifecycle-window-instrumentation"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The six logged transitions are: Created, Activated, Deactivated, Stopped, Resumed, Destroying.
+
+              Subscribe on the Window instance returned from CreateWindow:
+
+              ```csharp
+              using System.Diagnostics;
+
+              public partial class App : Application
+              {
+                  protected override Window CreateWindow(IActivationState? activationState)
+                  {
+                      var window = base.CreateWindow(activationState);
+
+                      window.Created += (_, _) => Debug.WriteLine("Created");
+                      window.Activated += (_, _) => Debug.WriteLine("Activated");
+                      window.Deactivated += (_, _) => Debug.WriteLine("Deactivated");
+                      window.Stopped += (_, _) => Debug.WriteLine("Stopped");
+                      window.Resumed += (_, _) => Debug.WriteLine("Resumed");
+                      window.Destroying += (_, _) => Debug.WriteLine("Destroying");
+
+                      return window;
+                  }
+              }
+              ```
+
+              The first-launch sequence starts with Created and Activated. Resumed does not fire on first launch; it means that this Window returned after Stopped, so telemetry must not count initial activation as a resume.
     graders:
+      - type: exit-success
+      - type: output-contains
+        config:
+          substring: Created
+      - type: output-contains
+        config:
+          substring: Activated
+      - type: output-contains
+        config:
+          substring: Deactivated
+      - type: output-contains
+        config:
+          substring: Stopped
+      - type: output-contains
+        config:
+          substring: Resumed
+      - type: output-contains
+        config:
+          substring: Destroying
+      - type: output-matches
+        config:
+          pattern: (?i)first launch|initial.*(Created|Activated)|Resumed.*not
+      - type: prompt
+    rubric:
+      - Shows one per-window subscription point that covers all six cross-platform transitions
+      - States that first launch activates a newly created window and is not a resume
+      - Produces logging guidance without changing unrelated application services
+
+  - name: Map native background callbacks safely
+    prompt: |
+      Our analytics SDK needs Android pause/stop callbacks and the iOS
+      background callback. Show the builder registration for both platforms,
+      and use the actual iOS registration method names rather than UIKit
+      selector names.
+    tags:
+      capability: native-lifecycle-registration
+      risk: compile-failure
+      journey: integrate-platform-analytics
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-lifecycle-native-registration"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Register the native callbacks while building the MAUI app:
+
+              ```csharp
+              using System.Diagnostics;
+              using Microsoft.Maui.LifecycleEvents;
+
+              builder.ConfigureLifecycleEvents(events =>
+              {
+              #if ANDROID
+                  events.AddAndroid(android => android
+                      .OnPause(activity => Debug.WriteLine("Android OnPause"))
+                      .OnStop(activity => Debug.WriteLine("Android OnStop")));
+              #elif IOS || MACCATALYST
+                  events.AddiOS(ios => ios
+                      .OnActivated(app => Debug.WriteLine("iOS active"))
+                      .OnResignActivation(app => Debug.WriteLine("iOS inactive"))
+                      .DidEnterBackground(app => Debug.WriteLine("iOS background")));
+              #endif
+              });
+              ```
+
+              AddAndroid exposes the Android OnPause and OnStop callbacks. AddiOS uses the MAUI registration names OnActivated, OnResignActivation, and DidEnterBackground; there is no AddiOS DidBecomeActive or WillResignActive builder method. The conditional branches keep platform types out of incompatible targets.
+    graders:
+      - type: exit-success
       - type: output-contains
         config:
           substring: ConfigureLifecycleEvents
       - type: output-matches
         config:
-          pattern: (?i)AddAndroid|AddiOS
+          pattern: (?i)AddAndroid.*AddiOS|AddiOS.*AddAndroid
+      - type: output-matches
+        config:
+          pattern: OnActivated|OnResignActivation|DidEnterBackground
       - type: prompt
     rubric:
-      - The agent uses ConfigureLifecycleEvents in MauiProgram.cs
-      - "The agent shows platform-specific hooks with #if ANDROID and #if IOS preprocessor directives"
-      - The agent maps Window events to their native counterparts
-  - name: Avoid legacy Xamarin.Forms lifecycle methods
+      - Registers native callbacks through the application builder for Android and iOS
+      - Uses valid iOS builder method names instead of non-existent UIKit-selector-shaped methods
+      - Keeps platform-specific code conditionally scoped
+
+  - name: Migrate legacy application callbacks
     prompt: |
-      I'm migrating from Xamarin.Forms to .NET MAUI. I used to override OnStart,
-      OnSleep, and OnResume in my Application class. What's the equivalent in MAUI?
+      A Xamarin.Forms application overrides OnStart, OnSleep, and OnResume.
+      Describe the MAUI replacement for a multi-window application and map the
+      old intent to the new callbacks.
+    tags:
+      capability: legacy-lifecycle-migration
+      risk: multi-window-state-corruption
+      journey: migrate-xamarin-app
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      path: ./references/xamarin-lifecycle-migration.json
     graders:
+      - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)window.*(lifecycle|event)
+          pattern: (?i)Window.*(event|lifecycle)|CreateWindow
       - type: output-matches
         config:
-          pattern: (?i)(OnActivated|OnStopped|OnResumed)
+          pattern: OnActivated|OnStopped|OnResumed
       - type: prompt
     rubric:
-      - The agent explains that OnStart/OnSleep/OnResume are legacy Xamarin.Forms methods
-      - The agent directs the developer to use Window lifecycle events instead
-      - The agent maps OnSleep to OnStopped and OnResume to OnResumed
+      - Replaces application-global callbacks with callbacks associated with each Window
+      - Maps startup, backgrounding, and return-to-foreground intent accurately
+      - Explains why the per-window model matters for desktop and tablet multi-window use
+
+  - name: Keep multiple windows independent
+    prompt: |
+      On iPad, users can open two document windows. Closing or backgrounding one
+      window must not save or tear down the other document. What lifecycle
+      structure should we use, and where should each document's state live?
+    tags:
+      capability: multi-window-isolation
+      risk: cross-window-data-loss
+      journey: design-document-windows
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-lifecycle-multi-window"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Create one Window or Window subclass per open document and keep the document ViewModel/state with that instance. Its Stopped handler saves that document, Resumed restores it, and Destroying releases only teardown resources owned by that window. Do not use a process-wide current-document flag: closing one window is a window event and does not imply that the other window or the application process is ending.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)(per.window|each window|Window subclass|CreateWindow)
+      - type: output-matches
+        config:
+          pattern: (?i)(independent|do not.*global|window.*state)
+      - type: prompt
+    rubric:
+      - Associates handlers and document state with each Window instance
+      - Avoids a single global lifecycle flag that lets one window affect another
+      - Distinguishes window destruction from whole-process termination
+
+  - name: Choose activation versus resume for refresh
+    prompt: |
+      A dashboard must refresh on first launch and whenever it becomes active
+      after a transient interruption. A separate expensive reload should happen
+      only after the app was fully backgrounded. Which callbacks should drive
+      these two operations?
+    tags:
+      capability: transition-selection
+      risk: missed-or-duplicate-refresh
+      journey: design-foreground-refresh
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-lifecycle-activation-versus-resume"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Run the lightweight dashboard refresh from Activated because it occurs on initial foreground activation and after temporary focus loss. Run the expensive reload from Resumed because that transition follows a prior Stopped/background state. Resumed does not occur on first launch, so using it for both operations would miss the initial load.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)Activated.*(first|every)|first.*Activated
+      - type: output-matches
+        config:
+          pattern: (?i)Resumed.*(Stopped|background)|background.*Resumed
+      - type: prompt
+    rubric:
+      - Uses activation for work required on initial and later focus acquisition
+      - Reserves resumed handling for a return from the stopped/backgrounded state
+      - Avoids claiming that resumed fires during first launch
+
+  - name: Repair draft lifecycle persistence
+    prompt: |
+      App.cs saves a draft whenever the window merely loses focus. Edit it so
+      drafts are saved on real backgrounding and restored on resume. Do not add
+      a duplicate teardown save; keep the change focused.
+    tags:
+      capability: lifecycle-repair
+      risk: data-loss-and-excess-writes
+      journey: repair-background-state
+    environment:
+      files:
+        - src: ./fixtures/repair/App.cs
+          dest: App.cs
+        - src: ./fixtures/repair/validate.py
+          dest: .eval/validate.py
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-lifecycle-repair-draft-persistence"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I made the focused lifecycle edit in App.cs: renamed the OnDeactivated override and its base call to OnStopped so the draft is saved only on real backgrounding, and kept OnResumed restoring draft_text. I removed the deactivation save and changed no unrelated code. I then ran the authenticated validator; it passed, confirming the stopped save, resumed restore, balanced method bodies, exact file set, and absence of persistence writes in Deactivated.
+    golden_patch:
+      path: ./references/repair.patch
+    graders:
+      - type: exit-success
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/validate.py');assert
+            hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='bf8569d81fc9732cae9bb8827e37f7d5005406cc7d9b57c42c3508061efeddb9';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)"
+            App.cs
+          expected_exit_code: 0
+      - type: file-not-contains
+        config:
+          path: App.cs
+          value: "OnDeactivated()"
+      - type: prompt
+        config:
+          evidence:
+            - trajectory
+            - diff
+            - golden_patch
+    rubric:
+      - Moves persistence from deactivation to the stopped transition
+      - Retains restoration on resume without adding teardown persistence
+      - Changes only the lifecycle behavior needed for the defect
+
+  - name: Leave correct per-window persistence unchanged
+    prompt: |
+      Review the lifecycle implementation in noop/. Fix it only if drafts can be
+      lost or one window can interfere with another. If it is already correct,
+      explain why and leave every file byte-for-byte unchanged.
+    tags:
+      capability: lifecycle-idempotence
+      risk: needless-regression
+      journey: verify-existing-implementation
+    environment:
+      files:
+        - src: ./fixtures/noop
+          dest: noop
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-lifecycle-noop"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The implementation is already correct. Each DraftWindow saves on OnStopped, restores on OnResumed, and owns its own callbacks. App.CreateWindow creates the window and uses Created and Activated only for logging. No draft save runs on Deactivated or Destroying, so transient focus changes and teardown do not duplicate persistence. Abrupt process death still requires incremental persistence for irreplaceable data. I made no changes.
+    graders:
+      - type: exit-success
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -c
+            - "import hashlib,pathlib; root=pathlib.Path('noop'); expected={'App.cs':'bfd66e6d6ae7e69d9e13c5c643802db3eb8f8c3f9a1f95c11b9d32778cf734c8','README.txt':'95a07b15805bdeaa556a51c66df540a834f6723b92c3875c4abcf484e8b30d38'}; files=sorted(str(p.relative_to(root)).replace('\\\\','/') for p in root.rglob('*') if p.is_file()); assert files==sorted(expected), files; [(_ for _ in ()).throw(AssertionError(name)) for name,digest in expected.items() if hashlib.sha256((root/name).read_bytes().replace(b'\\r\\n',b'\\n')).hexdigest()!=digest]"
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (?i)already.*correct|no (change|fix).*needed|left.*unchanged
+      - type: prompt
+    rubric:
+      - Recognizes that stopped and resumed already cover the requested background state transitions
+      - Leaves the complete fixture unchanged instead of inventing a refactor
+      - Explains the per-window isolation and absence of deactivation or teardown persistence writes
+
+  - name: Keep page navigation handling out of app lifecycle
+    prompt: |
+      A Shell page should reload its list whenever users navigate back to it,
+      including when the app itself never left the foreground. Which page or
+      navigation hook should handle this, and please do not change any files.
+    expect_activation: false
+    tags:
+      capability: boundary-page-navigation
+      risk: wrong-routing
+      journey: redirect-navigation-refresh
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-lifecycle-dormancy-navigation"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is page navigation, not an application or Window state transition. Use a page-level appearing/navigation hook such as OnAppearing or Shell navigation events so the list refreshes when the route becomes visible even while the app remains active. App lifecycle callbacks would miss in-app navigation and should stay out of this flow.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)OnAppearing|Shell.*navig|page.*(appearing|navigation)
+      - type: prompt
+    rubric:
+      - Recognizes that route visibility is independent of application backgrounding
+      - Redirects to a page or Shell navigation hook
+      - Did not apply application lifecycle handling to an in-app navigation request
+      - Does not recommend Window stopped or resumed callbacks for in-app navigation
