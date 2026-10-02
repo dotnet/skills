@@ -41,13 +41,341 @@ function Test-DynamicSqlExpression([string] $Expression)
     )
 }
 
+function Get-CSharpStatementEnd(
+    [string] $Text,
+    [int] $StartIndex,
+    [string] $Description)
+{
+    $parenthesisDepth = 0
+    $braceDepth = 0
+    $bracketDepth = 0
+    $state = "code"
+    $rawStringQuoteCount = 0
+
+    for ($index = $StartIndex; $index -lt $Text.Length; $index++)
+    {
+        $character = $Text[$index]
+        $next = if ($index + 1 -lt $Text.Length) { $Text[$index + 1] } else { [char] 0 }
+
+        switch ($state)
+        {
+            "line-comment"
+            {
+                if ($character -eq "`n") { $state = "code" }
+                continue
+            }
+            "block-comment"
+            {
+                if ($character -eq '*' -and $next -eq '/')
+                {
+                    $state = "code"
+                    $index++
+                }
+                continue
+            }
+            "string"
+            {
+                if ($character -eq '\') { $index++ }
+                elseif ($character -eq '"') { $state = "code" }
+                continue
+            }
+            "verbatim-string"
+            {
+                if ($character -eq '"' -and $next -eq '"') { $index++ }
+                elseif ($character -eq '"') { $state = "code" }
+                continue
+            }
+            "raw-string"
+            {
+                if ($character -eq '"')
+                {
+                    $quoteCount = 1
+                    while (
+                        $index + $quoteCount -lt $Text.Length -and
+                        $Text[$index + $quoteCount] -eq '"'
+                    )
+                    {
+                        $quoteCount++
+                    }
+                    if ($quoteCount -ge $rawStringQuoteCount)
+                    {
+                        $state = "code"
+                        $rawStringQuoteCount = 0
+                    }
+                    $index += $quoteCount - 1
+                }
+                continue
+            }
+            "character"
+            {
+                if ($character -eq '\') { $index++ }
+                elseif ($character -eq "'") { $state = "code" }
+                continue
+            }
+        }
+
+        if ($character -eq '/' -and $next -eq '/')
+        {
+            $state = "line-comment"
+            $index++
+        }
+        elseif ($character -eq '/' -and $next -eq '*')
+        {
+            $state = "block-comment"
+            $index++
+        }
+        elseif ($character -eq '"')
+        {
+            $quoteCount = 1
+            while (
+                $index + $quoteCount -lt $Text.Length -and
+                $Text[$index + $quoteCount] -eq '"'
+            )
+            {
+                $quoteCount++
+            }
+            if ($quoteCount -ge 3)
+            {
+                $state = "raw-string"
+                $rawStringQuoteCount = $quoteCount
+                $index += $quoteCount - 1
+            }
+            else
+            {
+                $state = if ($index -gt 0 -and $Text[$index - 1] -eq '@')
+                {
+                    "verbatim-string"
+                }
+                else
+                {
+                    "string"
+                }
+            }
+        }
+        elseif ($character -eq "'")
+        {
+            $state = "character"
+        }
+        elseif ($character -eq '(')
+        {
+            $parenthesisDepth++
+        }
+        elseif ($character -eq ')')
+        {
+            $parenthesisDepth--
+        }
+        elseif ($character -eq '{')
+        {
+            $braceDepth++
+        }
+        elseif ($character -eq '}')
+        {
+            $braceDepth--
+        }
+        elseif ($character -eq '[')
+        {
+            $bracketDepth++
+        }
+        elseif ($character -eq ']')
+        {
+            $bracketDepth--
+        }
+        elseif (
+            $character -eq ';' -and
+            $parenthesisDepth -eq 0 -and
+            $braceDepth -eq 0 -and
+            $bracketDepth -eq 0
+        )
+        {
+            return $index
+        }
+    }
+
+    Fail "$Description has no terminating semicolon."
+}
+
+function Get-CSharpCodeMask([string] $Text)
+{
+    $characters = $Text.ToCharArray()
+    $state = "code"
+    $rawStringQuoteCount = 0
+
+    for ($index = 0; $index -lt $characters.Length; $index++)
+    {
+        $character = $characters[$index]
+        $next = if ($index + 1 -lt $characters.Length) { $characters[$index + 1] } else { [char] 0 }
+
+        if ($state -eq "code")
+        {
+            if ($character -eq '/' -and $next -eq '/')
+            {
+                $characters[$index] = ' '
+                $characters[$index + 1] = ' '
+                $state = "line-comment"
+                $index++
+            }
+            elseif ($character -eq '/' -and $next -eq '*')
+            {
+                $characters[$index] = ' '
+                $characters[$index + 1] = ' '
+                $state = "block-comment"
+                $index++
+            }
+            elseif ($character -eq '"')
+            {
+                $quoteCount = 1
+                while (
+                    $index + $quoteCount -lt $characters.Length -and
+                    $characters[$index + $quoteCount] -eq '"'
+                )
+                {
+                    $quoteCount++
+                }
+                if ($quoteCount -ge 3)
+                {
+                    $state = "raw-string"
+                    $rawStringQuoteCount = $quoteCount
+                }
+                else
+                {
+                    $state = if ($index -gt 0 -and $characters[$index - 1] -eq '@')
+                    {
+                        "verbatim-string"
+                    }
+                    else
+                    {
+                        "string"
+                    }
+                }
+                for ($offset = 0; $offset -lt $quoteCount; $offset++)
+                {
+                    $characters[$index + $offset] = ' '
+                }
+                $index += $quoteCount - 1
+            }
+            elseif ($character -eq "'")
+            {
+                $characters[$index] = ' '
+                $state = "character"
+            }
+            continue
+        }
+
+        if ($character -ne "`r" -and $character -ne "`n")
+        {
+            $characters[$index] = ' '
+        }
+
+        switch ($state)
+        {
+            "line-comment"
+            {
+                if ($character -eq "`n") { $state = "code" }
+            }
+            "block-comment"
+            {
+                if ($character -eq '*' -and $next -eq '/')
+                {
+                    $characters[$index + 1] = ' '
+                    $state = "code"
+                    $index++
+                }
+            }
+            "string"
+            {
+                if ($character -eq '\')
+                {
+                    if ($index + 1 -lt $characters.Length)
+                    {
+                        $characters[$index + 1] = ' '
+                        $index++
+                    }
+                }
+                elseif ($character -eq '"') { $state = "code" }
+            }
+            "verbatim-string"
+            {
+                if ($character -eq '"' -and $next -eq '"')
+                {
+                    $characters[$index + 1] = ' '
+                    $index++
+                }
+                elseif ($character -eq '"') { $state = "code" }
+            }
+            "raw-string"
+            {
+                if ($character -eq '"')
+                {
+                    $quoteCount = 1
+                    while (
+                        $index + $quoteCount -lt $characters.Length -and
+                        $Text[$index + $quoteCount] -eq '"'
+                    )
+                    {
+                        $quoteCount++
+                    }
+                    for ($offset = 1; $offset -lt $quoteCount; $offset++)
+                    {
+                        $characters[$index + $offset] = ' '
+                    }
+                    if ($quoteCount -ge $rawStringQuoteCount)
+                    {
+                        $state = "code"
+                        $rawStringQuoteCount = 0
+                    }
+                    $index += $quoteCount - 1
+                }
+            }
+            "character"
+            {
+                if ($character -eq '\')
+                {
+                    if ($index + 1 -lt $characters.Length)
+                    {
+                        $characters[$index + 1] = ' '
+                        $index++
+                    }
+                }
+                elseif ($character -eq "'") { $state = "code" }
+            }
+        }
+    }
+
+    return -join $characters
+}
+
+function Get-CSharpAssignmentExpressions(
+    [string] $Source,
+    [string] $StartPattern,
+    [string] $Description)
+{
+    $maskedSource = Get-CSharpCodeMask $Source
+    $results = [System.Collections.Generic.List[object]]::new()
+    foreach ($match in [regex]::Matches($maskedSource, $StartPattern))
+    {
+        $assignmentOperator = $match.Value.LastIndexOf('=')
+        if ($assignmentOperator -lt 0)
+        {
+            Fail "$Description has no assignment operator."
+        }
+        $start = $match.Index + $assignmentOperator + 1
+        $end = Get-CSharpStatementEnd $Source $start $Description
+        $results.Add([pscustomobject]@{
+            Match = $match
+            Expression = $Source.Substring($start, $end - $start)
+        })
+    }
+    return $results.ToArray()
+}
+
 function Get-QueryInfo([string] $Source, [string] $Path)
 {
+    $sqlLiteral = '(?:"{3}(?<sql>.*?)"{3}|@?"(?<sql>(?:""|[^"])*)")'
     $directAssignment = [regex]::Match(
         $Source,
-        '(?is)\b(?<command>\w+)\.CommandText\s*=\s*"{1,3}(?<sql>[^"]*\bSELECT\b[^"]*)"{1,3}'
+        "(?is)\b(?<command>\w+)\.CommandText\s*=\s*$sqlLiteral"
     )
-    if ($directAssignment.Success)
+    if ($directAssignment.Success -and $directAssignment.Groups["sql"].Value -match '(?i)\bSELECT\b')
     {
         return [pscustomobject]@{
             Command = $directAssignment.Groups["command"].Value
@@ -57,9 +385,9 @@ function Get-QueryInfo([string] $Source, [string] $Path)
 
     $directConstructor = [regex]::Match(
         $Source,
-        '(?is)\b(?:var|SqlCommand|Dim)\s+(?<command>\w+)[^=\r\n]*=\s*(?:new|New)\s+SqlCommand\s*\(\s*"{1,3}(?<sql>[^"]*\bSELECT\b[^"]*)"{1,3}'
+        "(?is)\b(?:var|SqlCommand|Dim)\s+(?<command>\w+)[^=\r\n]*=\s*(?:new|New)\s+SqlCommand\s*\(\s*$sqlLiteral"
     )
-    if ($directConstructor.Success)
+    if ($directConstructor.Success -and $directConstructor.Groups["sql"].Value -match '(?i)\bSELECT\b')
     {
         return [pscustomobject]@{
             Command = $directConstructor.Groups["command"].Value
@@ -69,9 +397,9 @@ function Get-QueryInfo([string] $Source, [string] $Path)
 
     $sqlVariable = [regex]::Match(
         $Source,
-        '(?is)\b(?:var|string|String|Dim)\s+(?<variable>\w+)[^=\r\n]*=\s*"{1,3}(?<sql>[^"]*\bSELECT\b[^"]*)"{1,3}'
+        "(?is)\b(?:var|string|String|Dim)\s+(?<variable>\w+)[^=\r\n]*=\s*$sqlLiteral"
     )
-    if ($sqlVariable.Success)
+    if ($sqlVariable.Success -and $sqlVariable.Groups["sql"].Value -match '(?i)\bSELECT\b')
     {
         $escapedVariable = [regex]::Escape($sqlVariable.Groups["variable"].Value)
         $commandAssignment = [regex]::Match(
@@ -110,7 +438,22 @@ function Get-LocalExpression(
     }
     else
     {
-        "(?is)\b(?:var|string|String)\s+$escapedName\s*=\s*(?<expression>.*?);"
+        "(?is)\b(?:var|string|String)\s+$escapedName\s*=\s*"
+    }
+
+    if (-not $IsVisualBasic)
+    {
+        $assignment = @(
+            Get-CSharpAssignmentExpressions `
+                $Source `
+                $pattern `
+                "The local '$Name' assignment"
+        ) | Select-Object -First 1
+        if ($null -ne $assignment)
+        {
+            return $assignment.Expression
+        }
+        return $null
     }
 
     $match = [regex]::Match($Source, $pattern)
@@ -120,6 +463,46 @@ function Get-LocalExpression(
     }
 
     return $null
+}
+
+function Get-PredicatePlaceholders(
+    [string] $Sql,
+    [bool] $RequireContains)
+{
+    $placeholderPattern = '@[A-Za-z_]\w*'
+    $identifierPattern = '(?:\[[^\]]+\]|[A-Za-z_]\w*)(?:\.(?:\[[^\]]+\]|[A-Za-z_]\w*))*'
+    $patterns = if ($RequireContains)
+    {
+        @(
+            "(?is)(?<!@)\b$identifierPattern\s+LIKE\s+(?<predicate>.*?)(?=\b(?:AND|OR|GROUP|ORDER|HAVING)\b|;|$)"
+        )
+    }
+    else
+    {
+        @(
+            "(?is)(?<!@)\b$identifierPattern\s*(?:=|<>|!=|<=|>=|<|>)\s*(?<predicate>$placeholderPattern)",
+            "(?is)(?<predicate>$placeholderPattern)\s*(?:=|<>|!=|<=|>=|<|>)\s*(?<!@)\b$identifierPattern\b"
+        )
+    }
+
+    $placeholders = [System.Collections.Generic.HashSet[string]]::new(
+        [System.StringComparer]::OrdinalIgnoreCase
+    )
+    foreach ($pattern in $patterns)
+    {
+        foreach ($match in [regex]::Matches($Sql, $pattern))
+        {
+            foreach ($placeholder in [regex]::Matches(
+                $match.Groups["predicate"].Value,
+                $placeholderPattern
+            ))
+            {
+                [void] $placeholders.Add($placeholder.Value)
+            }
+        }
+    }
+
+    return @($placeholders)
 }
 
 function Test-ExpressionUsesInput(
@@ -317,6 +700,14 @@ function Assert-QueryParameterBinding(
         Fail "The query in $Path no longer uses a parameter placeholder."
     }
 
+    $predicatePlaceholders = @(
+        Get-PredicatePlaceholders $sql $RequireContains
+    )
+    if ($predicatePlaceholders.Count -eq 0)
+    {
+        Fail "The query in $Path has no parameterized column predicate."
+    }
+
     $inputIsBound = $false
     foreach ($placeholder in $placeholders)
     {
@@ -336,6 +727,11 @@ function Assert-QueryParameterBinding(
             $RequireContains -and
             [regex]::Matches($sql, '%').Count -ge 2 -and
             $sql -match "(?i)$([regex]::Escape($placeholder))"
+
+        if ($placeholder -notin $predicatePlaceholders)
+        {
+            continue
+        }
 
         foreach ($valueExpression in $valueExpressions)
         {
@@ -386,10 +782,6 @@ $allSource = ($sourceFiles | ForEach-Object {
     [IO.File]::ReadAllText($_.FullName)
 }) -join "`n"
 
-Assert-NotMatches $allSource "(?is)\b(?:var|String|string|Dim)\s+\w*(?:sql|query|commandText)\w*\s*=\s*$interpolatedStringStartPattern" `
-    "Interpolated values are still used to construct SQL text."
-Assert-NotMatches $allSource '(?is)\b(?:var|String|string|Dim)\s+\w*(?:sql|query|commandText)\w*\s*=.*?["''][^;]*["'']\s*(?:\+|&)\s*\w+' `
-    "Concatenated values are still used to construct SQL text."
 Assert-NotMatches $allSource '(?is)\bString\.Format\s*\(\s*["''][^"'']*(?:SELECT|INSERT|UPDATE|DELETE)' `
     "String.Format is still used to construct SQL text."
 Assert-NotMatches $allSource "(?is)new\s+(?:SqlCommand|OleDbCommand|SqlDataAdapter|OleDbDataAdapter)\s*\(\s*$interpolatedStringStartPattern" `
@@ -404,10 +796,10 @@ foreach ($sourceFile in $sourceFiles)
     $source = [IO.File]::ReadAllText($sourceFile.FullName)
     $commandTextAssignments = if ($sourceFile.Extension -eq ".cs")
     {
-        [regex]::Matches(
-            $source,
-            '(?is)\.(?:CommandText|SelectCommand)\s*=\s*(?<expression>.*?);'
-        )
+        Get-CSharpAssignmentExpressions `
+            $source `
+            '(?is)\.(?:CommandText|SelectCommand)\s*=\s*' `
+            "A CommandText or SelectCommand assignment"
     }
     else
     {
@@ -419,7 +811,15 @@ foreach ($sourceFile in $sourceFiles)
 
     foreach ($assignment in $commandTextAssignments)
     {
-        if (Test-DynamicSqlExpression $assignment.Groups["expression"].Value)
+        $expression = if ($sourceFile.Extension -eq ".cs")
+        {
+            $assignment.Expression
+        }
+        else
+        {
+            $assignment.Groups["expression"].Value
+        }
+        if (Test-DynamicSqlExpression $expression)
         {
             Fail "Dynamic SQL is assigned directly to CommandText or SelectCommand in $($sourceFile.FullName)."
         }
@@ -427,10 +827,10 @@ foreach ($sourceFile in $sourceFiles)
 
     $assignments = if ($sourceFile.Extension -eq ".cs")
     {
-        [regex]::Matches(
-            $source,
-            '(?is)\b(?:var|string|String)\s+(?<name>\w+)\s*=\s*(?<expression>.*?);'
-        )
+        Get-CSharpAssignmentExpressions `
+            $source `
+            '(?is)\b(?:var|string|String)\s+(?<name>\w+)\s*=\s*' `
+            "A C# local assignment"
     }
     else
     {
@@ -442,8 +842,22 @@ foreach ($sourceFile in $sourceFiles)
 
     foreach ($assignment in $assignments)
     {
-        $name = $assignment.Groups["name"].Value
-        $expression = $assignment.Groups["expression"].Value
+        $name = if ($sourceFile.Extension -eq ".cs")
+        {
+            $assignment.Match.Groups["name"].Value
+        }
+        else
+        {
+            $assignment.Groups["name"].Value
+        }
+        $expression = if ($sourceFile.Extension -eq ".cs")
+        {
+            $assignment.Expression
+        }
+        else
+        {
+            $assignment.Groups["expression"].Value
+        }
 
         if (-not (Test-DynamicSqlExpression $expression))
         {

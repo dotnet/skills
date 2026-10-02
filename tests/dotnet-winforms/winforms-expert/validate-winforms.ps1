@@ -182,55 +182,7 @@ function Get-InitializeComponentBody([string] $Text, [string] $Path)
     }
 
     $openBrace = $signature.Index + $signature.Length - 1
-    $depth = 0
-    $inString = $false
-    $escaped = $false
-
-    for ($index = $openBrace; $index -lt $Text.Length; $index++)
-    {
-        $character = $Text[$index]
-        if ($inString)
-        {
-            if ($escaped)
-            {
-                $escaped = $false
-            }
-            elseif ($character -eq '\')
-            {
-                $escaped = $true
-            }
-            elseif ($character -eq '"')
-            {
-                $inString = $false
-            }
-
-            continue
-        }
-
-        if ($character -eq '"')
-        {
-            $inString = $true
-            continue
-        }
-
-        if ($character -eq '{')
-        {
-            $depth++
-        }
-        elseif ($character -eq '}')
-        {
-            $depth--
-            if ($depth -eq 0)
-            {
-                return $Text.Substring(
-                    $openBrace + 1,
-                    $index - $openBrace - 1
-                )
-            }
-        }
-    }
-
-    Fail "InitializeComponent has unbalanced braces in $Path"
+    return Get-CSharpBlockBody $Text $openBrace "InitializeComponent in $Path"
 }
 
 function Get-CSharpBlockBody(
@@ -240,6 +192,7 @@ function Get-CSharpBlockBody(
 {
     $depth = 0
     $state = "code"
+    $rawStringQuoteCount = 0
 
     for ($index = $OpenBrace; $index -lt $Text.Length; $index++)
     {
@@ -296,6 +249,28 @@ function Get-CSharpBlockBody(
                 }
                 continue
             }
+            "raw-string"
+            {
+                if ($character -eq '"')
+                {
+                    $quoteCount = 1
+                    while (
+                        $index + $quoteCount -lt $Text.Length -and
+                        $Text[$index + $quoteCount] -eq '"'
+                    )
+                    {
+                        $quoteCount++
+                    }
+
+                    if ($quoteCount -ge $rawStringQuoteCount)
+                    {
+                        $state = "code"
+                        $rawStringQuoteCount = 0
+                    }
+                    $index += $quoteCount - 1
+                }
+                continue
+            }
             "character"
             {
                 if ($character -eq '\')
@@ -322,13 +297,31 @@ function Get-CSharpBlockBody(
         }
         elseif ($character -eq '"')
         {
-            $state = if ($index -gt 0 -and $Text[$index - 1] -eq '@')
+            $quoteCount = 1
+            while (
+                $index + $quoteCount -lt $Text.Length -and
+                $Text[$index + $quoteCount] -eq '"'
+            )
             {
-                "verbatim-string"
+                $quoteCount++
+            }
+
+            if ($quoteCount -ge 3)
+            {
+                $state = "raw-string"
+                $rawStringQuoteCount = $quoteCount
+                $index += $quoteCount - 1
             }
             else
             {
-                "string"
+                $state = if ($index -gt 0 -and $Text[$index - 1] -eq '@')
+                {
+                    "verbatim-string"
+                }
+                else
+                {
+                    "string"
+                }
             }
         }
         elseif ($character -eq "'")
@@ -383,6 +376,7 @@ function Get-CSharpStatementEnd(
     $braceDepth = 0
     $bracketDepth = 0
     $state = "code"
+    $rawStringQuoteCount = 0
 
     for ($index = $StartIndex; $index -lt $Text.Length; $index++)
     {
@@ -439,6 +433,28 @@ function Get-CSharpStatementEnd(
                 }
                 continue
             }
+            "raw-string"
+            {
+                if ($character -eq '"')
+                {
+                    $quoteCount = 1
+                    while (
+                        $index + $quoteCount -lt $Text.Length -and
+                        $Text[$index + $quoteCount] -eq '"'
+                    )
+                    {
+                        $quoteCount++
+                    }
+
+                    if ($quoteCount -ge $rawStringQuoteCount)
+                    {
+                        $state = "code"
+                        $rawStringQuoteCount = 0
+                    }
+                    $index += $quoteCount - 1
+                }
+                continue
+            }
             "character"
             {
                 if ($character -eq '\')
@@ -465,13 +481,31 @@ function Get-CSharpStatementEnd(
         }
         elseif ($character -eq '"')
         {
-            $state = if ($index -gt 0 -and $Text[$index - 1] -eq '@')
+            $quoteCount = 1
+            while (
+                $index + $quoteCount -lt $Text.Length -and
+                $Text[$index + $quoteCount] -eq '"'
+            )
             {
-                "verbatim-string"
+                $quoteCount++
+            }
+
+            if ($quoteCount -ge 3)
+            {
+                $state = "raw-string"
+                $rawStringQuoteCount = $quoteCount
+                $index += $quoteCount - 1
             }
             else
             {
-                "string"
+                $state = if ($index -gt 0 -and $Text[$index - 1] -eq '@')
+                {
+                    "verbatim-string"
+                }
+                else
+                {
+                    "string"
+                }
             }
         }
         elseif ($character -eq "'")
