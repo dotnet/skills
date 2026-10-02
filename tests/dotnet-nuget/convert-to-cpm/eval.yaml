@@ -1,315 +1,757 @@
 name: convert-to-cpm
-description: Evaluates the dotnet-nuget/convert-to-cpm skill
+description: Evaluates safe NuGet package alignment and Central Package Management conversion
 type: capability
-config:
+defaults:
   timeout: 10m
+  runs: 2
+scoring:
+  threshold: 0.9
 stimuli:
-  - name: Decline CPM conversion for packages.config project
-    prompt: Convert my simple-packages-config/LegacyApp project to Central Package Management.
+  - name: Keep packages.config migration out of scope
+    prompt: |
+      Please centralize the NuGet versions in simple-packages-config/LegacyApp.
+      Do not migrate its package format as part of this request.
+    tags: { capability: packages-config-boundary, risk: high, journey: reject-incompatible-project }
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: nuget-dormant-packages-config
+        agent: { name: reference, version: "1.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              This project uses packages.config. Central Package Management
+              requires PackageReference, so no files were changed. Migrate the
+              package format in a separate request before centralizing versions.
     environment:
       files:
-        - src: .
-          dest: .
+        - { src: ./simple-packages-config, dest: simple-packages-config }
+        - { src: ./common/verify_unchanged.py, dest: .eval/verify_unchanged.py }
     graders:
-      - type: output-contains
+      - type: run-command
         config:
-          substring: packages.config
-      - type: output-contains
-        config:
-          substring: PackageReference
+          command: >-
+            node -e "const fs=require('fs'),c=require('crypto'),s=fs.readFileSync('.eval/verify_unchanged.py','utf8').replace(/\r\n/g,'\n');process.exit(c.createHash('sha256').update(s).digest('hex')==='130b700a3e8337da14c643c83df6d2484d0d259fc0f780ad367e8706b4ab7e81'?0:1)"
+            && python .eval/verify_unchanged.py packages-config simple-packages-config
+          expected_exit_code: 0
+          stdout_matches: UNCHANGED
       - type: file-not-exists
-        config:
-          path: simple-packages-config/Directory.Packages.props
+        config: { path: simple-packages-config/Directory.Packages.props }
+      - type: output-matches
+        config: { pattern: "(packages\\.config|PackageReference)" }
+      - type: exit-success
       - type: prompt
     rubric:
-      - Detected the project uses packages.config instead of PackageReference format
-      - Informed the user that CPM requires PackageReference and cannot be applied to packages.config projects
-      - Suggested migrating from packages.config to PackageReference first
-      - Did not attempt to create Directory.Packages.props or modify any project files
-    constraints:
-      reject_skills:
-        - "*"
-  - name: Align packages directly and recommend CPM
-    prompt: The System.Text.Json and Azure.Identity packages have gotten out of sync across projects in
-      moderate-version-conflicts/Inventory.slnx. Align each package to the highest version already used in the solution,
-      but do not convert the solution to CPM.
+      - Recognized that Central Package Management cannot manage packages.config entries
+      - Left the entire project unchanged
+      - Explained that a separate PackageReference migration is the required prerequisite
+      - Stopped before conversion and did not modify the incompatible project
+
+  - name: Leave a complete central package setup unchanged
+    prompt: |
+      Check already-cpm/App and tell me whether it still needs a Central Package
+      Management migration. Do not change a healthy setup.
+    tags: { capability: already-correct-boundary, risk: low, journey: verify-no-op }
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: nuget-dormant-already-cpm
+        agent: { name: reference, version: "1.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              No migration is needed. Directory.Packages.props already enables
+              central management and App.csproj has no package Version attribute.
+              I left the healthy setup unchanged.
     environment:
       files:
-        - src: .
-          dest: .
+        - { src: ./already-cpm, dest: already-cpm }
+        - { src: ./common/verify_unchanged.py, dest: .eval/verify_unchanged.py }
+        - { src: ./common/NuGet.Config, dest: NuGet.Config }
+        - { src: ./common/global.json, dest: global.json }
+        - { src: ./common/create_feed.py, dest: .eval/create_feed.py }
+      commands:
+        - python .eval/create_feed.py .nuget-feed
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs'),c=require('crypto'),s=fs.readFileSync('.eval/verify_unchanged.py','utf8').replace(/\r\n/g,'\n');process.exit(c.createHash('sha256').update(s).digest('hex')==='130b700a3e8337da14c643c83df6d2484d0d259fc0f780ad367e8706b4ab7e81'?0:1)"
+            && python .eval/verify_unchanged.py already-cpm already-cpm
+          expected_exit_code: 0
+          stdout_matches: UNCHANGED
+      - type: run-command
+        config:
+          command: dotnet restore already-cpm/App/App.csproj --configfile NuGet.Config --packages .nuget-packages
+          expected_exit_code: 0
+          timeout: 3m
+      - type: run-command
+        config:
+          command: dotnet run --project already-cpm/App/App.csproj --no-restore
+          expected_exit_code: 0
+          stdout_matches: PASS
+          timeout: 3m
+      - type: output-matches
+        config: { pattern: "(already|no migration|no conversion|nothing.*change|fully enabled)" }
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Correctly concluded that the project already has a complete central package setup
+      - Left the central file and project unchanged
+      - Reported the healthy state without inventing migration work
+      - Recognized the no-op boundary and stopped without entering conversion work
+
+  - name: Leave private feed authentication to package-source tooling
+    prompt: |
+      What command should I use to add an authenticated private NuGet feed for
+      restore? I am not changing package versions or project package policy.
+    tags: { capability: package-source-boundary, risk: high, journey: redirect-authentication }
+    expect_activation: false
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: nuget-dormant-package-source
+        agent: { name: reference, version: "1.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Use `dotnet nuget add source` or edit NuGet.Config with the feed URL.
+              Supply credentials through the supported credential provider or a
+              secure secret mechanism; no package-version files need to change.
     graders:
       - type: output-matches
-        config:
-          pattern: (Central Package Management|CPM|Directory\.Packages\.props)
+        config: { pattern: "(dotnet nuget add source|NuGet\\.Config|credential provider)" }
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Answered the package-source authentication question without starting a package migration
+      - Did not suggest changing package versions or central package policy
+      - The conversion workflow stayed dormant and did not hijack the feed configuration request
+
+  - name: Leave package signing and publishing out of scope
+    prompt: |
+      I have a built .nupkg and need to sign it with a certificate before
+      publishing. What command and certificate inputs should I use?
+    tags: { capability: package-signing-boundary, risk: high, journey: redirect-publishing }
+    expect_activation: false
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: nuget-dormant-package-signing
+        agent: { name: reference, version: "1.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Use `dotnet nuget sign <package.nupkg>` with the certificate path,
+              certificate password supplied securely, and a timestamp server.
+              This does not require changing project package versions or CPM files.
+    graders:
       - type: output-matches
+        config: { pattern: "(dotnet nuget sign|certificate|timestamp)" }
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Answered the package-signing question without starting a package migration
+      - Did not suggest changing package versions or central package policy
+      - The conversion workflow stayed dormant and did not hijack the publishing request
+
+  - name: Align conflicting versions without changing package management
+    prompt: |
+      Contoso.Json and Fabrikam.Identity are inconsistent across
+      moderate-version-conflicts/Inventory.slnx. Align each package to the
+      highest version already present, keep versions in the project files, and
+      validate the solution.
+    tags: { capability: package-maintenance, risk: medium, journey: align-without-conversion }
+    environment:
+      files:
+        - { src: ./moderate-version-conflicts, dest: moderate-version-conflicts }
+        - { src: ./common/NuGet.Config, dest: NuGet.Config }
+        - { src: ./common/global.json, dest: global.json }
+        - { src: ./common/create_feed.py, dest: .eval/create_feed.py }
+        - { src: ./common/verify_state.py, dest: .eval/verify_state.py }
+      commands:
+        - python .eval/create_feed.py .nuget-feed
+    golden_patch: { path: ./references/maintenance-conflicts.patch }
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: nuget-maintenance-conflicts
+        agent: { name: reference, version: "1.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Aligned Contoso.Json to 10.0.0 and Fabrikam.Identity to 1.2.0 in
+              project files. No central package file was created. Restore and build passed.
+    graders:
+      - type: run-command
         config:
-          pattern: (conflict|mismatch|different version|out of sync)
+          command: >-
+            node -e "const fs=require('fs'),c=require('crypto'),s=fs.readFileSync('.eval/verify_state.py','utf8').replace(/\r\n/g,'\n');process.exit(c.createHash('sha256').update(s).digest('hex')==='9b763251bb18a2d6aec637b7a0527ef4bf9c117624a128125fe7ba8fabdb322e'?0:1)"
+            && python .eval/verify_state.py maintenance-conflicts
+          expected_exit_code: 0
+          stdout_matches: PASS
+      - type: run-command
+        config:
+          command: dotnet restore moderate-version-conflicts/Inventory.slnx --configfile NuGet.Config --packages .nuget-packages
+          expected_exit_code: 0
+          timeout: 4m
+      - type: run-command
+        config:
+          command: dotnet build moderate-version-conflicts/Inventory.slnx --no-restore
+          expected_exit_code: 0
+          timeout: 4m
+      - type: run-command
+        config:
+          command: dotnet run --project moderate-version-conflicts/Api/Api.csproj --no-restore
+          expected_exit_code: 0
+          stdout_matches: PASS
+          timeout: 3m
       - type: file-not-exists
-        config:
-          path: moderate-version-conflicts/Directory.Packages.props
-      - type: file-contains
-        config:
-          path: moderate-version-conflicts/Shared/Shared.csproj
-          value: 1.13.2
-      - type: file-contains
-        config:
-          path: moderate-version-conflicts/Worker/Worker.csproj
-          value: 10.0.1
+        config: { path: moderate-version-conflicts/Directory.Packages.props }
       - type: prompt
     rubric:
-      - Identified the version conflicts and directly aligned System.Text.Json and Azure.Identity to the highest versions
-        already present
-      - Preserved per-project PackageReference version management and did not create Directory.Packages.props
-      - Restored and built the affected solution after the direct package changes
-      - Recommended Central Package Management as a separate durable follow-up after completing the authorized alignment
-  - name: Update complex package layout and recommend CPM
-    prompt: I need to update and align NuGet package versions across the advanced-multi-complexity/Enterprise.slnx solution.
-      Package versions have drifted out of sync — some are defined as MSBuild properties, some are conditional for
-      multi-targeting, and there's a shared Common.props. Can you bump everything to the latest and get them consistent?
+      - Aligned only the requested packages to the highest versions already in the solution
+      - Preserved project-level version management
+      - Restored and built the affected solution before reporting success
+      - Recommended central package management only as a separate follow-up
+
+  - name: Align property and conditional versions without centralizing
+    prompt: |
+      Bring package versions in advanced-multi-complexity/Enterprise.slnx into
+      line with the highest versions already used in that repository. Keep the
+      current project, property, shared-props, and target-framework condition
+      layout. Do not centralize package management.
+    tags: { capability: complex-package-maintenance, risk: high, journey: preserve-existing-layout }
     environment:
       files:
-        - src: .
-          dest: .
+        - { src: ./advanced-multi-complexity, dest: advanced-multi-complexity }
+        - { src: ./common/NuGet.Config, dest: NuGet.Config }
+        - { src: ./common/global.json, dest: global.json }
+        - { src: ./common/create_feed.py, dest: .eval/create_feed.py }
+        - { src: ./common/verify_state.py, dest: .eval/verify_state.py }
+      commands:
+        - python .eval/create_feed.py .nuget-feed
+    golden_patch: { path: ./references/maintenance-complex.patch }
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: nuget-maintenance-complex
+        agent: { name: reference, version: "1.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Updated drifted versions in existing files, preserved Common.props,
+              MSBuild properties, and target-framework conditions, and did not
+              create a central package file. Restore and build passed.
     graders:
-      - type: output-matches
+      - type: run-command
         config:
-          pattern: (Central Package Management|CPM|Directory\.Packages\.props)
-      - type: output-matches
+          command: >-
+            node -e "const fs=require('fs'),c=require('crypto'),s=fs.readFileSync('.eval/verify_state.py','utf8').replace(/\r\n/g,'\n');process.exit(c.createHash('sha256').update(s).digest('hex')==='9b763251bb18a2d6aec637b7a0527ef4bf9c117624a128125fe7ba8fabdb322e'?0:1)"
+            && python .eval/verify_state.py maintenance-complex
+          expected_exit_code: 0
+          stdout_matches: PASS
+      - type: run-command
         config:
-          pattern: (BlobsVersion|HostingVersion|Common\.props)
+          command: dotnet restore advanced-multi-complexity/Enterprise.slnx --configfile NuGet.Config --packages .nuget-packages
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: dotnet build advanced-multi-complexity/Enterprise.slnx --no-restore
+          expected_exit_code: 0
+          timeout: 5m
       - type: file-not-exists
-        config:
-          path: advanced-multi-complexity/Directory.Packages.props
+        config: { path: advanced-multi-complexity/Directory.Packages.props }
       - type: prompt
     rubric:
-      - "Audited the repository complexity: MSBuild property-based versions, conditional references, shared props files,
-        and version conflicts across projects"
-      - Strongly recommended adopting Central Package Management as essential for a repository of this complexity —
-        manual package updates across scattered version definitions are high-risk and unsustainable
-      - Explained that CPM would consolidate the MSBuild properties, conditional versions, and shared props references
-        into a single governed file, greatly reducing the risk of version drift and update errors
-      - Completed the requested direct package updates without creating Directory.Packages.props, then recommended a full
-        CPM conversion as separate follow-up work
-  - name: Convert single project to CPM
-    prompt: Convert my project at simple-single-project/MyApp/MyApp.csproj to use Central Package Management.
+      - Aligned every drifted literal version to the highest version already present
+      - Kept StorageVersion, HostingVersion, and Common.props in their existing roles
+      - Preserved the target-framework-specific Fabrikam.MvcJson declarations
+      - Did not create or modify a central package policy
+
+  - name: Convert one executable project to central package management
+    prompt: |
+      Convert simple-single-project/MyApp/MyApp.csproj to Central Package
+      Management. Keep resolved versions unchanged and validate that it still runs.
+    tags: { capability: single-project-conversion, risk: medium, journey: convert-and-run }
     environment:
       files:
-        - src: .
-          dest: .
+        - { src: ./simple-single-project, dest: simple-single-project }
+        - { src: ./common/NuGet.Config, dest: NuGet.Config }
+        - { src: ./common/global.json, dest: global.json }
+        - { src: ./common/create_feed.py, dest: .eval/create_feed.py }
+        - { src: ./common/verify_state.py, dest: .eval/verify_state.py }
+      commands:
+        - python .eval/create_feed.py .nuget-feed
+    golden_patch: { path: ./references/convert-single.patch }
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: nuget-convert-single
+        agent: { name: reference, version: "1.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Created the central file, moved three unchanged versions into sorted
+              PackageVersion items, removed project Version attributes, and passed
+              restore, build, and run. Baseline/after binlogs, package snapshots,
+              and convert-to-cpm.md were retained.
     graders:
-      - type: file-contains
+      - type: run-command
         config:
-          path: simple-single-project/Directory.Packages.props
-          value: ManagePackageVersionsCentrally
-      - type: file-contains
+          command: >-
+            node -e "const fs=require('fs'),c=require('crypto'),s=fs.readFileSync('.eval/verify_state.py','utf8').replace(/\r\n/g,'\n');process.exit(c.createHash('sha256').update(s).digest('hex')==='9b763251bb18a2d6aec637b7a0527ef4bf9c117624a128125fe7ba8fabdb322e'?0:1)"
+            && python .eval/verify_state.py single
+          expected_exit_code: 0
+          stdout_matches: PASS
+      - type: run-command
         config:
-          path: simple-single-project/Directory.Packages.props
-          value: PackageVersion
+          command: dotnet restore simple-single-project/MyApp/MyApp.csproj --configfile NuGet.Config --packages .nuget-packages
+          expected_exit_code: 0
+          timeout: 3m
+      - type: run-command
+        config:
+          command: dotnet build simple-single-project/MyApp/MyApp.csproj --no-restore
+          expected_exit_code: 0
+          timeout: 3m
+      - type: run-command
+        config:
+          command: dotnet run --project simple-single-project/MyApp/MyApp.csproj --no-build --no-restore
+          expected_exit_code: 0
+          stdout_matches: PASS
+          timeout: 3m
+      - type: file-contains
+        config: { path: simple-single-project/**/Directory.Packages.props, value: ManagePackageVersionsCentrally }
+      - type: file-exists
+        config: { path: simple-single-project/**/convert-to-cpm.md }
       - type: prompt
     rubric:
-      - Created a Directory.Packages.props file with ManagePackageVersionsCentrally set to true
-      - Listed all three packages (Microsoft.Extensions.Logging, Polly, System.Text.Json) as PackageVersion items
-      - Removed Version attributes from PackageReference items in the .csproj
-      - Ran dotnet restore and dotnet build to validate the conversion
-      - Produced a markdown report comparing baseline package references and versions against the CPM result so the user
-        can review what changed
-      - Captured binlogs for both the baseline and converted builds and informed the user they are available for manual
-        validation and troubleshooting
-      - Offered reassurance that the conversion is safe when no material changes were detected, or warned about any risks
-  - name: Convert multi-project solution to CPM
-    prompt: I'd like to convert simple-solution/MyApp.sln to Central Package Management. Use the highest version for any
-      conflicts.
+      - Centralized exactly the three existing package versions without upgrading them
+      - Removed only PackageReference version metadata and preserved behavior
+      - Captured reviewable before-and-after evidence and a conversion report
+      - Verified restore, build, and runtime behavior before reporting success
+
+  - name: Convert a solution while preserving package metadata
+    prompt: |
+      Move simple-solution/MyApp.sln to Central Package Management. Keep every
+      current version and preserve package metadata such as PrivateAssets.
+    tags: { capability: solution-conversion, risk: medium, journey: preserve-metadata }
     environment:
       files:
-        - src: .
-          dest: .
+        - { src: ./simple-solution, dest: simple-solution }
+        - { src: ./common/NuGet.Config, dest: NuGet.Config }
+        - { src: ./common/global.json, dest: global.json }
+        - { src: ./common/create_feed.py, dest: .eval/create_feed.py }
+        - { src: ./common/verify_state.py, dest: .eval/verify_state.py }
+      commands:
+        - python .eval/create_feed.py .nuget-feed
+    golden_patch: { path: ./references/convert-solution.patch }
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: nuget-convert-solution
+        agent: { name: reference, version: "1.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Added one solution-level central file with six sorted versions,
+              removed Version attributes, preserved PrivateAssets=all, and passed
+              solution build and Web execution. The before/after report and
+              evidence artifacts were retained.
     graders:
-      - type: file-contains
+      - type: run-command
         config:
-          path: simple-solution/Directory.Packages.props
-          value: ManagePackageVersionsCentrally
-      - type: file-contains
+          command: >-
+            node -e "const fs=require('fs'),c=require('crypto'),s=fs.readFileSync('.eval/verify_state.py','utf8').replace(/\r\n/g,'\n');process.exit(c.createHash('sha256').update(s).digest('hex')==='9b763251bb18a2d6aec637b7a0527ef4bf9c117624a128125fe7ba8fabdb322e'?0:1)"
+            && python .eval/verify_state.py solution
+          expected_exit_code: 0
+          stdout_matches: PASS
+      - type: run-command
         config:
-          path: simple-solution/Tests/Tests.csproj
-          value: PrivateAssets
+          command: dotnet restore simple-solution/MyApp.sln --configfile NuGet.Config --packages .nuget-packages
+          expected_exit_code: 0
+          timeout: 4m
+      - type: run-command
+        config:
+          command: dotnet build simple-solution/MyApp.sln --no-restore
+          expected_exit_code: 0
+          timeout: 4m
+      - type: run-command
+        config:
+          command: dotnet run --project simple-solution/Web/Web.csproj --no-build --no-restore
+          expected_exit_code: 0
+          stdout_matches: PASS
+          timeout: 3m
+      - type: file-contains
+        config: { path: simple-solution/Tests/Tests.csproj, value: 'PrivateAssets="all"' }
+      - type: file-exists
+        config: { path: simple-solution/**/convert-to-cpm.md }
       - type: prompt
     rubric:
-      - Enumerated projects in the solution (Web, Core, Tests)
-      - Created Directory.Packages.props at the solution root with ManagePackageVersionsCentrally set to true
-      - Listed all 6 unique packages as PackageVersion items
-      - Removed Version attributes from all three project files
-      - Preserved PrivateAssets attribute on xunit.runner.visualstudio
-      - Ran dotnet restore and dotnet build to validate the conversion
-      - Produced a markdown report summarizing all package references and versions across projects, comparing baseline
-        state against the CPM result
-      - When differing package versions were found across projects, guided the user through reconciliation or explicit
-        acceptance of each version
-      - Captured binlogs for both the baseline and converted builds and informed the user they are available for manual
-        validation and troubleshooting
-      - Offered reassurance when the conversion is straightforward, or warned about potential risks from version changes
-        that could cause unintended consequences
-  - name: Convert repository with multiple independent targets
-    prompt: Convert the full multi-target-repository directory to Central Package Management. It contains independent
-      projects with no solution that covers both. Use one common central package policy for the full directory.
+      - Covered every solution project with one correctly placed central file
+      - Preserved all versions and non-version package metadata
+      - Produced a clear before-and-after report and retained evidence
+      - Verified the full solution and executable behavior
+
+  - name: Convert independent projects under one requested policy
+    prompt: |
+      The projects under multi-target-repository are independent and have no
+      shared solution. Put both under one central package policy at the directory
+      root, then validate each project separately.
+    tags: { capability: directory-scope-conversion, risk: high, journey: cover-independent-targets }
     environment:
       files:
-        - src: .
-          dest: .
+        - { src: ./multi-target-repository, dest: multi-target-repository }
+        - { src: ./common/NuGet.Config, dest: NuGet.Config }
+        - { src: ./common/global.json, dest: global.json }
+        - { src: ./common/create_feed.py, dest: .eval/create_feed.py }
+        - { src: ./common/verify_state.py, dest: .eval/verify_state.py }
+      commands:
+        - python .eval/create_feed.py .nuget-feed
+    golden_patch: { path: ./references/convert-multi-target.patch }
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: nuget-convert-multi-target
+        agent: { name: reference, version: "1.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Covered both projects with one common central file, retained
+              per-target baseline and after-cpm evidence, validated App and Tool
+              separately, and mapped both targets in the aggregate report.
     graders:
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs'),c=require('crypto'),s=fs.readFileSync('.eval/verify_state.py','utf8').replace(/\r\n/g,'\n');process.exit(c.createHash('sha256').update(s).digest('hex')==='9b763251bb18a2d6aec637b7a0527ef4bf9c117624a128125fe7ba8fabdb322e'?0:1)"
+            && python .eval/verify_state.py multi-target
+          expected_exit_code: 0
+          stdout_matches: PASS
+      - type: run-command
+        config:
+          command: dotnet restore multi-target-repository/apps/App/App.csproj --configfile NuGet.Config --packages .nuget-packages && dotnet restore multi-target-repository/tools/Tool/Tool.csproj --configfile NuGet.Config --packages .nuget-packages
+          expected_exit_code: 0
+          timeout: 4m
+      - type: run-command
+        config:
+          command: dotnet run --project multi-target-repository/apps/App/App.csproj --no-restore && dotnet run --project multi-target-repository/tools/Tool/Tool.csproj --no-restore
+          expected_exit_code: 0
+          stdout_matches: "(?s)PASS.*PASS"
+          timeout: 4m
       - type: file-contains
-        config:
-          path: multi-target-repository/Directory.Packages.props
-          value: ManagePackageVersionsCentrally
-      - type: file-not-contains
-        config:
-          path: multi-target-repository/apps/App/App.csproj
-          value: Version=
-      - type: file-not-contains
-        config:
-          path: multi-target-repository/tools/Tool/Tool.csproj
-          value: Version=
+        config: { path: multi-target-repository/Directory.Packages.props, value: ManagePackageVersionsCentrally }
+      - type: file-exists
+        config: { path: multi-target-repository/**/convert-to-cpm.md }
       - type: prompt
     rubric:
-      - Selected both independent projects as explicit CLI targets instead of asking the user to choose only one
-      - Ran each target from its own project directory or other directory that establishes its applicable SDK context
-      - Captured a separate baseline build, binlog, and package snapshot for each project before making changes
-      - Created one Directory.Packages.props at the requested common repository scope and centralized both package versions
-      - Validated both independent projects after conversion and preserved separate target-keyed evidence artifacts
-      - Stored every target-keyed evidence artifact and one aggregate conversion report in a common artifact directory
-      - Produced one aggregate conversion report that maps both targets to the common CPM management scope
-  - name: Convert solution with MSBuild property versions to CPM
-    prompt: Convert moderate-msbuild-properties/Platform.sln to Central Package Management. The package versions are
-      currently defined as MSBuild properties in Directory.Build.props. Inline the resolved values into
-      Directory.Packages.props and use the highest version for any conflicts.
+      - Included both independent projects instead of silently selecting one
+      - Placed one central policy at their requested common ancestor
+      - Kept target-keyed evidence and one aggregate report
+      - Restored and ran each target independently
+
+  - name: Inline MSBuild package properties during conversion
+    prompt: |
+      Convert moderate-msbuild-properties/Platform.sln to Central Package
+      Management. Inline resolved package versions, remove only obsolete version
+      properties, and keep unrelated build properties unchanged.
+    tags: { capability: property-version-conversion, risk: high, journey: inline-properties-safely }
     environment:
       files:
-        - src: .
-          dest: .
+        - { src: ./moderate-msbuild-properties, dest: moderate-msbuild-properties }
+        - { src: ./common/NuGet.Config, dest: NuGet.Config }
+        - { src: ./common/global.json, dest: global.json }
+        - { src: ./common/create_feed.py, dest: .eval/create_feed.py }
+        - { src: ./common/verify_state.py, dest: .eval/verify_state.py }
+      commands:
+        - python .eval/create_feed.py .nuget-feed
+    golden_patch: { path: ./references/convert-properties.patch }
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: nuget-convert-properties
+        agent: { name: reference, version: "1.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Inlined TelemetryVersion and DIVersion, removed both definitions
+              and references, preserved OutputPath, and passed solution build and
+              Api execution. Before/after evidence and convert-to-cpm.md were retained.
     graders:
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs'),c=require('crypto'),s=fs.readFileSync('.eval/verify_state.py','utf8').replace(/\r\n/g,'\n');process.exit(c.createHash('sha256').update(s).digest('hex')==='9b763251bb18a2d6aec637b7a0527ef4bf9c117624a128125fe7ba8fabdb322e'?0:1)"
+            && python .eval/verify_state.py properties
+          expected_exit_code: 0
+          stdout_matches: PASS
+      - type: run-command
+        config:
+          command: dotnet restore moderate-msbuild-properties/Platform.sln --configfile NuGet.Config --packages .nuget-packages
+          expected_exit_code: 0
+          timeout: 4m
+      - type: run-command
+        config:
+          command: dotnet build moderate-msbuild-properties/Platform.sln --no-restore
+          expected_exit_code: 0
+          timeout: 4m
+      - type: run-command
+        config:
+          command: dotnet run --project moderate-msbuild-properties/Api/Api.csproj --no-build --no-restore
+          expected_exit_code: 0
+          stdout_matches: PASS
+          timeout: 3m
       - type: file-contains
-        config:
-          path: moderate-msbuild-properties/Directory.Packages.props
-          value: ManagePackageVersionsCentrally
-      - type: file-not-contains
-        config:
-          path: moderate-msbuild-properties/Directory.Build.props
-          value: OTelVersion
-      - type: file-not-contains
-        config:
-          path: moderate-msbuild-properties/Directory.Build.props
-          value: DIVersion
-      - type: file-contains
-        config:
-          path: moderate-msbuild-properties/Directory.Build.props
-          value: OutputPath
+        config: { path: moderate-msbuild-properties/Directory.Build.props, value: OutputPath }
+      - type: file-exists
+        config: { path: moderate-msbuild-properties/**/convert-to-cpm.md }
       - type: prompt
     rubric:
-      - Traced each MSBuild property (OTelVersion, DIVersion) to its definition in Directory.Build.props
-      - Clearly showed which packages use properties vs literal versions
-      - Asked the user whether to inline the resolved values or keep the property references
-      - Created Directory.Packages.props with inlined resolved values as directed by the user
-      - Removed only the version-related properties from Directory.Build.props, preserving the OutputPath property
-      - Verified no remaining references to removed properties exist
-      - Ran dotnet restore and dotnet build to validate the conversion
-      - Produced a markdown report summarizing all package references and versions across projects, comparing baseline
-        state against the CPM result
-      - When differing package versions were found across projects, guided the user through reconciliation or explicit
-        acceptance of each version
-      - Captured binlogs for both the baseline and converted builds and informed the user they are available for manual
-        validation and troubleshooting
-      - Offered reassurance when the conversion is straightforward, or warned about potential risks from version or
-        property changes that could cause unintended consequences
-  - name: Convert solution with version conflicts to CPM
-    prompt: Convert moderate-version-conflicts/Inventory.slnx to Central Package Management. Use the highest version for any
-      conflicts.
+      - Resolved and centralized every property-based and literal package version
+      - Removed both obsolete property definitions and all references
+      - Preserved OutputPath and all unrelated project content
+      - Validated the solution and reported before-and-after evidence
+
+  - name: Resolve version conflicts as part of conversion
+    prompt: |
+      Convert moderate-version-conflicts/Inventory.slnx to Central Package
+      Management and resolve each conflict to the highest version already in the
+      solution. Call out version changes and validate the result.
+    tags: { capability: conflict-resolution-conversion, risk: high, journey: reconcile-and-convert }
     environment:
       files:
-        - src: .
-          dest: .
+        - { src: ./moderate-version-conflicts, dest: moderate-version-conflicts }
+        - { src: ./common/NuGet.Config, dest: NuGet.Config }
+        - { src: ./common/global.json, dest: global.json }
+        - { src: ./common/create_feed.py, dest: .eval/create_feed.py }
+        - { src: ./common/verify_state.py, dest: .eval/verify_state.py }
+      commands:
+        - python .eval/create_feed.py .nuget-feed
+    golden_patch: { path: ./references/convert-conflicts.patch }
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: nuget-convert-conflicts
+        agent: { name: reference, version: "1.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Centralized five packages, selected Contoso.Json 10.0.0 and
+              Fabrikam.Identity 1.2.0, identified changed projects and risk, and
+              passed restore, build, and Api execution.
     graders:
-      - type: file-contains
+      - type: run-command
         config:
-          path: moderate-version-conflicts/Directory.Packages.props
-          value: ManagePackageVersionsCentrally
-      - type: output-matches
+          command: >-
+            node -e "const fs=require('fs'),c=require('crypto'),s=fs.readFileSync('.eval/verify_state.py','utf8').replace(/\r\n/g,'\n');process.exit(c.createHash('sha256').update(s).digest('hex')==='9b763251bb18a2d6aec637b7a0527ef4bf9c117624a128125fe7ba8fabdb322e'?0:1)"
+            && python .eval/verify_state.py conflicts
+          expected_exit_code: 0
+          stdout_matches: PASS
+      - type: run-command
         config:
-          pattern: (conflict|mismatch|different version)
-      - type: file-contains
+          command: dotnet restore moderate-version-conflicts/Inventory.slnx --configfile NuGet.Config --packages .nuget-packages
+          expected_exit_code: 0
+          timeout: 4m
+      - type: run-command
         config:
-          path: moderate-version-conflicts/Directory.Packages.props
-          value: System.Text.Json
-      - type: file-contains
+          command: dotnet build moderate-version-conflicts/Inventory.slnx --no-restore
+          expected_exit_code: 0
+          timeout: 4m
+      - type: run-command
         config:
-          path: moderate-version-conflicts/Directory.Packages.props
-          value: Azure.Identity
+          command: dotnet run --project moderate-version-conflicts/Api/Api.csproj --no-build --no-restore
+          expected_exit_code: 0
+          stdout_matches: PASS
+          timeout: 3m
+      - type: file-exists
+        config: { path: moderate-version-conflicts/**/convert-to-cpm.md }
       - type: prompt
     rubric:
-      - Audited all 4 projects and identified both version conflicts (System.Text.Json and Azure.Identity)
-      - "Presented the System.Text.Json conflict clearly: 10.0.1 in Api/Shared/Tests vs 8.0.4 in Worker"
-      - "Presented the Azure.Identity conflict: 1.13.2 in Api vs 1.10.0 in Shared"
-      - Applied the user's chosen strategy of aligning to the highest version for each conflict
-      - Created Directory.Packages.props with the highest version for each conflicting package
-      - Ran dotnet restore and dotnet build to validate the conversion
-      - Produced a markdown report summarizing all package references and resolved versions across projects, comparing
-        baseline state against the CPM result
-      - Guided the user through reconciliation or explicit acceptance of each differing version, surfacing the rationale
-        and impact of each choice
-      - Captured binlogs for both the baseline and converted builds and informed the user they are available for manual
-        validation and troubleshooting
-      - Warned about potential risks from version changes or unintended consequences, and offered reassurance where the
-        resolution is safe
-  - name: Convert complex repository with multiple CPM challenges
-    prompt: "I need to convert this entire repository to Central Package Management. The solution is at
-      advanced-multi-complexity/Enterprise.slnx. There are some complications: package versions defined as MSBuild
-      properties, conditional package references for multi-targeting, and a shared Common.props that adds a package to
-      all projects. Inline MSBuild property values and use the highest version for any conflicts."
+      - Found both conflicts across all projects and applied the supplied policy
+      - Reported changed resolved versions and their risk
+      - Centralized every package without losing unrelated references
+      - Validated the solution and executable before claiming success
+
+  - name: Convert conditional and shared package declarations
+    prompt: |
+      Convert advanced-multi-complexity/Enterprise.slnx to Central Package
+      Management. Inline package-version properties, use the highest existing
+      conflict version, preserve target-framework conditions, and include
+      package references from Common.props.
+    tags: { capability: complex-conversion, risk: critical, journey: convert-shared-and-conditional-inputs }
     environment:
       files:
-        - src: .
-          dest: .
+        - { src: ./advanced-multi-complexity, dest: advanced-multi-complexity }
+        - { src: ./common/NuGet.Config, dest: NuGet.Config }
+        - { src: ./common/global.json, dest: global.json }
+        - { src: ./common/create_feed.py, dest: .eval/create_feed.py }
+        - { src: ./common/verify_state.py, dest: .eval/verify_state.py }
+      commands:
+        - python .eval/create_feed.py .nuget-feed
+    golden_patch: { path: ./references/convert-complex.patch }
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: nuget-convert-complex
+        agent: { name: reference, version: "1.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Audited five projects, Common.props, and Directory.Build.props;
+              centralized shared, property, literal, and conditional versions;
+              preserved net8.0/net9.0 conditions and ImplicitUsings; and passed
+              full validation with risk and artifact evidence in the report.
     graders:
-      - type: file-contains
+      - type: run-command
         config:
-          path: advanced-multi-complexity/Directory.Packages.props
-          value: ManagePackageVersionsCentrally
-      - type: file-contains
+          command: >-
+            node -e "const fs=require('fs'),c=require('crypto'),s=fs.readFileSync('.eval/verify_state.py','utf8').replace(/\r\n/g,'\n');process.exit(c.createHash('sha256').update(s).digest('hex')==='9b763251bb18a2d6aec637b7a0527ef4bf9c117624a128125fe7ba8fabdb322e'?0:1)"
+            && python .eval/verify_state.py complex
+          expected_exit_code: 0
+          stdout_matches: PASS
+      - type: run-command
         config:
-          path: advanced-multi-complexity/Directory.Packages.props
-          value: System.Text.Json
-      - type: file-not-contains
+          command: dotnet restore advanced-multi-complexity/Enterprise.slnx --configfile NuGet.Config --packages .nuget-packages
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
         config:
-          path: advanced-multi-complexity/Directory.Build.props
-          value: BlobsVersion
-      - type: file-not-contains
-        config:
-          path: advanced-multi-complexity/Directory.Build.props
-          value: HostingVersion
-      - type: output-matches
-        config:
-          pattern: (condition|conditional|TargetFramework)
-      - type: output-matches
-        config:
-          pattern: Common\.props
+          command: dotnet build advanced-multi-complexity/Enterprise.slnx --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: file-exists
+        config: { path: advanced-multi-complexity/**/convert-to-cpm.md }
       - type: prompt
     rubric:
-      - Performed a thorough audit across all 5 projects plus Common.props and Directory.Build.props
-      - Identified the three-way System.Text.Json version conflict (10.0.1, 9.0.0, 8.0.4) including the security
-        advisory on 8.0.4
-      - Identified the Azure.Storage.Blobs version mismatch between the BlobsVersion property and the literal in Legacy
-      - Traced MSBuild properties (BlobsVersion, HostingVersion) to their definitions in Directory.Build.props
-      - Identified the conditional PackageReference for Microsoft.AspNetCore.Mvc.NewtonsoftJson with different versions
-        per TFM
-      - Identified the PackageReference in Common.props that applies to all projects
-      - Presented the findings and applied the user's chosen strategy of using the highest version for conflicts and
-        inlining MSBuild property values
-      - Created Directory.Packages.props reflecting the user's directed resolution strategy
-      - Preserved non-version properties (LangVersion, ImplicitUsings) in Directory.Build.props
-      - Ran dotnet restore and dotnet build to validate the conversion
-      - Produced a markdown report summarizing all package references, resolved versions, and decisions across projects,
-        comparing baseline state against the CPM result
-      - Guided the user through reconciliation or explicit acceptance of each differing version, including version
-        conflicts, property-based versions, and conditional references
-      - Captured binlogs for both the baseline and converted builds and informed the user they are available for manual
-        validation and troubleshooting
-      - Warned about potential risks from version changes, property removals, or conditional reference adjustments, and
-        offered reassurance where outcomes are safe and expected
+      - Audited every project plus both shared build files
+      - Centralized property, literal, shared, and conditional versions correctly
+      - Preserved target-framework versions and unrelated build properties
+      - Reported conflict impact, target coverage, and truthful validation evidence
+
+  - name: Finish a partial central package migration
+    prompt: |
+      partial-cpm already centralizes Contoso.Logging, but Contoso.Json still
+      uses a project-level VersionOverride. Finish the existing migration without replacing
+      or relocating the current Directory.Packages.props.
+    tags: { capability: partial-cpm-completion, risk: medium, journey: extend-existing-central-file }
+    environment:
+      files:
+        - { src: ./partial-cpm, dest: partial-cpm }
+        - { src: ./common/NuGet.Config, dest: NuGet.Config }
+        - { src: ./common/global.json, dest: global.json }
+        - { src: ./common/create_feed.py, dest: .eval/create_feed.py }
+        - { src: ./common/verify_state.py, dest: .eval/verify_state.py }
+      commands:
+        - python .eval/create_feed.py .nuget-feed
+    golden_patch: { path: ./references/convert-partial.patch }
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: nuget-convert-partial
+        agent: { name: reference, version: "1.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Preserved the existing central file and Logging version, added
+              Contoso.Json in sorted order, removed its project Version, and
+              passed restore, build, and run.
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs'),c=require('crypto'),s=fs.readFileSync('.eval/verify_state.py','utf8').replace(/\r\n/g,'\n');process.exit(c.createHash('sha256').update(s).digest('hex')==='9b763251bb18a2d6aec637b7a0527ef4bf9c117624a128125fe7ba8fabdb322e'?0:1)"
+            && python .eval/verify_state.py partial
+          expected_exit_code: 0
+          stdout_matches: PASS
+      - type: run-command
+        config:
+          command: dotnet restore partial-cpm/App/App.csproj --configfile NuGet.Config --packages .nuget-packages
+          expected_exit_code: 0
+          timeout: 3m
+      - type: run-command
+        config:
+          command: dotnet run --project partial-cpm/App/App.csproj --no-restore
+          expected_exit_code: 0
+          stdout_matches: PASS
+          timeout: 3m
+      - type: file-contains
+        config: { path: partial-cpm/Directory.Packages.props, value: Contoso.Logging }
+      - type: file-exists
+        config: { path: partial-cpm/**/convert-to-cpm.md }
+      - type: prompt
+    rubric:
+      - Extended the existing central file instead of creating a competing scope
+      - Preserved the already-centralized package and added only the missing version
+      - Removed the remaining VersionOverride and validated runtime behavior
+
+  - name: Preserve independent existing central package boundaries
+    prompt: |
+      Finish centralizing all versions under nested-scopes. Products and tools
+      intentionally have separate Directory.Packages.props files and must remain
+      independent. Complete both scopes and validate both applications.
+    tags: { capability: multiple-cpm-scopes, risk: high, journey: preserve-policy-boundaries }
+    environment:
+      files:
+        - { src: ./nested-scopes, dest: nested-scopes }
+        - { src: ./common/NuGet.Config, dest: NuGet.Config }
+        - { src: ./common/global.json, dest: global.json }
+        - { src: ./common/create_feed.py, dest: .eval/create_feed.py }
+        - { src: ./common/verify_state.py, dest: .eval/verify_state.py }
+      commands:
+        - python .eval/create_feed.py .nuget-feed
+    golden_patch: { path: ./references/convert-nested.patch }
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: nuget-convert-nested
+        agent: { name: reference, version: "1.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Kept products and tools as independent policy boundaries, added
+              each missing package to its nearest central file, created no root
+              central file, and validated both executables.
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs'),c=require('crypto'),s=fs.readFileSync('.eval/verify_state.py','utf8').replace(/\r\n/g,'\n');process.exit(c.createHash('sha256').update(s).digest('hex')==='9b763251bb18a2d6aec637b7a0527ef4bf9c117624a128125fe7ba8fabdb322e'?0:1)"
+            && python .eval/verify_state.py nested
+          expected_exit_code: 0
+          stdout_matches: PASS
+      - type: run-command
+        config:
+          command: dotnet restore nested-scopes/products/App/App.csproj --configfile NuGet.Config --packages .nuget-packages && dotnet restore nested-scopes/tools/Tool/Tool.csproj --configfile NuGet.Config --packages .nuget-packages
+          expected_exit_code: 0
+          timeout: 4m
+      - type: run-command
+        config:
+          command: dotnet run --project nested-scopes/products/App/App.csproj --no-restore && dotnet run --project nested-scopes/tools/Tool/Tool.csproj --no-restore
+          expected_exit_code: 0
+          stdout_matches: "(?s)PASS.*PASS"
+          timeout: 4m
+      - type: file-not-exists
+        config: { path: nested-scopes/Directory.Packages.props }
+      - type: file-exists
+        config: { path: nested-scopes/**/convert-to-cpm.md }
+      - type: prompt
+    rubric:
+      - Preserved both existing central package boundaries
+      - Added each missing version to the correct nearest central file
+      - Avoided creating an unintended repository-root policy
+      - Validated both independent executable targets
