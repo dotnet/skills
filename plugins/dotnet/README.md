@@ -19,8 +19,9 @@ Prerequisites:
 
 ## Skills
 
+- [csharp-expert](skills/csharp-expert/SKILL.md)
 - [csharp-refactoring](skills/csharp-refactoring/SKILL.md)
-- [msbuild](skills/msbuild/SKILL.md)
+- [msbuild](skills/msbuild/SKILL.md) — routed MSBuild diagnosis, performance, and authoring guidance
 - [setup-local-sdk](skills/setup-local-sdk/SKILL.md)
 
 ### MSBuild entry and specialist skills
@@ -50,3 +51,20 @@ and outcomes without prescribing which overlapping skill must win selection.
 Point `EXPERIMENT_FILE` at that experiment when running `eng/run-skill-evals.sh dotnet msbuild`.
 Inspect its activation traces for duplicate workflows and out-of-scope activation;
 the isolated arm's dormancy contract alone does not prove cross-plugin routing.
+
+### C# expert marketplace routing
+
+`csharp-expert` routes a .NET request to an installed specialist or identifies the smallest
+`dotnet/skills` marketplace plugin that supplies a missing specialist. Its normal eval covers
+solution detection, marketplace acquisition, core-plugin routing, fallback behavior, and dormancy.
+
+The supplemental
+[`csharp-expert-coexistence.experiment.yaml`](../../csharp-expert-coexistence.experiment.yaml)
+loads representative marketplace specialists in the plugin arm. Run it without a skill filter:
+
+```bash
+EXPERIMENT_FILE=./csharp-expert-coexistence.experiment.yaml ./eng/run-skill-evals.sh
+```
+
+Inspect activation traces to confirm that installed specialists are invoked and that the router no
+longer recommends `/plugin install` for capabilities already present.

@@ -1,0 +1,191 @@
+name: csharp-expert-coexistence
+description: Evaluates routing when dotnet/skills marketplace specialists are already installed
+type: capability
+defaults:
+  timeout: 5m
+  runs: 1
+stimuli:
+  - name: Invoke installed Blazor component guidance
+    tags:
+      capability: installed-routing
+      solution: blazor
+      risk: medium
+      journey: create
+    prompt: |
+      Build a reusable editor component with parameters, a RenderFragment content slot, and an event
+      callback to the parent.
+    environment:
+      files:
+        - src: fixtures/blazor-components
+          dest: .
+    graders:
+      - type: output-not-matches
+        config:
+          pattern: /plugin (marketplace add|install)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Used the installed Blazor component workflow rather than recommending installation
+      - Grounded the response in the existing Razor component project
+
+  - name: Invoke installed MAUI binding guidance
+    tags:
+      capability: installed-routing
+      solution: maui
+      risk: medium
+      journey: repair
+    prompt: |
+      The page does not update when its view-model property changes. Fix the binding and
+      notification behavior.
+    environment:
+      files:
+        - src: fixtures/maui-binding
+          dest: .
+    graders:
+      - type: output-not-matches
+        config:
+          pattern: /plugin (marketplace add|install)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Used the installed MAUI data-binding workflow rather than recommending installation
+      - Recognized the MAUI project and XAML binding evidence
+
+  - name: Invoke installed EF Core optimization guidance
+    tags:
+      capability: installed-routing
+      solution: ef-core
+      risk: high
+      journey: optimize
+    prompt: |
+      Loading orders and their lines issues many database queries. Reduce the database work without
+      changing the returned shape.
+    environment:
+      files:
+        - src: fixtures/ef-orders
+          dest: .
+    graders:
+      - type: output-not-matches
+        config:
+          pattern: /plugin (marketplace add|install)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Used the installed EF Core query optimization workflow rather than recommending installation
+      - Identified the repeated related-entity loading as the database concern
+
+  - name: Invoke installed test migration guidance
+    tags:
+      capability: installed-routing
+      solution: test
+      risk: high
+      journey: migrate
+    prompt: |
+      Convert an NUnit test project to MSTest while preserving parameterized cases and lifecycle
+      hooks. Run the migrated tests.
+    environment:
+      files:
+        - src: fixtures/nunit-migration
+          dest: .
+    graders:
+      - type: output-not-matches
+        config:
+          pattern: /plugin (marketplace add|install)
+      - type: file-not-contains
+        config:
+          path: "**/*.cs"
+          value: NUnit
+      - type: file-not-contains
+        config:
+          path: "**/*.csproj"
+          value: NUnit
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_matches: Passed!
+          timeout: 3m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Used the installed NUnit-to-MSTest migration workflow rather than recommending installation
+      - Preserved the requested test semantics and ran the migrated tests successfully
+
+  - name: Invoke installed runtime diagnostics guidance
+    tags:
+      capability: installed-routing
+      solution: runtime
+      risk: high
+      journey: diagnose
+    prompt: |
+      A deployed .NET service has periodic CPU spikes and allocation growth, but there is no known
+      hot method yet. Collect evidence and identify the cause.
+    graders:
+      - type: output-not-matches
+        config:
+          pattern: /plugin (marketplace add|install)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Used installed runtime diagnostics guidance rather than recommending installation
+      - Started with evidence collection instead of speculative code optimization
+
+  - name: Invoke installed file based CSharp guidance
+    tags:
+      capability: installed-routing
+      solution: file-based
+      risk: low
+      journey: create
+    prompt: |
+      Create a one-file C# utility that calls an HTTP endpoint and prints selected JSON fields. Do
+      not create a project.
+    graders:
+      - type: output-not-matches
+        config:
+          pattern: /plugin (marketplace add|install)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Used installed file-based C# guidance rather than recommending installation
+      - Respected the no-project constraint
+
+  - name: Invoke installed ASP.NET Core API guidance
+    tags:
+      capability: installed-routing
+      solution: aspnetcore
+      risk: medium
+      journey: create
+    prompt: |
+      Add an endpoint that accepts a multipart file upload, validates the size, and streams it
+      rather than buffering the whole file.
+    environment:
+      files:
+        - src: fixtures/aspnet-minimal
+          dest: .
+    graders:
+      - type: output-not-matches
+        config:
+          pattern: /plugin (marketplace add|install)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Used installed ASP.NET Core API guidance rather than recommending installation
+      - Grounded the response in the existing minimal API project
+
+  - name: Invoke installed framework upgrade guidance
+    tags:
+      capability: installed-routing
+      solution: dotnet
+      risk: high
+      journey: migrate
+    prompt: |
+      Upgrade a solution from net8.0 to net9.0 and handle compatibility changes across its projects.
+    graders:
+      - type: output-not-matches
+        config:
+          pattern: /plugin (marketplace add|install)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Used installed .NET 8 to .NET 9 migration guidance rather than recommending installation
+      - Treated compatibility work as a framework upgrade rather than generic project editing
