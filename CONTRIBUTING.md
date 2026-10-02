@@ -306,6 +306,46 @@ The exception is a helper or reference skill that sets `disable-model-invocation
 cannot self-activate it, so an activation-graded eval would compare two identical arms. Cover those
 through the evals of the skills that load them and through the plugin arm instead.
 
+#### Evaluation design quality bar
+
+An eval must prove useful behavior, not only produce a valid YAML file. Authors and reviewers should
+apply this order:
+
+1. **Prove necessity and skill fit.** Add a scenario only when the target skill or agent should
+   change the answer or action. Do not eval generic model knowledge, path recall, or a
+   `disable-model-invocation: true` reference in isolation.
+2. **Add distinct value.** Each preference-eligible stimulus must cover a different capability,
+   risk, or customer journey. Tag all three with stable lowercase kebab-case values. Renamed or
+   reworded duplicates do not add evidence.
+3. **Use a natural, non-cued request.** Write the prompt as a developer would ask it. Do not name
+   the target, quote its vocabulary, reveal the fix, or tell the agent which workflow to follow.
+4. **Make the outcome deterministic.** State what must be true in the response and workspace.
+   Include the complete in-scope file set, and use executable, file, or output graders for facts
+   that do not need an LLM judge.
+5. **Prove golden acceptance.** The golden trajectory and patch, when present, must pass every
+   deterministic grader.
+6. **Prove mutation rejection.** A realistic broken mutation must fail the grader that is meant to
+   detect it; otherwise the grader does not protect the behavior.
+7. **Cover restraint.** Migration and rewrite evals need an already-correct no-op case. Routing
+   boundaries need `expect_activation: false` dormancy cases that test recognition, restraint, and
+   redirection without `reject_skills`.
+8. **Size for the expected tie rate.** Five preference-eligible stimuli is only the eligibility
+   floor. Add independent stimuli until the expected win, tie, and loss record can reach the sign
+   test with useful power.
+9. **Use the production path.** Run skill evals through Vally and custom-agent evals through the
+   native SDK lane. Use the normal worker concurrency and declared suite time budget. A serial-only
+   pass or an unbounded timeout hides reliability defects.
+10. **Check model-family sensitivity.** For broad routing or behavior changes, collect evidence from
+   more than one executor family. Keep each family result separate; model combinations are
+   sensitivity evidence, not extra stimulus votes.
+11. **Classify failures before editing.** Separate fixture, spec-load, reliability, power, eval
+    design, content, routing, and cost failures. Do not rewrite skill content until the evidence
+    identifies a content defect.
+
+The deterministic gate catches structural corruption. It cannot decide whether a scenario is
+necessary, whether a prompt sounds natural, or whether the tested behavior has product value. Those
+remain required author and reviewer checks.
+
 The skeleton below shows the shape only — it declares a single trial and would therefore be rejected
 by the quality gate. See [Size the eval so it can return a verdict](#size-the-eval-so-it-can-return-a-verdict) for the real bar.
 
@@ -334,10 +374,9 @@ stimuli:
 ```
 
 > [!IMPORTANT]
-> `defaults:` and `config:` are the same block — `config` is a deprecated alias — and vally
-> **rejects** a spec declaring both. Some existing evals still open with `config:`; replace it with
-> one `defaults:` block when settings change. The failure is silent: the job exits 0 with
-> no verdicts and the PR comment blames "transient infrastructure".
+> `config:` is a deprecated alias for `defaults:`. The repository gate rejects the alias so every
+> eval uses one settings schema. Vally warns when `config:` appears alone and rejects a spec that
+> declares both keys. Replace `config:` with one `defaults:` block and preserve its settings.
 
 Each skill is evaluated in up to three variants — **baseline** (no skills), **skilled** (only the skill under test), and **plugin** (the whole plugin loaded) — and a skill "passes" only when the skilled run is a *credible* improvement over baseline. To assert that a skill should stay dormant for an out-of-scope task, add `expect_activation: false` to that stimulus. Dormancy is an isolated-skill activation contract: unexpected activation blocks a pass, while the stimulus's retained comparison does not vote in preference. See any existing `tests/*/*/eval.yaml` for a fuller example of the grader and stimulus format.
 
@@ -371,7 +410,7 @@ tie is survivable (5W/1T/0L); at 7, up to two are (5W/2T/0L). A loss is not. Fiv
 floor*, not adequate
 power. Add **discriminating stimuli** for task breadth. Use `runs` only to measure pass rate,
 pass@k, pass^k, and flakiness for the same tasks. See
-[`eng/eval-quality/README.md`](eng/eval-quality/README.md) for the full derivation and for the eleven
+[`eng/eval-quality/README.md`](eng/eval-quality/README.md) for the full derivation and for the 22
 structural defects the CI quality gate blocks.
 
 Run the gate locally before pushing:

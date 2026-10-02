@@ -76,8 +76,8 @@ a regression. Confirm that before reading a record as a power problem.
 
 See [references/eval-triage.md](references/eval-triage.md) for the full catalogue. The recurring ones:
 
-- A spec declaring both `config:` and `defaults:` is rejected by vally, the job still exits 0, and
-  the PR comment blames "transient infrastructure". Merge them into one `defaults:` block.
+- The repository gate rejects the deprecated top-level `config:` alias, and Vally rejects a spec
+  that declares both `config:` and `defaults:`. Replace the alias with one `defaults:` block.
 - An errored trial is not automatically a fixture problem — judge-side auth and `session.idle`
   failures look identical from the verdict and need harness fixes, not SDK pins.
 - `expect_tools: [bash]` on an advisory question forces a restore or build and turns an answer into
@@ -87,10 +87,16 @@ See [references/eval-triage.md](references/eval-triage.md) for the full catalogu
 - Unmatched trajectories, an errored trial, or a summary that disagrees make the comparison
   **inconclusive**: the remaining matched trials are biased, so the record is not a measured null
   and must not be read as a power or content problem.
+- A generic YAML parser is not the production loader. If Vally rejects a skill eval, or the native
+  SDK lane rejects an agent eval, its golden reference, or its ATIF trajectory, classify it as
+  harness / spec-load before changing content.
+- A pass with one worker or an enlarged local timeout is not normal execution evidence. Reproduce
+  with the repository's normal concurrency and declared suite budget; a failure there is a
+  reliability defect.
 
 ### Step 4: Verify the fixtures before touching the skill
 
-Run `python eng/eval-quality/check_eval_quality.py` — it blocks eleven defect classes that can
+Run `python eng/eval-quality/check_eval_quality.py` — it blocks 22 defect classes that can
 cost a real result here. Then confirm by hand:
 
 - every fixture behaves as its stimulus assumes — a fixture meant to be healthy builds, and one
@@ -100,6 +106,10 @@ cost a real result here. Then confirm by hand:
 - a fixture never states the same fact in two places that disagree — a Cobertura report whose
   declared `line-rate`, summary totals and `<line>` elements differ is the canonical case — or the
   two arms legitimately read different truths.
+- every preservation or scope assertion covers the complete in-scope file set, not one
+  representative file.
+- the golden trajectory and patch pass the deterministic graders, and a realistic broken mutation
+  fails the grader that is meant to protect the behavior.
 
 ### Step 5: Check whether the eval could ever have passed
 
@@ -175,6 +185,11 @@ python eng/eval-quality/check_eval_quality.py
 ./eng/run-skill-evals.sh <plugin> <skill>
 ```
 
+Use the production path at normal worker concurrency and with the declared `defaults.timeout`:
+Vally for skill evals, and `skill-validator evaluate` for agent evals. Do not use a serial-only pass
+or a larger ad hoc budget as completion evidence. For broad routing or behavior changes, collect
+separate GPT-family and Claude-family results. Do not pool model families into extra stimulus votes.
+
 Then request the official run by submitting a PR review containing `/evaluate` (Files changed →
 Review changes), which binds the run to the reviewed commit. Before declaring a regression on the
 result, confirm the skill payload actually changed — reruns on byte-identical content have shifted
@@ -185,8 +200,12 @@ result, confirm the skill payload actually changed — reruns on byte-identical 
 - [ ] For a content fix, a losing trial and the judge's stated reason are quoted in the PR description.
 - [ ] The failure was classified before any content was edited.
 - [ ] `check_eval_quality.py` and `skill-validator check` both pass.
+- [ ] The production skill or agent runner accepts the spec and golden evidence.
+- [ ] The eval completes under normal concurrency and its declared time budget.
+- [ ] Golden acceptance and mutation rejection have been demonstrated.
 - [ ] Distinct-stimulus count clears the power bar for the target effect and observed tie rate.
 - [ ] Isolated **and** plugin activation are both reported.
+- [ ] Broad changes have separate GPT-family and Claude-family evidence.
 - [ ] The PR body records root cause, fix, and validation so the lesson is reusable.
 
 ## Common Pitfalls
@@ -194,7 +213,7 @@ result, confirm the skill payload actually changed — reruns on byte-identical 
 | Pitfall | Solution |
 |---------|----------|
 | Rewriting skill prose in response to an underpowered verdict | Underpowered means too few distinct stimuli; add discriminating stimuli instead |
-| Adding `defaults: runs:` to a spec that already has `config:` | Merge into a single `defaults:` block; vally rejects specs with both |
+| Using the deprecated top-level `config:` alias | Rename it to `defaults:` and preserve its settings; the repository gate rejects the alias |
 | Padding `runs` to clear the stimulus floor | Repeats measure reliability for one task; add stimuli |
 | Treating an errored trial as fixture nondeterminism | Read the stderr first; judge-side auth failures need harness fixes |
 | Fixing a "wrong" answer that the fixture actually made wrong | Check fixture self-consistency before blaming the response |
@@ -205,5 +224,5 @@ result, confirm the skill payload actually changed — reruns on byte-identical 
 
 - [references/writing-for-baseline-delta.md](references/writing-for-baseline-delta.md) — content patterns that beat the unskilled model
 - [references/eval-triage.md](references/eval-triage.md) — symptom, cause and fix catalogue with PR citations
-- [eng/eval-quality/README.md](../../../eng/eval-quality/README.md) — the eleven structural gate checks and why each exists
+- [eng/eval-quality/README.md](../../../eng/eval-quality/README.md) — the 22 structural gate checks and why each exists
 - [eng/vally-adapter/InvestigatingResults.md](../../../eng/vally-adapter/InvestigatingResults.md) — downloading artifacts and reading `results.json`. This is the current guide; the similarly-named `eng/skill-validator/src/docs/InvestigatingResults.md` documents the retired `skill-validator evaluate` schema and does not describe today's results.
