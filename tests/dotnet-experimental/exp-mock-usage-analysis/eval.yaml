@@ -1,18 +1,29 @@
 name: exp-mock-usage-analysis
 description: Evaluates the dotnet-experimental/exp-mock-usage-analysis skill
 type: capability
-config:
-  timeout: 3m
+defaults:
+  timeout: 5m
+  runs: 2
 stimuli:
   - name: Detect unused and unreachable mock setups
     prompt: |
-      I've been told our tests have a lot of dead mock setup code — setups for
-      mocks that never get invoked during the test. Can you audit the mock usage
-      in these tests against the production code and identify which mock setups
-      are actually necessary and which are dead code?
-
-      Test file: InventoryServiceTests.cs
-      Production file: InventoryService.cs
+      I've been told our tests have a lot of dead mock setup code. Audit the
+      mock usage in InventoryServiceTests.cs against InventoryService.cs and
+      identify which setups are necessary and which are dead code.
+    tags:
+      capability: control-flow-setup-tracing
+      risk: high
+      journey: remove-dead-moq-setups
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "mock-analysis-unused-inventory"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              GetLowStockProducts is unused because Reserve and Restock never call it. Reserve_InsufficientStock returns before UpdateStock, audit, or event publication, and Restock_ZeroQuantity throws during argument validation before any dependency is invoked. Remove those dead setups; also strengthen the interaction-only sequence test with an outcome assertion.
     environment:
       files:
         - src: unused-setups/InventoryServiceTests.cs
@@ -22,33 +33,42 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (unused|dead|unreachable|never.*call|not.*invoke|unnecessary.*setup)
+          pattern: (?i)(unused|dead|unreachable|never.*call|not.*invoke|unnecessary.*setup)
       - type: output-matches
         config:
-          pattern: (GetLowStockProducts|low.?stock)
+          pattern: (?i)(GetLowStockProducts|low.?stock)
       - type: output-matches
         config:
-          pattern: (Restock_ZeroQuantity|throws.*before|argument.*validation|early.*return)
+          pattern: (?i)(Restock_ZeroQuantity|throws.*before|argument.*validation|early.*return)
       - type: exit-success
       - type: prompt
     rubric:
-      - Identified that GetLowStockProducts is set up but never called by any method under test
-      - Identified that in Reserve_InsufficientStock, the UpdateStock/AuditLogger/EventBus setups are unreachable
-        because the method returns early when stock is insufficient
-      - Identified that in Restock_ZeroQuantity, all mock setups are unnecessary because the method throws
-        ArgumentOutOfRangeException before using any dependency
-      - Identified that Reserve_VerifiesExactCallSequence has over-verification — it tests exact call sequence rather
-        than behavioral outcomes
-      - Provided concrete recommendations on which setup lines to remove from each test method
+      - Identified that GetLowStockProducts is configured but never called by the methods under test
+      - Traced the insufficient-stock early return and zero-quantity exception to their unreachable setups
+      - Identified the exact-sequence test as over-verification without a behavioral outcome assertion
+      - Named concrete setup lines to remove while preserving setups reached by production control flow
+    constraints:
+      reject_tools: [bash, edit, create]
+
   - name: Detect redundant mock configurations duplicated across tests
     prompt: |
-      Every time I add a new test to this file, I have to copy-paste the same
-      mock setup — creating Mock<IPaymentGateway>, Mock<IInvoiceStore>, and
-      Mock<ICustomerLookup> over and over. Can you audit the mock usage and
-      suggest a better way to organize these redundant mocks?
-
-      Test file: BillingServiceTests.cs
-      Production file: BillingService.cs
+      Every new billing test copies the same three Moq objects and setup. Audit
+      BillingServiceTests.cs against BillingService.cs and suggest a cleaner
+      organization, including any branch-specific setup that is unreachable.
+    tags:
+      capability: redundant-moq-configuration
+      risk: medium
+      journey: simplify-billing-tests
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "mock-analysis-redundant-billing"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              All five tests repeat the same three Mock creations, so extract fresh mocks through a helper or per-test fixture. In ChargeCustomer_CustomerNotFound, gateway and invoice-store setups are unreachable after lookup returns null. The exact-amount test is interaction-only; keep the verification but also assert the returned result.
     environment:
       files:
         - src: redundant-mocks/BillingServiceTests.cs
@@ -58,28 +78,42 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (redundant|duplicat|repeated|identical.*setup|copy|shared|extract|helper|fixture)
+          pattern: (?i)(redundant|duplicat|repeated|copy|shared|extract|helper|fixture)
       - type: output-matches
         config:
-          pattern: (ChargeCustomer_CustomerNotFound|gateway.*setup.*never.*reach|unreachable)
+          pattern: (?i)(ChargeCustomer_CustomerNotFound|gateway.*never.*reach|unreachable)
+      - type: output-matches
+        config:
+          pattern: (?i)(interaction.only|only.*verif|assert.*return|return.*assert)
       - type: exit-success
       - type: prompt
     rubric:
-      - Identified that all five tests create identical mock boilerplate (three Mock<> instantiations) independently
-      - Recommended extracting shared mock creation into a test fixture, helper method, or TestInitialize
-      - Identified that ChargeCustomer_CustomerNotFound sets up gateway and invoice store mocks that are unreachable
-        after the customer lookup returns null
-      - Identified that ChargeCustomer_VerifiesGatewayCalledWithCorrectAmount only verifies interactions without
-        asserting on the return value
-      - Provided a concrete before/after example showing how to reduce the duplication
-  - name: Detect mocking of stable framework types
-    prompt: |
-      I read that mocking ILogger and IOptions is considered a bad practice
-      in most cases. Can you check our authentication tests and tell me if our
-      mock setup is appropriate or if we should use real implementations?
+      - Identified the three repeated Mock creations across all five tests
+      - Recommended fresh shared construction without sharing mutable mock state
+      - Traced the customer-not-found branch to unreachable gateway and invoice-store setups
+      - Identified the exact-amount test as interaction-only and recommended an outcome assertion
+    constraints:
+      reject_tools: [bash, edit, create]
 
-      Test file: AuthenticationServiceTests.cs
-      Production file: AuthenticationService.cs
+  - name: Detect replaceable framework mocks
+    prompt: |
+      Check AuthenticationServiceTests.cs against AuthenticationService.cs.
+      Tell me which ILogger and IOptions mocks should use real framework
+      implementations and which collaborator mocks should remain.
+    tags:
+      capability: replaceable-framework-mocks
+      risk: medium
+      journey: simplify-authentication-tests
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "mock-analysis-framework-types"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Replace the ILogger mock with NullLogger<AuthenticationService>.Instance and the IOptions mock with Options.Create. Keep IUserStore and IPasswordHasher mocked because they are external and security-sensitive boundaries. In Login_LockedAccount, the password hasher setup is unreachable after the locked-account guard.
     environment:
       files:
         - src: stable-utility-mocks/AuthenticationServiceTests.cs
@@ -89,29 +123,39 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (NullLogger|Options\.Create|real.*implementation|replace.*mock|unnecessary.*mock.*ILogger|unnecessary.*mock.*IOptions)
+          pattern: (?i)(NullLogger|Options\.Create|replace.*mock|real.*implementation)
       - type: output-matches
         config:
-          pattern: (IUserStore|IPasswordHasher).*(keep|appropriate|correct|valid)
+          pattern: (?i)((IUserStore|IPasswordHasher).*(keep|appropriate|correct|valid)|(keep|appropriate|correct|valid).*(IUserStore|IPasswordHasher))
       - type: exit-success
       - type: prompt
     rubric:
-      - Identified that Mock<ILogger<AuthenticationService>> should be replaced with
-        NullLogger<AuthenticationService>.Instance since log output is never asserted
-      - Identified that Mock<IOptions<UserManagerOptions>> should be replaced with Options.Create(new UserManagerOptions
-        { ... }) since it is a simple value wrapper
-      - Correctly noted that IUserStore and IPasswordHasher mocks are appropriate because they represent external data
-        access and security boundaries
-      - Identified that Login_LockedAccount sets up a password hasher mock that is never reached because the locked
-        check short-circuits
-  - name: Analyze mock usage in NSubstitute tests
-    prompt: |
-      We use NSubstitute in this part of the codebase. I suspect some of our
-      substitute setups are unnecessary. Can you analyze these tests and the
-      service code to find any wasted mock configuration?
+      - Replaced ILogger and IOptions mocks with the correct stable framework implementations
+      - Kept data-access and password-hashing boundaries mocked
+      - Traced the locked-account guard to the unreachable password-hasher setup
+      - Avoided a blanket rule that all framework-adjacent interfaces must be real
+    constraints:
+      reject_tools: [bash, edit, create]
 
-      Test file: ShippingServiceTests.cs
-      Production file: ShippingService.cs
+  - name: Analyze NSubstitute setups by execution path
+    prompt: |
+      We use NSubstitute in ShippingServiceTests.cs. Trace the tests against
+      ShippingService.cs and find wasted Returns configurations or tests that
+      verify interactions without checking the result.
+    tags:
+      capability: nsubstitute-path-analysis
+      risk: high
+      journey: audit-shipping-substitutes
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "mock-analysis-nsubstitute-shipping"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              GetTracking and CreateShipment Returns are unused in GetQuote tests. GetQuote_InvalidOrigin exits after validation, so Normalize, CalculateRate, CreateShipment, and GetTracking are unreachable. Ship_OnlyVerifiesInteractions uses Received checks but does not assert the returned shipment ID.
     environment:
       files:
         - src: nsubstitute-mocks/ShippingServiceTests.cs
@@ -121,29 +165,39 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (unused|unnecessary|never.*call|not.*invoke|GetTracking|CreateShipment.*GetQuote|CalculateRate.*Ship)
+          pattern: (?i)(unused|unnecessary|never.*call|not.*invoke|GetTracking|CreateShipment)
       - type: output-matches
         config:
-          pattern: (Ship_OnlyVerifiesInteractions|Received|interaction.*only|no.*assert.*result)
+          pattern: (?i)(Ship_OnlyVerifiesInteractions|Received|interaction.*only|no.*assert.*result)
       - type: exit-success
       - type: prompt
     rubric:
-      - Identified unused NSubstitute setups — GetTracking and CreateShipment are set up in GetQuote tests but never
-        called by that method
-      - Identified that GetQuote_InvalidOrigin sets up Normalize, CalculateRate, CreateShipment, and GetTracking — all
-        unreachable after the address validation fails
-      - Identified that Ship_OnlyVerifiesInteractions only checks Received() calls without asserting on the returned
-        shipment ID
-      - Used correct NSubstitute terminology (Substitute.For, .Returns, .Received) rather than Moq terms
-  - name: Analyze mock usage in FakeItEasy tests
-    prompt: |
-      Our notification tests use FakeItEasy. We're seeing some fake setups that
-      might not be needed. Can you audit the mock usage and identify which
-      A.CallTo configurations are unnecessary? Don't modify any files — just
-      explain your findings.
+      - Identified unused GetTracking and CreateShipment configurations in GetQuote tests
+      - Traced invalid-origin validation to all later unreachable collaborator calls
+      - Identified the Received-only shipment test as missing a return-value assertion
+      - Used NSubstitute terminology rather than Moq or FakeItEasy terminology
+    constraints:
+      reject_tools: [bash, edit, create]
 
-      Test file: NotificationDispatcherTests.cs
-      Production file: NotificationDispatcher.cs
+  - name: Distinguish unused and unreachable FakeItEasy calls
+    prompt: |
+      Audit NotificationDispatcherTests.cs against NotificationDispatcher.cs.
+      Identify unnecessary A.CallTo configurations and distinguish a
+      branch-mismatched setup from one that cannot be reached at all.
+    tags:
+      capability: fakeiteasy-branch-analysis
+      risk: high
+      journey: audit-notification-fakes
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "mock-analysis-fakeiteasy-notifications"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              In the SMS branch, the push A.CallTo configuration is unused; in the push branch, the SMS configuration is unused. Those are branch-mismatched setups. In Dispatch_UnknownChannel both are unreachable because the switch throws first. The template fake is valid because rendering occurs before every dispatch branch.
     environment:
       files:
         - src: fakeiteasy-mocks/NotificationDispatcherTests.cs
@@ -153,30 +207,39 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (unused|unnecessary|never.*call|not.*invoke|push.*sms|sms.*push|wrong.*channel)
+          pattern: (?i)(unused|unnecessary|never.*call|not.*invoke|push.*sms|sms.*push)
+      - type: output-matches
+        config:
+          pattern: (?i)(unreachable|throws.*before|switch.*throw|unknown.*channel)
       - type: exit-success
       - type: prompt
     rubric:
-      - Identified that the SMS test sets up the push notifier unnecessarily, and the push test sets up the SMS sender
-        unnecessarily
-      - Identified that in Dispatch_UnknownChannel, both smsSender and pushNotifier setups are unreachable because the
-        switch throws before reaching them
-      - Used correct FakeItEasy terminology (A.Fake, A.CallTo, MustHaveHappened) rather than Moq or NSubstitute terms
-      - Acknowledged that the template engine mock is correctly used across all tests since rendering is always called
-        before dispatch
+      - Identified the branch-mismatched SMS and push setups
+      - Distinguished those unused setups from the unknown-channel setups made unreachable by the throw
+      - Retained the template-engine fake because rendering occurs on every path
+      - Used FakeItEasy terminology rather than Moq or NSubstitute terminology
     constraints:
-      reject_tools:
-        - bash
-        - edit
+      reject_tools: [bash, edit, create]
+
   - name: Detect excessive mock configuration sprawl
     prompt: |
-      Each test in our report generator file is over 40 lines long and most of
-      it is just setting up mocks. The mock configuration completely dominates
-      the test logic. Can you audit the mock usage and tell me which setups
-      are unnecessary?
-
-      Test file: ReportGeneratorTests.cs
-      Production file: ReportGenerator.cs
+      Most of each ReportGeneratorTests.cs method is mock setup. Trace it
+      against ReportGenerator.cs, identify setup that GenerateSalesReport does
+      not use, and suggest a smaller test arrangement.
+    tags:
+      capability: mock-setup-sprawl
+      risk: high
+      journey: reduce-report-test-noise
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "mock-analysis-report-sprawl"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Mock setup dominates both tests, and most configuration is unused: customer, product, exchange-rate, cache, and non-selected formatter calls are never reached by GenerateSalesReport. Extract the small common setup into a helper or builder, replace logging with NullLogger when it is not asserted, and consider whether the dependency count signals excess responsibility.
     environment:
       files:
         - src: setup-sprawl/ReportGeneratorTests.cs
@@ -186,20 +249,216 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (sprawl|excessive|too many|bloat|overwhelm|unreadable|dominant|setup.*lines)
+          pattern: (?i)(sprawl|excessive|too many|bloat|overwhelm|dominat|setup.*lines)
       - type: output-matches
         config:
-          pattern: (GetCustomers|GetProducts|GetExchangeRate|FormatAsPdf|FormatAsCsv|GetLatest|cache).*(unused|never|unnecessary|not.*call)
+          pattern: (?i)(GetCustomers|GetProducts|GetExchangeRate|FormatAsPdf|FormatAsCsv|GetLatest|cache).*(unused|never|unnecessary|not.*call)
       - type: output-matches
         config:
-          pattern: (extract|helper|builder|fixture|shared|TestInitialize|refactor)
+          pattern: (?i)(extract|helper|builder|fixture|shared|refactor)
       - type: exit-success
       - type: prompt
     rubric:
-      - Identified that the majority of setup lines are unused — GetCustomers, GetProducts, GetExchangeRate, cache
-        operations, and non-matching formatters are never called by GenerateSalesReport
-      - Identified that the two tests duplicate nearly identical 30+ line mock configurations
-      - Recommended extracting shared setup into a helper, builder, or TestInitialize to reduce duplication
-      - Suggested that mocking ILogger and ICacheService could be replaced with NullLogger and a no-op cache if never
-        asserted
-      - Noted that the class may have too many dependencies, which could indicate the SUT has too many responsibilities
+      - Identified the unused data, exchange-rate, cache, and non-selected formatter setups
+      - Identified the large duplicated arrangement across both tests
+      - Recommended a focused helper or builder without hiding scenario-specific behavior
+      - Noted replaceable utility mocks and the design signal from the large dependency set
+    constraints:
+      reject_tools: [bash, edit, create]
+
+  - name: Replace mocks of records and value objects
+    prompt: |
+      Review OrderServiceTests.cs against Models.cs and OrderService.cs. Which
+      mocks represent useful boundaries, and which mocks should be replaced
+      with ordinary values?
+    tags:
+      capability: trivial-type-mock-detection
+      risk: medium
+      journey: simplify-order-service-tests
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "mock-analysis-trivial-types"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Replace mocked CustomerDto, OrderDto, and Address records with real instances. The IPaymentMethodProvider substitute is also unnecessary because production code never receives or calls it. Keep IOrderRepository, INotificationService, and IPricingEngine mocked because they are actual collaborator boundaries used by OrderService.
+    environment:
+      files:
+        - src: mocking-trivial-types/Models.cs
+          dest: Models.cs
+        - src: mocking-trivial-types/OrderService.cs
+          dest: OrderService.cs
+        - src: mocking-trivial-types/OrderServiceTests.cs
+          dest: OrderServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(CustomerDto|OrderDto|Address).*(real|instance|do not mock|replace)
+      - type: output-matches
+        config:
+          pattern: (?i)(((IOrderRepository|INotificationService|IPricingEngine).*(keep|valid|appropriate|boundary))|((keep|valid|appropriate|boundary).*(IOrderRepository|INotificationService|IPricingEngine)))
+      - type: output-matches
+        config:
+          pattern: (?i)(IPaymentMethodProvider).*(unused|unnecessary|never|not.*call)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified mocked records and value objects that should be created directly
+      - Identified IPaymentMethodProvider as absent from the production execution path
+      - Kept repository, notification, and pricing interfaces mocked as collaborator boundaries
+      - Gave concrete replacements without recommending broad removal of all mocks
+    constraints:
+      reject_tools: [bash, edit, create]
+
+  - name: Preserve well-placed collaborator mocks
+    prompt: |
+      Audit AppointmentSchedulerTests.cs and AppointmentScheduler.cs. I want to
+      remove unnecessary mocks, but not useful isolation boundaries.
+    tags:
+      capability: appropriate-mock-calibration
+      risk: high
+      journey: validate-scheduler-test-boundaries
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "mock-analysis-well-placed-boundaries"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Keep both ICalendarService and IEmailService mocked. They are external collaboration boundaries, and every setup or verification maps to a reachable branch in ScheduleAppointment. There is no dead configuration to remove; replacing these mocks with real integrations would make the unit tests slower and less isolated.
+    environment:
+      files:
+        - src: well-placed-mocks/AppointmentScheduler.cs
+          dest: AppointmentScheduler.cs
+        - src: well-placed-mocks/AppointmentSchedulerTests.cs
+          dest: AppointmentSchedulerTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(keep|appropriate|valid|well.placed).*(ICalendarService|IEmailService|mock)
+      - type: output-matches
+        config:
+          pattern: (?i)(no.*dead|no.*unused|all.*reach|nothing.*remove)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Retained both external collaborator mocks
+      - Traced the success, no-slot, and booking-failure branches and found no dead setup
+      - Avoided rewarding a lower mock count when it would reduce isolation
+      - Stated clearly that no mock cleanup is needed
+    constraints:
+      reject_tools: [bash, edit, create]
+
+  - name: Detect overwritten and never-read mock setups
+    prompt: |
+      This currency conversion test configures the same rate twice and also
+      configures a fallback rate. Trace ExchangeRateServiceTests.cs against
+      ExchangeRateService.cs and tell me which setup actually controls the
+      result and which setup lines can be removed.
+    tags:
+      capability: overwritten-setup-analysis
+      risk: high
+      journey: simplify-currency-rate-test
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "mock-analysis-overwritten-rate"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The second GetRate("USD", "EUR") setup overwrites the first, so only 0.92 controls the result and the 0.90 setup can be removed. GetFallbackRate is never called by Convert, so that setup is also dead. Keep the final GetRate setup because it is the one reached by the production path.
+    environment:
+      files:
+        - src: overwritten-setups/ExchangeRateServiceTests.cs
+          dest: ExchangeRateServiceTests.cs
+        - src: overwritten-setups/ExchangeRateService.cs
+          dest: ExchangeRateService.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(overwrit|override|supersed|second.*setup|latest.*setup)
+      - type: output-matches
+        config:
+          pattern: (?i)(GetFallbackRate).*(unused|dead|never|remove)
+      - type: output-matches
+        config:
+          pattern: (?i)(0\.92).*(keep|control|used|effective|result)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified the first GetRate setup as overwritten before the system under test runs
+      - Identified the fallback-rate setup as unused because Convert never calls it
+      - Retained the final 0.92 GetRate setup as the effective configuration
+      - Distinguished overwritten configuration from control-flow-unreachable configuration
+    constraints:
+      reject_tools: [bash, edit, create]
+
+  - name: Stay dormant for mock framework migration
+    prompt: |
+      Convert our Moq-based tests to NSubstitute and update the project package
+      references. Make the edits and run the tests.
+    expect_activation: false
+    tags:
+      capability: dormancy-framework-migration
+      risk: high
+      journey: migrate-mocking-library
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "mock-analysis-dormancy-migration"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a framework migration and implementation request. Update package references and test syntax, then run the affected tests. Do not replace the migration with a report about dead or redundant mock setups.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(convert|migrate|update).*(Moq|NSubstitute|package|tests)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Stayed focused on the requested framework migration
+      - Did not derail into a mock-usage audit
+      - Included package and syntax changes in the implementation scope
+      - Did not reward unrelated mock-count reductions
+
+  - name: Stay dormant for non-mock test smell review
+    prompt: |
+      Review these tests for sleeps, order dependence, and shared static state.
+      There are no mocks in this test project.
+    expect_activation: false
+    tags:
+      capability: dormancy-non-mock-smells
+      risk: medium
+      journey: audit-flaky-test-patterns
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "mock-analysis-dormancy-test-smells"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This request is a general test-smell and flakiness review. Analyze sleeps, order coupling, and shared static state directly. Do not force a mock-usage workflow onto a project that has no mocks.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(sleep|order|static state|flaky|test smell)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Addressed the stated flakiness and shared-state risks
+      - Recognized that mock analysis does not apply because the project has no mocks
+      - Did not invent mock findings or request production control-flow tracing
+      - Did not derail into a mock-usage analysis of a project with no mocks
+      - Did not reward raw output volume over relevant findings
