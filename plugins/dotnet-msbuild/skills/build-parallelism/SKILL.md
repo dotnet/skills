@@ -1,6 +1,6 @@
 ---
 name: build-parallelism
-description: "Diagnose and fix under-parallelized MSBuild builds. USE WHEN a multi-project solution build is slower than expected, doesn't speed up when you add cores, pegs a single core while others idle, or you want to know why `-m` isn't helping. Note: `/maxcpucount` default is 1 (sequential) — always pass `-m` for parallel builds. Covers finding the critical path (longest serial ProjectReference chain), graph build (`/graph`), BuildInParallel, and solution filters (`.slnf`). DO NOT USE FOR: single-project builds, incremental issues (use incremental-build), compilation slowness inside one project (use build-perf-diagnostics), non-MSBuild build systems."
+description: "Analyze an MSBuild solution, solution filter, or Build.proj that schedules multiple project files. USE FOR: measured idle worker nodes, `-m` that does not scale, a serial ProjectReference critical path, graph builds, or an MSBuild task that builds a Projects list. Requires at least two distinct project files whose scheduling or throughput must be analyzed. DO NOT USE for non-MSBuild build systems."
 license: MIT
 ---
 
@@ -9,9 +9,11 @@ license: MIT
 Work this checklist in order — it targets the usual root cause (a serial
 dependency chain that no number of cores can parallelize):
 
-1. **Confirm parallelism is even on.** Rebuild with `dotnet build -m /bl:{}`
-   (PowerShell: `dotnet build -m -bl:{{}}`). `-m` with no number uses all logical
-   processors; without `-m` MSBuild runs a single node (sequential).
+1. **Confirm the node limit.** Rebuild with `dotnet build /bl:{}`
+   (PowerShell: `dotnet build '-bl:{}'`). The `dotnet build` command enables
+   `/maxcpucount` by default; `-m:1` explicitly forces one node. For direct
+   `dotnet msbuild` or standalone MSBuild invocations, pass `-m` explicitly
+   when parallel worker nodes are required.
 2. **Find the critical path.** From the binlog, read per-project timings and the
    node timeline. If total build time ≈ the sum of the projects on one
    dependency chain, that chain — not CPU count — is the bottleneck.
@@ -27,7 +29,8 @@ dependency chain that no number of cores can parallelize):
 ## MSBuild Parallelism Model
 
 - `/maxcpucount` (or `-m`): number of worker nodes (processes)
-- Default: 1 node (sequential!). Always use `-m` for parallel builds
+- `dotnet build` passes `/maxcpucount` by default; `-m:1` overrides it with one node
+- Direct `dotnet msbuild` or standalone MSBuild invocations may require an explicit `-m`
 - Recommended: `-m` without a number = use all logical processors
 - Each node builds one project at a time
 - Projects are scheduled based on dependency graph
@@ -51,7 +54,8 @@ dependency chain that no number of cores can parallelize):
 
 ## Optimizing Project References
 
-- Reduce unnecessary `<ProjectReference>` — each adds to the dependency chain
+- Reduce a `<ProjectReference>` only after proving it is unnecessary; a slow but
+  valid dependency must stay in the graph
 - Use `<ProjectReference ... SkipGetTargetFrameworkProperties="true">` to avoid extra evaluations
 - `<ProjectReference ... ReferenceOutputAssembly="false">` for build-order-only dependencies
 - Consider if a ProjectReference should be a PackageReference instead (pre-built NuGet)
@@ -85,7 +89,7 @@ Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the 
 
 Step-by-step:
 
-1. Replay the binlog: `dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary`
+1. Replay the binlog: `dotnet msbuild build.binlog -noconlog -fl "-flp:v=diag;logfile=full.log;performancesummary"`
 2. Check Project Performance Summary at the end of `full.log`
 3. Ideal: build time should be much less than sum of project times (parallelism)
 4. If build time ≈ sum of project times: too many serial dependencies, or one slow project blocking others
