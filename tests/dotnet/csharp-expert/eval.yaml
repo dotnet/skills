@@ -150,7 +150,7 @@ stimuli:
       root cause and describe the smallest repository repair. Do not search unrelated checkouts.
     environment:
       files:
-        - src: ../msbuild/fixtures/missing-schema/Build.proj
+        - src: fixtures/msbuild-missing-schema/Build.proj
           dest: Build.proj
       commands:
         - dotnet msbuild Build.proj -t:Build -p:Configuration=Release -p:SchemaFile=schemas/prod.json -bl:failure.binlog > capture.log 2>&1 || exit 0
