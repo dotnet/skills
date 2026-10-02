@@ -123,7 +123,7 @@ safe-outputs:
           with:
             ref: ${{ github.sha }}
             fetch-depth: 0
-            persist-credentials: true
+            persist-credentials: false
 
         - name: Set up .NET SDK
           uses: actions/setup-dotnet@v6
@@ -237,6 +237,7 @@ safe-outputs:
             git commit -m "Re-enable tests with resolved tracking items"
 
             BRANCH="automation/unskip-closed-tests-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            gh auth setup-git
             git push origin "HEAD:refs/heads/$BRANCH"
 
             CURRENT_HEAD=$(gh api "repos/${EXPECTED_REPOSITORY}/commits/${DEFAULT_BRANCH}" --jq '.sha')

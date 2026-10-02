@@ -32,6 +32,21 @@ STAGER = load_module(
 
 
 class UnskipClosedTestsPackageTests(unittest.TestCase):
+    def test_write_credentials_are_configured_only_for_publication(self) -> None:
+        prepare = (
+            REPO_ROOT
+            / "agentic-workflows"
+            / "unskip-closed-tests"
+            / "workflows"
+            / "unskip-closed-tests-prepare.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertNotIn("persist-credentials: true", prepare)
+        publish_start = prepare.index("- name: Publish one verified draft pull request")
+        auth_setup = prepare.index("gh auth setup-git", publish_start)
+        first_push = prepare.index('git push origin "HEAD:refs/heads/$BRANCH"', publish_start)
+        self.assertLess(auth_setup, first_push)
+
     def test_manifest_stages_buildable_tool_and_strict_workflow(self) -> None:
         package = REPO_ROOT / "agentic-workflows" / "unskip-closed-tests"
         manifest = package / "aw.yml"
