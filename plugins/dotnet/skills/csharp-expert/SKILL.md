@@ -6,9 +6,10 @@ description: >-
   any C#/.NET task where ASP.NET Core, Blazor, MAUI, WinForms, EF Core, testing, MSBuild, NuGet,
   diagnostics, upgrades, interop, performance, templates, AI, or C# semantics may determine the
   workflow; ambiguous prompts such as "fix this", "upgrade", "make it faster", or "write tests";
-  identifying which dotnet-agent-skills plugin to install; and mixed .NET solutions needing multiple
-  specialists. DO NOT USE FOR: requests clearly unrelated to C# or .NET, or when the user explicitly
-  selected an available specialist skill and no routing or marketplace decision remains.
+  identifying which dotnet-agent-skills plugin to install; one-file C# apps with no project;
+  installed plugins missing from `/skills`; and mixed .NET solutions needing multiple specialists.
+  DO NOT USE FOR: requests clearly unrelated to C# or .NET, or when the user explicitly selected an
+  available specialist skill and no routing or marketplace decision remains.
 license: MIT
 ---
 
@@ -38,6 +39,14 @@ Routing is not task completion. A missing specialist changes the confidence and 
 it does not automatically justify stopping. Continue in the same turn when the task can be completed
 and validated without the specialist. Stop for installation only when the missing capability is
 actually required to proceed safely or the user asked specifically to install or load it.
+
+Choose the operating mode from the user's requested outcome:
+
+| User asks for | Required behavior |
+|---|---|
+| Implement, fix, diagnose, migrate, or create | Invoke the installed specialist, or complete a safe local fallback and report the optional plugin afterward. |
+| Identify, choose, install, prepare, or load the right marketplace capability | Inspect enough solution evidence to choose the owner, give the exact acquisition steps, and stop without editing or generating the requested application artifact. |
+| Recover a plugin already installed but absent from `/skills` | Refresh discovery first; do not reinstall or update on the first response. |
 
 When the route needs to be visible in the eventual response, use one concise line:
 
@@ -147,6 +156,10 @@ After selecting the capability:
 4. Follow the missing-skill workflow below. Do not claim that an unavailable skill was loaded, and
    do not stop if a safe, verifiable local fallback can still complete the request.
 
+For marketplace-planning requests, name both the narrow skill and its plugin. Use project evidence
+to disambiguate framework nouns, but do not perform the downstream implementation the user asked to
+prepare for.
+
 ## Step 4: Obtain a Missing Skill
 
 For GitHub Copilot CLI or Claude Code, give these exact commands with the selected plugin substituted:
@@ -203,6 +216,19 @@ Rules:
   reduced coverage and use the safest local fallback when it can still satisfy the request.
 - Never trade away implementation or validation merely to produce installation instructions.
 
+### Installed but not discovered
+
+When the user says the plugin is already installed but its skills are absent:
+
+1. Trust the stated installed state unless repository evidence directly contradicts it.
+2. Tell the user to restart or reload the host, then run `/skills`.
+3. Name the expected skill so discovery can be verified.
+4. Stop there on the first response. Do not emit marketplace-add, install, update, shell-level
+   plugin-management, `/skills reload`, or invented explicit-invocation commands.
+
+Only after the user reports that restart plus `/skills` still fails should the next response move to
+host-specific update or reinstall diagnostics.
+
 ## Step 5: Compose Skills Deliberately
 
 Use a sequence only when phases are independently owned. Examples:
@@ -225,7 +251,9 @@ Do not defer an entire multi-phase request solely because the ideal plugin set i
 Use this only when no narrower available skill matches and the load-bearing problem is C# language
 or runtime semantics.
 
-1. Reproduce the exact compiler diagnostic, failing test, exception, or incorrect behavior.
+1. Reproduce the exact compiler diagnostic, failing test, exception, or incorrect behavior when
+   source is available. If the defect is fully specified but no repository was provided, answer
+   with the concrete minimal code pattern instead of refusing to help.
 2. Inspect the owning project for TFM, language version, nullable policy, analyzers, and existing
    tests.
 3. Preserve public signatures, serialization shape, ownership, cancellation, disposal, and
@@ -233,6 +261,9 @@ or runtime semantics.
 4. Implement the smallest complete fix through the affected call path.
 5. Check LSP diagnostics when available, then build the narrowest affected project and run focused
    tests or the executable path that proves the original symptom is gone.
+
+For a marketplace-planning request whose correct route is this fallback, say that no additional
+plugin is needed and identify the core C# semantic that owns the fix.
 
 Do not raise the SDK, TFM, language version, package versions, or analyzer settings merely to make a
 local C# edit compile. Do not edit generated files. Do not use broad casts, null-forgiving
