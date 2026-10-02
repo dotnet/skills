@@ -1,168 +1,478 @@
 name: create-datadriven-aspnetcore
+tags:
+  executionShard: heavy
 description: Evaluates the dotnet-data/create-datadriven-aspnetcore skill
 type: capability
-config:
+defaults:
   timeout: 10m
+  runs: 1
 stimuli:
-  - name: Scaffold Razor Pages CRUD with EF Core and SQLite
+  - name: Add Razor Pages CRUD for a child and required parent
     prompt: |
-      I have a Product model in the MyApp project at fixtures/razor-pages-crud/MyApp.csproj
-      that has a category foreign key. Can you scaffold Razor Pages with full CRUD for it?
-      Use Entity Framework with SQLite and create a new DbContext called AppDbContext.
+      In fixtures/razor-pages-crud/MyApp.csproj, add complete Razor Pages CRUD for Product.
+      Product has a required Category foreign key, so users must also be able to create and manage
+      categories before products. Use a new AppDbContext with SQLite, create an EF Core migration,
+      and do not use command-line scaffolding, EnsureCreated, or startup seeding.
+    tags: { capability: razor-pages-parent-child-crud, risk: high, journey: add-razor-pages-crud }
     environment:
       files:
-        - src: fixtures/razor-pages-crud
-          dest: fixtures/razor-pages-crud
+        - { src: fixtures/razor-pages-crud, dest: fixtures/razor-pages-crud }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "data-scaffold-razor-crud"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - { step_id: 1, source: agent, message: "Expected result: complete Product and Category Razor Pages CRUD, one AppDbContext with SQLite, a migration, validation-aware forms, category selection, navigation, and a clean build without command-line scaffolding, EnsureCreated, or startup seeding." }
     graders:
-      - type: file-exists
+      - { type: file-exists, config: { path: "fixtures/razor-pages-crud/**/*AppDbContext*.cs" } }
+      - { type: file-exists, config: { path: "fixtures/razor-pages-crud/**/Migrations/*.cs" } }
+      - { type: file-exists, config: { path: fixtures/razor-pages-crud/Pages/Products/Index.cshtml } }
+      - { type: file-exists, config: { path: fixtures/razor-pages-crud/Pages/Products/Details.cshtml } }
+      - { type: file-exists, config: { path: fixtures/razor-pages-crud/Pages/Products/Create.cshtml } }
+      - { type: file-exists, config: { path: fixtures/razor-pages-crud/Pages/Products/Edit.cshtml } }
+      - { type: file-exists, config: { path: fixtures/razor-pages-crud/Pages/Products/Delete.cshtml } }
+      - { type: file-exists, config: { path: fixtures/razor-pages-crud/Pages/Categories/Index.cshtml } }
+      - { type: file-exists, config: { path: fixtures/razor-pages-crud/Pages/Categories/Details.cshtml } }
+      - { type: file-exists, config: { path: fixtures/razor-pages-crud/Pages/Categories/Create.cshtml } }
+      - { type: file-exists, config: { path: fixtures/razor-pages-crud/Pages/Categories/Edit.cshtml } }
+      - { type: file-exists, config: { path: fixtures/razor-pages-crud/Pages/Categories/Delete.cshtml } }
+      - { type: file-not-contains, config: { path: fixtures/razor-pages-crud/Program.cs, value: EnsureCreated } }
+      - &build-razor
+        type: run-command
         config:
-          path: fixtures/razor-pages-crud/**/*AppDbContext*.cs
-      - type: file-exists
-        config:
-          path: fixtures/razor-pages-crud/**/Migrations/*
-      - type: file-exists
-        config:
-          path: fixtures/razor-pages-crud/Pages/**/*Product*.cshtml
-      - type: file-exists
-        config:
-          path: fixtures/razor-pages-crud/Pages/**/*Category*.cshtml
+          command: dotnet
+          args: [build, fixtures/razor-pages-crud/MyApp.csproj, --nologo]
+          expected_exit_code: 0
+          stdout_matches: (Build succeeded|0 Error)
+          timeout: 6m
       - type: prompt
     rubric:
-      - Generates Razor Pages (.cshtml and .cshtml.cs) for the Product model with Create, Read, Update, Delete pages
-      - Creates an AppDbContext class that inherits from DbContext and includes DbSet properties
-      - Uses EF Core migrations instead of seeding the database in Program.cs
-      - Scaffolds Category CRUD pages because Product has a required FK to Category
+      - Added list, details, create, edit, and delete flows for both Product and required parent Category
+      - Created and registered one AppDbContext for SQLite and generated a migration
+      - Added navigation so a user can create Category records before Product records
+      - Preserved model validation and avoided EnsureCreated, startup seeding, and command-line scaffolding
 
-  - name: Scaffold Minimal API endpoints with OpenAPI
+  - name: Add Minimal API CRUD with executable requests and OpenAPI
     prompt: |
-      I need Minimal API endpoints for the TodoItem model in my TodoApi project at
-      fixtures/minimal-api/TodoApi.csproj. Call the endpoints class TodoEndpoints and
-      use a new TodoDbContext with SQLite. I'd also like OpenAPI support enabled.
+      Add complete Minimal API CRUD for TodoItem in fixtures/minimal-api/TodoApi.csproj.
+      Put the mappings in TodoEndpoints, use a new TodoDbContext with SQLite, create a migration,
+      enable descriptive OpenAPI metadata, and add an executable .http workflow for all operations.
+      Do not use command-line scaffolding or EnsureCreated.
+    tags: { capability: minimal-api-openapi-crud, risk: high, journey: add-minimal-api-crud }
     environment:
       files:
-        - src: fixtures/minimal-api
-          dest: fixtures/minimal-api
+        - { src: fixtures/minimal-api, dest: fixtures/minimal-api }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "data-scaffold-minimal-api"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - { step_id: 1, source: agent, message: "Expected result: all TodoItem CRUD routes, TodoDbContext with SQLite, a migration, ordered HTTP requests, unique OpenAPI names, tags, descriptions, and responses, and a clean build." }
     graders:
-      - type: file-exists
+      - { type: file-exists, config: { path: "fixtures/minimal-api/**/*TodoEndpoints*.cs" } }
+      - { type: file-exists, config: { path: "fixtures/minimal-api/**/*TodoDbContext*.cs" } }
+      - { type: file-exists, config: { path: "fixtures/minimal-api/**/Migrations/*.cs" } }
+      - { type: file-exists, config: { path: "fixtures/minimal-api/**/*.http" } }
+      - { type: file-contains, config: { path: "fixtures/minimal-api/**/*TodoEndpoints*.cs", value: WithName } }
+      - { type: file-contains, config: { path: "fixtures/minimal-api/**/*TodoEndpoints*.cs", value: Produces } }
+      - { type: file-not-contains, config: { path: fixtures/minimal-api/Program.cs, value: EnsureCreated } }
+      - type: run-command
         config:
-          path: fixtures/minimal-api/**/*TodoEndpoints*.cs
-      - type: file-exists
-        config:
-          path: fixtures/minimal-api/**/*TodoDbContext*.cs
-      - type: file-exists
-        config:
-          path: fixtures/minimal-api/**/Migrations/*
-      - type: file-exists
-        config:
-          path: fixtures/minimal-api/**/*.http
-      - type: file-contains
-        config:
-          path: fixtures/minimal-api/**/*TodoEndpoints*.cs
-          value: WithOpenApi
+          command: dotnet
+          args: [build, fixtures/minimal-api/TodoApi.csproj, --nologo]
+          expected_exit_code: 0
+          stdout_matches: (Build succeeded|0 Error)
+          timeout: 6m
       - type: prompt
     rubric:
-      - Creates a TodoEndpoints class with MapGet, MapPost, MapPut, and MapDelete endpoints for TodoItem
-      - Creates a TodoDbContext with a DbSet for TodoItem
-      - Generates a .http file with sample requests for all CRUD endpoints
-      - Uses EF Core migrations instead of seeding the database in Program.cs
-      - Enables OpenAPI support with rich endpoint metadata such as WithName, WithTags, WithDescription, or Produces annotations
+      - Added complete TodoItem CRUD routes with stable operation names and accurate response metadata
+      - Created and registered TodoDbContext with SQLite and generated a migration
+      - Added an executable request file whose URLs and payloads match the routes
+      - Built successfully without command-line scaffolding or EnsureCreated
 
-  - name: Scaffold MVC CRUD with an existing DbContext
+  - name: Reuse an existing MVC DbContext and add parent navigation
     prompt: |
-      The CatalogMvc project at fixtures/mvc-existing-dbcontext/CatalogMvc.csproj already has a
-      CatalogDbContext. Scaffold an MVC BooksController with views for the Book model. Book has a
-      required Author foreign key, so provide complete Author CRUD and navigation as well. Continue
-      using CatalogDbContext with SQLite, create and apply an EF Core migration, and do not use
-      EnsureCreated or seed the database in Program.cs.
+      The project at fixtures/mvc-existing-dbcontext/CatalogMvc.csproj already has CatalogDbContext.
+      Add an MVC BooksController with complete views for Book and complete Author CRUD because Book
+      requires an Author. Reuse the existing context, add navigation to both resources, create an EF
+      Core migration, and do not create a second context, use command-line scaffolding, EnsureCreated,
+      or startup seeding.
+    tags: { capability: mvc-existing-context-crud, risk: high, journey: extend-existing-mvc-data-ui }
     environment:
       files:
-        - src: fixtures/mvc-existing-dbcontext
-          dest: fixtures/mvc-existing-dbcontext
+        - { src: fixtures/mvc-existing-dbcontext, dest: fixtures/mvc-existing-dbcontext }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "data-scaffold-mvc-existing-context"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - { step_id: 1, source: agent, message: "Expected result: CatalogDbContext remains the only context; complete Book and Author controllers, Bootstrap-compatible views, author selection, navigation, a migration, and a clean build are present without startup database shortcuts." }
     graders:
-      - type: file-exists
+      - { type: file-exists, config: { path: "fixtures/mvc-existing-dbcontext/**/Controllers/*Book*Controller*.cs" } }
+      - { type: file-exists, config: { path: "fixtures/mvc-existing-dbcontext/**/Controllers/*Author*Controller*.cs" } }
+      - { type: file-exists, config: { path: "fixtures/mvc-existing-dbcontext/**/Views/Books/*.cshtml" } }
+      - { type: file-exists, config: { path: "fixtures/mvc-existing-dbcontext/**/Views/Authors/*.cshtml" } }
+      - { type: file-exists, config: { path: "fixtures/mvc-existing-dbcontext/**/Migrations/*.cs" } }
+      - { type: file-not-contains, config: { path: fixtures/mvc-existing-dbcontext/Program.cs, value: EnsureCreated } }
+      - type: run-command
         config:
-          path: fixtures/mvc-existing-dbcontext/**/Controllers/*Book*Controller*.cs
-      - type: file-exists
-        config:
-          path: fixtures/mvc-existing-dbcontext/**/Controllers/*Author*Controller*.cs
-      - type: file-exists
-        config:
-          path: fixtures/mvc-existing-dbcontext/**/Views/Books/*.cshtml
-      - type: file-exists
-        config:
-          path: fixtures/mvc-existing-dbcontext/**/Views/Authors/*.cshtml
-      - type: file-exists
-        config:
-          path: fixtures/mvc-existing-dbcontext/**/Migrations/*
+          command: dotnet
+          args: [build, fixtures/mvc-existing-dbcontext/CatalogMvc.csproj, --nologo]
+          expected_exit_code: 0
+          stdout_matches: (Build succeeded|0 Error)
+          timeout: 6m
       - type: prompt
     rubric:
-      - Reuses the existing CatalogDbContext and configures it for SQLite without creating a second context
-      - Generates MVC list, details, create, edit, and delete flows for both Book and its required Author parent
-      - Adds navigation that lets a user reach and create Authors before creating a Book
-      - Creates and applies an EF Core migration and does not use EnsureCreated or seed the database in Program.cs
-      - Builds the project successfully after generating the controllers and views
+      - Reused CatalogDbContext rather than creating a competing data context
+      - Added complete Book and Author MVC flows with correct binding, validation, and Author selection
+      - Matched the existing UI framework and added navigation to both resources
+      - Created a migration and built without EnsureCreated, startup seeding, or command-line scaffolding
 
-  - name: Scaffold Minimal API child and required parent CRUD
+  - name: Add required-parent Minimal API routes and ordered requests
     prompt: |
-      In the ParentChildApi project at fixtures/minimal-api-parent-fk/ParentChildApi.csproj,
-      scaffold Minimal API endpoints for Product. Product has a required Category foreign key.
-      The project already defines StoreDbContext; reuse and register it with SQLite, and put the
-      endpoint mapping in ProductEndpoints. Provide complete CRUD endpoints for both Category and
-      Product, and enable OpenAPI with useful metadata. Create and apply an EF Core migration
-      instead of using EnsureCreated. Add an executable .http file that creates a Category first,
-      captures or reuses its returned ID, and then creates a Product with that CategoryId.
+      In fixtures/minimal-api-parent-fk/ParentChildApi.csproj, add complete Product and Category
+      Minimal API CRUD. Product requires Category. Reuse StoreDbContext with SQLite, place mappings
+      in ProductEndpoints, add descriptive OpenAPI metadata, create a migration, and add a .http
+      workflow that creates a category first and reuses its returned id when creating a product.
+      Do not use command-line scaffolding or EnsureCreated.
+    tags: { capability: minimal-api-required-parent-flow, risk: high, journey: add-parent-child-api }
     environment:
       files:
-        - src: fixtures/minimal-api-parent-fk
-          dest: fixtures/minimal-api-parent-fk
+        - { src: fixtures/minimal-api-parent-fk, dest: fixtures/minimal-api-parent-fk }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "data-scaffold-parent-child-api"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - { step_id: 1, source: agent, message: "Expected result: complete Category and Product route groups reuse StoreDbContext, include a migration and OpenAPI metadata, and provide an HTTP workflow that creates Category first and uses its returned id." }
     graders:
-      - type: file-contains
+      - { type: file-contains, config: { path: fixtures/minimal-api-parent-fk/Program.cs, value: StoreDbContext } }
+      - { type: file-exists, config: { path: "fixtures/minimal-api-parent-fk/**/*Product*Endpoints*.cs" } }
+      - { type: file-exists, config: { path: "fixtures/minimal-api-parent-fk/**/Migrations/*.cs" } }
+      - { type: file-exists, config: { path: "fixtures/minimal-api-parent-fk/**/*.http" } }
+      - { type: file-contains, config: { path: "fixtures/minimal-api-parent-fk/**/*.cs", value: MapGroup } }
+      - type: run-command
         config:
-          path: fixtures/minimal-api-parent-fk/**/Program.cs
-          value: StoreDbContext
-      - type: file-exists
-        config:
-          path: fixtures/minimal-api-parent-fk/**/*Product*Endpoints*.cs
-      - type: file-exists
-        config:
-          path: fixtures/minimal-api-parent-fk/**/Migrations/*
-      - type: file-exists
-        config:
-          path: fixtures/minimal-api-parent-fk/**/*.http
-      - type: file-contains
-        config:
-          path: fixtures/minimal-api-parent-fk/**/*.cs
-          value: MapGroup
-      - type: prompt
-    rubric:
-      - Reuses StoreDbContext with DbSets for Product and Category and registers SQLite in Program.cs
-      - Maps GET collection, GET by ID, POST, PUT, and DELETE endpoints for both Product and required parent Category using route groups
-      - Adds OpenAPI metadata, including names, tags, descriptions, and response metadata, to the endpoints
-      - Creates and applies an EF Core migration and does not use EnsureCreated or seed the database in Program.cs
-      - Provides an executable .http workflow that creates Category before Product and passes the real parent ID as Product.CategoryId
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require("fs");
+              const path = require("path");
+              const root = "fixtures/minimal-api-parent-fk";
+              function findHttpFiles(directory) {
+                return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+                  const full = path.join(directory, entry.name);
+                  return entry.isDirectory()
+                    ? findHttpFiles(full)
+                    : entry.name.endsWith(".http") ? [full] : [];
+                });
+              }
+              const valid = findHttpFiles(root).some(file => {
+                const blocks = fs.readFileSync(file, "utf8").split(/^###.*$/m);
+                const categoryIndex = blocks.findIndex(
+                  block => /^\s*POST\s+\S*\/categories?(?:[/?\s]|$)/im.test(block));
+                const productIndex = blocks.findIndex(
+                  block => /^\s*POST\s+\S*\/products?(?:[/?\s]|$)/im.test(block));
+                if (categoryIndex < 0 || productIndex <= categoryIndex) return false;
 
-  - name: Scaffold Blazor CRUD components
-    prompt: |
-      Scaffold Blazor CRUD components for the Employee model in the BlazorApp project at
-      fixtures/blazor-crud/BlazorApp.csproj. Use Entity Framework with SQLite in a new
-      DbContext called AppDbContext.
-    environment:
-      files:
-        - src: fixtures/blazor-crud
-          dest: fixtures/blazor-crud
-    graders:
-      - type: file-exists
+                const productBlock = blocks[productIndex];
+                const categoryLine = productBlock.match(
+                  /["']?categoryId["']?\s*:[^\r\n]+/i)?.[0];
+                if (!categoryLine) return false;
+                const expressions = [...categoryLine.matchAll(/\{\{([^}]+)\}\}/g)]
+                  .map(match => match[1].trim());
+                const categoryBlock = blocks[categoryIndex];
+                const categoryName = categoryBlock.match(
+                  /#\s*@name\s+([A-Za-z_][\w.-]*)/i)?.[1];
+                if (categoryName && expressions.some(expression =>
+                  expression.toLowerCase().startsWith(
+                    categoryName.toLowerCase() + ".response.body"))) return true;
+
+                const setup = blocks.slice(0, productIndex).join("\n");
+                const special = "\\^$.*+?()[]{}|";
+                function escapeRegex(value) {
+                  return [...value]
+                    .map(character => special.includes(character) ? "\\" + character : character)
+                    .join("");
+                }
+                return expressions.some(expression => {
+                  const variable = expression.match(/^([A-Za-z_][\w.-]*)$/)?.[1];
+                  if (!variable) return false;
+                  const escaped = escapeRegex(variable);
+                  const handlerCapture = new RegExp(
+                    "(?:set\\s*\\(\\s*[\"']" + escaped
+                    + "[\"'][\\s\\S]*response\\.body|@" + escaped
+                    + "\\s*=[^\\r\\n]*response\\.body)",
+                    "i").test(categoryBlock);
+                  const namedCapture = categoryName && new RegExp(
+                    "@" + escaped + "\\s*=\\s*\\{\\{\\s*"
+                    + escapeRegex(categoryName) + "\\.response\\.body",
+                    "i").test(setup);
+                  return handlerCapture || namedCapture;
+                });
+              });
+              process.exit(valid ? 0 : 1);
+          expected_exit_code: 0
+      - { type: file-not-contains, config: { path: fixtures/minimal-api-parent-fk/Program.cs, value: EnsureCreated } }
+      - type: run-command
         config:
-          path: fixtures/blazor-crud/**/*DbContext*.cs
-      - type: file-exists
-        config:
-          path: fixtures/blazor-crud/**/Migrations/*
-      - type: file-exists
-        config:
-          path: fixtures/blazor-crud/**/*Employee*.razor
+          command: dotnet
+          args: [build, fixtures/minimal-api-parent-fk/ParentChildApi.csproj, --nologo]
+          expected_exit_code: 0
+          stdout_matches: (Build succeeded|0 Error)
+          timeout: 6m
       - type: prompt
     rubric:
-      - Generates Blazor components (.razor) for the Employee model with Create, Read, Update, Delete functionality
-      - Creates an AppDbContext with DbSet properties for Employee
-      - Uses EF Core migrations instead of seeding the database in Program.cs
-      - Handles related entities referenced by foreign keys in the Employee model
+      - Reused StoreDbContext and added complete Category and Product CRUD route groups
+      - Added accurate names, tags, descriptions, success responses, and error responses
+      - Created a migration and a dependency-ordered request workflow using the real parent id
+      - Built successfully without command-line scaffolding or EnsureCreated
+
+  - name: Add Blazor CRUD without breaking interactive render mode
+    prompt: |
+      Add complete Blazor CRUD components for Employee in fixtures/blazor-crud/BlazorApp.csproj.
+      Use a new AppDbContext with SQLite, create a migration, include any required Department flow,
+      and add navigation. Preserve the project's existing interactive server configuration and use
+      safe initial form models. Do not use command-line scaffolding or EnsureCreated.
+    tags: { capability: blazor-crud-render-mode-preservation, risk: high, journey: add-blazor-data-ui }
+    environment:
+      files:
+        - { src: fixtures/blazor-crud, dest: fixtures/blazor-crud }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "data-scaffold-blazor-crud"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - { step_id: 1, source: agent, message: "Expected result: Employee and Department CRUD, AppDbContext with SQLite, a migration, navigation, preserved interactive server chains, safely initialized form models, and a clean build." }
+    graders:
+      - { type: file-exists, config: { path: "fixtures/blazor-crud/**/*AppDbContext*.cs" } }
+      - { type: file-exists, config: { path: "fixtures/blazor-crud/**/Migrations/*.cs" } }
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require("fs");
+              const path = require("path");
+              const root = "fixtures/blazor-crud/Components";
+              function razorFiles(directory) {
+                return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+                  const full = path.join(directory, entry.name);
+                  return entry.isDirectory()
+                    ? razorFiles(full)
+                    : entry.name.endsWith(".razor") ? [full] : [];
+                });
+              }
+              const files = razorFiles(root).map(file => ({
+                path: file.replaceAll("\\", "/").toLowerCase(),
+                text: fs.readFileSync(file, "utf8").toLowerCase()
+              }));
+              function completeSurface(entity) {
+                const surfaces = files.filter(file => file.path.includes(entity));
+                if (surfaces.length === 0) return false;
+                const combined = surfaces.map(file => file.path + "\n" + file.text).join("\n");
+                return [
+                  /(?:index|list|\/employees?"|\/departments?"|foreach|<table)/,
+                  /details?/,
+                  /(?:create|new)/,
+                  /(?:edit|update)/,
+                  /(?:delete|remove)/
+                ].every(pattern => pattern.test(combined));
+              }
+              process.exit(
+                completeSurface("employee") && completeSurface("department") ? 0 : 1);
+          expected_exit_code: 0
+      - { type: file-contains, config: { path: fixtures/blazor-crud/Program.cs, value: AddInteractiveServerRenderMode } }
+      - { type: file-not-contains, config: { path: "fixtures/blazor-crud/**/*.razor", value: " = null!" } }
+      - { type: file-not-contains, config: { path: fixtures/blazor-crud/Program.cs, value: EnsureCreated } }
+      - type: run-command
+        config:
+          command: dotnet
+          args: [build, fixtures/blazor-crud/BlazorApp.csproj, --nologo]
+          expected_exit_code: 0
+          stdout_matches: (Build succeeded|0 Error)
+          timeout: 6m
+      - type: prompt
+    rubric:
+      - Added complete Employee and required Department flows with reachable navigation
+      - Created and registered AppDbContext with SQLite and generated a migration
+      - Preserved interactive server configuration and safely initialized form-bound models
+      - Matched existing Blazor conventions and built without command-line scaffolding or EnsureCreated
+
+  - name: Add an empty Razor Page without data-access side effects
+    prompt: |
+      Add a simple empty Terms Razor Page to fixtures/razor-pages-crud/MyApp.csproj. Match the
+      existing page conventions. This page has no model or database behavior, so do not add Entity
+      Framework packages, a DbContext, migrations, or generated CRUD files.
+    tags: { capability: empty-razor-page-restraint, risk: medium, journey: add-static-razor-page }
+    environment:
+      files:
+        - { src: fixtures/razor-pages-crud, dest: fixtures/razor-pages-crud }
+    golden_patch:
+      path: references/add-terms-page.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "data-scaffold-empty-razor-page"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - { step_id: 1, source: agent, message: "Added a Terms Razor Page that follows existing conventions. No data-access package, context, migration, or CRUD artifact was added." }
+    graders:
+      - { type: file-exists, config: { path: fixtures/razor-pages-crud/Pages/Terms.cshtml } }
+      - { type: file-not-contains, config: { path: fixtures/razor-pages-crud/MyApp.csproj, value: EntityFrameworkCore } }
+      - { type: file-not-exists, config: { path: fixtures/razor-pages-crud/Migrations } }
+      - *build-razor
+      - type: prompt
+    rubric:
+      - Added a Terms Razor Page that matches existing conventions
+      - Did not add Entity Framework, a DbContext, migrations, or unrelated CRUD code
+      - Kept the project buildable
+
+  - name: Add an empty Blazor page while preserving host configuration
+    prompt: |
+      Add a Reports page at /reports to fixtures/blazor-crud/BlazorApp.csproj and link it from the
+      existing navigation. Match the existing component and Bootstrap conventions. It is static,
+      so do not add Entity Framework, a DbContext, migrations, or a new render mode.
+    tags: { capability: empty-blazor-page-preservation, risk: medium, journey: add-static-blazor-page }
+    environment:
+      files:
+        - { src: fixtures/blazor-crud, dest: fixtures/blazor-crud }
+    golden_patch:
+      path: references/add-reports-component.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "data-scaffold-empty-blazor-page"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - { step_id: 1, source: agent, message: "Added a Reports component and navigation link without changing the render-mode chain or adding data-access artifacts." }
+    graders:
+      - { type: file-exists, config: { path: fixtures/blazor-crud/Components/Pages/Reports.razor } }
+      - { type: file-contains, config: { path: fixtures/blazor-crud/Components/Layout/NavMenu.razor, value: reports } }
+      - { type: file-contains, config: { path: fixtures/blazor-crud/Program.cs, value: AddInteractiveServerRenderMode } }
+      - { type: file-not-contains, config: { path: fixtures/blazor-crud/BlazorApp.csproj, value: EntityFrameworkCore } }
+      - { type: file-not-exists, config: { path: fixtures/blazor-crud/Migrations } }
+      - type: run-command
+        config:
+          command: dotnet
+          args: [build, fixtures/blazor-crud/BlazorApp.csproj, --nologo]
+          expected_exit_code: 0
+          stdout_matches: (Build succeeded|0 Error)
+          timeout: 6m
+      - type: prompt
+    rubric:
+      - Added the /reports page and navigation using existing component and CSS conventions
+      - Preserved the existing interactive server host configuration
+      - Did not add data-access packages, contexts, migrations, or unnecessary render modes
+
+  - name: Leave complete Minimal API CRUD unchanged
+    prompt: |
+      Review CompleteTodoEndpoints.cs for these requirements: list/by-id/create/update/delete
+      routes, server-assigned IDs, non-empty title validation, async EF Core calls, correct status
+      codes, and useful OpenAPI metadata. Fix only a gap in those requirements. If they are already
+      complete, explain why and leave the file unchanged.
+    tags: { capability: idempotent-complete-api-review, risk: low, journey: verify-existing-api }
+    environment:
+      files:
+        - { src: fixtures/already-complete/CompleteTodoEndpoints.cs, dest: CompleteTodoEndpoints.cs }
+        - { src: fixtures/already-complete/CompleteTodoApi.csproj, dest: CompleteTodoApi.csproj }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "data-scaffold-complete-api-noop"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - { step_id: 1, source: agent, message: "All five CRUD operations, server-assigned IDs, title validation, async EF Core calls, status paths, and OpenAPI names, tags, descriptions, and responses already exist. No edit is needed." }
+    graders:
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const crypto = require("crypto");
+              const fs = require("fs");
+              const data = fs.readFileSync("CompleteTodoEndpoints.cs", "utf8").replace(/\r\n/g, "\n");
+              const actual = crypto.createHash("sha256").update(data).digest("hex");
+              process.exit(actual === "d40d2d1e48974e6396fdbff3c8046bea8ce5f424834f1fe7786b09545b581d87" ? 0 : 1);
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: dotnet
+          args: [build, CompleteTodoApi.csproj, --nologo]
+          expected_exit_code: 0
+          stdout_matches: (Build succeeded|0 Error)
+          timeout: 4m
+      - { type: output-matches, config: { pattern: "(already|complete|no (gap|change|edit)|nothing to fix)" } }
+      - type: prompt
+    rubric:
+      - Recognized that all five CRUD operations, server-assigned IDs, and title validation already exist
+      - Recognized that async EF calls, response paths, and endpoint metadata satisfy the request
+      - Left the file byte-for-byte unchanged instead of generating duplicate routes or types
+
+  - name: Stay dormant for a non-web class library
+    prompt: |
+      In fixtures/non-web/Utility.csproj, add a CsvReportWriter with
+      WriteRow(TextWriter writer, string title, decimal total). Write one CSV row, quote and escape
+      the title, and format the decimal with invariant culture. This is a plain .NET class library
+      with no web host or database. Keep the existing ReportWriter unchanged.
+    expect_activation: false
+    tags: { capability: boundary-non-aspnet-project, risk: routing, journey: redirect-non-web-code-generation }
+    environment:
+      files:
+        - { src: fixtures/non-web, dest: fixtures/non-web }
+    golden_patch:
+      path: references/add-csv-report-writer.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "data-scaffold-dormancy-class-library"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - { step_id: 1, source: agent, message: "Expected result: a plain CsvReportWriter class with the existing ReportWriter unchanged and no ASP.NET Core, Entity Framework, controller, page, endpoint, or database artifacts." }
+    graders:
+      - { type: file-contains, config: { path: "fixtures/non-web/**/*.cs", value: CsvReportWriter } }
+      - { type: file-not-contains, config: { path: fixtures/non-web/Utility.csproj, value: Microsoft.AspNetCore } }
+      - { type: file-not-contains, config: { path: fixtures/non-web/Utility.csproj, value: EntityFrameworkCore } }
+      - type: run-command
+        config:
+          command: dotnet
+          args: [run, --project, fixtures/non-web/Verifier/Verifier.csproj, --nologo]
+          expected_exit_code: 0
+          stdout_contains: CSV-VERIFIED
+          timeout: 4m
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const crypto = require("crypto");
+              const fs = require("fs");
+              function digest(path) {
+                const data = fs.readFileSync(path, "utf8").replace(/\r\n/g, "\n");
+                return crypto.createHash("sha256").update(data).digest("hex");
+              }
+              const program = digest("fixtures/non-web/Program.cs");
+              const project = digest("fixtures/non-web/Utility.csproj");
+              const verifier = digest("fixtures/non-web/Verifier/Program.cs");
+              const verifierProject = digest("fixtures/non-web/Verifier/Verifier.csproj");
+              process.exit(
+                program === "62dcf26c0762a4876649255e87a370d622bb754fe04891d68642e10a303f04d6"
+                && project === "b922ca987189c1031e4ccc3285c48e45c7ea3fb563b7a560a587250936416f43"
+                && verifier === "e0563ba4560daa58b8681ca5218bc81faad8924fd701d6f781f055e331c9cb6a"
+                && verifierProject === "4de9357b55256ab43e871f5b619456ad0b25af8dd7a9cfacbd943ac470a787b4"
+                ? 0 : 1);
+          expected_exit_code: 0
+      - type: prompt
+    rubric:
+      - The ASP.NET Core scaffolding skill stayed dormant because the target is a non-web class library
+      - Added only the requested plain C# writer and preserved the existing ReportWriter
+      - Did not add ASP.NET Core, Entity Framework, pages, controllers, endpoints, or database artifacts
