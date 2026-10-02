@@ -3,194 +3,417 @@ description: Evaluates the dotnet-template-engine/template-discovery skill
 type: capability
 defaults:
   timeout: 3m
+environment:
+  env:
+    XDG_DATA_HOME: .xdg-data
+    LOCALAPPDATA: .local-app-data
+    DOTNET_NOLOGO: "1"
+  files:
+    - src: ./fixtures/global.json
+      dest: global.json
+  commands:
+    - >-
+      node -e "const fs=require('fs');
+      fs.mkdirSync('.xdg-data/NuGet/Migrations', { recursive: true });
+      fs.writeFileSync('.xdg-data/NuGet/Migrations/1', '');
+      fs.mkdirSync('.local-app-data/NuGet/Migrations', { recursive: true });
+      fs.writeFileSync('.local-app-data/NuGet/Migrations/1', '');"
 stimuli:
-  - name: Find template for web API project
-    prompt: I need to create a web API project with authentication. What template should I use and what are the
-      authentication options?
+  - name: Recommend a web API template with authentication
+    prompt: |
+      I need a .NET HTTP API with organizational sign-in. Use the captured
+      template help in the workspace to recommend a starting template, explain
+      the authentication choices, and give me a safe example command. Do not
+      create files.
+    tags:
+      capability: recommend-template-from-intent
+      risk: medium
+      journey: choose-authenticated-api
+    environment:
+      files:
+        - src: ./fixtures/captured-sdk-10/webapi-help.txt
+          dest: evidence/webapi-help.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-discovery-authenticated-api"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              **Use `webapi`** — it is the installed API template and its captured help exposes organizational authentication.
+              `dotnet new webapi --name SecureApi --auth SingleOrg --dry-run`
+              The capture lists `None`, `IndividualB2C`, `SingleOrg`, and `Windows`; `SingleOrg` fits one organization. The template defaults to `None`. The dry run keeps this advisory request read-only.
     graders:
-      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)\bwebapi\b
+      - type: output-matches
+        config:
+          pattern: (?i)(SingleOrg|organizational)
+      - type: output-matches
+        config:
+          pattern: (?is)dotnet new webapi.*--dry-run
+      - type: prompt
+    rubric:
+      - Recommends the API template and authentication choice that fit the request
+      - Distinguishes the captured authentication choices and their default
+      - Gives an actionable command that cannot create project files
+    constraints:
+      expect_tools: [skill]
+      reject_tools: [edit, create]
+
+  - name: Inspect exact web API parameters and constraints
+    prompt: |
+      Before I choose settings, summarize the authentication, target framework,
+      native AOT, and controller options from evidence/webapi-help.txt. Include
+      defaults and compatibility limits, then show a dry-run command for
+      SecureApi. Do not change the workspace.
+    tags:
+      capability: inspect-template-parameters
+      risk: high
+      journey: review-webapi-options
+    environment:
+      files:
+        - src: ./fixtures/captured-sdk-10/webapi-help.txt
+          dest: evidence/webapi-help.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-discovery-webapi-parameters"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The capture shows `--auth` choices None, IndividualB2C, SingleOrg, and Windows (default None); `--framework` choices net8.0, net9.0, and net10.0 (default net10.0); `--use-controllers` (default false); and `--aot` (default false). AOT is limited to auth None and cannot be combined with controllers.
+              `dotnet new webapi --name SecureApi --framework net10.0 --auth None --aot --dry-run`
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*net8\.0)(?=.*net9\.0)(?=.*net10\.0)
+      - type: output-matches
+        config:
+          pattern: (?is)(--aot|native AOT).*(auth None|authentication.*None)
+      - type: output-matches
+        config:
+          pattern: (?is)dotnet new webapi.*--dry-run
+      - type: prompt
+    rubric:
+      - Reports the captured option names, choices, defaults, and AOT constraints accurately
+      - Does not invent an option or claim support that the evidence does not show
+      - Provides a compatible, non-writing example command
+    constraints:
+      expect_tools: [skill]
+      reject_tools: [edit, create]
+
+  - name: Search installed and NuGet gRPC templates
+    prompt: |
+      We captured the local and NuGet template searches in
+      evidence/grpc-search.txt. Tell me what is already installed, whether I
+      need to install anything for the SDK gRPC template, and identify one
+      credible NuGet alternative. Do not install or create anything.
+    tags:
+      capability: distinguish-installed-and-search-results
+      risk: medium
+      journey: locate-grpc-template
+    environment:
+      files:
+        - src: ./fixtures/captured-sdk-10/grpc-search.txt
+          dest: evidence/grpc-search.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-discovery-grpc-search"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use the installed `grpc` template. The local capture lists ASP.NET Core gRPC Service, so no install is needed because it ships with this SDK. The NuGet capture also shows `Proto.Actor.Templates` with short name `protoactor-grpc` as a specialized alternative. Install that alternative only if its actor model is required: `dotnet new install Proto.Actor.Templates`.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(no install|ships with.*SDK)
       - type: output-contains
         config:
-          substring: webapi
+          substring: Proto.Actor.Templates
       - type: output-matches
         config:
-          pattern: (?i)IndividualB2C
-      - type: output-matches
-        config:
-          pattern: (?i)SingleOrg
-      - type: output-matches
-        config:
-          pattern: (?i)\bWindows\b
-      - type: output-matches
-        config:
-          pattern: (?i)\bNone\b
+          pattern: (?i)\bgrpc\b
       - type: prompt
     rubric:
-      - The agent identified the webapi template as the best match
-      - The agent explained available authentication options (IndividualB2C, SingleOrg, None, Windows, etc.)
-      - The agent mentioned how to set the auth parameter
+      - Separates the installed SDK template from installable search results
+      - Avoids telling the user to install the package that already supplies the SDK template
+      - Names a real alternative only from the captured search evidence
     constraints:
-      expect_tools:
-        - skill
-  - name: Inspect web API template parameters
-    prompt: |
-      Inspect the installed `webapi` template before I use it. Show its authentication
-      choices, target frameworks, native AOT option, and controllers option, including
-      defaults and any compatibility constraints. Finish with an example command for a
-      project named SecureApi, but don't create it.
-    graders:
-      - type: exit-success
-      - type: output-matches
-        config:
-          pattern: (?i)\bframework\b
-      - type: output-matches
-        config:
-          pattern: (?i)webapi
-      - type: output-matches
-        config:
-          pattern: (?i)auth
-      - type: output-matches
-        config:
-          pattern: (?i)aot
-      - type: output-matches
-        config:
-          pattern: (?i)(use-controllers|controllers)
-      - type: prompt
-    rubric:
-      - The response reflects the installed webapi template's actual parameter names, choices, and defaults
-      - Authentication, frameworks, native AOT, and controllers are all covered with relevant constraints
-      - The response ends with a concrete example command without creating files
-    constraints:
-      expect_tools:
-        - skill
-  - name: Search NuGet for specialized template
-    prompt: I need a template for creating gRPC services in .NET. Search for available gRPC templates — both installed
-      locally and on NuGet.org. Tell me which package to install.
-    graders:
-      - type: exit-success
-      - type: output-matches
-        config:
-          pattern: (?i)grpc
-      - type: output-matches
-        config:
-          pattern: (?i)(Microsoft\.Grpc|grpc.*service|ASP\.NET.*gRPC)
-      - type: output-matches
-        config:
-          pattern: (?i)dotnet\s+new\s+list
-      - type: output-matches
-        config:
-          pattern: (?i)dotnet\s+new\s+search
-      - type: prompt
-    rubric:
-      - The agent searched both local and NuGet.org sources
-      - The agent identified the SDK-shipped grpc template and accurately distinguished it from any NuGet alternatives
-      - The agent either provided a package ID copied from actual search results with install instructions or clearly stated that no extra package is needed
-    constraints:
-      expect_tools:
-        - skill
-  - name: Resolve ambiguous project intent to multiple candidates
-    prompt: I want to build a real-time collaborative dashboard where users can see live updates. What .NET project
-      templates could work? I need you to search available templates and show me the top 3 options with their key
-      parameters.
-    graders:
-      - type: exit-success
-      - type: output-matches
-        config:
-          pattern: (?i)blazor
-      - type: output-matches
-        config:
-          pattern: (?i)(server|webassembly|wasm|interactive)
-      - type: prompt
-    rubric:
-      - The agent presented at least 2-3 template options
-      - The agent explained the trade-offs between different approaches (Blazor Server vs WebAssembly, SignalR, etc.)
-      - The agent showed key parameters for the recommended templates
-    constraints:
-      expect_tools:
-        - skill
-  - name: Preview project creation with dry run
-    prompt: Before creating anything, show me exactly what files would be generated if I create a Blazor Web App called
-      MyBlazorApp in ./test-output with interactive server rendering. Don't actually create the project yet.
-    graders:
-      - type: exit-success
-      - type: output-contains
-        config:
-          substring: MyBlazorApp
-      - type: file-not-exists
-        config:
-          path: test-output/**/MyBlazorApp.csproj
-      - type: output-matches
-        config:
-          pattern: (?i)(Program\.cs|App\.razor|\.csproj)
-      - type: prompt
-    rubric:
-      - The agent listed the files and directories that would be created
-      - The agent did NOT actually create the project
-      - The agent explained what key generated files are for
-    constraints:
-      expect_tools:
-        - skill
+      expect_tools: [skill]
+      reject_tools: [edit, create]
 
-  - name: Inspect a single worker template before creation
+  - name: Rank templates for a real-time dashboard
     prompt: |
-      I'm considering the built-in worker service template for a queue consumer. Before I
-      create anything, inspect its available target frameworks and options for native AOT
-      and Windows Service support. Give me a ready-to-run command for a project named
-      QueueProcessor, but don't create files.
+      Using evidence/installed-templates.txt, suggest up to three installed
+      templates for a real-time collaborative dashboard. Rank them, explain the
+      important hosting or interactivity trade-offs, and recommend a starting
+      point. Do not create a project.
+    tags:
+      capability: rank-ambiguous-template-candidates
+      risk: medium
+      journey: explore-real-time-dashboard
+    environment:
+      files:
+        - src: ./fixtures/captured-sdk-10/installed-templates.txt
+          dest: evidence/installed-templates.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-discovery-realtime-dashboard"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              1. `blazor` — best starting point for a collaborative dashboard because it supports interactive UI while retaining a .NET server.
+              2. `blazorwasm` — useful when more UI must run in the browser or PWA/offline behavior matters, but live collaboration still needs a backend connection.
+              3. `webapp` — suitable for mostly server-rendered pages, with client updates added separately.
+              **Recommendation: `blazor`** for rich live UI with a server-hosted collaboration channel.
     graders:
-      - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)dotnet new worker
+          pattern: (?i)\bblazor\b
       - type: output-matches
         config:
-          pattern: (?i)(framework|net\d+\.0)
-      - type: output-matches
-        config:
-          pattern: (?i)(aot|native)
-      - type: output-matches
-        config:
-          pattern: (?i)(windows service|windows-service)
-      - type: file-not-exists
-        config:
-          path: "**/*.csproj"
-      - type: prompt
-    rubric:
-      - The answer reflects parameters exposed by the installed worker template rather than guessed options
-      - The answer gives a concrete command for QueueProcessor without creating the project
-      - The answer explains any platform or framework constraints relevant to the requested options
-    constraints:
-      expect_tools:
-        - skill
-
-  - name: Find installed test project template choices
-    prompt: |
-      I need a C# unit-test project and want to know what the current SDK already has
-      installed. Find the xUnit, NUnit, and MSTest project templates, show their short names,
-      and recommend one for a team standardized on Microsoft.Testing.Platform. Don't create
-      a project.
-    graders:
-      - type: exit-success
-      - type: output-matches
-        config:
-          pattern: (?i)\bxunit\b
-      - type: output-matches
-        config:
-          pattern: (?i)\bnunit\b
-      - type: output-matches
-        config:
-          pattern: (?i)\bmstest\b
+          pattern: (?i)(blazorwasm|webapp)
       - type: output-matches
         config:
           pattern: (?i)recommend
-      - type: file-not-exists
-        config:
-          path: "**/*.csproj"
       - type: prompt
     rubric:
-      - The response identifies the installed C# test-project templates and their actual short names
-      - The recommendation is tied to the team's Microsoft.Testing.Platform requirement
-      - No project files are created
+      - Ranks only installed candidates that can plausibly support the requested application
+      - Explains meaningful hosting or interactivity differences instead of listing names
+      - Makes a scenario-specific recommendation
     constraints:
-      expect_tools:
-        - skill
+      expect_tools: [skill]
+      reject_tools: [edit, create]
+
+  - name: Explain an exact Blazor dry-run file plan
+    prompt: |
+      Read evidence/blazor-dry-run.txt and show the exact directory tree that
+      would be produced for MyBlazorApp. Explain the purpose of the project
+      file, Program.cs, App.razor, and Routes.razor. I only want a preview.
+    tags:
+      capability: explain-captured-dry-run
+      risk: high
+      journey: preview-blazor-output
+    environment:
+      files:
+        - src: ./fixtures/captured-sdk-10/blazor-dry-run.txt
+          dest: evidence/blazor-dry-run.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-discovery-blazor-dry-run"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The captured dry run would create this exact tree:
+              ```text
+              test-output/
+              ├── MyBlazorApp.csproj
+              ├── Program.cs
+              ├── Components/
+              │   ├── App.razor
+              │   ├── Routes.razor
+              │   ├── _Imports.razor
+              │   ├── Layout/
+              │   │   ├── MainLayout.razor
+              │   │   └── MainLayout.razor.css
+              │   └── Pages/
+              │       ├── Home.razor
+              │       └── Error.razor
+              └── wwwroot/
+                  ├── app.css
+                  └── favicon.png
+              ```
+              The project file defines the app build; Program.cs configures hosting; App.razor is the root component; Routes.razor maps routable components. This is a preview of `dotnet new blazor --name MyBlazorApp --output ./test-output --interactivity Server --dry-run`; no files are created.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)MyBlazorApp\.csproj
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*Program\.cs)(?=.*App\.razor)(?=.*Routes\.razor)
+      - type: prompt
+    rubric:
+      - Preserves the captured paths without adding or omitting important entries
+      - Explains the requested entry points in terms useful before project creation
+      - Keeps the preview read-only
+    constraints:
+      expect_tools: [skill]
+      reject_tools: [edit, create]
+
+  - name: Inspect worker options without inventing Windows support
+    prompt: |
+      From evidence/worker-help.txt, summarize the worker template's framework
+      and AOT choices. I also need Windows Service hosting; tell me whether the
+      template exposes a creation flag and give a safe QueueProcessor example.
+      Do not create files.
+    tags:
+      capability: report-absent-template-option
+      risk: high
+      journey: inspect-worker-hosting
+    environment:
+      files:
+        - src: ./fixtures/captured-sdk-10/worker-help.txt
+          dest: evidence/worker-help.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-discovery-worker-options"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The capture lists net8.0, net9.0, and net10.0 plus `--aot`; it does not expose a Windows Service creation flag. Configure Windows Service hosting after creation rather than inventing `--windows` or `--windows-service`.
+              `dotnet new worker --name QueueProcessor --framework net10.0 --aot --dry-run`
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?is)((does not|not exposed|no).*(Windows Service).*(flag|option)|(Windows Service).*(does not|not exposed|no).*(flag|option))
+      - type: output-not-matches
+        config:
+          pattern: (?i)dotnet new worker.*--(windows|windows-service)\b
+      - type: output-matches
+        config:
+          pattern: (?is)dotnet new worker.*--dry-run
+      - type: prompt
+    rubric:
+      - Reports the captured worker choices accurately
+      - Clearly distinguishes template creation from post-creation Windows Service setup
+      - Does not invent a Windows Service template flag
+    constraints:
+      expect_tools: [skill]
+      reject_tools: [edit, create]
+
+  - name: Find installed unit-test project templates
+    prompt: |
+      Our evidence/installed-templates.txt file records the SDK templates on the
+      build image. List the installed C# unit-test project choices and their
+      short names, then recommend the most direct choice for a team standardized
+      on Microsoft tooling. Do not create a project.
+    tags:
+      capability: discover-installed-template-family
+      risk: low
+      journey: choose-test-project-template
+    environment:
+      files:
+        - src: ./fixtures/captured-sdk-10/installed-templates.txt
+          dest: evidence/installed-templates.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-discovery-test-templates"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The installed C# test-project choices are xUnit Test Project (`xunit`), NUnit 3 Test Project (`nunit`), and MSTest Test Project (`mstest`). **Recommendation: `mstest`** for the stated Microsoft-tooling standard. Preview it with `dotnet new mstest --name Product.Tests --dry-run`.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bxunit\b)(?=.*\bnunit\b)(?=.*\bmstest\b)
+      - type: output-matches
+        config:
+          pattern: (?is)(recommend|use|choose|pick|prefer|start with).{0,80}mstest
+      - type: prompt
+    rubric:
+      - Lists the installed test project templates and correct short names from the capture
+      - Ties the recommendation to the stated organizational preference
+      - Uses a non-writing command if it provides one
+    constraints:
+      expect_tools: [skill]
+      reject_tools: [edit, create]
+
+  - name: Discover repository configuration item templates
+    prompt: |
+      I am setting up repository-level defaults, not a new project. From
+      evidence/installed-templates.txt, identify the installed templates for an
+      EditorConfig file, an SDK pin, and a NuGet configuration file. Give their
+      short names and safe preview commands.
+    tags:
+      capability: discover-item-and-config-templates
+      risk: low
+      journey: configure-repository-files
+    environment:
+      files:
+        - src: ./fixtures/captured-sdk-10/installed-templates.txt
+          dest: evidence/installed-templates.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-discovery-config-items"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The installed item/config templates are EditorConfig file (`editorconfig`), global.json file (`globaljson`), and NuGet Config (`nugetconfig`).
+              `dotnet new editorconfig --dry-run`
+              `dotnet new globaljson --dry-run`
+              `dotnet new nugetconfig --dry-run`
+              These create configuration items, not project templates.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*editorconfig)(?=.*globaljson)(?=.*nugetconfig)
+      - type: output-matches
+        config:
+          pattern: (?is)dotnet new editorconfig.*--dry-run
+      - type: prompt
+    rubric:
+      - Identifies all three installed configuration item templates and their short names
+      - Distinguishes item/config templates from project templates
+      - Keeps every suggested command non-writing
+    constraints:
+      expect_tools: [skill]
+      reject_tools: [edit, create]
+
+  - name: Stay dormant for a detailed template comparison
+    prompt: |
+      Compare `webapi` and `webapp` side by side on every authentication choice,
+      framework, AOT support, generated structure, and routing model. End with a
+      recommendation for an internal server-rendered portal. Do not create files.
+    tags:
+      capability: boundary-detailed-comparison
+      risk: routing
+      journey: handoff-to-template-comparison
+    expect_activation: false
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-discovery-dormancy-comparison"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a detailed side-by-side decision, so it belongs to template comparison rather than single-template discovery. **Recommendation: `webapp`** for a server-rendered internal portal; choose `webapi` only when the main product is an HTTP API. No project files are needed.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(side-by-side|comparison)
+      - type: output-matches
+        config:
+          pattern: (?is)(recommend|use|choose|pick|prefer|start with).{0,80}(webapp|Razor Pages)
+      - type: prompt
+    rubric:
+      - Recognizes that the request belongs to the detailed template-comparison workflow
+      - Did not apply a single-template discovery workflow or create project files
+      - Redirects to the sibling capability while still giving a concise, useful decision
+    constraints:
+      reject_tools: [edit, create]

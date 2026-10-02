@@ -1,0 +1,60 @@
+diff --git a/Directory.Packages.props b/Directory.Packages.props
+--- a/Directory.Packages.props
++++ b/Directory.Packages.props
+@@ -4,5 +4,9 @@
+   </PropertyGroup>
+   <ItemGroup>
+     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
++    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
++    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
++    <PackageVersion Include="xunit" Version="2.9.3" />
++    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+   </ItemGroup>
+ </Project>
+diff --git a/tests/Payments.Tests/Payments.Tests.csproj b/tests/Payments.Tests/Payments.Tests.csproj
+new file mode 100644
+--- /dev/null
++++ b/tests/Payments.Tests/Payments.Tests.csproj
+@@ -0,0 +1,21 @@
++<Project Sdk="Microsoft.NET.Sdk">
++  <PropertyGroup>
++    <TargetFramework>net10.0</TargetFramework>
++    <ImplicitUsings>enable</ImplicitUsings>
++    <Nullable>enable</Nullable>
++    <IsPackable>false</IsPackable>
++    <IsTestProject>true</IsTestProject>
++  </PropertyGroup>
++  <ItemGroup>
++    <PackageReference Include="coverlet.collector">
++      <PrivateAssets>all</PrivateAssets>
++      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
++    </PackageReference>
++    <PackageReference Include="Microsoft.NET.Test.Sdk" />
++    <PackageReference Include="xunit" />
++    <PackageReference Include="xunit.runner.visualstudio">
++      <PrivateAssets>all</PrivateAssets>
++      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
++    </PackageReference>
++  </ItemGroup>
++</Project>
+diff --git a/tests/Payments.Tests/UnitTest1.cs b/tests/Payments.Tests/UnitTest1.cs
+new file mode 100644
+--- /dev/null
++++ b/tests/Payments.Tests/UnitTest1.cs
+@@ -0,0 +1,10 @@
++namespace Payments.Tests;
++
++public class UnitTest1
++{
++    [Fact]
++    public void Test1()
++    {
++
++    }
++}
+diff --git a/tests/Payments.Tests/Usings.cs b/tests/Payments.Tests/Usings.cs
+new file mode 100644
+--- /dev/null
++++ b/tests/Payments.Tests/Usings.cs
+@@ -0,0 +1 @@
++global using Xunit;

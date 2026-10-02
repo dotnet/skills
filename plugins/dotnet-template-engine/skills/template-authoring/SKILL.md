@@ -1,29 +1,30 @@
 ---
 name: template-authoring
 description: >
-  Guides creation and validation of custom dotnet new templates from existing projects.
-  Generates a .template.config/template.json that preserves the source project's conventions.
+  Creates and packages custom dotnet new templates while preserving source-project conventions.
   USE FOR: creating a reusable dotnet new template from an existing project, bootstrapping
   .template.config/template.json with correct identity, shortName, parameters, and
   post-actions, adding parameters or conditional content to a template you are authoring,
-  validating the template.json you are authoring before publishing,
+  testing an already-authored custom template when the request explicitly requires
+  installation, instantiation, package verification, or name-replacement checks,
   packaging templates as NuGet packages for distribution.
-  DO NOT USE FOR: validating an existing template.json as a standalone task (use
+  DO NOT USE FOR: validation-only reviews that ask for errors and warnings without
+  authoring, packaging, installation, or instantiation work (use
   template-validation), finding or using existing templates (use template-discovery and
   template-instantiation), MSBuild project file issues unrelated to template authoring,
-  NuGet package publishing (only template packaging structure).
+  or publishing a NuGet package.
 license: MIT
 ---
 
 # Template Authoring
 
-This skill helps an agent create and validate custom `dotnet new` templates. It guides bootstrapping templates from existing projects and validates `template.json` files for authoring issues before publishing.
+This skill helps an agent create, refine, package, and verify custom `dotnet new` templates. Validation is performed as part of those authoring workflows through the template-validation skill.
 
 ## When to Use
 
 - User wants to create a reusable template from an existing .csproj
-- User wants to validate a template.json they are authoring before publishing
 - User is setting up `.template.config/template.json` from scratch
+- User wants to change an existing template and validate the changed result
 - User wants to package a template for NuGet distribution
 
 ## When Not to Use
@@ -36,7 +37,7 @@ This skill helps an agent create and validate custom `dotnet new` templates. It 
 | Input | Required | Description |
 |-------|----------|-------------|
 | Source project path | For creation | Path to the .csproj to use as template source |
-| template.json path | For validation | Path to an existing template.json to validate |
+| template.json path | For refinement | Path to an existing template.json being changed |
 | Template name | For creation | Human-readable name for the template |
 | Short name | Recommended | Short name for `dotnet new <shortname>` usage |
 
@@ -132,20 +133,38 @@ Based on validation results and user requirements:
 4. **Set constraints** to restrict which SDKs or workloads the template supports
 5. **Add classifications** and tags for discoverability
 
-For a restore post-action, prefer `primaryOutputs` when the project path is known:
+For a restore post-action, use the built-in command-line restore action and select the
+generated project explicitly. `primaryOutputs` is safest when the project path is known:
 
 ```json
-"primaryOutputs": [{ "path": "MyProject.csproj" }],
 "postActions": [{
   "description": "Restore NuGet packages.",
-  "manualInstructions": [{ "text": "Run 'dotnet restore'." }],
   "actionId": "210D431B-A78B-4D2F-B762-4ED3E3EA9025",
+  "args": {
+    "files": ["MyProject.csproj"]
+  },
+  "manualInstructions": [{
+    "text": "If automatic restore is unavailable, open a terminal in the generated project directory and run: dotnet restore MyProject.csproj"
+  }],
   "continueOnError": true
-}]
+}],
+"primaryOutputs": [{ "path": "MyProject.csproj" }]
 ```
 
-If `args.files` is needed, its paths are matched against the **source template** before
-renames, for example `"files": ["**/*.csproj"]`. Explain that distinction.
+This is a command-line action: the restore action receives the selected project through
+`args.files`; do not add run-script fields such as `executable`, `command`, or `workingDirectory`.
+The `manualInstructions` text is the IDE/non-CLI fallback shown when the host cannot run the
+command-line action. Tell the user to run restore from the generated project directory and name
+the project file explicitly rather than restoring an arbitrary project.
+
+`args.files` names the project path in the source template; the template engine maps that path
+through `sourceName`/`--name` substitutions before invoking restore. Therefore an exact
+`"files": ["MyProject.csproj"]` selector safely restores the generated project rather than an
+arbitrary `.csproj`. If the source project path is not known, a source-template glob such as
+`"files": ["**/*.csproj"]` can be used, but it may select more than one generated project.
+`primaryOutputs.path` records the main generated output after substitutions and can be used by
+hosts as the fallback when `args.files` is omitted; prefer an exact project path in both places
+whenever possible.
 
 ### Step 4: Test the template locally
 
@@ -154,10 +173,14 @@ install the authored template, run a dry-run, instantiate it into a temporary ou
 and build the generated project. Report each observed result; inspecting `template.json` alone
 does not prove the reusable template works.
 
+Use a fresh, absolute custom hive for every verification so the result cannot pass because a
+same-named template was already installed in the user's shared cache. The custom-hive option
+precedes the template-engine subcommand:
+
 ```bash
-dotnet new install ./path/to/template/root
-dotnet new mylib --name TestProject --dry-run
-dotnet new mylib --name TestProject --output ./test-output
+dotnet new --debug:custom-hive <absolute-temp-hive> install <absolute-template-root> --force
+dotnet new --debug:custom-hive <absolute-temp-hive> mylib --name TestProject --dry-run
+dotnet new --debug:custom-hive <absolute-temp-hive> mylib --name TestProject --output ./test-output
 dotnet build ./test-output/TestProject
 ```
 
@@ -182,6 +205,11 @@ When packaging is requested, include the complete pack project, not only a direc
 The pack project's target framework applies only to the content-only packaging project; it
 does not retarget projects inside `templates/`. Prefer a broadly available supported framework
 unless the packaging project itself uses newer build features.
+
+After packing, install the produced `.nupkg` into a fresh absolute custom hive and instantiate
+every packaged short name into separate temporary output directories. Do not treat `dotnet new
+list` or dry-run output alone as end-to-end package verification. Confirm each generated shape,
+and build generated project templates when their dependencies are available locally.
 
 For a self-contained CPM template, the packaged `Directory.Packages.props` must include
 `<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>` and every versionless

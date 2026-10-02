@@ -1,0 +1,53 @@
+diff --git a/template-source/MyTests/.template.config/template.json b/template-source/MyTests/.template.config/template.json
+new file mode 100644
+--- /dev/null
++++ b/template-source/MyTests/.template.config/template.json
+@@ -0,0 +1,13 @@
++{
++  "$schema": "http://json.schemastore.org/template",
++  "author": "Contoso Engineering",
++  "classifications": ["Test", "xUnit"],
++  "identity": "Contoso.Templates.TeamTests",
++  "name": "Team Test Project",
++  "shortName": "team-tests",
++  "sourceName": "MyTests",
++  "tags": {
++    "language": "C#",
++    "type": "project"
++  }
++}
+diff --git a/template-source/MyTests/MyTests.csproj b/template-source/MyTests/MyTests.csproj
+new file mode 100644
+--- /dev/null
++++ b/template-source/MyTests/MyTests.csproj
+@@ -0,0 +1,17 @@
++<Project Sdk="Microsoft.NET.Sdk">
++  <PropertyGroup>
++    <TargetFramework>net9.0</TargetFramework>
++    <ImplicitUsings>enable</ImplicitUsings>
++    <Nullable>enable</Nullable>
++    <IsPackable>false</IsPackable>
++    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
++  </PropertyGroup>
++  <ItemGroup>
++    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.0" />
++    <PackageReference Include="xunit" Version="2.9.0" />
++    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
++      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
++      <PrivateAssets>all</PrivateAssets>
++    </PackageReference>
++  </ItemGroup>
++</Project>
+diff --git a/template-source/MyTests/UnitTest1.cs b/template-source/MyTests/UnitTest1.cs
+new file mode 100644
+--- /dev/null
++++ b/template-source/MyTests/UnitTest1.cs
+@@ -0,0 +1,7 @@
++using Xunit;
++
++namespace MyTests;
++public class UnitTest1
++{
++    [Fact]
++    public void Test1() { }
++}
