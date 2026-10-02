@@ -25,7 +25,7 @@ Pin production installations to a release tag or commit SHA instead of
 - `.github/workflows/unskip-closed-tests-prepare.md`
 - `.github/workflows/unskip-closed-tests-shared.md`
 - `.github/workflows/unskip-closed-tests.config.json`
-- `.github/workflows/unskip-closed-tests-verify.sh`
+- `.github/workflows/unskip-closed-tests-verify.ps1`
 - `.github/workflows/unskip-closed-tests-tool/*`
 - `.github/agents/unskip-closed-tests.agent.md`
 - generated `.github/workflows/unskip-closed-tests.lock.yml`
@@ -104,9 +104,9 @@ Edit `.github/workflows/unskip-closed-tests.config.json` after installation:
 - `verification.command`: a trusted argv array for the repository hook;
 - `verification.timeout_seconds`: per-candidate hook timeout.
 
-The installed command points to a fail-closed placeholder that returns nonzero,
-so all proposed candidates are reverted and no PR is opened until the consumer
-replaces it.
+The installed command runs a PowerShell fail-closed placeholder that returns
+nonzero, so all proposed candidates are reverted and no PR is opened until the
+consumer replaces it.
 
 For each candidate, the helper writes a version-1 request JSON and invokes the
 configured argv exactly, appending the absolute request path as its final

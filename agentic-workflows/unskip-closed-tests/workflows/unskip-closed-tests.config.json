@@ -29,8 +29,11 @@
   ],
   "verification": {
     "command": [
-      "bash",
-      ".github/workflows/unskip-closed-tests-verify.sh"
+      "pwsh",
+      "-NoLogo",
+      "-NoProfile",
+      "-File",
+      ".github/workflows/unskip-closed-tests-verify.ps1"
     ],
     "timeout_seconds": 1800
   }
