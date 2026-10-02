@@ -52,11 +52,12 @@ If your skill does not fit any existing plugin, consider creating a new one.
 
 To create a new plugin:
 
-1. Add `plugins/<plugin-name>/plugin.json`, an identical copy at
+1. Add `plugins/<plugin-name>/plugin.json`, a Claude compatibility manifest at
    `plugins/<plugin-name>/.claude-plugin/plugin.json`, a Codex-specific compatibility manifest at
    `plugins/<plugin-name>/.codex-plugin/plugin.json`, and a `skills/` directory beneath them.
-   The Codex manifest must contain only components its runtime loads; do not copy `agents` or
-   `lspServers` into it.
+   Start the Claude manifest as a copy of the root manifest, then preserve any host-specific field
+   values that Claude requires. The Codex manifest must contain only components its runtime loads;
+   do not copy `agents` or `lspServers` into it.
 2. Add a matching entry in `.github/plugin/marketplace.json`, `.claude-plugin/marketplace.json`, `.cursor-plugin/marketplace.json`, and `.agents/plugins/marketplace.json`. Keep names and `plugins[].source` values consistent across all marketplace manifests. Descriptions may be host-specific when a capability is unavailable there; for example, the Codex marketplace must not advertise `.agent.md` agents or LSP integration.
    Also add a `plugins/<plugin-name>/version.json` (copy an existing one) so the plugin participates in automated versioning. Start its `plugin.json` version at `0.1.0`.
 3. Add a CODEOWNERS entry for the new plugin and its tests (see [Code ownership](#code-ownership)).
@@ -88,10 +89,10 @@ Place experimental skills under `plugins/dotnet-experimental/skills/` with match
 
 Each plugin is versioned independently. Every plugin carries the manifests its consumers read:
 `plugins/<plugin>/plugin.json`, `plugins/<plugin>/.codex-plugin/plugin.json`, and
-`plugins/<plugin>/.claude-plugin/plugin.json`. The Claude manifest is an exact generated copy of
-the root manifest. The Codex manifest shares the stamped version but is host-specific and may omit
-unsupported root-manifest fields. Consumers (Copilot CLI, Claude, Codex, Cursor) read the version
-directly from this repository.
+`plugins/<plugin>/.claude-plugin/plugin.json`. The Claude and Codex manifests share the stamped
+version with the root manifest, but both can preserve host-specific fields or omit unsupported
+fields. Consumers (Copilot CLI, Claude, Codex, Cursor) read the version directly from this
+repository.
 
 Each `plugins/<plugin>/version.json` declares the plugin's major/minor release base and the files
 that count as effective plugin content. A calculated manifest version transition is a release

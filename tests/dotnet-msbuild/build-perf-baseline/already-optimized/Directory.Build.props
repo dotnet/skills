@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Documentation is only generated in CI, not on every dev inner-loop build -->
+    <GenerateDocumentationFile Condition="'$(ContinuousIntegrationBuild)' == 'true'">true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- Analyzers stay on in CI; the dev inner loop skips them for faster builds -->
+  <PropertyGroup>
+    <RunAnalyzers Condition="'$(ContinuousIntegrationBuild)' != 'true'">false</RunAnalyzers>
+    <EnforceCodeStyleInBuild Condition="'$(ContinuousIntegrationBuild)' == 'true'">true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+  </PropertyGroup>
+</Project>

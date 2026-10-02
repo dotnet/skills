@@ -1,0 +1,24 @@
+Target Performance Summary for ReportEngine.csproj (part of ReportSuite.sln, built with
+`dotnet build ReportSuite.sln -m`):
+
+      280 ms  CoreCompile                          1 calls
+   41,500 ms  GenerateReportTemplates (custom)      1 calls
+      120 ms  CopyFilesToOutputDirectory            1 calls
+
+Total ReportEngine project time: 42,300 ms (GenerateReportTemplates alone is
+about 98% of that).
+
+Node timeline (4 worker nodes available, -m already passed):
+
+  Node 1: busy 0 ms - 42,300 ms   building ReportEngine.csproj
+  Node 2: busy 0 ms - 3,100 ms    building ReportEngine.Contracts.csproj, then idle
+  Node 3: busy 0 ms - 2,900 ms    building ReportEngine.Contracts.csproj dependents, then idle
+  Node 4: busy 0 ms - 3,400 ms    building unrelated leaf projects, then idle
+
+Total wall-clock: 42,600 ms. Sum of all project times: 51,700 ms.
+
+Notes:
+- GenerateReportTemplates is a custom target defined in ReportEngine's own
+  .targets file. It shells out to a single-threaded legacy template compiler
+  tool once per build, synchronously, and is not split into per-file items.
+- Every other project in the solution finishes within the first 3.5 seconds.

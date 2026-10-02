@@ -1,0 +1,13 @@
+manifest-version: "1"
+min-version: v0.89.15
+name: Test Failure Analysis
+description: Analyzes bounded, normalized test evidence produced by a repository's CI collector.
+license: MIT
+includes:
+  - workflows/test-failure-analysis-fetch.md
+  - workflows/test-failure-analysis-shared.md
+  - workflows/test-failure-analysis.md
+  - agents/test-failure-analyst.agent.md
+config:
+  - type: copilot-auth
+    strategy: prompt-if-actions-auth-unavailable

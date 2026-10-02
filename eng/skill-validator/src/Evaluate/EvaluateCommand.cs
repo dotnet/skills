@@ -36,6 +36,8 @@ public static class EvaluateCommand
         var baselineOutOpt = new Option<string?>("--baseline-out") { Description = "After running, persist each scenario's averaged baseline (no-skill/no-agent reference) to this file for later reuse with --baseline-from." };
         var baselineFromOpt = new Option<string?>("--baseline-from") { Description = "Reuse a precomputed baseline from this file instead of re-running the no-skill/no-agent baseline arm. Must match --model, --judge-model, and each scenario's prompt, setup inputs, and evaluation criteria. Mutually exclusive with --baseline-out." };
         var noJudgeOpt = new Option<bool>("--no-judge") { Description = "Run the agent arms and persist sessions/metrics but skip all judging. Judging can be deferred to a later 'rejudge' step (optionally cross-directory). Implies session persistence and requires no baseline." };
+        var scenarioOpt = new Option<string[]>("--scenario") { Description = "Evaluate only the named scenario(s). Repeatable. Use to re-run a single scenario that failed transiently without re-running the whole eval.", AllowMultipleArgumentsPerToken = true };
+        var targetOpt = new Option<string[]>("--target") { Description = "Evaluate only the named target(s). Repeatable. Use with --scenario to scope a targeted retry to its owning skill or agent.", AllowMultipleArgumentsPerToken = true };
 
         var command = new Command("evaluate", "Evaluate agent skills via LLM-based testing")
         {
@@ -65,6 +67,8 @@ public static class EvaluateCommand
             baselineOutOpt,
             baselineFromOpt,
             noJudgeOpt,
+            scenarioOpt,
+            targetOpt,
         };
 
         command.Add(RejudgeCommand.Create());
@@ -119,12 +123,44 @@ public static class EvaluateCommand
                 BaselineOut = parseResult.GetValue(baselineOutOpt),
                 BaselineFrom = parseResult.GetValue(baselineFromOpt),
                 NoJudge = parseResult.GetValue(noJudgeOpt),
+                ScenarioFilter = parseResult.GetValue(scenarioOpt) ?? [],
+                TargetFilter = parseResult.GetValue(targetOpt) ?? [],
             };
 
             return await Run(config, cancellationToken);
         });
 
         return command;
+    }
+
+    internal static string GetSessionStatus(RunMetrics metrics, bool reused = false)
+    {
+        if (metrics.TimedOut)
+            return "timed_out";
+        if (metrics.TerminalErrorCount > 0)
+            return "failed";
+        if (reused)
+            return "reused";
+        return "completed";
+    }
+
+    internal static void ThrowIfRunExecutionFailed(
+        RunMetrics baseline,
+        RunMetrics isolated,
+        RunMetrics plugin)
+    {
+        var failedRoles = new List<string>();
+        if (baseline.TerminalErrorCount > 0 && !baseline.TimedOut)
+            failedRoles.Add($"baseline ({baseline.TerminalErrorCount} terminal error(s))");
+        if (isolated.TerminalErrorCount > 0 && !isolated.TimedOut)
+            failedRoles.Add($"isolated ({isolated.TerminalErrorCount} terminal error(s))");
+        if (plugin.TerminalErrorCount > 0 && !plugin.TimedOut)
+            failedRoles.Add($"plugin ({plugin.TerminalErrorCount} terminal error(s))");
+        if (failedRoles.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"Agent execution failed in: {string.Join(", ", failedRoles)}");
+        }
     }
 
     private static ReporterSpec ParseReporter(string value) => value switch
@@ -135,6 +171,51 @@ public static class EvaluateCommand
         "markdown" => new ReporterSpec(ReporterType.Markdown),
         _ => throw new ArgumentException($"Unknown reporter type: {value}"),
     };
+
+    /// <summary>
+    /// Restrict every target to the named scenarios, dropping targets that have none of them.
+    /// </summary>
+    /// <remarks>
+    /// Matching is ordinal and case-insensitive so a scenario name copied out of a results
+    /// file or a console report selects the same scenario the evaluator ran. Names that match
+    /// nothing are returned so the caller can fail instead of evaluating an empty set.
+    /// </remarks>
+    internal static (List<EvalTargetInfo> Targets, IReadOnlyList<string> UnknownScenarios)
+        FilterTargetsByScenario(IReadOnlyList<EvalTargetInfo> targets, IReadOnlyList<string> scenarioNames)
+    {
+        var wanted = new HashSet<string>(scenarioNames, StringComparer.OrdinalIgnoreCase);
+        var matched = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var filtered = new List<EvalTargetInfo>();
+
+        foreach (var target in targets)
+        {
+            if (target.EvalConfig is null)
+                continue;
+            var scenarios = target.EvalConfig.Scenarios
+                .Where(scenario => wanted.Contains(scenario.Name))
+                .ToList();
+            if (scenarios.Count == 0)
+                continue;
+            foreach (var scenario in scenarios)
+                matched.Add(scenario.Name);
+            filtered.Add(target with { EvalConfig = target.EvalConfig with { Scenarios = scenarios } });
+        }
+
+        var unknown = scenarioNames.Where(name => !matched.Contains(name)).Distinct().ToList();
+        return (filtered, unknown);
+    }
+
+    internal static (List<EvalTargetInfo> Targets, IReadOnlyList<string> UnknownTargets)
+        FilterTargetsByName(IReadOnlyList<EvalTargetInfo> targets, IReadOnlyList<string> targetNames)
+    {
+        var wanted = new HashSet<string>(targetNames, StringComparer.OrdinalIgnoreCase);
+        var filtered = targets.Where(target => wanted.Contains(target.Name)).ToList();
+        var matched = new HashSet<string>(
+            filtered.Select(target => target.Name),
+            StringComparer.OrdinalIgnoreCase);
+        var unknown = targetNames.Where(name => !matched.Contains(name)).Distinct().ToList();
+        return (filtered, unknown);
+    }
 
     public static async Task<int> Run(ValidatorConfig config, CancellationToken cancellationToken = default)
     {
@@ -329,9 +410,38 @@ public static class EvaluateCommand
                 McpServers: mcpServers));
         }
 
+        if (config.TargetFilter.Count > 0)
+        {
+            var (filteredTargets, unknownTargets) = FilterTargetsByName(allTargets, config.TargetFilter);
+            if (unknownTargets.Count > 0)
+            {
+                Console.Error.WriteLine(
+                    $"{Ansi.Red}❌ --target matched no target named: {string.Join(", ", unknownTargets)}{Ansi.Reset}");
+                return 1;
+            }
+            allTargets = filteredTargets;
+            Console.WriteLine(
+                $"Target filter active: evaluating only {string.Join(", ", config.TargetFilter)}");
+        }
+
+        if (config.ScenarioFilter.Count > 0)
+        {
+            var (filteredTargets, unknownScenarios) = FilterTargetsByScenario(allTargets, config.ScenarioFilter);
+            if (unknownScenarios.Count > 0)
+            {
+                // A misspelled scenario would otherwise silently evaluate nothing and
+                // report a clean run, which is exactly the shape of a hidden failure.
+                Console.Error.WriteLine(
+                    $"{Ansi.Red}❌ --scenario matched no scenario named: {string.Join(", ", unknownScenarios)}{Ansi.Reset}");
+                return 1;
+            }
+            allTargets = filteredTargets;
+            Console.WriteLine(
+                $"Scenario filter active: evaluating only {string.Join(", ", config.ScenarioFilter)}");
+        }
+
         if (config.Runs < 5)
             Console.WriteLine($"{Ansi.Yellow}⚠  Running with {config.Runs} run(s). For statistically significant results, use --runs 5 or higher.{Ansi.Reset}");
-
         bool usePairwise = config.JudgeMode is JudgeMode.Pairwise or JudgeMode.Both;
         // --no-judge defers judging to a later rejudge step, which reads sessions.db, so it
         // must persist sessions even when --keep-sessions was not passed.
@@ -614,9 +724,14 @@ public static class EvaluateCommand
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
                 {
+                    var error = SanitizeErrorMessage(ex.Message);
                     var tag = singleScenario ? $"[{agent.Name}]" : $"[{agent.Name}/{scenario.Name}]";
-                    spinner.Log($"{tag} {Ansi.Yellow}⚠️  Scenario failed: {SanitizeErrorMessage(ex.Message)}{Ansi.Reset}");
-                    return CreateFailedScenarioComparison(scenario.Name, SanitizeErrorMessage(ex.Message));
+                    spinner.Log($"{tag} {Ansi.Yellow}⚠️  Scenario failed: {error}{Ansi.Reset}");
+                    MarkFailedScenarioSessions(sessionDb, agent.Name, scenario.Name);
+                    return CreateFailedScenarioComparison(
+                        scenario.Name,
+                        error,
+                        scenario.ExpectActivation);
                 }
             }, cancellationToken));
         var comparisons = (await Task.WhenAll(scenarioTasks)).ToList();
@@ -624,15 +739,19 @@ public static class EvaluateCommand
         // --no-judge: agents ran and sessions were persisted, but no judging happened.
         if (config.NoJudge)
         {
+            ThrowIfScenarioExecutionFailed(comparisons, agent.Name);
             log($"✓ Runs complete (no judging) for {comparisons.Count} scenario(s)");
             return null;
         }
 
+        var preferenceComparisons = comparisons.Where(c => c.ExpectActivation).ToList();
         var verdict = Comparator.ComputeAgentVerdict(
             new SkillInfo(agent.Name, agent.Description, agent.Path, agent.Path, agent.AgentMdContent),
-            comparisons, config.MinImprovement, config.RequireCompletion, config.ConfidenceLevel);
+            preferenceComparisons, config.MinImprovement, config.RequireCompletion, config.ConfidenceLevel,
+            reportedComparisons: comparisons);
         verdict.SkillKind = "agent";
         ApplyAgentActivationGate(verdict, comparisons, agent.Name, log);
+        ApplyExecutionErrorGate(verdict, comparisons, log);
 
         log($"{(verdict.Passed ? "✅" : "❌")} Done (score: {verdict.OverallImprovementScore * 100:F1}%)");
         return verdict;
@@ -648,11 +767,18 @@ public static class EvaluateCommand
         // Only the isolated arm participates in the agent verdict. The plugin arm
         // is production-surface telemetry, matching ComputeAgentVerdict's score gate.
         var notActivatedIsolated = comparisons.Where(c =>
-            c.SubagentActivationIsolated is { } sa && !sa.InvokedAgents.Any(n => n.Equals(agentName, StringComparison.OrdinalIgnoreCase))
-            && c.ExpectActivation).ToList();
+            c.ExpectActivation
+            && (c.SubagentActivationIsolated is null
+                || !c.SubagentActivationIsolated.InvokedAgents.Any(
+                    n => n.Equals(agentName, StringComparison.OrdinalIgnoreCase)))).ToList();
         var notActivatedPlugin = comparisons.Where(c =>
-            c.SubagentActivationPlugin is { } sa && !sa.InvokedAgents.Any(n => n.Equals(agentName, StringComparison.OrdinalIgnoreCase))
-            && c.ExpectActivation).ToList();
+            c.ExpectActivation
+            && (c.SubagentActivationPlugin is null
+                || !c.SubagentActivationPlugin.InvokedAgents.Any(
+                    n => n.Equals(agentName, StringComparison.OrdinalIgnoreCase)))).ToList();
+        var unexpectedlyActivated = comparisons.Where(c =>
+            c.SubagentActivationIsolated is { } sa && sa.InvokedAgents.Any(n => n.Equals(agentName, StringComparison.OrdinalIgnoreCase))
+            && !c.ExpectActivation).ToList();
 
         if (notActivatedIsolated.Count > 0)
         {
@@ -668,6 +794,14 @@ public static class EvaluateCommand
             var names = string.Join(", ", notActivatedPlugin.Select(c => c.ScenarioName));
             log($"{Ansi.Yellow}⚠️  Agent NOT activated (plugin) in: {names}{Ansi.Reset}");
             verdict.Reason += $" [AGENT NOT ACTIVATED (plugin) in {notActivatedPlugin.Count} scenario(s)]";
+        }
+        if (unexpectedlyActivated.Count > 0)
+        {
+            var names = string.Join(", ", unexpectedlyActivated.Select(c => c.ScenarioName));
+            log($"{Ansi.Yellow}⚠️  Agent activated unexpectedly (isolated) in: {names}{Ansi.Reset}");
+            verdict.Passed = false;
+            verdict.FailureKind = FailureKind.UnexpectedActivation;
+            verdict.Reason += $" [UNEXPECTED AGENT ACTIVATION (isolated) in {unexpectedlyActivated.Count} scenario(s)]";
         }
     }
 
@@ -715,6 +849,7 @@ public static class EvaluateCommand
                 catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
                 {
                     scenarioLog($"{Ansi.Yellow}⚠️  Run {i + 1} failed: {SanitizeErrorMessage(ex.Message)}{Ansi.Reset}");
+                    MarkFailedScenarioSessions(sessionDb, agent.Name, scenario.Name, i);
                     return (Result: (RunExecutionResult?)null, Error: ex);
                 }
             }, cancellationToken));
@@ -722,9 +857,8 @@ public static class EvaluateCommand
         var runResults = settledRuns.Where(s => s.Result is not null).Select(s => s.Result!).ToArray();
         var failedRunCount = settledRuns.Count(s => s.Error is not null);
         if (failedRunCount > 0)
-            scenarioLog($"{Ansi.Yellow}⚠️  {failedRunCount}/{config.Runs} run(s) failed{Ansi.Reset}");
-        if (runResults.Length == 0)
-            throw new InvalidOperationException($"All {config.Runs} run(s) failed for scenario '{scenario.Name}'");
+            throw new InvalidOperationException(
+                $"{failedRunCount}/{config.Runs} run(s) failed for scenario '{scenario.Name}'");
 
         scenarioLog($"✓ {runResults.Length}/{config.Runs} run(s) complete");
 
@@ -832,6 +966,9 @@ public static class EvaluateCommand
     /// <summary>
     /// Execute a single run of baseline + agent-isolated + agent-plugin for one scenario.
     /// </summary>
+    internal static bool ShouldSelectAgentAsPrimary(EvalScenario scenario) =>
+        scenario.ExpectActivation;
+
     private static async Task<RunExecutionResult> ExecuteAgentRun(
         int runIndex,
         EvalScenario scenario,
@@ -871,11 +1008,11 @@ public static class EvaluateCommand
         var reusedBaseline = baselineStore?.TryGetBaseline(scenario, target.EvalPath);
 
         sessionDb?.RegisterSession(baselineSessionId, agent.Name, agent.Path, scenario.Name, runIndex,
-            reusedBaseline is not null ? "baseline-reused" : "baseline", config.Model, baselineConfigDir, null, scenario.Prompt, targetSha, rubricJson, baselineKey);
+            reusedBaseline is not null ? "baseline-reused" : "baseline", config.Model, baselineConfigDir, null, scenario.Prompt, targetSha, rubricJson, baselineKey, scenario.ExpectActivation);
         sessionDb?.RegisterSession(isolatedSessionId, agent.Name, agent.Path, scenario.Name, runIndex,
-            "with-agent-isolated", config.Model, isolatedConfigDir, null, scenario.Prompt, targetSha, rubricJson, baselineKey);
+            "with-agent-isolated", config.Model, isolatedConfigDir, null, scenario.Prompt, targetSha, rubricJson, baselineKey, scenario.ExpectActivation);
         sessionDb?.RegisterSession(pluginSessionId, agent.Name, agent.Path, scenario.Name, runIndex,
-            "with-agent-plugin", config.Model, pluginConfigDir, null, scenario.Prompt, targetSha, rubricJson, baselineKey);
+            "with-agent-plugin", config.Model, pluginConfigDir, null, scenario.Prompt, targetSha, rubricJson, baselineKey, scenario.ExpectActivation);
 
         // Resolve additional_required_skills/agents for the isolated run
         IReadOnlyList<SkillInfo>? additionalSkills = null;
@@ -894,15 +1031,18 @@ public static class EvaluateCommand
             additionalAgents = await ResolveAdditionalAgents(agentDependencies, pluginRoot, target.EvalPath);
         }
 
-        // 2. Agent-isolated: target agent only (+ declared skill/agent dependencies).
+        // 2. Agent-isolated: register the target and only its declared dependencies.
+        // Expected-active scenarios select it as primary; dormant scenarios leave
+        // routing to the model so activation telemetry measures organic selection.
         var isolatedTask = AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
             PluginRoot: null, Log: runLog, McpServers: target.McpServers, SessionsDir: sessionsDir,
             SessionId: isolatedSessionId, Agent: agent, AdditionalSkills: additionalSkills,
-            AdditionalAgents: additionalAgents, SelectAgentAsPrimary: false), cancellationToken);
-        // 3. Agent-plugin: full production plugin skills and agents.
+            AdditionalAgents: additionalAgents, SelectAgentAsPrimary: ShouldSelectAgentAsPrimary(scenario)), cancellationToken);
+        // 3. Agent-plugin: use the same selection rule with the full production
+        // plugin skill and agent surface available for routing and diagnostics.
         var pluginTask = AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
             PluginRoot: pluginRoot, Log: runLog, McpServers: target.McpServers, SessionsDir: sessionsDir,
-            SessionId: pluginSessionId, Agent: agent, SelectAgentAsPrimary: false), cancellationToken);
+            SessionId: pluginSessionId, Agent: agent, SelectAgentAsPrimary: ShouldSelectAgentAsPrimary(scenario)), cancellationToken);
 
         RunMetrics baselineMetrics;
         RunMetrics isolatedMetrics;
@@ -929,13 +1069,14 @@ public static class EvaluateCommand
 
         if (sessionDb is not null)
         {
-            sessionDb.CompleteSession(baselineSessionId, reusedBaseline is not null ? "reused" : (baselineMetrics.TimedOut ? "timed_out" : "completed"),
+            sessionDb.CompleteSession(baselineSessionId, GetSessionStatus(baselineMetrics, reusedBaseline is not null),
                 JsonSerializer.Serialize(baselineMetrics, SkillValidatorJsonContext.Default.RunMetrics));
-            sessionDb.CompleteSession(isolatedSessionId, isolatedMetrics.TimedOut ? "timed_out" : "completed",
+            sessionDb.CompleteSession(isolatedSessionId, GetSessionStatus(isolatedMetrics),
                 JsonSerializer.Serialize(isolatedMetrics, SkillValidatorJsonContext.Default.RunMetrics));
-            sessionDb.CompleteSession(pluginSessionId, pluginMetrics.TimedOut ? "timed_out" : "completed",
+            sessionDb.CompleteSession(pluginSessionId, GetSessionStatus(pluginMetrics),
                 JsonSerializer.Serialize(pluginMetrics, SkillValidatorJsonContext.Default.RunMetrics));
         }
+        ThrowIfRunExecutionFailed(baselineMetrics, isolatedMetrics, pluginMetrics);
 
         // Assertions, constraints, task completion, judging — same as skills.
         // Baseline arm is skipped when reused (its results are cached).
@@ -975,7 +1116,7 @@ public static class EvaluateCommand
         {
             if (sessionDb is not null)
             {
-                sessionDb.CompleteSession(baselineSessionId, baselineMetrics.TimedOut ? "timed_out" : "completed",
+                sessionDb.CompleteSession(baselineSessionId, reusedBaseline is not null ? "reused" : (baselineMetrics.TimedOut ? "timed_out" : "completed"),
                     JsonSerializer.Serialize(baselineMetrics, SkillValidatorJsonContext.Default.RunMetrics));
                 sessionDb.CompleteSession(isolatedSessionId, isolatedMetrics.TimedOut ? "timed_out" : "completed",
                     JsonSerializer.Serialize(isolatedMetrics, SkillValidatorJsonContext.Default.RunMetrics));
@@ -1121,7 +1262,7 @@ public static class EvaluateCommand
 
         // Launch overfitting check in parallel with scenario execution (skipped under --no-judge,
         // which defers all LLM judging to a later step).
-        var workDir = Path.GetTempPath();
+        var workDir = AgentRunner.CreatePrivateWorkDir("overfitting");
         Task<OverfittingResult?> overfittingTask = Task.FromResult<OverfittingResult?>(null);
         if (config.OverfittingCheck && evalSkill.EvalConfig is not null && !config.NoJudge)
         {
@@ -1148,9 +1289,14 @@ public static class EvaluateCommand
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
                 {
+                    var error = SanitizeErrorMessage(ex.Message);
                     var tag = singleScenario ? $"[{skill.Name}]" : $"[{skill.Name}/{scenario.Name}]";
-                    spinner.Log($"{tag} {Ansi.Yellow}⚠️  Scenario failed: {SanitizeErrorMessage(ex.Message)}{Ansi.Reset}");
-                    return CreateFailedScenarioComparison(scenario.Name, SanitizeErrorMessage(ex.Message));
+                    spinner.Log($"{tag} {Ansi.Yellow}⚠️  Scenario failed: {error}{Ansi.Reset}");
+                    MarkFailedScenarioSessions(sessionDb, skill.Name, scenario.Name);
+                    return CreateFailedScenarioComparison(
+                        scenario.Name,
+                        error,
+                        scenario.ExpectActivation);
                 }
             }, cancellationToken));
         var comparisons = (await Task.WhenAll(scenarioTasks)).ToList();
@@ -1159,6 +1305,7 @@ public static class EvaluateCommand
         // but no judging or comparison was performed. There is no verdict to compute or report.
         if (config.NoJudge)
         {
+            ThrowIfScenarioExecutionFailed(comparisons, skill.Name);
             log($"✓ Runs complete (no judging) for {comparisons.Count} scenario(s)");
             return null;
         }
@@ -1176,8 +1323,17 @@ public static class EvaluateCommand
             log($"⚠️ Overfitting check failed: {ex.Message}");
         }
 
-        var verdict = Comparator.ComputeVerdict(skill, comparisons, config.MinImprovement, config.RequireCompletion, config.ConfidenceLevel);
+        var preferenceComparisons = comparisons.Where(c => c.ExpectActivation).ToList();
+        var verdict = Comparator.ComputeVerdict(
+            skill,
+            preferenceComparisons,
+            config.MinImprovement,
+            config.RequireCompletion,
+            config.ConfidenceLevel,
+            reportedComparisons: comparisons);
         verdict.OverfittingResult = overfittingResult;
+        ApplySkillActivationGate(verdict, comparisons, skill.Name, log);
+        ApplyExecutionErrorGate(verdict, comparisons, log);
 
         // Optional: generate fixed eval.yaml
         if (config.OverfittingFix && overfittingResult is { Severity: not OverfittingSeverity.Low })
@@ -1194,17 +1350,50 @@ public static class EvaluateCommand
             }
         }
 
-        var notActivatedIsolated = comparisons.Where(c => c.SkillActivationIsolated is { Activated: false } && c.ExpectActivation).ToList();
-        var notActivatedPlugin = comparisons.Where(c => c.SkillActivationPlugin is { Activated: false } && c.ExpectActivation).ToList();
-        var expectedNotActivated = comparisons.Where(c =>
-            (c.SkillActivationIsolated is { Activated: false } || c.SkillActivationPlugin is { Activated: false }) && !c.ExpectActivation).ToList();
-
-        if (expectedNotActivated.Count > 0)
+        var timedOutScenarios = comparisons.Where(c => c.TimedOut).ToList();
+        if (timedOutScenarios.Count > 0)
         {
-            var names = string.Join(", ", expectedNotActivated.Select(c => c.ScenarioName));
-            log($"{Ansi.Cyan}ℹ️  Skill correctly NOT activated in negative-test scenario(s): {names}{Ansi.Reset}");
+            var names = string.Join(", ", timedOutScenarios.Select(c => c.ScenarioName));
+            log($"{Ansi.Yellow}⏰ Execution timed out in scenario(s): {names}{Ansi.Reset}");
         }
 
+        log($"{(verdict.Passed ? "✅" : "❌")} Done (score: {verdict.OverallImprovementScore * 100:F1}%)");
+        return verdict;
+    }
+
+    internal static void ApplySkillActivationGate(
+        SkillVerdict verdict,
+        IReadOnlyList<ScenarioComparison> comparisons,
+        string skillName,
+        Action<string> log)
+    {
+        var notActivatedIsolated = comparisons.Where(c =>
+            c.ExpectActivation
+            && c.SkillActivationIsolated?.Activated != true).ToList();
+        var notActivatedPlugin = comparisons.Where(c =>
+            c.ExpectActivation
+            && c.SkillActivationPlugin?.Activated != true).ToList();
+        var correctlyDormant = comparisons.Where(c =>
+            !c.ExpectActivation
+            && c.SkillActivationIsolated is { Activated: false }).ToList();
+        var unexpectedlyActivated = comparisons.Where(c =>
+            !c.ExpectActivation
+            && c.SkillActivationIsolated is { Activated: true }).ToList();
+        var dormantPluginActivation = comparisons.Where(c =>
+            !c.ExpectActivation
+            && c.SkillActivationPlugin is { Activated: true }).ToList();
+
+        if (correctlyDormant.Count > 0)
+        {
+            var names = string.Join(", ", correctlyDormant.Select(c => c.ScenarioName));
+            log($"{Ansi.Cyan}ℹ️  Skill correctly NOT activated (isolated) in dormant scenario(s): {names}{Ansi.Reset}");
+        }
+        if (dormantPluginActivation.Count > 0)
+        {
+            var names = string.Join(", ", dormantPluginActivation.Select(c => c.ScenarioName));
+            log($"{Ansi.Cyan}ℹ️  Skill activated in plugin diagnostics for dormant scenario(s): {names}{Ansi.Reset}");
+            verdict.Reason += $" [PLUGIN ACTIVATION DIAGNOSTIC in {dormantPluginActivation.Count} dormant scenario(s)]";
+        }
         if (notActivatedIsolated.Count > 0)
         {
             var names = string.Join(", ", notActivatedIsolated.Select(c => c.ScenarioName));
@@ -1223,16 +1412,73 @@ public static class EvaluateCommand
             verdict.FailureKind = FailureKind.SkillNotActivated;
             verdict.Reason += $" [NOT ACTIVATED (plugin) in {notActivatedPlugin.Count} scenario(s)]";
         }
-
-        var timedOutScenarios = comparisons.Where(c => c.TimedOut).ToList();
-        if (timedOutScenarios.Count > 0)
+        if (unexpectedlyActivated.Count > 0)
         {
-            var names = string.Join(", ", timedOutScenarios.Select(c => c.ScenarioName));
-            log($"{Ansi.Yellow}⏰ Execution timed out in scenario(s): {names}{Ansi.Reset}");
+            var names = string.Join(", ", unexpectedlyActivated.Select(c => c.ScenarioName));
+            log($"{Ansi.Yellow}⚠️  Skill unexpectedly activated (isolated) in dormant scenario(s): {names}{Ansi.Reset}");
+            verdict.Passed = false;
+            verdict.FailureKind = FailureKind.UnexpectedActivation;
+            verdict.Reason += $" [UNEXPECTED ACTIVATION (isolated) in {unexpectedlyActivated.Count} dormant scenario(s)]";
         }
+    }
 
-        log($"{(verdict.Passed ? "✅" : "❌")} Done (score: {verdict.OverallImprovementScore * 100:F1}%)");
-        return verdict;
+    internal static bool HasSkillActivationContractFailure(
+        ScenarioComparison comparison) =>
+        comparison.ExpectActivation
+            ? comparison.SkillActivationIsolated?.Activated != true
+                || comparison.SkillActivationPlugin?.Activated != true
+            : comparison.SkillActivationIsolated is { Activated: true };
+
+    internal static void ApplyExecutionErrorGate(
+        SkillVerdict verdict,
+        IReadOnlyList<ScenarioComparison> comparisons,
+        Action<string> log)
+    {
+        var failed = comparisons
+            .Where(c => !string.IsNullOrWhiteSpace(c.ExecutionError))
+            .ToList();
+        if (failed.Count == 0)
+            return;
+
+        var names = string.Join(", ", failed.Select(c => c.ScenarioName));
+        log($"{Ansi.Yellow}⚠️  Scenario execution failed in: {names}{Ansi.Reset}");
+        verdict.Passed = false;
+        verdict.FailureKind = FailureKind.ExecutionError;
+        verdict.Reason += $" [EXECUTION ERROR in {failed.Count} scenario(s)]";
+    }
+
+    private static void MarkFailedScenarioSessions(
+        SessionDatabase? sessionDb,
+        string targetName,
+        string scenarioName,
+        int? runIndex = null)
+    {
+        if (sessionDb is null)
+            return;
+
+        var metrics = new RunMetrics { ErrorCount = 1 };
+        sessionDb.FailRunningSessions(
+            targetName,
+            scenarioName,
+            JsonSerializer.Serialize(
+                metrics,
+                SkillValidatorJsonContext.Default.RunMetrics),
+            runIndex);
+    }
+
+    internal static void ThrowIfScenarioExecutionFailed(
+        IReadOnlyList<ScenarioComparison> comparisons,
+        string targetName)
+    {
+        var failed = comparisons
+            .Where(c => !string.IsNullOrWhiteSpace(c.ExecutionError))
+            .ToList();
+        if (failed.Count == 0)
+            return;
+
+        throw new InvalidOperationException(
+            $"{targetName} scenario execution failed: "
+            + string.Join(", ", failed.Select(c => c.ScenarioName)));
     }
 
     private static async Task<ScenarioComparison> ExecuteScenario(
@@ -1276,6 +1522,7 @@ public static class EvaluateCommand
                 catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
                 {
                     scenarioLog($"{Ansi.Yellow}⚠️  Run {i + 1} failed: {SanitizeErrorMessage(ex.Message)}{Ansi.Reset}");
+                    MarkFailedScenarioSessions(sessionDb, skill.Name, scenario.Name, i);
                     return (Result: (RunExecutionResult?)null, Error: ex);
                 }
             }, cancellationToken));
@@ -1283,9 +1530,8 @@ public static class EvaluateCommand
         var runResults = settledRuns.Where(s => s.Result is not null).Select(s => s.Result!).ToArray();
         var failedRunCount = settledRuns.Count(s => s.Error is not null);
         if (failedRunCount > 0)
-            scenarioLog($"{Ansi.Yellow}⚠️  {failedRunCount}/{config.Runs} run(s) failed{Ansi.Reset}");
-        if (runResults.Length == 0)
-            throw new InvalidOperationException($"All {config.Runs} run(s) failed for scenario '{scenario.Name}'");
+            throw new InvalidOperationException(
+                $"{failedRunCount}/{config.Runs} run(s) failed for scenario '{scenario.Name}'");
 
         scenarioLog($"✓ {runResults.Length}/{config.Runs} run(s) complete");
 
@@ -1495,11 +1741,11 @@ public static class EvaluateCommand
         var reusedBaseline = baselineStore?.TryGetBaseline(scenario, evalSkill.EvalPath);
 
         sessionDb?.RegisterSession(baselineSessionId, skill.Name, skill.Path, scenario.Name, runIndex,
-            reusedBaseline is not null ? "baseline-reused" : "baseline", config.Model, baselineConfigDir, null, scenario.Prompt, skillSha, rubricJson, baselineKey);
+            reusedBaseline is not null ? "baseline-reused" : "baseline", config.Model, baselineConfigDir, null, scenario.Prompt, skillSha, rubricJson, baselineKey, scenario.ExpectActivation);
         sessionDb?.RegisterSession(isolatedSessionId, skill.Name, skill.Path, scenario.Name, runIndex,
-            "with-skill-isolated", config.Model, isolatedConfigDir, null, scenario.Prompt, skillSha, rubricJson, baselineKey);
+            "with-skill-isolated", config.Model, isolatedConfigDir, null, scenario.Prompt, skillSha, rubricJson, baselineKey, scenario.ExpectActivation);
         sessionDb?.RegisterSession(pluginSessionId, skill.Name, skill.Path, scenario.Name, runIndex,
-            "with-skill-plugin", config.Model, pluginConfigDir, null, scenario.Prompt, skillSha, rubricJson, baselineKey);
+            "with-skill-plugin", config.Model, pluginConfigDir, null, scenario.Prompt, skillSha, rubricJson, baselineKey, scenario.ExpectActivation);
 
         // Resolve additional_required_skills/agents for the isolated skill run
         IReadOnlyList<SkillInfo>? additionalSkills = null;
@@ -1546,13 +1792,14 @@ public static class EvaluateCommand
 
         if (sessionDb is not null)
         {
-            var baselineStatus = reusedBaseline is not null ? "reused" : (baselineMetrics.TimedOut ? "timed_out" : "completed");
-            var isolatedStatus = isolatedMetrics.TimedOut ? "timed_out" : "completed";
-            var pluginStatus = pluginMetrics.TimedOut ? "timed_out" : "completed";
+            var baselineStatus = GetSessionStatus(baselineMetrics, reusedBaseline is not null);
+            var isolatedStatus = GetSessionStatus(isolatedMetrics);
+            var pluginStatus = GetSessionStatus(pluginMetrics);
             sessionDb.CompleteSession(baselineSessionId, baselineStatus, JsonSerializer.Serialize(baselineMetrics, SkillValidatorJsonContext.Default.RunMetrics));
             sessionDb.CompleteSession(isolatedSessionId, isolatedStatus, JsonSerializer.Serialize(isolatedMetrics, SkillValidatorJsonContext.Default.RunMetrics));
             sessionDb.CompleteSession(pluginSessionId, pluginStatus, JsonSerializer.Serialize(pluginMetrics, SkillValidatorJsonContext.Default.RunMetrics));
         }
+        ThrowIfRunExecutionFailed(baselineMetrics, isolatedMetrics, pluginMetrics);
 
         // Evaluate assertions on the skilled runs (baseline assertions are cached when reused)
         if (scenario.Assertions is { Count: > 0 })
@@ -1596,7 +1843,7 @@ public static class EvaluateCommand
         {
             if (sessionDb is not null)
             {
-                sessionDb.CompleteSession(baselineSessionId, baselineMetrics.TimedOut ? "timed_out" : "completed",
+                sessionDb.CompleteSession(baselineSessionId, reusedBaseline is not null ? "reused" : (baselineMetrics.TimedOut ? "timed_out" : "completed"),
                     JsonSerializer.Serialize(baselineMetrics, SkillValidatorJsonContext.Default.RunMetrics));
                 sessionDb.CompleteSession(isolatedSessionId, isolatedMetrics.TimedOut ? "timed_out" : "completed",
                     JsonSerializer.Serialize(isolatedMetrics, SkillValidatorJsonContext.Default.RunMetrics));
@@ -2054,7 +2301,10 @@ public static class EvaluateCommand
     /// Creates a degraded ScenarioComparison for a scenario that failed with an exception.
     /// This allows the evaluation to continue with other scenarios instead of aborting.
     /// </summary>
-    internal static ScenarioComparison CreateFailedScenarioComparison(string scenarioName, string errorMessage)
+    internal static ScenarioComparison CreateFailedScenarioComparison(
+        string scenarioName,
+        string errorMessage,
+        bool expectActivation = true)
     {
         var emptyMetrics = new RunMetrics { ErrorCount = 1 };
         var emptyJudge = new JudgeResult([], 0, $"Scenario failed: {errorMessage}");
@@ -2069,6 +2319,7 @@ public static class EvaluateCommand
             ImprovementScore = 0,
             Breakdown = emptyBreakdown,
             ExecutionError = errorMessage,
+            ExpectActivation = expectActivation,
         };
     }
 
@@ -2088,7 +2339,9 @@ public static class EvaluateCommand
             if (evalPath is not null)
             {
                 var content = await File.ReadAllTextAsync(evalPath);
-                evalConfig = EvalSchema.ParseEvalConfig(content);
+                evalConfig = EvalSchema.ParseEvalConfigFlexible(content)
+                    ?? throw new InvalidOperationException(
+                        $"Skill eval '{evalPath}' does not contain any valid stimuli or scenarios.");
             }
 
             result.Add(new EvalSkillInfo(

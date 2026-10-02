@@ -17,7 +17,17 @@ jobs:
     env:
       VALIDATE_PAT: |
         if [ -z "$COPILOT_GITHUB_TOKEN" ]; then echo "status=empty" >> "$GITHUB_OUTPUT"; exit 0; fi
-        set +e; timeout 30 copilot --prompt "Say OK" --available-tools="" --silent --effort=low; rc=$?; set -e
+        probe_log=$(mktemp)
+        set +e
+        timeout 30 copilot --prompt "Say OK" --available-tools="" --silent --effort=low >"$probe_log" 2>&1
+        rc=$?
+        if [ $rc -ne 0 ] && grep -Fq "does not support reasoning effort configuration" "$probe_log"; then
+          timeout 30 copilot --prompt "Say OK" --available-tools="" --silent >"$probe_log" 2>&1
+          rc=$?
+        fi
+        set -e
+        cat "$probe_log"
+        rm -f "$probe_log"
         if [ $rc -eq 0 ]; then echo "status=valid" >> "$GITHUB_OUTPUT"
         elif [ $rc -eq 124 ]; then echo "status=unknown" >> "$GITHUB_OUTPUT"
         else echo "status=invalid" >> "$GITHUB_OUTPUT"; fi

@@ -4,11 +4,12 @@ using SkillValidator.Shared;
 
 namespace SkillValidator.Tests;
 
+[TestClass]
 public class OverfittingJudgeTests
 {
     // --- Score computation tests ---
 
-    [Fact]
+    [TestMethod]
     public void ComputeScore_AllOutcomeBroad_ReturnsZero()
     {
         var rubric = new List<RubricOverfitAssessment>
@@ -22,10 +23,10 @@ public class OverfittingJudgeTests
         };
 
         var score = OverfittingJudge.ComputeOverfittingScore(rubric, assertions);
-        Assert.Equal(0.0, score);
+        Assert.AreEqual(0.0, score);
     }
 
-    [Fact]
+    [TestMethod]
     public void ComputeScore_AllVocabularyNarrow_ReturnsHigh()
     {
         var rubric = new List<RubricOverfitAssessment>
@@ -42,10 +43,10 @@ public class OverfittingJudgeTests
         // rubricAvg = (1.0*0.9 + 1.0*0.8) / 2 = 0.85
         // assertionAvg = (1.0*0.95) / 1 = 0.95
         // combined = 0.7*0.85 + 0.3*0.95 = 0.595 + 0.285 = 0.88
-        Assert.True(score > 0.5, $"Expected high score, got {score}");
+        Assert.IsTrue(score > 0.5, $"Expected high score, got {score}");
     }
 
-    [Fact]
+    [TestMethod]
     public void ComputeScore_MixedClassifications_ReturnsMedium()
     {
         var rubric = new List<RubricOverfitAssessment>
@@ -64,19 +65,19 @@ public class OverfittingJudgeTests
         // rubricAvg = (0 + 0.5*0.7 + 1.0*0.8) / 3 = (0 + 0.35 + 0.8) / 3 = 0.3833
         // assertionAvg = (0 + 1.0*0.85) / 2 = 0.425
         // combined = 0.7*0.3833 + 0.3*0.425 = 0.26833 + 0.1275 = 0.3958
-        Assert.True(score > 0.2 && score < 0.5, $"Expected moderate score, got {score}");
+        Assert.IsTrue(score > 0.2 && score < 0.5, $"Expected moderate score, got {score}");
     }
 
-    [Fact]
+    [TestMethod]
     public void ComputeScore_EmptyInputs_ReturnsZero()
     {
         var score = OverfittingJudge.ComputeOverfittingScore(
             new List<RubricOverfitAssessment>(),
             new List<AssertionOverfitAssessment>());
-        Assert.Equal(0.0, score);
+        Assert.AreEqual(0.0, score);
     }
 
-    [Fact]
+    [TestMethod]
     public void ComputeScore_TechniqueOnly_ReturnsMedium()
     {
         var rubric = new List<RubricOverfitAssessment>
@@ -89,7 +90,7 @@ public class OverfittingJudgeTests
         // rubricAvg = 0.5 * 1.0 / 1 = 0.5
         // assertionAvg = 0 (no assertions)
         // combined = 0.7 * 0.5 + 0.3 * 0 = 0.35
-        Assert.Equal(0.35, score, 2);
+        Assert.AreEqual(0.35, Math.Round(score, 2));
     }
 
     // --- JSON response parsing tests ---
@@ -139,18 +140,18 @@ public class OverfittingJudgeTests
         overall_reasoning = "The eval has moderate overfitting due to vocabulary testing."
     });
 
-    [Fact]
+    [TestMethod]
     public void ParseResponse_ValidJson_ParsesCorrectly()
     {
         var result = OverfittingJudge.ParseOverfittingResponse(ValidOverfittingJson);
 
-        Assert.Equal(2, result.RubricAssessments.Count);
-        Assert.Equal(2, result.AssertionAssessments.Count);
-        Assert.Single(result.CrossScenarioIssues);
-        Assert.NotEmpty(result.OverallReasoning);
+        Assert.AreEqual(2, result.RubricAssessments.Count);
+        Assert.AreEqual(2, result.AssertionAssessments.Count);
+        Assert.ContainsSingle(result.CrossScenarioIssues);
+        Assert.IsNotEmpty(result.OverallReasoning);
     }
 
-    [Fact]
+    [TestMethod]
     public void ParseResponse_ValidJson_ComputesBlendedScore()
     {
         var result = OverfittingJudge.ParseOverfittingResponse(ValidOverfittingJson);
@@ -160,47 +161,47 @@ public class OverfittingJudgeTests
         //           computed = 0.7*0.45 + 0.3*0.45 = 0.45
         // LLM overall = 0.45
         // Final = 0.6*0.45 + 0.4*0.45 = 0.45
-        Assert.True(result.Score >= 0.0 && result.Score <= 1.0);
+        Assert.IsTrue(result.Score >= 0.0 && result.Score <= 1.0);
     }
 
-    [Fact]
+    [TestMethod]
     public void ParseResponse_InCodeBlock_ParsesCorrectly()
     {
         var content = "```json\n" + ValidOverfittingJson + "\n```";
         var result = OverfittingJudge.ParseOverfittingResponse(content);
 
-        Assert.Equal(2, result.RubricAssessments.Count);
-        Assert.Equal(2, result.AssertionAssessments.Count);
+        Assert.AreEqual(2, result.RubricAssessments.Count);
+        Assert.AreEqual(2, result.AssertionAssessments.Count);
     }
 
-    [Fact]
+    [TestMethod]
     public void ParseResponse_WithSurroundingText_ParsesCorrectly()
     {
         var content = "Here is my analysis:\n\n" + ValidOverfittingJson + "\n\nThat concludes the assessment.";
         var result = OverfittingJudge.ParseOverfittingResponse(content);
 
-        Assert.Equal(2, result.RubricAssessments.Count);
+        Assert.AreEqual(2, result.RubricAssessments.Count);
     }
 
-    [Fact]
+    [TestMethod]
     public void ParseResponse_NoJson_Throws()
     {
-        Assert.Throws<InvalidOperationException>(() =>
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
             OverfittingJudge.ParseOverfittingResponse("No JSON here at all"));
     }
 
     // --- Severity mapping tests ---
 
-    [Theory]
-    [InlineData(0.0, OverfittingSeverity.Low)]
-    [InlineData(0.10, OverfittingSeverity.Low)]
-    [InlineData(0.19, OverfittingSeverity.Low)]
-    [InlineData(0.20, OverfittingSeverity.Moderate)]
-    [InlineData(0.35, OverfittingSeverity.Moderate)]
-    [InlineData(0.49, OverfittingSeverity.Moderate)]
-    [InlineData(0.50, OverfittingSeverity.High)]
-    [InlineData(0.75, OverfittingSeverity.High)]
-    [InlineData(1.0, OverfittingSeverity.High)]
+    [TestMethod]
+    [DataRow(0.0, OverfittingSeverity.Low)]
+    [DataRow(0.10, OverfittingSeverity.Low)]
+    [DataRow(0.19, OverfittingSeverity.Low)]
+    [DataRow(0.20, OverfittingSeverity.Moderate)]
+    [DataRow(0.35, OverfittingSeverity.Moderate)]
+    [DataRow(0.49, OverfittingSeverity.Moderate)]
+    [DataRow(0.50, OverfittingSeverity.High)]
+    [DataRow(0.75, OverfittingSeverity.High)]
+    [DataRow(1.0, OverfittingSeverity.High)]
     public void SeverityMapping_CorrectThresholds(double score, OverfittingSeverity expected)
     {
         // Build a response where both computed and LLM overall equal the target score
@@ -230,16 +231,16 @@ public class OverfittingJudgeTests
         // For score <= 0.4: final = score
         // For score > 0.4: final = 0.4 (clamped)
         // This test verifies the score is valid and severity mapping holds for achievable scores
-        Assert.True(result.Score >= 0.0 && result.Score <= 1.0);
+        Assert.IsTrue(result.Score >= 0.0 && result.Score <= 1.0);
         if (score <= 0.4)
         {
-            Assert.Equal(expected, result.Severity);
+            Assert.AreEqual(expected, result.Severity);
         }
     }
 
     // --- OverfittingResult serialization ---
 
-    [Fact]
+    [TestMethod]
     public void OverfittingResult_SerializesToJson_WithStringSeverity()
     {
         var result = new OverfittingResult(
@@ -269,7 +270,7 @@ public class OverfittingJudgeTests
 
     // --- Prompt building tests ---
 
-    [Fact]
+    [TestMethod]
     public void BuildSystemPrompt_ContainsKeyElements()
     {
         var prompt = OverfittingJudge.BuildSystemPrompt();
@@ -284,7 +285,7 @@ public class OverfittingJudgeTests
         Assert.Contains("Few-shot examples", prompt);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task BuildUserPrompt_IncludesSkillAndEvalContent()
     {
         var skill = new SkillInfo(
@@ -312,7 +313,7 @@ public class OverfittingJudgeTests
         Assert.Contains("Test Skill", prompt);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task BuildUserPrompt_TruncatesLargeSkillContent()
     {
         var largeContent = new string('x', 50_000);
@@ -335,7 +336,7 @@ public class OverfittingJudgeTests
 
     // --- Markdown table integration ---
 
-    [Fact]
+    [TestMethod]
     public void MarkdownTable_IncludesOverfitColumn()
     {
         var verdicts = new List<SkillVerdict>
@@ -384,7 +385,7 @@ public class OverfittingJudgeTests
         Assert.Contains("🟡 0.38", md);
     }
 
-    [Fact]
+    [TestMethod]
     public void MarkdownTable_ShowsDashWhenNoOverfitting()
     {
         var verdicts = new List<SkillVerdict>
@@ -423,7 +424,7 @@ public class OverfittingJudgeTests
         Assert.Contains("| \u2014 |", md); // — dash in Overfit column when no result
     }
 
-    [Fact]
+    [TestMethod]
     public void MarkdownTable_ShowsFootnoteWhenVerdictDisagreesWithQuality()
     {
         // Quality improved (+1.0) but composite is negative due to token/time overhead.
@@ -475,7 +476,7 @@ public class OverfittingJudgeTests
         Assert.Contains("time (2.1s", md);
     }
 
-    [Fact]
+    [TestMethod]
     public void MarkdownTable_NoFootnoteWhenVerdictMatchesQuality()
     {
         // Quality improved and composite is positive — no footnote needed.
@@ -521,7 +522,7 @@ public class OverfittingJudgeTests
         Assert.DoesNotContain("weighted score", md);
     }
 
-    [Fact]
+    [TestMethod]
     public void MarkdownTable_ShowsFootnoteWhenQualityDroppedButCompositePositive()
     {
         // Quality dropped (-1.0) but composite is positive due to efficiency gains.
@@ -572,7 +573,7 @@ public class OverfittingJudgeTests
         Assert.Contains("2000)", md);
     }
 
-    [Fact]
+    [TestMethod]
     public void MarkdownTable_ShowsFootnoteWhenQualityUnchangedButVerdictNegative()
     {
         // Quality scores are identical between baseline and skill runs, but verdict is negative.
@@ -620,7 +621,7 @@ public class OverfittingJudgeTests
         Assert.Contains("tokens (1000", md);
     }
 
-    [Fact]
+    [TestMethod]
     public void MarkdownSummary_ShowsErrorsSectionForPreEvalFailures()
     {
         var verdicts = new List<SkillVerdict>
@@ -643,7 +644,7 @@ public class OverfittingJudgeTests
         Assert.Contains("- `broken-skill: Skill description is 1,370 characters", md);
     }
 
-    [Fact]
+    [TestMethod]
     public void MarkdownSummary_OmitsErrorsSectionWhenAllVerdictsPassed()
     {
         var verdicts = new List<SkillVerdict>
@@ -678,7 +679,7 @@ public class OverfittingJudgeTests
         Assert.DoesNotContain("### ❌ Skill validation errors", md);
     }
 
-    [Fact]
+    [TestMethod]
     public void MarkdownSummary_OmitsErrorsSectionForFailuresWithScenarios()
     {
         var verdicts = new List<SkillVerdict>
@@ -714,7 +715,7 @@ public class OverfittingJudgeTests
         Assert.DoesNotContain("### ❌ Skill validation errors", md);
     }
 
-    [Fact]
+    [TestMethod]
     public void MarkdownTable_SkillsLoaded_NoDuplicateWhenIsolatedAndPluginIdentical()
     {
         var activation = new SkillActivationInfo(
@@ -762,7 +763,7 @@ public class OverfittingJudgeTests
         Assert.Contains("✅ my-skill; tools: report_intent, skill", md);
     }
 
-    [Fact]
+    [TestMethod]
     public void MarkdownTable_SkillsLoaded_ShowsBothWhenIsolatedAndPluginDiffer()
     {
         var isolatedActivation = new SkillActivationInfo(
@@ -816,7 +817,7 @@ public class OverfittingJudgeTests
 
     // --- Prompt overfitting detection tests ---
 
-    [Fact]
+    [TestMethod]
     public void DetectPromptOverfitting_ExplicitSkillName_Detected()
     {
         var skill = new SkillInfo(
@@ -836,13 +837,13 @@ public class OverfittingJudgeTests
 
         var assessments = OverfittingJudge.DetectPromptOverfitting(evalSkill);
 
-        Assert.Single(assessments);
-        Assert.Equal("explicit_skill_reference", assessments[0].Issue);
-        Assert.Equal(1.0, assessments[0].Confidence);
+        Assert.ContainsSingle(assessments);
+        Assert.AreEqual("explicit_skill_reference", assessments[0].Issue);
+        Assert.AreEqual(1.0, assessments[0].Confidence);
         Assert.Contains("migrate-dotnet10-to-dotnet11", assessments[0].Reasoning);
     }
 
-    [Fact]
+    [TestMethod]
     public void DetectPromptOverfitting_MultipleScenarios_AllDetected()
     {
         var skill = new SkillInfo(
@@ -866,11 +867,14 @@ public class OverfittingJudgeTests
 
         var assessments = OverfittingJudge.DetectPromptOverfitting(evalSkill);
 
-        Assert.Equal(3, assessments.Count);
-        Assert.All(assessments, a => Assert.Equal("explicit_skill_reference", a.Issue));
+        Assert.AreEqual(3, assessments.Count);
+        foreach (var assessment in assessments)
+        {
+            Assert.AreEqual("explicit_skill_reference", assessment.Issue);
+        }
     }
 
-    [Fact]
+    [TestMethod]
     public void DetectPromptOverfitting_UseSkillPhrase_Detected()
     {
         var skill = new SkillInfo(
@@ -890,12 +894,12 @@ public class OverfittingJudgeTests
 
         var assessments = OverfittingJudge.DetectPromptOverfitting(evalSkill);
 
-        Assert.Single(assessments);
-        Assert.Equal("skill_instruction", assessments[0].Issue);
-        Assert.Equal(0.9, assessments[0].Confidence);
+        Assert.ContainsSingle(assessments);
+        Assert.AreEqual("skill_instruction", assessments[0].Issue);
+        Assert.AreEqual(0.9, assessments[0].Confidence);
     }
 
-    [Fact]
+    [TestMethod]
     public void DetectPromptOverfitting_NeutralPrompt_NothingDetected()
     {
         var skill = new SkillInfo(
@@ -915,10 +919,10 @@ public class OverfittingJudgeTests
 
         var assessments = OverfittingJudge.DetectPromptOverfitting(evalSkill);
 
-        Assert.Empty(assessments);
+        Assert.IsEmpty(assessments);
     }
 
-    [Fact]
+    [TestMethod]
     public void DetectPromptOverfitting_CaseInsensitive_Detected()
     {
         var skill = new SkillInfo(
@@ -938,11 +942,11 @@ public class OverfittingJudgeTests
 
         var assessments = OverfittingJudge.DetectPromptOverfitting(evalSkill);
 
-        Assert.Single(assessments);
-        Assert.Equal("explicit_skill_reference", assessments[0].Issue);
+        Assert.ContainsSingle(assessments);
+        Assert.AreEqual("explicit_skill_reference", assessments[0].Issue);
     }
 
-    [Fact]
+    [TestMethod]
     public void DetectPromptOverfitting_NoEvalConfig_ReturnsEmpty()
     {
         var skill = new SkillInfo(
@@ -958,12 +962,12 @@ public class OverfittingJudgeTests
 
         var assessments = OverfittingJudge.DetectPromptOverfitting(evalSkill);
 
-        Assert.Empty(assessments);
+        Assert.IsEmpty(assessments);
     }
 
     // --- Score computation with prompt assessments ---
 
-    [Fact]
+    [TestMethod]
     public void ComputeScore_WithPromptIssues_BoostsScore()
     {
         var rubric = new List<RubricOverfitAssessment>
@@ -984,13 +988,13 @@ public class OverfittingJudgeTests
 
         // With prompt issues: 0.4*1.0 + 0.4*0.0 + 0.2*0.0 = 0.4
         // Without: 0.7*0.0 + 0.3*0.0 = 0.0
-        Assert.True(scoreWithPrompts > scoreWithout,
+        Assert.IsTrue(scoreWithPrompts > scoreWithout,
             $"Score with prompts ({scoreWithPrompts}) should exceed score without ({scoreWithout})");
-        Assert.True(scoreWithPrompts >= 0.4,
+        Assert.IsTrue(scoreWithPrompts >= 0.4,
             $"Score with prompt issues should be at least 0.4, got {scoreWithPrompts}");
     }
 
-    [Fact]
+    [TestMethod]
     public void ComputeScore_AllScenariosExplicitRef_HighScore()
     {
         var rubric = new List<RubricOverfitAssessment>
@@ -1011,10 +1015,10 @@ public class OverfittingJudgeTests
         var score = OverfittingJudge.ComputeOverfittingScore(rubric, assertions, prompts);
 
         // 0.4*1.0 + 0.4*0.0 + 0.2*0.0 = 0.4
-        Assert.Equal(0.4, score, 2);
+        Assert.AreEqual(0.4, Math.Round(score, 2));
     }
 
-    [Fact]
+    [TestMethod]
     public void ComputeScore_PromptIssuesWithVocabulary_CompoundsHigh()
     {
         var rubric = new List<RubricOverfitAssessment>
@@ -1033,12 +1037,12 @@ public class OverfittingJudgeTests
         var score = OverfittingJudge.ComputeOverfittingScore(rubric, assertions, prompts);
 
         // 0.4*1.0 + 0.4*(1.0*0.9) + 0.2*(1.0*0.85) = 0.4 + 0.36 + 0.17 = 0.93
-        Assert.True(score > 0.8, $"Combined prompt+vocabulary should produce high score, got {score}");
+        Assert.IsTrue(score > 0.8, $"Combined prompt+vocabulary should produce high score, got {score}");
     }
 
     // --- ParseResponse with prompt assessments ---
 
-    [Fact]
+    [TestMethod]
     public void ParseResponse_WithPromptAssessments_ParsesCorrectly()
     {
         var json = JsonSerializer.Serialize(new
@@ -1059,12 +1063,12 @@ public class OverfittingJudgeTests
 
         var result = OverfittingJudge.ParseOverfittingResponse(json);
 
-        Assert.Single(result.PromptAssessments);
-        Assert.Equal("explicit_skill_reference", result.PromptAssessments[0].Issue);
-        Assert.Equal(1.0, result.PromptAssessments[0].Confidence);
+        Assert.ContainsSingle(result.PromptAssessments);
+        Assert.AreEqual("explicit_skill_reference", result.PromptAssessments[0].Issue);
+        Assert.AreEqual(1.0, result.PromptAssessments[0].Confidence);
     }
 
-    [Fact]
+    [TestMethod]
     public void ParseResponse_DeterministicPromptsMergedWithLlm()
     {
         var json = JsonSerializer.Serialize(new
@@ -1089,15 +1093,15 @@ public class OverfittingJudgeTests
         var result = OverfittingJudge.ParseOverfittingResponse(json, deterministicAssessments);
 
         // sc1: deterministic wins (same scenario+issue already covered), sc2: LLM addition
-        Assert.Equal(2, result.PromptAssessments.Count);
+        Assert.AreEqual(2, result.PromptAssessments.Count);
         var sc1 = result.PromptAssessments.First(p => p.Scenario == "sc1");
-        Assert.Equal(1.0, sc1.Confidence); // deterministic confidence
+        Assert.AreEqual(1.0, sc1.Confidence); // deterministic confidence
         Assert.Contains("Deterministic", sc1.Reasoning);
     }
 
     // --- BuildSystemPrompt includes prompt classification ---
 
-    [Fact]
+    [TestMethod]
     public void BuildSystemPrompt_ContainsPromptClassification()
     {
         var prompt = OverfittingJudge.BuildSystemPrompt();
