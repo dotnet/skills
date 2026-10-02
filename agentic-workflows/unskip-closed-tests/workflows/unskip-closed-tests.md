@@ -19,6 +19,10 @@ permissions:
   pull-requests: read
   copilot-requests: write
 
+concurrency:
+  group: unskip-closed-tests-${{ github.repository }}
+  cancel-in-progress: false
+
 network:
   allowed:
     - defaults

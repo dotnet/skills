@@ -571,17 +571,17 @@ internal static partial class InventoryEngine
         firstStart < secondStart + secondLength && secondStart < firstStart + firstLength;
 
     [GeneratedRegex(
-        @"https://github\.com/(?<owner>[A-Za-z0-9_.-]+)/(?<repo>[A-Za-z0-9_.-]+)/(?<kind>issues|pull)/(?<number>[1-9][0-9]*)",
+        @"https://github\.com/(?<owner>[A-Za-z0-9_.-]+)/(?<repo>[A-Za-z0-9_.-]+)/(?<kind>issues|pull)/(?<number>[1-9][0-9]*)\b",
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.NonBacktracking)]
     private static partial Regex FullReferenceRegex();
 
     [GeneratedRegex(
-        @"(?<![A-Za-z0-9_.-])(?<owner>[A-Za-z0-9_.-]+)/(?<repo>[A-Za-z0-9_.-]+)#(?<number>[1-9][0-9]*)(?![0-9])",
+        @"(?<![A-Za-z0-9_.-])(?<owner>[A-Za-z0-9_.-]+)/(?<repo>[A-Za-z0-9_.-]+)#(?<number>[1-9][0-9]*)\b",
         RegexOptions.CultureInvariant)]
     private static partial Regex QualifiedReferenceRegex();
 
     [GeneratedRegex(
-        @"(?<![A-Za-z0-9_/#])#(?<number>[1-9][0-9]*)(?![0-9])",
+        @"(?<![A-Za-z0-9_/#])#(?<number>[1-9][0-9]*)\b",
         RegexOptions.CultureInvariant)]
     private static partial Regex BareReferenceRegex();
 }

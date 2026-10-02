@@ -231,8 +231,8 @@ internal static class ApplyEngine
                 .ToList(),
             HasChanges = true,
             PrTitle = retained.Count == 1
-                ? "Unskip test for completed GitHub work item"
-                : $"Unskip {retained.Count} tests for completed GitHub work items",
+                ? "[unskip-closed-tests] Unskip test for completed GitHub work item"
+                : $"[unskip-closed-tests] Unskip {retained.Count} tests for completed GitHub work items",
             PrBody = CreatePrBody(requestedManifest, retainedCandidates, reverted),
         };
     }
@@ -480,6 +480,8 @@ internal static class ApplyEngine
         {
             startInfo.ArgumentList.Add(argument);
         }
+        startInfo.Environment.Remove("GH_TOKEN");
+        startInfo.Environment.Remove("GITHUB_TOKEN");
 
         try
         {

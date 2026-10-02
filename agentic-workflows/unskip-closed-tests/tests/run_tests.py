@@ -662,6 +662,46 @@ public class Tests
         )
         repo.resolve(inventory, malformed, expected=20)
 
+    def test_reference_numbers_require_right_identifier_boundary(self):
+        repo = FixtureRepo(
+            self.id().split(".")[-1],
+            """
+namespace Demo;
+public class Tests
+{
+    [Ignore("https://github.com/fixture/repo/issues/101, tracked")][Test]
+    public void FullReference() { }
+    [Ignore("other/repo#102. tracked")][Test]
+    public void QualifiedReference() { }
+    [Ignore("#103) tracked")][Test]
+    public void BareReference() { }
+    [Ignore("https://github.com/fixture/repo/issues/201abc")][Test]
+    public void MalformedFullReference() { }
+    [Ignore("other/repo#202abc")][Test]
+    public void MalformedQualifiedReference() { }
+    [Ignore("#203abc")][Test]
+    public void MalformedBareReference() { }
+}
+""".lstrip(),
+        )
+
+        manifest = repo.inventory()
+        references = {
+            candidate["owner"]["method_name"]: [
+                reference["canonical"]
+                for reference in candidate["canonical_issue_references"]
+            ]
+            for candidate in manifest["candidates"]
+        }
+        self.assertEqual(
+            {
+                "FullReference": ["fixture/repo#101"],
+                "QualifiedReference": ["other/repo#102"],
+                "BareReference": ["fixture/repo#103"],
+            },
+            references,
+        )
+
     def test_candidate_requires_every_reference_to_qualify(self):
         repo = FixtureRepo(
             self.id().split(".")[-1],
@@ -890,6 +930,10 @@ public class Tests
             [pass_candidate["owner"]["test_fqns"]],
             [candidate["test_fqns"] for candidate in result["retained_candidates"]],
         )
+        self.assertEqual(
+            "[unskip-closed-tests] Unskip test for completed GitHub work item",
+            result["pr_title"],
+        )
         marker = (
             "<!-- unskip-closed-tests:v1;"
             f"source={resolved['source_commit']};"
@@ -907,6 +951,90 @@ public class Tests
         self.assertIn("zero_selected_tests", reasons)
         self.assertIn("non_passing_outcome:NotExecuted", reasons)
         self.assertTrue(any(reason.startswith("mismatched_fqn:") for reason in reasons))
+
+    def test_multiple_retained_tests_title_has_deduplication_marker(self):
+        repo = FixtureRepo(
+            self.id().split(".")[-1],
+            """
+namespace Demo;
+public class Tests
+{
+    [Ignore("#1")][Test] public void ExecutedPassOne() { }
+    [Ignore("#1")][Test] public void ExecutedPassTwo() { }
+}
+""".lstrip(),
+        )
+        evidence = repo.evidence(
+            {
+                "fixture/repo#1": {
+                    "kind": "issue",
+                    "state": "closed",
+                    "state_reason": "completed",
+                }
+            }
+        )
+        resolved = repo.resolve(repo.inventory(), evidence)
+        result = repo.apply(
+            resolved,
+            evidence,
+            [candidate["candidate_id"] for candidate in resolved["candidates"]],
+        )
+        self.assertEqual(2, len(result["retained_candidates"]))
+        self.assertEqual(
+            "[unskip-closed-tests] Unskip 2 tests for completed GitHub work items",
+            result["pr_title"],
+        )
+
+    def test_verification_hook_does_not_receive_github_tokens(self):
+        repo = FixtureRepo(
+            self.id().split(".")[-1],
+            """
+namespace Demo;
+public class Tests
+{
+    [Ignore("#1")][Test] public void ExecutedPass() { }
+}
+""".lstrip(),
+        )
+        evidence = repo.evidence(
+            {
+                "fixture/repo#1": {
+                    "kind": "issue",
+                    "state": "closed",
+                    "state_reason": "completed",
+                }
+            }
+        )
+        config = json.loads(repo.config.read_text(encoding="utf-8"))
+        config["verification"]["command"] = [
+            sys.executable,
+            str(HOOK),
+            "--assert-no-token-environment",
+        ]
+        repo.write_json(repo.config, config)
+        resolved = repo.resolve(repo.inventory(), evidence)
+
+        original_gh_token = os.environ.get("GH_TOKEN")
+        original_github_token = os.environ.get("GITHUB_TOKEN")
+        try:
+            os.environ["GH_TOKEN"] = "write-scoped-token"
+            os.environ["GITHUB_TOKEN"] = "write-scoped-token"
+            result = repo.apply(
+                resolved,
+                evidence,
+                [resolved["candidates"][0]["candidate_id"]],
+            )
+        finally:
+            if original_gh_token is None:
+                os.environ.pop("GH_TOKEN", None)
+            else:
+                os.environ["GH_TOKEN"] = original_gh_token
+            if original_github_token is None:
+                os.environ.pop("GITHUB_TOKEN", None)
+            else:
+                os.environ["GITHUB_TOKEN"] = original_github_token
+
+        self.assertTrue(result["has_changes"])
 
     def test_all_skipped_returns_clean_noop(self):
         repo = FixtureRepo(

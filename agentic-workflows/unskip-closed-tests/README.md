@@ -119,7 +119,7 @@ candidate/source identity and one entry per intended test:
   "repository": "owner/repo",
   "source_commit": "0123456789abcdef...",
   "candidate": {
-    "candidate_id": "sha256:..."
+    "candidate_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
   },
   "tests": [
     {

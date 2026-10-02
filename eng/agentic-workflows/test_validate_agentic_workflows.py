@@ -210,6 +210,66 @@ class ActiveWorkflowTests(unittest.TestCase):
 
 
 class LocalPackageStagingTests(unittest.TestCase):
+    def test_rejects_manifest_symlink(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            package = root / "agentic-workflows" / "example"
+            consumer = root / "consumer"
+            package.mkdir(parents=True)
+            consumer.mkdir()
+            target = package / "real-aw.yml"
+            manifest = package / "aw.yml"
+            target.write_text("includes: []\n", encoding="utf-8")
+            try:
+                manifest.symlink_to(target)
+            except OSError as error:
+                self.skipTest(f"symbolic links are unavailable: {error}")
+
+            with self.assertRaisesRegex(
+                RuntimeError, "Package manifest must not be a symbolic link"
+            ):
+                STAGER.stage_package(manifest, consumer)
+
+    def test_rejects_include_symlink_without_partial_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            package = root / "agentic-workflows" / "example"
+            consumer = root / "consumer"
+            workflow = package / "workflows" / "example.md"
+            workflow_target = package / "workflows" / "real.md"
+            agent = package / "agents" / "example.agent.md"
+            workflow.parent.mkdir(parents=True)
+            agent.parent.mkdir(parents=True)
+            consumer.mkdir()
+            manifest = package / "aw.yml"
+            manifest.write_text(
+                """includes:
+  - agents/example.agent.md
+  - workflows/example.md
+""",
+                encoding="utf-8",
+            )
+            workflow_target.write_text(
+                "---\non: workflow_dispatch\n---\n", encoding="utf-8"
+            )
+            agent.write_text("---\nname: example\n---\n", encoding="utf-8")
+            try:
+                workflow.symlink_to(workflow_target)
+            except OSError as error:
+                self.skipTest(f"symbolic links are unavailable: {error}")
+
+            with self.assertRaisesRegex(
+                RuntimeError, "Package include must not be a symbolic link"
+            ):
+                STAGER.stage_package(manifest, consumer)
+
+            self.assertFalse(
+                (consumer / ".github" / "agents" / "example.agent.md").exists()
+            )
+            self.assertFalse(
+                (consumer / ".github" / "workflows" / "example.md").exists()
+            )
+
     def test_stages_package_using_installed_layout(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

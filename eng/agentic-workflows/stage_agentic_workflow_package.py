@@ -23,23 +23,24 @@ except ModuleNotFoundError:
 
 
 def stage_package(manifest: Path, destination_root: Path) -> list[Path]:
+    if manifest.is_symlink():
+        raise RuntimeError(f"Package manifest must not be a symbolic link: {manifest}")
     manifest = manifest.resolve()
     destination_root = destination_root.resolve()
     if not manifest.is_file():
         raise RuntimeError(f"Package manifest does not exist: {manifest}")
-    if manifest.is_symlink():
-        raise RuntimeError(f"Package manifest must not be a symbolic link: {manifest}")
     if not destination_root.is_dir():
         raise RuntimeError(f"Consumer directory does not exist: {destination_root}")
 
     operations: dict[Path, Path] = {}
     workflow_includes: list[tuple[Path, Path]] = []
     for include in validator.manifest_includes(manifest):
+        unresolved_source = manifest.parent / include
+        if unresolved_source.is_symlink():
+            raise RuntimeError(f"Package include must not be a symbolic link: {include}")
         source, staged_destination = validator.resolve_package_include(
             manifest, include, destination_root
         )
-        if source.is_symlink():
-            raise RuntimeError(f"Package include must not be a symbolic link: {include}")
         if not source.is_file():
             raise RuntimeError(f"Package manifest references missing file: {include}")
         relative_destination = staged_destination.relative_to(destination_root)

@@ -213,6 +213,7 @@ safe-outputs:
             ACTUAL_PATHS="$RUNNER_TEMP/unskip-closed-tests-actual-paths.txt"
             jq -r '.pr_body' "$RESULT_PATH" > "$BODY_FILE"
             jq -r '.changed_paths[]' "$RESULT_PATH" | sort > "$EXPECTED_PATHS"
+            git diff --cached --quiet
             git diff --name-only --diff-filter=M | sort > "$ACTUAL_PATHS"
             diff -u "$EXPECTED_PATHS" "$ACTUAL_PATHS"
             while IFS= read -r path; do
@@ -228,6 +229,8 @@ safe-outputs:
                 git add -- "$path"
             done < "$EXPECTED_PATHS"
 
+            git diff --cached --name-only | sort > "$ACTUAL_PATHS"
+            diff -u "$EXPECTED_PATHS" "$ACTUAL_PATHS"
             test -n "$(git diff --cached --name-only)"
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -264,7 +267,14 @@ safe-outputs:
 
             LIVE=$(gh pr view "$PR_URL" \
               --repo "$EXPECTED_REPOSITORY" \
-              --json body,isDraft,headRefName,baseRefName,url)
+              --json body,isDraft,headRefName,baseRefName,baseRefOid,number,url)
+            if [ "$(printf '%s' "$LIVE" | jq -r '.baseRefOid')" != "$EXPECTED_COMMIT" ]; then
+              PR_NUMBER=$(printf '%s' "$LIVE" | jq -r '.number')
+              gh pr close "$PR_NUMBER" --repo "$EXPECTED_REPOSITORY"
+              git push origin --delete "$BRANCH"
+              echo "::notice::Default branch advanced during PR creation; closed the PR and removed its branch."
+              exit 0
+            fi
             test "$(printf '%s' "$LIVE" | jq -r '.isDraft')" = "true"
             test "$(printf '%s' "$LIVE" | jq -r '.headRefName')" = "$BRANCH"
             test "$(printf '%s' "$LIVE" | jq -r '.baseRefName')" = "$DEFAULT_BRANCH"

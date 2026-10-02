@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 from pathlib import Path
 from xml.etree import ElementTree as ET
@@ -43,6 +44,11 @@ def main() -> int:
         return 91
 
     command_args = sys.argv[1:-1]
+    if "--assert-no-token-environment" in command_args:
+        command_args.remove("--assert-no-token-environment")
+        if "GH_TOKEN" in os.environ or "GITHUB_TOKEN" in os.environ:
+            return 97
+
     if command_args:
         if len(command_args) != 3 or command_args[0] != "--expire":
             return 96
