@@ -19,6 +19,7 @@ import { parseArgs } from "node:util";
 import { pathToFileURL } from "node:url";
 
 import {
+  classifyNoChangeEvidence,
   comparisonToVerdict,
   loadExpectedEvalFiles,
   normalizeEvalFile,
@@ -444,6 +445,14 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
     }
     verdict.reason = `${verdict.reason} — native evaluator reported an objective task-completion regression`;
   }
+  verdict.noChangeDiagnosis = classifyNoChangeEvidence({
+    wins: verdict.signTest.wins,
+    ties: verdict.signTest.ties,
+    losses: verdict.signTest.losses,
+    discordant: verdict.signTest.discordant,
+    minCredibleStimuli: verdict.minCredibleStimuli,
+    reasonCode: verdict.stateReason?.code,
+  });
 
   const legacyByScenario = new Map(
     (legacyVerdict.scenarios ?? []).map((scenario) => [scenario.scenarioName, scenario]),
@@ -587,6 +596,7 @@ function main() {
       verdict.passed = false;
       verdict.regressed = false;
       verdict.preferenceRegressed = false;
+      verdict.noChangeDiagnosis = null;
       verdict.errors ??= [];
       verdict.errors.push({
         phase: "agent_adapter",
