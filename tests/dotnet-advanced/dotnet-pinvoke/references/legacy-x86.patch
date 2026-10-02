@@ -1,0 +1,23 @@
+diff --git a/LegacyNative.cs b/LegacyNative.cs
+--- a/LegacyNative.cs
++++ b/LegacyNative.cs
+@@ -1,12 +1,13 @@
++using System;
+ using System.Runtime.InteropServices;
+ 
+-internal static partial class LegacyNative
++internal static class LegacyNative
+ {
+-    [LibraryImport("compresslib", EntryPoint = "compress_buffer")]
+-    internal static unsafe partial int CompressBuffer(
++    [DllImport("compresslib", EntryPoint = "compress_buffer", CallingConvention = CallingConvention.Cdecl)]
++    internal static extern unsafe int CompressBuffer(
+         byte* input,
+-        nuint inputLength,
++        UIntPtr inputLength,
+         byte* output,
+-        nuint outputLength,
+-        nuint* bytesWritten);
++        UIntPtr outputLength,
++        UIntPtr* bytesWritten);
+ }

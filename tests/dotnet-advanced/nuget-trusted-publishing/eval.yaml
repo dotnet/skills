@@ -1,68 +1,636 @@
 name: nuget-trusted-publishing
 description: Evaluates the dotnet-advanced/nuget-trusted-publishing skill
 type: capability
-config:
-  timeout: 2m
+defaults:
+  timeout: 6m
+  runs: 1
+scoring: {}
 stimuli:
-  - name: Set up trusted publishing for a new NuGet library
+  - name: Add keyless publishing for a greenfield library
     prompt: |
-      I have a .NET class library at src/MyLib/MyLib.csproj that I want to publish
-      to nuget.org using trusted publishing (OIDC) instead of an API key.
-      The repo is hosted on GitHub at myorg/mylib. Help me set this up.
+      This repository contains one packageable library at
+      src/Widgets/Widgets.csproj. Add a tag-triggered GitHub Actions workflow at
+      .github/workflows/publish.yml that publishes it to nuget.org without a
+      stored API key. Use the `release` environment.
+
+      The GitHub repository is contoso/widgets. Work only in this checkout:
+      do not publish, create a tag, create an environment or secret, or change
+      anything on nuget.org. Keep the existing CI workflow unchanged, and tell
+      me the exact policy values and local verification I still need to do.
+    tags:
+      capability: greenfield-library-workflow
+      risk: long-lived-publishing-credential
+      journey: add-first-package-publish
+    golden_patch:
+      path: ./references/greenfield.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "nuget-greenfield-library"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Added `.github/workflows/publish.yml` with `id-token: write`, `NuGet/login@v1`, and a tag-triggered push for `src/Widgets/Widgets.csproj`. The workflow will not run until a repository administrator completes two manual prerequisites: on the nuget.org trusted-publishing page, add a policy with owner `contoso`, repository `widgets`, workflow file `publish.yml`, and environment `release`; then add the `release` environment secret `NUGET_USER` containing the nuget.org profile username, not an email or API key. `NUGET_USER` is an identifier rather than a publishing credential; the OIDC exchange supplies the short-lived credential. Before the first publish, run `dotnet pack src/Widgets/Widgets.csproj -c Release -o artifacts` locally and inspect the package. I did not create either prerequisite or change any external resource.
+    environment:
+      files:
+        - src: ./fixture.py
+          dest: .eval/fixture.py
+        - src: ./fixtures/greenfield
+          dest: .
     graders:
+      - type: file-exists
+        config:
+          path: .github/workflows/publish.yml
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/fixture.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='65b026bce822a38ad9876b493c5727a7fb1a012cda20360757d10001cd7e2049';subprocess.run([sys.executable,str(p),'verify','greenfield'],check=True)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: output-contains
         config:
-          substring: NuGet/login
+          substring: publish.yml
+      - type: output-matches
+        config:
+          pattern: dotnet pack|pack -c Release
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - Added a valid tag-triggered publish workflow for the exact library project
+      - Used a short-lived login token and granted only the permissions needed by package publishing
+      - Gave the exact repository, workflow filename, and release environment values for the nuget.org policy
+      - Recommended packing and inspecting the package locally before the first publish
+      - Did not change the existing CI workflow or claim that any external policy, secret, tag, or publish was created
+
+  - name: Migrate an API-key workflow in place
+    prompt: |
+      Replace the long-lived `NUGET_API_KEY` use in
+      .github/workflows/publish-packages.yml with GitHub's keyless nuget.org
+      authentication. Keep the workflow filename, tag trigger, package project,
+      and repository files otherwise stable, and use the `release` environment.
+
+      Only edit the checkout. Do not publish or change repository settings,
+      secrets, environments, tags, releases, or nuget.org configuration. In your
+      summary, tell me when it is safe to remove the old GitHub secret.
+    tags:
+      capability: api-key-migration
+      risk: premature-secret-removal
+      journey: migrate-existing-publish-workflow
+    golden_patch:
+      path: ./references/migration.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "nuget-api-key-migration"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            tool_calls:
+              - tool_call_id: inspect-api-key-workflow
+                function_name: powershell
+                arguments:
+                  command: Get-Content .github/workflows/publish-packages.yml; Get-Content src/Legacy/Legacy.csproj
+            observation:
+              results:
+                - source_call_id: inspect-api-key-workflow
+                  content: |-
+                    Workflow name: Publish packages
+                    Trigger: tags v*
+                    Package command: dotnet pack src/Legacy/Legacy.csproj
+                    Push credential: secrets.NUGET_API_KEY
+            message: |-
+              Updated `.github/workflows/publish-packages.yml` in place while preserving its `Publish packages` display name, tag trigger, and `src/Legacy/Legacy.csproj` target. It now requests an OIDC token, authenticates with `NuGet/login@v1`, and passes the login output to `dotnet nuget push`. `NUGET_USER` is the nuget.org profile username, not a publishing credential or API key; if that identifier is not already configured for the `release` environment, a repository administrator must add it before running the workflow. Keep the old `NUGET_API_KEY` secret until one OIDC publish succeeds, then remove it. I did not change repository settings or publish anything.
+    environment:
+      files:
+        - src: ./fixture.py
+          dest: .eval/fixture.py
+        - src: ./fixtures/migration
+          dest: .
+    graders:
+      - type: file-exists
+        config:
+          path: .github/workflows/publish-packages.yml
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/fixture.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='65b026bce822a38ad9876b493c5727a7fb1a012cda20360757d10001cd7e2049';subprocess.run([sys.executable,str(p),'verify','migration'],check=True)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: (?i)(keep|retain|do not (remove|delete)).{0,80}(NUGET_API_KEY|old (API )?key|secret)
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - Migrated the existing workflow in place without changing its identity or package target
+      - Removed all workflow dependence on the long-lived API-key secret and used the login step output for push
+      - Correctly treated NUGET_USER as a non-sensitive account identifier rather than a replacement publishing credential
+      - Preserved the old repository secret until a keyless publish is verified
+      - Did not make or claim external changes
+
+  - name: Assess an almost-correct existing publish workflow
+    prompt: |
+      Review this repository's existing NuGet release setup and report whether it
+      is ready for a keyless publish. The policy values currently recorded by
+      the team are in nuget-policy.txt. Do not edit any file or run a publish.
+      Give the smallest set of corrections and the checks we should do before
+      triggering it.
+    tags:
+      capability: existing-workflow-assessment
+      risk: missed-oidc-permission
+      journey: review-before-first-publish
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "nuget-existing-workflow-assessment"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            tool_calls:
+              - tool_call_id: inspect-publish-policy
+                function_name: powershell
+                arguments:
+                  command: Get-Content nuget-policy.txt; Get-Content .github/workflows/nuget-release.yml
+            observation:
+              results:
+                - source_call_id: inspect-publish-policy
+                  content: |-
+                    Workflow File: nuget-release.yml
+                    Environment: release
+                    Repository: contoso/review
+                    ---
+                    jobs:
+                      publish:
+                        environment: release
+                        permissions:
+                          contents: read
+                        steps:
+                          - run: dotnet pack src/Review/Review.csproj -c Release -o artifacts
+                          - id: login
+                            uses: NuGet/login@v1
+            message: |-
+              `nuget-release.yml` and its `release` environment match the recorded policy. The blocking issue is the missing required `id-token: write` permission; add it beside `contents: read`. Then pack locally, inspect the nupkg, and perform one controlled publish before treating the setup as verified. I made no file changes.
+    environment:
+      files:
+        - src: ./fixture.py
+          dest: .eval/fixture.py
+        - src: ./fixtures/assessment
+          dest: .
+    constraints:
+      reject_tools: [edit, create]
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/fixture.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='65b026bce822a38ad9876b493c5727a7fb1a012cda20360757d10001cd7e2049';subprocess.run([sys.executable,str(p),'verify','assessment'],check=True)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: output-contains
         config:
           substring: id-token
+      - type: output-contains
+        config:
+          substring: nuget-release.yml
       - type: output-matches
         config:
-          pattern: (trusted.?publishing|OIDC)
+          pattern: (?i)(missing|add|required).{0,60}id-token
       - type: prompt
     rubric:
-      - Guides the user to create a trusted publishing policy on nuget.org
-      - Mentions the workflow filename must match the nuget.org policy exactly
-      - "Includes id-token: write in the workflow permissions"
-      - Recommends local pack verification before publishing
-  - name: Set up NuGet publishing without mentioning trusted publishing
+      - Found the missing token permission as the blocking workflow defect
+      - Confirmed that the recorded workflow filename and release environment already match the file
+      - Recommended local package verification and a controlled first publish
+      - Kept the complete supplied repository unchanged
+
+  - name: Match an immutable filename and environment policy
     prompt: |
-      I have a .NET library at src/MyLib/MyLib.csproj and I want to publish it
-      to nuget.org securely from GitHub Actions without storing API keys.
-      The repo is at myorg/mylib. How do I set this up?
+      Our approved nuget.org policy is already recorded in nuget-policy.txt and
+      cannot be changed in this task. Replace the draft workflow with the exact
+      workflow file and environment named by that policy, and complete the
+      keyless tag-triggered package publishing steps for src/Policy/Policy.csproj.
+
+      Do not contact external services or create settings, secrets, tags,
+      releases, or packages. Do not leave the obsolete draft workflow behind.
+    tags:
+      capability: exact-policy-identity
+      risk: no-matching-policy
+      journey: align-workflow-with-approved-policy
+    golden_patch:
+      path: ./references/policy.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "nuget-exact-policy-identity"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            tool_calls:
+              - tool_call_id: inspect-approved-policy
+                function_name: powershell
+                arguments:
+                  command: Get-Content nuget-policy.txt; Get-Content .github/workflows/draft-publish.yml
+            observation:
+              results:
+                - source_call_id: inspect-approved-policy
+                  content: |-
+                    Workflow File: release-nuget.yml
+                    Environment: nuget-release
+                    Repository: contoso/policy
+                    Existing file: .github/workflows/draft-publish.yml
+                    Existing environment: staging
+            message: |-
+              Read `nuget-policy.txt`, then replaced the draft with `.github/workflows/release-nuget.yml`, set its environment to `nuget-release`, and added the complete tag-triggered OIDC publish sequence for `src/Policy/Policy.csproj`. `NUGET_USER` is only the nuget.org profile username used by the login action, not an API key; a repository administrator must supply that identifier if the environment does not already have it. The workflow filename and environment exactly match the approved policy. No policy, secret, tag, release, or package was created.
+    environment:
+      files:
+        - src: ./fixture.py
+          dest: .eval/fixture.py
+        - src: ./fixtures/policy
+          dest: .
     graders:
+      - type: file-exists
+        config:
+          path: .github/workflows/release-nuget.yml
+      - type: file-not-exists
+        config:
+          path: .github/workflows/draft-publish.yml
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/fixture.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='65b026bce822a38ad9876b493c5727a7fb1a012cda20360757d10001cd7e2049';subprocess.run([sys.executable,str(p),'verify','policy'],check=True)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: output-contains
         config:
-          substring: NuGet/login
+          substring: release-nuget.yml
       - type: output-contains
         config:
-          substring: id-token
-      - type: output-matches
-        config:
-          pattern: (trusted.?publishing|OIDC)
+          substring: nuget-release
       - type: prompt
+        config:
+          evidence: [trajectory, diff]
     rubric:
-      - Identifies that OIDC/trusted publishing is the right approach for keyless publishing
-      - "Creates or shows a workflow with NuGet/login and id-token: write"
-      - Guides the user to configure a trusted publishing policy on nuget.org
-      - Recommends local pack verification before publishing
-  - name: Migrate existing workflow from API key to trusted publishing
+      - Used the exact policy workflow filename rather than the workflow display name or a path prefix
+      - Matched the policy environment exactly and removed the obsolete draft file
+      - Produced a complete keyless publish workflow for the specified project
+      - Made no unrelated or external changes
+
+  - name: Classify packable projects in a mixed repository
     prompt: |
-      My current publish workflow uses secrets.NUGET_API_KEY to push packages.
-      I want to switch to NuGet trusted publishing (OIDC). What do I need to change?
+      Audit this repository and tell me exactly which projects should be
+      published as NuGet packages, what package type each one is, and which
+      projects must be excluded. Account for shared metadata in
+      Directory.Build.props. Then recommend whether one matrix workflow or
+      separate workflows would be clearer. Do not edit or pack anything.
+    tags:
+      capability: multi-project-package-discovery
+      risk: publishing-nonpackable-project
+      journey: plan-repository-package-publishing
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "nuget-mixed-repository-classification"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            tool_calls:
+              - tool_call_id: inspect-packable-projects
+                function_name: powershell
+                arguments:
+                  command: Get-Content Directory.Build.props; Get-ChildItem -Recurse -Filter *.csproj | ForEach-Object { $_.FullName; Get-Content $_.FullName }
+            observation:
+              results:
+                - source_call_id: inspect-packable-projects
+                  content: |-
+                    Directory.Build.props: Authors=Contoso; RepositoryUrl=https://github.com/contoso/packages
+                    src/Core/Core.csproj: PackageId=Contoso.Core; no OutputType
+                    src/Cli/Cli.csproj: OutputType=Exe; PackAsTool=true; PackageId=contoso-cli
+                    src/Worker/Worker.csproj: OutputType=Exe; no PackAsTool or IsPackable
+                    tests/Core.Tests/Core.Tests.csproj: IsPackable=false
+            message: |-
+              `Core` is a packable library, and `Cli` is a dotnet tool because it sets `PackAsTool`. `Worker` is an ordinary executable and is not packable, while `Core.Tests` explicitly sets `IsPackable=false`; exclude both. The shared props supply author and repository metadata. A small matrix over Core and Cli is reasonable, though separate workflows are clearer if their release policies diverge. I did not edit or pack anything.
+    environment:
+      files:
+        - src: ./fixture.py
+          dest: .eval/fixture.py
+        - src: ./fixtures/multi-project
+          dest: .
+    constraints:
+      reject_tools: [edit, create]
     graders:
-      - type: output-contains
+      - type: run-command
         config:
-          substring: NuGet/login
-      - type: output-contains
-        config:
-          substring: id-token
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/fixture.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='65b026bce822a38ad9876b493c5727a7fb1a012cda20360757d10001cd7e2049';subprocess.run([sys.executable,str(p),'verify','multi-project'],check=True)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: output-matches
         config:
-          pattern: (api.?key|API.?KEY|NUGET_API_KEY)
+          pattern: (?is)Core.{0,100}(library|packable)
+      - type: output-matches
+        config:
+          pattern: (?is)Cli.{0,100}(tool|PackAsTool)
+      - type: output-matches
+        config:
+          pattern: (?is)Worker.{0,120}(not packable|exclude|do not publish)
+      - type: output-matches
+        config:
+          pattern: (?is)Core\.Tests.{0,120}(not packable|exclude|do not publish)
       - type: prompt
     rubric:
-      - Explains how to replace the API key with NuGet/login OIDC step
-      - "Mentions adding id-token: write permission to the job"
-      - Advises keeping the old API key secret until trusted publishing is verified
-      - Mentions creating a trusted publishing policy on nuget.org
+      - Correctly classified Core as a library and Cli as a dotnet tool
+      - Excluded the ordinary console worker and explicitly non-packable test project
+      - Considered repository-wide package metadata before proposing workflow organization
+      - Kept the complete supplied repository unchanged
+
+  - name: Assess template and dotnet tool packaging
+    prompt: |
+      We intend to publish the reusable artifacts in this repository. Identify
+      the package type and required package contents for every project, call out
+      anything that is only an ordinary application, and propose the package
+      verification steps for each publishable artifact. Do not edit files,
+      build, install, or publish.
+    tags:
+      capability: specialized-package-classification
+      risk: invalid-template-or-tool-package
+      journey: review-template-and-tool-packaging
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "nuget-template-tool-assessment"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              `Templates` is a template package and includes `content/web/.template.config/template.json`; verify the nupkg contains that template content. `FormatTool` is a dotnet tool because it sets `PackAsTool`; pack it, install it from the local artifacts folder, run its command, and uninstall it. `Console` is an ordinary application and is not packable, so do not publish it. No files were changed.
+    environment:
+      files:
+        - src: ./fixture.py
+          dest: .eval/fixture.py
+        - src: ./fixtures/template-tool
+          dest: .
+    constraints:
+      reject_tools: [edit, create]
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/fixture.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='65b026bce822a38ad9876b493c5727a7fb1a012cda20360757d10001cd7e2049';subprocess.run([sys.executable,str(p),'verify','template-tool'],check=True)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: (?is)Templates.{0,100}(template|PackageType)
+      - type: output-matches
+        config:
+          pattern: (?is)FormatTool.{0,100}(dotnet tool|PackAsTool|tool package)
+      - type: output-matches
+        config:
+          pattern: (?is)Console.{0,120}(not packable|ordinary application|exclude|do not publish)
+      - type: output-matches
+        config:
+          pattern: (?i)(template\.json|\.template\.config)
+      - type: prompt
+    rubric:
+      - Identified the template package, its template definition, and the dotnet tool package
+      - Did not misclassify the ordinary console application as a package
+      - Proposed package-specific local verification, including installing and exercising the tool
+      - Kept the complete supplied repository unchanged
+
+  - name: Repair MCP package metadata and add publishing
+    prompt: |
+      Prepare the Catalog MCP server for its 1.4.0 package release. Keep the
+      project version and package ID unchanged, repair its discovery descriptor
+      so all package metadata agrees, and add
+      .github/workflows/publish-mcp.yml for keyless tag-triggered publishing
+      through the `release` environment.
+
+      Only edit this checkout. Do not publish, create a tag or release, or
+      change any repository, environment, secret, or nuget.org setting.
+    tags:
+      capability: mcp-version-and-publishing
+      risk: inconsistent-server-metadata
+      journey: prepare-mcp-package-release
+    golden_patch:
+      path: ./references/mcp.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "nuget-mcp-package-release"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Synchronized both `server.json` version fields to `1.4.0` while preserving `contoso.catalog.mcp`, the NuGet registry metadata, and stdio transport. Added `.github/workflows/publish-mcp.yml` to pack `CatalogMcp.csproj` and publish with OIDC through the `release` environment. I did not tag, release, publish, or change external settings.
+    environment:
+      files:
+        - src: ./fixture.py
+          dest: .eval/fixture.py
+        - src: ./fixtures/mcp
+          dest: .
+    graders:
+      - type: file-exists
+        config:
+          path: .github/workflows/publish-mcp.yml
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/fixture.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='65b026bce822a38ad9876b493c5727a7fb1a012cda20360757d10001cd7e2049';subprocess.run([sys.executable,str(p),'verify','mcp'],check=True)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: (?is)server\.json.{0,120}1\.4\.0|1\.4\.0.{0,120}server\.json
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - Synchronized both descriptor versions with the project version and preserved the package identifier
+      - Preserved valid NuGet registry and stdio transport metadata
+      - Added a complete workflow that packs the MCP server project and uses keyless nuget.org authentication
+      - Did not modify unrelated files or claim external actions
+
+  - name: Separate release creation after a partial failure
+    prompt: |
+      failure.txt describes the last tag run: the package reached nuget.org, then
+      GitHub Release creation failed with HTTP 422. Make future package retries
+      safe and separate GitHub Release creation into its own manually triggered
+      workflow. Keep CI unchanged and keep the NuGet workflow focused on packing
+      and publishing.
+
+      Do not run either workflow, publish again, delete a release or tag, re-tag,
+      or make external changes. Explain the safe recovery boundary for the
+      already-failed run.
+    tags:
+      capability: release-failure-recovery
+      risk: duplicate-release-or-version
+      journey: recover-after-partial-publish
+    golden_patch:
+      path: ./references/recovery.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "nuget-release-failure-recovery"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Split GitHub Release creation into the manual `github-release.yml` workflow and left `publish.yml` limited to packing and idempotent NuGet push. A rerun of the failed tag run uses the original workflow YAML from that tag commit, so it would still contain the coupled release step. Do not delete or re-tag the version; use the separated workflow for future releases and handle the existing release conflict deliberately.
+    environment:
+      files:
+        - src: ./fixture.py
+          dest: .eval/fixture.py
+        - src: ./fixtures/recovery
+          dest: .
+    graders:
+      - type: file-exists
+        config:
+          path: .github/workflows/github-release.yml
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/fixture.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='65b026bce822a38ad9876b493c5727a7fb1a012cda20360757d10001cd7e2049';subprocess.run([sys.executable,str(p),'verify','recovery'],check=True)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: (?i)(original|tag commit).{0,80}(yaml|workflow)|rerun.{0,80}(original|same).{0,40}(yaml|workflow)
+      - type: output-matches
+        config:
+          pattern: (?i)(do not|don't|avoid).{0,80}(re-?tag|delete.{0,30}tag)
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - Kept package publishing separate from manually triggered GitHub Release creation
+      - Made package push idempotent and removed release permissions and actions from the package workflow
+      - Explained that rerunning the old tag run uses that commit's original workflow definition
+      - Avoided destructive tag or release advice and made no external changes
+
+  - name: Keep an MCP release blocked after repeated verifier failure
+    prompt: |
+      The Catalog MCP package is scheduled for release, but verification.txt
+      records the package verifier failing before and after one attempted fix.
+      Review that log and the current project metadata. Do not edit files, build,
+      pack, install, or publish anything. Tell me whether the release is ready
+      and give the exact next verification step.
+    tags:
+      capability: fail-closed-package-verification
+      risk: false-success-after-verifier-error
+      journey: assess-unresolved-mcp-verification
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "nuget-mcp-verification-failure"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            tool_calls:
+              - tool_call_id: inspect-verification-failure
+                function_name: powershell
+                arguments:
+                  command: Get-Content verification.txt; Get-Content src/CatalogMcp/CatalogMcp.csproj; Get-Content src/CatalogMcp/.mcp/server.json
+            observation:
+              results:
+                - source_call_id: inspect-verification-failure
+                  content: |-
+                    Attempt 1 exit code: 1
+                    ERROR: package is missing .mcp/server.json
+                    Attempted fix: confirmed Pack=true and PackagePath=/.mcp/
+                    Attempt 2 exit code: 1
+                    ERROR: package is missing .mcp/server.json
+                    No successful verification run is recorded.
+                    Project version: 1.4.0; PackageType: McpServer
+                    server.json versions: 1.4.0
+            message: |-
+              The release is blocked and is not ready. The exact package verifier exited with code 1 twice, including after the one attempted project-file fix; the currently correct-looking metadata does not override that artifact-level failure. The next operator must clean the old artifacts, run `dotnet pack src/CatalogMcp/CatalogMcp.csproj -c Release -o artifacts`, and rerun the same `python tools/verify_package.py artifacts/contoso.catalog.mcp.1.4.0.nupkg` check against the newly created package. Report success only if that command exits 0 and confirms `.mcp/server.json` is present. If it fails again, stop and report the command, error, attempted fix, and unresolved blocker.
+    environment:
+      files:
+        - src: ./fixture.py
+          dest: .eval/fixture.py
+        - src: ./fixtures/verification-failure
+          dest: .
+    constraints:
+      reject_tools: [edit, create]
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/fixture.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='65b026bce822a38ad9876b493c5727a7fb1a012cda20360757d10001cd7e2049';subprocess.run([sys.executable,str(p),'verify','verification-failure'],check=True)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: (?i)(blocked|not ready|unresolved|failed)
+      - type: output-matches
+        config:
+          pattern: (?is)(rerun|run again).{0,100}(same|exact).{0,100}(verif|check)|clean.{0,80}pack.{0,80}verif
+      - type: output-matches
+        config:
+          pattern: (?i)(exit code 1|exit 1|exited with code 1|non-zero)
+      - type: prompt
+    rubric:
+      - Treated both failed verifier runs as an unresolved release blocker
+      - Did not infer readiness from correct-looking project or server metadata
+      - Required a fresh pack and successful rerun of the exact failed verifier before any success claim
+      - Reported the command, observed error, attempted fix, and stop condition without changing files
+
+  - name: Stay dormant for a private Azure Artifacts feed
+    prompt: |
+      This package is internal and must stay on the private Azure Artifacts feed
+      recorded in feed.txt. Review the existing GitHub Actions workflow and tell
+      me how to authenticate to that feed without a long-lived PAT. Do not edit
+      files, create credentials, or contact Azure DevOps.
+    expect_activation: false
+    tags:
+      capability: private-feed-boundary
+      risk: wrong-publishing-system
+      journey: redirect-azure-artifacts-auth
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "nuget-azure-artifacts-dormancy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a private Azure Artifacts feed, so keep the nuget.org publishing flow dormant. Use GitHub OIDC with a Microsoft Entra application or managed identity: add a federated credential whose subject matches this repository's branch or GitHub environment, add that service principal to the Azure DevOps organization, and grant it the feed's `Feed Publisher (Contributor)` role. In the workflow, grant `id-token: write`, sign in with `azure/login`, request an Azure DevOps access token for resource `499b84ac-1321-427f-aa17-267ca6975798`, and pass that short-lived token to a temporary NuGet source for `pkgs.dev.azure.com` before `dotnet nuget push`. Validate the exact federation subject and feed permission with the Azure administrators; do not create credentials or external resources from this review. The repository remains unchanged.
+    environment:
+      files:
+        - src: ./fixture.py
+          dest: .eval/fixture.py
+        - src: ./fixtures/azure
+          dest: .
+    constraints:
+      reject_tools: [edit, create]
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/fixture.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='65b026bce822a38ad9876b493c5727a7fb1a012cda20360757d10001cd7e2049';subprocess.run([sys.executable,str(p),'verify','azure'],check=True)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: (?i)(Azure Artifacts|Azure DevOps|pkgs\.dev\.azure\.com)
+      - type: output-not-contains
+        config:
+          substring: NuGet/login@v1
+      - type: prompt
+    rubric:
+      - Recognized that this is a private Azure Artifacts authentication request rather than a nuget.org publishing setup
+      - Did not prescribe the nuget.org login action, policy, or account page
+      - The nuget.org-specific publishing workflow stayed dormant and did not hijack the private-feed request
+      - Kept the complete supplied repository unchanged and did not create credentials or external resources
+      - Redirected to an Azure Artifacts and Azure identity solution without rewarding answer length

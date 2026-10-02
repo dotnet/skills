@@ -1,0 +1,58 @@
+diff --git a/.github/workflows/publish-mcp.yml b/.github/workflows/publish-mcp.yml
+new file mode 100644
+index 0000000..9493af6
+--- /dev/null
++++ b/.github/workflows/publish-mcp.yml
+@@ -0,0 +1,23 @@
++name: Publish
++on:
++  push:
++    tags:
++      - "v*"
++jobs:
++  publish:
++    runs-on: ubuntu-latest
++    environment: release
++    permissions:
++      id-token: write
++      contents: read
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-dotnet@v4
++        with:
++          dotnet-version: "10.0.x"
++      - run: dotnet pack src/CatalogMcp/CatalogMcp.csproj -c Release -o artifacts
++      - id: login
++        uses: NuGet/login@v1
++        with:
++          user: ${{ secrets.NUGET_USER }}
++      - run: dotnet nuget push "artifacts/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+diff --git a/src/CatalogMcp/.mcp/server.json b/src/CatalogMcp/.mcp/server.json
+index 9e270fd..cca51dc 100644
+--- a/src/CatalogMcp/.mcp/server.json
++++ b/src/CatalogMcp/.mcp/server.json
+@@ -2,12 +2,16 @@
+   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+   "name": "io.github.contoso/contoso.catalog.mcp",
+   "description": "Catalog MCP server",
+-  "version": "1.3.0",
+-  "packages": [{
+-    "registryType": "nuget",
+-    "registryBaseUrl": "https://api.nuget.org",
+-    "identifier": "contoso.catalog.mcp",
+-    "version": "1.3.0",
+-    "transport": {"type": "stdio"}
+-  }]
++  "version": "1.4.0",
++  "packages": [
++    {
++      "registryType": "nuget",
++      "registryBaseUrl": "https://api.nuget.org",
++      "identifier": "contoso.catalog.mcp",
++      "version": "1.4.0",
++      "transport": {
++        "type": "stdio"
++      }
++    }
++  ]
+ }

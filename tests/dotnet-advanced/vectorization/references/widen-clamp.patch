@@ -1,0 +1,50 @@
+--- a/ClampNegative.cs
++++ b/ClampNegative.cs
+@@ -4,6 +4,20 @@
+ {
+     public static void ToZero(Span<int> values)
+     {
++        if (Vector256.IsHardwareAccelerated)
++        {
++            if (values.Length >= Vector256<int>.Count)
++            {
++                ToZeroVector256(values);
++            }
++            else
++            {
++                ToZeroSmall(values);
++            }
++
++            return;
++        }
++
+         if (Vector128.IsHardwareAccelerated)
+         {
+             if (values.Length >= Vector128<int>.Count)
+@@ -19,6 +33,24 @@
+         }
+-
++
+         ToZeroScalar(values);
++    }
++
++    private static void ToZeroVector256(Span<int> values)
++    {
++        Vector256<int> zero = Vector256<int>.Zero;
++        Span<int> remaining = values;
++
++        while (remaining.Length >= Vector256<int>.Count)
++        {
++            Vector256.Max(Vector256.Create<int>(remaining), zero).CopyTo(remaining);
++            remaining = remaining.Slice(Vector256<int>.Count);
++        }
++
++        if (!remaining.IsEmpty)
++        {
++            Span<int> tail = values.Slice(values.Length - Vector256<int>.Count);
++            Vector256.Max(Vector256.Create<int>(tail), zero).CopyTo(tail);
++        }
+     }
+-
++
+     private static void ToZeroVector128(Span<int> values)
