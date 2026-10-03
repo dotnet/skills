@@ -1244,6 +1244,81 @@ public class Tests
         self.assertFalse(rejected["has_changes"])
         self.assertEqual([], rejected["retained_candidates"])
 
+    def test_authorization_accepts_retained_evidence_subset(self):
+        repo = FixtureRepo(
+            self.id().split(".")[-1],
+            """
+namespace Demo;
+public class Tests
+{
+    [Ignore("#1")][Test] public void ExecutedPass() { }
+    [Ignore("#1")][Test] public void AllSkipped() { }
+}
+""".lstrip(),
+        )
+        evidence = repo.evidence(
+            {
+                "fixture/repo#1": {
+                    "kind": "issue",
+                    "state": "closed",
+                    "state_reason": "completed",
+                }
+            }
+        )
+        resolved = repo.resolve(repo.inventory(), evidence)
+        selected_ids = [candidate["candidate_id"] for candidate in resolved["candidates"]]
+        pass_candidate = next(
+            candidate
+            for candidate in resolved["candidates"]
+            if candidate["owner"]["method_name"] == "ExecutedPass"
+        )
+        skipped_candidate = next(
+            candidate
+            for candidate in resolved["candidates"]
+            if candidate["owner"]["method_name"] == "AllSkipped"
+        )
+        evidence_dir = repo.root / "partial-evidence"
+        source = repo.root / "src" / "Tests.cs"
+        original = source.read_bytes()
+        repo.apply(resolved, evidence, selected_ids, evidence_dir=evidence_dir)
+        source.write_bytes(original)
+
+        authorized = repo.authorize(resolved, evidence, evidence_dir)
+        self.assertEqual(
+            [pass_candidate["candidate_id"]],
+            [candidate["candidate_id"] for candidate in authorized["retained_candidates"]],
+        )
+        self.assertIn(
+            skipped_candidate["candidate_id"],
+            [candidate["candidate_id"] for candidate in authorized["reverted_candidates"]],
+        )
+
+        empty_evidence = repo.root / "empty-evidence"
+        repo.apply(
+            resolved,
+            evidence,
+            [skipped_candidate["candidate_id"]],
+            evidence_dir=empty_evidence,
+            expected=10,
+        )
+        source.write_bytes(original)
+        empty_authorization = repo.authorize(
+            resolved, evidence, empty_evidence, expected=10
+        )
+        self.assertFalse(empty_authorization["has_changes"])
+        self.assertEqual([], empty_authorization["retained_candidates"])
+        self.assertEqual(
+            [skipped_candidate["candidate_id"]],
+            [
+                candidate["candidate_id"]
+                for candidate in empty_authorization["reverted_candidates"]
+            ],
+        )
+
+        unknown = empty_evidence / "final" / ("f" * 64)
+        unknown.mkdir()
+        repo.authorize(resolved, evidence, empty_evidence, expected=20)
+
     def test_verification_evidence_rejects_unexpected_entries(self):
         repo = FixtureRepo(
             self.id().split(".")[-1],

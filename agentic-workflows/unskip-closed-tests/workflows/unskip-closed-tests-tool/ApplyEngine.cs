@@ -232,6 +232,14 @@ internal static class ApplyEngine
         if (retained.Count == 0)
         {
             RestoreFiles(repository, originalBytes);
+            if (verificationEvidenceDirectory is not null)
+            {
+                WriteVerificationEvidence(
+                    workRoot,
+                    verificationEvidenceDirectory,
+                    [],
+                    agentOutputPath);
+            }
             return new ApplyResult
             {
                 SourceCommit = requestedManifest.SourceCommit,
@@ -297,6 +305,7 @@ public static async Task<ApplyResult> AuthorizeAsync(
         agentOutputPath,
         requestedManifest.ManifestDigest,
         "apply_verified_unskips");
+    HashSet<string> selectedSet = selectedIds.ToHashSet(StringComparer.Ordinal);
     List<string> actualCandidateDirectories = Directory
         .EnumerateFileSystemEntries(finalEvidenceRoot)
         .Select(static entry =>
@@ -304,12 +313,12 @@ public static async Task<ApplyResult> AuthorizeAsync(
             throw new ContractException("Verification candidate entry has no file name."))
         .Order(StringComparer.Ordinal)
         .ToList();
-    if (!actualCandidateDirectories.SequenceEqual(
-            selectedIds.Order(StringComparer.Ordinal),
-            StringComparer.Ordinal))
+    string? unknownEvidenceId = actualCandidateDirectories
+        .FirstOrDefault(candidateId => !selectedSet.Contains(candidateId));
+    if (unknownEvidenceId is not null)
     {
         throw new ContractException(
-            "Verification evidence candidate directories do not match the selected candidate IDs.");
+            $"Verification evidence contains unknown candidate_id '{unknownEvidenceId}'.");
     }
 
     GitRepository repository = GitRepository.Open(requestedRoot, requestedManifest.Repository);
@@ -344,20 +353,22 @@ public static async Task<ApplyResult> AuthorizeAsync(
             "final",
             candidateId);
         DirectoryInfo candidateEvidenceDirectory = new(candidateDirectory);
-        if (!candidateEvidenceDirectory.Exists ||
-            candidateEvidenceDirectory.Attributes.HasFlag(FileAttributes.ReparsePoint))
+        if (!candidateEvidenceDirectory.Exists)
+        {
+            reverted.Add(CreateRevertedCandidate(
+                candidate,
+                "missing_final_verification_evidence"));
+            continue;
+        }
+
+        if (candidateEvidenceDirectory.Attributes.HasFlag(FileAttributes.ReparsePoint))
         {
             throw new ContractException(
-                $"Verification evidence directory for '{candidateId}' is missing or unsafe.");
+                $"Verification evidence directory for '{candidateId}' is unsafe.");
         }
 
         string requestPath = Path.Combine(candidateDirectory, "request.json");
         RequireRegularBoundedFile(requestPath, 262144, "verification request");
-        if (!File.Exists(requestPath))
-        {
-            reverted.Add(CreateRevertedCandidate(candidate, "missing_final_verification_evidence"));
-            continue;
-        }
 
         ApplyRequest request = JsonSupport.Read<ApplyRequest>(requestPath);
         List<VerificationTest> expectedTests = candidate.Owner.TestFqns
