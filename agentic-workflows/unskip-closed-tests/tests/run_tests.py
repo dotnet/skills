@@ -1228,6 +1228,7 @@ public class Tests
 {
     [Ignore("#1")][Test] public void PartialDefinitions() { }
     [Ignore("#1")][Test] public void DuplicateResult() { }
+    [Ignore("#1")][Test] public void OversizedTrx() { }
 }
 """.lstrip(),
         )
@@ -1250,6 +1251,7 @@ public class Tests
         reasons = {candidate["reason"] for candidate in result["reverted_candidates"]}
         self.assertTrue(any(reason.startswith("definition_without_result:") for reason in reasons))
         self.assertTrue(any(reason.startswith("duplicate_trx_result_id:") for reason in reasons))
+        self.assertTrue(any(reason.startswith("oversized_trx:") for reason in reasons))
 
     def test_authorization_is_derived_from_fresh_trx_evidence(self):
         repo = FixtureRepo(

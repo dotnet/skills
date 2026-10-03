@@ -792,8 +792,8 @@ public static async Task<ApplyResult> AuthorizeAsync(
         ProcessStartInfo startInfo = new(argv[0])
         {
             WorkingDirectory = repository.Root,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
+            RedirectStandardOutput = false,
+            RedirectStandardError = false,
             UseShellExecute = false,
             CreateNoWindow = true,
         };
@@ -808,8 +808,6 @@ public static async Task<ApplyResult> AuthorizeAsync(
         {
             using Process process = Process.Start(startInfo)
                 ?? throw new InfrastructureException($"Could not start verification command '{argv[0]}'.");
-            Task<string> stdout = process.StandardOutput.ReadToEndAsync();
-            Task<string> stderr = process.StandardError.ReadToEndAsync();
             using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(config.VerificationTimeoutSeconds));
             try
             {
@@ -819,25 +817,14 @@ public static async Task<ApplyResult> AuthorizeAsync(
             {
                 process.Kill(entireProcessTree: true);
                 await process.WaitForExitAsync();
-                await Task.WhenAll(stdout, stderr);
                 return new VerificationOutcome(false, "verification_timeout");
             }
 
-            string standardError = await stderr;
-            await stdout;
             if (process.ExitCode != 0)
             {
-                string detail = standardError.Trim();
-                if (detail.Length > 160)
-                {
-                    detail = detail[..160];
-                }
-
                 return new VerificationOutcome(
                     false,
-                    detail.Length == 0
-                        ? $"verification_nonzero_exit:{process.ExitCode}"
-                        : $"verification_nonzero_exit:{process.ExitCode}:{detail}");
+                    $"verification_nonzero_exit:{process.ExitCode}");
             }
         }
         catch (InfrastructureException)

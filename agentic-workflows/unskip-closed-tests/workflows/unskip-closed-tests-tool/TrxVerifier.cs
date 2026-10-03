@@ -34,6 +34,17 @@ internal static class TrxVerifier
 
             try
             {
+                FileInfo resultFile = new(test.ResultFile);
+                if (resultFile.Attributes.HasFlag(FileAttributes.ReparsePoint))
+                {
+                    return (false, $"unsafe_trx:{Path.GetFileName(test.ResultFile)}");
+                }
+
+                if (resultFile.Length > 16777216)
+                {
+                    return (false, $"oversized_trx:{Path.GetFileName(test.ResultFile)}");
+                }
+
                 XDocument document = XDocument.Load(test.ResultFile, LoadOptions.None);
                 Dictionary<string, string> mappings = new(StringComparer.Ordinal);
                 foreach (XElement unitTest in document.Descendants().Where(static element =>

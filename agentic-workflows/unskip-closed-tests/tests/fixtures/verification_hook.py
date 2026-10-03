@@ -125,6 +125,8 @@ def main() -> int:
             behavior = "partial"
         elif "DuplicateResult" in method_name:
             behavior = "duplicate_result"
+        elif "OversizedTrx" in method_name:
+            behavior = "oversized"
         else:
             behavior = "pass"
         if (
@@ -135,6 +137,9 @@ def main() -> int:
         ):
             behavior = "skipped"
         write_trx(Path(test["result_file"]), test["fqn"], behavior)
+        if behavior == "oversized":
+            with Path(test["result_file"]).open("ab") as stream:
+                stream.truncate(16777217)
     if write_extra_evidence:
         request_path.with_name("unexpected.txt").write_text(
             "untrusted evidence\n", encoding="utf-8"
