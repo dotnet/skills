@@ -75,7 +75,7 @@ internal static class TrxVerifier
                     return (false, "zero_executed_tests");
                 }
 
-                int passed = 0;
+                HashSet<string> resultIds = new(StringComparer.Ordinal);
                 foreach (XElement result in results)
                 {
                     string? testId = result.Attribute("testId")?.Value;
@@ -86,24 +86,26 @@ internal static class TrxVerifier
                         return (false, "result_without_exact_test_mapping");
                     }
 
+                    if (!resultIds.Add(testId))
+                    {
+                        return (false, $"duplicate_trx_result_id:{testId}");
+                    }
+
                     if (!string.Equals(mappedFqn, test.Fqn, StringComparison.Ordinal))
                     {
                         return (false, $"mismatched_result_fqn:{mappedFqn}");
                     }
 
-                    if (string.Equals(outcome, "Passed", StringComparison.OrdinalIgnoreCase))
-                    {
-                        passed++;
-                    }
-                    else
+                    if (!string.Equals(outcome, "Passed", StringComparison.OrdinalIgnoreCase))
                     {
                         return (false, $"non_passing_outcome:{outcome ?? "missing"}");
                     }
                 }
 
-                if (passed == 0)
+                string? missingResultId = mappings.Keys.FirstOrDefault(id => !resultIds.Contains(id));
+                if (missingResultId is not null)
                 {
-                    return (false, "no_executed_pass");
+                    return (false, $"definition_without_result:{missingResultId}");
                 }
             }
             catch (Exception ex) when (ex is XmlException or IOException or UnauthorizedAccessException)

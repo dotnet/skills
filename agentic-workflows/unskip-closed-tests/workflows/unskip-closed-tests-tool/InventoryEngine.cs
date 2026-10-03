@@ -20,6 +20,7 @@ internal static partial class InventoryEngine
     private sealed record PendingCandidate(
         ParsedFile File,
         AttributeSyntax Attribute,
+        string AttributeType,
         OwnerIdentity Owner,
         string StableOwnerId,
         List<IssueReference> References,
@@ -30,13 +31,18 @@ internal static partial class InventoryEngine
         GitRepository repository = GitRepository.Open(requestedRoot, repositoryOverride);
         List<ParsedFile> files = LoadFiles(repository, config);
         Dictionary<string, int> typeDeclarationCounts = CountTypeDeclarations(files);
+        HashSet<string> declaredTypes = typeDeclarationCounts.Keys.ToHashSet(StringComparer.Ordinal);
         List<PendingCandidate> pending = [];
 
         foreach (ParsedFile file in files)
         {
             foreach (AttributeSyntax attribute in file.Root.DescendantNodes().OfType<AttributeSyntax>())
             {
-                if (!AttributeMatches(attribute, config.IgnoreAttributeNames))
+                string? attributeType = ResolveConfiguredAttributeType(
+                    attribute,
+                    config.IgnoreAttributeNames,
+                    declaredTypes);
+                if (attributeType is null)
                 {
                     continue;
                 }
@@ -50,7 +56,7 @@ internal static partial class InventoryEngine
                 if (attribute.FirstAncestorOrSelf<MethodDeclarationSyntax>() is MethodDeclarationSyntax method &&
                     method.AttributeLists.Any(list => list.Span.Contains(attribute.Span)))
                 {
-                    OwnerIdentity owner = CreateMethodOwner(method, config);
+                    OwnerIdentity owner = CreateMethodOwner(method, config, declaredTypes);
                     List<string> deferrals = [];
                     if (owner.TestFqns.Count == 0)
                     {
@@ -62,7 +68,8 @@ internal static partial class InventoryEngine
                     }
 
                     string stableOwnerId = StableOwnerId(repository.Repository, file.Path, owner, method);
-                    pending.Add(new PendingCandidate(file, attribute, owner, stableOwnerId, references, deferrals));
+                    pending.Add(new PendingCandidate(
+                        file, attribute, attributeType, owner, stableOwnerId, references, deferrals));
                     continue;
                 }
 
@@ -70,14 +77,15 @@ internal static partial class InventoryEngine
                     type.AttributeLists.Any(list => list.Span.Contains(attribute.Span)))
                 {
                     (OwnerIdentity owner, List<string> deferrals) =
-                        CreateClassOwner(type, config, typeDeclarationCounts);
+                        CreateClassOwner(type, config, typeDeclarationCounts, declaredTypes);
                     if (HasGeneratedMarker(type))
                     {
                         deferrals.Add("generated_declaration");
                     }
 
                     string stableOwnerId = StableOwnerId(repository.Repository, file.Path, owner, type);
-                    pending.Add(new PendingCandidate(file, attribute, owner, stableOwnerId, references, deferrals));
+                    pending.Add(new PendingCandidate(
+                        file, attribute, attributeType, owner, stableOwnerId, references, deferrals));
                 }
             }
         }
@@ -116,6 +124,7 @@ internal static partial class InventoryEngine
                     SourceSha256 = JsonSupport.Sha256(item.File.Bytes),
                     AttributeSpan = sourceSpan,
                     AttributeTextSha256 = JsonSupport.Sha256(attributeText),
+                    AttributeType = item.AttributeType,
                     Owner = item.Owner,
                     CanonicalIssueReferences = item.References,
                     Decision = new CandidateDecision
@@ -258,7 +267,10 @@ internal static partial class InventoryEngine
         return counts;
     }
 
-    private static OwnerIdentity CreateMethodOwner(MethodDeclarationSyntax method, ToolConfig config)
+    private static OwnerIdentity CreateMethodOwner(
+        MethodDeclarationSyntax method,
+        ToolConfig config,
+        IReadOnlySet<string> declaredTypes)
     {
         TypeDeclarationSyntax? type = method.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
         if (type is null)
@@ -269,7 +281,10 @@ internal static partial class InventoryEngine
         string typeFqn = TypeFqn(type);
         string signature = MethodSignature(method);
         bool isTest = method.AttributeLists.SelectMany(static list => list.Attributes)
-            .Any(attribute => AttributeMatches(attribute, config.TestAttributeNames));
+            .Any(attribute => ResolveConfiguredAttributeType(
+                attribute,
+                config.TestAttributeNames,
+                declaredTypes) is not null);
         return new OwnerIdentity
         {
             Kind = "method",
@@ -286,7 +301,8 @@ internal static partial class InventoryEngine
     private static (OwnerIdentity Owner, List<string> Deferrals) CreateClassOwner(
         ClassDeclarationSyntax type,
         ToolConfig config,
-        IReadOnlyDictionary<string, int> declarationCounts)
+        IReadOnlyDictionary<string, int> declarationCounts,
+        IReadOnlySet<string> declaredTypes)
     {
         string typeFqn = TypeFqn(type);
         List<string> deferrals = [];
@@ -314,7 +330,10 @@ internal static partial class InventoryEngine
         List<string> tests = type.Members
             .OfType<MethodDeclarationSyntax>()
             .Where(method => method.AttributeLists.SelectMany(static list => list.Attributes)
-                .Any(attribute => AttributeMatches(attribute, config.TestAttributeNames)))
+                .Any(attribute => ResolveConfiguredAttributeType(
+                    attribute,
+                    config.TestAttributeNames,
+                    declaredTypes) is not null))
             .Select(method => $"{typeFqn}.{method.Identifier.ValueText}")
             .Order(StringComparer.Ordinal)
             .ToList();
@@ -444,26 +463,107 @@ internal static partial class InventoryEngine
                     : $"{declaration.Identifier.ValueText}`{declaration.TypeParameterList.Parameters.Count}")
             .ToList();
 
-    internal static bool AttributeMatches(AttributeSyntax attribute, IEnumerable<string> configuredNames)
+    internal static string? ResolveConfiguredAttributeType(
+        AttributeSyntax attribute,
+        IEnumerable<string> configuredNames,
+        IReadOnlySet<string> declaredTypes)
     {
-        string actual = attribute.Name.WithoutTrivia().ToFullString().Replace("global::", "", StringComparison.Ordinal);
-        string actualShort = actual.Split('.').Last();
-        return configuredNames.Any(configured =>
+        List<string> configuredTypes = configuredNames
+            .Select(NormalizeAttributeType)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        string actual = attribute.Name.WithoutTrivia().ToFullString();
+        if (actual.StartsWith("global::", StringComparison.Ordinal))
         {
-            string normalized = configured.EndsWith("Attribute", StringComparison.Ordinal)
-                ? configured[..^"Attribute".Length]
-                : configured;
-            string actualNormalized = actual.EndsWith("Attribute", StringComparison.Ordinal)
-                ? actual[..^"Attribute".Length]
-                : actual;
-            string shortNormalized = actualShort.EndsWith("Attribute", StringComparison.Ordinal)
-                ? actualShort[..^"Attribute".Length]
-                : actualShort;
-            return normalized.Contains('.', StringComparison.Ordinal)
-                ? string.Equals(normalized, actualNormalized, StringComparison.Ordinal)
-                : string.Equals(normalized, shortNormalized, StringComparison.Ordinal);
-        });
+            string globalType = NormalizeAttributeType(actual["global::".Length..]);
+            return configuredTypes.Contains(globalType, StringComparer.Ordinal)
+                ? globalType
+                : null;
+        }
+
+        IReadOnlyList<UsingDirectiveSyntax> usings = VisibleUsings(attribute);
+        Dictionary<string, string> aliases = usings
+            .Where(static directive => directive.Alias is not null)
+            .ToDictionary(
+                static directive => directive.Alias!.Name.Identifier.ValueText,
+                static directive => directive.Name!.WithoutTrivia().ToFullString(),
+                StringComparer.Ordinal);
+        if (aliases.TryGetValue(actual, out string? aliasedType))
+        {
+            string normalizedAlias = NormalizeAttributeType(aliasedType);
+            return configuredTypes.Contains(normalizedAlias, StringComparer.Ordinal)
+                ? normalizedAlias
+                : null;
+        }
+
+        if (actual.Contains('.', StringComparison.Ordinal))
+        {
+            string[] parts = actual.Split('.');
+            if (aliases.TryGetValue(parts[0], out string? aliasedNamespace))
+            {
+                actual = string.Join('.', [aliasedNamespace, .. parts.Skip(1)]);
+            }
+
+            string qualifiedType = NormalizeAttributeType(actual);
+            return configuredTypes.Contains(qualifiedType, StringComparer.Ordinal)
+                ? qualifiedType
+                : null;
+        }
+
+        string simpleName = NormalizeAttributeSimpleName(actual);
+        List<string> matchingTypes = configuredTypes
+            .Where(configured =>
+                string.Equals(
+                    configured.Split('.').Last(),
+                    simpleName,
+                    StringComparison.Ordinal))
+            .ToList();
+        if (matchingTypes.Count != 1 ||
+            declaredTypes.Any(declared =>
+                string.Equals(
+                    declared.Split('.').Last(),
+                    simpleName,
+                    StringComparison.Ordinal)))
+        {
+            return null;
+        }
+
+        string configuredType = matchingTypes[0];
+        int separator = configuredType.LastIndexOf('.');
+        string configuredNamespace = configuredType[..separator];
+        if (string.Equals(NamespaceName(attribute), configuredNamespace, StringComparison.Ordinal) ||
+            usings.Any(directive =>
+                directive.Alias is null &&
+                !directive.StaticKeyword.IsKind(SyntaxKind.StaticKeyword) &&
+                string.Equals(
+                    directive.Name?.WithoutTrivia().ToFullString(),
+                    configuredNamespace,
+                    StringComparison.Ordinal)))
+        {
+            return configuredType;
+        }
+
+        return null;
     }
+
+    private static string NormalizeAttributeType(string value)
+    {
+        string[] parts = value.Split('.');
+        parts[^1] = NormalizeAttributeSimpleName(parts[^1]);
+        return string.Join('.', parts);
+    }
+
+    private static string NormalizeAttributeSimpleName(string value) =>
+        value.EndsWith("Attribute", StringComparison.Ordinal)
+            ? value
+            : $"{value}Attribute";
+
+    private static IReadOnlyList<UsingDirectiveSyntax> VisibleUsings(SyntaxNode node) =>
+        node.SyntaxTree.GetCompilationUnitRoot().Usings
+            .Concat(node.Ancestors().OfType<BaseNamespaceDeclarationSyntax>()
+                .Reverse()
+                .SelectMany(static declaration => declaration.Usings))
+            .ToList();
 
     private static List<IssueReference> ExtractReferences(AttributeSyntax attribute, string currentRepository)
     {

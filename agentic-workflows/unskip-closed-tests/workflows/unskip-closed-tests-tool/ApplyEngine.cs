@@ -18,7 +18,8 @@ internal static class ApplyEngine
         ToolConfig config,
         string manifestPath,
         string agentOutputPath,
-        string? evidencePath)
+        string? evidencePath,
+        string? verificationEvidenceDirectory = null)
     {
         Manifest requestedManifest = ManifestValidator.Read(manifestPath);
         if (!string.Equals(requestedManifest.ConfigDigest, ConfigLoader.Digest(config), StringComparison.Ordinal))
@@ -26,7 +27,10 @@ internal static class ApplyEngine
             throw new ContractException("Apply config does not match manifest config_digest.");
         }
 
-        List<string> selectedIds = ReadAgentSelection(agentOutputPath, requestedManifest.ManifestDigest);
+        List<string> selectedIds = ReadAgentSelection(
+            agentOutputPath,
+            requestedManifest.ManifestDigest,
+            "apply_verified_unskips");
         Dictionary<string, Candidate> requestedCandidates = requestedManifest.Candidates
             .ToDictionary(static candidate => candidate.CandidateId, StringComparer.Ordinal);
         foreach (string candidateId in selectedIds)
@@ -204,6 +208,14 @@ internal static class ApplyEngine
                 }
 
                 finalEligibility = postVerificationEligibility;
+                if (verificationEvidenceDirectory is not null)
+                {
+                    WriteVerificationEvidence(
+                        workRoot,
+                        verificationEvidenceDirectory,
+                        retained,
+                        agentOutputPath);
+                }
                 break;
             }
         }
@@ -231,38 +243,141 @@ internal static class ApplyEngine
             };
         }
 
+
         Dictionary<string, Candidate> finalCandidates = finalEligibility.Candidates
             .ToDictionary(static candidate => candidate.CandidateId, StringComparer.Ordinal);
         List<Candidate> retainedCandidates = retained.Select(id => finalCandidates[id])
             .OrderBy(static candidate => candidate.Path, StringComparer.Ordinal)
             .ThenBy(static candidate => candidate.AttributeSpan.Start)
             .ToList();
+        return CreateAuthorizedResult(requestedManifest, retainedCandidates, reverted);
+    }
+
+
+public static async Task<ApplyResult> AuthorizeAsync(
+    string requestedRoot,
+    ToolConfig config,
+    string manifestPath,
+    string agentOutputPath,
+    string verificationEvidenceDirectory,
+    string? evidencePath)
+{
+    Manifest requestedManifest = ManifestValidator.Read(manifestPath);
+    if (!string.Equals(requestedManifest.ConfigDigest, ConfigLoader.Digest(config), StringComparison.Ordinal))
+    {
+        throw new ContractException("Authorize config does not match manifest config_digest.");
+    }
+
+    List<string> selectedIds = ReadAgentSelection(
+        agentOutputPath,
+        requestedManifest.ManifestDigest,
+        "apply_verified_unskips");
+    GitRepository repository = GitRepository.Open(requestedRoot, requestedManifest.Repository);
+    if (!string.Equals(repository.Commit, requestedManifest.SourceCommit, StringComparison.Ordinal))
+    {
+        throw new ContractException(
+            $"Manifest source_commit {requestedManifest.SourceCommit} is stale; checked out commit is {repository.Commit}.");
+    }
+
+    Manifest freshInventory = InventoryEngine.Create(repository.Root, requestedManifest.Repository, config);
+    Manifest freshResolved = await IssueResolver.ResolveAsync(freshInventory, evidencePath);
+    if (!string.Equals(freshResolved.ManifestDigest, requestedManifest.ManifestDigest, StringComparison.Ordinal))
+    {
+        throw new ContractException("Authorize revalidation did not reproduce the trusted manifest.");
+    }
+
+    Dictionary<string, Candidate> candidates = freshResolved.Candidates
+        .ToDictionary(static candidate => candidate.CandidateId, StringComparer.Ordinal);
+    List<Candidate> retained = [];
+    List<RevertedCandidateResult> reverted = [];
+    foreach (string candidateId in selectedIds)
+    {
+        if (!candidates.TryGetValue(candidateId, out Candidate? candidate) ||
+            !candidate.Decision.Eligible)
+        {
+            throw new ContractException(
+                $"Authorize candidate_id '{candidateId}' is unknown or no longer eligible.");
+        }
+
+        string candidateDirectory = Path.Combine(
+            Path.GetFullPath(verificationEvidenceDirectory),
+            "final",
+            candidateId);
+        string requestPath = Path.Combine(candidateDirectory, "request.json");
+        if (!File.Exists(requestPath))
+        {
+            reverted.Add(CreateRevertedCandidate(candidate, "missing_final_verification_evidence"));
+            continue;
+        }
+
+        ApplyRequest request = JsonSupport.Read<ApplyRequest>(requestPath);
+        List<VerificationTest> expectedTests = candidate.Owner.TestFqns
+            .Order(StringComparer.Ordinal)
+            .Select((fqn, index) => new VerificationTest
+            {
+                Fqn = fqn,
+                SourcePath = candidate.Path,
+                ResultFile = Path.Combine(candidateDirectory, $"{index:D4}.trx"),
+            })
+            .ToList();
+        if (request.SchemaVersion != "1" ||
+            request.Candidate.CandidateId != candidateId ||
+            request.Repository != requestedManifest.Repository ||
+            request.SourceCommit != requestedManifest.SourceCommit ||
+            request.Tests.Count != expectedTests.Count ||
+            !request.Tests.Zip(expectedTests).All(static pair =>
+                pair.First.Fqn == pair.Second.Fqn &&
+                pair.First.SourcePath == pair.Second.SourcePath &&
+                Path.GetFileName(pair.First.ResultFile) == Path.GetFileName(pair.Second.ResultFile)))
+        {
+            throw new ContractException(
+                $"Authorize evidence request for '{candidateId}' does not match the trusted manifest.");
+        }
+
+        (bool success, string reason) = TrxVerifier.Verify(expectedTests);
+        if (success)
+        {
+            retained.Add(candidate);
+        }
+        else
+        {
+            reverted.Add(CreateRevertedCandidate(candidate, $"authorization:{reason}"));
+        }
+    }
+
+    Manifest finalEligibility = await IssueResolver.ResolveAsync(freshInventory, evidencePath);
+    HashSet<string> finallyEligible = finalEligibility.Candidates
+        .Where(static candidate => candidate.Decision.Eligible)
+        .Select(static candidate => candidate.CandidateId)
+        .ToHashSet(StringComparer.Ordinal);
+    foreach (Candidate candidate in retained.Where(
+                 candidate => !finallyEligible.Contains(candidate.CandidateId)).ToList())
+    {
+        reverted.Add(CreateRevertedCandidate(
+            candidate,
+            "eligibility_changed_during_authorization"));
+        retained.Remove(candidate);
+    }
+
+    if (retained.Count == 0)
+    {
         return new ApplyResult
         {
             SourceCommit = requestedManifest.SourceCommit,
             ManifestDigest = requestedManifest.ManifestDigest,
-            RetainedCandidates = retainedCandidates
-                .Select(static candidate => new RetainedCandidateResult
-                {
-                    CandidateId = candidate.CandidateId,
-                    Path = candidate.Path,
-                    TestFqns = candidate.Owner.TestFqns.Order(StringComparer.Ordinal).ToList(),
-                })
-                .OrderBy(static candidate => candidate.CandidateId, StringComparer.Ordinal)
+            RevertedCandidates = reverted
+                .OrderBy(static item => item.CandidateId, StringComparer.Ordinal)
                 .ToList(),
-            RevertedCandidates = reverted.OrderBy(static item => item.CandidateId, StringComparer.Ordinal).ToList(),
-            ChangedPaths = retainedCandidates
-                .Select(static candidate => candidate.Path)
-                .Distinct(StringComparer.Ordinal)
-                .Order(StringComparer.Ordinal)
-                .ToList(),
-            HasChanges = true,
-            PrTitle = retained.Count == 1
-                ? "[unskip-closed-tests] Unskip test for completed GitHub work item"
-                : $"[unskip-closed-tests] Unskip {retained.Count} tests for completed GitHub work items",
-            PrBody = CreatePrBody(requestedManifest, retainedCandidates, reverted),
+            HasChanges = false,
         };
     }
+
+    retained = retained
+        .OrderBy(static candidate => candidate.Path, StringComparer.Ordinal)
+        .ThenBy(static candidate => candidate.AttributeSpan.Start)
+        .ToList();
+    return CreateAuthorizedResult(requestedManifest, retained, reverted);
+}
 
     public static async Task MaterializeAsync(
         string requestedRoot,
@@ -345,7 +460,10 @@ internal static class ApplyEngine
         RestoreFiles(repository, BuildEditedBytes(originalBytes, edits));
     }
 
-    private static List<string> ReadAgentSelection(string path, string expectedManifestDigest)
+    private static List<string> ReadAgentSelection(
+        string path,
+        string expectedManifestDigest,
+        string expectedType)
     {
         using JsonDocument document = JsonSupport.ReadDocument(path);
         JsonElement root = document.RootElement;
@@ -390,12 +508,20 @@ internal static class ApplyEngine
             throw new ContractException("Agent output root must be an object or array.");
         }
 
-        if (items.Count != 1 || items[0].ValueKind != JsonValueKind.Object)
+        List<JsonElement> matchingItems = items
+            .Where(item =>
+                item.ValueKind == JsonValueKind.Object &&
+                item.TryGetProperty("type", out JsonElement typeElement) &&
+                typeElement.ValueKind == JsonValueKind.String &&
+                typeElement.GetString() == expectedType)
+            .ToList();
+        if (matchingItems.Count != 1)
         {
-            throw new ContractException("Agent output must contain exactly one output item.");
+            throw new ContractException(
+                $"Agent output must contain exactly one '{expectedType}' output item.");
         }
 
-        JsonElement item = items[0];
+        JsonElement item = matchingItems[0];
         HashSet<string> allowed = ["type", "manifest_digest", "candidate_ids_json"];
         foreach (JsonProperty property in item.EnumerateObject())
         {
@@ -406,7 +532,7 @@ internal static class ApplyEngine
         }
 
         string type = RequiredString(item, "type");
-        if (type != "apply_verified_unskips")
+        if (type != expectedType)
         {
             throw new ContractException($"Unexpected output item type '{type}'.");
         }
@@ -495,7 +621,7 @@ internal static class ApplyEngine
                                 attribute.Span.Length == candidate.AttributeSpan.Length)
             .ToList();
         if (matches.Count != 1 ||
-            !InventoryEngine.AttributeMatches(matches[0], config.IgnoreAttributeNames) ||
+            string.IsNullOrWhiteSpace(candidate.AttributeType) ||
             !string.Equals(
                 JsonSupport.Sha256(text.Substring(matches[0].SpanStart, matches[0].Span.Length)),
                 candidate.AttributeTextSha256,
@@ -676,6 +802,79 @@ internal static class ApplyEngine
         }
 
         return editedBytes;
+    }
+
+    private static ApplyResult CreateAuthorizedResult(
+        Manifest manifest,
+        IReadOnlyList<Candidate> retainedCandidates,
+        IReadOnlyList<RevertedCandidateResult> reverted)
+    {
+        int testCount = retainedCandidates.Sum(static candidate => candidate.Owner.TestFqns.Count);
+        return new ApplyResult
+        {
+            SourceCommit = manifest.SourceCommit,
+            ManifestDigest = manifest.ManifestDigest,
+            RetainedCandidates = retainedCandidates
+                .Select(static candidate => new RetainedCandidateResult
+                {
+                    CandidateId = candidate.CandidateId,
+                    Path = candidate.Path,
+                    TestFqns = candidate.Owner.TestFqns.Order(StringComparer.Ordinal).ToList(),
+                })
+                .OrderBy(static candidate => candidate.CandidateId, StringComparer.Ordinal)
+                .ToList(),
+            RevertedCandidates = reverted
+                .OrderBy(static item => item.CandidateId, StringComparer.Ordinal)
+                .ToList(),
+            ChangedPaths = retainedCandidates
+                .Select(static candidate => candidate.Path)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+                .ToList(),
+            HasChanges = true,
+            PrTitle = testCount == 1
+                ? "[unskip-closed-tests] Unskip test for completed GitHub work item"
+                : $"[unskip-closed-tests] Unskip {testCount} tests for completed GitHub work items",
+            PrBody = CreatePrBody(manifest, retainedCandidates, reverted),
+        };
+    }
+
+    private static void WriteVerificationEvidence(
+        string workRoot,
+        string outputDirectory,
+        IReadOnlyList<string> retainedCandidateIds,
+        string agentOutputPath)
+    {
+        ResetDirectory(outputDirectory);
+        string finalDirectory = Path.Combine(outputDirectory, "final");
+        Directory.CreateDirectory(finalDirectory);
+        foreach (string candidateId in retainedCandidateIds)
+        {
+            CopyDirectory(
+                Path.Combine(workRoot, candidateId),
+                Path.Combine(finalDirectory, candidateId));
+        }
+
+        File.Copy(
+            agentOutputPath,
+            Path.Combine(outputDirectory, "agent-output.json"),
+            overwrite: false);
+    }
+
+    private static void CopyDirectory(string source, string destination)
+    {
+        Directory.CreateDirectory(destination);
+        foreach (string file in Directory.EnumerateFiles(source))
+        {
+            File.Copy(file, Path.Combine(destination, Path.GetFileName(file)), overwrite: false);
+        }
+
+        foreach (string directory in Directory.EnumerateDirectories(source))
+        {
+            CopyDirectory(
+                directory,
+                Path.Combine(destination, Path.GetFileName(directory)));
+        }
     }
 
     private static byte[] ApplyTextEdit(byte[] sourceBytes, int start, int length)

@@ -7,7 +7,8 @@ internal static class Program
         Usage:
           UnskipClosedTests.Tool inventory --config <path> --output <path> [--repo-root <path>] [--repository <owner/repo>] [--source-commit <sha>]
           UnskipClosedTests.Tool resolve --manifest <path> --output <path> [--github-evidence <path>]
-          UnskipClosedTests.Tool apply --config <path> --manifest <path> --agent-output <path> --output <path> [--repo-root <path>] [--github-evidence <path>]
+          UnskipClosedTests.Tool apply --config <path> --manifest <path> --agent-output <path> --output <path> [--evidence-dir <path>] [--repo-root <path>] [--github-evidence <path>]
+          UnskipClosedTests.Tool authorize --config <path> --manifest <path> --agent-output <path> --evidence-dir <path> --output <path> [--repo-root <path>] [--github-evidence <path>]
           UnskipClosedTests.Tool materialize --config <path> --manifest <path> --result <path> [--repo-root <path>] [--github-evidence <path>]
 
         Exit codes:
@@ -40,8 +41,9 @@ internal static class Program
                 "inventory" => RunInventory(options),
                 "resolve" => await RunResolveAsync(options),
                 "apply" => await RunApplyAsync(options),
+                "authorize" => await RunAuthorizeAsync(options),
                 "materialize" => await RunMaterializeAsync(options),
-                _ => throw new ContractException($"Unknown command '{options.Command}'. Expected inventory, resolve, apply, or materialize."),
+                _ => throw new ContractException($"Unknown command '{options.Command}'. Expected inventory, resolve, apply, authorize, or materialize."),
             };
         }
         catch (ContractException ex)
@@ -98,6 +100,21 @@ internal static class Program
             config,
             options.Required("manifest"),
             options.Required("agent-output"),
+            options.Optional("github-evidence"),
+            options.Optional("evidence-dir"));
+        JsonSupport.Write(options.Required("output"), result);
+        return result.HasChanges ? ExitCodes.Success : ExitCodes.CleanNoOp;
+    }
+
+    private static async Task<int> RunAuthorizeAsync(CliOptions options)
+    {
+        ToolConfig config = ConfigLoader.Load(options.Required("config"));
+        ApplyResult result = await ApplyEngine.AuthorizeAsync(
+            options.Optional("repo-root") ?? Environment.CurrentDirectory,
+            config,
+            options.Required("manifest"),
+            options.Required("agent-output"),
+            options.Required("evidence-dir"),
             options.Optional("github-evidence"));
         JsonSupport.Write(options.Required("output"), result);
         return result.HasChanges ? ExitCodes.Success : ExitCodes.CleanNoOp;
@@ -147,7 +164,8 @@ internal static class Program
         {
             "inventory" => ["config", "output", "repo-root", "repository", "source-commit"],
             "resolve" => ["manifest", "output", "github-evidence"],
-            "apply" => ["config", "manifest", "agent-output", "output", "repo-root", "github-evidence"],
+            "apply" => ["config", "manifest", "agent-output", "output", "evidence-dir", "repo-root", "github-evidence"],
+            "authorize" => ["config", "manifest", "agent-output", "evidence-dir", "output", "repo-root", "github-evidence"],
             "materialize" => ["config", "manifest", "result", "repo-root", "github-evidence"],
             _ => [],
         };

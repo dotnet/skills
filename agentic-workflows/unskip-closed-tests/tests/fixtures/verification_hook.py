@@ -27,11 +27,29 @@ def write_trx(path: Path, fqn: str, behavior: str) -> None:
     test_method.set("className", class_name)
     test_method.set("name", method_name)
 
+    if behavior == "partial":
+        second_test = ET.SubElement(
+            definitions,
+            "UnitTest",
+            id="33333333-3333-3333-3333-333333333333",
+            name=method_name,
+        )
+        second_method = ET.SubElement(second_test, "TestMethod")
+        second_method.set("className", class_name)
+        second_method.set("name", method_name)
+
     outcome = "Passed" if behavior in ("pass", "mismatch") else "NotExecuted"
+    if behavior in ("partial", "duplicate_result"):
+        outcome = "Passed"
     result = ET.SubElement(results, "UnitTestResult")
     result.set("testId", test_id)
     result.set("testName", method_name)
     result.set("outcome", outcome)
+    if behavior == "duplicate_result":
+        duplicate = ET.SubElement(results, "UnitTestResult")
+        duplicate.set("testId", test_id)
+        duplicate.set("testName", method_name)
+        duplicate.set("outcome", "Passed")
     ET.ElementTree(test_run).write(path, encoding="utf-8", xml_declaration=True)
 
 
@@ -99,6 +117,10 @@ def main() -> int:
             behavior = "skipped"
         elif "Mismatch" in method_name:
             behavior = "mismatch"
+        elif "PartialDefinitions" in method_name:
+            behavior = "partial"
+        elif "DuplicateResult" in method_name:
+            behavior = "duplicate_result"
         else:
             behavior = "pass"
         if (

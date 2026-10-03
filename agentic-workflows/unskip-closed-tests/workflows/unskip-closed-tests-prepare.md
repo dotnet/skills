@@ -117,12 +117,6 @@ jobs:
           name: unskip-closed-tests-manifest-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/unskip-closed-tests-manifest
 
-      - name: Download bounded publication artifact
-        uses: actions/download-artifact@v8.0.1
-        with:
-          name: unskip-closed-tests-publication-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/unskip-closed-tests-publication
-
       - name: Set up .NET SDK
         uses: actions/setup-dotnet@v6
         with:
@@ -132,6 +126,40 @@ jobs:
         working-directory: .github/workflows/unskip-closed-tests-tool
         run: dotnet restore UnskipClosedTests.Tool.csproj --locked-mode
 
+      - name: Download untrusted verification evidence
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: unskip-closed-tests-verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/unskip-closed-tests-verification
+
+      - name: Derive trusted publication authorization
+        shell: bash
+        working-directory: .github/workflows/unskip-closed-tests-tool
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORIGINAL_MANIFEST: ${{ runner.temp }}/unskip-closed-tests-manifest/manifest.json
+          VERIFICATION_EVIDENCE: ${{ runner.temp }}/unskip-closed-tests-verification
+          RESULT_PATH: ${{ runner.temp }}/unskip-closed-tests-result.json
+        run: |
+          set -euo pipefail
+          set +e
+          dotnet run --no-restore \
+            --project UnskipClosedTests.Tool.csproj \
+            -- authorize \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --config "$GITHUB_WORKSPACE/.github/workflows/unskip-closed-tests.config.json" \
+            --manifest "$ORIGINAL_MANIFEST" \
+            --agent-output "$VERIFICATION_EVIDENCE/agent-output.json" \
+            --evidence-dir "$VERIFICATION_EVIDENCE" \
+            --output "$RESULT_PATH"
+          AUTHORIZE_EXIT=$?
+          rm -rf bin obj
+          set -e
+          if [ "$AUTHORIZE_EXIT" -ne 0 ] && [ "$AUTHORIZE_EXIT" -ne 10 ]; then
+            exit "$AUTHORIZE_EXIT"
+          fi
+          test -f "$RESULT_PATH"
+
       - name: Publish one verified draft pull request
         shell: bash
         env:
@@ -139,7 +167,7 @@ jobs:
           EXPECTED_REPOSITORY: ${{ github.repository }}
           EXPECTED_COMMIT: ${{ github.sha }}
           ORIGINAL_MANIFEST: ${{ runner.temp }}/unskip-closed-tests-manifest/manifest.json
-          RESULT_PATH: ${{ runner.temp }}/unskip-closed-tests-publication/unskip-closed-tests-result.json
+          RESULT_PATH: ${{ runner.temp }}/unskip-closed-tests-result.json
         run: |
           set -euo pipefail
 
@@ -224,7 +252,7 @@ jobs:
           rm -rf \
             .github/workflows/unskip-closed-tests-tool/bin \
             .github/workflows/unskip-closed-tests-tool/obj
-          git diff --name-only --diff-filter=M | sort > "$ACTUAL_PATHS"
+          git diff --name-only | sort > "$ACTUAL_PATHS"
           diff -u "$EXPECTED_PATHS" "$ACTUAL_PATHS"
           while IFS= read -r path; do
             git add -- "$path"
@@ -340,8 +368,9 @@ safe-outputs:
             EXPECTED_REPOSITORY: ${{ github.repository }}
             EXPECTED_COMMIT: ${{ github.sha }}
             ORIGINAL_MANIFEST: ${{ runner.temp }}/unskip-closed-tests-manifest/manifest.json
-            RESULT_PATH: ${{ runner.temp }}/unskip-closed-tests-result.json
+            RESULT_PATH: ${{ runner.temp }}/unskip-closed-tests-untrusted-result.json
             RESULT_DIRECTORY: ${{ runner.temp }}/unskip-closed-tests-results
+            EVIDENCE_DIRECTORY: ${{ runner.temp }}/unskip-closed-tests-verification-evidence
             EXPECTED_PATHS: ${{ runner.temp }}/unskip-closed-tests-expected-paths.txt
             ACTUAL_PATHS: ${{ runner.temp }}/unskip-closed-tests-actual-paths.txt
           run: |
@@ -354,6 +383,7 @@ safe-outputs:
               --config "$GITHUB_WORKSPACE/.github/workflows/unskip-closed-tests.config.json" \
               --manifest "$ORIGINAL_MANIFEST" \
               --agent-output "$GH_AW_AGENT_OUTPUT" \
+              --evidence-dir "$EVIDENCE_DIRECTORY" \
               --output "$RESULT_PATH"
             APPLY_EXIT=$?
             rm -rf bin obj
@@ -364,6 +394,8 @@ safe-outputs:
             if [ "$APPLY_EXIT" -eq 10 ]; then
               git diff --quiet
               jq -e '.schema_version == "1" and .has_changes == false' "$RESULT_PATH" >/dev/null
+              mkdir -p "$EVIDENCE_DIRECTORY/final"
+              cp "$GH_AW_AGENT_OUTPUT" "$EVIDENCE_DIRECTORY/agent-output.json"
               echo "no-action=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
@@ -375,7 +407,7 @@ safe-outputs:
               '.schema_version == "1" and .has_changes == true and (.changed_paths | length > 0)' \
               "$RESULT_PATH" >/dev/null
             jq -r '.changed_paths[]' "$RESULT_PATH" | sort > "$EXPECTED_PATHS"
-            git diff --name-only --diff-filter=M | sort > "$ACTUAL_PATHS"
+            git diff --name-only | sort > "$ACTUAL_PATHS"
             diff -u "$EXPECTED_PATHS" "$ACTUAL_PATHS"
             while IFS= read -r path; do
               test -n "$path"
@@ -390,13 +422,15 @@ safe-outputs:
             done < "$EXPECTED_PATHS"
             echo "no-action=false" >> "$GITHUB_OUTPUT"
 
-        - name: Upload bounded publication artifact
+        - name: Upload untrusted verification evidence
           uses: actions/upload-artifact@v7
           with:
-            name: unskip-closed-tests-publication-${{ github.run_id }}-${{ github.run_attempt }}
-            path: ${{ runner.temp }}/unskip-closed-tests-result.json
+            name: unskip-closed-tests-verification-${{ github.run_id }}-${{ github.run_attempt }}
+            path: ${{ runner.temp }}/unskip-closed-tests-verification-evidence
             if-no-files-found: error
             retention-days: 1
+
+
 
 
 ---

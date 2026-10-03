@@ -63,8 +63,8 @@ class FixtureRepo:
                 "source_roots": ["src"],
                 "excluded_globs": [],
                 "generated_globs": ["**/*.g.cs"],
-                "ignore_attribute_names": ["Ignore"],
-                "test_attribute_names": ["Test"],
+                "ignore_attribute_names": ["Demo.IgnoreAttribute"],
+                "test_attribute_names": ["Demo.TestAttribute"],
                 "verification": {
                     "command": [sys.executable, str(HOOK)],
                     "timeout_seconds": 30,
@@ -135,7 +135,15 @@ class FixtureRepo:
         )
         return json.loads(output.read_text(encoding="utf-8")) if output.exists() else None
 
-    def apply(self, manifest, evidence, candidate_ids, expected=0, extra_item=None):
+    def apply(
+        self,
+        manifest,
+        evidence,
+        candidate_ids,
+        expected=0,
+        extra_item=None,
+        evidence_dir=None,
+    ):
         manifest_path = self.root / "resolved-input.json"
         agent_path = self.root / "agent-output.json"
         output = self.root / "apply-result.json"
@@ -148,7 +156,7 @@ class FixtureRepo:
         if extra_item:
             item.update(extra_item)
         self.write_json(agent_path, {"items": [item]})
-        self.tool(
+        arguments = [
             "apply",
             "--config",
             str(self.config),
@@ -156,6 +164,30 @@ class FixtureRepo:
             str(manifest_path),
             "--agent-output",
             str(agent_path),
+            "--github-evidence",
+            str(evidence),
+            "--output",
+            str(output),
+        ]
+        if evidence_dir is not None:
+            arguments.extend(["--evidence-dir", str(evidence_dir)])
+        self.tool(*arguments, expected=expected)
+        return json.loads(output.read_text(encoding="utf-8")) if output.exists() else None
+
+    def authorize(self, manifest, evidence, evidence_dir, expected=0):
+        manifest_path = self.root / "authorize-manifest.json"
+        output = self.root / "authorize-result.json"
+        self.write_json(manifest_path, manifest)
+        self.tool(
+            "authorize",
+            "--config",
+            str(self.config),
+            "--manifest",
+            str(manifest_path),
+            "--agent-output",
+            str(evidence_dir / "agent-output.json"),
+            "--evidence-dir",
+            str(evidence_dir),
             "--github-evidence",
             str(evidence),
             "--output",
@@ -400,6 +432,56 @@ public class Tests
                 and "generated_declaration" in candidate["decision"]["deferrals"]
                 for candidate in resolved["candidates"]
             )
+        )
+
+    def test_attribute_identity_is_framework_qualified_and_alias_aware(self):
+        custom_repo = FixtureRepo(
+            self.id().split(".")[-1] + "_custom",
+            """
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+namespace Demo;
+public sealed class IgnoreAttribute : System.Attribute
+{
+    public IgnoreAttribute(string message) { }
+}
+public class Tests
+{
+    [Ignore("#1")]
+    [Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
+    public void CustomIgnore() { }
+}
+""".lstrip(),
+        )
+        config = json.loads(custom_repo.config.read_text(encoding="utf-8"))
+        config["ignore_attribute_names"] = [
+            "Microsoft.VisualStudio.TestTools.UnitTesting.IgnoreAttribute"
+        ]
+        config["test_attribute_names"] = [
+            "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute"
+        ]
+        custom_repo.write_json(custom_repo.config, config)
+        self.assertEqual(0, custom_repo.inventory()["candidate_count"])
+
+        alias_repo = FixtureRepo(
+            self.id().split(".")[-1] + "_alias",
+            """
+using Skip = Microsoft.VisualStudio.TestTools.UnitTesting.IgnoreAttribute;
+using MSTest = Microsoft.VisualStudio.TestTools.UnitTesting;
+namespace Demo;
+public class Tests
+{
+    [Skip("#1")]
+    [MSTest.TestMethod]
+    public void AliasedIgnore() { }
+}
+""".lstrip(),
+        )
+        alias_repo.write_json(alias_repo.config, config)
+        manifest = alias_repo.inventory()
+        self.assertEqual(1, manifest["candidate_count"])
+        self.assertEqual(
+            "Microsoft.VisualStudio.TestTools.UnitTesting.IgnoreAttribute",
+            manifest["candidates"][0]["attribute_type"],
         )
 
     def test_fabricated_agent_anchor_or_fqn_is_rejected(self):
@@ -970,6 +1052,83 @@ public class Tests
         self.assertIn("non_passing_outcome:NotExecuted", reasons)
         self.assertTrue(any(reason.startswith("mismatched_fqn:") for reason in reasons))
 
+    def test_trx_requires_one_passing_result_per_definition(self):
+        repo = FixtureRepo(
+            self.id().split(".")[-1],
+            """
+namespace Demo;
+public class Tests
+{
+    [Ignore("#1")][Test] public void PartialDefinitions() { }
+    [Ignore("#1")][Test] public void DuplicateResult() { }
+}
+""".lstrip(),
+        )
+        evidence = repo.evidence(
+            {
+                "fixture/repo#1": {
+                    "kind": "issue",
+                    "state": "closed",
+                    "state_reason": "completed",
+                }
+            }
+        )
+        resolved = repo.resolve(repo.inventory(), evidence)
+        result = repo.apply(
+            resolved,
+            evidence,
+            [candidate["candidate_id"] for candidate in resolved["candidates"]],
+            expected=10,
+        )
+        reasons = {candidate["reason"] for candidate in result["reverted_candidates"]}
+        self.assertTrue(any(reason.startswith("definition_without_result:") for reason in reasons))
+        self.assertTrue(any(reason.startswith("duplicate_trx_result_id:") for reason in reasons))
+
+    def test_authorization_is_derived_from_fresh_trx_evidence(self):
+        repo = FixtureRepo(
+            self.id().split(".")[-1],
+            """
+namespace Demo;
+public class Tests
+{
+    [Ignore("#1")][Test] public void ExecutedPass() { }
+}
+""".lstrip(),
+        )
+        evidence = repo.evidence(
+            {
+                "fixture/repo#1": {
+                    "kind": "issue",
+                    "state": "closed",
+                    "state_reason": "completed",
+                }
+            }
+        )
+        resolved = repo.resolve(repo.inventory(), evidence)
+        candidate_id = resolved["candidates"][0]["candidate_id"]
+        evidence_dir = repo.root / "verification-evidence"
+        source = repo.root / "src" / "Tests.cs"
+        original = source.read_bytes()
+        repo.apply(
+            resolved,
+            evidence,
+            [candidate_id],
+            evidence_dir=evidence_dir,
+        )
+        source.write_bytes(original)
+
+        authorized = repo.authorize(resolved, evidence, evidence_dir)
+        self.assertEqual(
+            [candidate_id],
+            [candidate["candidate_id"] for candidate in authorized["retained_candidates"]],
+        )
+
+        trx = next((evidence_dir / "final" / candidate_id).glob("*.trx"))
+        trx.write_text("<TestRun />", encoding="utf-8")
+        rejected = repo.authorize(resolved, evidence, evidence_dir, expected=10)
+        self.assertFalse(rejected["has_changes"])
+        self.assertEqual([], rejected["retained_candidates"])
+
     def test_multiple_retained_tests_title_has_deduplication_marker(self):
         repo = FixtureRepo(
             self.id().split(".")[-1],
@@ -998,6 +1157,39 @@ public class Tests
             [candidate["candidate_id"] for candidate in resolved["candidates"]],
         )
         self.assertEqual(2, len(result["retained_candidates"]))
+        self.assertEqual(
+            "[unskip-closed-tests] Unskip 2 tests for completed GitHub work items",
+            result["pr_title"],
+        )
+
+    def test_class_level_title_counts_affected_tests(self):
+        repo = FixtureRepo(
+            self.id().split(".")[-1],
+            """
+namespace Demo;
+[Ignore("#1")]
+public class Tests
+{
+    [Test] public void ExecutedPassOne() { }
+    [Test] public void ExecutedPassTwo() { }
+}
+""".lstrip(),
+        )
+        evidence = repo.evidence(
+            {
+                "fixture/repo#1": {
+                    "kind": "issue",
+                    "state": "closed",
+                    "state_reason": "completed",
+                }
+            }
+        )
+        resolved = repo.resolve(repo.inventory(), evidence)
+        result = repo.apply(
+            resolved,
+            evidence,
+            [resolved["candidates"][0]["candidate_id"]],
+        )
         self.assertEqual(
             "[unskip-closed-tests] Unskip 2 tests for completed GitHub work items",
             result["pr_title"],

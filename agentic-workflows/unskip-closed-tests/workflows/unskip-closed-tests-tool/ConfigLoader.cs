@@ -100,9 +100,10 @@ internal static class ConfigLoader
 
         foreach (string name in config.IgnoreAttributeNames.Concat(config.TestAttributeNames))
         {
-            if (!IsAttributeName(name))
+            if (!name.Contains('.', StringComparison.Ordinal) || !IsAttributeName(name))
             {
-                throw new ContractException($"Attribute name '{name}' is not a simple or qualified C# identifier.");
+                throw new ContractException(
+                    $"Attribute name '{name}' must be a framework-qualified C# identifier.");
             }
         }
     }

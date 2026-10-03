@@ -46,13 +46,21 @@ class UnskipClosedTestsPackageTests(unittest.TestCase):
             prepare.index("  publish-verified-unskips:") :
             prepare.index("safe-outputs:")
         ]
-        apply_job = prepare[prepare.index("    apply-verified-unskips:") :]
+        apply_start = prepare.index("    apply-verified-unskips:")
+        apply_job = prepare[apply_start:]
         self.assertIn("        contents: read", apply_job)
         self.assertNotIn("        contents: write", apply_job)
         self.assertIn("    needs: [agent, apply_verified_unskips]", publish_job)
         self.assertIn("      contents: write", publish_job)
-        self.assertIn("Download bounded publication artifact", publish_job)
+        self.assertIn("Download untrusted verification evidence", publish_job)
+        self.assertIn("-- authorize", publish_job)
         self.assertIn("-- materialize", publish_job)
+        self.assertNotIn("--diff-filter=M", prepare)
+        self.assertIn("unskip-closed-tests-verification-evidence", apply_job)
+        self.assertNotIn(
+            "unskip-closed-tests-untrusted-result.json\n",
+            publish_job,
+        )
         self.assertNotIn("unskip-closed-tests.patch", prepare)
         self.assertNotIn("git apply", publish_job)
         publish_start = prepare.index("- name: Publish one verified draft pull request")

@@ -49,6 +49,7 @@ internal static class ManifestValidator
                 candidate.StableOwnerId.Length != 64 ||
                 candidate.SourceSha256.Length != 64 ||
                 candidate.AttributeTextSha256.Length != 64 ||
+                !candidate.AttributeType.Contains('.', StringComparison.Ordinal) ||
                 candidate.AttributeSpan.Start < 0 ||
                 candidate.AttributeSpan.Length <= 0 ||
                 candidate.Owner.ContainingTypes.Count == 0 ||

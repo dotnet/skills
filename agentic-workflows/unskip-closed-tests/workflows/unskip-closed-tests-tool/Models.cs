@@ -35,6 +35,7 @@ internal sealed class Candidate
     public string SourceSha256 { get; set; } = "";
     public SourceSpan AttributeSpan { get; set; } = new();
     public string AttributeTextSha256 { get; set; } = "";
+    public string AttributeType { get; set; } = "";
     public OwnerIdentity Owner { get; set; } = new();
     public List<IssueReference> CanonicalIssueReferences { get; set; } = [];
     public CandidateDecision Decision { get; set; } = new();

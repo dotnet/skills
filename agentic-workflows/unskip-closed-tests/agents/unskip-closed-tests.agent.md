@@ -42,9 +42,9 @@ method identities, or tests affected by a class-level attribute.
 ## Output
 
 For one or more selected candidates, call `apply_verified_unskips` once with
-the exact manifest digest and a JSON array string of unique candidate IDs. The
-safe-output job may retain fewer candidates after source, remote, build, and
-TRX revalidation.
+the exact manifest digest and JSON array string of unique candidate IDs. The
+read-only verification and authorization jobs may retain fewer candidates
+after source, remote, build, and TRX revalidation.
 
 When no candidate remains, call `noop` once. Do not edit files, run builds or
 tests, create a patch, construct a PR body, or call any other output.

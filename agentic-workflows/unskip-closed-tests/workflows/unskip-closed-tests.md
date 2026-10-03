@@ -79,6 +79,8 @@ When one or more manifest candidates are safe to attempt, call
 - `candidate_ids_json` containing a JSON array of unique candidate IDs copied
   exactly from the manifest.
 
-The trusted safe-output job revalidates the source, remote state, proposed
-sites, edits, and structured test evidence before publishing one draft pull
-request. If no candidate should proceed, call `noop` once with a short reason.
+The read-only safe-output job revalidates source, remote state, proposed sites,
+and structured test evidence. A fresh read-only authorizer derives the retained
+set before a separate write-scoped job reconstructs the exact edits and
+publishes one draft pull request. If no candidate should proceed, call `noop`
+once with a short reason.
