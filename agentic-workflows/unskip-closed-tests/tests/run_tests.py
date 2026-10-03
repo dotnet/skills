@@ -590,6 +590,30 @@ public class Tests
             manifest["candidates"][0]["owner"]["test_fqns"],
         )
 
+        cross_project_repo = FixtureRepo(
+            self.id().split(".")[-1] + "_cross_project_global",
+            """
+namespace Demo;
+public class Tests
+{
+    [MSTest.Ignore("#1")]
+    [MSTest.TestMethod]
+    public void CrossProjectAlias() { }
+}
+""".lstrip(),
+        )
+        cross_project_repo.write_json(cross_project_repo.config, config)
+        (cross_project_repo.root / "OtherProjectGlobalUsings.cs").write_text(
+            "global using MSTest = Microsoft.VisualStudio.TestTools.UnitTesting;\n",
+            encoding="utf-8",
+        )
+        run(["git", "add", "."], cross_project_repo.root)
+        run(
+            ["git", "commit", "--quiet", "-m", "add unrelated global alias"],
+            cross_project_repo.root,
+        )
+        self.assertEqual(0, cross_project_repo.inventory()["candidate_count"])
+
         utf16_repo = FixtureRepo(
             self.id().split(".")[-1] + "_utf16_shadow",
             """

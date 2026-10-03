@@ -33,7 +33,6 @@ internal static partial class InventoryEngine
         Dictionary<string, int> typeDeclarationCounts = CountTypeDeclarations(files);
         (
             HashSet<string> declaredTypes,
-            List<UsingDirectiveSyntax> globalUsings,
             HashSet<string> conditionalTypeNames
         ) = LoadCompilationContext(repository, files);
         List<PendingCandidate> pending = [];
@@ -47,7 +46,6 @@ internal static partial class InventoryEngine
                     config.IgnoreAttributeNames,
                     config.AttributeAliases,
                     declaredTypes,
-                    globalUsings,
                     conditionalTypeNames);
                 if (attributeType is null)
                 {
@@ -64,7 +62,7 @@ internal static partial class InventoryEngine
                     method.AttributeLists.Any(list => list.Span.Contains(attribute.Span)))
                 {
                     OwnerIdentity owner = CreateMethodOwner(
-                        method, config, declaredTypes, globalUsings, conditionalTypeNames);
+                        method, config, declaredTypes, conditionalTypeNames);
                     List<string> deferrals = [];
                     if (owner.TestFqns.Count == 0)
                     {
@@ -94,7 +92,6 @@ internal static partial class InventoryEngine
                             config,
                             typeDeclarationCounts,
                             declaredTypes,
-                            globalUsings,
                             conditionalTypeNames);
                     if (HasGeneratedMarker(type))
                     {
@@ -345,7 +342,6 @@ internal static partial class InventoryEngine
 
     private static (
         HashSet<string> DeclaredTypes,
-        List<UsingDirectiveSyntax> GlobalUsings,
         HashSet<string> ConditionalTypeNames)
         LoadCompilationContext(GitRepository repository, IReadOnlyCollection<ParsedFile> scannedFiles)
     {
@@ -386,11 +382,7 @@ internal static partial class InventoryEngine
             .SelectMany(static root => root.DescendantNodes().OfType<TypeDeclarationSyntax>())
             .Select(TypeFqn)
             .ToHashSet(StringComparer.Ordinal);
-        List<UsingDirectiveSyntax> globalUsings = roots.Values
-            .SelectMany(static root => root.Usings)
-            .Where(static directive => directive.GlobalKeyword.IsKind(SyntaxKind.GlobalKeyword))
-            .ToList();
-        return (declaredTypes, globalUsings, conditionalTypeNames);
+        return (declaredTypes, conditionalTypeNames);
     }
 
     private static string DecodeTrackedCSharpSource(byte[] bytes, string path)
@@ -435,7 +427,6 @@ internal static partial class InventoryEngine
         MethodDeclarationSyntax method,
         ToolConfig config,
         IReadOnlySet<string> declaredTypes,
-        IReadOnlyList<UsingDirectiveSyntax> globalUsings,
         IReadOnlySet<string> conditionalTypeNames)
     {
         TypeDeclarationSyntax? type = method.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
@@ -452,7 +443,6 @@ internal static partial class InventoryEngine
                 config.TestAttributeNames,
                 config.AttributeAliases,
                 declaredTypes,
-                globalUsings,
                 conditionalTypeNames) is not null);
         return new OwnerIdentity
         {
@@ -472,7 +462,6 @@ internal static partial class InventoryEngine
         ToolConfig config,
         IReadOnlyDictionary<string, int> declarationCounts,
         IReadOnlySet<string> declaredTypes,
-        IReadOnlyList<UsingDirectiveSyntax> globalUsings,
         IReadOnlySet<string> conditionalTypeNames)
     {
         string typeFqn = TypeFqn(type);
@@ -514,7 +503,6 @@ internal static partial class InventoryEngine
                     config.TestAttributeNames,
                     config.AttributeAliases,
                     declaredTypes,
-                    globalUsings,
                     conditionalTypeNames) is not null))
             .ToList();
         List<string> tests = recognizedTests
@@ -663,7 +651,6 @@ internal static partial class InventoryEngine
         IEnumerable<string> configuredNames,
         IReadOnlyDictionary<string, string> configuredAliases,
         IReadOnlySet<string> declaredTypes,
-        IReadOnlyList<UsingDirectiveSyntax> globalUsings,
         IReadOnlySet<string> conditionalTypeNames)
     {
         List<string> configuredTypes = configuredNames
@@ -686,8 +673,7 @@ internal static partial class InventoryEngine
                 : null;
         }
 
-        IReadOnlyList<UsingDirectiveSyntax> usings =
-            [.. globalUsings, .. VisibleUsings(attribute)];
+        IReadOnlyList<UsingDirectiveSyntax> usings = VisibleUsings(attribute);
         List<IGrouping<string, UsingDirectiveSyntax>> aliasGroups = usings
             .Where(static directive => directive.Alias is not null)
             .GroupBy(
@@ -770,8 +756,6 @@ internal static partial class InventoryEngine
 
     private static IReadOnlyList<UsingDirectiveSyntax> VisibleUsings(SyntaxNode node) =>
         node.SyntaxTree.GetCompilationUnitRoot().Usings
-            .Where(static directive =>
-                !directive.GlobalKeyword.IsKind(SyntaxKind.GlobalKeyword))
             .Concat(node.Ancestors().OfType<BaseNamespaceDeclarationSyntax>()
                 .Reverse()
                 .SelectMany(static declaration => declaration.Usings))
