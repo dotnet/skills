@@ -14,6 +14,7 @@ internal static class IssueResolver
         "class_has_base_types",
         "duplicate_type_declarations",
         "ambiguous_test_fqns",
+        "class_has_unclassified_attributed_methods",
         "generated_declaration",
     ];
 

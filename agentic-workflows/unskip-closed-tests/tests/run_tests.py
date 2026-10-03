@@ -779,6 +779,12 @@ public class Derived : Base { [Test] public void C() { } }
 [Ignore("#1")]
 public class Duplicate { [Test] public void D() { } }
 public class Duplicate { }
+[Ignore("#1")]
+public class CustomTest
+{
+    [Test] public void E() { }
+    [CustomTestMethod] public void F() { }
+}
 """.lstrip(),
         )
         evidence = repo.evidence(
@@ -800,6 +806,7 @@ public class Duplicate { }
         self.assertIn("class_is_partial", reasons)
         self.assertIn("class_has_base_types", reasons)
         self.assertIn("duplicate_type_declarations", reasons)
+        self.assertIn("class_has_unclassified_attributed_methods", reasons)
         self.assertTrue(all(not c["decision"]["eligible"] for c in resolved["candidates"]))
 
     def test_stale_source_revision_is_rejected_without_tool_changes(self):

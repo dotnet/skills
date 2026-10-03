@@ -406,8 +406,11 @@ internal static partial class InventoryEngine
             deferrals.Add("duplicate_type_declarations");
         }
 
-        List<string> tests = type.Members
+        List<MethodDeclarationSyntax> attributedMethods = type.Members
             .OfType<MethodDeclarationSyntax>()
+            .Where(static method => method.AttributeLists.Count > 0)
+            .ToList();
+        List<MethodDeclarationSyntax> recognizedTests = attributedMethods
             .Where(method => method.AttributeLists.SelectMany(static list => list.Attributes)
                 .Any(attribute => ResolveConfiguredAttributeType(
                     attribute,
@@ -416,9 +419,15 @@ internal static partial class InventoryEngine
                     declaredTypes,
                     globalUsings,
                     conditionalTypeNames) is not null))
+            .ToList();
+        List<string> tests = recognizedTests
             .Select(method => $"{typeFqn}.{method.Identifier.ValueText}")
             .Order(StringComparer.Ordinal)
             .ToList();
+        if (attributedMethods.Except(recognizedTests).Any())
+        {
+            deferrals.Add("class_has_unclassified_attributed_methods");
+        }
         if (tests.Count == 0)
         {
             deferrals.Add("no_enumerated_tests");
