@@ -332,6 +332,36 @@ public class Tests { }
         self.assertEqual(0, manifest["candidate_count"])
         self.assertEqual([], manifest["candidates"])
 
+    def test_source_enumeration_rejects_directory_symlinks_before_descent(self):
+        repo = FixtureRepo(
+            self.id().split(".")[-1],
+            """
+namespace Demo;
+public class Tests { }
+""".lstrip(),
+        )
+        outside = WORK_DIR / f"{self.id().split('.')[-1]}-outside"
+        shutil.rmtree(outside, ignore_errors=True)
+        outside.mkdir(parents=True)
+        (outside / "Outside.cs").write_text(
+            """
+namespace Demo;
+public class Outside
+{
+    [Ignore("#1")][Test] public void Escaped() { }
+}
+""".lstrip(),
+            encoding="utf-8",
+        )
+        try:
+            (repo.root / "src" / "outside-link").symlink_to(
+                outside, target_is_directory=True
+            )
+        except OSError as error:
+            self.skipTest(f"symbolic links are unavailable: {error}")
+
+        repo.inventory(expected=20)
+
     def test_inventory_source_commit_and_help_contract(self):
         repo = FixtureRepo(
             self.id().split(".")[-1],

@@ -196,7 +196,7 @@ internal static partial class InventoryEngine
             }
 
             PathRules.RejectReparsePoints(repository.Root, fullRoot);
-            foreach (string file in Directory.EnumerateFiles(fullRoot, "*", SearchOption.AllDirectories))
+            foreach (string file in EnumerateSourceFiles(repository.Root, fullRoot))
             {
                 string extension = Path.GetExtension(file);
                 if (!string.Equals(extension, ".cs", StringComparison.OrdinalIgnoreCase))
@@ -266,6 +266,64 @@ internal static partial class InventoryEngine
         }
 
         return result;
+    }
+
+    private static IEnumerable<string> EnumerateSourceFiles(
+        string repositoryRoot,
+        string sourceRoot)
+    {
+        Stack<string> pending = new();
+        pending.Push(sourceRoot);
+        while (pending.Count > 0)
+        {
+            string directory = pending.Pop();
+            PathRules.RejectReparsePoints(repositoryRoot, directory);
+
+            IEnumerable<string> entries;
+            try
+            {
+                entries = Directory.EnumerateFileSystemEntries(
+                    directory,
+                    "*",
+                    SearchOption.TopDirectoryOnly);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new InfrastructureException(
+                    $"Could not enumerate source directory '{directory}'.",
+                    ex);
+            }
+
+            foreach (string entry in entries)
+            {
+                FileAttributes attributes;
+                try
+                {
+                    attributes = File.GetAttributes(entry);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    throw new InfrastructureException(
+                        $"Could not inspect source entry '{entry}'.",
+                        ex);
+                }
+
+                if (attributes.HasFlag(FileAttributes.ReparsePoint))
+                {
+                    throw new ContractException(
+                        $"Source path '{entry}' traverses a symlink or reparse point.");
+                }
+
+                if (attributes.HasFlag(FileAttributes.Directory))
+                {
+                    pending.Push(entry);
+                }
+                else
+                {
+                    yield return entry;
+                }
+            }
+        }
     }
 
     private static Dictionary<string, int> CountTypeDeclarations(IEnumerable<ParsedFile> files)
