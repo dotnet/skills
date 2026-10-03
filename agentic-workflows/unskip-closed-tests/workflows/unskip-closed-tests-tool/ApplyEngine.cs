@@ -850,30 +850,71 @@ public static async Task<ApplyResult> AuthorizeAsync(
         Directory.CreateDirectory(finalDirectory);
         foreach (string candidateId in retainedCandidateIds)
         {
-            CopyDirectory(
-                Path.Combine(workRoot, candidateId),
-                Path.Combine(finalDirectory, candidateId));
+            string source = Path.Combine(workRoot, candidateId);
+            string requestPath = Path.Combine(source, "request.json");
+            RequireRegularBoundedFile(requestPath, 262144, "verification request");
+            ApplyRequest request = JsonSupport.Read<ApplyRequest>(requestPath);
+            if (request.Candidate.CandidateId != candidateId)
+            {
+                throw new ContractException(
+                    $"Verification request candidate_id does not match '{candidateId}'.");
+            }
+
+            List<string> expectedNames =
+            [
+                "request.json",
+                .. request.Tests.Select(static test =>
+                    Path.GetFileName(test.ResultFile) ??
+                    throw new ContractException("Verification result path has no file name.")),
+            ];
+            if (expectedNames.Distinct(StringComparer.Ordinal).Count() != expectedNames.Count)
+            {
+                throw new ContractException(
+                    $"Verification evidence for '{candidateId}' contains duplicate file names.");
+            }
+
+            List<string> actualNames = Directory.EnumerateFileSystemEntries(source)
+                .Select(static entry =>
+                    Path.GetFileName(entry) ??
+                    throw new ContractException("Verification evidence entry has no file name."))
+                .Order(StringComparer.Ordinal)
+                .ToList();
+            if (!actualNames.SequenceEqual(expectedNames.Order(StringComparer.Ordinal), StringComparer.Ordinal))
+            {
+                throw new ContractException(
+                    $"Verification evidence for '{candidateId}' contains unexpected entries.");
+            }
+
+            string destination = Path.Combine(finalDirectory, candidateId);
+            Directory.CreateDirectory(destination);
+            File.Copy(requestPath, Path.Combine(destination, "request.json"), overwrite: false);
+            foreach (string resultName in expectedNames.Skip(1))
+            {
+                string resultPath = Path.Combine(source, resultName);
+                RequireRegularBoundedFile(resultPath, 16777216, "verification TRX");
+                File.Copy(resultPath, Path.Combine(destination, resultName), overwrite: false);
+            }
         }
 
+        RequireRegularBoundedFile(agentOutputPath, 1048576, "agent output");
         File.Copy(
             agentOutputPath,
             Path.Combine(outputDirectory, "agent-output.json"),
             overwrite: false);
     }
 
-    private static void CopyDirectory(string source, string destination)
+    private static void RequireRegularBoundedFile(
+        string path,
+        long maximumBytes,
+        string description)
     {
-        Directory.CreateDirectory(destination);
-        foreach (string file in Directory.EnumerateFiles(source))
+        FileInfo file = new(path);
+        if (!file.Exists ||
+            file.Attributes.HasFlag(FileAttributes.ReparsePoint) ||
+            file.Length > maximumBytes)
         {
-            File.Copy(file, Path.Combine(destination, Path.GetFileName(file)), overwrite: false);
-        }
-
-        foreach (string directory in Directory.EnumerateDirectories(source))
-        {
-            CopyDirectory(
-                directory,
-                Path.Combine(destination, Path.GetFileName(directory)));
+            throw new ContractException(
+                $"{description} '{path}' is missing, unsafe, or exceeds {maximumBytes} bytes.");
         }
     }
 

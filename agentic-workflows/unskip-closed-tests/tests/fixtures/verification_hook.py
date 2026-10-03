@@ -63,10 +63,14 @@ def main() -> int:
 
     command_args = sys.argv[1:-1]
     fail_when_token_missing = None
+    write_extra_evidence = False
     if "--assert-no-token-environment" in command_args:
         command_args.remove("--assert-no-token-environment")
         if "GH_TOKEN" in os.environ or "GITHUB_TOKEN" in os.environ:
             return 97
+    if "--write-extra-evidence" in command_args:
+        command_args.remove("--write-extra-evidence")
+        write_extra_evidence = True
 
     if command_args:
         if len(command_args) == 3 and command_args[0] == "--expire":
@@ -131,6 +135,10 @@ def main() -> int:
         ):
             behavior = "skipped"
         write_trx(Path(test["result_file"]), test["fqn"], behavior)
+    if write_extra_evidence:
+        request_path.with_name("unexpected.txt").write_text(
+            "untrusted evidence\n", encoding="utf-8"
+        )
     return 0
 
 

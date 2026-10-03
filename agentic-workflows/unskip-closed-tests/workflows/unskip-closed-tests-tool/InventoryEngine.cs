@@ -531,6 +531,11 @@ internal static partial class InventoryEngine
             .Select(NormalizeAttributeType)
             .Distinct(StringComparer.Ordinal)
             .ToList();
+        configuredTypes.RemoveAll(declaredTypes.Contains);
+        if (configuredTypes.Count == 0)
+        {
+            return null;
+        }
         string actual = attribute.Name.WithoutTrivia().ToFullString();
         if (actual.StartsWith("global::", StringComparison.Ordinal))
         {

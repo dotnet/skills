@@ -549,6 +549,33 @@ public class Tests
             manifest["candidates"][0]["owner"]["test_fqns"],
         )
 
+        qualified_repo = FixtureRepo(
+            self.id().split(".")[-1] + "_qualified_shadow",
+            """
+namespace Demo;
+public class Tests
+{
+    [global::Microsoft.VisualStudio.TestTools.UnitTesting.IgnoreAttribute("#1")]
+    [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute]
+    public void QualifiedShadow() { }
+}
+""".lstrip(),
+        )
+        qualified_repo.write_json(qualified_repo.config, config)
+        (qualified_repo.root / "src" / "FrameworkShadow.cs").write_text(
+            """
+namespace Microsoft.VisualStudio.TestTools.UnitTesting;
+public sealed class IgnoreAttribute : System.Attribute
+{
+    public IgnoreAttribute(string message) { }
+}
+""".lstrip(),
+            encoding="utf-8",
+        )
+        run(["git", "add", "."], qualified_repo.root)
+        run(["git", "commit", "--quiet", "-m", "add qualified shadow"], qualified_repo.root)
+        self.assertEqual(0, qualified_repo.inventory()["candidate_count"])
+
     def test_fabricated_agent_anchor_or_fqn_is_rejected(self):
         repo = FixtureRepo(
             self.id().split(".")[-1],
@@ -1193,6 +1220,44 @@ public class Tests
         rejected = repo.authorize(resolved, evidence, evidence_dir, expected=10)
         self.assertFalse(rejected["has_changes"])
         self.assertEqual([], rejected["retained_candidates"])
+
+    def test_verification_evidence_rejects_unexpected_entries(self):
+        repo = FixtureRepo(
+            self.id().split(".")[-1],
+            """
+namespace Demo;
+public class Tests
+{
+    [Ignore("#1")][Test] public void ExecutedPass() { }
+}
+""".lstrip(),
+        )
+        evidence = repo.evidence(
+            {
+                "fixture/repo#1": {
+                    "kind": "issue",
+                    "state": "closed",
+                    "state_reason": "completed",
+                }
+            }
+        )
+        config = json.loads(repo.config.read_text(encoding="utf-8"))
+        config["verification"]["command"] = [
+            sys.executable,
+            str(HOOK),
+            "--write-extra-evidence",
+        ]
+        repo.write_json(repo.config, config)
+        resolved = repo.resolve(repo.inventory(), evidence)
+        original = (repo.root / "src" / "Tests.cs").read_bytes()
+        repo.apply(
+            resolved,
+            evidence,
+            [resolved["candidates"][0]["candidate_id"]],
+            evidence_dir=repo.root / "verification-evidence",
+            expected=20,
+        )
+        self.assertEqual(original, (repo.root / "src" / "Tests.cs").read_bytes())
 
     def test_multiple_retained_tests_title_has_deduplication_marker(self):
         repo = FixtureRepo(
