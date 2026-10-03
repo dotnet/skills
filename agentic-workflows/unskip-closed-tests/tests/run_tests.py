@@ -852,6 +852,13 @@ public class ConditionalTests
     [Test] public void H() { }
 #endif
 }
+public class ConditionalMethodTests
+{
+#if !CUSTOM
+    [Ignore("#1")]
+#endif
+    [Test] public void I() { }
+}
 """.lstrip(),
         )
         evidence = repo.evidence(
@@ -875,6 +882,7 @@ public class ConditionalTests
         self.assertIn("duplicate_type_declarations", reasons)
         self.assertIn("class_has_unclassified_attributed_methods", reasons)
         self.assertIn("class_has_conditional_compilation", reasons)
+        self.assertIn("method_has_conditional_compilation", reasons)
         self.assertTrue(all(not c["decision"]["eligible"] for c in resolved["candidates"]))
 
     def test_stale_source_revision_is_rejected_without_tool_changes(self):

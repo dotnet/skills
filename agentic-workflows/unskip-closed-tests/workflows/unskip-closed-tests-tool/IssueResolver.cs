@@ -16,6 +16,7 @@ internal static class IssueResolver
         "ambiguous_test_fqns",
         "class_has_unclassified_attributed_methods",
         "class_has_conditional_compilation",
+        "method_has_conditional_compilation",
         "generated_declaration",
     ];
 

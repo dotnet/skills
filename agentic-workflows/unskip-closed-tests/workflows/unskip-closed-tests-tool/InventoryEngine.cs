@@ -74,6 +74,10 @@ internal static partial class InventoryEngine
                     {
                         deferrals.Add("generated_declaration");
                     }
+                    if (HasConditionalCompilation(method))
+                    {
+                        deferrals.Add("method_has_conditional_compilation");
+                    }
 
                     string stableOwnerId = StableOwnerId(repository.Repository, file.Path, owner, method);
                     pending.Add(new PendingCandidate(
@@ -494,11 +498,7 @@ internal static partial class InventoryEngine
             deferrals.Add("duplicate_type_declarations");
         }
 
-        if (type.DescendantTrivia(descendIntoTrivia: true).Any(static trivia =>
-                trivia.IsKind(SyntaxKind.IfDirectiveTrivia) ||
-                trivia.IsKind(SyntaxKind.ElifDirectiveTrivia) ||
-                trivia.IsKind(SyntaxKind.ElseDirectiveTrivia) ||
-                trivia.IsKind(SyntaxKind.EndIfDirectiveTrivia)))
+        if (HasConditionalCompilation(type))
         {
             deferrals.Add("class_has_conditional_compilation");
         }
@@ -546,6 +546,13 @@ internal static partial class InventoryEngine
         };
         return (owner, deferrals.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList());
     }
+
+    private static bool HasConditionalCompilation(SyntaxNode node) =>
+        node.DescendantTrivia(descendIntoTrivia: true).Any(static trivia =>
+            trivia.IsKind(SyntaxKind.IfDirectiveTrivia) ||
+            trivia.IsKind(SyntaxKind.ElifDirectiveTrivia) ||
+            trivia.IsKind(SyntaxKind.ElseDirectiveTrivia) ||
+            trivia.IsKind(SyntaxKind.EndIfDirectiveTrivia));
 
     private static string StableOwnerId(
         string repository,
