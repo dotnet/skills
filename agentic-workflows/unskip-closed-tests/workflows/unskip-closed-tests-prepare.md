@@ -154,7 +154,6 @@ jobs:
             --evidence-dir "$VERIFICATION_EVIDENCE" \
             --output "$RESULT_PATH"
           AUTHORIZE_EXIT=$?
-          rm -rf bin obj
           set -e
           if [ "$AUTHORIZE_EXIT" -ne 0 ] && [ "$AUTHORIZE_EXIT" -ne 10 ]; then
             exit "$AUTHORIZE_EXIT"

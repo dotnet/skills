@@ -55,6 +55,14 @@ class UnskipClosedTestsPackageTests(unittest.TestCase):
         self.assertIn("Download untrusted verification evidence", publish_job)
         self.assertIn("-- authorize", publish_job)
         self.assertIn("-- materialize", publish_job)
+        authorize = publish_job.index("-- authorize")
+        materialize = publish_job.index("-- materialize")
+        cleanup = publish_job.index(
+            ".github/workflows/unskip-closed-tests-tool/bin",
+            materialize,
+        )
+        self.assertLess(authorize, materialize)
+        self.assertLess(materialize, cleanup)
         self.assertNotIn("--diff-filter=M", prepare)
         self.assertIn("unskip-closed-tests-verification-evidence", apply_job)
         self.assertNotIn(

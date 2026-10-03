@@ -352,20 +352,7 @@ internal static partial class InventoryEngine
         HashSet<string> conditionalTypeNames = new(StringComparer.Ordinal);
         foreach (string path in repository.TrackedCSharpPaths())
         {
-            if (roots.ContainsKey(path))
-            {
-                continue;
-            }
-
-            string text;
-            try
-            {
-                text = new UTF8Encoding(false, true).GetString(repository.HeadBytes(path));
-            }
-            catch (DecoderFallbackException)
-            {
-                continue;
-            }
+            string text = DecodeTrackedCSharpSource(repository.HeadBytes(path), path);
 
             if (ConditionalDirectiveRegex().IsMatch(text))
             {
@@ -373,6 +360,11 @@ internal static partial class InventoryEngine
                 {
                     conditionalTypeNames.Add(match.Groups["name"].Value);
                 }
+            }
+
+            if (roots.ContainsKey(path))
+            {
+                continue;
             }
 
             SyntaxTree tree = CSharpSyntaxTree.ParseText(
@@ -395,6 +387,44 @@ internal static partial class InventoryEngine
             .Where(static directive => directive.GlobalKeyword.IsKind(SyntaxKind.GlobalKeyword))
             .ToList();
         return (declaredTypes, globalUsings, conditionalTypeNames);
+    }
+
+    private static string DecodeTrackedCSharpSource(byte[] bytes, string path)
+    {
+        try
+        {
+            if (bytes.AsSpan().StartsWith(new byte[] { 0xFF, 0xFE, 0x00, 0x00 }))
+            {
+                return new UTF32Encoding(false, false, true).GetString(bytes, 4, bytes.Length - 4);
+            }
+
+            if (bytes.AsSpan().StartsWith(new byte[] { 0x00, 0x00, 0xFE, 0xFF }))
+            {
+                return new UTF32Encoding(true, false, true).GetString(bytes, 4, bytes.Length - 4);
+            }
+
+            if (bytes.AsSpan().StartsWith(new byte[] { 0xEF, 0xBB, 0xBF }))
+            {
+                return new UTF8Encoding(false, true).GetString(bytes, 3, bytes.Length - 3);
+            }
+
+            if (bytes.AsSpan().StartsWith(new byte[] { 0xFF, 0xFE }))
+            {
+                return new UnicodeEncoding(false, false, true).GetString(bytes, 2, bytes.Length - 2);
+            }
+
+            if (bytes.AsSpan().StartsWith(new byte[] { 0xFE, 0xFF }))
+            {
+                return new UnicodeEncoding(true, false, true).GetString(bytes, 2, bytes.Length - 2);
+            }
+
+            return new UTF8Encoding(false, true).GetString(bytes);
+        }
+        catch (DecoderFallbackException ex)
+        {
+            throw new ContractException(
+                $"Tracked C# path '{path}' uses an unsupported or malformed encoding: {ex.Message}");
+        }
     }
 
     private static OwnerIdentity CreateMethodOwner(
@@ -462,6 +492,15 @@ internal static partial class InventoryEngine
         if (declarationCounts.GetValueOrDefault(typeFqn) != 1)
         {
             deferrals.Add("duplicate_type_declarations");
+        }
+
+        if (type.DescendantTrivia(descendIntoTrivia: true).Any(static trivia =>
+                trivia.IsKind(SyntaxKind.IfDirectiveTrivia) ||
+                trivia.IsKind(SyntaxKind.ElifDirectiveTrivia) ||
+                trivia.IsKind(SyntaxKind.ElseDirectiveTrivia) ||
+                trivia.IsKind(SyntaxKind.EndIfDirectiveTrivia)))
+        {
+            deferrals.Add("class_has_conditional_compilation");
         }
 
         List<MethodDeclarationSyntax> attributedMethods = type.Members

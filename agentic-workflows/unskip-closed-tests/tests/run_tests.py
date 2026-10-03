@@ -590,6 +590,35 @@ public class Tests
             manifest["candidates"][0]["owner"]["test_fqns"],
         )
 
+        utf16_repo = FixtureRepo(
+            self.id().split(".")[-1] + "_utf16_shadow",
+            """
+namespace Demo;
+public class Tests
+{
+    [Ignore("#1")]
+    [Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
+    public void Utf16Shadow() { }
+}
+""".lstrip(),
+        )
+        utf16_repo.write_json(utf16_repo.config, config)
+        utf16_shadow = (
+            """
+namespace Demo;
+public sealed class IgnoreAttribute : System.Attribute
+{
+    public IgnoreAttribute(string message) { }
+}
+""".lstrip()
+        )
+        (utf16_repo.root / "Utf16Shadow.cs").write_bytes(
+            utf16_shadow.encode("utf-16")
+        )
+        run(["git", "add", "."], utf16_repo.root)
+        run(["git", "commit", "--quiet", "-m", "add utf16 shadow"], utf16_repo.root)
+        self.assertEqual(0, utf16_repo.inventory()["candidate_count"])
+
         qualified_repo = FixtureRepo(
             self.id().split(".")[-1] + "_qualified_shadow",
             """
@@ -815,6 +844,14 @@ public class CustomTest
     [Test] public void E() { }
     [CustomTestMethod] public void F() { }
 }
+[Ignore("#1")]
+public class ConditionalTests
+{
+    [Test] public void G() { }
+#if CUSTOM
+    [Test] public void H() { }
+#endif
+}
 """.lstrip(),
         )
         evidence = repo.evidence(
@@ -837,6 +874,7 @@ public class CustomTest
         self.assertIn("class_has_base_types", reasons)
         self.assertIn("duplicate_type_declarations", reasons)
         self.assertIn("class_has_unclassified_attributed_methods", reasons)
+        self.assertIn("class_has_conditional_compilation", reasons)
         self.assertTrue(all(not c["decision"]["eligible"] for c in resolved["candidates"]))
 
     def test_stale_source_revision_is_rejected_without_tool_changes(self):
