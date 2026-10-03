@@ -325,6 +325,33 @@ graders:
                 (consumer / ".github" / "workflows" / "example.md").exists()
             )
 
+    def test_rejects_symlinked_consumer_root_without_outside_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            package = root / "agentic-workflows" / "example"
+            outside = root / "outside"
+            consumer_link = root / "consumer-link"
+            workflow = package / "workflows" / "example.md"
+            workflow.parent.mkdir(parents=True)
+            outside.mkdir()
+            manifest = package / "aw.yml"
+            manifest.write_text("includes:\n  - workflows/example.md\n", encoding="utf-8")
+            workflow.write_text("---\non: workflow_dispatch\n---\n", encoding="utf-8")
+            try:
+                consumer_link.symlink_to(outside, target_is_directory=True)
+            except OSError as error:
+                self.skipTest(f"symbolic links are unavailable: {error}")
+
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "Consumer directory must not be a symbolic link",
+            ):
+                STAGER.stage_package(manifest, consumer_link)
+
+            self.assertFalse(
+                (outside / ".github" / "workflows" / "example.md").exists()
+            )
+
     def test_stages_package_using_installed_layout(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

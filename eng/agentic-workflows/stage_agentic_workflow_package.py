@@ -25,6 +25,10 @@ except ModuleNotFoundError:
 def stage_package(manifest: Path, destination_root: Path) -> list[Path]:
     if manifest.is_symlink():
         raise RuntimeError(f"Package manifest must not be a symbolic link: {manifest}")
+    if destination_root.is_symlink():
+        raise RuntimeError(
+            f"Consumer directory must not be a symbolic link: {destination_root}"
+        )
     manifest = manifest.resolve()
     destination_root = destination_root.resolve()
     if not manifest.is_file():
