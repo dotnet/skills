@@ -8,6 +8,7 @@ internal static class Program
           UnskipClosedTests.Tool inventory --config <path> --output <path> [--repo-root <path>] [--repository <owner/repo>] [--source-commit <sha>]
           UnskipClosedTests.Tool resolve --manifest <path> --output <path> [--github-evidence <path>]
           UnskipClosedTests.Tool apply --config <path> --manifest <path> --agent-output <path> --output <path> [--repo-root <path>] [--github-evidence <path>]
+          UnskipClosedTests.Tool materialize --config <path> --manifest <path> --result <path> [--repo-root <path>] [--github-evidence <path>]
 
         Exit codes:
           0  Successful inventory/resolve, or apply retained at least one verified edit.
@@ -39,7 +40,8 @@ internal static class Program
                 "inventory" => RunInventory(options),
                 "resolve" => await RunResolveAsync(options),
                 "apply" => await RunApplyAsync(options),
-                _ => throw new ContractException($"Unknown command '{options.Command}'. Expected inventory, resolve, or apply."),
+                "materialize" => await RunMaterializeAsync(options),
+                _ => throw new ContractException($"Unknown command '{options.Command}'. Expected inventory, resolve, apply, or materialize."),
             };
         }
         catch (ContractException ex)
@@ -101,6 +103,18 @@ internal static class Program
         return result.HasChanges ? ExitCodes.Success : ExitCodes.CleanNoOp;
     }
 
+    private static async Task<int> RunMaterializeAsync(CliOptions options)
+    {
+        ToolConfig config = ConfigLoader.Load(options.Required("config"));
+        await ApplyEngine.MaterializeAsync(
+            options.Optional("repo-root") ?? Environment.CurrentDirectory,
+            config,
+            options.Required("manifest"),
+            options.Required("result"),
+            options.Optional("github-evidence"));
+        return ExitCodes.Success;
+    }
+
     private static CliOptions Parse(string[] args)
     {
         if (args.Length == 0)
@@ -134,6 +148,7 @@ internal static class Program
             "inventory" => ["config", "output", "repo-root", "repository", "source-commit"],
             "resolve" => ["manifest", "output", "github-evidence"],
             "apply" => ["config", "manifest", "agent-output", "output", "repo-root", "github-evidence"],
+            "materialize" => ["config", "manifest", "result", "repo-root", "github-evidence"],
             _ => [],
         };
         foreach (string name in values.Keys)

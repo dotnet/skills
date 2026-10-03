@@ -40,8 +40,11 @@ def stage_package(manifest: Path, destination_root: Path) -> list[Path]:
     workflow_includes: list[tuple[Path, Path]] = []
     for include in validator.manifest_includes(manifest):
         unresolved_source = manifest.parent / include
-        if unresolved_source.is_symlink():
-            raise RuntimeError(f"Package include must not be a symbolic link: {include}")
+        reject_symlink_components(
+            manifest.parent,
+            unresolved_source,
+            "Package include component must not be a symbolic link",
+        )
         source, staged_destination = validator.resolve_package_include(
             manifest, include, destination_root
         )
@@ -69,6 +72,17 @@ def stage_package(manifest: Path, destination_root: Path) -> list[Path]:
     repo_root = agentic_root.parent
     for source, relative_destination in workflow_includes:
         for evaluator in validator.grader_evaluator_paths(source):
+            evaluator_path = Path(evaluator)
+            unresolved_evaluator = (
+                source.parent / Path(evaluator[2:])
+                if evaluator.startswith("./")
+                else repo_root / evaluator_path
+            )
+            reject_symlink_components(
+                repo_root,
+                unresolved_evaluator,
+                "Package grader component must not be a symbolic link",
+            )
             evaluator_source, evaluator_destination = validator.resolve_grader_evaluator(
                 repo_root,
                 source,
@@ -96,7 +110,11 @@ def stage_package(manifest: Path, destination_root: Path) -> list[Path]:
         operations.items(), key=lambda item: str(item[0])
     ):
         destination = destination_root / relative_destination
-        reject_symlink_components(destination_root, destination)
+        reject_symlink_components(
+            destination_root,
+            destination,
+            "Consumer destination component must not be a symbolic link",
+        )
         if destination.exists() and destination.read_bytes() != source.read_bytes():
             raise RuntimeError(
                 f"Refusing to overwrite conflicting consumer file: {relative_destination}"
@@ -114,16 +132,19 @@ def stage_package(manifest: Path, destination_root: Path) -> list[Path]:
     return staged
 
 
-def reject_symlink_components(destination_root: Path, destination: Path) -> None:
-    relative_destination = destination.relative_to(destination_root)
-    current = destination_root
-    for component in relative_destination.parts:
+def reject_symlink_components(root: Path, path: Path, message: str) -> None:
+    try:
+        relative = path.relative_to(root)
+    except ValueError as error:
+        raise RuntimeError(f"Path escapes its trusted root: {path}") from error
+    if ".." in relative.parts:
+        raise RuntimeError(f"Path contains traversal: {path}")
+
+    current = root
+    for component in relative.parts:
         current /= component
         if current.is_symlink():
-            raise RuntimeError(
-                "Consumer destination component must not be a symbolic link: "
-                f"{current.relative_to(destination_root)}"
-            )
+            raise RuntimeError(f"{message}: {current.relative_to(root)}")
 
 
 def main() -> int:

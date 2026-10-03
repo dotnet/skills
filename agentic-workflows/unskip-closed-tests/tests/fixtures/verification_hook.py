@@ -44,24 +44,30 @@ def main() -> int:
         return 91
 
     command_args = sys.argv[1:-1]
+    fail_when_token_missing = None
     if "--assert-no-token-environment" in command_args:
         command_args.remove("--assert-no-token-environment")
         if "GH_TOKEN" in os.environ or "GITHUB_TOKEN" in os.environ:
             return 97
 
     if command_args:
-        if len(command_args) != 3 or command_args[0] != "--expire":
+        if len(command_args) == 3 and command_args[0] == "--expire":
+            evidence_path = Path(command_args[1])
+            evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+            for canonical in command_args[2].split(","):
+                reference = evidence["references"][canonical]
+                reference["kind"] = "issue"
+                reference["accessible"] = True
+                reference["state"] = "open"
+                reference["state_reason"] = "reopened"
+                reference["merged_at"] = None
+            evidence_path.write_text(
+                json.dumps(evidence, indent=2) + "\n", encoding="utf-8"
+            )
+        elif len(command_args) == 3 and command_args[0] == "--fail-when-token-missing":
+            fail_when_token_missing = (command_args[1], command_args[2])
+        else:
             return 96
-        evidence_path = Path(command_args[1])
-        evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
-        for canonical in command_args[2].split(","):
-            reference = evidence["references"][canonical]
-            reference["kind"] = "issue"
-            reference["accessible"] = True
-            reference["state"] = "open"
-            reference["state_reason"] = "reopened"
-            reference["merged_at"] = None
-        evidence_path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
 
     request = json.loads(request_path.read_text(encoding="utf-8"))
     if set(request) != {
@@ -85,17 +91,23 @@ def main() -> int:
         if not Path(test["result_file"]).is_absolute():
             return 95
 
-    method_name = request["tests"][0]["fqn"].rsplit(".", 1)[-1]
-    if "Zero" in method_name:
-        behavior = "zero"
-    elif "Skipped" in method_name:
-        behavior = "skipped"
-    elif "Mismatch" in method_name:
-        behavior = "mismatch"
-    else:
-        behavior = "pass"
-
     for test in request["tests"]:
+        method_name = test["fqn"].rsplit(".", 1)[-1]
+        if "Zero" in method_name:
+            behavior = "zero"
+        elif "Skipped" in method_name:
+            behavior = "skipped"
+        elif "Mismatch" in method_name:
+            behavior = "mismatch"
+        else:
+            behavior = "pass"
+        if (
+            fail_when_token_missing is not None
+            and method_name == fail_when_token_missing[0]
+            and fail_when_token_missing[1]
+            not in Path(test["source_path"]).read_text(encoding="utf-8")
+        ):
+            behavior = "skipped"
         write_trx(Path(test["result_file"]), test["fqn"], behavior)
     return 0
 

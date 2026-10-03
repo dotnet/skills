@@ -123,6 +123,15 @@ jobs:
           name: unskip-closed-tests-publication-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/unskip-closed-tests-publication
 
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore trusted materialization tool
+        working-directory: .github/workflows/unskip-closed-tests-tool
+        run: dotnet restore UnskipClosedTests.Tool.csproj --locked-mode
+
       - name: Publish one verified draft pull request
         shell: bash
         env:
@@ -131,13 +140,11 @@ jobs:
           EXPECTED_COMMIT: ${{ github.sha }}
           ORIGINAL_MANIFEST: ${{ runner.temp }}/unskip-closed-tests-manifest/manifest.json
           RESULT_PATH: ${{ runner.temp }}/unskip-closed-tests-publication/unskip-closed-tests-result.json
-          PATCH_PATH: ${{ runner.temp }}/unskip-closed-tests-publication/unskip-closed-tests.patch
         run: |
           set -euo pipefail
 
           test -f "$ORIGINAL_MANIFEST"
           test -f "$RESULT_PATH"
-          test -f "$PATCH_PATH"
           jq -e \
             --arg commit "$EXPECTED_COMMIT" \
             --slurpfile manifest "$ORIGINAL_MANIFEST" \
@@ -168,7 +175,6 @@ jobs:
             ' \
             "$RESULT_PATH" >/dev/null
           if [ "$(jq -r '.has_changes' "$RESULT_PATH")" != "true" ]; then
-            test ! -s "$PATCH_PATH"
             echo "::notice::No verified candidates remained; no pull request will be opened."
             exit 0
           fi
@@ -208,8 +214,21 @@ jobs:
             esac
           done < "$EXPECTED_PATHS"
 
-          git apply --check --index "$PATCH_PATH"
-          git apply --index "$PATCH_PATH"
+          dotnet run --no-restore \
+            --project .github/workflows/unskip-closed-tests-tool/UnskipClosedTests.Tool.csproj \
+            -- materialize \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --config "$GITHUB_WORKSPACE/.github/workflows/unskip-closed-tests.config.json" \
+            --manifest "$ORIGINAL_MANIFEST" \
+            --result "$RESULT_PATH"
+          rm -rf \
+            .github/workflows/unskip-closed-tests-tool/bin \
+            .github/workflows/unskip-closed-tests-tool/obj
+          git diff --name-only --diff-filter=M | sort > "$ACTUAL_PATHS"
+          diff -u "$EXPECTED_PATHS" "$ACTUAL_PATHS"
+          while IFS= read -r path; do
+            git add -- "$path"
+          done < "$EXPECTED_PATHS"
           git diff --cached --name-only | sort > "$ACTUAL_PATHS"
           diff -u "$EXPECTED_PATHS" "$ACTUAL_PATHS"
           git diff --quiet
@@ -323,7 +342,6 @@ safe-outputs:
             ORIGINAL_MANIFEST: ${{ runner.temp }}/unskip-closed-tests-manifest/manifest.json
             RESULT_PATH: ${{ runner.temp }}/unskip-closed-tests-result.json
             RESULT_DIRECTORY: ${{ runner.temp }}/unskip-closed-tests-results
-            PATCH_PATH: ${{ runner.temp }}/unskip-closed-tests.patch
             EXPECTED_PATHS: ${{ runner.temp }}/unskip-closed-tests-expected-paths.txt
             ACTUAL_PATHS: ${{ runner.temp }}/unskip-closed-tests-actual-paths.txt
           run: |
@@ -346,7 +364,6 @@ safe-outputs:
             if [ "$APPLY_EXIT" -eq 10 ]; then
               git diff --quiet
               jq -e '.schema_version == "1" and .has_changes == false' "$RESULT_PATH" >/dev/null
-              printf '' > "$PATCH_PATH"
               echo "no-action=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
@@ -371,17 +388,13 @@ safe-outputs:
                 *) echo "::error::Unexpected changed path: $path"; exit 20 ;;
               esac
             done < "$EXPECTED_PATHS"
-            git diff --binary --full-index --no-ext-diff > "$PATCH_PATH"
-            test -s "$PATCH_PATH"
             echo "no-action=false" >> "$GITHUB_OUTPUT"
 
         - name: Upload bounded publication artifact
           uses: actions/upload-artifact@v7
           with:
             name: unskip-closed-tests-publication-${{ github.run_id }}-${{ github.run_attempt }}
-            path: |
-              ${{ runner.temp }}/unskip-closed-tests-result.json
-              ${{ runner.temp }}/unskip-closed-tests.patch
+            path: ${{ runner.temp }}/unskip-closed-tests-result.json
             if-no-files-found: error
             retention-days: 1
 

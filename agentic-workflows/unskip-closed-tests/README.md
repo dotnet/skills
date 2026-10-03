@@ -55,16 +55,17 @@ gh aw compile unskip-closed-tests --strict
 6. A read-only custom safe-output job checks out the same commit, re-inventories
    source, re-resolves GitHub state, validates the exact proposal and source
    spans, applies surgical removals, and invokes the repository's trusted
-   verification hook once per candidate. It uploads only a bounded result and
-   patch artifact.
+   verification hook once per candidate. It re-verifies the exact final retained
+   set until stable and uploads only a bounded result artifact.
 7. The helper parses the requested TRX files. A candidate is reverted unless
    every intended FQN actually executed and passed with no extra/mismatched,
    failed, skipped, or not-executed result.
 8. A fresh write-scoped publication job downloads and validates the manifest,
-   result, candidate identities, paths, and patch before applying it. Immediately
-   before publication, it requires the default branch still points at the
-   analyzed commit and no prior workflow PR is open. It opens at most one draft
-   PR and reads it back to verify the trusted body marker.
+   result, candidate identities, paths, and FQNs, then deterministically
+   reconstructs the exact Ignore removals without executing consumer code.
+   Immediately before publication, it requires the default branch still points
+   at the analyzed commit and no prior workflow PR is open. It opens at most one
+   draft PR and reads it back to verify the trusted body marker.
 
 Exit code alone never proves execution. Missing or malformed results, zero
 selected tests, all-skipped results, or an intended/result FQN mismatch revert

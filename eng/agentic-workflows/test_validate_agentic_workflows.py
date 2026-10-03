@@ -259,7 +259,7 @@ class LocalPackageStagingTests(unittest.TestCase):
                 self.skipTest(f"symbolic links are unavailable: {error}")
 
             with self.assertRaisesRegex(
-                RuntimeError, "Package include must not be a symbolic link"
+                RuntimeError, "Package include component must not be a symbolic link"
             ):
                 STAGER.stage_package(manifest, consumer)
 
@@ -268,6 +268,78 @@ class LocalPackageStagingTests(unittest.TestCase):
             )
             self.assertFalse(
                 (consumer / ".github" / "workflows" / "example.md").exists()
+            )
+
+    def test_rejects_symlinked_include_parent_without_partial_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            package = root / "agentic-workflows" / "example"
+            consumer = root / "consumer"
+            outside = root / "outside"
+            workflows = package / "workflows"
+            workflow = outside / "example.md"
+            workflows.mkdir(parents=True)
+            consumer.mkdir()
+            outside.mkdir()
+            manifest = package / "aw.yml"
+            manifest.write_text(
+                "includes:\n  - workflows/link/example.md\n", encoding="utf-8"
+            )
+            workflow.write_text("---\non: workflow_dispatch\n---\n", encoding="utf-8")
+            try:
+                (workflows / "link").symlink_to(outside, target_is_directory=True)
+            except OSError as error:
+                self.skipTest(f"symbolic links are unavailable: {error}")
+
+            with self.assertRaisesRegex(
+                RuntimeError, "Package include component must not be a symbolic link"
+            ):
+                STAGER.stage_package(manifest, consumer)
+
+            self.assertFalse(
+                (consumer / ".github" / "workflows" / "link" / "example.md").exists()
+            )
+
+    def test_rejects_symlinked_grader_parent_without_partial_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            package = repo_root / "agentic-workflows" / "example"
+            consumer = repo_root / "consumer"
+            outside = repo_root / "outside"
+            workflow = package / "workflows" / "example.md"
+            grader_root = repo_root / ".github" / "graders"
+            workflow.parent.mkdir(parents=True)
+            grader_root.parent.mkdir(parents=True)
+            consumer.mkdir()
+            outside.mkdir()
+            manifest = package / "aw.yml"
+            manifest.write_text("includes:\n  - workflows/example.md\n", encoding="utf-8")
+            workflow.write_text(
+                """---
+on: workflow_dispatch
+graders:
+  operational-value:
+    run: .github/graders/example.sh
+---
+""",
+                encoding="utf-8",
+            )
+            (outside / "example.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+            try:
+                grader_root.symlink_to(outside, target_is_directory=True)
+            except OSError as error:
+                self.skipTest(f"symbolic links are unavailable: {error}")
+
+            with self.assertRaisesRegex(
+                RuntimeError, "Package grader component must not be a symbolic link"
+            ):
+                STAGER.stage_package(manifest, consumer)
+
+            self.assertFalse(
+                (consumer / ".github" / "workflows" / "example.md").exists()
+            )
+            self.assertFalse(
+                (consumer / ".github" / "graders" / "example.sh").exists()
             )
 
     def test_rejects_symlinked_destination_parent_without_partial_copy(self) -> None:

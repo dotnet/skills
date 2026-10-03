@@ -85,7 +85,7 @@ class FixtureRepo:
                 "--repo-root",
                 str(self.root),
             ]
-            if arguments[0] in ("inventory", "apply")
+            if arguments[0] in ("inventory", "apply", "materialize")
             else ["dotnet", str(TOOL_DLL), *arguments],
             cwd=self.root,
             expected=expected,
@@ -163,6 +163,24 @@ class FixtureRepo:
             expected=expected,
         )
         return json.loads(output.read_text(encoding="utf-8")) if output.exists() else None
+
+    def materialize(self, manifest, evidence, result, expected=0):
+        manifest_path = self.root / "materialize-manifest.json"
+        result_path = self.root / "materialize-result.json"
+        self.write_json(manifest_path, manifest)
+        self.write_json(result_path, result)
+        self.tool(
+            "materialize",
+            "--config",
+            str(self.config),
+            "--manifest",
+            str(manifest_path),
+            "--result",
+            str(result_path),
+            "--github-evidence",
+            str(evidence),
+            expected=expected,
+        )
 
 
 class TrustedHelperRegressionTests(unittest.TestCase):
@@ -1035,6 +1053,101 @@ public class Tests
                 os.environ["GITHUB_TOKEN"] = original_github_token
 
         self.assertTrue(result["has_changes"])
+
+    def test_materialize_reconstructs_only_manifest_authorized_edits(self):
+        repo = FixtureRepo(
+            self.id().split(".")[-1],
+            """
+namespace Demo;
+public class Tests
+{
+    [Ignore("#1")][Test] public void ExecutedPass() { }
+}
+""".lstrip(),
+        )
+        evidence = repo.evidence(
+            {
+                "fixture/repo#1": {
+                    "kind": "issue",
+                    "state": "closed",
+                    "state_reason": "completed",
+                }
+            }
+        )
+        resolved = repo.resolve(repo.inventory(), evidence)
+        source = repo.root / "src" / "Tests.cs"
+        original = source.read_bytes()
+        result = repo.apply(
+            resolved,
+            evidence,
+            [resolved["candidates"][0]["candidate_id"]],
+        )
+        authorized = source.read_bytes()
+        source.write_bytes(original)
+
+        repo.materialize(resolved, evidence, result)
+        self.assertEqual(authorized, source.read_bytes())
+
+        source.write_bytes(original)
+        tampered = json.loads(json.dumps(result))
+        tampered["retained_candidates"][0]["path"] = "src/Fabricated.cs"
+        repo.materialize(resolved, evidence, tampered, expected=20)
+        self.assertEqual(original, source.read_bytes())
+
+    def test_final_retained_set_is_reverified_until_stable(self):
+        repo = FixtureRepo(
+            self.id().split(".")[-1],
+            """
+namespace Demo;
+public class Tests
+{
+    [Ignore("#1")][Test] public void ExecutedPassOne() { }
+    [Ignore("#2")][Test] public void ExecutedPassTwo() { }
+}
+""".lstrip(),
+        )
+        evidence = repo.evidence(
+            {
+                "fixture/repo#1": {
+                    "kind": "issue",
+                    "state": "closed",
+                    "state_reason": "completed",
+                },
+                "fixture/repo#2": {
+                    "kind": "issue",
+                    "state": "closed",
+                    "state_reason": "completed",
+                },
+            }
+        )
+        config = json.loads(repo.config.read_text(encoding="utf-8"))
+        config["verification"]["command"] = [
+            sys.executable,
+            str(HOOK),
+            "--fail-when-token-missing",
+            "ExecutedPassOne",
+            '[Ignore("#2")]',
+        ]
+        repo.write_json(repo.config, config)
+        resolved = repo.resolve(repo.inventory(), evidence)
+        result = repo.apply(
+            resolved,
+            evidence,
+            [candidate["candidate_id"] for candidate in resolved["candidates"]],
+        )
+
+        retained_names = {
+            candidate["test_fqns"][0].rsplit(".", 1)[-1]
+            for candidate in result["retained_candidates"]
+        }
+        self.assertEqual({"ExecutedPassTwo"}, retained_names)
+        self.assertIn(
+            "final_set:non_passing_outcome:NotExecuted",
+            {candidate["reason"] for candidate in result["reverted_candidates"]},
+        )
+        source = (repo.root / "src" / "Tests.cs").read_text(encoding="utf-8")
+        self.assertIn('[Ignore("#1")]', source)
+        self.assertNotIn('[Ignore("#2")]', source)
 
     def test_all_skipped_returns_clean_noop(self):
         repo = FixtureRepo(

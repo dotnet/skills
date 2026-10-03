@@ -78,27 +78,30 @@ internal static class ApplyEngine
                 static path => path,
                 path => ReadBytes(PathRules.ResolveInsideRoot(repository.Root, path, "candidate path")),
                 StringComparer.Ordinal);
-        Dictionary<string, byte[]> expectedBytes = originalBytes.ToDictionary(
-            static pair => pair.Key,
-            static pair => pair.Value.ToArray(),
-            StringComparer.Ordinal);
         List<string> retained = [];
         List<RevertedCandidateResult> reverted = [];
+        HashSet<string> revertedIds = new(StringComparer.Ordinal);
+
+        void RevertCandidate(Candidate candidate, string reason)
+        {
+            if (revertedIds.Add(candidate.CandidateId))
+            {
+                reverted.Add(CreateRevertedCandidate(candidate, reason));
+            }
+        }
 
         string workRoot = Path.Combine(
             repository.MetadataDirectory(),
             "unskip-closed-tests",
             requestedManifest.ManifestDigest);
+        Manifest finalEligibility = freshResolved;
         try
         {
             ResetDirectory(workRoot);
             foreach (SourceEdit edit in edits)
             {
-                string fullPath = PathRules.ResolveInsideRoot(repository.Root, edit.Path, "candidate path");
-                byte[] beforeCandidate = expectedBytes[edit.Path].ToArray();
-                byte[] editedBytes = ApplyTextEdit(beforeCandidate, edit.Start, edit.Length);
-                WriteBytes(fullPath, editedBytes);
-                expectedBytes[edit.Path] = editedBytes;
+                Dictionary<string, byte[]> isolatedBytes = BuildEditedBytes(originalBytes, [edit]);
+                RestoreFiles(repository, isolatedBytes);
 
                 VerificationOutcome outcome = await VerifyCandidateAsync(
                     repository,
@@ -106,7 +109,7 @@ internal static class ApplyEngine
                     requestedManifest,
                     edit.Candidate,
                     workRoot);
-                string? mutation = RestoreUnexpectedSourceMutations(repository, expectedBytes);
+                string? mutation = RestoreUnexpectedSourceMutations(repository, isolatedBytes);
                 if (mutation is not null)
                 {
                     outcome = new VerificationOutcome(false, $"verification_mutated_source:{mutation}");
@@ -118,10 +121,90 @@ internal static class ApplyEngine
                 }
                 else
                 {
-                    expectedBytes[edit.Path] = beforeCandidate;
-                    WriteBytes(fullPath, beforeCandidate);
-                    reverted.Add(CreateRevertedCandidate(edit.Candidate, outcome.Reason));
+                    RevertCandidate(edit.Candidate, outcome.Reason);
                 }
+            }
+            RestoreFiles(repository, originalBytes);
+
+            while (retained.Count > 0)
+            {
+                HashSet<string> retainedSet = retained.ToHashSet(StringComparer.Ordinal);
+                finalEligibility = await IssueResolver.ResolveAsync(freshInventory, evidencePath);
+                HashSet<string> eligibleIds = finalEligibility.Candidates
+                    .Where(static candidate => candidate.Decision.Eligible)
+                    .Select(static candidate => candidate.CandidateId)
+                    .ToHashSet(StringComparer.Ordinal);
+                List<string> expired = retained
+                    .Where(candidateId => !eligibleIds.Contains(candidateId))
+                    .ToList();
+                if (expired.Count > 0)
+                {
+                    foreach (string candidateId in expired)
+                    {
+                        RevertCandidate(candidates[candidateId], "eligibility_changed_after_verification");
+                    }
+                    retained = retained.Except(expired, StringComparer.Ordinal).ToList();
+                    RestoreFiles(repository, originalBytes);
+                    continue;
+                }
+
+                List<SourceEdit> retainedEdits = edits
+                    .Where(edit => retainedSet.Contains(edit.Candidate.CandidateId))
+                    .ToList();
+                Dictionary<string, byte[]> finalBytes = BuildEditedBytes(originalBytes, retainedEdits);
+                RestoreFiles(repository, finalBytes);
+
+                List<string> failed = [];
+                foreach (SourceEdit edit in retainedEdits)
+                {
+                    VerificationOutcome outcome = await VerifyCandidateAsync(
+                        repository,
+                        config,
+                        requestedManifest,
+                        edit.Candidate,
+                        workRoot);
+                    string? mutation = RestoreUnexpectedSourceMutations(repository, finalBytes);
+                    if (mutation is not null)
+                    {
+                        outcome = new VerificationOutcome(false, $"verification_mutated_source:{mutation}");
+                    }
+
+                    if (!outcome.Success)
+                    {
+                        failed.Add(edit.Candidate.CandidateId);
+                        RevertCandidate(edit.Candidate, $"final_set:{outcome.Reason}");
+                    }
+                }
+
+                if (failed.Count > 0)
+                {
+                    retained = retained.Except(failed, StringComparer.Ordinal).ToList();
+                    RestoreFiles(repository, originalBytes);
+                    continue;
+                }
+
+                Manifest postVerificationEligibility =
+                    await IssueResolver.ResolveAsync(freshInventory, evidencePath);
+                HashSet<string> postVerificationEligibleIds = postVerificationEligibility.Candidates
+                    .Where(static candidate => candidate.Decision.Eligible)
+                    .Select(static candidate => candidate.CandidateId)
+                    .ToHashSet(StringComparer.Ordinal);
+                List<string> postVerificationExpired = retained
+                    .Where(candidateId => !postVerificationEligibleIds.Contains(candidateId))
+                    .ToList();
+                if (postVerificationExpired.Count > 0)
+                {
+                    foreach (string candidateId in postVerificationExpired)
+                    {
+                        RevertCandidate(candidates[candidateId], "eligibility_changed_after_verification");
+                    }
+                    retained = retained.Except(postVerificationExpired, StringComparer.Ordinal).ToList();
+                    RestoreFiles(repository, originalBytes);
+                    continue;
+                }
+
+                finalEligibility = postVerificationEligibility;
+                break;
             }
         }
         catch
@@ -137,62 +220,6 @@ internal static class ApplyEngine
         if (retained.Count == 0)
         {
             RestoreFiles(repository, originalBytes);
-            return new ApplyResult
-            {
-                SourceCommit = requestedManifest.SourceCommit,
-                ManifestDigest = requestedManifest.ManifestDigest,
-                RevertedCandidates = reverted.OrderBy(static item => item.CandidateId, StringComparer.Ordinal).ToList(),
-                HasChanges = false,
-                PrTitle = "",
-                PrBody = "",
-            };
-        }
-
-        Manifest finalEligibility;
-        try
-        {
-            finalEligibility = await IssueResolver.ResolveAsync(freshInventory, evidencePath);
-        }
-        catch
-        {
-            RestoreFiles(repository, originalBytes);
-            throw;
-        }
-
-        HashSet<string> finallyEligible = finalEligibility.Candidates
-            .Where(static candidate => candidate.Decision.Eligible)
-            .Select(static candidate => candidate.CandidateId)
-            .ToHashSet(StringComparer.Ordinal);
-        List<string> expiredCandidates = retained
-            .Where(candidateId => !finallyEligible.Contains(candidateId))
-            .ToList();
-        if (expiredCandidates.Count > 0)
-        {
-            reverted.AddRange(expiredCandidates.Select(candidateId =>
-                CreateRevertedCandidate(candidates[candidateId], "eligibility_changed_after_verification")));
-            retained = retained.Except(expiredCandidates, StringComparer.Ordinal).ToList();
-            RestoreFiles(repository, originalBytes);
-            if (retained.Count > 0)
-            {
-                HashSet<string> retainedSet = retained.ToHashSet(StringComparer.Ordinal);
-                Dictionary<string, byte[]> rebuiltBytes = originalBytes.ToDictionary(
-                    static pair => pair.Key,
-                    static pair => pair.Value.ToArray(),
-                    StringComparer.Ordinal);
-                foreach (SourceEdit edit in edits.Where(edit => retainedSet.Contains(edit.Candidate.CandidateId)))
-                {
-                    rebuiltBytes[edit.Path] = ApplyTextEdit(
-                        rebuiltBytes[edit.Path],
-                        edit.Start,
-                        edit.Length);
-                }
-
-                RestoreFiles(repository, rebuiltBytes);
-            }
-        }
-
-        if (retained.Count == 0)
-        {
             return new ApplyResult
             {
                 SourceCommit = requestedManifest.SourceCommit,
@@ -235,6 +262,87 @@ internal static class ApplyEngine
                 : $"[unskip-closed-tests] Unskip {retained.Count} tests for completed GitHub work items",
             PrBody = CreatePrBody(requestedManifest, retainedCandidates, reverted),
         };
+    }
+
+    public static async Task MaterializeAsync(
+        string requestedRoot,
+        ToolConfig config,
+        string manifestPath,
+        string resultPath,
+        string? evidencePath)
+    {
+        Manifest requestedManifest = ManifestValidator.Read(manifestPath);
+        if (!string.Equals(requestedManifest.ConfigDigest, ConfigLoader.Digest(config), StringComparison.Ordinal))
+        {
+            throw new ContractException("Materialize config does not match manifest config_digest.");
+        }
+
+        ApplyResult result = JsonSupport.Read<ApplyResult>(resultPath);
+        if (!result.HasChanges ||
+            result.SourceCommit != requestedManifest.SourceCommit ||
+            result.ManifestDigest != requestedManifest.ManifestDigest ||
+            result.RetainedCandidates.Count == 0)
+        {
+            throw new ContractException("Materialize result does not authorize verified changes.");
+        }
+
+        GitRepository repository = GitRepository.Open(requestedRoot, requestedManifest.Repository);
+        if (!string.Equals(repository.Commit, requestedManifest.SourceCommit, StringComparison.Ordinal))
+        {
+            throw new ContractException(
+                $"Manifest source_commit {requestedManifest.SourceCommit} is stale; checked out commit is {repository.Commit}.");
+        }
+
+        Manifest freshInventory = InventoryEngine.Create(repository.Root, requestedManifest.Repository, config);
+        Manifest freshResolved = await IssueResolver.ResolveAsync(freshInventory, evidencePath);
+        if (!string.Equals(freshResolved.ManifestDigest, requestedManifest.ManifestDigest, StringComparison.Ordinal))
+        {
+            throw new ContractException("Materialize revalidation did not reproduce the trusted manifest.");
+        }
+
+        Dictionary<string, Candidate> candidates = freshResolved.Candidates
+            .ToDictionary(static candidate => candidate.CandidateId, StringComparer.Ordinal);
+        if (result.RetainedCandidates.Select(static candidate => candidate.CandidateId)
+            .Distinct(StringComparer.Ordinal).Count() != result.RetainedCandidates.Count)
+        {
+            throw new ContractException("Materialize result contains duplicate retained candidate IDs.");
+        }
+
+        List<SourceEdit> edits = [];
+        foreach (RetainedCandidateResult retained in result.RetainedCandidates)
+        {
+            if (!candidates.TryGetValue(retained.CandidateId, out Candidate? candidate) ||
+                !candidate.Decision.Eligible ||
+                candidate.Path != retained.Path ||
+                !candidate.Owner.TestFqns.Order(StringComparer.Ordinal)
+                    .SequenceEqual(retained.TestFqns.Order(StringComparer.Ordinal), StringComparer.Ordinal))
+            {
+                throw new ContractException(
+                    $"Materialize retained candidate '{retained.CandidateId}' does not match the trusted manifest.");
+            }
+
+            edits.Add(CreateEdit(repository, config, candidate));
+        }
+
+        edits = edits
+            .OrderBy(static edit => edit.Path, StringComparer.Ordinal)
+            .ThenByDescending(static edit => edit.Start)
+            .ToList();
+        RejectOverlappingEdits(edits);
+        List<string> changedPaths = edits.Select(static edit => edit.Path)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+        if (!changedPaths.SequenceEqual(result.ChangedPaths.Order(StringComparer.Ordinal), StringComparer.Ordinal))
+        {
+            throw new ContractException("Materialize changed_paths do not match retained candidates.");
+        }
+
+        Dictionary<string, byte[]> originalBytes = changedPaths.ToDictionary(
+            static path => path,
+            path => ReadBytes(PathRules.ResolveInsideRoot(repository.Root, path, "candidate path")),
+            StringComparer.Ordinal);
+        RestoreFiles(repository, BuildEditedBytes(originalBytes, edits));
     }
 
     private static List<string> ReadAgentSelection(string path, string expectedManifestDigest)
@@ -549,6 +657,25 @@ internal static class ApplyEngine
         }
 
         return firstMutation;
+    }
+
+    private static Dictionary<string, byte[]> BuildEditedBytes(
+        IReadOnlyDictionary<string, byte[]> originalBytes,
+        IEnumerable<SourceEdit> edits)
+    {
+        Dictionary<string, byte[]> editedBytes = originalBytes.ToDictionary(
+            static pair => pair.Key,
+            static pair => pair.Value.ToArray(),
+            StringComparer.Ordinal);
+        foreach (SourceEdit edit in edits)
+        {
+            editedBytes[edit.Path] = ApplyTextEdit(
+                editedBytes[edit.Path],
+                edit.Start,
+                edit.Length);
+        }
+
+        return editedBytes;
     }
 
     private static byte[] ApplyTextEdit(byte[] sourceBytes, int start, int length)
