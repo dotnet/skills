@@ -75,6 +75,13 @@ internal sealed class GitRepository
         return metadata[2];
     }
 
+    public IReadOnlyList<string> TrackedCSharpPaths() =>
+        RunGit(Root, ["ls-files", "-z", "--", "*.cs"])
+            .Split('\0', StringSplitOptions.RemoveEmptyEntries)
+            .Select(path => PathRules.ValidateRelativePath(path, "tracked C# path"))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
     public byte[] HeadBytes(string path)
     {
         string normalized = PathRules.ValidateRelativePath(path, "source path");

@@ -484,6 +484,71 @@ public class Tests
             manifest["candidates"][0]["attribute_type"],
         )
 
+    def test_attribute_identity_uses_repository_wide_shadowing_and_global_usings(self):
+        shadow_repo = FixtureRepo(
+            self.id().split(".")[-1] + "_shadow",
+            """
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+namespace Demo;
+public class Tests
+{
+    [Ignore("#1")]
+    [Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
+    public void ShadowedIgnore() { }
+}
+""".lstrip(),
+        )
+        config = json.loads(shadow_repo.config.read_text(encoding="utf-8"))
+        config["ignore_attribute_names"] = [
+            "Microsoft.VisualStudio.TestTools.UnitTesting.IgnoreAttribute"
+        ]
+        config["test_attribute_names"] = [
+            "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute"
+        ]
+        shadow_repo.write_json(shadow_repo.config, config)
+        (shadow_repo.root / "src" / "CustomIgnore.cs").write_text(
+            """
+namespace Demo;
+public sealed class IgnoreAttribute : System.Attribute
+{
+    public IgnoreAttribute(string message) { }
+}
+""".lstrip(),
+            encoding="utf-8",
+        )
+        run(["git", "add", "."], shadow_repo.root)
+        run(["git", "commit", "--quiet", "-m", "add shadow type"], shadow_repo.root)
+        shadow_config = json.loads(shadow_repo.config.read_text(encoding="utf-8"))
+        shadow_config["source_roots"] = ["src/Tests.cs"]
+        shadow_repo.write_json(shadow_repo.config, shadow_config)
+        self.assertEqual(0, shadow_repo.inventory()["candidate_count"])
+
+        global_repo = FixtureRepo(
+            self.id().split(".")[-1] + "_global",
+            """
+namespace Demo;
+public class Tests
+{
+    [Ignore("#1")]
+    [TestMethod]
+    public void GlobalUsingIgnore() { }
+}
+""".lstrip(),
+        )
+        global_repo.write_json(global_repo.config, config)
+        (global_repo.root / "GlobalUsings.cs").write_text(
+            "global using Microsoft.VisualStudio.TestTools.UnitTesting;\n",
+            encoding="utf-8",
+        )
+        run(["git", "add", "."], global_repo.root)
+        run(["git", "commit", "--quiet", "-m", "add global using"], global_repo.root)
+        manifest = global_repo.inventory()
+        self.assertEqual(1, manifest["candidate_count"])
+        self.assertEqual(
+            ["Demo.Tests.GlobalUsingIgnore"],
+            manifest["candidates"][0]["owner"]["test_fqns"],
+        )
+
     def test_fabricated_agent_anchor_or_fqn_is_rejected(self):
         repo = FixtureRepo(
             self.id().split(".")[-1],

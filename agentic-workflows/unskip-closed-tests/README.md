@@ -56,13 +56,15 @@ gh aw compile unskip-closed-tests --strict
    source, re-resolves GitHub state, validates the exact proposal and source
    spans, applies surgical removals, and invokes the repository's trusted
    verification hook once per candidate. It re-verifies the exact final retained
-   set until stable and uploads only a bounded result artifact.
-7. The helper parses the requested TRX files. A candidate is reverted unless
-   every intended FQN actually executed and passed with no extra/mismatched,
-   failed, skipped, or not-executed result.
-8. A fresh write-scoped publication job downloads and validates the manifest,
-   result, candidate identities, paths, and FQNs, then deterministically
-   reconstructs the exact Ignore removals without executing consumer code.
+   set until stable and uploads only raw request/TRX evidence plus the original
+   agent output.
+7. The fresh publication job reruns the trusted authorizer over that raw
+   evidence after the consumer process boundary has ended. A candidate is
+   retained only when every intended FQN actually executed and passed with no
+   extra/mismatched, failed, skipped, or not-executed result.
+8. The same fresh write-scoped publication job then validates the trusted
+   authorization and deterministically reconstructs the exact Ignore removals
+   without executing consumer code.
    Immediately before publication, it requires the default branch still points
    at the analyzed commit and no prior workflow PR is open. It opens at most one
    draft PR and reads it back to verify the trusted body marker.

@@ -31,7 +31,8 @@ internal static partial class InventoryEngine
         GitRepository repository = GitRepository.Open(requestedRoot, repositoryOverride);
         List<ParsedFile> files = LoadFiles(repository, config);
         Dictionary<string, int> typeDeclarationCounts = CountTypeDeclarations(files);
-        HashSet<string> declaredTypes = typeDeclarationCounts.Keys.ToHashSet(StringComparer.Ordinal);
+        (HashSet<string> declaredTypes, List<UsingDirectiveSyntax> globalUsings) =
+            LoadCompilationContext(repository, files);
         List<PendingCandidate> pending = [];
 
         foreach (ParsedFile file in files)
@@ -41,7 +42,8 @@ internal static partial class InventoryEngine
                 string? attributeType = ResolveConfiguredAttributeType(
                     attribute,
                     config.IgnoreAttributeNames,
-                    declaredTypes);
+                    declaredTypes,
+                    globalUsings);
                 if (attributeType is null)
                 {
                     continue;
@@ -56,7 +58,8 @@ internal static partial class InventoryEngine
                 if (attribute.FirstAncestorOrSelf<MethodDeclarationSyntax>() is MethodDeclarationSyntax method &&
                     method.AttributeLists.Any(list => list.Span.Contains(attribute.Span)))
                 {
-                    OwnerIdentity owner = CreateMethodOwner(method, config, declaredTypes);
+                    OwnerIdentity owner = CreateMethodOwner(
+                        method, config, declaredTypes, globalUsings);
                     List<string> deferrals = [];
                     if (owner.TestFqns.Count == 0)
                     {
@@ -77,7 +80,12 @@ internal static partial class InventoryEngine
                     type.AttributeLists.Any(list => list.Span.Contains(attribute.Span)))
                 {
                     (OwnerIdentity owner, List<string> deferrals) =
-                        CreateClassOwner(type, config, typeDeclarationCounts, declaredTypes);
+                        CreateClassOwner(
+                            type,
+                            config,
+                            typeDeclarationCounts,
+                            declaredTypes,
+                            globalUsings);
                     if (HasGeneratedMarker(type))
                     {
                         deferrals.Add("generated_declaration");
@@ -267,10 +275,57 @@ internal static partial class InventoryEngine
         return counts;
     }
 
+    private static (HashSet<string> DeclaredTypes, List<UsingDirectiveSyntax> GlobalUsings)
+        LoadCompilationContext(GitRepository repository, IReadOnlyCollection<ParsedFile> scannedFiles)
+    {
+        Dictionary<string, CompilationUnitSyntax> roots = scannedFiles.ToDictionary(
+            static file => file.Path,
+            static file => file.Root,
+            StringComparer.Ordinal);
+        foreach (string path in repository.TrackedCSharpPaths())
+        {
+            if (roots.ContainsKey(path))
+            {
+                continue;
+            }
+
+            string text;
+            try
+            {
+                text = new UTF8Encoding(false, true).GetString(repository.HeadBytes(path));
+            }
+            catch (DecoderFallbackException)
+            {
+                continue;
+            }
+
+            SyntaxTree tree = CSharpSyntaxTree.ParseText(
+                text,
+                new CSharpParseOptions(LanguageVersion.Latest, DocumentationMode.Parse),
+                path);
+            if (!tree.GetDiagnostics().Any(static diagnostic =>
+                    diagnostic.Severity == DiagnosticSeverity.Error))
+            {
+                roots[path] = tree.GetCompilationUnitRoot();
+            }
+        }
+
+        HashSet<string> declaredTypes = roots.Values
+            .SelectMany(static root => root.DescendantNodes().OfType<TypeDeclarationSyntax>())
+            .Select(TypeFqn)
+            .ToHashSet(StringComparer.Ordinal);
+        List<UsingDirectiveSyntax> globalUsings = roots.Values
+            .SelectMany(static root => root.Usings)
+            .Where(static directive => directive.GlobalKeyword.IsKind(SyntaxKind.GlobalKeyword))
+            .ToList();
+        return (declaredTypes, globalUsings);
+    }
+
     private static OwnerIdentity CreateMethodOwner(
         MethodDeclarationSyntax method,
         ToolConfig config,
-        IReadOnlySet<string> declaredTypes)
+        IReadOnlySet<string> declaredTypes,
+        IReadOnlyList<UsingDirectiveSyntax> globalUsings)
     {
         TypeDeclarationSyntax? type = method.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
         if (type is null)
@@ -284,7 +339,8 @@ internal static partial class InventoryEngine
             .Any(attribute => ResolveConfiguredAttributeType(
                 attribute,
                 config.TestAttributeNames,
-                declaredTypes) is not null);
+                declaredTypes,
+                globalUsings) is not null);
         return new OwnerIdentity
         {
             Kind = "method",
@@ -302,7 +358,8 @@ internal static partial class InventoryEngine
         ClassDeclarationSyntax type,
         ToolConfig config,
         IReadOnlyDictionary<string, int> declarationCounts,
-        IReadOnlySet<string> declaredTypes)
+        IReadOnlySet<string> declaredTypes,
+        IReadOnlyList<UsingDirectiveSyntax> globalUsings)
     {
         string typeFqn = TypeFqn(type);
         List<string> deferrals = [];
@@ -333,7 +390,8 @@ internal static partial class InventoryEngine
                 .Any(attribute => ResolveConfiguredAttributeType(
                     attribute,
                     config.TestAttributeNames,
-                    declaredTypes) is not null))
+                    declaredTypes,
+                    globalUsings) is not null))
             .Select(method => $"{typeFqn}.{method.Identifier.ValueText}")
             .Order(StringComparer.Ordinal)
             .ToList();
@@ -466,7 +524,8 @@ internal static partial class InventoryEngine
     internal static string? ResolveConfiguredAttributeType(
         AttributeSyntax attribute,
         IEnumerable<string> configuredNames,
-        IReadOnlySet<string> declaredTypes)
+        IReadOnlySet<string> declaredTypes,
+        IReadOnlyList<UsingDirectiveSyntax> globalUsings)
     {
         List<string> configuredTypes = configuredNames
             .Select(NormalizeAttributeType)
@@ -481,7 +540,8 @@ internal static partial class InventoryEngine
                 : null;
         }
 
-        IReadOnlyList<UsingDirectiveSyntax> usings = VisibleUsings(attribute);
+        IReadOnlyList<UsingDirectiveSyntax> usings =
+            [.. globalUsings, .. VisibleUsings(attribute)];
         Dictionary<string, string> aliases = usings
             .Where(static directive => directive.Alias is not null)
             .ToDictionary(

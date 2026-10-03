@@ -102,6 +102,7 @@ jobs:
     permissions:
       actions: read
       contents: write
+      issues: read
       pull-requests: write
     steps:
       - name: Checkout exact analyzed revision without credentials
