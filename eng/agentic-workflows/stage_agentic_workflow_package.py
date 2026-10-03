@@ -45,12 +45,16 @@ def stage_package(manifest: Path, destination_root: Path) -> list[Path]:
             unresolved_source,
             "Package include component must not be a symbolic link",
         )
-        source, staged_destination = validator.resolve_package_include(
+        source, _ = validator.resolve_package_include(
             manifest, include, destination_root
         )
         if not source.is_file():
             raise RuntimeError(f"Package manifest references missing file: {include}")
-        relative_destination = staged_destination.relative_to(destination_root)
+        relative_destination = validator.package_destination(include)
+        if relative_destination.is_absolute() or ".." in relative_destination.parts:
+            raise RuntimeError(
+                f"Package manifest contains invalid destination path: {include}"
+            )
         existing = operations.get(relative_destination)
         if existing is not None and existing.read_bytes() != source.read_bytes():
             raise RuntimeError(

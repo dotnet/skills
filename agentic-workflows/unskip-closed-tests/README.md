@@ -107,6 +107,8 @@ Edit `.github/workflows/unskip-closed-tests.config.json` after installation:
 - `generated_globs`: generated paths that must never become candidates;
 - `ignore_attribute_names`: framework-qualified Ignore attribute type names;
 - `test_attribute_names`: framework-qualified test method attribute type names;
+- `attribute_aliases`: explicit trusted syntax-to-type mappings for unqualified
+  forms such as `Ignore` and `TestMethod`;
 - `verification.command`: a trusted argv array for the repository hook;
 - `verification.timeout_seconds`: per-candidate hook timeout.
 

@@ -10,6 +10,8 @@ internal sealed class ToolConfig
     public List<string> GeneratedGlobs { get; set; } = [];
     public List<string> IgnoreAttributeNames { get; set; } = [];
     public List<string> TestAttributeNames { get; set; } = [];
+    public Dictionary<string, string> AttributeAliases { get; set; } =
+        new(StringComparer.Ordinal);
     public List<string> VerificationCommand { get; set; } = [];
     public int VerificationTimeoutSeconds { get; set; }
 }

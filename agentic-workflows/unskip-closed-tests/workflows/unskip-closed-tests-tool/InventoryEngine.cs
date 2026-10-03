@@ -42,6 +42,7 @@ internal static partial class InventoryEngine
                 string? attributeType = ResolveConfiguredAttributeType(
                     attribute,
                     config.IgnoreAttributeNames,
+                    config.AttributeAliases,
                     declaredTypes,
                     globalUsings);
                 if (attributeType is null)
@@ -339,6 +340,7 @@ internal static partial class InventoryEngine
             .Any(attribute => ResolveConfiguredAttributeType(
                 attribute,
                 config.TestAttributeNames,
+                config.AttributeAliases,
                 declaredTypes,
                 globalUsings) is not null);
         return new OwnerIdentity
@@ -390,6 +392,7 @@ internal static partial class InventoryEngine
                 .Any(attribute => ResolveConfiguredAttributeType(
                     attribute,
                     config.TestAttributeNames,
+                    config.AttributeAliases,
                     declaredTypes,
                     globalUsings) is not null))
             .Select(method => $"{typeFqn}.{method.Identifier.ValueText}")
@@ -524,6 +527,7 @@ internal static partial class InventoryEngine
     internal static string? ResolveConfiguredAttributeType(
         AttributeSyntax attribute,
         IEnumerable<string> configuredNames,
+        IReadOnlyDictionary<string, string> configuredAliases,
         IReadOnlySet<string> declaredTypes,
         IReadOnlyList<UsingDirectiveSyntax> globalUsings)
     {
@@ -549,10 +553,38 @@ internal static partial class InventoryEngine
             [.. globalUsings, .. VisibleUsings(attribute)];
         Dictionary<string, string> aliases = usings
             .Where(static directive => directive.Alias is not null)
-            .ToDictionary(
+            .GroupBy(
                 static directive => directive.Alias!.Name.Identifier.ValueText,
-                static directive => directive.Name!.WithoutTrivia().ToFullString(),
+                StringComparer.Ordinal)
+            .Where(group => group
+                .Select(static directive => directive.Name!.WithoutTrivia().ToFullString())
+                .Distinct(StringComparer.Ordinal)
+                .Count() == 1)
+            .ToDictionary(
+                static group => group.Key,
+                static group => group.First().Name!.WithoutTrivia().ToFullString(),
                 StringComparer.Ordinal);
+        if (!actual.Contains('.', StringComparison.Ordinal))
+        {
+            string simpleName = NormalizeAttributeSimpleName(actual);
+            if (declaredTypes.Any(declared =>
+                    string.Equals(
+                        declared.Split('.').Last(),
+                        simpleName,
+                        StringComparison.Ordinal)))
+            {
+                return null;
+            }
+        }
+
+        if (configuredAliases.TryGetValue(actual, out string? configuredAliasType))
+        {
+            string normalizedConfiguredAlias = NormalizeAttributeType(configuredAliasType);
+            return configuredTypes.Contains(normalizedConfiguredAlias, StringComparer.Ordinal)
+                ? normalizedConfiguredAlias
+                : null;
+        }
+
         if (aliases.TryGetValue(actual, out string? aliasedType))
         {
             string normalizedAlias = NormalizeAttributeType(aliasedType);
@@ -575,39 +607,6 @@ internal static partial class InventoryEngine
                 : null;
         }
 
-        string simpleName = NormalizeAttributeSimpleName(actual);
-        List<string> matchingTypes = configuredTypes
-            .Where(configured =>
-                string.Equals(
-                    configured.Split('.').Last(),
-                    simpleName,
-                    StringComparison.Ordinal))
-            .ToList();
-        if (matchingTypes.Count != 1 ||
-            declaredTypes.Any(declared =>
-                string.Equals(
-                    declared.Split('.').Last(),
-                    simpleName,
-                    StringComparison.Ordinal)))
-        {
-            return null;
-        }
-
-        string configuredType = matchingTypes[0];
-        int separator = configuredType.LastIndexOf('.');
-        string configuredNamespace = configuredType[..separator];
-        if (string.Equals(NamespaceName(attribute), configuredNamespace, StringComparison.Ordinal) ||
-            usings.Any(directive =>
-                directive.Alias is null &&
-                !directive.StaticKeyword.IsKind(SyntaxKind.StaticKeyword) &&
-                string.Equals(
-                    directive.Name?.WithoutTrivia().ToFullString(),
-                    configuredNamespace,
-                    StringComparison.Ordinal)))
-        {
-            return configuredType;
-        }
-
         return null;
     }
 
@@ -625,6 +624,8 @@ internal static partial class InventoryEngine
 
     private static IReadOnlyList<UsingDirectiveSyntax> VisibleUsings(SyntaxNode node) =>
         node.SyntaxTree.GetCompilationUnitRoot().Usings
+            .Where(static directive =>
+                !directive.GlobalKeyword.IsKind(SyntaxKind.GlobalKeyword))
             .Concat(node.Ancestors().OfType<BaseNamespaceDeclarationSyntax>()
                 .Reverse()
                 .SelectMany(static declaration => declaration.Usings))

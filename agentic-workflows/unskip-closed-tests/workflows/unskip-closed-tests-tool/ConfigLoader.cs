@@ -12,6 +12,7 @@ internal static class ConfigLoader
         "generated_globs",
         "ignore_attribute_names",
         "test_attribute_names",
+        "attribute_aliases",
         "verification",
     ];
 
@@ -33,6 +34,7 @@ internal static class ConfigLoader
             GeneratedGlobs = OptionalStringArray(root, "generated_globs"),
             IgnoreAttributeNames = RequiredStringArray(root, "ignore_attribute_names"),
             TestAttributeNames = RequiredStringArray(root, "test_attribute_names"),
+            AttributeAliases = OptionalStringDictionary(root, "attribute_aliases"),
         };
 
         if (!root.TryGetProperty("verification", out JsonElement verification) ||
@@ -106,6 +108,22 @@ internal static class ConfigLoader
                     $"Attribute name '{name}' must be a framework-qualified C# identifier.");
             }
         }
+
+        HashSet<string> configuredTypes = config.IgnoreAttributeNames
+            .Concat(config.TestAttributeNames)
+            .Select(NormalizeAttributeType)
+            .ToHashSet(StringComparer.Ordinal);
+        foreach ((string alias, string type) in config.AttributeAliases)
+        {
+            if (!IsAttributeSyntax(alias) ||
+                !type.Contains('.', StringComparison.Ordinal) ||
+                !IsAttributeName(type) ||
+                !configuredTypes.Contains(NormalizeAttributeType(type)))
+            {
+                throw new ContractException(
+                    $"Attribute alias '{alias}' must map to one configured framework-qualified type.");
+            }
+        }
     }
 
     private static bool IsAttributeName(string value)
@@ -115,6 +133,20 @@ internal static class ConfigLoader
             piece.Length > 0 &&
             (char.IsLetter(piece[0]) || piece[0] == '_') &&
             piece.Skip(1).All(static character => char.IsLetterOrDigit(character) || character == '_'));
+    }
+
+    private static bool IsAttributeSyntax(string value) =>
+        IsAttributeName(value.Replace("global::", "", StringComparison.Ordinal));
+
+    private static string NormalizeAttributeType(string value)
+    {
+        string[] pieces = value.Split('.');
+        if (!pieces[^1].EndsWith("Attribute", StringComparison.Ordinal))
+        {
+            pieces[^1] += "Attribute";
+        }
+
+        return string.Join('.', pieces);
     }
 
     private static void ValidateUniqueNonEmpty(List<string> values, string name, bool requireUnique = true)
@@ -163,6 +195,35 @@ internal static class ConfigLoader
 
     private static List<string> OptionalStringArray(JsonElement element, string name) =>
         element.TryGetProperty(name, out JsonElement value) ? ReadStringArray(value, name) : [];
+
+    private static Dictionary<string, string> OptionalStringDictionary(
+        JsonElement element,
+        string name)
+    {
+        if (!element.TryGetProperty(name, out JsonElement value))
+        {
+            return new Dictionary<string, string>(StringComparer.Ordinal);
+        }
+
+        if (value.ValueKind != JsonValueKind.Object)
+        {
+            throw new ContractException($"{name} must be an object.");
+        }
+
+        Dictionary<string, string> result = new(StringComparer.Ordinal);
+        foreach (JsonProperty property in value.EnumerateObject())
+        {
+            if (property.Value.ValueKind != JsonValueKind.String ||
+                string.IsNullOrWhiteSpace(property.Value.GetString()) ||
+                !result.TryAdd(property.Name, property.Value.GetString()!))
+            {
+                throw new ContractException(
+                    $"{name} must contain unique string-to-string mappings.");
+            }
+        }
+
+        return result;
+    }
 
     private static List<string> ReadStringArray(JsonElement value, string name)
     {

@@ -65,6 +65,12 @@ class FixtureRepo:
                 "generated_globs": ["**/*.g.cs"],
                 "ignore_attribute_names": ["Demo.IgnoreAttribute"],
                 "test_attribute_names": ["Demo.TestAttribute"],
+                "attribute_aliases": {
+                    "Ignore": "Demo.IgnoreAttribute",
+                    "IgnoreAttribute": "Demo.IgnoreAttribute",
+                    "Test": "Demo.TestAttribute",
+                    "TestAttribute": "Demo.TestAttribute",
+                },
                 "verification": {
                     "command": [sys.executable, str(HOOK)],
                     "timeout_seconds": 30,
@@ -459,6 +465,10 @@ public class Tests
         config["test_attribute_names"] = [
             "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute"
         ]
+        config["attribute_aliases"] = {
+            "Ignore": "Microsoft.VisualStudio.TestTools.UnitTesting.IgnoreAttribute",
+            "TestMethod": "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute",
+        }
         custom_repo.write_json(custom_repo.config, config)
         self.assertEqual(0, custom_repo.inventory()["candidate_count"])
 
@@ -505,6 +515,10 @@ public class Tests
         config["test_attribute_names"] = [
             "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute"
         ]
+        config["attribute_aliases"] = {
+            "Ignore": "Microsoft.VisualStudio.TestTools.UnitTesting.IgnoreAttribute",
+            "TestMethod": "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute",
+        }
         shadow_repo.write_json(shadow_repo.config, config)
         (shadow_repo.root / "src" / "CustomIgnore.cs").write_text(
             """
@@ -526,20 +540,17 @@ public sealed class IgnoreAttribute : System.Attribute
         global_repo = FixtureRepo(
             self.id().split(".")[-1] + "_global",
             """
+global using MSTest = Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace Demo;
 public class Tests
 {
-    [Ignore("#1")]
-    [TestMethod]
+    [MSTest.Ignore("#1")]
+    [MSTest.TestMethod]
     public void GlobalUsingIgnore() { }
 }
 """.lstrip(),
         )
         global_repo.write_json(global_repo.config, config)
-        (global_repo.root / "GlobalUsings.cs").write_text(
-            "global using Microsoft.VisualStudio.TestTools.UnitTesting;\n",
-            encoding="utf-8",
-        )
         run(["git", "add", "."], global_repo.root)
         run(["git", "commit", "--quiet", "-m", "add global using"], global_repo.root)
         manifest = global_repo.inventory()
