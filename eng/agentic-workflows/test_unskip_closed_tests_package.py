@@ -42,6 +42,16 @@ class UnskipClosedTestsPackageTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertNotIn("persist-credentials: true", prepare)
+        publish_job = prepare[
+            prepare.index("  publish-verified-unskips:") :
+            prepare.index("safe-outputs:")
+        ]
+        apply_job = prepare[prepare.index("    apply-verified-unskips:") :]
+        self.assertIn("        contents: read", apply_job)
+        self.assertNotIn("        contents: write", apply_job)
+        self.assertIn("    needs: [agent, apply_verified_unskips]", publish_job)
+        self.assertIn("      contents: write", publish_job)
+        self.assertIn("Download bounded publication artifact", publish_job)
         publish_start = prepare.index("- name: Publish one verified draft pull request")
         auth_setup = prepare.index("gh auth setup-git", publish_start)
         first_push = prepare.index('git push origin "HEAD:refs/heads/$BRANCH"', publish_start)
