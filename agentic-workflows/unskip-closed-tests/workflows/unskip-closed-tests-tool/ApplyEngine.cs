@@ -268,10 +268,50 @@ public static async Task<ApplyResult> AuthorizeAsync(
         throw new ContractException("Authorize config does not match manifest config_digest.");
     }
 
+    string evidenceRoot = Path.GetFullPath(verificationEvidenceDirectory);
+    RequireRegularBoundedFile(agentOutputPath, 1048576, "agent output");
+    List<string> rootEntries = Directory.EnumerateFileSystemEntries(evidenceRoot)
+        .Select(static entry =>
+            Path.GetFileName(entry) ??
+            throw new ContractException("Verification evidence root entry has no file name."))
+        .Order(StringComparer.Ordinal)
+        .ToList();
+    if (!rootEntries.SequenceEqual(
+            new[] { "agent-output.json", "final" },
+            StringComparer.Ordinal))
+    {
+        throw new ContractException(
+            "Verification evidence root contains unexpected entries.");
+    }
+
+    string finalEvidenceRoot = Path.Combine(evidenceRoot, "final");
+    DirectoryInfo finalDirectory = new(finalEvidenceRoot);
+    if (!finalDirectory.Exists ||
+        finalDirectory.Attributes.HasFlag(FileAttributes.ReparsePoint))
+    {
+        throw new ContractException(
+            "Verification evidence final directory is missing or unsafe.");
+    }
+
     List<string> selectedIds = ReadAgentSelection(
         agentOutputPath,
         requestedManifest.ManifestDigest,
         "apply_verified_unskips");
+    List<string> actualCandidateDirectories = Directory
+        .EnumerateFileSystemEntries(finalEvidenceRoot)
+        .Select(static entry =>
+            Path.GetFileName(entry) ??
+            throw new ContractException("Verification candidate entry has no file name."))
+        .Order(StringComparer.Ordinal)
+        .ToList();
+    if (!actualCandidateDirectories.SequenceEqual(
+            selectedIds.Order(StringComparer.Ordinal),
+            StringComparer.Ordinal))
+    {
+        throw new ContractException(
+            "Verification evidence candidate directories do not match the selected candidate IDs.");
+    }
+
     GitRepository repository = GitRepository.Open(requestedRoot, requestedManifest.Repository);
     if (!string.Equals(repository.Commit, requestedManifest.SourceCommit, StringComparison.Ordinal))
     {
@@ -300,10 +340,19 @@ public static async Task<ApplyResult> AuthorizeAsync(
         }
 
         string candidateDirectory = Path.Combine(
-            Path.GetFullPath(verificationEvidenceDirectory),
+            evidenceRoot,
             "final",
             candidateId);
+        DirectoryInfo candidateEvidenceDirectory = new(candidateDirectory);
+        if (!candidateEvidenceDirectory.Exists ||
+            candidateEvidenceDirectory.Attributes.HasFlag(FileAttributes.ReparsePoint))
+        {
+            throw new ContractException(
+                $"Verification evidence directory for '{candidateId}' is missing or unsafe.");
+        }
+
         string requestPath = Path.Combine(candidateDirectory, "request.json");
+        RequireRegularBoundedFile(requestPath, 262144, "verification request");
         if (!File.Exists(requestPath))
         {
             reverted.Add(CreateRevertedCandidate(candidate, "missing_final_verification_evidence"));
@@ -320,6 +369,33 @@ public static async Task<ApplyResult> AuthorizeAsync(
                 ResultFile = Path.Combine(candidateDirectory, $"{index:D4}.trx"),
             })
             .ToList();
+        List<string> expectedEvidenceNames =
+        [
+            "request.json",
+            .. expectedTests.Select(static test =>
+                Path.GetFileName(test.ResultFile) ??
+                throw new ContractException("Verification result path has no file name.")),
+        ];
+        List<string> actualEvidenceNames = Directory
+            .EnumerateFileSystemEntries(candidateDirectory)
+            .Select(static entry =>
+                Path.GetFileName(entry) ??
+                throw new ContractException("Verification evidence entry has no file name."))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+        if (!actualEvidenceNames.SequenceEqual(
+                expectedEvidenceNames.Order(StringComparer.Ordinal),
+                StringComparer.Ordinal))
+        {
+            throw new ContractException(
+                $"Verification evidence for '{candidateId}' contains unexpected entries.");
+        }
+
+        foreach (VerificationTest test in expectedTests)
+        {
+            RequireRegularBoundedFile(test.ResultFile, 16777216, "verification TRX");
+        }
+
         if (request.SchemaVersion != "1" ||
             request.Candidate.CandidateId != candidateId ||
             request.Repository != requestedManifest.Repository ||

@@ -1226,6 +1226,18 @@ public class Tests
             [candidate["candidate_id"] for candidate in authorized["retained_candidates"]],
         )
 
+        candidate_directory = evidence_dir / "final" / candidate_id
+        unexpected = candidate_directory / "unexpected.txt"
+        unexpected.write_text("untrusted\n", encoding="utf-8")
+        repo.authorize(resolved, evidence, evidence_dir, expected=20)
+        unexpected.unlink()
+
+        request = candidate_directory / "request.json"
+        original_request = request.read_bytes()
+        request.write_bytes(b" " * 262145)
+        repo.authorize(resolved, evidence, evidence_dir, expected=20)
+        request.write_bytes(original_request)
+
         trx = next((evidence_dir / "final" / candidate_id).glob("*.trx"))
         trx.write_text("<TestRun />", encoding="utf-8")
         rejected = repo.authorize(resolved, evidence, evidence_dir, expected=10)
