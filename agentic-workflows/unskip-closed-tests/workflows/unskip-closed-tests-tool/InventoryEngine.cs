@@ -31,8 +31,11 @@ internal static partial class InventoryEngine
         GitRepository repository = GitRepository.Open(requestedRoot, repositoryOverride);
         List<ParsedFile> files = LoadFiles(repository, config);
         Dictionary<string, int> typeDeclarationCounts = CountTypeDeclarations(files);
-        (HashSet<string> declaredTypes, List<UsingDirectiveSyntax> globalUsings) =
-            LoadCompilationContext(repository, files);
+        (
+            HashSet<string> declaredTypes,
+            List<UsingDirectiveSyntax> globalUsings,
+            HashSet<string> conditionalTypeNames
+        ) = LoadCompilationContext(repository, files);
         List<PendingCandidate> pending = [];
 
         foreach (ParsedFile file in files)
@@ -44,7 +47,8 @@ internal static partial class InventoryEngine
                     config.IgnoreAttributeNames,
                     config.AttributeAliases,
                     declaredTypes,
-                    globalUsings);
+                    globalUsings,
+                    conditionalTypeNames);
                 if (attributeType is null)
                 {
                     continue;
@@ -60,7 +64,7 @@ internal static partial class InventoryEngine
                     method.AttributeLists.Any(list => list.Span.Contains(attribute.Span)))
                 {
                     OwnerIdentity owner = CreateMethodOwner(
-                        method, config, declaredTypes, globalUsings);
+                        method, config, declaredTypes, globalUsings, conditionalTypeNames);
                     List<string> deferrals = [];
                     if (owner.TestFqns.Count == 0)
                     {
@@ -86,7 +90,8 @@ internal static partial class InventoryEngine
                             config,
                             typeDeclarationCounts,
                             declaredTypes,
-                            globalUsings);
+                            globalUsings,
+                            conditionalTypeNames);
                     if (HasGeneratedMarker(type))
                     {
                         deferrals.Add("generated_declaration");
@@ -276,13 +281,17 @@ internal static partial class InventoryEngine
         return counts;
     }
 
-    private static (HashSet<string> DeclaredTypes, List<UsingDirectiveSyntax> GlobalUsings)
+    private static (
+        HashSet<string> DeclaredTypes,
+        List<UsingDirectiveSyntax> GlobalUsings,
+        HashSet<string> ConditionalTypeNames)
         LoadCompilationContext(GitRepository repository, IReadOnlyCollection<ParsedFile> scannedFiles)
     {
         Dictionary<string, CompilationUnitSyntax> roots = scannedFiles.ToDictionary(
             static file => file.Path,
             static file => file.Root,
             StringComparer.Ordinal);
+        HashSet<string> conditionalTypeNames = new(StringComparer.Ordinal);
         foreach (string path in repository.TrackedCSharpPaths())
         {
             if (roots.ContainsKey(path))
@@ -298,6 +307,14 @@ internal static partial class InventoryEngine
             catch (DecoderFallbackException)
             {
                 continue;
+            }
+
+            if (ConditionalDirectiveRegex().IsMatch(text))
+            {
+                foreach (Match match in RawTypeDeclarationRegex().Matches(text))
+                {
+                    conditionalTypeNames.Add(match.Groups["name"].Value);
+                }
             }
 
             SyntaxTree tree = CSharpSyntaxTree.ParseText(
@@ -319,14 +336,15 @@ internal static partial class InventoryEngine
             .SelectMany(static root => root.Usings)
             .Where(static directive => directive.GlobalKeyword.IsKind(SyntaxKind.GlobalKeyword))
             .ToList();
-        return (declaredTypes, globalUsings);
+        return (declaredTypes, globalUsings, conditionalTypeNames);
     }
 
     private static OwnerIdentity CreateMethodOwner(
         MethodDeclarationSyntax method,
         ToolConfig config,
         IReadOnlySet<string> declaredTypes,
-        IReadOnlyList<UsingDirectiveSyntax> globalUsings)
+        IReadOnlyList<UsingDirectiveSyntax> globalUsings,
+        IReadOnlySet<string> conditionalTypeNames)
     {
         TypeDeclarationSyntax? type = method.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
         if (type is null)
@@ -342,7 +360,8 @@ internal static partial class InventoryEngine
                 config.TestAttributeNames,
                 config.AttributeAliases,
                 declaredTypes,
-                globalUsings) is not null);
+                globalUsings,
+                conditionalTypeNames) is not null);
         return new OwnerIdentity
         {
             Kind = "method",
@@ -361,7 +380,8 @@ internal static partial class InventoryEngine
         ToolConfig config,
         IReadOnlyDictionary<string, int> declarationCounts,
         IReadOnlySet<string> declaredTypes,
-        IReadOnlyList<UsingDirectiveSyntax> globalUsings)
+        IReadOnlyList<UsingDirectiveSyntax> globalUsings,
+        IReadOnlySet<string> conditionalTypeNames)
     {
         string typeFqn = TypeFqn(type);
         List<string> deferrals = [];
@@ -394,7 +414,8 @@ internal static partial class InventoryEngine
                     config.TestAttributeNames,
                     config.AttributeAliases,
                     declaredTypes,
-                    globalUsings) is not null))
+                    globalUsings,
+                    conditionalTypeNames) is not null))
             .Select(method => $"{typeFqn}.{method.Identifier.ValueText}")
             .Order(StringComparer.Ordinal)
             .ToList();
@@ -529,13 +550,16 @@ internal static partial class InventoryEngine
         IEnumerable<string> configuredNames,
         IReadOnlyDictionary<string, string> configuredAliases,
         IReadOnlySet<string> declaredTypes,
-        IReadOnlyList<UsingDirectiveSyntax> globalUsings)
+        IReadOnlyList<UsingDirectiveSyntax> globalUsings,
+        IReadOnlySet<string> conditionalTypeNames)
     {
         List<string> configuredTypes = configuredNames
             .Select(NormalizeAttributeType)
             .Distinct(StringComparer.Ordinal)
             .ToList();
         configuredTypes.RemoveAll(declaredTypes.Contains);
+        configuredTypes.RemoveAll(configured =>
+            conditionalTypeNames.Contains(configured.Split('.').Last()));
         if (configuredTypes.Count == 0)
         {
             return null;
@@ -551,11 +575,16 @@ internal static partial class InventoryEngine
 
         IReadOnlyList<UsingDirectiveSyntax> usings =
             [.. globalUsings, .. VisibleUsings(attribute)];
-        Dictionary<string, string> aliases = usings
+        List<IGrouping<string, UsingDirectiveSyntax>> aliasGroups = usings
             .Where(static directive => directive.Alias is not null)
             .GroupBy(
                 static directive => directive.Alias!.Name.Identifier.ValueText,
                 StringComparer.Ordinal)
+            .ToList();
+        HashSet<string> sourceAliasNames = aliasGroups
+            .Select(static group => group.Key)
+            .ToHashSet(StringComparer.Ordinal);
+        Dictionary<string, string> aliases = aliasGroups
             .Where(group => group
                 .Select(static directive => directive.Name!.WithoutTrivia().ToFullString())
                 .Distinct(StringComparer.Ordinal)
@@ -577,19 +606,23 @@ internal static partial class InventoryEngine
             }
         }
 
+        if (sourceAliasNames.Contains(actual))
+        {
+            if (!aliases.TryGetValue(actual, out string? aliasedType))
+            {
+                return null;
+            }
+            string normalizedAlias = NormalizeAttributeType(aliasedType);
+            return configuredTypes.Contains(normalizedAlias, StringComparer.Ordinal)
+                ? normalizedAlias
+                : null;
+        }
+
         if (configuredAliases.TryGetValue(actual, out string? configuredAliasType))
         {
             string normalizedConfiguredAlias = NormalizeAttributeType(configuredAliasType);
             return configuredTypes.Contains(normalizedConfiguredAlias, StringComparer.Ordinal)
                 ? normalizedConfiguredAlias
-                : null;
-        }
-
-        if (aliases.TryGetValue(actual, out string? aliasedType))
-        {
-            string normalizedAlias = NormalizeAttributeType(aliasedType);
-            return configuredTypes.Contains(normalizedAlias, StringComparer.Ordinal)
-                ? normalizedAlias
                 : null;
         }
 
@@ -630,6 +663,16 @@ internal static partial class InventoryEngine
                 .Reverse()
                 .SelectMany(static declaration => declaration.Usings))
             .ToList();
+
+    [GeneratedRegex(
+        @"(?m)^[ \t]*#(?:if|elif)\b",
+        RegexOptions.CultureInvariant | RegexOptions.NonBacktracking)]
+    private static partial Regex ConditionalDirectiveRegex();
+
+    [GeneratedRegex(
+        @"\b(?:class|struct|record(?:\s+class|\s+struct)?)\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)",
+        RegexOptions.CultureInvariant | RegexOptions.NonBacktracking)]
+    private static partial Regex RawTypeDeclarationRegex();
 
     private static List<IssueReference> ExtractReferences(AttributeSyntax attribute, string currentRepository)
     {

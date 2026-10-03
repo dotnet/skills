@@ -587,6 +587,70 @@ public sealed class IgnoreAttribute : System.Attribute
         run(["git", "commit", "--quiet", "-m", "add qualified shadow"], qualified_repo.root)
         self.assertEqual(0, qualified_repo.inventory()["candidate_count"])
 
+    def test_attribute_identity_fails_closed_for_conditional_and_source_aliases(self):
+        config_repo = FixtureRepo(
+            self.id().split(".")[-1] + "_conditional",
+            """
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+namespace Demo;
+public class Tests
+{
+    [Ignore("#1")]
+    [Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
+    public void ConditionalShadow() { }
+}
+""".lstrip(),
+        )
+        config = json.loads(config_repo.config.read_text(encoding="utf-8"))
+        config["ignore_attribute_names"] = [
+            "Microsoft.VisualStudio.TestTools.UnitTesting.IgnoreAttribute"
+        ]
+        config["test_attribute_names"] = [
+            "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute"
+        ]
+        config["attribute_aliases"] = {
+            "Ignore": "Microsoft.VisualStudio.TestTools.UnitTesting.IgnoreAttribute",
+            "TestMethod": "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute",
+        }
+        config_repo.write_json(config_repo.config, config)
+        (config_repo.root / "ConditionalShadow.cs").write_text(
+            """
+#if CUSTOM
+namespace Demo;
+public sealed class IgnoreAttribute : System.Attribute
+{
+    public IgnoreAttribute(string message) { }
+}
+#endif
+""".lstrip(),
+            encoding="utf-8",
+        )
+        run(["git", "add", "."], config_repo.root)
+        run(["git", "commit", "--quiet", "-m", "add conditional shadow"], config_repo.root)
+        self.assertEqual(0, config_repo.inventory()["candidate_count"])
+
+        alias_repo = FixtureRepo(
+            self.id().split(".")[-1] + "_source_alias",
+            """
+using Ignore = Custom.IgnoreAttribute;
+namespace Demo;
+public class Tests
+{
+    [Ignore("#1")]
+    [Test]
+    public void SourceAliasWins() { }
+}
+namespace Custom
+{
+    public sealed class IgnoreAttribute : System.Attribute
+    {
+        public IgnoreAttribute(string message) { }
+    }
+}
+""".lstrip(),
+        )
+        self.assertEqual(0, alias_repo.inventory()["candidate_count"])
+
     def test_fabricated_agent_anchor_or_fqn_is_rejected(self):
         repo = FixtureRepo(
             self.id().split(".")[-1],
