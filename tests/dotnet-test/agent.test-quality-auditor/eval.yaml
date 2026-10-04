@@ -33,6 +33,7 @@ stimuli:
         - ../../plugins/dotnet-test/skills/test-anti-patterns
         - ../../plugins/dotnet-test/skills/assertion-quality
         - ../../plugins/dotnet-test/skills/test-gap-analysis
+        - ../../plugins/dotnet-test/skills/grade-tests
     graders:
       - type: output-matches
         config:
@@ -61,6 +62,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (GetTotalWithDiscount|discount)
+      - type: output-not-matches
+        config:
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
       - type: run-command
         config:
           command: >-
@@ -73,6 +77,7 @@ stimuli:
       - Detected the catch-and-swallow exception test pattern
       - Identified untested production code (RemoveItem, GetTotalWithDiscount, boundary conditions)
       - Produced a summary or prioritized list of findings
+      - Did not replace the broad audit with a per-test Pass, Failed, Uncertain, or Not applicable report
 
   - name: Targeted anti-pattern review
     prompt: |
