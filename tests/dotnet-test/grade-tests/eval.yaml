@@ -49,11 +49,11 @@ stimuli:
   - name: Report an unresolved method as requiring human review
     prompt: |
       Please review these test methods from
-      `Banking.Tests/BankAccountTests.cs` individually. For each one, tell me
-      whether it passes quality review, fails because it needs improvement, or
-      is uncertain and needs a human decision. Keep the A-F quality grade as
-      supporting detail. The production code is in `Banking/BankAccount.cs`.
-      Do not modify any files.
+      `Banking.Tests/BankAccountTests.cs` individually. Tell me which are ready,
+      which need follow-up, and whether any cannot be assessed confidently
+      without human input. Include supporting A-F quality detail when a test
+      body can be assessed. The production code is in
+      `Banking/BankAccount.cs`. Do not modify any files.
 
       Test methods to grade:
         - Banking.Tests.BankAccountTests.Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds
@@ -328,6 +328,7 @@ stimuli:
         - Banking.Tests.BankAccountTests.Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself
         - Banking.Tests.BankAccountTests.ApplyInterest_RateDependsOnTier_UpdatesBalance
         - Banking.Tests.BankAccountTests.Deposit_NonPositiveAmount_HandledGracefully
+        - Banking.Tests.BankAccountTests.Deposit_PositiveAmount_UpdatesBalance
     tags:
       capability: production-aware-test-decisions
       risk: incorrect-quality-decision
@@ -346,6 +347,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
+      - type: output-matches
+        config:
+          pattern: (?i)Deposit_PositiveAmount_UpdatesBalance.*Failed.*A\s*\(90.?100\)
       - type: exit-success
       - type: prompt
     rubric:
@@ -353,6 +357,7 @@ stimuli:
       - The self-comparison withdrawal test is Failed with D quality because comparing the balance with itself cannot verify the withdrawal result
       - The interest test is Failed with D quality because its expected value is selected by branching on the same state that drives the behavior under test
       - The non-positive deposit test is Failed with F quality because it swallows any exception and verifies no outcome
+      - The positive-deposit test is Failed with A quality because leftover debug output is actionable but does not reduce its quality grade
       - Conclusions use the available production source instead of claiming the behavior cannot be checked
       - Every requested test has one row with a primary result, supporting quality band, and concise evidence-based reason
     constraints:

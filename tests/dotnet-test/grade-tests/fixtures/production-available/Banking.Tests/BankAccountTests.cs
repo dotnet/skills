@@ -1,3 +1,4 @@
+using System;
 using Banking;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -62,5 +63,20 @@ public class BankAccountTests
         catch
         {
         }
+    }
+
+    [TestMethod]
+    public void Deposit_PositiveAmount_UpdatesBalance()
+    {
+        // Arrange
+        var account = new BankAccount(100m, AccountTier.Premium);
+
+        // Act
+        account.Deposit(25m);
+        Console.WriteLine($"Balance after deposit: {account.Balance}");
+
+        // Assert
+        Assert.AreEqual(125m, account.Balance);
+        Assert.AreEqual(AccountTier.Premium, account.Tier);
     }
 }

@@ -2,12 +2,12 @@
 name: grade-tests
 description: >
   Assess a curated list of tests and produce a PR-ready table with a primary
-  Pass, Failed, Uncertain, or Not applicable result plus optional A-F quality
-  detail. USE FOR new or modified tests supplied as methods, bodies, file spans,
-  or a bounded PR diff. Polyglot: .NET, Python, TS/JS, Java, Go, Ruby, Rust,
-  Swift, Kotlin, PowerShell, C++. DO NOT USE FOR: suite-wide audits (use
-  test-quality-auditor or test-anti-patterns), writing or fixing tests, or
-  measuring coverage.
+  Pass, Failed, Uncertain, or Not applicable result plus A-F quality detail for
+  every resolved test; Uncertain and Not applicable omit the grade. USE FOR new
+  or modified tests supplied as methods, bodies, file spans, or a bounded PR
+  diff. Polyglot: .NET, Python, TS/JS, Java, Go, Ruby, Rust, Swift, Kotlin,
+  PowerShell, C++. DO NOT USE FOR: suite-wide audits (use test-quality-auditor
+  or test-anti-patterns), writing or fixing tests, or measuring coverage.
 license: MIT
 ---
 
@@ -42,7 +42,7 @@ quality and severity.
   or a diff hunk) and wants per-test follow-up decisions rather than a suite
   report.
 - A maintainer wants to triage which of N tests in a contribution deserve
-  follow-up improvements, with optional quality grades for prioritization.
+  follow-up improvements, with quality grades for resolved tests.
 
 ## When Not to Use
 

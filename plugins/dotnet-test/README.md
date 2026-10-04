@@ -45,7 +45,7 @@ These six skills are all polyglot. They work across all supported languages by l
 | **assertion-quality** | Measure assertion variety and depth — find shallow tests that barely verify anything (any language) |
 | **test-gap-analysis** | Verify test blind spots through pseudo-mutations and optionally add focused tests that kill them (any language) |
 | **test-tagging** | Tag tests with standardized traits (smoke, regression, boundary, critical-path, etc.); auto-edits where the framework has canonical syntax, report-only otherwise |
-| **grade-tests** | Assess a curated list of test methods and produce a compact PR-ready table with Pass, Failed, or Uncertain decisions, optional A-F quality detail, and one-line notes; returns Not applicable when a valid scope contains no tests (any language) |
+| **grade-tests** | Assess a curated list of test methods and produce a compact PR-ready table with Pass, Failed, or Uncertain decisions, A-F quality detail for resolved tests, and one-line notes; unresolved or empty scopes omit the grade, and a valid scope with no tests returns Not applicable (any language) |
 
 ### Coverage & risk *(.NET only)*
 
