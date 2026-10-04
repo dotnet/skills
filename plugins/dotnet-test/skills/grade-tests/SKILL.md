@@ -1,16 +1,13 @@
 ---
 name: grade-tests
 description: >
-  Assess specified test methods individually and produce a concise PR-ready
-  table with a primary Pass, Failed, Uncertain, or Not applicable result,
-  optional A-F quality detail, and a one-line note. USE FOR per-test feedback
-  on a curated list such as new or modified tests in a pull request, not a
-  suite-wide audit. Polyglot: .NET, Python, TS/JS, Java, Go, Ruby, Rust, Swift,
-  Kotlin, PowerShell, C++. Inputs may be test methods, method bodies, or
-  file-and-line spans. DO NOT USE FOR: full suite audits (use
-  test-quality-auditor agent or test-anti-patterns), writing new tests (use
-  code-testing-generator agent or writing-mstest-tests), fixing failures, or
-  measuring code coverage.
+  Assess a curated list of tests and produce a PR-ready table with a primary
+  Pass, Failed, Uncertain, or Not applicable result plus optional A-F quality
+  detail. USE FOR new or modified tests supplied as methods, bodies, file spans,
+  or a bounded PR diff. Polyglot: .NET, Python, TS/JS, Java, Go, Ruby, Rust,
+  Swift, Kotlin, PowerShell, C++. DO NOT USE FOR: suite-wide audits (use
+  test-quality-auditor or test-anti-patterns), writing or fixing tests, or
+  measuring coverage.
 license: MIT
 ---
 
@@ -33,19 +30,9 @@ specific list) provides the tests or a bounded diff to assess.
 
 ## Why a Decision Result Plus Quality Detail
 
-Suite-wide audits (`test-anti-patterns`, `assertion-quality`,
-`test-smell-detection`) produce excellent diagnostic reports, but they are
-hard to consume as a short PR comment. Reviewers of a PR mostly want to know:
-*does this test need follow-up?* This skill answers that question with a
-one-row-per-test decision while preserving the A-F rubric as supporting detail.
-
-The decision result is a zero-finding quality gate:
-
-- **Pass** means no actionable improvement was identified.
-- **Failed** means at least one concrete improvement is required, even when the
-  test remains high quality overall.
-- **Uncertain** means missing or ambiguous evidence requires human review.
-- **Not applicable** means a valid requested scope contains no eligible tests.
+PR reviewers need a simple answer to *does this test need follow-up?* The
+four-state result provides that decision; the existing A-F rubric explains its
+quality and severity.
 
 ## When to Use
 
@@ -96,10 +83,8 @@ short message asking the caller to provide an explicit list / file(s) /
 diff, and optionally point them at `test-quality-auditor` agent or
 `test-anti-patterns` skill for full-suite analysis. Stop there.
 
-If the caller supplied a valid bounded scope but it resolves to zero eligible
-tests — for example, a PR diff changes production code only — return
-**Not applicable** with a short explanation. Do not invent rows or treat an
-empty changed-test set as an error.
+If a valid bounded scope resolves to zero eligible tests, return
+**Not applicable** with a short explanation and no invented rows.
 
 ## Workflow
 
@@ -280,57 +265,28 @@ focused on the rubric.
 
 ### Step 4: Assign the decision result
 
-The quality grade and decision result answer different questions:
+The grade summarizes strength; the result says whether follow-up exists.
+An actionable improvement is an evidence-backed change to the test, setup, or
+fixtures. Assign exactly one:
 
-- The **quality grade** summarizes overall strength and severity.
-- The **decision result** says whether follow-up work exists.
+- **Pass** — no actionable improvement; positive/context-only notes are allowed.
+- **Failed** — at least one actionable improvement, regardless of grade.
+- **Uncertain** — missing evidence prevents a decision and needs human review.
+- **Not applicable** — a valid scope contains no eligible tests; normally an
+  overall result with no rows.
 
-An **actionable improvement** is a concrete, evidence-backed recommendation
-that requires changing the test, its setup, or its supporting fixtures.
-Positive observations and context-only statements are not actionable.
-
-Assign exactly one result:
-
-| Result | Rule |
-|--------|------|
-| **Pass** | The test body is sufficiently understood and no actionable improvement was identified. |
-| **Failed** | At least one actionable improvement was identified, regardless of the A-F grade. |
-| **Uncertain** | The available evidence is insufficient to decide whether an improvement is required, so a human must review it. |
-| **Not applicable** | A valid requested scope contains no eligible tests. This is normally an overall result with no per-test rows. |
-
-Grade deductions normally describe actionable improvements, but the mapping is
-not a simple grade threshold. A focused test with one complete meaningful
-assertion may earn **B** and still **Pass** when no improvement is warranted.
-Conversely, a test may earn **A** and **Fail** because of a low-severity but
-actionable issue such as leftover debug output.
-
-Use **Uncertain** only when evidence blocks the decision, such as:
-
-- the requested method body cannot be found or resolved;
-- generated, parameterized, or framework-specific behavior cannot be interpreted
-  confidently with the available guidance;
-- production behavior is essential to deciding whether an apparent concern is
-  real, and the production contract is unavailable.
-
-Missing production code alone does not make a result Uncertain when the test
-body already proves a Pass or Failed decision. When a definite actionable
-finding and an uncertainty both exist for the same test, use **Failed** and
-mention the uncertainty in the note.
+Do not derive status from grade: a complete focused test can be **B / Pass**,
+while debug output can make an otherwise excellent test **A / Failed**. Use
+Uncertain for an unresolved body, unsupported construct, or essential missing
+contract—not merely absent production code. A definite finding wins over
+uncertainty.
 
 ### Step 5: Build the note
 
-The note column is one short sentence (target ≤ 120 characters). State the
-single most important reason for the result. Examples:
-
-- Pass / A (90–100): `No issues found.`
-- Pass / B (80–89): `One focused value assertion completely verifies the stated behavior.`
-- Failed / A (90–100): `Remove leftover debug output before merging.`
-- Failed / C (70–79): `Only checks IsNotNull on the result; add value verification.`
-- Failed / F (0–59): `No assertions — the test executes code but verifies nothing.`
-- Uncertain: `Method body could not be resolved; human review is required.`
-
-If no actionable or contextual issue exists, use `No issues found.` Do not
-invent weaknesses to justify the quality grade or manufacture a Failed result.
+Use one sentence (target ≤ 120 characters) for the most important reason:
+`No issues found.`, `Only checks IsNotNull; add value verification.`, or
+`Method body could not be resolved; human review is required.` Do not invent a
+weakness to justify a grade or Failed result.
 
 ### Step 6: Report
 
@@ -338,19 +294,10 @@ Produce two sections.
 
 #### 1. Summary
 
-Begin with `**Result: <Pass|Failed|Uncertain|Not applicable>**`, then provide a
-short paragraph covering the number of eligible tests, result counts, optional
-quality distribution, and the highest-priority recommendation.
-
-Aggregate multiple per-test results using this precedence:
-
-1. **Failed** when any test has a definite actionable improvement.
-2. Otherwise **Uncertain** when any test requires human review.
-3. Otherwise **Pass** when at least one eligible test was assessed.
-4. Otherwise **Not applicable** when the valid scope contains no eligible tests.
-
-If the overall result is Not applicable, explain why and omit the per-test
-table.
+Begin with `**Result: <Pass|Failed|Uncertain|Not applicable>**`, then give result
+counts and the highest-priority action. Aggregate using
+**Failed → Uncertain → Pass → Not applicable**. For Not applicable, explain the
+empty scope and omit the table.
 
 #### 2. Per-test table
 
@@ -378,15 +325,8 @@ prefix each section with the language name and framework.
 
 - [ ] Every test in the input list appears in the table (or is recorded as
       `Uncertain — method not found`).
-- [ ] Every resolved test has exactly one Pass or Failed result and secondary
-      A-F quality detail.
-- [ ] Pass means no actionable improvement was identified; Failed means at
-      least one evidence-backed improvement exists.
-- [ ] Positive or informational notes do not cause a Failed result.
-- [ ] Uncertain is used only when missing evidence prevents a decision and
-      never as a synonym for mediocre quality.
-- [ ] Not applicable is used only when a valid scope contains zero eligible
-      tests.
+- [ ] Every resolved test has Pass or Failed plus A-F quality detail.
+- [ ] Uncertain is an evidence gap; Not applicable is a valid empty scope.
 - [ ] Every grade is justified by at least one observable signal in the
       captured body — no speculative deductions.
 - [ ] Trivial-assertion tests are flagged only when the **only** assertion
@@ -423,7 +363,5 @@ prefix each section with the language name and framework.
 | Spilling a 500-row table into a PR comment | Apply the row cap from Step 6; collapse extras into `<details>`. |
 | Re-reporting an existing finding three times under different categories | Pick the most fitting category and report once. |
 | Inventing weaknesses for A-grade tests to make the note "balanced" | If a test is clean, the note may simply read `No issues found.` |
-| Treating every comment as a failure | Fail only for actionable improvements; positive and context-only notes are allowed on Pass results. |
-| Mapping status mechanically from the letter grade | Decide whether follow-up work exists; a B can Pass and an A can Fail. |
-| Using Uncertain for weak but understood tests | Observable weaknesses are Failed; reserve Uncertain for evidence gaps needing human review. |
-| Returning Not applicable for an unresolved requested method | A missing requested method is Uncertain; Not applicable means the valid scope contains no eligible tests. |
+| Mapping status from grade or comments | Fail only for actionable improvements; a B can Pass and an A can Fail. |
+| Confusing Uncertain and Not applicable | Evidence gaps are Uncertain; a valid empty scope is Not applicable. |
