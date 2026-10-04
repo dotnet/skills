@@ -186,6 +186,10 @@ stimuli:
       Review the ShoppingCart production code and its current tests. Identify
       concrete behavior changes or boundary bugs that the suite would fail to
       catch, and prioritize the missing tests that would close those gaps.
+    tags:
+      capability: test-gap-analysis-routing
+      risk: missed-behavior-gaps
+      journey: audit-test-suite-health
     environment:
       files:
         - src: fixtures/weak-tests/WeakTests.csproj
@@ -223,6 +227,10 @@ stimuli:
       Assess the maintainability and reliability of ShoppingCartTests. Call out
       the most important test smells, explain why each one is risky, and give a
       practical order for repairing the suite without changing production code.
+    tags:
+      capability: test-smell-routing
+      risk: brittle-test-suite
+      journey: audit-test-suite-health
     environment:
       files:
         - src: fixtures/weak-tests/WeakTests.csproj
@@ -254,6 +262,57 @@ stimuli:
       - Identified multiple concrete maintainability or reliability problems in the supplied tests
       - Explained the behavioral risk of the findings instead of listing labels only
       - Proposed a prioritized repair sequence that keeps production code unchanged
+
+  - name: Route a curated test list to per-test decisions
+    prompt: |
+      Review just these two tests from
+      `WeakTests/ShoppingCartTests.cs` and give me a compact PR-ready table.
+      For each test, say whether it passes quality review, fails because it
+      needs improvement, or is uncertain and needs human review. Keep the A-F
+      quality grade as supporting detail.
+
+      Tests to review:
+        - WeakTests.ShoppingCartTests.ItemCount_AfterAdd
+        - WeakTests.ShoppingCartTests.AddItem_Works
+    tags:
+      capability: per-test-decision-routing
+      risk: wrong-audit-workflow
+      journey: assess-pr-test-quality
+    environment:
+      files:
+        - src: fixtures/weak-tests/WeakTests.csproj
+          dest: WeakTests/WeakTests.csproj
+        - src: fixtures/weak-tests/ShoppingCart.cs
+          dest: WeakTests/ShoppingCart.cs
+        - src: fixtures/weak-tests/ShoppingCartTests.cs
+          dest: WeakTests/ShoppingCartTests.cs
+        - src: graders/check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot WeakTests
+      skills:
+        - ../../plugins/dotnet-test/skills/grade-tests
+    graders:
+      - type: output-matches
+        config:
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
+      - type: output-matches
+        config:
+          pattern: (?i)ItemCount_AfterAdd.*Pass.*B\s*\(80.?89\)
+      - type: output-matches
+        config:
+          pattern: (?i)AddItem_Works.*Failed.*F\s*\(0.?59\)
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 606142a930232cb26959562f7128f460defe42a82ac670a34074ace09feeb74e:.eval/check_readonly.py --expect d3a060f87da0f4ec8d561fb5855a2ce0cde1753d4fe7914ea99fb6febd55ca9a:.eval/baseline.json -- python .eval/check_readonly.py verify WeakTests
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Assessed only the two requested tests instead of launching a suite-wide audit
+      - ItemCount_AfterAdd is Pass with B quality because its focused equality assertion completely verifies the stated behavior
+      - AddItem_Works is Failed with F quality because it executes the behavior without any assertion
+      - Used the primary decision result for follow-up and retained the quality grade only as supporting detail
 
   - name: Decline request to generate new tests
     prompt: |

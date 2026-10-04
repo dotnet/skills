@@ -1,25 +1,27 @@
 ---
 name: grade-tests
 description: >
-  Grade specified test methods individually and produce a concise PR-ready
-  table with each fully qualified test name, an A-F grade, score band, and
-  one-line note. USE FOR per-test feedback on a curated list such as new or
-  modified tests in a pull request, not a suite-wide audit. Polyglot: .NET,
-  Python, TS/JS, Java, Go, Ruby, Rust, Swift, Kotlin, PowerShell, C++. Inputs
-  may be test methods, method bodies, or file-and-line spans. DO NOT USE FOR:
-  full suite audits (use test-quality-auditor agent or test-anti-patterns),
-  writing new tests (use code-testing-generator agent or writing-mstest-tests),
-  fixing failures, or measuring code coverage.
+  Assess specified test methods individually and produce a concise PR-ready
+  table with a primary Pass, Failed, Uncertain, or Not applicable result,
+  optional A-F quality detail, and a one-line note. USE FOR per-test feedback
+  on a curated list such as new or modified tests in a pull request, not a
+  suite-wide audit. Polyglot: .NET, Python, TS/JS, Java, Go, Ruby, Rust, Swift,
+  Kotlin, PowerShell, C++. Inputs may be test methods, method bodies, or
+  file-and-line spans. DO NOT USE FOR: full suite audits (use
+  test-quality-auditor agent or test-anti-patterns), writing new tests (use
+  code-testing-generator agent or writing-mstest-tests), fixing failures, or
+  measuring code coverage.
 license: MIT
 ---
 
 # Grade Tests
 
-Grade a curated list of test methods and produce a compact, PR-comment-friendly
-report: one row per test method with a letter grade, a score band, and a
-one-line note explaining the grade. The skill **does not discover tests on its
-own** — the caller (typically a PR automation workflow or a human reviewer
-holding a specific list) provides the test methods to grade.
+Assess a curated list of test methods and produce a compact,
+PR-comment-friendly report. The primary result is one of **Pass**, **Failed**,
+**Uncertain**, or **Not applicable**; an A-F quality grade remains secondary
+diagnostic information. The skill **does not discover tests on its own** — the
+caller (typically a PR automation workflow or a human reviewer holding a
+specific list) provides the tests or a bounded diff to assess.
 
 > **Language-specific guidance**: Call the `test-analysis-extensions` skill
 > to discover available extension files, then read the file matching the
@@ -29,22 +31,31 @@ holding a specific list) provides the test methods to grade.
 > anti-patterns, because assertion APIs and idiomatic patterns differ
 > significantly across frameworks.
 
-## Why a Per-Test Grade
+## Why a Decision Result Plus Quality Detail
 
 Suite-wide audits (`test-anti-patterns`, `assertion-quality`,
 `test-smell-detection`) produce excellent diagnostic reports, but they are
 hard to consume as a short PR comment. Reviewers of a PR mostly want to know:
-*for the tests this PR adds or changes, are they good?* This skill answers
-that question with a one-row-per-test verdict that fits in a comment table.
+*does this test need follow-up?* This skill answers that question with a
+one-row-per-test decision while preserving the A-F rubric as supporting detail.
+
+The decision result is a zero-finding quality gate:
+
+- **Pass** means no actionable improvement was identified.
+- **Failed** means at least one concrete improvement is required, even when the
+  test remains high quality overall.
+- **Uncertain** means missing or ambiguous evidence requires human review.
+- **Not applicable** means a valid requested scope contains no eligible tests.
 
 ## When to Use
 
-- A PR automation workflow needs to post a comment grading the tests
-  introduced or modified in a pull request.
+- A PR automation workflow needs to post a decision on the tests introduced or
+  modified in a pull request.
 - A reviewer has a specific list of tests (a file, a class, a method list,
-  or a diff hunk) and wants a per-test verdict rather than a suite report.
+  or a diff hunk) and wants per-test follow-up decisions rather than a suite
+  report.
 - A maintainer wants to triage which of N tests in a contribution deserve
-  follow-up improvements.
+  follow-up improvements, with optional quality grades for prioritization.
 
 ## When Not to Use
 
@@ -85,6 +96,11 @@ short message asking the caller to provide an explicit list / file(s) /
 diff, and optionally point them at `test-quality-auditor` agent or
 `test-anti-patterns` skill for full-suite analysis. Stop there.
 
+If the caller supplied a valid bounded scope but it resolves to zero eligible
+tests — for example, a PR diff changes production code only — return
+**Not applicable** with a short explanation. Do not invent rows or treat an
+empty changed-test set as an error.
+
 ## Workflow
 
 ### Step 1: Detect language and load extension
@@ -106,10 +122,12 @@ For each entry in the input list:
 2. Otherwise read the file at the given path and locate the method by its
    fully-qualified name. Capture the full method body, including attributes
    / decorators / fixtures and any helper code that the test calls.
-3. If a method cannot be found, record it as `N/A — method not found` and
-   continue. Never invent a body to grade.
+3. If a requested method cannot be found, record it as
+   `Uncertain — method not found` with no quality grade and continue. Never
+   invent a body to grade. A missing requested method requires human review;
+   it is not the same as a valid scope containing no tests.
 
-### Step 3: Score each test
+### Step 3: Score each resolved test
 
 Start every test at grade **A (score band 90–100)**, then apply deductions
 strictly for **observable issues** in the captured body. Do **not** deduct
@@ -260,46 +278,96 @@ Report the **letter grade** and the **score band** (not a single 0–100
 number). False precision invites bikeshedding; bands keep the conversation
 focused on the rubric.
 
-### Step 4: Build the note
+### Step 4: Assign the decision result
+
+The quality grade and decision result answer different questions:
+
+- The **quality grade** summarizes overall strength and severity.
+- The **decision result** says whether follow-up work exists.
+
+An **actionable improvement** is a concrete, evidence-backed recommendation
+that requires changing the test, its setup, or its supporting fixtures.
+Positive observations and context-only statements are not actionable.
+
+Assign exactly one result:
+
+| Result | Rule |
+|--------|------|
+| **Pass** | The test body is sufficiently understood and no actionable improvement was identified. |
+| **Failed** | At least one actionable improvement was identified, regardless of the A-F grade. |
+| **Uncertain** | The available evidence is insufficient to decide whether an improvement is required, so a human must review it. |
+| **Not applicable** | A valid requested scope contains no eligible tests. This is normally an overall result with no per-test rows. |
+
+Grade deductions normally describe actionable improvements, but the mapping is
+not a simple grade threshold. A focused test with one complete meaningful
+assertion may earn **B** and still **Pass** when no improvement is warranted.
+Conversely, a test may earn **A** and **Fail** because of a low-severity but
+actionable issue such as leftover debug output.
+
+Use **Uncertain** only when evidence blocks the decision, such as:
+
+- the requested method body cannot be found or resolved;
+- generated, parameterized, or framework-specific behavior cannot be interpreted
+  confidently with the available guidance;
+- production behavior is essential to deciding whether an apparent concern is
+  real, and the production contract is unavailable.
+
+Missing production code alone does not make a result Uncertain when the test
+body already proves a Pass or Failed decision. When a definite actionable
+finding and an uncertainty both exist for the same test, use **Failed** and
+mention the uncertainty in the note.
+
+### Step 5: Build the note
 
 The note column is one short sentence (target ≤ 120 characters). State the
-single most important reason for the grade. Examples:
+single most important reason for the result. Examples:
 
-- A (90–100): `Clear AAA structure; equality + exception assertions on the public contract.`
-- B (80–89): `Good assertion variety, mildly long body — consider splitting into per-condition tests.`
-- C (70–79): `Only checks IsNotNull on the result; no value verification.`
-- D (60–69): `Self-referential assertion: round-trip identity verifies plumbing, not transformation.`
-- F (0–59): `No assertions — test executes the method but never verifies anything.`
+- Pass / A (90–100): `No issues found.`
+- Pass / B (80–89): `One focused value assertion completely verifies the stated behavior.`
+- Failed / A (90–100): `Remove leftover debug output before merging.`
+- Failed / C (70–79): `Only checks IsNotNull on the result; add value verification.`
+- Failed / F (0–59): `No assertions — the test executes code but verifies nothing.`
+- Uncertain: `Method body could not be resolved; human review is required.`
 
-If a test gets A with no notable issues, the note may simply be
-`No issues found.` — do not invent weaknesses to justify the grade.
+If no actionable or contextual issue exists, use `No issues found.` Do not
+invent weaknesses to justify the quality grade or manufacture a Failed result.
 
-### Step 5: Report
+### Step 6: Report
 
 Produce two sections.
 
 #### 1. Summary
 
-A short paragraph (2–4 sentences) covering: total tests graded, grade
-distribution, most common issue, and the single most important
-recommendation.
+Begin with `**Result: <Pass|Failed|Uncertain|Not applicable>**`, then provide a
+short paragraph covering the number of eligible tests, result counts, optional
+quality distribution, and the highest-priority recommendation.
+
+Aggregate multiple per-test results using this precedence:
+
+1. **Failed** when any test has a definite actionable improvement.
+2. Otherwise **Uncertain** when any test requires human review.
+3. Otherwise **Pass** when at least one eligible test was assessed.
+4. Otherwise **Not applicable** when the valid scope contains no eligible tests.
+
+If the overall result is Not applicable, explain why and omit the per-test
+table.
 
 #### 2. Per-test table
 
 ```markdown
-| Test | Grade | Band | Notes |
-|------|-------|------|-------|
-| `Namespace.ClassName.Test_Method_Condition_Expected` | A | 90–100 | Clear AAA; equality + exception assertions. |
-| `Namespace.ClassName.Test_Other` | C | 70–79 | Only `IsNotNull` — no value verification. |
-| `Namespace.ClassName.Test_Old` | F | 0–59 | No assertions. |
+| Test | Result | Quality | Notes |
+|------|--------|---------|-------|
+| `Namespace.ClassName.Test_Method_Condition_Expected` | Pass | A (90–100) | No issues found. |
+| `Namespace.ClassName.Test_Other` | Failed | C (70–79) | Only `IsNotNull`; add value verification. |
+| `Namespace.ClassName.Test_Missing` | Uncertain | — | Method body could not be resolved; human review is required. |
 ```
 
 **Caps and ordering**:
-- If the table would exceed **50 rows**, show all tests graded below **B**
-  first (worst to best), then a sample of the best tests, and wrap any
-  overflow in a collapsed `<details>` block.
-- Within the same grade, order by file path then by method name for
-  determinism.
+- If the table would exceed **50 rows**, show Failed tests first, then
+  Uncertain tests, then a sample of Pass tests. Wrap overflow in a collapsed
+  `<details>` block.
+- Within the same result, order by quality from worst to best, then by file
+  path and method name for determinism.
 - If the diff context is provided, prefix each test name with a `(new)` or
   `(modified)` marker.
 
@@ -309,7 +377,16 @@ prefix each section with the language name and framework.
 ## Validation
 
 - [ ] Every test in the input list appears in the table (or is recorded as
-      `N/A — method not found`).
+      `Uncertain — method not found`).
+- [ ] Every resolved test has exactly one Pass or Failed result and secondary
+      A-F quality detail.
+- [ ] Pass means no actionable improvement was identified; Failed means at
+      least one evidence-backed improvement exists.
+- [ ] Positive or informational notes do not cause a Failed result.
+- [ ] Uncertain is used only when missing evidence prevents a decision and
+      never as a synonym for mediocre quality.
+- [ ] Not applicable is used only when a valid scope contains zero eligible
+      tests.
 - [ ] Every grade is justified by at least one observable signal in the
       captured body — no speculative deductions.
 - [ ] Trivial-assertion tests are flagged only when the **only** assertion
@@ -343,6 +420,10 @@ prefix each section with the language name and framework.
 | Treating pytest bare `assert` or Go `if got != want { t.Error… }` as missing-framework | Both are canonical; count in the correct assertion category. |
 | Penalizing tests when production code is unavailable | Mark concerns about uncovered behaviors as `Unverified` and do not deduct. |
 | Using a fake-precise score (e.g., 87/100) | Use the score band only — 90–100, 80–89, 70–79, 60–69, 0–59. |
-| Spilling a 500-row table into a PR comment | Apply the row cap from Step 5; collapse extras into `<details>`. |
+| Spilling a 500-row table into a PR comment | Apply the row cap from Step 6; collapse extras into `<details>`. |
 | Re-reporting an existing finding three times under different categories | Pick the most fitting category and report once. |
 | Inventing weaknesses for A-grade tests to make the note "balanced" | If a test is clean, the note may simply read `No issues found.` |
+| Treating every comment as a failure | Fail only for actionable improvements; positive and context-only notes are allowed on Pass results. |
+| Mapping status mechanically from the letter grade | Decide whether follow-up work exists; a B can Pass and an A can Fail. |
+| Using Uncertain for weak but understood tests | Observable weaknesses are Failed; reserve Uncertain for evidence gaps needing human review. |
+| Returning Not applicable for an unresolved requested method | A missing requested method is Uncertain; Not applicable means the valid scope contains no eligible tests. |
