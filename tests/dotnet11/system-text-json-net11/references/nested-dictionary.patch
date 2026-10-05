@@ -1,0 +1,13 @@
+diff --git a/app/Program.cs b/app/Program.cs
+--- a/app/Program.cs
++++ b/app/Program.cs
+@@ -2,7 +2,8 @@ using System.Text.Json;
+ 
+ var options = new JsonSerializerOptions
+ {
+-    PropertyNamingPolicy = JsonNamingPolicy.PascalCase
++    PropertyNamingPolicy = JsonNamingPolicy.PascalCase,
++    DictionaryKeyPolicy = JsonNamingPolicy.PascalCase
+ };
+ 
+ var dashboard = new Dashboard(new Dictionary<string, int>

@@ -1,0 +1,20 @@
+diff --git a/app/Program.cs b/app/Program.cs
+--- a/app/Program.cs
++++ b/app/Program.cs
+@@ -1,10 +1,11 @@
+ using System.Text.Json;
+-using System.Text.Json.Serialization;
+ 
+ const string json = """{"Name":"Jane","Age":30}""";
+-var person = JsonSerializer.Deserialize<Person>(json);
++var options = new JsonSerializerOptions
++{
++    PropertyNamingPolicy = JsonNamingPolicy.PascalCase
++};
++var person = JsonSerializer.Deserialize<Person>(json, options);
+ Console.WriteLine($"{person!.name}|{person.age}");
+ 
+-record Person(
+-    [property: JsonPropertyName("Name")] string name,
+-    [property: JsonPropertyName("Age")] int age);
++record Person(string name, int age);
