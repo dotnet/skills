@@ -48,19 +48,7 @@ Choose the operating mode from the user's requested outcome:
 | Identify, choose, install, prepare, or load the right marketplace capability | Inspect enough solution evidence to choose the owner, give the exact acquisition steps, and stop without editing or generating the requested application artifact. |
 | Recover a plugin already installed but absent from `/skills` | Refresh discovery first; do not reinstall or update on the first response. |
 
-When the route needs to be visible in the eventual response, use one concise line:
-
-```text
-Route: `<skill-name>` - <prompt signal> + <solution signal>.
-```
-
-For a sequence:
-
-```text
-Route: `<first-skill>` -> `<second-skill>` - <why the phases have different owners>.
-```
-
-Do not turn routing into a menu. Choose a route, invoke it, and proceed.
+Choose one owner per phase. Do not expose internal routing ceremony or turn the answer into a menu.
 
 ## Step 1: Classify the Prompt
 
@@ -160,6 +148,18 @@ For marketplace-planning requests, name both the narrow skill and its plugin. Us
 to disambiguate framework nouns, but do not perform the downstream implementation the user asked to
 prepare for.
 
+Use the bundled marketplace reference as the authoritative lookup. Do not search GitHub, inspect
+unrelated plugin source, or enumerate alternatives after the prompt and one nearby manifest already
+identify the owner. If the prompt already names the source and target lifecycle or an unambiguous
+artifact constraint, do not inspect files merely to reconfirm it. Answer in four compact parts:
+
+1. Capability and plugin.
+2. One sentence matching the request's decisive behaviors or artifact evidence.
+3. Host-correct install steps.
+4. Restart/discovery verification, when the host requires it.
+
+Do not add a `Route:` header in marketplace-planning mode; lead with the capability and plugin.
+
 ## Step 4: Obtain a Missing Skill
 
 For GitHub Copilot CLI or Claude Code, give these exact commands with the selected plugin substituted:
@@ -221,9 +221,10 @@ Rules:
 When the user says the plugin is already installed but its skills are absent:
 
 1. Trust the stated installed state unless repository evidence directly contradicts it.
-2. Tell the user to restart or reload the host, then run `/skills`.
-3. Name the expected skill so discovery can be verified.
-4. Stop there on the first response. Do not emit marketplace-add, install, update, shell-level
+2. Start by acknowledging that the plugin is installed and discovery is stale.
+3. Tell the user to restart or reload the host, then run `/skills`.
+4. Name the expected skill so discovery can be verified.
+5. Stop there on the first response. Do not emit marketplace-add, install, update, shell-level
    plugin-management, `/skills reload`, or invented explicit-invocation commands.
 
 Only after the user reports that restart plus `/skills` still fails should the next response move to
@@ -268,6 +269,10 @@ plugin is needed and identify the core C# semantic that owns the fix.
 Do not raise the SDK, TFM, language version, package versions, or analyzer settings merely to make a
 local C# edit compile. Do not edit generated files. Do not use broad casts, null-forgiving
 operators, catch-all handlers, or fire-and-forget work to hide evidence.
+
+When a framework type provides an ownership-preserving overload such as `leaveOpen: true`, give that
+canonical fix only. Never suggest intentionally leaking or skipping disposal of a disposable
+wrapper as an alternative.
 
 ## Boundaries and Failure Handling
 
