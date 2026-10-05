@@ -21,7 +21,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (Route:.*(dotnet-webapi|minimal-api-file-upload)|ASP\.NET Core.*(skill|workflow))
+          pattern: (Route:[\s\S]*(dotnet-webapi|minimal-api-file-upload)|ASP\.NET Core[\s\S]*(skill|workflow))
       - type: output-matches
         config:
           pattern: /plugin install dotnet-aspnetcore@dotnet-agent-skills
