@@ -151,7 +151,12 @@ prepare for.
 Use the bundled marketplace reference as the authoritative lookup. Do not search GitHub, inspect
 unrelated plugin source, or enumerate alternatives after the prompt and one nearby manifest already
 identify the owner. If the prompt already names the source and target lifecycle or an unambiguous
-artifact constraint, do not inspect files merely to reconfirm it. Answer in four compact parts:
+artifact constraint, do not inspect files merely to reconfirm it. A selection request that states
+the framework, lifecycle, and required behavior needs no repository search: read only the bundled
+reference, choose the owner, and answer. Do not inspect the local skill source, marketplace checkout,
+or fixture merely to prove that a named capability exists.
+
+Answer in four compact parts:
 
 1. Capability and plugin.
 2. One sentence matching the request's decisive behaviors or artifact evidence.
@@ -159,6 +164,8 @@ artifact constraint, do not inspect files merely to reconfirm it. Answer in four
 4. Restart/discovery verification, when the host requires it.
 
 Do not add a `Route:` header in marketplace-planning mode; lead with the capability and plugin.
+Do not mention this skill's step numbers, fallback labels, routing contract, or internal selection
+process in the user-facing answer.
 
 ## Step 4: Obtain a Missing Skill
 
@@ -272,7 +279,9 @@ operators, catch-all handlers, or fire-and-forget work to hide evidence.
 
 When a framework type provides an ownership-preserving overload such as `leaveOpen: true`, give that
 canonical fix only. Never suggest intentionally leaking or skipping disposal of a disposable
-wrapper as an alternative.
+wrapper as an alternative. Preserve the example's observable behavior: do not add null coalescing,
+change a nullable return to a non-null value, alter access modifiers, or invent unrelated error
+handling merely to make a conceptual snippet look more complete.
 
 ## Boundaries and Failure Handling
 
@@ -283,36 +292,16 @@ wrapper as an alternative.
   that owns the requested file or behavior.
 - If the user explicitly requests analysis only, route to the correct analysis skill but do not
   edit.
+- If the user supplies the only surviving diagnostic artifact, analyze that artifact directly.
+  Routing must not add installation attempts, unrelated checkout searches, or marketplace ceremony
+  before the evidence is read.
 - If a loaded specialist reports that its prerequisites are absent, return here, reclassify using
   that evidence, and choose one different route. Do not bounce repeatedly between skills.
 - Non-.NET work is out of scope; leave this skill dormant rather than forcing a .NET interpretation.
 
 ## Observable Completion Criteria
 
-- The selected skill matches both the requested outcome and the owning solution/project evidence.
-- The selected skill was invoked when available, not merely named.
-- A missing specialist is mapped to its exact marketplace plugin and install command.
-- A missing specialist does not prevent completion when a safe, verifiable fallback exists.
-- Installation guidance includes restart, `/skills` verification, and a concise request to rerun.
-- At most one primary skill owns each phase.
-- Mixed requests have an explicit, minimal sequence.
-- Pure C# work falls back locally without inventing a framework route.
-- Validation follows the invoked specialist's contract or, for fallback work, reproduces the
-  original behavior after the focused build/test.
-
-## Common Routing Mistakes
-
-| Mistake | Correction |
-|---|---|
-| Selecting from prompt keywords alone | Confirm the owning project or artifact. |
-| Selecting from project type alone | Match the requested lifecycle; a Blazor test migration is still a test migration. |
-| Naming several possible skills | Gather one discriminating fact, choose one, and proceed. |
-| Assuming a remembered skill is installed | Use only the runtime's available-skill catalog. |
-| Recommending a missing skill without helping install it | Map it to its plugin and emit the exact marketplace install command. |
-| Stopping after installation guidance | If standard repository tools can finish the task, continue now and put optional installation guidance after the result. |
-| Installing a skill name | Install `<plugin>@dotnet-agent-skills`; plugins are the marketplace unit. |
-| Pretending slash commands ran successfully | Require the user to install, restart, verify with `/skills`, and rerun. |
-| Treating all performance work as code optimization | Separate runtime, build, query, and microbenchmark evidence. |
-| Using generic C# guidance for framework behavior | Load the framework specialist first. |
-| Loading a specialist but ignoring its workflow | After routing, follow the loaded skill as the task owner. |
-| Re-routing forever | After one failed prerequisite check, choose one evidence-backed fallback. |
+- One evidence-backed owner is selected for each distinct phase and invoked when available.
+- Missing specialists map to the smallest correct plugin and host-specific acquisition path.
+- Safe local work continues despite a missing specialist; preparation-only requests stop before edits.
+- Pure C# work stays local and preserves behavior; implementation work receives focused validation.
