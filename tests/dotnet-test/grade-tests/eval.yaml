@@ -3,16 +3,16 @@ tags:
   executionShard: c
 description: Evaluates the dotnet-test/grade-tests skill
 type: capability
-# Eight distinct stimuli provide enough evidence to survive one losing
-# stimulus vote when all eight are discordant (7W/1L, p = 0.035).
+# Nine distinct stimuli preserve enough evidence after one tie to survive one
+# losing stimulus vote when eight remain discordant (7W/1L, p = 0.035).
 #
 # Repeated runs collapse to one majority-direction vote per stimulus, so they do
 # not increase the sign-test sample. The three runs below measure reliability and
 # reduce the chance that one noisy execution decides a stimulus vote.
 #
 # Each stimulus exercises a different contract: bounded input, framework-aware
-# grading, large-report usability, unavailable and available production code,
-# unresolved methods, and mixed-language input.
+# decisions, large-report usability, unavailable and available production code,
+# unresolved methods, empty scopes, and mixed-language input.
 defaults:
   timeout: 5m
   runs: 3
@@ -20,6 +20,10 @@ defaults:
 stimuli:
   - name: Ask for a bounded list instead of grading the workspace
     prompt: Grade my tests.
+    tags:
+      capability: bounded-input-validation
+      risk: unbounded-workspace-grading
+      journey: assess-pr-test-quality
     environment:
       files:
         - src: fixtures/no-list-provided/Some.Tests/Some.Tests.csproj
@@ -42,17 +46,23 @@ stimuli:
         - edit
         - create
 
-  - name: Report an unresolved method without inventing a grade
+  - name: Report an unresolved method as requiring human review
     prompt: |
-      Please grade these test methods from
-      `Banking.Tests/BankAccountTests.cs` individually. Give each an A-F grade
-      in a compact per-test table and add a short summary. The production code
-      is in `Banking/BankAccount.cs`. Do not modify any files.
+      Please review these test methods from
+      `Banking.Tests/BankAccountTests.cs` individually. Tell me which are ready,
+      which need follow-up, and whether any cannot be assessed confidently
+      without human input. Include supporting A-F quality detail when a test
+      body can be assessed. The production code is in
+      `Banking/BankAccount.cs`. Do not modify any files.
 
       Test methods to grade:
         - Banking.Tests.BankAccountTests.Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds
         - Banking.Tests.BankAccountTests.Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself
         - Banking.Tests.BankAccountTests.Transfer_ToClosedAccount_ReturnsFailure
+    tags:
+      capability: unresolved-method-handling
+      risk: invented-test-assessment
+      journey: assess-pr-test-quality
     environment:
       files:
         - src: fixtures/production-available/Banking/Banking.csproj
@@ -66,17 +76,18 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
       - type: output-matches
         config:
-          pattern: (?i)Transfer_ToClosedAccount_ReturnsFailure.*(?:N/A|not found)
+          pattern: (?i)Transfer_ToClosedAccount_ReturnsFailure.*(?:Uncertain|not found|human review)
       - type: exit-success
       - type: prompt
     rubric:
-      - The two located methods receive evidence-based grades consistent with their bodies
-      - The unresolved transfer method is reported as not found rather than receiving an invented grade or analysis
+      - The two located methods receive evidence-based decisions and supporting quality grades consistent with their bodies
+      - The unresolved transfer method is Uncertain and has no invented quality grade or analysis
       - All three requested method names are accounted for in the report
-      - Located tests use the standard per-test columns and score bands, while the unresolved method clearly has no grade
+      - The self-comparison test is Failed with D quality while the valid exception test passes
+      - The overall result is Failed because a definite actionable issue outranks the unresolved method
     constraints:
       reject_tools:
         - edit
@@ -84,9 +95,11 @@ stimuli:
 
   - name: Apply each framework's semantics in one mixed-language request
     prompt: |
-      Please grade these two test functions individually and give me a concise
-      report with an A-F grade and score band for each. Keep the Python and Go
-      results easy to distinguish. Do not modify any files.
+      Please assess these two test functions individually and give me a concise
+      report showing whether each passes or needs improvement. If the evidence
+      is insufficient, mark it uncertain for human review. Keep the A-F quality
+      grade as supporting detail, and keep the Python and Go results easy to
+      distinguish. Do not modify any files.
 
       Tests to grade:
         - `tests/test_shopping_cart.py::test_calculate_total_with_negative_discount_raises_value_error`
@@ -94,6 +107,10 @@ stimuli:
 
       The Python production code is unavailable. The Go production code is in
       `calculator.go`.
+    tags:
+      capability: framework-aware-test-decisions
+      risk: cross-framework-misclassification
+      journey: assess-pr-test-quality
     environment:
       files:
         - src: fixtures/python-pytest/test_shopping_cart.py
@@ -107,27 +124,28 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
       - type: exit-success
       - type: prompt
     rubric:
-      - The Python exception test receives A because its constrained exception assertion completely verifies the stated error case
-      - The Go parse test receives C because it checks only error absence while discarding the parsed value
+      - The Python exception test is Pass with A quality because its constrained exception assertion completely verifies the stated error case
+      - The Go parse test is Failed with C quality because it checks only error absence while discarding the parsed value
       - The report applies each framework's assertion semantics without treating either idiomatic assertion form as missing
-      - Python and Go results are visually distinguishable, and each test has a letter grade, matching score band, and concise evidence-based reason
+      - Python and Go results are visually distinguishable, and each test has a primary result plus concise supporting quality detail
       - The report avoids production-dependent claims about the unavailable Python implementation while using the available Go source
     constraints:
       reject_tools:
         - edit
         - create
-  - name: Grade pytest assertions without production source
+  - name: Decide pytest quality without production source
     prompt: |
-      Please grade each of the following pytest test functions
-      individually for test quality. Give each an A-F grade and produce a
-      compact per-test table (one row per test) plus a short summary. They live
-      in `tests/test_shopping_cart.py`. Do not modify any files. The production
-      code is unavailable, so do not speculate about behavior that cannot be
-      established from the test bodies.
+      Please assess each of the following pytest test functions individually.
+      Report whether each passes quality review, fails because it has an
+      actionable improvement, or is uncertain and needs human review. Keep the
+      A-F quality grade as supporting detail and produce a compact per-test
+      table plus a short summary. They live in `tests/test_shopping_cart.py`.
+      Do not modify any files. The production code is unavailable, so do not
+      speculate about behavior that cannot be established from the test bodies.
 
       Test methods to grade:
         - test_calculate_total_with_discount_applies_discount_and_returns_rounded_amount
@@ -135,6 +153,10 @@ stimuli:
         - test_get_cart_returns_cart
         - test_clear_cart_works
         - test_async_checkout_completes
+    tags:
+      capability: evidence-bounded-test-decisions
+      risk: speculative-quality-decision
+      journey: assess-pr-test-quality
     environment:
       files:
         - src: fixtures/python-pytest/test_shopping_cart.py
@@ -142,34 +164,40 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
       - type: exit-success
       - type: prompt
     rubric:
-      - The discount-total test receives A because it makes meaningful value and state assertions
-      - The negative-discount test receives A because its constrained exception check completely verifies the stated error case
-      - The get-cart test receives C because its only check establishes non-nullness, not a meaningful result value
-      - The clear-cart test receives F because it performs an action without verifying any outcome
-      - The async-checkout test receives F because sleeping and an always-true assertion do not verify completion
+      - The discount-total test is Pass with A quality because it makes meaningful value and state assertions
+      - The negative-discount test is Pass with A quality because its constrained exception check completely verifies the stated error case
+      - The get-cart test is Failed with C quality because its only check establishes non-nullness, not a meaningful result value
+      - The clear-cart test is Failed with F quality because it performs an action without verifying any outcome
+      - The async-checkout test is Failed with F quality because sleeping and an always-true assertion do not verify completion
       - The report limits conclusions to evidence visible in the tests and leaves production-dependent coverage undecided
-      - Every requested test has one row with a letter grade, matching score band, and concise evidence-based reason rather than a point score
+      - Missing production code does not turn tests with decisive body-level evidence into Uncertain results
+      - Every requested test has one row with a primary result, supporting quality band, and concise evidence-based reason
     constraints:
       reject_tools:
         - edit
         - create
-  - name: Grade Go table-driven tests without misreading the loop as branching
+  - name: Decide Go table-driven quality without misreading the loop
     prompt: |
-      Please grade each of the following Go test functions individually for
-      test quality. Give each an A-F grade and produce a compact per-test table
-      (one row per test) plus a short summary. They live in
-      `calculator_test.go` and the code under test is in `calculator.go`.
-      Do not modify any files.
+      Please assess each of the following Go test functions individually.
+      Report whether each passes quality review, fails because it needs an
+      improvement, or is uncertain and needs human review. Keep the A-F quality
+      grade as supporting detail and produce a compact per-test table plus a
+      short summary. They live in `calculator_test.go` and the code under test
+      is in `calculator.go`. Do not modify any files.
 
       Test functions to grade:
         - TestAdd_TableDriven
         - TestDivide_ByZero
         - TestParse_NoError
         - TestReset_NoAssertions
+    tags:
+      capability: idiomatic-table-driven-analysis
+      risk: false-positive-quality-failure
+      journey: assess-pr-test-quality
     environment:
       files:
         - src: fixtures/go-table-driven/go.mod
@@ -181,31 +209,37 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
       - type: exit-success
       - type: prompt
     rubric:
-      - The table-driven addition test receives A because every case compares the returned value with its expected result
-      - The divide-by-zero test receives A because failing when the expected error is absent completely verifies its stated error case
-      - The parse test receives C because it checks only error absence and discards the meaningful parsed value
-      - The reset test receives F because it calls the function without verifying an outcome
-      - The addition test's grade is not reduced merely because its named cases are executed by a loop
-      - Every requested test has one row with a letter grade, matching score band, and concise evidence-based reason rather than a point score
+      - The table-driven addition test is Pass with A quality because every case compares the returned value with its expected result
+      - The divide-by-zero test is Pass with A quality because failing when the expected error is absent completely verifies its stated error case
+      - The parse test is Failed with C quality because it checks only error absence and discards the meaningful parsed value
+      - The reset test is Failed with F quality because it calls the function without verifying an outcome
+      - The addition test's result or quality is not reduced merely because its named cases are executed by a loop
+      - Every requested test has one row with a primary result, supporting quality band, and concise evidence-based reason
     constraints:
       reject_tools:
         - edit
         - create
-  - name: Keep a 62-test grading report readable as a PR comment
+  - name: Keep a 62-test decision report readable as a PR comment
     prompt: |
-      Please grade every test declared in `Catalog.Tests/ProductCatalogTests.cs`
-      individually for test quality — one row per test — and give me a short
-      summary. The code under test is in `Catalog.Core/ProductCatalog.cs`.
-      Give each test an A-F grade and do not modify any files.
+      Please assess every test declared in
+      `Catalog.Tests/ProductCatalogTests.cs` individually for test quality —
+      one row per test — and give me a short summary. The primary result must
+      show whether each test passes, needs improvement, or requires human
+      review; keep A-F quality as supporting detail. The code under test is in
+      `Catalog.Core/ProductCatalog.cs`. Do not modify any files.
 
       This goes straight into a PR comment, so it has to stay readable when a
       reviewer opens the thread: I don't want to scroll past dozens of rows of
       passing tests before I reach anything I need to act on, and I don't want
       the same problem restated several times in different words.
+    tags:
+      capability: large-report-usability
+      risk: buried-actionable-findings
+      journey: assess-pr-test-quality
     environment:
       files:
         - src: fixtures/large-suite/Catalog.Core/Catalog.Core.csproj
@@ -219,7 +253,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
       - type: exit-success
       - type: prompt
     rubric:
@@ -227,28 +261,35 @@ stimuli:
       - Every declared test remains individually accounted for while the initially visible report stays bounded
       - The summary leads with the highest-impact finding and a concrete improvement instead of repeating the table
       - Each distinct problem is explained once rather than being duplicated across sections
-      - Tests without assertions receive F, including `TotalValue_Runs`, and null-only tests receive C, including `Find_KnownSku_ReturnsSomething`
-      - Every test is reported with a letter grade, matching score band, and concise evidence-based reason rather than a point score
+      - Tests without assertions are Failed with F quality, including `TotalValue_Runs`, and null-only tests are Failed with C quality, including `Find_KnownSku_ReturnsSomething`
+      - Failed and Uncertain rows appear before the sampled Pass rows so actionable work is immediately visible
+      - Every test is reported with a primary result, supporting quality band, and concise evidence-based reason
     constraints:
       reject_tools:
         - edit
         - create
 
-  - name: Grade tests when the production code under test is unavailable
+  - name: Decide test quality when production code is unavailable
     prompt: |
-      Please grade each of the following test methods individually for test
-      quality and produce a compact per-test table (one row per test) plus a
-      short summary that we can post as a PR comment. They live in
+      Please assess each of the following test methods individually and produce
+      a compact per-test table plus a short summary that we can post as a PR
+      comment. Report whether each passes quality review, fails because it has
+      an actionable improvement, or is uncertain and needs human review. Keep
+      A-F quality as supporting detail. They live in
       `Payments.Tests/PaymentGatewayTests.cs`. The production project
       `Payments.Core` is not in this workspace, so its source is unavailable.
-      Give each test an A-F grade and do not modify any files. Do not speculate
-      about behavior that cannot be established without the production source.
+      Do not modify any files or speculate about behavior that cannot be
+      established without the production source.
 
       Test methods to grade:
         - Payments.Tests.PaymentGatewayTests.Charge_ValidCard_ReturnsApprovedResult
         - Payments.Tests.PaymentGatewayTests.Charge_NegativeAmount_ThrowsArgumentOutOfRange
         - Payments.Tests.PaymentGatewayTests.Refund_ExistingCharge_ReturnsReceipt
         - Payments.Tests.PaymentGatewayTests.Settle_PendingBatch_Runs
+    tags:
+      capability: missing-production-context
+      risk: false-uncertainty
+      journey: assess-pr-test-quality
     environment:
       files:
         - src: fixtures/production-unavailable/Payments.Tests/Payments.Tests.csproj
@@ -258,33 +299,40 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
       - type: exit-success
       - type: prompt
     rubric:
       - Every deduction is supported by evidence in the supplied tests, with source-dependent behavior left undecided
-      - The valid-charge test receives A because it verifies both status and charged amount
-      - The negative-charge test receives A because its specific exception assertion completely verifies the stated error case
-      - The refund test receives C because its only check establishes non-nullness, not receipt contents
-      - The settle-batch test receives F because it performs an action without verifying any outcome
-      - Every requested test has one row with a letter grade, matching score band, and concise evidence-based reason rather than a point score
+      - The valid-charge test is Pass with A quality because it verifies both status and charged amount
+      - The negative-charge test is Pass with A quality because its specific exception assertion completely verifies the stated error case
+      - The refund test is Failed with C quality because its only check establishes non-nullness, not receipt contents
+      - The settle-batch test is Failed with F quality because it performs an action without verifying any outcome
+      - Missing production code does not turn tests with decisive body-level evidence into Uncertain results
+      - Every requested test has one row with a primary result, supporting quality band, and concise evidence-based reason
     constraints:
       reject_tools:
         - edit
         - create
-  - name: Grade C# tests against available production code
+  - name: Decide C# test quality against available production code
     prompt: |
-      Please grade each of the following test methods individually for test
-      quality and produce a compact per-test table (one row per test) plus a
-      short summary. They live in `Banking.Tests/BankAccountTests.cs` and the
-      code under test is in `Banking/BankAccount.cs`. Give each test an A-F
-      grade and do not modify any files.
+      Please assess each of the following test methods individually and produce
+      a compact per-test table plus a short summary. Report whether each passes
+      quality review, fails because it has an actionable improvement, or is
+      uncertain and needs human review. Keep A-F quality as supporting detail.
+      They live in `Banking.Tests/BankAccountTests.cs` and the code under test
+      is in `Banking/BankAccount.cs`. Do not modify any files.
 
       Test methods to grade:
         - Banking.Tests.BankAccountTests.Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds
         - Banking.Tests.BankAccountTests.Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself
         - Banking.Tests.BankAccountTests.ApplyInterest_RateDependsOnTier_UpdatesBalance
         - Banking.Tests.BankAccountTests.Deposit_NonPositiveAmount_HandledGracefully
+        - Banking.Tests.BankAccountTests.Deposit_PositiveAmount_UpdatesBalance
+    tags:
+      capability: production-aware-test-decisions
+      risk: incorrect-quality-decision
+      journey: assess-pr-test-quality
     environment:
       files:
         - src: fixtures/production-available/Banking/Banking.csproj
@@ -298,16 +346,59 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
+      - type: output-matches
+        config:
+          pattern: (?i)Deposit_PositiveAmount_UpdatesBalance.*Failed.*A\s*\(90.?100\)
       - type: exit-success
       - type: prompt
     rubric:
-      - The insufficient-funds test receives A because it verifies the documented exception type and message
-      - The self-comparison withdrawal test receives D because comparing the balance with itself cannot verify the withdrawal result
-      - The interest test receives D because its expected value is selected by branching on the same state that drives the behavior under test
-      - The non-positive deposit test receives F because it swallows any exception and verifies no outcome
+      - The insufficient-funds test is Pass with A quality because it verifies the documented exception type and message
+      - The self-comparison withdrawal test is Failed with D quality because comparing the balance with itself cannot verify the withdrawal result
+      - The interest test is Failed with D quality because its expected value is selected by branching on the same state that drives the behavior under test
+      - The non-positive deposit test is Failed with F quality because it swallows any exception and verifies no outcome
+      - The positive-deposit test is Failed with A quality because leftover debug output is actionable but does not reduce its quality grade
       - Conclusions use the available production source instead of claiming the behavior cannot be checked
-      - Every requested test has one row with a letter grade, matching score band, and concise evidence-based reason rather than a point score
+      - Every requested test has one row with a primary result, supporting quality band, and concise evidence-based reason
+    constraints:
+      reject_tools:
+        - edit
+        - create
+
+  - name: Return not applicable when a bounded diff contains no tests
+    prompt: |
+      Review the tests changed by this pull-request diff and give me the
+      overall test-quality decision. Keep any A-F quality information as
+      supporting detail.
+
+      ```diff
+      diff --git a/src/InvoiceCalculator.cs b/src/InvoiceCalculator.cs
+      index 1234567..89abcde 100644
+      --- a/src/InvoiceCalculator.cs
+      +++ b/src/InvoiceCalculator.cs
+      @@ -18,6 +18,7 @@ public decimal CalculateTotal(Invoice invoice)
+           var subtotal = invoice.Items.Sum(item => item.Price * item.Quantity);
+      +    subtotal = decimal.Round(subtotal, 2, MidpointRounding.AwayFromZero);
+           return subtotal;
+       }
+      ```
+    tags:
+      capability: empty-scope-handling
+      risk: invented-test-findings
+      journey: assess-pr-test-quality
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(result.{0,20}not applicable|not applicable.{0,40}no (eligible|changed) tests)
+      - type: output-not-matches
+        config:
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Returned Not applicable because the valid bounded diff contains no test changes
+      - Did not invent test methods, findings, grades, or per-test rows
+      - Distinguished an empty eligible-test set from an ambiguous request that lacks scope
     constraints:
       reject_tools:
         - edit
