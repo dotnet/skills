@@ -39,9 +39,9 @@ SDK or in an offline environment).
 
 ```bash
 dotnet msbuild build.binlog -noconlog \
-  -fl  -flp:v=diag;logfile=full.log;performancesummary \
-  -fl1 -flp1:errorsonly;logfile=errors.log \
-  -fl2 -flp2:warningsonly;logfile=warnings.log
+  -fl  "-flp:v=diag;logfile=full.log;performancesummary" \
+  -fl1 "-flp1:errorsonly;logfile=errors.log" \
+  -fl2 "-flp2:warningsonly;logfile=warnings.log"
 ```
 
 > **PowerShell note:** Use `-flp:"v=diag;logfile=full.log;performancesummary"`

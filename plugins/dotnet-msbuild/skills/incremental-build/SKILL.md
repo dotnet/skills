@@ -4,13 +4,31 @@ description: "Guide for optimizing MSBuild incremental builds. USE FOR: builds s
 license: MIT
 ---
 
+## Required diagnosis output
+
+For every diagnose or explain request, the final answer must explicitly cover
+all of these points, even when the immediate cause is simply missing
+`Inputs`/`Outputs`:
+
+- the target and exact root-cause evidence;
+- the actual input/output timestamp comparison;
+- missing, deleted, cleaned, or rewritten outputs;
+- complete inputs, including dynamic or volatile inputs;
+- evaluated input/output paths and one-to-one mapping when item lists are batched;
+- two identical no-change builds and the expected second-build skip/out-of-date evidence.
+
+Do not edit unless the user asks for a fix. If a check cannot be run, label it
+as an unverified check rather than omitting it or claiming success. When
+`Inputs` or `Outputs` are absent, report timestamp comparison or one-to-one
+mapping as **not applicable — the incremental mechanism is not engaged**, not
+as an unverified comparison.
+
 ## How MSBuild Incremental Build Works
 
 MSBuild's incremental build mechanism allows targets to be skipped when their outputs are already up to date, dramatically reducing build times on subsequent runs.
 
 - **Targets with `Inputs` and `Outputs` attributes**: MSBuild compares the timestamps of all files listed in `Inputs` against all files listed in `Outputs`. If every output file is newer than every input file, the target is skipped entirely.
 - **Without `Inputs`/`Outputs`**: The target runs every time the build is invoked. This is the default behavior and the most common cause of slow incremental builds.
-- **`Incremental` attribute on targets**: Targets can explicitly opt in or out of incremental behavior. Setting `Incremental="false"` forces the target to always run, even if `Inputs` and `Outputs` are specified.
 - **Timestamp-based comparison**: MSBuild uses file system timestamps (last write time) to determine staleness. It does not use content hashes. This means touching a file (updating its timestamp without changing content) will trigger a rebuild.
 
 ```xml
@@ -49,12 +67,29 @@ MSBuild's incremental build mechanism allows targets to be skipped when their ou
 
 Use binary logs (binlogs) to understand exactly why targets ran instead of being skipped.
 
+Before recommending a fix, report this compact checklist for each target that reran:
+
+1. **Actual timestamp comparison** — name the newest resolved input and oldest resolved output, with their last-write times, and state which input is newer.
+2. **Output existence** — confirm every declared output exists before the second build and is not deleted, cleaned, or rewritten by another target.
+3. **Complete inputs** — verify `Inputs` includes every file that should invalidate the output, including volatile or generated dependencies. If a producer touches an input on every build, check whether its content changes. Fix unnecessary rewrites in the producer (for example, write only when content changes); if relevant content really changes, the dependent target must rerun. Exclude a file only with evidence that it cannot affect the output, never just because it changes often.
+4. **Stable resolved paths** — expand properties and relative paths for both builds; outputs must resolve to the same location and must not contain timestamps, build numbers, or GUIDs.
+5. **One-to-one mapping when batched** — for item transforms, map each input identity to its expected output and report missing, duplicate, or unmatched pairs.
+6. **No-change verification** — run the same build twice without edits and cite the second build's skip or out-of-date reason.
+
+For a diagnosis or explanation request, do not edit the project unless the user asks for a fix. If build execution is unavailable, distinguish inspected facts from expected behavior and do not claim the fix was applied or verified.
+
+`Overwrite="true"` on `WriteLinesToFile` is not itself a reason that an
+incremental target reruns. The task rewrites the file only after MSBuild has
+already scheduled the target; correct `Inputs`/`Outputs` can skip the target
+before the task executes.
+
 ### Step-by-step using binlog
 
-1. **Build twice with binlogs** to capture the incremental build behavior:
+1. **Build twice without edits** and capture both structured and text evidence
+   from the second build:
    ```shell
    dotnet build /bl:first.binlog
-   dotnet build /bl:second.binlog
+   dotnet build /bl:second.binlog -fl "-flp:v=diag;logfile=second-full.log;performancesummary"
    ```
    The first build establishes the baseline. The second build is the one you want to be incremental. Analyze `second.binlog`.
 
@@ -62,19 +97,16 @@ Use binary logs (binlogs) to understand exactly why targets ran instead of being
 
 Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the `binlog` MCP namespace) to analyze the second binlog:
 
-1. Use the overview tool to check overall build status and duration
-2. Use the search tool to find targets that executed vs were skipped — search for "Building target completely", "Building target incrementally", "Skipping target"
-3. Use the search tool to find "is newer than output" messages that reveal which input file triggered a rebuild
-4. Use target-related tools (target_reasons, project_targets) to inspect why specific targets ran
-5. Use the expensive_targets tool to find targets that consumed the most time in the second build — these are your optimization targets
+1. Use `load_binlog` to load `second.binlog`.
+2. Use `search_binlog` for "Building target completely", "Building target incrementally", "Skipping target", and "is newer than output".
+3. Use `get_target_info_by_name` for the target that reran.
+4. Use `get_project_target_list` to confirm the target and its project context.
+5. Use `get_expensive_targets` only to rank the non-skipped targets after the skip reason is understood.
 
-### Fallback: text-log replay (when MCP is unavailable)
+### Fallback: diagnostic text log (when MCP is unavailable)
 
-2. **Replay the second binlog** to a diagnostic text log:
-   ```shell
-   dotnet msbuild second.binlog -noconlog -fl -flp:v=diag;logfile=second-full.log;performancesummary
-   ```
-   Then search for targets that actually executed:
+2. **Read the diagnostic log captured during the second build**. Do not run
+   another build or depend on replay support for the default fallback:
    ```bash
    grep 'Building target\|Target.*was not skipped' second-full.log
    ```
@@ -220,7 +252,7 @@ MSBuild provides built-in tools to understand what's running and why.
 - **Always add `Inputs` and `Outputs` to custom targets** — This is the single most impactful change for incremental build performance. Without both attributes, the target runs every time.
 - **Use `$(IntermediateOutputPath)` for generated files** — Files in `obj/` are tracked by MSBuild's clean infrastructure and won't leak between configurations.
 - **Register generated files in `FileWrites`** — Ensures `dotnet clean` removes them and prevents stale file accumulation.
-- **Avoid volatile data in build** — Don't embed timestamps, random values, or build counters in file paths or generated content unless you have a deliberate strategy for managing staleness. If you must use volatile data, isolate it to a single file with minimal downstream impact.
+- **Avoid unnecessary volatility in producers** — Don't embed timestamps, random values, or build counters in file paths or generated content unless required. Preserve generated-file timestamps when content is unchanged (for example, `Overwrite="true" WriteOnlyWhenDifferent="true"` with `WriteLinesToFile`). Keep real dependencies in `Inputs`; if required volatile content changes, accept the dependent rebuild. Exclude a file only after proving it cannot affect the output.
 - **Use `Returns` instead of `Outputs` when you need to pass items without creating incremental build dependency** — `Outputs` serves double duty: it defines the incremental check AND the items returned from the target. If you only need to pass items to calling targets without affecting incrementality, use `Returns` instead:
   ```xml
   <!-- Outputs: affects incremental check AND return value -->

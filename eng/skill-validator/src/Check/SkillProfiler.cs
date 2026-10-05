@@ -131,6 +131,8 @@ public static partial class SkillProfiler
             errors.Add($"Skill description is only {skill.Description.Length} characters — minimum is {MinDescriptionLength}. Provide a meaningful description for agent discovery.");
         }
 
+        ValidateNoXmlTagsInDescription(skill.Description, errors);
+
         // --- agentskills.io spec: compatibility field ---
         // https://agentskills.io/specification#compatibility-field
         // "Must be 1-500 characters if provided"
@@ -331,6 +333,21 @@ public static partial class SkillProfiler
     }
 
     /// <summary>
+    /// Claude (claude.ai and Claude Code marketplace sync) rejects skill descriptions that contain
+    /// XML tags and strips the angle brackets from what it stores, so a description such as
+    /// "Vector&lt;T&gt;" or "&lt;Import&gt;" is reported as an issue after marketplace sync.
+    /// </summary>
+    internal static void ValidateNoXmlTagsInDescription(string? description, List<string> errors)
+    {
+        if (string.IsNullOrEmpty(description))
+            return;
+
+        var match = XmlTagRegex().Match(description);
+        if (match.Success)
+            errors.Add($"Skill description contains an XML-like tag '{match.Value}' — Claude rejects XML tags in descriptions. Rewrite it in plain words (for example, 'generic Vector type' instead of 'Vector<T>').");
+    }
+
+    /// <summary>
     /// Validate name format and directory match for skills.
     /// </summary>
     internal static void ValidateName(string name, string directoryName, List<string> errors)
@@ -411,6 +428,17 @@ public static partial class SkillProfiler
 
     [GeneratedRegex(@"^[a-z0-9-]+$")]
     private static partial Regex NameFormatRegex();
+
+    // Matches tag-like text: <T>, <_Root />, </div>, <Foo bar="x" />, <Compile Include>, Dictionary<TKey, TValue>,
+    // plus comments, processing instructions and CDATA. The body must be a name followed only by bare words or
+    // name=value attributes, so comparisons such as "a < b", ">5s" and "i<length && count>0" do not match.
+    // Unspaced word-only comparisons like "a<b and c>d" are indistinguishable from shorthand tags and are flagged.
+    [GeneratedRegex(
+        @"<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[" +
+        @"|</?[A-Za-z_][\w.:-]*(?:\[\]|\?)*" +
+        @"(?:[\s,]+[A-Za-z_][\w.:-]*(?:\[\]|\?)*(?:\s*=\s*(?:""[^""]*""|'[^']*'|[^\s""'<>=,]+))?)*" +
+        @"\s*/?>")]
+    private static partial Regex XmlTagRegex();
 
     [GeneratedRegex(@"\]\(([^)]+)\)")]
     private static partial Regex FileRefRegex();

@@ -14,7 +14,7 @@ license: MIT
 1. **Generate a binlog**: `dotnet build /bl:{} -m`
 2. **Replay to diagnostic log with performance summary**:
    ```bash
-   dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary
+   dotnet msbuild build.binlog -noconlog -fl "-flp:v=diag;logfile=full.log;performancesummary"
    ```
 3. **Read the performance summary** (at the end of `full.log`):
    ```bash
@@ -103,7 +103,7 @@ Step-by-step workflow using text log replay:
 
 1. **Replay with performance summary**:
    ```bash
-   dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary
+   dotnet msbuild build.binlog -noconlog -fl "-flp:v=diag;logfile=full.log;performancesummary"
    ```
 2. **Read target/task performance summaries** (at the end of `full.log`):
    ```bash

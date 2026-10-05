@@ -1,6 +1,6 @@
 ---
 name: build-perf-baseline
-description: "Establish build performance baselines and apply systematic optimization techniques. USE FOR: diagnosing slow builds, establishing before/after measurements (cold, warm, no-op scenarios), applying optimization strategies like static graph builds, artifacts output, and dependency graph trimming. Start here before diving into build-perf-diagnostics, incremental-build, or build-parallelism. DO NOT USE FOR: non-MSBuild build systems, detailed bottleneck analysis (use build-perf-diagnostics after baselining)."
+description: "Establish MSBuild/.NET build performance baselines before optimizing. USE FOR: a .NET build or solution that is slow or has build-performance concerns; cold, warm, incremental, or no-op measurements; before/after comparisons; CI build output caching; static graph build decisions; artifacts output; and dependency graph trimming. Start here before build-perf-diagnostics, incremental-build, or build-parallelism. DO NOT USE for webpack, npm, JavaScript bundlers, or other non-MSBuild build systems. For detailed target/task/analyzer bottleneck analysis after baselining, use build-perf-diagnostics."
 license: MIT
 ---
 
@@ -20,47 +20,68 @@ Before optimizing a build, you need a **baseline**. Without measurements, optimi
 
 ## Step 1: Establish a Performance Baseline
 
-Measure three scenarios to understand where time is spent:
+Measure three scenarios to understand where time is spent. Keep the SDK,
+configuration, machine, environment variables, restore state, and build command
+consistent. Run each scenario at least three times, repeating its setup before
+every measured sample, and report the median plus the observed range; a single
+timing is not a baseline. Keep setup outside the timed interval. Save each
+sample's binlog under a unique name, outside generated output directories.
 
 ### Cold Build (First Build)
 
 No previous build output exists. Measures the full end-to-end time including restore, compilation, and all targets.
 
-```bash
-# Clean everything first
-dotnet clean
-# Remove bin/obj to truly start fresh
-Get-ChildItem -Recurse -Directory -Include bin,obj | Remove-Item -Recurse -Force
-# OR on Linux/macOS:
-# find . -type d \( -name bin -o -name obj \) -exec rm -rf {} +
+Before **every cold sample**, restore the same source state, run `dotnet clean`
+with the measured configuration, and remove only the confirmed, disposable
+output and intermediate directories for the measured projects. Include custom
+artifact paths, not just `bin` and `obj`, and obtain approval before deletion.
+Verify those outputs are absent before timing the next build.
 
-# Measure cold build
-dotnet build /bl:cold-build.binlog -m
+This is an **output-cold** build, not necessarily a cold NuGet, OS, or compiler
+server cache. Choose and record a consistent cache/server policy for all
+samples; do not clear shared caches. If measuring uncached restore, use a
+separate, empty package cache for each sample.
+
+```shell
+# After repeating the cold setup; use a unique log name for each sample
+dotnet build /bl:cold-build-1.binlog -m
 ```
 
 ### Warm Build (Incremental Build)
 
 Build output exists, some files have changed. Measures how well incremental build works.
 
-```bash
-# Build once to populate outputs
+Before **every warm sample**, restore the same baseline source contents and
+build successfully without timing it. Then apply the same small, build-relevant
+edit to the same source file and time the build. Keep the changed file set and
+edit identical across samples; do not let edits accumulate. Restore the
+baseline contents before the next sample and rebuild them outside the timed
+interval. Do not clean between that setup build and its measured build.
+
+```shell
+# Untimed setup after restoring baseline source contents
 dotnet build -m
 
-# Make a small change (touch one .cs file)
-# Then rebuild
-dotnet build /bl:warm-build.binlog -m
+# Apply the same controlled source edit, then measure with a unique log name
+dotnet build /bl:warm-build-1.binlog -m
 ```
 
 ### No-Op Build (Nothing Changed)
 
-Build output exists, nothing has changed. This should be nearly instant. If it's slow, incremental build is broken.
+Build output exists, nothing has changed. Compilation and correctly incremental
+targets should skip; compare timing with this build's other samples.
 
-```bash
-# Build once to populate outputs
+Before **every no-op sample**, restore the same baseline source contents and
+run an untimed setup build successfully. Then measure an identical build
+without edits, touching inputs, cleaning outputs, or changing properties.
+Keep restore and cache/server policy consistent with the other samples.
+
+```shell
+# Untimed setup after restoring baseline source contents
 dotnet build -m
 
-# Rebuild immediately without changes
-dotnet build /bl:noop-build.binlog -m
+# Rebuild immediately without changes; use a unique log name for each sample
+dotnet build /bl:noop-build-1.binlog -m
 ```
 
 ### What Good Looks Like
@@ -69,12 +90,31 @@ dotnet build /bl:noop-build.binlog -m
 |----------|------------------|
 | Cold build | Full compilation, all targets run. This is your absolute baseline |
 | Warm build | Only changed projects recompile. Time proportional to change scope |
-| No-op build | < 5 seconds for small repos, < 30 seconds for large repos. All compilation targets should report "Skipping target — all outputs up-to-date" |
+| No-op build | Compilation and correctly incremental custom targets skip; compare duration with this repo's repeated warm and cold samples |
 
 **Red flags:**
-- No-op build > 30 seconds → incremental build is broken (see `incremental-build` skill)
+- No-op time is repeatedly close to warm/cold time, or compilation targets rerun → investigate incrementality (see `incremental-build`)
 - Warm build recompiles everything → project dependency chain forces full rebuild
-- Cold build has long restore → NuGet cache issues
+- Restore dominates cold samples → measure `dotnet restore` and `dotnet build --no-restore` separately before changing project structure
+
+Do not use universal duration or percentage thresholds to declare a bottleneck.
+Rank costs against the controlled samples and the build's own target/task
+timings.
+
+### Capture analyzer evidence
+
+A binlog shows compiler/task timing, but granular analyzer timing requires an
+analyzer-reporting run. When supported by the SDK/compiler, capture:
+
+```shell
+dotnet build /bl:analyzers.binlog /p:ReportAnalyzer=true
+```
+
+Open the binlog in MSBuild Structured Log Viewer and inspect the analyzer
+summary under the compiler task. If granular timing is unavailable, compare
+otherwise identical samples with `/p:RunAnalyzers=false` as an attribution
+experiment; do not present disabling analyzers as the fix. Preserve analyzer
+enforcement in CI.
 
 ### Recording Baselines
 
@@ -329,9 +369,14 @@ dotnet test --no-build
 # Skip building documentation
 dotnet build /p:GenerateDocumentationFile=false
 
-# Skip analyzers during development (not for CI!)
+# Attribution experiment only: compare against the same build with analyzers
 dotnet build /p:RunAnalyzers=false
 ```
+
+Use these switches to measure contribution before changing configuration.
+Do not recommend permanently disabling analyzers from this baseline step;
+route measured analyzer bottlenecks to `build-perf-diagnostics` and preserve
+CI enforcement.
 
 ### Use Project-Level Filtering
 
@@ -356,8 +401,9 @@ Then use the `build-perf-diagnostics` skill and binlog tools for systematic bott
 ## Optimization Decision Tree
 
 ```
-Is your no-op build slow (> 10s per project)?
-├── YES → See `incremental-build` skill (fix Inputs/Outputs)
+Is your repeated no-op build disproportionately close to warm/cold samples,
+or are compile/custom targets rerunning?
+├── YES → See `incremental-build` skill (inspect Inputs/Outputs and skip reasons)
 └── NO
     Is your cold build slow?
     ├── YES
@@ -373,5 +419,5 @@ Is your no-op build slow (> 10s per project)?
     └── NO
         Is your warm build slow?
         ├── YES → Projects rebuilding unnecessarily → check `incremental-build` skill
-        └── NO → Build is healthy! Consider graph build or UseArtifactsOutput for further gains
+        └── NO → Baseline is healthy; adopt graph build or UseArtifactsOutput only for a measured need
 ```
