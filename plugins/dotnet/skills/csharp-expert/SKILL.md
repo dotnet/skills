@@ -6,9 +6,10 @@ description: >-
   any C#/.NET task where ASP.NET Core, Blazor, MAUI, WinForms, EF Core, testing, MSBuild, NuGet,
   diagnostics, upgrades, interop, performance, templates, AI, or C# semantics may determine the
   workflow; ambiguous prompts such as "fix this", "upgrade", "make it faster", or "write tests";
-  identifying which dotnet-agent-skills plugin to install; and mixed .NET solutions needing multiple
-  specialists. DO NOT USE FOR: requests clearly unrelated to C# or .NET, or when the user explicitly
-  selected an available specialist skill and no routing or marketplace decision remains.
+  identifying which dotnet-agent-skills plugin to install; one-file C# apps with no project;
+  installed plugins missing from `/skills`; and mixed .NET solutions needing multiple specialists.
+  DO NOT USE FOR: requests clearly unrelated to C# or .NET, or when the user explicitly selected an
+  available specialist skill and no routing or marketplace decision remains.
 license: MIT
 ---
 
@@ -29,23 +30,25 @@ language guidance as the fallback, not the default.
 4. If the best skill is available, invoke it with the `skill` tool as the first external action; do
    not emit a routing explanation before the invocation and do not merely recommend the skill.
 5. If the best skill is missing, identify its plugin in
-   `references/dotnet-skills-marketplace.md` and provide the exact marketplace and install commands.
+   `references/dotnet-skills-marketplace.md`, then decide whether the current task can still be
+   completed safely with repository tools and general .NET knowledge.
 6. Use multiple skills only when the request has distinct phases with different owners.
 7. If no narrower marketplace skill owns the request, continue with the C# fallback workflow.
 
-When the route needs to be visible in the eventual response, use one concise line:
+Routing is not task completion. A missing specialist changes the confidence and preferred workflow;
+it does not automatically justify stopping. Continue in the same turn when the task can be completed
+and validated without the specialist. Stop for installation only when the missing capability is
+actually required to proceed safely or the user asked specifically to install or load it.
 
-```text
-Route: `<skill-name>` - <prompt signal> + <solution signal>.
-```
+Choose the operating mode from the user's requested outcome:
 
-For a sequence:
+| User asks for | Required behavior |
+|---|---|
+| Implement, fix, diagnose, migrate, or create | Invoke the installed specialist, or complete a safe local fallback and report the optional plugin afterward. |
+| Identify, choose, install, prepare, or load the right marketplace capability | Inspect enough solution evidence to choose the owner, give the exact acquisition steps, and stop without editing or generating the requested application artifact. |
+| Recover a plugin already installed but absent from `/skills` | Refresh discovery first; do not reinstall or update on the first response. |
 
-```text
-Route: `<first-skill>` -> `<second-skill>` - <why the phases have different owners>.
-```
-
-Do not turn routing into a menu. Choose a route, invoke it, and proceed.
+Choose one owner per phase. Do not expose internal routing ceremony or turn the answer into a menu.
 
 ## Step 1: Classify the Prompt
 
@@ -138,7 +141,24 @@ After selecting the capability:
 2. If it does not appear, open `references/dotnet-skills-marketplace.md` and map the capability or
    skill name to the owning marketplace plugin.
 3. Recommend the smallest plugin that contains the needed skill. Do not install every .NET plugin.
-4. Follow the missing-skill workflow below. Do not claim that an unavailable skill was loaded.
+4. Follow the missing-skill workflow below. Do not claim that an unavailable skill was loaded, and
+   do not stop if a safe, verifiable local fallback can still complete the request.
+
+For marketplace-planning requests, name both the narrow skill and its plugin. Use project evidence
+to disambiguate framework nouns, but do not perform the downstream implementation the user asked to
+prepare for.
+
+Use the bundled marketplace reference as the authoritative lookup. Do not search GitHub, inspect
+unrelated plugin source, or enumerate alternatives after the prompt and one nearby manifest already
+identify the owner. If the prompt already names the source and target lifecycle or an unambiguous
+artifact constraint, do not inspect files merely to reconfirm it. Answer in four compact parts:
+
+1. Capability and plugin.
+2. One sentence matching the request's decisive behaviors or artifact evidence.
+3. Host-correct install steps.
+4. Restart/discovery verification, when the host requires it.
+
+Do not add a `Route:` header in marketplace-planning mode; lead with the capability and plugin.
 
 ## Step 4: Obtain a Missing Skill
 
@@ -149,13 +169,13 @@ For GitHub Copilot CLI or Claude Code, give these exact commands with the select
 /plugin install <plugin>@dotnet-agent-skills
 ```
 
-Then require:
+When installation is the next step, require:
 
 ```text
 Restart the host, run `/skills` to confirm the specialist is available, and rerun the request.
 ```
 
-Use this response shape:
+When the missing capability is required before work can continue, use this response shape:
 
 ```text
 Missing specialist: `<skill>` from `<plugin>`.
@@ -165,6 +185,19 @@ Install:
 After restart: run `/skills`, then rerun: "<concise original request>"
 ```
 
+When the task can proceed without the specialist:
+
+1. State the missing specialist and reduced coverage in one concise sentence.
+2. Complete the requested work now using the repository, standard .NET tooling, and the fallback
+   rules that match the task.
+3. Validate the result as narrowly as possible.
+4. Put optional installation guidance after the result. Do not ask whether to proceed, defer the
+   implementation, or make the user repeat the request.
+
+This reduced-coverage path may still perform framework, migration, diagnostics, or tooling work; it
+is separate from the language-only fallback in Step 6. Preserve the selected domain's invariants
+and report any specialist-specific checks that could not be performed.
+
 Rules:
 
 - The marketplace name is `dotnet-agent-skills`; the source repository is `dotnet/skills`.
@@ -173,13 +206,29 @@ Rules:
   install command.
 - Slash commands are host actions. Present them exactly; do not run shell commands that pretend to
   install a Copilot or Claude plugin.
-- Do not continue with a specialist workflow in the same turn when loading it requires a restart.
+- Do not pretend to continue with the unavailable specialist workflow. Use an explicit local
+  fallback when the task remains safely achievable.
 - If the plugin is installed but the skill is absent, ask the user to restart and check `/skills`
   before recommending a reinstall.
 - For Codex CLI, VS Code, Cursor, or individual-skill installation, use the host-specific commands in
   `references/dotnet-skills-marketplace.md`.
-- If installation is impossible or declined, state the reduced coverage and use the safest local
-  fallback only when it can still satisfy the request correctly.
+- If installation is impossible, declined, or not necessary for the immediate task, state the
+  reduced coverage and use the safest local fallback when it can still satisfy the request.
+- Never trade away implementation or validation merely to produce installation instructions.
+
+### Installed but not discovered
+
+When the user says the plugin is already installed but its skills are absent:
+
+1. Trust the stated installed state unless repository evidence directly contradicts it.
+2. Start by acknowledging that the plugin is installed and discovery is stale.
+3. Tell the user to restart or reload the host, then run `/skills`.
+4. Name the expected skill so discovery can be verified.
+5. Stop there on the first response. Do not emit marketplace-add, install, update, shell-level
+   plugin-management, `/skills reload`, or invented explicit-invocation commands.
+
+Only after the user reports that restart plus `/skills` still fails should the next response move to
+host-specific update or reinstall diagnostics.
 
 ## Step 5: Compose Skills Deliberately
 
@@ -194,12 +243,18 @@ Do not chain skills that duplicate each other, load an entire plugin "just in ca
 generic skill before a specialist that already owns the request. After a specialist is loaded,
 follow its workflow and boundaries.
 
+If one or more phase specialists are missing but ordinary `dotnet` commands and repository edits
+can complete the phases, execute the phases in order and report the optional plugins afterward.
+Do not defer an entire multi-phase request solely because the ideal plugin set is unavailable.
+
 ## Step 6: C# Language Fallback
 
 Use this only when no narrower available skill matches and the load-bearing problem is C# language
 or runtime semantics.
 
-1. Reproduce the exact compiler diagnostic, failing test, exception, or incorrect behavior.
+1. Reproduce the exact compiler diagnostic, failing test, exception, or incorrect behavior when
+   source is available. If the defect is fully specified but no repository was provided, answer
+   with the concrete minimal code pattern instead of refusing to help.
 2. Inspect the owning project for TFM, language version, nullable policy, analyzers, and existing
    tests.
 3. Preserve public signatures, serialization shape, ownership, cancellation, disposal, and
@@ -208,15 +263,22 @@ or runtime semantics.
 5. Check LSP diagnostics when available, then build the narrowest affected project and run focused
    tests or the executable path that proves the original symptom is gone.
 
+For a marketplace-planning request whose correct route is this fallback, say that no additional
+plugin is needed and identify the core C# semantic that owns the fix.
+
 Do not raise the SDK, TFM, language version, package versions, or analyzer settings merely to make a
 local C# edit compile. Do not edit generated files. Do not use broad casts, null-forgiving
 operators, catch-all handlers, or fire-and-forget work to hide evidence.
 
+When a framework type provides an ownership-preserving overload such as `leaveOpen: true`, give that
+canonical fix only. Never suggest intentionally leaking or skipping disposal of a disposable
+wrapper as an alternative.
+
 ## Boundaries and Failure Handling
 
 - If the best specialist is unavailable, provide its exact `dotnet/skills` plugin installation
-  command. Use a fallback only if installation is impossible or declined and reduced coverage is
-  explicit.
+  command. Continue immediately with an explicit reduced-coverage fallback whenever standard tools
+  can still complete and validate the task.
 - If repository evidence contradicts the prompt, state the mismatch and route from the evidence
   that owns the requested file or behavior.
 - If the user explicitly requests analysis only, route to the correct analysis skill but do not
@@ -230,6 +292,7 @@ operators, catch-all handlers, or fire-and-forget work to hide evidence.
 - The selected skill matches both the requested outcome and the owning solution/project evidence.
 - The selected skill was invoked when available, not merely named.
 - A missing specialist is mapped to its exact marketplace plugin and install command.
+- A missing specialist does not prevent completion when a safe, verifiable fallback exists.
 - Installation guidance includes restart, `/skills` verification, and a concise request to rerun.
 - At most one primary skill owns each phase.
 - Mixed requests have an explicit, minimal sequence.
@@ -246,6 +309,7 @@ operators, catch-all handlers, or fire-and-forget work to hide evidence.
 | Naming several possible skills | Gather one discriminating fact, choose one, and proceed. |
 | Assuming a remembered skill is installed | Use only the runtime's available-skill catalog. |
 | Recommending a missing skill without helping install it | Map it to its plugin and emit the exact marketplace install command. |
+| Stopping after installation guidance | If standard repository tools can finish the task, continue now and put optional installation guidance after the result. |
 | Installing a skill name | Install `<plugin>@dotnet-agent-skills`; plugins are the marketplace unit. |
 | Pretending slash commands ran successfully | Require the user to install, restart, verify with `/skills`, and rerun. |
 | Treating all performance work as code optimization | Separate runtime, build, query, and microbenchmark evidence. |

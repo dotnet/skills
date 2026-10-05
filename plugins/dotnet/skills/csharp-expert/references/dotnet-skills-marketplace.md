@@ -51,6 +51,26 @@ Update an installed plugin with:
 Prefer the plugin containing the narrowest task owner. A project can justify several plugins, but a
 single task usually requires only one.
 
+## Common Exact Skill Routes
+
+Use these names when the runtime catalog does not contain the specialist and the user is preparing
+or installing a marketplace route.
+
+| Request | Skill | Plugin |
+|---|---|---|
+| Author a reusable Blazor component with parameters, content, and callbacks | `author-component` | `dotnet-blazor` |
+| Collect and validate user input in a Blazor form | `collect-user-input` | `dotnet-blazor` |
+| Create a Blazor project with framework-specific defaults | `create-blazor-project` | `dotnet-blazor` |
+| Discover or instantiate a general `dotnet new` template | `template-discovery` or `template-instantiation` | `dotnet-template-engine` |
+| Repair MAUI XAML binding and change notification | `maui-data-binding` | `dotnet-maui` |
+| Convert NUnit tests to MSTest | `migrate-nunit-to-mstest` | `dotnet-test-migration` |
+| Create or run a file-based C# app without a project | `csharp-scripts` | `dotnet-advanced` |
+| Optimize repeated EF Core query work | `optimizing-ef-core-queries` | `dotnet-data` |
+| Collect a runtime trace before a hot method is known | `dotnet-trace-collect` | `dotnet-diag` |
+
+For a multi-phase request, list one exact skill per independently owned phase and install each
+distinct owning plugin once.
+
 ## Codex CLI
 
 Register the marketplace:

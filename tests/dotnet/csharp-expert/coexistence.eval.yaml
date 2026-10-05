@@ -12,8 +12,8 @@ stimuli:
       risk: medium
       journey: create
     prompt: |
-      Build a reusable editor component with parameters, validation, and an event callback to the
-      parent.
+      Build a reusable editor component with parameters, a RenderFragment content slot, and an event
+      callback to the parent.
     environment:
       files:
         - src: fixtures/blazor-components
@@ -82,16 +82,34 @@ stimuli:
       journey: migrate
     prompt: |
       Convert an NUnit test project to MSTest while preserving parameterized cases and lifecycle
-      hooks.
+      hooks. Run the migrated tests.
+    environment:
+      files:
+        - src: fixtures/nunit-migration
+          dest: .
     graders:
       - type: output-not-matches
         config:
           pattern: /plugin (marketplace add|install)
+      - type: file-not-contains
+        config:
+          path: "**/*.cs"
+          value: NUnit
+      - type: file-not-contains
+        config:
+          path: "**/*.csproj"
+          value: NUnit
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_matches: Passed!
+          timeout: 3m
       - type: exit-success
       - type: prompt
     rubric:
       - Used the installed NUnit-to-MSTest migration workflow rather than recommending installation
-      - Preserved the requested test semantics
+      - Preserved the requested test semantics and ran the migrated tests successfully
 
   - name: Invoke installed runtime diagnostics guidance
     tags:
