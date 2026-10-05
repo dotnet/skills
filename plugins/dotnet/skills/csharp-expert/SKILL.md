@@ -1,15 +1,13 @@
 ---
 name: csharp-expert
 description: >-
-  Route C# and .NET requests to the most specific skill by combining the user's intent with solution
-  evidence, and help obtain missing specialists from the dotnet/skills plugin marketplace. USE FOR:
-  any C#/.NET task where ASP.NET Core, Blazor, MAUI, WinForms, EF Core, testing, MSBuild, NuGet,
-  diagnostics, upgrades, interop, performance, templates, AI, or C# semantics may determine the
-  workflow; ambiguous prompts such as "fix this", "upgrade", "make it faster", or "write tests";
-  identifying which dotnet-agent-skills plugin to install; one-file C# apps with no project;
-  installed plugins missing from `/skills`; and mixed .NET solutions needing multiple specialists.
-  DO NOT USE FOR: requests clearly unrelated to C# or .NET, or when the user explicitly selected an
-  available specialist skill and no routing or marketplace decision remains.
+  Route ambiguous C# and .NET requests to the most specific available skill or the
+  smallest marketplace plugin. USE FOR: selecting a specialist for an unclear C#/.NET
+  request, identifying the solution owner, one-file C# apps with no project, and recovering
+  an installed plugin missing from `/skills`.
+  DO NOT USE FOR: requests clearly owned by an available specialist such as C# refactoring,
+  MSBuild diagnosis, SDK setup, or an exact framework/test migration; or requests clearly
+  unrelated to C# or .NET.
 license: MIT
 ---
 
