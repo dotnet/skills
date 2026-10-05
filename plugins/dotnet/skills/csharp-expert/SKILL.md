@@ -5,8 +5,8 @@ description: >-
   smallest marketplace plugin. USE FOR: selecting a specialist for an unclear C#/.NET
   request, identifying the solution owner, one-file C# apps with no project, and recovering
   an installed plugin missing from `/skills`.
-  DO NOT USE FOR: requests clearly owned by an available specialist such as C# refactoring,
-  MSBuild diagnosis, SDK setup, or an exact framework/test migration; or requests clearly
+  DO NOT USE FOR: direct implementation requests already covered by an available specialist such as C#
+  refactoring, MSBuild diagnosis, SDK setup, or an exact framework/test migration; or requests clearly
   unrelated to C# or .NET.
 license: MIT
 ---
