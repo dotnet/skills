@@ -5,11 +5,9 @@ available-skill catalog.
 
 ## Marketplace Identity
 
-| Item | Value |
-|---|---|
-| Source repository | `dotnet/skills` |
-| Marketplace name | `dotnet-agent-skills` |
-| Install unit | Plugin, not individual skill |
+- Source repository: `dotnet/skills`
+- Marketplace name: `dotnet-agent-skills`
+- Install unit: plugin, not individual skill
 
 ## Copilot CLI and Claude Code
 
@@ -29,24 +27,36 @@ Update an installed plugin with:
 
 ## Plugin Catalog
 
-| Plugin | Install command | Use when the missing capability concerns |
-|---|---|---|
-| `dotnet` | `/plugin install dotnet@dotnet-agent-skills` | Core C# semantics, refactoring, local SDK setup, or the bundled MSBuild entry workflow |
-| `dotnet-advanced` | `/plugin install dotnet-advanced@dotnet-agent-skills` | File-based C# apps, P/Invoke, vectorization, or NuGet trusted publishing |
-| `dotnet-data` | `/plugin install dotnet-data@dotnet-agent-skills` | EF Core query optimization or data-driven ASP.NET Core applications |
-| `dotnet-diag` | `/plugin install dotnet-diag@dotnet-agent-skills` | Runtime performance, trace collection, dump collection, CLR activation, crash symbolication, or microbenchmarking |
-| `dotnet-msbuild` | `/plugin install dotnet-msbuild@dotnet-agent-skills` | Specialist MSBuild binlog, build performance, target, item, property, incremental-build, or project-reference workflows |
-| `dotnet-nuget` | `/plugin install dotnet-nuget@dotnet-agent-skills` | NuGet dependency management or Central Package Management conversion |
-| `dotnet-upgrade` | `/plugin install dotnet-upgrade@dotnet-agent-skills` | TFM upgrades, nullable migration, AOT compatibility, or Thread.Abort migration |
-| `dotnet-maui` | `/plugin install dotnet-maui@dotnet-agent-skills` | MAUI setup, lifecycle, binding, navigation, DI, CollectionView, safe area, or theming |
-| `dotnet-ai` | `/plugin install dotnet-ai@dotnet-agent-skills` | .NET AI/ML technology selection, LLMs, agents, RAG, MCP, or ML.NET |
-| `dotnet-template-engine` | `/plugin install dotnet-template-engine@dotnet-agent-skills` | Template discovery, instantiation, comparison, authoring, validation, or smart defaults |
-| `dotnet-test` | `/plugin install dotnet-test@dotnet-agent-skills` | Test execution, filtering, platform detection, coverage, quality analysis, testability, or MSTest authoring |
-| `dotnet-test-migration` | `/plugin install dotnet-test-migration@dotnet-agent-skills` | MSTest/xUnit upgrades, NUnit/xUnit to MSTest, or VSTest to Microsoft.Testing.Platform |
-| `dotnet-aspnetcore` | `/plugin install dotnet-aspnetcore@dotnet-agent-skills` | ASP.NET Core APIs, endpoints, middleware, or Blazor Server to Blazor Web App conversion |
-| `dotnet-blazor` | `/plugin install dotnet-blazor@dotnet-agent-skills` | Blazor projects, components, forms, auth, interactivity, prerendering, data flow, or JS interop |
-| `dotnet-winforms` | `/plugin install dotnet-winforms@dotnet-agent-skills` | Windows Forms project setup, UI, binding, accessibility, or modernization |
-| `dotnet11` | `/plugin install dotnet11@dotnet-agent-skills` | .NET 11-specific APIs and language features |
+- `dotnet`: Core C# semantics, refactoring, local SDK setup, or the bundled MSBuild entry workflow.
+- `dotnet-advanced`: File-based C# apps, P/Invoke, vectorization, or NuGet trusted publishing.
+- `dotnet-data`: EF Core query optimization or data-driven ASP.NET Core applications.
+- `dotnet-diag`: Runtime performance, trace and dump collection, CLR activation, crash
+  symbolication, or microbenchmarking.
+- `dotnet-msbuild`: Specialist MSBuild binlog, build performance, target, item, property,
+  incremental-build, or project-reference workflows.
+- `dotnet-nuget`: NuGet dependency management or Central Package Management conversion.
+- `dotnet-upgrade`: TFM upgrades, nullable migration, AOT compatibility, or Thread.Abort migration.
+- `dotnet-maui`: MAUI setup, lifecycle, binding, navigation, DI, CollectionView, safe area, or
+  theming.
+- `dotnet-ai`: .NET AI/ML technology selection, LLMs, agents, RAG, MCP, or ML.NET.
+- `dotnet-template-engine`: Template discovery, instantiation, comparison, authoring, validation,
+  or smart defaults.
+- `dotnet-test`: Test execution, filtering, platform detection, coverage, quality analysis,
+  testability, or MSTest authoring.
+- `dotnet-test-migration`: MSTest/xUnit upgrades, NUnit/xUnit to MSTest, or VSTest to
+  Microsoft.Testing.Platform.
+- `dotnet-aspnetcore`: ASP.NET Core APIs, endpoints, middleware, or Blazor Server to Blazor Web App
+  conversion.
+- `dotnet-blazor`: Blazor projects, components, forms, auth, interactivity, prerendering, data
+  flow, or JS interop.
+- `dotnet-winforms`: Windows Forms project setup, UI, binding, accessibility, or modernization.
+- `dotnet11`: .NET 11-specific APIs and language features.
+
+Install the selected plugin with:
+
+```text
+/plugin install <plugin>@dotnet-agent-skills
+```
 
 Prefer the plugin containing the narrowest task owner. A project can justify several plugins, but a
 single task usually requires only one.
