@@ -4,67 +4,68 @@ using SkillValidator.Shared;
 
 namespace SkillValidator.Tests;
 
+[TestClass]
 public class EvaluateAssertionsTests
 {
     private const string WorkDir = "C:\\temp\\test-workdir";
 
-    [Fact]
+    [TestMethod]
     public async Task OutputContainsPassesWhenValueIsPresent()
     {
         var assertions = new List<Assertion> { new(AssertionType.OutputContains, Value: "hello") };
         var results = await AssertionEvaluator.EvaluateAssertions(assertions, "hello world", WorkDir);
-        Assert.True(results[0].Passed);
+        Assert.IsTrue(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task OutputContainsIsCaseInsensitive()
     {
         var assertions = new List<Assertion> { new(AssertionType.OutputContains, Value: "Hello") };
         var results = await AssertionEvaluator.EvaluateAssertions(assertions, "HELLO WORLD", WorkDir);
-        Assert.True(results[0].Passed);
+        Assert.IsTrue(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task OutputContainsFailsWhenValueIsMissing()
     {
         var assertions = new List<Assertion> { new(AssertionType.OutputContains, Value: "missing") };
         var results = await AssertionEvaluator.EvaluateAssertions(assertions, "hello world", WorkDir);
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task OutputMatchesPassesWhenPatternMatches()
     {
         var assertions = new List<Assertion> { new(AssertionType.OutputMatches, Pattern: "\\d{3}-\\d{4}") };
         var results = await AssertionEvaluator.EvaluateAssertions(assertions, "Call 555-1234", WorkDir);
-        Assert.True(results[0].Passed);
+        Assert.IsTrue(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task OutputMatchesFailsWhenPatternDoesNotMatch()
     {
         var assertions = new List<Assertion> { new(AssertionType.OutputMatches, Pattern: "^exact$") };
         var results = await AssertionEvaluator.EvaluateAssertions(assertions, "not exact match", WorkDir);
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ExitSuccessPassesWithNonEmptyOutput()
     {
         var assertions = new List<Assertion> { new(AssertionType.ExitSuccess) };
         var results = await AssertionEvaluator.EvaluateAssertions(assertions, "some output", WorkDir);
-        Assert.True(results[0].Passed);
+        Assert.IsTrue(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ExitSuccessFailsWithEmptyOutput()
     {
         var assertions = new List<Assertion> { new(AssertionType.ExitSuccess) };
         var results = await AssertionEvaluator.EvaluateAssertions(assertions, "", WorkDir);
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ExitSuccessFailsWhenRunTimedOutAfterOutput()
     {
         var metrics = new RunMetrics
@@ -80,11 +81,11 @@ public class EvaluateAssertionsTests
             WorkDir,
             metrics: metrics);
 
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("timed out", results[0].Message);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ExitSuccessFailsWhenRunRecordedErrorAfterOutput()
     {
         var metrics = new RunMetrics
@@ -100,11 +101,11 @@ public class EvaluateAssertionsTests
             WorkDir,
             metrics: metrics);
 
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("recorded 1 error", results[0].Message);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ExitSuccessFailsAfterUnsuccessfulToolCompletionAndIdle()
     {
         var events = new List<AgentEvent>
@@ -128,11 +129,11 @@ public class EvaluateAssertionsTests
             "/tmp/work",
             metrics: metrics);
 
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("recorded 1 error", results[0].Message);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ExitSuccessRequiresSessionIdleWhenMetricsProvided()
     {
         var metrics = new RunMetrics
@@ -147,11 +148,11 @@ public class EvaluateAssertionsTests
             WorkDir,
             metrics: metrics);
 
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("did not reach session.idle", results[0].Message);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ExitSuccessFailsClosedWhenEventsAreMissing()
     {
         var metrics = new RunMetrics
@@ -166,11 +167,11 @@ public class EvaluateAssertionsTests
             WorkDir,
             metrics: metrics);
 
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("did not reach session.idle", results[0].Message);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ExitSuccessPassesForCleanIdleRun()
     {
         var metrics = new RunMetrics
@@ -185,10 +186,10 @@ public class EvaluateAssertionsTests
             WorkDir,
             metrics: metrics);
 
-        Assert.True(results[0].Passed);
+        Assert.IsTrue(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task HandlesMultipleAssertions()
     {
         var assertions = new List<Assertion>
@@ -198,12 +199,13 @@ public class EvaluateAssertionsTests
             new(AssertionType.OutputContains, Value: "missing"),
         };
         var results = await AssertionEvaluator.EvaluateAssertions(assertions, "hello world", WorkDir);
-        Assert.True(results[0].Passed);
-        Assert.True(results[1].Passed);
-        Assert.False(results[2].Passed);
+        Assert.IsTrue(results[0].Passed);
+        Assert.IsTrue(results[1].Passed);
+        Assert.IsFalse(results[2].Passed);
     }
 }
 
+[TestClass]
 public class FileContainsAssertionTests : IDisposable
 {
     private readonly string _tmpDir;
@@ -221,39 +223,40 @@ public class FileContainsAssertionTests : IDisposable
         try { Directory.Delete(_tmpDir, true); } catch { }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PassesWhenFileContainsTheValue()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
             [new Assertion(AssertionType.FileContains, Path: "*.cs", Value: "stackalloc")],
             "",
             _tmpDir);
-        Assert.True(results[0].Passed);
+        Assert.IsTrue(results[0].Passed);
         Assert.Contains("hello.cs", results[0].Message);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task FailsWhenFileDoesNotContainTheValue()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
             [new Assertion(AssertionType.FileContains, Path: "*.cs", Value: "notfound")],
             "",
             _tmpDir);
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task FailsWhenNoFilesMatchTheGlob()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
             [new Assertion(AssertionType.FileContains, Path: "*.py", Value: "import")],
             "",
             _tmpDir);
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("No file matching", results[0].Message);
     }
 }
 
+[TestClass]
 public class FileNotContainsAssertionTests : IDisposable
 {
     private readonly string _tmpDir;
@@ -271,39 +274,40 @@ public class FileNotContainsAssertionTests : IDisposable
         try { Directory.Delete(_tmpDir, true); } catch { }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PassesWhenFileDoesNotContainTheValue()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
             [new Assertion(AssertionType.FileNotContains, Path: "*.cs", Value: "notfound")],
             "",
             _tmpDir);
-        Assert.True(results[0].Passed);
+        Assert.IsTrue(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task FailsWhenFileContainsTheValue()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
             [new Assertion(AssertionType.FileNotContains, Path: "*.cs", Value: "stackalloc")],
             "",
             _tmpDir);
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("hello.cs", results[0].Message);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task FailsWhenNoFilesMatchTheGlob()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
             [new Assertion(AssertionType.FileNotContains, Path: "*.py", Value: "import")],
             "",
             _tmpDir);
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("No file matching", results[0].Message);
     }
 }
 
+[TestClass]
 public class EvaluateConstraintsTests
 {
     private static RunMetrics MakeMetrics(
@@ -345,114 +349,115 @@ public class EvaluateConstraintsTests
             MaxTokens: maxTokens);
     }
 
-    [Fact]
+    [TestMethod]
     public void ReturnsEmptyWhenNoConstraintsSpecified()
     {
         var results = AssertionEvaluator.EvaluateConstraints(MakeScenario(), MakeMetrics());
-        Assert.Empty(results);
+        Assert.IsEmpty(results);
     }
 
-    [Fact]
+    [TestMethod]
     public void ExpectToolsPassesWhenToolWasUsed()
     {
         var results = AssertionEvaluator.EvaluateConstraints(
             MakeScenario(expectTools: ["bash"]),
             MakeMetrics());
-        Assert.Single(results);
-        Assert.True(results[0].Passed);
+        Assert.ContainsSingle(results);
+        Assert.IsTrue(results[0].Passed);
         Assert.Contains("'bash' was used", results[0].Message);
     }
 
-    [Fact]
+    [TestMethod]
     public void ExpectToolsFailsWhenToolWasNotUsed()
     {
         var results = AssertionEvaluator.EvaluateConstraints(
             MakeScenario(expectTools: ["python"]),
             MakeMetrics());
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("'python' was not used", results[0].Message);
     }
 
-    [Fact]
+    [TestMethod]
     public void RejectToolsPassesWhenToolWasNotUsed()
     {
         var results = AssertionEvaluator.EvaluateConstraints(
             MakeScenario(rejectTools: ["python"]),
             MakeMetrics());
-        Assert.True(results[0].Passed);
+        Assert.IsTrue(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public void RejectToolsFailsWhenToolWasUsed()
     {
         var results = AssertionEvaluator.EvaluateConstraints(
             MakeScenario(rejectTools: ["create_file"]),
             MakeMetrics());
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("'create_file' was used but should not be", results[0].Message);
     }
 
-    [Fact]
+    [TestMethod]
     public void MaxTurnsPassesWhenUnderLimit()
     {
         var results = AssertionEvaluator.EvaluateConstraints(
             MakeScenario(maxTurns: 10),
             MakeMetrics(turnCount: 5));
-        Assert.True(results[0].Passed);
+        Assert.IsTrue(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public void MaxTurnsFailsWhenOverLimit()
     {
         var results = AssertionEvaluator.EvaluateConstraints(
             MakeScenario(maxTurns: 3),
             MakeMetrics(turnCount: 5));
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("exceeds max_turns 3", results[0].Message);
     }
 
-    [Fact]
+    [TestMethod]
     public void MaxTokensPassesWhenUnderLimit()
     {
         var results = AssertionEvaluator.EvaluateConstraints(
             MakeScenario(maxTokens: 5000),
             MakeMetrics(tokenEstimate: 1000));
-        Assert.True(results[0].Passed);
+        Assert.IsTrue(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public void MaxTokensFailsWhenOverLimit()
     {
         var results = AssertionEvaluator.EvaluateConstraints(
             MakeScenario(maxTokens: 500),
             MakeMetrics(tokenEstimate: 1000));
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("exceeds max_tokens 500", results[0].Message);
     }
 
-    [Fact]
+    [TestMethod]
     public void EvaluatesMultipleConstraintsTogether()
     {
         var results = AssertionEvaluator.EvaluateConstraints(
             MakeScenario(expectTools: ["bash"], rejectTools: ["python"], maxTurns: 10, maxTokens: 5000),
             MakeMetrics());
-        Assert.Equal(4, results.Count);
-        Assert.True(results.All(r => r.Passed));
+        Assert.AreEqual(4, results.Count);
+        Assert.IsTrue(results.All(r => r.Passed));
     }
 
-    [Fact]
+    [TestMethod]
     public void ExpectToolsChecksEachToolIndependently()
     {
         var results = AssertionEvaluator.EvaluateConstraints(
             MakeScenario(expectTools: ["bash", "python", "create_file"]),
             MakeMetrics());
-        Assert.Equal(3, results.Count);
-        Assert.True(results[0].Passed);   // bash: used
-        Assert.False(results[1].Passed);  // python: not used
-        Assert.True(results[2].Passed);   // create_file: used
+        Assert.AreEqual(3, results.Count);
+        Assert.IsTrue(results[0].Passed);   // bash: used
+        Assert.IsFalse(results[1].Passed);  // python: not used
+        Assert.IsTrue(results[2].Passed);   // create_file: used
     }
 }
 
+[TestClass]
 public class RunCommandAndAssertTests : IDisposable
 {
     private readonly string _tmpDir;
@@ -494,111 +499,111 @@ public class RunCommandAndAssertTests : IDisposable
                 expectedStdErrorMatches,
                 timeout));
 
-    [Fact]
+    [TestMethod]
     public async Task PassesWhenExitCodeMatches()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
             [CmdAssertion(commandArguments: ShellArgs("exit 0"), expectedExitCode: 0)],
             "", _tmpDir);
-        Assert.True(results[0].Passed);
+        Assert.IsTrue(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task FailsWhenExitCodeDoesNotMatch()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
             [CmdAssertion(commandArguments: ShellArgs("exit 1"), expectedExitCode: 0)],
             "", _tmpDir);
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("exited with code 1 but expected 0", results[0].Message);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PassesWithNonZeroExpectedExitCode()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
             [CmdAssertion(commandArguments: ShellArgs("exit 42"), expectedExitCode: 42)],
             "", _tmpDir);
-        Assert.True(results[0].Passed);
+        Assert.IsTrue(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PassesWhenStdOutContainsExpectedValue()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
             [CmdAssertion(commandArguments: ShellArgs("echo hello_world"), expectedStdOutContains: "hello_world")],
             "", _tmpDir);
-        Assert.True(results[0].Passed);
+        Assert.IsTrue(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task FailsWhenStdOutDoesNotContainExpectedValue()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
             [CmdAssertion(commandArguments: ShellArgs("echo hello"), expectedStdOutContains: "goodbye")],
             "", _tmpDir);
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("stdout did not contain expected value", results[0].Message);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PassesWhenStdErrContainsExpectedValue()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
             [CmdAssertion(commandArguments: ShellArgs("echo error_marker 1>&2"), expectedStdErrorContains: "error_marker")],
             "", _tmpDir);
-        Assert.True(results[0].Passed);
+        Assert.IsTrue(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task FailsWhenStdErrDoesNotContainExpectedValue()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
             [CmdAssertion(commandArguments: ShellArgs("echo some_error 1>&2"), expectedStdErrorContains: "different_error")],
             "", _tmpDir);
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("stderr did not contain expected value", results[0].Message);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PassesWhenStdOutMatchesRegex()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
             [CmdAssertion(commandArguments: ShellArgs("echo build_v2.3.1_ok"), expectedStdOutMatches: @"build_v\d+\.\d+\.\d+_ok")],
             "", _tmpDir);
-        Assert.True(results[0].Passed);
+        Assert.IsTrue(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task FailsWhenStdOutDoesNotMatchRegex()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
             [CmdAssertion(commandArguments: ShellArgs("echo no_version_here"), expectedStdOutMatches: @"v\d+\.\d+\.\d+")],
             "", _tmpDir);
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("stdout did not match pattern", results[0].Message);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PassesWhenStdErrMatchesRegex()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
             [CmdAssertion(commandArguments: ShellArgs("echo warn_code_42 1>&2"), expectedStdErrorMatches: @"warn_code_\d+")],
             "", _tmpDir);
-        Assert.True(results[0].Passed);
+        Assert.IsTrue(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task FailsWhenStdErrDoesNotMatchRegex()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
             [CmdAssertion(commandArguments: ShellArgs("echo some_text 1>&2"), expectedStdErrorMatches: @"error_\d+")],
             "", _tmpDir);
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("stderr did not match pattern", results[0].Message);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task PassesWhenAllChecksPass()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
@@ -608,10 +613,10 @@ public class RunCommandAndAssertTests : IDisposable
                 expectedStdOutContains: "stdout_text",
                 expectedStdErrorContains: "stderr_text")],
             "", _tmpDir);
-        Assert.True(results[0].Passed);
+        Assert.IsTrue(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ExitCodeFailureShortCircuitsOtherChecks()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
@@ -620,11 +625,11 @@ public class RunCommandAndAssertTests : IDisposable
                 expectedExitCode: 0,
                 expectedStdOutContains: "hello")],
             "", _tmpDir);
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("exited with code 1 but expected 0", results[0].Message);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task StdOutFailureShortCircuitsStdErrCheck()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
@@ -633,11 +638,11 @@ public class RunCommandAndAssertTests : IDisposable
                 expectedStdOutContains: "expected_output",
                 expectedStdErrorContains: "expected_error")],
             "", _tmpDir);
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("stdout did not contain expected value", results[0].Message);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task IgnoresExitCodeWhenNotSpecified()
     {
         var results = await AssertionEvaluator.EvaluateAssertions(
@@ -645,10 +650,10 @@ public class RunCommandAndAssertTests : IDisposable
                 commandArguments: ShellArgs("echo output_text && exit 1"),
                 expectedStdOutContains: "output_text")],
             "", _tmpDir);
-        Assert.True(results[0].Passed);
+        Assert.IsTrue(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task UsesWorkDirAsProcessWorkingDirectory()
     {
         File.WriteAllText(Path.Combine(_tmpDir, "marker.txt"), "test_content");
@@ -656,10 +661,10 @@ public class RunCommandAndAssertTests : IDisposable
         var results = await AssertionEvaluator.EvaluateAssertions(
             [CmdAssertion(commandArguments: ShellArgs(catCmd), expectedStdOutContains: "test_content")],
             "", _tmpDir);
-        Assert.True(results[0].Passed);
+        Assert.IsTrue(results[0].Passed);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task UsesCustomTimeoutFromAssertion()
     {
         // Use a very short timeout (1 second) so a long-running command times out.
@@ -669,11 +674,11 @@ public class RunCommandAndAssertTests : IDisposable
         var results = await AssertionEvaluator.EvaluateAssertions(
             [CmdAssertion(commandArguments: ShellArgs(sleepCmd), expectedExitCode: 0, timeout: 1)],
             "", _tmpDir);
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("Command timed out after 1s", results[0].Message);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task FallsBackToScenarioTimeout()
     {
         // Pass a short scenario timeout (1 second) - the command should time out.
@@ -683,7 +688,7 @@ public class RunCommandAndAssertTests : IDisposable
         var results = await AssertionEvaluator.EvaluateAssertions(
             [CmdAssertion(commandArguments: ShellArgs(sleepCmd), expectedExitCode: 0)],
             "", _tmpDir, scenarioTimeoutSeconds: 1);
-        Assert.False(results[0].Passed);
+        Assert.IsFalse(results[0].Passed);
         Assert.Contains("Command timed out after 1s", results[0].Message);
     }
 }

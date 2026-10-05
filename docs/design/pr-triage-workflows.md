@@ -107,6 +107,12 @@ a duplicate `pr-state/*` name:
 - `waiting-on-author` *(existing — reused for `needs-author-attention`)*
 - `pr-state/in-review` *(new)*
 
+The worker updates its local label cache after every real or simulated mutation.
+This keeps repeated reconciliations in the same run consistent; for example,
+after dispatching evaluation it replaces
+`pr-state/ready-for-eval` with `pr-state/evals-in-progress` instead of leaving
+both labels applied.
+
 Triggers and opt-outs:
 
 - `evaluate-now` — applied to fire evaluation; removed by the gate after consumption.

@@ -11,9 +11,25 @@
 > `session.idle` timeouts before adaptation. See
 > `executor-retry-summary.json` in the result artifact and the current guide for
 > the bounded retry and fail-closed rules.
+> Native-agent `RunMetrics.errorCount` is diagnostic and may include recovered
+> tool-call failures. Adaptation invalidates a scenario only for terminal
+> evidence: an explicit execution error, a missing or timed-out required arm, a
+> failed run, or a missing pairwise result.
+
+> The workflow token preflight tries another pool candidate for HTTP 429 or 402
+> quota exhaustion and for the paired heading and token-environment lines in
+> the Copilot CLI's no-authentication setup block. Unrelated service and
+> configuration failures remain terminal.
+
+> PR session replay publishing is auxiliary. A missing or invalid
+> `SKILLS_DATA_TOKEN`, or one that cannot authenticate for a non-mutating
+> `git push --dry-run` to `dotnet/skills-data`, is detected before replay
+> artifacts are processed. The degradation is shown in workflow annotations and
+> the PR report but does not override authoritative evaluation verdicts.
+> Scheduled and main session-data publishing remains strict.
 
 > Current Vally PR evaluations default to `claude-sonnet-5` and `gpt-5.6-luna`,
-> with primary judges `gpt-5.6-terra` and `claude-opus-4.8`, respectively.
+> with judges `gpt-5.6-terra` and `claude-haiku-4.5`, respectively.
 > Explicit profiles and the scheduled cadence can select other models.
 > These defaults do not change the model fields in historical results or the
 > legacy schema below. Health and issue-triage workflow models are separate.
@@ -31,6 +47,12 @@
 > causes. `preferenceRegressed` is report-only LLM preference evidence and is
 > not an objective completion regression. `adapter-summary.json` reconciles the
 > exact expected-eval manifest with observed and written results.
+> Native-agent baseline-pass/isolated-fail completion evidence can produce
+> `VALID_REGRESSION` even when preference evidence has fewer than five eligible
+> stimuli, including on an `expect_activation: false` scenario. Execution,
+> timeout, missing-arm, and comparison-invalid evidence still takes precedence.
+> Both completion values must be explicit booleans; a missing isolated
+> completion value remains measurement-invalid instead of becoming a regression.
 > `practicalSignificance` adds the 20% net-win floor. Objective completion is a
 > separately defined tri-state over explicitly selected deterministic graders;
 > aggregate Vally pass booleans remain report-only. These fields do not exist
@@ -126,16 +148,85 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 
 > **Note:** Scenarios do not have a `passed` field. To determine pass/fail for an individual scenario, check whether `improvementScore >= 0`. For skills, this effective score is the minimum of isolated and plugin scores when both arms exist. For agents, it is always the isolated score; `pluginImprovementScore` and `pluginBreakdown` remain diagnostic production-surface telemetry. The `passed` field exists only at the verdict level.
 
-> **Agent activation:** Expected target-agent activation in the isolated arm is a verdict gate. Missing target activation in the plugin arm is diagnostic telemetry and is included in logs and reason text, but does not set `skillNotActivated`, change `failureKind`, or fail the verdict.
+> **Agent activation:** Expected-active native custom-agent scenarios select the
+> target agent as the primary persona in both isolated and plugin arms. After
+> `SelectAsync` succeeds, the evaluator records `agent.primary_selected`; this
+> direct event is authoritative activation evidence even when the SDK omits
+> `SubagentSelectedEvent`. SDK subagent events remain delegation and
+> organic-routing telemetry and are deduplicated with the direct event by agent
+> name. Expected-dormant scenarios register the target agent but do not preselect
+> it, so neither the direct event nor forced activation is present and both arms
+> exercise normal routing. Dormant scenarios are excluded from
+> preference scoring, and unexpected target selection in the isolated arm fails
+> the activation contract. Missing target activation in an expected-active
+> isolated arm is also a verdict gate, while plugin-arm activation remains
+> diagnostic.
+
+> **Skill activation:** Expected-active scenarios require target activation in
+> both isolated and plugin arms. Expected-dormant scenarios must keep the target
+> inactive in the isolated arm; unexpected isolated activation fails with
+> `unexpected_activation`, while plugin-arm activity remains diagnostic. Inline
+> and cross-directory rejudge reapply the same contract from persisted
+> `expect_activation` metadata. Databases created before schema version 4 retain
+> this field as unknown when migrated. Rejudge then recovers the expectation from
+> the current target's matching `eval.yaml` scenario when possible, using the
+> stored checkout path or the current repository and requiring persisted prompt
+> text to still match when available. If the eval, scenario, or matching prompt is
+> unavailable, it uses the legacy expected-active behavior instead of inventing
+> historical dormancy.
+> Schema-version-4 databases keep their explicit values while migration removes
+> the old non-null/default constraint so schema 5 has one consistent shape.
 
 > **Plugin skill staging:** Plugin runs load staged copies of manifest-declared
 > skills rather than exposing the source directories directly. Skill directories
 > and `SKILL.md` files must remain inside the plugin without symlink/reparse-point
 > components, and linked descendants are omitted while copying the skill tree.
+> Runtime file and shell permissions include the staged copies but exclude the
+> original plugin source tree, so evaluation changes cannot mutate the checkout.
+> The evaluator captures `GH_TOKEN` or `GITHUB_TOKEN` for its SDK client, then
+> removes both aliases from the process and every setup-command or command-grader
+> child environment.
+> The session filesystem provider stores `session-state/*` under the private
+> config directory, resolves relative file-tool paths from the scenario
+> workspace, limits absolute paths to the private evaluator root, and rejects
+> any reparse-point or symbolic-link component that escapes the selected root.
+> Evaluator clients use a process-private directory under the system temp
+> directory as their SDK filesystem root because the shared client is created
+> before per-scenario `sv-*` workspaces. Fixtures and staged skills are created
+> beneath that private root, which is created with owner-only permissions on
+> Unix and a protected owner-only ACL on Windows. Per-session pre-tool and
+> permission hooks further restrict file access
+> to the current fixture workspace and its explicitly staged skill/plugin
+> directories. Judge, overfitting, and rejudge sessions also receive tracked
+> private work directories beneath that root; they never use the shared system
+> temp directory as their working or absolute-access root. The filesystem
+> provider receives only the current workspace and explicitly staged roots,
+> and multi-path file operations validate every source and destination. File
+> reads, metadata queries, writes, appends, and directory creation walk from
+> an opened allowed root with OS no-follow semantics, so a path component
+> replaced after validation cannot redirect the operation through a symbolic
+> link or reparse point.
+> Permission requests fail closed: read/write paths use the same containment
+> checks, URL access is denied, shell requests without path or URL metadata
+> are limited to a small exact local-command allowlist, and MCP access is
+> limited to registered, sanitized servers and their explicitly declared
+> tools; an omitted tool list permits none, while an explicit `*` permits all.
+> The native evaluator currently accepts only the repository's shipped
+> `dotnet dnx Microsoft.AITools.BinlogMcp --yes --prerelease` stdio launch
+> shape as input, then rewrites it to package version 3.0.2 with a
+> validator-owned NuGet configuration, trusted source, and private package and
+> HTTP caches. Plugin-supplied environment variables, arbitrary runtimes,
+> scripts, projects, and package substitutions are rejected before the server
+> starts.
+
+> **Command graders:** A Vally `run-command` grader with an explicit `args`
+> array executes `command` directly with those argument boundaries preserved.
+> When `args` is absent, the command remains a shell string so existing quoting,
+> redirection, and compound-command behavior stays compatible.
 
 > **Reused baselines:** When the run was invoked with `--baseline-from`, the `baseline` arm is not executed — its `metrics` and `judgeResult` come from the shared baseline file produced earlier with `--baseline-out` (computed once, honoring `--runs`). Such scenarios are reported with the `baseline-reused` session phase and a `reused` baseline status. The baseline file is keyed on `--model` and `--judge-model` plus, per scenario, a SHA-256 of the prompt and a composite SHA-256 over its setup inputs (copied test files, explicit setup files, and setup commands) and its evaluation criteria (rubric, assertions, expect/reject tools, and turn/token/timeout limits); reuse fails fast if the agent model, judge model, or any prompt-plus-setup-plus-criteria identity is missing, so the baseline you compare against is always identity-matched and a shared prompt across cases with different fixtures or rubrics cannot cross-contaminate. Because the baseline output is identical across every skill/agent that consumes the same file, this acts as a shared control group and removes baseline run-to-run variance from cross-skill comparisons.
 
-> **Decoupled runs and judging:** `evaluate --no-judge` runs the agent arms and persists `sessions.db` but performs no judging and needs no baseline file, so baseline and treatment arms can run in one parallel pool. Each persisted session row carries a `baseline_key` column — the same prompt-SHA-plus-target-SHA identity used for baseline reuse. A later `rejudge <treatment-dir> --baseline-dir <baseline-dir>` pairs each treatment run with its baseline run by that key (preferring the matching run index), runs the same judges and gates an inline `evaluate` would, and writes baseline judge/pairwise results back to the baseline `sessions.db` and treatment judge results to the treatment `sessions.db`. Baseline and treatment must share `--model`; the judge model resolves to `--judge-model`, else the treatment DB's persisted judge model, else the baseline DB's, and a mismatch between the two persisted judge models (without an explicit override) is rejected.
+> **Decoupled runs and judging:** `evaluate --no-judge` runs the agent arms and persists `sessions.db` but performs no judging and needs no baseline file, so baseline and treatment arms can run in one parallel pool. Each persisted session row carries a `baseline_key` column — the same prompt-SHA-plus-target-SHA identity used for baseline reuse. Scenario execution failures are persisted with terminal `failed` status and make `--no-judge` return nonzero; recoverable failed tool calls remain ordinary error metrics and do not invalidate a completed run. Rejudge rejects any baseline or treatment database containing failed sessions instead of silently dropping them. A later `rejudge <treatment-dir> --baseline-dir <baseline-dir>` selects baseline roles from the baseline database and isolated/plugin roles from the treatment database, requires exactly one baseline with the same key and run index for every treatment run, and requires every selected treatment role to carry the same key. It then runs the same judges and gates an inline `evaluate` would and writes results back to the owning databases. Cross-directory rejudge also requires complete accounting: any unmatched, duplicate, unknown-role, keyless baseline, or key-mismatched selected run is listed by skill, scenario, run, role, session ID, and baseline key, and stops rejudge before judging or publishing a partial verdict. Complete three-arm recordings are supported in both databases; irrelevant valid arm roles are ignored after role selection. Inline rejudge enforces the same baseline-key agreement and rejects duplicate baseline, isolated, or plugin role records for the same skill, scenario, and run. Every run for one scenario must agree on its persisted activation expectation; mixed eval revisions fail closed. Inline and cross-directory rejudge reject any database with a nonterminal session before judging, including an interrupted `running` plugin arm beside completed baseline and isolated arms. Inline rejudge similarly stops when a completed run group lacks its required baseline or isolated arm. Inline rejudge accepts normal and reused baselines plus both skill and agent isolated/plugin roles. It persists each new scenario's activation expectation, reconstructs target activation from saved events, and reapplies the skill or agent activation-contract gate. When an older database has no expectation, rejudge first reads the current matching eval scenario and otherwise preserves the legacy expected-active behavior. Baseline and treatment must share `--model`; the judge model resolves to `--judge-model`, else the treatment DB's persisted judge model, else the baseline DB's, and a mismatch between the two persisted judge models (without an explicit override) is rejected.
 
 ### Breakdown fields
 
@@ -208,6 +299,77 @@ Several scenario-level options in `eval.yaml` are relevant when diagnosing failu
 - **Increase `timeout`** in `eval.yaml` — 180s is often not enough for scenarios that involve code generation. Try 360s.
 - **Restructure the prompt** to discourage bash exploration (e.g., "Show me the code" rather than "Create a project")
 - **Add `reject_tools: ["bash"]`** if the scenario should be answerable without shell commands
+
+**In CI:** a required arm that times out makes the whole eval
+measurement-invalid, even when every other scenario produced clean evidence. The
+evaluation workflow therefore runs `eng/vally-adapter/retry-agent-timeouts.mjs`
+before the adapter. It re-runs only the timed-out scenario, using
+`skill-validator evaluate --target "<agent>" --scenario "<name>"`, writes that
+retry into its own `--results-dir`, and replaces only that one scenario record
+in the native results file. The target filter prevents another agent with the
+same scenario name from entering the retry. The agent identity is validated as
+a safe single path segment before timeout lookup or retry/audit storage.
+The retry result must contain exactly one verdict total, for that target, and
+exactly one scenario. The original timeout must already have a pairwise
+judgment with valid winner/magnitude, rubric, reasoning, and position-swap
+consistency fields.
+Because the retry never shares a
+results directory, its sessions never merge with the first attempt's: every
+role/session record stays unique and the `rejudge` pairing rules that reject
+duplicate completed roles still apply unchanged. The retry judges the arms it
+re-runs, so no separate `rejudge` pass is needed.
+
+The retry is deliberately narrow. It fires only when a wall-clock timeout is the
+scenario's sole defect; an `executionError`, `failedRunCount > 0`, a missing
+arm, missing boolean completion evidence, a missing or malformed pairwise
+judgment, objective baseline-pass/isolated-fail completion regression, or a
+measured negative improvement/routing failure from non-timed-out baseline and
+isolated arms is never retried. In particular, a plugin-only timeout cannot
+erase a completed objective regression by replacing the whole scenario. A
+negative score from a baseline- or isolated-arm timeout remains eligible because
+the timeout contaminated the score. Ineligible
+timeout scenarios remain listed as unresolved diagnostics
+instead of disappearing from retry accounting. A second timeout,
+more than two timed-out scenarios, an effective per-scenario three-arm retry
+cost (including `constraints.max_duration`) that exceeds the bounded recovery
+window, or any unexpected retry shape leaves the original measurement in place
+and keeps the eval invalid. The systemic scenario-count guard runs before
+individual budget filtering, so a widespread timeout never triggers a partial
+subset of retries. Check
+`agent-timeout-retry-summary.json` in the leg artifact for
+`plannedScenarioCount`, `recoveredScenarioCount`, `unresolvedScenarioCount`,
+`ineligibleScenarioCount`, `budgetSkippedScenarioCount`, `clearedAggregates`,
+and a per-scenario reason. `plannedScenarioCount` includes every named
+required-arm timeout before eligibility filtering.
+
+After replacement, recovery recomputes execution, isolated target-agent
+activation, unexpected activation, and completion-regression state from all
+surviving scenarios. It clears stale `failureKind`/`skillNotActivated` values
+when the evidence no longer supports them, while any true remaining failure
+stays fail-closed. If stale `skill_not_activated` masked an isolated completion
+regression, recomputation restores `completion_regression`. It also clears the
+old `confidenceInterval`,
+`isSignificant`, and `overfittingResult`; the changed sample cannot reuse the
+first attempt's aggregate statistics, and native agent evals do not produce an
+overfitting assessment. The adapter derives the completion and activation gates
+from scenarios again instead of trusting legacy aggregate flags.
+
+Retry runs first write outside `RESULTS_DIR`, so a workflow `SIGTERM` cannot
+leave a retry `results.json` where recursive discovery can count it. Each retry
+uses a unique attempt directory, so a re-entered recovery process cannot accept
+an older attempt's result when the current attempt produced none. The current
+attempt must contain exactly one native `results.json`; zero or multiple
+aggregates remain unresolved, and colliding aggregates are retained under their
+relative audit paths for diagnosis. After a
+retry process finishes, its `sessions.db`, logs, and raw result (renamed
+`retry-results.json`) are copied under `_agent-timeout-retry/` in the main
+evaluation artifact. Workflow result counting, consolidation, summaries, and
+dashboard publication also exclude this subtree as defense in depth, so exactly
+one adapted per-agent `results.json` is authoritative.
+
+`--target` and `--scenario` are repeatable, match names case-insensitively, and
+exit `1` when a name matches nothing, so a typo can never quietly evaluate an
+empty set and report a clean run.
 
 ### 2. Baseline already bad
 

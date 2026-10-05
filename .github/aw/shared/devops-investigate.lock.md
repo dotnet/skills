@@ -44,19 +44,20 @@ When `finding_type == "pipeline"`:
 5. **Compare: what changed between last success and this failure?**
    - Get the `head_sha` of the last successful run
    - Get the `head_sha` of the failed run
-   - Compare commits between them:
-     ```
-     GET /repos/{owner}/{repo}/compare/{success_sha}...{failure_sha}
-     ```
+   - Use `list_commits` on the default branch and bound the result to commits
+     after the successful SHA through the failed SHA. Use `get_commit` for each
+     candidate SHA.
    - Look for changes to: workflow YAML files, build scripts, `global.json`, dependency files, the code being tested.
+   - If the bounded commit list does not contain both SHAs, state that the
+     change range is incomplete and lower confidence. Do not invent a compare
+     result.
 
 6. **Identify the PR that introduced the breaking change**:
-   - For each suspect commit from the compare, look up the associated PR:
-     ```
-     GET /repos/{owner}/{repo}/commits/{sha}/pulls
-     ```
-   - Record the PR number, title, author, and merge date
-   - Check the PR diff for relevant file changes
+   - For each suspect commit, use `search_pull_requests` with the exact SHA.
+   - Verify candidates with `pull_request_read`: use method `get` for metadata,
+     `get_files` for changed files, and `get_diff` for the patch.
+   - Record the PR number, title, author, and merge date only for a verified
+     match.
    - This helps attribute the regression and identify who can help fix it
 
 7. **Check if the failure is in repo code or a GitHub Action version update**:
@@ -110,11 +111,11 @@ When `finding_type == "infra"`:
    - Note any compliance or security implications
 
 4. **For Pages deployment failures**:
-   ```
-   GET /repos/{owner}/{repo}/pages/builds
-   ```
-   - Read the latest build log
-   - Identify the failure cause (build error, quota, DNS, etc.)
+   - Use `actions_list` to find the `pages-build-deployment` workflow runs.
+   - Use `actions_get` to verify the latest completed run and its conclusion.
+   - Use the run's jobs and `get_job_logs` for the failed job.
+   - Identify the failure cause from Actions evidence. Do not claim Pages API
+     build, quota, or DNS evidence because that API is not exposed.
 
 ---
 
@@ -153,23 +154,38 @@ When `finding_type == "resource"`:
 All investigation results follow this template:
 
 ```markdown
-🔍 **Investigation Complete** — [Worker Run #{run_number}]({run_url})
+## 🔍 Investigation: {canonical_title derived from trusted metadata}
 
-**Root cause:** {Clear, evidence-based description of what went wrong and why.
-Include specific error messages, commit SHAs, or file paths as evidence.}
+**Finding ID:** `{finding_id}`
+**Severity:** {finding_severity}
+**Correlation:** {correlation_id}
+**Executive Summary:** {one-sentence summary of the root cause and recommended action}
 
-**Confidence:** {High|Medium|Low} — {One sentence justifying the confidence level}
+### Root Cause
+{one-paragraph description with evidence}
 
-**Blast radius:** {What else is affected by this issue. Be specific about which
-components, workflows, or metrics are impacted.}
+**Confidence:** {High|Medium|Low} — {justification}
 
-**Suggested fix:**
-1. {Most recommended action — include specific file, line, or command}
-2. {Alternative action if applicable}
-3. {Additional step if needed}
+### Blast Radius
+{what else is affected}
 
-**Related:** {List related commits (with SHA + author), PRs (with #number), or
-issues (with #number). Say "None found" if nothing is related.}
+### Suggested Fix
+1. {step 1}
+2. {step 2}
+3. {step 3, if applicable}
+
+### Remediation Status
+Report-only. {Trusted evidence, proposed change, validation plan, and owner,
+or why the available evidence cannot verify an exact fix.}
+
+### Evidence
+{key log excerpts, API responses, or code references}
+
+### Related
+{commits, PRs, issues, or "None found"}
+
+---
+<sub>🔍 [Investigation Run #{run_number}]({run_url}) · Dispatched by health check · {correlation_id}</sub>
 ```
 
 ### Confidence Level Guidelines

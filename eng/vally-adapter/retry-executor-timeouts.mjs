@@ -11,6 +11,7 @@
 import {
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   readdirSync,
   renameSync,
@@ -38,6 +39,7 @@ const { values: opts } = parseArgs({
     vally: { type: "string", default: "npx @microsoft/vally-cli" },
     workers: { type: "string", default: "5" },
     "max-groups": { type: "string", default: "3" },
+    "max-attempts-per-group": { type: "string", default: "2" },
     help: { type: "boolean", default: false },
   },
   strict: true,
@@ -56,14 +58,17 @@ if (
     --experiment-dir <run-dir> --retry-output-dir <dir> --summary <file> [options]
 
 Retries only trial-result records that timed out waiting for session.idle.
-Each affected eval/variant group is rerun once. Successful first-attempt slots
-are never replaced, and unresolved retries remain errors for the adapter gate.
+Each affected eval/variant group is rerun up to the configured bounded attempt
+limit. Successful first-attempt and recovered slots are never replaced, and
+unresolved retries remain errors for the adapter gate.
 
 Options:
-  --vally "<cmd>"      Vally CLI invocation (default: npx @microsoft/vally-cli)
-  --workers <n>        Workers for each targeted retry (default: 5)
-  --max-groups <n>     Maximum eval/variant groups to retry (default: 3)
-  --help               Show this help`);
+  --vally "<cmd>"                Vally CLI invocation (default: npx @microsoft/vally-cli)
+  --workers <n>                  Workers for each targeted retry (default: 5)
+  --max-groups <n>               Maximum eval/variant groups to retry (default: 3)
+  --max-attempts-per-group <n>   Maximum targeted retry passes per group (default: 2;
+                                 recorded as total attempts 2 and 3)
+  --help                         Show this help`);
   process.exit(opts.help ? 0 : 1);
 }
 
@@ -128,7 +133,7 @@ function countSlotKeys(records, evalFile) {
   return counts;
 }
 
-function mergeRetryRecords(originalRecords, retryRecords, evalFile) {
+function mergeRetryRecords(originalRecords, retryRecords, evalFile, retryAttempt = 2) {
   const normalizedEvalFile = normalizeEvalFile(evalFile);
   const originalCounts = countSlotKeys(originalRecords, normalizedEvalFile);
   const retryCounts = countSlotKeys(retryRecords, normalizedEvalFile);
@@ -163,7 +168,7 @@ function mergeRetryRecords(originalRecords, retryRecords, evalFile) {
       experiment: record.experiment ?? replacement.experiment,
       evalFilePath: record.evalFilePath ?? replacement.evalFilePath,
       executorRetry: {
-        attempt: 2,
+        attempt: retryAttempt,
         retryRunId: replacement.experiment?.runId ?? null,
         recoveredFrom: {
           status: record.status,
@@ -188,12 +193,14 @@ function newestDirectory(root) {
   return directories[0]?.path ?? null;
 }
 
-function runRetry(group, index, config) {
-  const attemptRoot = join(
+function runRetry(group, index, retryAttempt, config) {
+  const attemptParent = join(
     config.retryOutputDir,
     `${index + 1}-${group.variant}-${basename(group.evalFile, ".yaml")}`,
+    `attempt-${retryAttempt}`,
   );
-  mkdirSync(attemptRoot, { recursive: true });
+  mkdirSync(attemptParent, { recursive: true });
+  const attemptRoot = mkdtempSync(join(attemptParent, "run-"));
 
   const { bin, prefix } = splitVallyCommand(config.vally);
   const args = [
@@ -238,6 +245,7 @@ function runRetry(group, index, config) {
     originalRecords,
     retryRecords,
     group.evalFile,
+    retryAttempt,
   );
   const mergedFile = `${group.resultsFile}.${process.pid}.tmp`;
   writeFileSync(mergedFile, `${records.map((record) => JSON.stringify(record)).join("\n")}\n`);
@@ -246,11 +254,31 @@ function runRetry(group, index, config) {
   return {
     variant: group.variant,
     evalFile: group.evalFile,
+    retryAttempt,
     attemptedSlots: timeoutSlots,
     recoveredSlots: recovered,
     unresolvedSlots: timeoutSlots.filter((key) => !recovered.includes(key)),
     retryExitCode: exitCode,
   };
+}
+
+function writeSummary(summary, path) {
+  const temporary = `${path}.${process.pid}.tmp`;
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(temporary, `${JSON.stringify(summary, null, 2)}\n`);
+  renameSync(temporary, path);
+}
+
+function countUnresolvedSlots(groups) {
+  return groups.reduce(
+    (count, group) =>
+      count +
+      loadJsonl(group.resultsFile).filter(
+        (record) =>
+          isRetryableTimeout(record) && evalFileOf(record) === group.evalFile,
+      ).length,
+    0,
+  );
 }
 
 function retryExecutorTimeouts(config) {
@@ -267,36 +295,68 @@ function retryExecutorTimeouts(config) {
   const summary = {
     schemaVersion: 1,
     maxGroups: config.maxGroups,
+    maxAttemptsPerGroup: config.maxAttemptsPerGroup,
     plannedGroupCount: groups.length,
     plannedSlotCount,
     attemptedGroupCount: 0,
+    attemptedRetryCount: 0,
     recoveredSlotCount: 0,
-    unresolvedSlotCount: 0,
+    unresolvedSlotCount: plannedSlotCount,
     skippedReason: null,
+    activeAttempt: null,
     attempts: [],
   };
+  writeSummary(summary, config.summary);
 
   if (groups.length > config.maxGroups) {
-    summary.unresolvedSlotCount = plannedSlotCount;
     summary.skippedReason =
       `Found ${groups.length} timeout groups, above the recovery limit of ` +
       `${config.maxGroups}; treating this as a systemic failure.`;
     console.warn(summary.skippedReason);
   } else {
     for (const [index, group] of groups.entries()) {
-      console.log(
-        `Retrying transient executor timeout for ${group.variant}/${group.evalFile}`,
-      );
-      const attempt = runRetry(group, index, config);
-      summary.attempts.push(attempt);
-      summary.attemptedGroupCount++;
-      summary.recoveredSlotCount += attempt.recoveredSlots.length;
-      summary.unresolvedSlotCount += attempt.unresolvedSlots.length;
+      let groupAttempted = false;
+      for (
+        let retryAttempt = 2;
+        retryAttempt < 2 + config.maxAttemptsPerGroup;
+        retryAttempt++
+      ) {
+        const pendingSlots = loadJsonl(group.resultsFile)
+          .filter(
+            (record) =>
+              isRetryableTimeout(record) && evalFileOf(record) === group.evalFile,
+          )
+          .map(slotKey);
+        if (pendingSlots.length === 0) break;
+
+        if (!groupAttempted) {
+          summary.attemptedGroupCount++;
+          groupAttempted = true;
+        }
+        summary.activeAttempt = {
+          variant: group.variant,
+          evalFile: group.evalFile,
+          retryAttempt,
+          attemptedSlots: pendingSlots,
+        };
+        summary.attemptedRetryCount++;
+        writeSummary(summary, config.summary);
+        console.log(
+          `Retrying transient executor timeout for ${group.variant}/${group.evalFile} ` +
+            `(attempt ${retryAttempt})`,
+        );
+        const attempt = runRetry(group, index, retryAttempt, config);
+        summary.attempts.push(attempt);
+        summary.recoveredSlotCount += attempt.recoveredSlots.length;
+        summary.unresolvedSlotCount = countUnresolvedSlots(groups);
+        summary.activeAttempt = null;
+        writeSummary(summary, config.summary);
+      }
     }
   }
 
-  mkdirSync(dirname(config.summary), { recursive: true });
-  writeFileSync(config.summary, `${JSON.stringify(summary, null, 2)}\n`);
+  summary.activeAttempt = null;
+  writeSummary(summary, config.summary);
   console.log(
     `Executor timeout recovery: ${summary.recoveredSlotCount} recovered, ` +
       `${summary.unresolvedSlotCount} unresolved`,
@@ -308,11 +368,15 @@ if (isMain) {
   try {
     const workers = Number(opts.workers);
     const maxGroups = Number(opts["max-groups"]);
+    const maxAttemptsPerGroup = Number(opts["max-attempts-per-group"]);
     if (!Number.isInteger(workers) || workers < 1) {
       throw new Error("--workers must be a positive integer");
     }
     if (!Number.isInteger(maxGroups) || maxGroups < 1) {
       throw new Error("--max-groups must be a positive integer");
+    }
+    if (!Number.isInteger(maxAttemptsPerGroup) || maxAttemptsPerGroup < 1) {
+      throw new Error("--max-attempts-per-group must be a positive integer");
     }
     retryExecutorTimeouts({
       experimentFile: resolve(opts["experiment-file"]),
@@ -322,6 +386,7 @@ if (isMain) {
       vally: opts.vally,
       workers,
       maxGroups,
+      maxAttemptsPerGroup,
     });
   } catch (error) {
     console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
