@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -117,6 +118,59 @@ test("renders legacy preference regressions as report-only", () => {
 
   assert.match(markdown, /\*\*1 preference losses \(report only\)\*\*/);
   assert.match(markdown, /<code>VALID_NO_CHANGE<\/code>/);
+});
+
+test("recursive discovery excludes native retry results but preserves retry audit files", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-consolidate-retry-"));
+  try {
+    const authoritativeDir = join(root, "demo", "agent.router");
+    const retryDir = join(root, "_agent-timeout-retry", "1-router", "run");
+    mkdirSync(authoritativeDir, { recursive: true });
+    mkdirSync(retryDir, { recursive: true });
+    writeFileSync(join(authoritativeDir, "results.json"), JSON.stringify({
+      model: "test-model",
+      verdicts: [{
+        skillName: "authoritative-agent",
+        state: "VALID_PASS",
+        passed: true,
+        reason: "recovered",
+        scenarios: [],
+      }],
+    }));
+    writeFileSync(join(retryDir, "results.json"), JSON.stringify({
+      model: "test-model",
+      verdicts: [{
+        skillName: "retry-only-agent",
+        state: "VALID_REGRESSION",
+        passed: false,
+        reason: "non-authoritative retry aggregate",
+        scenarios: [],
+      }],
+    }));
+    writeFileSync(join(retryDir, "sessions.db"), "audit session");
+    writeFileSync(join(retryDir, "session.log"), "audit log");
+    const output = join(root, "summary.md");
+
+    const result = spawnSync(process.execPath, [
+      script,
+      "--format",
+      "simple",
+      "--output",
+      output,
+      "--root",
+      root,
+    ], { encoding: "utf8" });
+
+    assert.equal(result.status, 0, result.stderr);
+    const markdown = readFileSync(output, "utf8");
+    assert.match(markdown, /authoritative-agent/);
+    assert.doesNotMatch(markdown, /retry-only-agent/);
+    assert.equal(existsSync(join(retryDir, "results.json")), true);
+    assert.equal(existsSync(join(retryDir, "sessions.db")), true);
+    assert.equal(existsSync(join(retryDir, "session.log")), true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("keeps routine passing details out of the PR comment but in Full Results", () => {
@@ -285,12 +339,12 @@ test("escapes scenario names in markdown tables exactly once", () => {
   assert.equal(markdown.includes("&amp;amp;"), false);
 });
 
-test("keeps Overfit visible and gives actionable evidence for a non-pass", () => {
+test("identifies a positive result whose ties make the gate unreachable", () => {
   const markdown = render([
     {
       skillName: "tie-sensitive",
       state: "VALID_NO_CHANGE",
-      stateReason: { code: "insufficient_discordant_stimulus_votes" },
+      stateReason: { code: "no_credible_preference_change" },
       reason: "not credible",
       netWin: 0.4,
       signTest: {
@@ -319,11 +373,101 @@ test("keeps Overfit visible and gives actionable evidence for a non-pass", () =>
 
   assert.match(markdown, /\| Target \| Model \| Verdict \| Gate evidence \| Overfit \| Warnings \| Next action \|/);
   assert.match(markdown, /n=5; 4W\/1T\/0L; d=4; p=0.063; net \+40.0%/);
+  assert.match(markdown, /➖ Improvement signal, tie-limited/);
   assert.match(markdown, /🟡 0.51/);
   assert.match(markdown, /Activation: isolated 0\/1/);
-  assert.match(markdown, /predeclare added breadth before a new experiment/);
+  assert.match(markdown, /ties leave too few discordant tasks/);
   assert.match(markdown, /\| = tied-case \|/);
   assert.match(markdown, /tie evidence &lt;unsafe&gt;/);
+});
+
+test("distinguishes all no-clear-winner evidence shapes and preserves a fallback", () => {
+  const markdown = render([
+    {
+      skillName: "all-ties",
+      state: "VALID_NO_CHANGE",
+      stateReason: { code: "no_credible_preference_change" },
+      signTest: { wins: 0, ties: 5, losses: 0, discordant: 0, pValue: 1 },
+      stimulusVoteCount: 5,
+      scenarios: [],
+    },
+    {
+      skillName: "mixed",
+      state: "VALID_NO_CHANGE",
+      stateReason: { code: "no_credible_preference_change" },
+      signTest: { wins: 3, ties: 0, losses: 3, discordant: 6, pValue: 0.65625 },
+      stimulusVoteCount: 6,
+      scenarios: [],
+    },
+    {
+      skillName: "baseline-lean",
+      state: "VALID_NO_CHANGE",
+      stateReason: { code: "no_credible_preference_change" },
+      signTest: { wins: 1, ties: 1, losses: 3, discordant: 4, pValue: 0.3125 },
+      stimulusVoteCount: 5,
+      scenarios: [],
+    },
+    {
+      skillName: "positive-unproven",
+      state: "VALID_NO_CHANGE",
+      stateReason: { code: "no_credible_preference_change" },
+      signTest: { wins: 4, ties: 0, losses: 1, discordant: 5, pValue: 0.1875 },
+      stimulusVoteCount: 5,
+      scenarios: [],
+    },
+    {
+      skillName: "negative-unproven",
+      state: "VALID_NO_CHANGE",
+      stateReason: { code: "no_credible_preference_change" },
+      signTest: { wins: 1, ties: 0, losses: 4, discordant: 5, pValue: 0.1875 },
+      stimulusVoteCount: 5,
+      scenarios: [],
+    },
+    {
+      skillName: "legacy-fallback",
+      state: "VALID_NO_CHANGE",
+      stateReason: { code: "legacy_unknown_reason" },
+      scenarios: [],
+    },
+  ]);
+
+  assert.match(markdown, /\| all-ties \| test-model \| ➖ No preference \|/);
+  assert.match(markdown, /replace inert scenarios rather than adding repeated runs/);
+  assert.match(markdown, /\| mixed \| test-model \| ➖ Mixed evidence \|/);
+  assert.match(markdown, /isolate where the target helps versus hurts/);
+  assert.match(markdown, /\| baseline-lean \| test-model \| ➖ Baseline signal, tie-limited \|/);
+  assert.match(markdown, /Evidence leans baseline but is not credible/);
+  assert.match(markdown, /\| positive-unproven \| test-model \| ➖ Improvement signal, unproven \|/);
+  assert.match(markdown, /signal favors the target but is inconsistent/);
+  assert.match(markdown, /\| negative-unproven \| test-model \| ➖ Baseline signal, unproven \|/);
+  assert.match(markdown, /inspect losing scenarios for recurring defects/);
+  assert.match(markdown, /\| legacy-fallback \| test-model \| ➖ Not proven improved \|/);
+});
+
+test("distinguishes credible effects that miss the practical floor", () => {
+  const markdown = render([
+    {
+      skillName: "sparse-positive",
+      state: "VALID_NO_CHANGE",
+      stateReason: { code: "practical_effect_below_floor" },
+      signTest: { wins: 5, ties: 95, losses: 0, discordant: 5, pValue: 0.03125 },
+      stimulusVoteCount: 100,
+      scenarios: [],
+    },
+    {
+      skillName: "sparse-negative",
+      state: "VALID_NO_CHANGE",
+      stateReason: { code: "practical_effect_below_floor" },
+      signTest: { wins: 0, ties: 95, losses: 5, discordant: 5, pValue: 0.03125 },
+      stimulusVoteCount: 100,
+      scenarios: [],
+    },
+  ]);
+
+  assert.match(markdown, /\| sparse-positive \| test-model \| ➖ Improvement too sparse \|/);
+  assert.match(markdown, /improvement is credible but affects too few tested tasks/);
+  assert.match(markdown, /\| sparse-negative \| test-model \| ➖ Baseline signal too sparse \|/);
+  assert.match(markdown, /baseline lean is credible but too sparse/);
 });
 
 test("prefers eligible judge evidence over a correctly dormant tie", () => {
@@ -595,4 +739,64 @@ test("explains that repeated runs cannot repair an underpowered eval", () => {
 
   assert.match(markdown, /⚠️ Underpowered/);
   assert.match(markdown, /Predeclare more independent, discriminating stimuli; repeated runs do not add power/);
+});
+
+test("the agent timeout-retry tree is never consolidated as a skill result", () => {
+  // retry-agent-timeouts.mjs keeps a narrower native copy of one scenario under
+  // _agent-timeout-retry for audit. A recursive walk must step over it, or the
+  // retry's own evidence gets rendered as a second, contradictory skill result.
+  const root = mkdtempSync(join(tmpdir(), "vally-consolidate-retry-"));
+  try {
+    const real = join(root, "dotnet-test", "some-skill");
+    mkdirSync(real, { recursive: true });
+    writeFileSync(
+      join(real, "results.json"),
+      JSON.stringify({
+        model: "test-model",
+        judgeModel: "test-judge",
+        verdicts: [
+          {
+            skillName: "adapted-skill",
+            state: "VALID_NO_CHANGE",
+            reason: "no credible change",
+            scenarios: [],
+          },
+        ],
+      }),
+    );
+
+    const retry = join(root, "_agent-timeout-retry", "1-agent.x", "20260101-000000");
+    mkdirSync(retry, { recursive: true });
+    writeFileSync(
+      join(retry, "results.json"),
+      JSON.stringify({
+        model: "test-model",
+        judgeModel: "test-judge",
+        verdicts: [
+          {
+            skillName: "retry-only-copy",
+            state: "VALID_NO_CHANGE",
+            reason: "narrower retry evidence",
+            scenarios: [],
+          },
+        ],
+      }),
+    );
+    // An adapter-summary.json under the retry tree must be skipped too.
+    writeFileSync(join(retry, "adapter-summary.json"), JSON.stringify({ evals: [] }));
+
+    const output = join(root, "summary.md");
+    const result = spawnSync(
+      process.execPath,
+      [script, "--format", "simple", "--output", output, "--root", root],
+      { encoding: "utf8" },
+    );
+    assert.equal(result.status, 0, result.stderr);
+
+    const markdown = readFileSync(output, "utf8");
+    assert.match(markdown, /adapted-skill/);
+    assert.doesNotMatch(markdown, /retry-only-copy/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

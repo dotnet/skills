@@ -11,6 +11,10 @@ environment:
     - ../../../plugins/dotnet-blazor/skills/blazor-component-readiness
 stimuli:
   - name: Select the explicit coordinator for a vendor assessment
+    tags:
+      capability: explicit-assessment-routing
+      risk: wrong-assessment-workflow
+      journey: assess-component-readiness
     prompt: |
       We own the supplied Blazor package and need a local readiness self-assessment of only its Grid component.
       Coordinate the work, keep it offline, and report the deterministic artifact paths.
@@ -33,6 +37,10 @@ stimuli:
       - It follows the portable assessment contract and keeps every write local
 
   - name: Use the registered portable dependency
+    tags:
+      capability: portable-validator-integration
+      risk: incompatible-assessment-artifacts
+      journey: validate-component-report
     prompt: |
       Produce the complete verified local record for only the Grid component in the supplied package under ./out. Use the
       packaged deterministic tooling and do not contact external services.
@@ -59,6 +67,10 @@ stimuli:
       - Produces and verifies deterministic local files
 
   - name: Validate a top-level writable worker handoff
+    tags:
+      capability: worker-handoff-verification
+      risk: unverified-worker-results
+      journey: accept-isolated-assessment
     prompt: |
       Process the supplied Blazor Grid unit in an isolated context, then independently recompute and check
       the returned validation-manifest digest before accepting the result. Keep the final handoff
@@ -85,6 +97,10 @@ stimuli:
       - Recomputes the manifest digest in the coordinator context before accepting it
 
   - name: Coordinate a complete isolated library
+    tags:
+      capability: isolated-library-coordination
+      risk: cross-component-evidence-contamination
+      journey: assess-library-readiness
     prompt: |
       Complete the supplied two-control Blazor library locally. Freeze inventory, assign one isolated unit
       context to every package and control, validate every returned result, and produce factual JSON
@@ -117,6 +133,10 @@ stimuli:
       - Produces a complete factual local index only after validating all handoffs
 
   - name: Reconcile after an interrupted library run
+    tags:
+      capability: interrupted-assessment-recovery
+      risk: overwritten-completed-revisions
+      journey: resume-library-assessment
     prompt: |
       The supplied Blazor library run stopped after its package unit completed while two control units
       remained active. Preserve the completed immutable revision, reconcile local state, resume only
@@ -145,6 +165,10 @@ stimuli:
       - Reconstructs and validates a complete run manifest before indexing
 
   - name: Fail closed before a blind worker starts
+    tags:
+      capability: blinded-input-gate
+      risk: incomplete-worker-inputs
+      journey: prepare-blinded-assessment
     prompt: |
       Prepare the supplied raw package, source, retrieval, and toolchain files for an isolated blinded
       accuracy run. Use the supplied draft and local validator to freeze the exact allowed-input
@@ -195,6 +219,10 @@ stimuli:
       - Fails closed without launching a worker or converting missing evidence into a product conclusion
 
   - name: Keep coordination local and factual
+    tags:
+      capability: scope-boundary-enforcement
+      risk: unauthorized-publication-and-guidance
+      journey: deliver-factual-assessment
     prompt: |
       Create the verified local assessment for only the Grid component in the supplied package. Do not push, comment,
       upload, rank fixes, or issue a release decision. Return only factual limitations and local

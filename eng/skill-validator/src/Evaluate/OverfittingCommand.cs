@@ -111,7 +111,7 @@ public static class OverfittingCommand
             }
         }
 
-        var workDir = Path.GetTempPath();
+        var workDir = AgentRunner.CreatePrivateWorkDir("overfitting");
         var options = new OverfittingJudgeOptions(model, verbose, judgeTimeoutSeconds * 1000, workDir);
 
         var entries = new List<OverfittingEntry>();

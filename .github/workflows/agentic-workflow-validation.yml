@@ -1,0 +1,64 @@
+name: agentic-workflow-validation
+
+on:
+  pull_request:
+    paths:
+      - ".github/agents/**"
+      - ".github/aw/**"
+      - ".github/graders/**"
+      - ".github/workflows/**"
+      - "agentic-workflows/**"
+      - "eng/agentic-workflows/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/agents/**"
+      - ".github/aw/**"
+      - ".github/graders/**"
+      - ".github/workflows/**"
+      - "agentic-workflows/**"
+      - "eng/agentic-workflows/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install validation dependencies
+        run: python -m pip install --quiet pyyaml==6.0.3
+
+      - name: Install gh-aw
+        uses: github/gh-aw-actions/setup-cli@2fbab69bfca02bebd76cd0fc43f2d12acfed994f # v0.89.22
+        with:
+          version: v0.89.22
+
+      - name: Validate active and packaged workflows
+        run: |
+          python -m unittest eng/agentic-workflows/test_validate_agentic_workflows.py
+          python eng/agentic-workflows/validate_agentic_workflows.py
+          python eng/agentic-workflows/test_unskip_closed_tests_package.py
+          python agentic-workflows/unskip-closed-tests/tests/run_tests.py
+
+      - name: Test shipping Copilot proxy contract
+        run: python eng/agentic-workflows/test_copilot_proxy.py
+
+      - name: Test build-failure operational-value grader
+        run: python eng/agentic-workflows/test_build_failure_analysis_operational_value.py

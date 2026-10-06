@@ -38,8 +38,8 @@ stimuli:
       - type: prompt
     rubric:
       - Preserved the public static class and Create signature
-      - Added an async-flowing scoped override whose disposal restores the value active before that scope
-      - Added passing tests proving inner disposal restores the outer clock and parallel flows do not leak
+      - Nested overrides restore the previously active clock
+      - Concurrent async callers observe isolated deterministic clocks
       - Kept system time as the production default
 
   - name: Preserve a static filesystem API with nested fake stores
@@ -71,9 +71,8 @@ stimuli:
       - type: prompt
     rubric:
       - Preserved LegacyConfig as a static public API
-      - Kept real System.IO behavior as the production default while tests use only in-memory stores
-      - Restored the outer filesystem override after an inner override is disposed
-      - Added passing nested-scope and parallel-flow tests
+      - Production calls still read from the real filesystem by default
+      - Tests prove nested restoration and concurrent async isolation without disk access
 
   - name: Restore environment overrides after exceptions and nesting
     prompt: |
@@ -127,9 +126,8 @@ stimuli:
       - type: prompt
     rubric:
       - Preserved the static API and real environment lookup as the production default
-      - Used an async-flowing scoped override whose disposal restores the provider captured by that scope
-      - Proved an exception unwinds the inner scope before asserting a distinct outer value, so clearing the slot cannot pass
-      - Added a passing overlapping-flow isolation test without mutating process environment variables
+      - Nested and exception-unwound overrides restore the previously active value
+      - Concurrent async callers remain isolated without mutating process environment variables
 
   - name: Scope deterministic identity generation without breaking callers
     prompt: |
@@ -161,8 +159,7 @@ stimuli:
     rubric:
       - Preserved the existing public static Create API
       - Kept Guid.NewGuid as the production default
-      - Restored the outer deterministic generator when an inner override ended
-      - Added passing nested and parallel async-flow tests
+      - Tests prove nested restoration and concurrent async isolation
 
   - name: Make delayed renewal testable with built-in fake time
     prompt: |
@@ -193,10 +190,8 @@ stimuli:
           timeout: 1m
       - type: prompt
     rubric:
-      - Used TimeProvider for both delayed completion and the resulting timestamp
-      - Preserved cancellation behavior without introducing a separate delay interface
-      - Added a deterministic before/after fake-time advancement test
-      - Added a cancellation test without real timers or wall-clock waits
+      - Delayed completion and the recorded timestamp use the same controllable time source
+      - Tests prove incomplete-before-deadline, completion-at-deadline, and cancellation without wall-clock waits
       - Kept system time as the production default
 
   - name: Make random promo codes deterministic with a narrow seam
@@ -227,10 +222,9 @@ stimuli:
           timeout: 1m
       - type: prompt
     rubric:
-      - Added a minimal injectable randomness seam rather than mutating global Random state
-      - Preserved the production default behavior and four-digit range
-      - Added deterministic tests for the exact suffix, uppercase prefix, and blank-prefix validation
-      - Kept the production edit bounded to the obstacle and reported passing targeted tests
+      - Exact suffix generation is controllable without mutating global Random state
+      - Production behavior and the four-digit range remain unchanged
+      - Passing tests cover the exact suffix, uppercase prefix, and every supplied blank-input case
 
   - name: Test report export without touching the real filesystem
     prompt: |
@@ -271,10 +265,9 @@ stimuli:
           timeout: 1m
       - type: prompt
     rubric:
-      - Added the smallest injectable file-writing seam while preserving the public Export signature
-      - Kept the real filesystem as the production default through a delegating implementation
-      - Added deterministic tests for exact joined content, empty rows, and invalid paths
-      - New tests use an in-memory fake and no temp or real files
+      - Preserved the public Export signature and real-filesystem production behavior
+      - Passing tests prove exact LF-joined content, empty rows, and invalid paths
+      - Tests do not touch temp or real files
 
   - name: Keep the seam narrow and async-safe for static environment flags
     prompt: |
@@ -343,13 +336,10 @@ stimuli:
           timeout: 1m
       - type: prompt
     rubric:
-      - Kept the original obstacle concrete and in the requested static environment path
-      - Reused the ambient-scoped seam instead of wrapping the whole static API or creating a DI container
-      - Exposed only the members required by the target behavior and delegated the real default to Environment.GetEnvironmentVariable
-      - Verified nested disposal and exception unwinding with Assert.True, Assert.False, and Assert.Throws while keeping tests free from process-global environment mutation
-      - Added passing nested and parallel async-flow tests without real I/O or wall-clock waits
-      - Confirmed production defaults still delegate to the original dependency and avoided adding DI to a library with no container
-      - Explained whether a sealed scope class with a readonly captured previous value is appropriate for the chosen implementation, without requiring those incidental keywords
+      - Preserved the public static API and real environment lookup by default
+      - Exposed only what the requested behavior needs without adding a DI container
+      - Passing tests prove nested restoration, exception unwinding, and concurrent async isolation
+      - Tests do not mutate process environment state or use wall-clock waits
 
   - name: Inject time into an instance class without adding a container
     prompt: |
@@ -385,8 +375,7 @@ stimuli:
           timeout: 1m
       - type: prompt
     rubric:
-      - Injected TimeProvider into the instance class rather than adding an ambient static seam or custom clock
-      - Updated the existing manual factory to supply TimeProvider.System without introducing a container
+      - Preserved the existing public construction behavior without adding a container
+      - The manual factory still supplies real system time in production
       - Preserved the DateTimeOffset boundary semantics
       - Added passing deterministic tests for immediately before and exactly at expiry
-      - Reported the production seam, default composition, exact tests, and successful targeted command

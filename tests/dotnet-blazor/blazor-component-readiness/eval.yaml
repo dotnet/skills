@@ -8,6 +8,10 @@ scoring:
   threshold: 1.0
 stimuli:
   - name: Give documentation-testing advice without a readiness finding
+    tags:
+      capability: documentation-testing-guidance
+      risk: unsupported-readiness-findings
+      journey: plan-documentation-checks
     prompt: |
       We're discussing follow-up advice for a Blazor component readiness review, but no assessment
       report exists yet. Our public samples already exist. How should we check a few examples for
@@ -30,6 +34,10 @@ stimuli:
       - Answers the requested how-to question without creating a report, changing scores, executing examples, installing tools, or claiming an operation ran.
 
   - name: Give bounded data-transfer advice without profiling
+    tags:
+      capability: data-transfer-evidence-boundaries
+      risk: unsupported-performance-diagnosis
+      journey: investigate-component-data-transfer
     prompt: |
       As optional follow-up to our Blazor component readiness discussion, help me reason about a
       Server component that serializes its full data set on each selection change. We have source
@@ -53,6 +61,10 @@ stimuli:
       - Gives advice without launching profiling, promising a diagnosis, requiring a broad performance dossier, or creating or changing readiness results.
 
   - name: Retain excluded deliverables without inventing defects
+    tags:
+      capability: conditional-deliverable-scoping
+      risk: omitted-or-misclassified-requirements
+      journey: confirm-package-assessment-scope
     prompt: |
       Review fixture/library-only.json and write out/scope.md explaining how the current
       package review should represent scaffolder and AI requirements. We want a traceable
@@ -75,6 +87,10 @@ stimuli:
       - The response distinguishes missing rows from demonstrated product defects.
 
   - name: Apply AI requirements from promoted source deliverables
+    tags:
+      capability: ai-deliverable-applicability
+      risk: missed-ai-review-requirements
+      journey: assess-package-ai-deliverables
     prompt: |
       Review the fictional cases in fixture/source-manifest.json, including their source,
       package, upstream and change-history evidence. For each case, decide family applicability and assess
@@ -128,6 +144,10 @@ stimuli:
       - The complete explicit no-deliverable control remains not applicable for all six rows.
 
   - name: Respect the integration requirement for an in-scope scaffolder
+    tags:
+      capability: scaffolder-integration-assessment
+      risk: false-scaffolder-compliance
+      journey: assess-package-scaffolder
     prompt: |
       Review fixture/promoted-scaffolder.json and write out/scope.md for the partner.
       Tell them what the supplied manifest establishes, what is still untested and what
@@ -149,6 +169,10 @@ stimuli:
       - Absent AI deliverables remain explicitly not applicable rather than omitted or failed.
 
   - name: Distinguish release intent from package facts
+    tags:
+      capability: release-artifact-evidence
+      risk: policy-intent-as-execution-proof
+      journey: assess-release-provenance
     prompt: |
       Our release workflow says the Blazor control package is signed and publishes an SBOM. Review only
       the supplied workflow text and captured package inventory, then tell me what those materials
@@ -167,6 +191,10 @@ stimuli:
       - type: exit-success
 
   - name: Credit bounded release execution records
+    tags:
+      capability: release-execution-evidence
+      risk: overstated-release-verification
+      journey: assess-release-provenance
     prompt: |
       Review fixture/records.json for a fictional package release. It contains policy publications
       and separate release-run, publish-job, dependency-scan, and incident-operation records. Produce
@@ -221,6 +249,10 @@ stimuli:
       - The result stays limited to the recorded release and scan scope and does not claim complete authentication or vulnerability closure.
 
   - name: Classify three different evidence boundaries
+    tags:
+      capability: assessment-status-classification
+      risk: conflated-evidence-states
+      journey: assess-component-readiness
     prompt: |
       Produce a local factual assessment for only the Grid component in the supplied package.
       One implementation fact is contradicted by the source, one formal accessibility fact can
@@ -259,6 +291,10 @@ stimuli:
       - type: exit-success
 
   - name: Apply the four status boundaries precisely
+    tags:
+      capability: assessment-status-classification
+      risk: conflated-evidence-states
+      journey: review-targeted-requirements
     prompt: |
       Create a targeted row-decision worksheet for a synthetic Blazor package without using the network:
 
@@ -293,6 +329,10 @@ stimuli:
       - type: exit-success
 
   - name: Separate implementation proof from outcome proxies
+    tags:
+      capability: source-and-outcome-evidence-separation
+      risk: behavior-as-implementation-proof
+      journey: review-component-implementation
     prompt: |
       Perform a targeted source-boundary review for three synthetic component rows. A keyed reorder
       browser operation passed, but no admitted Razor or component/base source shows whether @key is
@@ -319,6 +359,10 @@ stimuli:
       - type: exit-success
 
   - name: Enforce release and parameter trust boundaries
+    tags:
+      capability: release-and-parameter-trust-assessment
+      risk: privileged-build-and-parameter-mutation
+      journey: review-targeted-requirements
     prompt: |
       Classify three targeted rows for a synthetic Blazor package without using the network:
 
@@ -368,6 +412,10 @@ stimuli:
           dest: fixture/fixture-tool.py
 
   - name: Classify published artifact absence and mechanism applicability
+    tags:
+      capability: artifact-completeness-and-applicability
+      risk: softened-artifact-gaps-and-false-applicability
+      journey: review-targeted-requirements
     prompt: |
       Classify seven rows for a synthetic released Blazor package without using the network:
 
@@ -417,6 +465,10 @@ stimuli:
           dest: fixture/fixture-tool.py
 
   - name: Select only owner-controlled documentation
+    tags:
+      capability: official-documentation-selection
+      risk: unofficial-evidence-as-authority
+      journey: collect-assessment-inputs
     prompt: |
       I captured package-owner metadata plus a list of possible pages for our Blazor control. Identify the
       exact documentation set suitable for an offline vendor assessment. Do not browse, and do not
@@ -438,6 +490,10 @@ stimuli:
       - type: exit-success
 
   - name: Use a bounded internal owner record
+    tags:
+      capability: owner-evidence-provenance
+      risk: unbounded-owner-evidence-claims
+      journey: assess-component-accessibility
     prompt: |
       The package owner supplied an internal accessibility audit alongside the exact Blazor Grid package.
       Assess only the Grid component. Use the audit where it directly applies, label where it came
@@ -470,6 +526,10 @@ stimuli:
       - type: exit-success
 
   - name: Assess a package with no public source
+    tags:
+      capability: closed-source-assessment
+      risk: unavailable-source-as-product-gap
+      journey: assess-component-readiness
     prompt: |
       We ship this Blazor control as binaries and do not publish its source. Produce a bounded
       assessment of only the closed-grid component from the exact local package and captured documentation, writing
@@ -500,6 +560,10 @@ stimuli:
       - type: exit-success
 
   - name: Produce one complete component record
+    tags:
+      capability: standalone-component-assessment
+      risk: unrequested-package-assessment
+      journey: validate-component-report
     prompt: |
       Create the complete factual record for only the Grid component in the supplied package.
       No package assessment has been performed or is requested. Cover the component checks,
@@ -535,6 +599,10 @@ stimuli:
       - type: exit-success
 
   - name: Bind package and component records
+    tags:
+      capability: package-component-record-binding
+      risk: conflated-or-mismatched-assessment-scopes
+      journey: validate-bound-assessment-reports
     prompt: |
       Assess the supplied Blazor library package once for package-wide facts and assess only its Grid
       control for component facts. Keep the two records separate, bind the component to the exact
@@ -569,6 +637,10 @@ stimuli:
       - type: exit-success
 
   - name: Preserve supplied candidate identity
+    tags:
+      capability: release-candidate-identity-preservation
+      risk: substituted-package-bytes
+      journey: assess-release-candidate
     prompt: |
       Evaluate only candidate-grid in the unpublished Blazor package file as the release candidate it is. Preserve
       the exact package identity and bytes, create the complete local assessment under ./out, and
@@ -601,6 +673,10 @@ stimuli:
       - type: exit-success
 
   - name: Bind signature evidence to the selected package
+    tags:
+      capability: package-signature-evidence-binding
+      risk: cross-package-signature-attribution
+      journey: assess-release-provenance
     prompt: |
       Inspect the two inert synthetic package archives and fixture/evidence.json. Identify the
       selected target, assess the recorded signature claims for each archive, and compare the
@@ -644,6 +720,10 @@ stimuli:
       - The response does not claim that a real signature verifier ran.
 
   - name: Complete an isolated two-control library
+    tags:
+      capability: isolated-library-assessment
+      risk: incomplete-or-contaminated-library-results
+      journey: assess-library-readiness
     prompt: |
       Build a complete local factual index for the supplied Blazor package containing Grid and Chart.
       Freeze the exact inventory, keep each control's evidence isolated, cover every claimed render
@@ -675,6 +755,10 @@ stimuli:
       - type: exit-success
 
   - name: Keep the generated output factual
+    tags:
+      capability: factual-report-generation
+      risk: unsolicited-release-recommendations
+      journey: deliver-factual-assessment
     prompt: |
       Generate and verify the complete local report for only the Grid component in the supplied package. I only want the
       factual record and status counts this time, not a ship decision, ranking, or remediation
@@ -704,6 +788,10 @@ stimuli:
       - type: exit-success
 
   - name: Assess the first packaged UI release
+    tags:
+      capability: distributed-asset-sbom-correspondence
+      risk: invented-sbom-omission
+      journey: assess-release-provenance
     prompt: &embedded_sbom_prompt |
       Assess this Blazor component package for release readiness using the local files in fixture.
       I want a package-level factual report under out, with its readable report and evidence
@@ -810,6 +898,10 @@ stimuli:
       - Factual completion uses the supported complete package report; no runtime or other unperformed verification is claimed.
 
   - name: Assess the second packaged UI release
+    tags:
+      capability: distributed-asset-sbom-correspondence
+      risk: missed-distributed-asset-omission
+      journey: assess-release-provenance
     prompt: *embedded_sbom_prompt
     environment:
       files: *embedded_sbom_files
@@ -835,6 +927,10 @@ stimuli:
       - The evidence establishes actual distributed content, not ownership inferred from a filename or a source-only reference.
 
   - name: Assess the third packaged UI release
+    tags:
+      capability: distributed-asset-sbom-correspondence
+      risk: unsupported-asset-identity-verification
+      journey: assess-release-provenance
     prompt: *embedded_sbom_prompt
     environment:
       files: *embedded_sbom_files
@@ -860,6 +956,10 @@ stimuli:
       - Positive ordinary dependency coverage remains credited and no version, execution result or complete asset verification is invented.
 
   - name: Summarize an existing factual record without recommendations
+    tags:
+      capability: factual-report-reading
+      risk: altered-records-and-unsolicited-guidance
+      journey: read-validated-assessment
     prompt: |
       The local Blazor package report under out/revisions/0001 is already validated.
       Summarize its existing SBOM and release findings for PI-07, CI-07 and CI-08 and return
@@ -941,6 +1041,10 @@ stimuli:
       - The recorded trajectory contains no command-bearing, network/browser or subagent tool call; unavailable read-only tooling or unknown/incomplete tool evidence is a harness limitation, and a no-rerun conclusion still requires complete retained results.jsonl/events.jsonl review.
 
   - name: Recommend bounded SBOM and release next steps
+    tags:
+      capability: revision-bound-remediation-guidance
+      risk: changed-findings-and-rerun-investigation
+      journey: plan-assessment-remediation
     prompt: |
       Using the already validated Blazor package report in out/revisions/0001 and its retained
       inputs, give practical recommendations and implementation examples for the unresolved
@@ -973,6 +1077,10 @@ stimuli:
       - Canonical artifacts and final workspace inventory are preserved, the scoped companion is written through a recognized editor tool, and the recorded trajectory contains no command-bearing, network/browser or subagent tool call; unavailable or unknown tool evidence is a harness limitation.
 
   - name: Request missing SBOM and release evidence without inventing a fix
+    tags:
+      capability: missing-evidence-guidance
+      risk: speculative-remediation
+      journey: plan-assessment-remediation
     prompt: |
       Give me practical next steps for the unresolved PI-07, CI-07 and CI-08 findings in the
       already validated Blazor package report at out/revisions/0001. Only the limited release
@@ -1005,6 +1113,10 @@ stimuli:
       - The scoped companion is written through a recognized editor tool and the recorded trajectory contains no command-bearing, network/browser or subagent tool call; unavailable or unknown tool evidence is a harness limitation rather than permission to rerun work.
 
   - name: Map row evidence and returned paths precisely
+    tags:
+      capability: row-evidence-and-artifact-mapping
+      risk: misattributed-evidence-and-broken-handoffs
+      journey: deliver-factual-assessment
     prompt: |
       Review fixture/facts.json and make an evidence-backed decision for each of its four fictional
       rows, including the remaining fact and next action where needed.
@@ -1057,6 +1169,10 @@ stimuli:
       - The returned nested artifact paths resolve to the files actually produced.
 
   - name: Exercise post-initialization child mutations
+    tags:
+      capability: dynamic-child-lifecycle-assessment
+      risk: missed-post-render-state-failures
+      journey: assess-component-runtime
     prompt: |
       Assess the supplied release-candidate Blazor selection group under ./out. It registers and selects
       child items, so exercise its behavior after initial render when children are added, removed,
@@ -1082,6 +1198,10 @@ stimuli:
       - type: exit-success
 
   - name: Bound third-party notice completeness
+    tags:
+      capability: third-party-notice-evidence
+      risk: unsupported-notice-completeness
+      journey: assess-package-licensing
     prompt: |
       Produce the complete package-wide local record for the supplied Blazor package. The captured material
       lists a license file and generated license sidecars, but it contains no dependency-to-bundled-asset
@@ -1109,6 +1229,10 @@ stimuli:
       - type: exit-success
 
   - name: Bound embedded signing metadata
+    tags:
+      capability: assembly-signature-evidence
+      risk: signing-metadata-as-verification
+      journey: assess-release-provenance
     prompt: |
       Produce the complete package-wide local record for the supplied Blazor package. The only assembly
       signing material is captured metadata saying a PE certificate table and signer subject are present;
@@ -1137,6 +1261,10 @@ stimuli:
       - type: exit-success
 
   - name: Bound accountable support ownership
+    tags:
+      capability: support-accountability-evidence
+      risk: contact-metadata-as-support-ownership
+      journey: assess-package-support
     prompt: |
       Produce the complete package-wide local record for the supplied Blazor package. The captured metadata
       names an organization, author, and public contact route, but it does not name the accountable support
@@ -1167,6 +1295,10 @@ stimuli:
   # consumes it after the run as activation-contract metadata; the deterministic
   # graders below independently score the requested off-target behavior.
   - name: Stay dormant for ordinary component authoring
+    tags:
+      capability: scope-boundary-enforcement
+      risk: unrequested-readiness-assessment
+      journey: author-blazor-component
     prompt: Create a reusable Blazor date-range picker with keyboard navigation and form validation.
     expect_activation: false
     graders:
@@ -1194,6 +1326,10 @@ stimuli:
       - The response directly addresses reusable Blazor component authoring
 
   - name: Stay dormant for application debugging
+    tags:
+      capability: scope-boundary-enforcement
+      risk: unrequested-readiness-assessment
+      journey: debug-blazor-application
     prompt: My Blazor page throws after navigation when a scoped service is disposed. Help me debug it.
     expect_activation: false
     graders:
@@ -1221,6 +1357,10 @@ stimuli:
       - The response directly addresses the scoped-service disposal failure
 
   - name: Stay dormant for framework pull request review
+    tags:
+      capability: scope-boundary-enforcement
+      risk: unrequested-readiness-assessment
+      journey: review-framework-regressions
     prompt: Review this ASP.NET Core framework pull request for regressions in interactive server rendering.
     expect_activation: false
     graders:
@@ -1245,6 +1385,10 @@ stimuli:
       - The response requests or uses the pull request evidence needed for an ordinary code review
 
   - name: Stay dormant for generic package creation
+    tags:
+      capability: scope-boundary-enforcement
+      risk: unrequested-readiness-assessment
+      journey: create-nuget-package
     prompt: Help me pack a class library with symbols, Source Link, and deterministic builds.
     expect_activation: false
     graders:
@@ -1272,6 +1416,10 @@ stimuli:
       - The response directly addresses ordinary NuGet package creation
 
   - name: Assess a local selection component
+    tags:
+      capability: public-parameter-ownership-discovery
+      risk: missed-public-parameter-mutation
+      journey: review-component-implementation
     prompt: &beq09_source_prompt |
       Review the complete component-owned source in fixture/component against the requirement
       and status definitions in fixture/criterion.json. Make a source-backed decision for that
@@ -1447,6 +1595,10 @@ stimuli:
       - Evidence of a conflicting path is not cancelled by other paths or a paired callback; no runtime success is inferred.
 
   - name: Assess a separate local selection component
+    tags:
+      capability: public-parameter-ownership-discovery
+      risk: internal-state-as-parameter-mutation
+      journey: review-component-implementation
     prompt: *beq09_source_prompt
     environment:
       files:
