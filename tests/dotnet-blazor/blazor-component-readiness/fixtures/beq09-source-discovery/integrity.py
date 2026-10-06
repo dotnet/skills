@@ -59,11 +59,11 @@ def command(argv, cwd, log, environment):
 
 
 def check_fixture_and_spec(spec):
-    require(len(spec["stimuli"]) == 38, "expected the existing 36 stimuli plus two source-discovery cases")
+    require(len(spec["stimuli"]) >= 38, "expected the original 38 stimuli to remain present")
     require(spec["defaults"] == {"runs": 1, "timeout": "20m"}, "defaults changed")
     require(spec["scoring"] == {"threshold": 1.0}, "threshold changed")
-    require(len({s["name"] for s in spec["stimuli"]}) == 38, "duplicate stimulus name")
-    selected = spec["stimuli"][-2:]
+    require(len({s["name"] for s in spec["stimuli"]}) == len(spec["stimuli"]), "duplicate stimulus name")
+    selected = spec["stimuli"][36:38]
     require(tuple(s["name"] for s in selected) == NAMES, "new stimulus identity changed")
     require(selected[0]["prompt"] == selected[1]["prompt"], "prompts must be identical")
     require(set(p.relative_to(HERE).as_posix() for p in HERE.rglob("*") if p.is_file()) ==
@@ -433,7 +433,7 @@ def main():
         for index in range(2):
             for field in ("status", "anchors"):
                 altered = copy.deepcopy(spec)
-                config = altered["stimuli"][-2 + index]["graders"][1]["config"]
+                config = altered["stimuli"][36 + index]["graders"][1]["config"]
                 expectation = json.loads(config["args"][3])
                 expectation[field] = "verified" if field == "status" and index == 0 else (
                     "gap" if field == "status" else expectation["anchors"][1:])

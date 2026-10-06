@@ -1640,3 +1640,268 @@ stimuli:
     rubric:
       - The internal-state ownership decision is supported by its declaration and update paths, not merely by the absence of a reported defect.
       - All public parameter declarations and owned source paths satisfy the complete source-level requirement; no runtime success is inferred.
+
+  - name: Assess a dock dispatch component
+    tags:
+      capability: outbound-serialization-path-discovery
+      risk: alternate-value-path-bypasses-typed-serialization
+      journey: review-component-implementation
+    prompt: &id001 |-
+      Review the selected Blazor component in fixture/component against the one
+      serialization criterion in fixture/criterion.json. The criterion supplies the complete
+      supported context, status definitions and a small decision worksheet contract for this
+      review. Follow the component's applicable outbound value paths and ground the decision
+      in the supplied source; do not infer a whole mechanism from one example or unrelated code.
+      Write out/serialization-decision.json and explain the result and limits in your final
+      response. Inspect source only: do not change it, build or execute assessed code, install
+      tools, access the network, or produce a full package/component assessment.
+    environment:
+      files:
+      - src: fixtures/beq19-outbound-routing/segment-01/DockDispatch.csproj
+        dest: fixture/component/DockDispatch.csproj
+      - src: fixtures/beq19-outbound-routing/segment-01/DockBoard.razor
+        dest: fixture/component/DockBoard.razor
+      - src: fixtures/beq19-outbound-routing/segment-01/DispatchPanelBase.cs
+        dest: fixture/component/DispatchPanelBase.cs
+      - src: fixtures/beq19-outbound-routing/segment-01/Outbox.cs
+        dest: fixture/component/Outbox.cs
+      - src: fixtures/beq19-outbound-routing/segment-01/SnapshotCodec.cs
+        dest: fixture/component/SnapshotCodec.cs
+      - src: fixtures/beq19-outbound-routing/segment-01/EnvelopeCodec.cs
+        dest: fixture/component/EnvelopeCodec.cs
+      - src: fixtures/beq19-outbound-routing/segment-01/CalibrationExport.cs
+        dest: fixture/component/CalibrationExport.cs
+      - src: fixtures/beq19-outbound-routing/criterion.json
+        dest: fixture/criterion.json
+    graders:
+    - type: file-exists
+      config:
+        path: out/serialization-decision.json
+    - type: program
+      config:
+        program: python
+        args:
+        - -I
+        - -c
+        - &id002 |
+          import hashlib, json, sys
+          from pathlib import Path, PurePosixPath, PureWindowsPath
+
+          def finish(category, message):
+              passed = category == "pass"
+              prefix = {"pass": "VALID source-bound path worksheet: ",
+                        "fail": "FAIL assessor output: ", "error": "INVALID fixture/grader: "}[category]
+              print(json.dumps({"name": "beq19-outbound-routing", "kind": "code", "passed": passed,
+                                "score": int(passed), "status": "error" if category == "error" else "success",
+                                "evidence": prefix + message}))
+              raise SystemExit(0)
+
+          def unique(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError("duplicate JSON key")
+                  result[key] = value
+              return result
+
+          def constant(value):
+              raise ValueError("non-JSON constant")
+
+          def load(value):
+              return json.loads(value, object_pairs_hook=unique, parse_constant=constant)
+
+          def source(path):
+              return path.read_bytes().decode("utf-8").replace("\r\n", "\n")
+
+          def symbol(value):
+              if not isinstance(value, str):
+                  raise ValueError("symbol must be text")
+              return value.removeprefix("global::").removeprefix("DockDispatch.").removeprefix("System.Text.Json.")
+
+          try:
+              binding = sys.argv[1]
+              assert hashlib.sha256(binding.encode()).hexdigest() == sys.argv[2], "controller binding differs"
+              expected = load(binding)
+              assert set(expected) == {"status", "files", "criterion_sha256", "paths", "excluded"}
+              assert expected["status"] == ("gap" if any(p["serialization"]["kind"] == "raw-value"
+                                                       for p in expected["paths"]) else "verified")
+              root = Path("fixture")
+              assert root.is_dir() and not root.is_symlink(), "missing/linked staged root"
+              entries = list(root.rglob("*"))
+              assert not any(p.is_symlink() for p in entries), "linked staged input"
+              assert {p.relative_to(root).as_posix() for p in entries if p.is_dir()} == {"component"}
+              assert {p.relative_to(root).as_posix() for p in entries if p.is_file()} == (
+                  {"criterion.json"} | {"component/" + f for f in expected["files"]}), "staged inventory differs"
+              texts = {f: source(root / "component" / f) for f in expected["files"]}
+              for name, content in texts.items():
+                  assert hashlib.sha256(content.encode()).hexdigest() == expected["files"][name], "source digest differs"
+              criterion = source(root / "criterion.json")
+              assert hashlib.sha256(criterion.encode()).hexdigest() == expected["criterion_sha256"], "criterion digest differs"
+              assert load(criterion)["requirement_id"] == "BEQ-19"
+              for record in expected["paths"] + expected["excluded"]:
+                  for anchor in record["anchors"]:
+                      assert texts[anchor["path"]].splitlines()[anchor["line"] - 1] == anchor["text"], "anchor differs"
+          except (AssertionError, IndexError, KeyError, TypeError, ValueError, OSError, UnicodeError) as error:
+              finish("error", str(error) or "invalid controller configuration")
+
+          def reject(message):
+              finish("fail", message)
+
+          def citations(records, anchors):
+              if not isinstance(records, list) or not records:
+                  reject("missing source grounding")
+              ranges = []
+              for record in records:
+                  if not isinstance(record, dict) or set(record) != {"path", "start_line", "end_line", "quote"}:
+                      reject("citation shape differs from the common contract")
+                  name = record["path"]
+                  if not isinstance(name, str):
+                      reject("citation path must be text")
+                  path = PurePosixPath(name.replace("\\", "/"))
+                  if path.is_absolute() or PureWindowsPath(name).drive or ".." in path.parts or path.as_posix() not in texts:
+                      reject("citation is outside the supplied source")
+                  lines = texts[path.as_posix()].splitlines()
+                  start, end = record["start_line"], record["end_line"]
+                  if type(start) is not int or type(end) is not int or not 1 <= start <= end <= len(lines):
+                      reject("invalid citation range")
+                  if record["quote"] != "\n".join(lines[start - 1:end]):
+                      reject("fabricated source quotation")
+                  ranges.append((path.as_posix(), start, end))
+              for anchor in anchors:
+                  if not any(p == anchor["path"] and first <= anchor["line"] <= last for p, first, last in ranges):
+                      reject("citations do not ground a required relationship")
+
+          try:
+              answer = load(Path("out/serialization-decision.json").read_bytes().decode("utf-8"))
+          except FileNotFoundError:
+              reject("missing worksheet")
+          except (ValueError, UnicodeError):
+              reject("worksheet must be strict UTF-8 JSON with unique keys")
+          except OSError as error:
+              finish("error", "worksheet read failed: " + type(error).__name__)
+
+          try:
+              assert isinstance(answer, dict) and set(answer) == {"requirement_id", "status", "paths", "excluded", "limits"}
+              assert answer["requirement_id"] == "BEQ-19"
+              assert answer["status"] in ("verified", "gap", "owner evidence required", "not tested", "not applicable")
+              if answer["status"] != expected["status"]:
+                  reject("source does not support this conclusion (including legitimate abstention)")
+              assert isinstance(answer["limits"], dict) and set(answer["limits"]) == {
+                  "browser_executed", "exploitability_established", "application_ids_hostile"}
+              assert all(value is False for value in answer["limits"].values()), "unsupported execution/trust claim"
+              paths = answer["paths"]
+              assert isinstance(paths, list) and len(paths) == len(expected["paths"]), "outbound shape inventory differs"
+              remaining = {p["condition"]: p for p in expected["paths"]}
+              for record in paths:
+                  assert isinstance(record, dict) and set(record) == {
+                      "condition", "value", "route", "serialization", "sink", "citations"}
+                  required = remaining.pop(record["condition"])
+                  assert record["value"] == required["value"], "wrong outbound value"
+                  assert isinstance(record["route"], list)
+                  assert [symbol(v) for v in record["route"]] == required["route"], "fabricated or incomplete reached route"
+                  assert symbol(record["sink"]) == required["sink"], "wrong outbound sink"
+                  serialization = record["serialization"]
+                  assert isinstance(serialization, dict) and set(serialization) == {"method", "kind", "escaping"}
+                  assert symbol(serialization["method"]) == required["serialization"]["method"], "wrong writer API"
+                  assert {k: serialization[k] for k in ("kind", "escaping")} == {
+                      k: required["serialization"][k] for k in ("kind", "escaping")}, "wrong serialization operation"
+                  citations(record["citations"], required["anchors"])
+              assert not remaining, "missing supported branch"
+              assert isinstance(answer["excluded"], list) and len(answer["excluded"]) == len(expected["excluded"])
+              for record, required in zip(answer["excluded"], expected["excluded"], strict=True):
+                  assert isinstance(record, dict) and set(record) == {"entry", "reason", "citations"}
+                  assert symbol(record["entry"]) == required["entry"] and record["reason"] == required["reason"], "wrong reachability"
+                  citations(record["citations"], required["anchors"])
+          except (AssertionError, KeyError, TypeError, ValueError) as error:
+              reject(str(error) or "structured path explanation differs from the supplied source")
+          finish("pass", "typed normal path, applicable secondary shape, source relationships and scope limits checked")
+        - '{"status":"gap","files":{"DockDispatch.csproj":"79a05e39a8d7bd1f5de993cb46c49c1d46edc9ce50ea5ac6c3f5ef00aaf9e6a7","DockBoard.razor":"e0105c0267759e50626925018176b50c25d7a63772c3bfd62545861613c507ae","DispatchPanelBase.cs":"32d48bc7a1023c9ef74f48691b1aea6fb28804c23dd44f2e1a78fc849976e1bf","Outbox.cs":"3d348941fdcc64f87a146cc9f95606c2b8f60405add7c8c1a525bf428b5879eb","SnapshotCodec.cs":"a256f70b2311232da8908069d4e6b76fbc7a6bdf2a511674ee48683f3f35618d","EnvelopeCodec.cs":"ca715ce539cba9f4a2f8fe4dc68537d671ede57908ea402ea864625b63dfbc8e","CalibrationExport.cs":"9810b1d84008548aabd5586b521b6a04d654c62120dfb42a36a1c71e8d47b643"},"criterion_sha256":"6b4b2055eb05a9599b2a6e259daf3d7d3e97aa8feca60fd9fbddbdd5177d4a41","paths":[{"condition":"always","value":"snapshot","route":["DispatchPanelBase.PublishAsync","SnapshotCodec.Encode","DeliveryChannel.SendAsync"],"serialization":{"method":"JsonSerializer.SerializeToUtf8Bytes","kind":"typed","escaping":"default-json"},"sink":"DeliveryChannel.SendAsync","anchors":[{"path":"DockBoard.razor","line":2,"text":"@inherits
+          DispatchPanelBase"},{"path":"DockBoard.razor","line":5,"text":"<button @onclick=\"PublishAsync\">Publish dock reservation</button>"},{"path":"DispatchPanelBase.cs","line":14,"text":"    protected
+          async Task PublishAsync()"},{"path":"DispatchPanelBase.cs","line":16,"text":"        var snapshot = new DispatchSnapshot(DockId,
+          Labels);"},{"path":"DispatchPanelBase.cs","line":17,"text":"        await channel.SendAsync(SnapshotCodec.Encode(snapshot));"},{"path":"SnapshotCodec.cs","line":8,"text":"        JsonSerializer.SerializeToUtf8Bytes(snapshot);"},{"path":"Outbox.cs","line":18,"text":"        LastSent
+          = payload.ToArray();"}]},{"condition":"QueueEnabled","value":"reservation.Code","route":["DispatchPanelBase.PublishAsync","DispatchPlan.Capture","Outbox.EnqueueAsync","EnvelopeCodec.Encode","ScalarLexeme.Quote","DeliveryChannel.SendAsync"],"serialization":{"method":"Utf8JsonWriter.WriteRawValue","kind":"raw-value","escaping":"unescaped"},"sink":"DeliveryChannel.SendAsync","anchors":[{"path":"DockBoard.razor","line":2,"text":"@inherits
+          DispatchPanelBase"},{"path":"DockBoard.razor","line":5,"text":"<button @onclick=\"PublishAsync\">Publish dock reservation</button>"},{"path":"DispatchPanelBase.cs","line":14,"text":"    protected
+          async Task PublishAsync()"},{"path":"DispatchPanelBase.cs","line":10,"text":"    [Parameter] public bool QueueEnabled
+          { get; set; }"},{"path":"DispatchPanelBase.cs","line":18,"text":"        if (QueueEnabled)"},{"path":"DispatchPanelBase.cs","line":20,"text":"            var
+          reservation = DispatchPlan.Capture(ReservationCode);"},{"path":"DispatchPanelBase.cs","line":21,"text":"            await
+          Outbox.EnqueueAsync(channel, reservation);"},{"path":"DispatchPanelBase.cs","line":31,"text":"    public static Reservation
+          Capture(string code) => new(code);"},{"path":"Outbox.cs","line":7,"text":"        var payload = EnvelopeCodec.Encode(reservation);"},{"path":"Outbox.cs","line":8,"text":"        return
+          channel.SendAsync(payload);"},{"path":"EnvelopeCodec.cs","line":11,"text":"        using (var writer = new Utf8JsonWriter(buffer))"},{"path":"EnvelopeCodec.cs","line":15,"text":"            writer.WritePropertyName(\"reservation\");"},{"path":"EnvelopeCodec.cs","line":16,"text":"            writer.WriteRawValue(ScalarLexeme.Quote(reservation.Code),
+          skipInputValidation: true);"},{"path":"Outbox.cs","line":18,"text":"        LastSent = payload.ToArray();"},{"path":"CalibrationExport.cs","line":7,"text":"    public
+          static string Quote(string value)"},{"path":"CalibrationExport.cs","line":11,"text":"        text.Append(value);"}]}],"excluded":[{"entry":"CalibrationExport.Emit","reason":"not-reachable-from-selected-component","anchors":[{"path":"CalibrationExport.cs","line":19,"text":"    public
+          static Task Emit(DeliveryChannel channel, string reading)"},{"path":"CalibrationExport.cs","line":21,"text":"        return
+          channel.SendAsync(Encoding.UTF8.GetBytes(ScalarLexeme.Quote(reading)));"},{"path":"CalibrationExport.cs","line":11,"text":"        text.Append(value);"}]}]}'
+        - 8ab4aedeb4b5c38c546ebbb2e7bb86e139c74e0f9d22877db2ff3cd6f2caf031
+    - type: prompt
+    rubric:
+    - The conclusion is supported by the actual button entry, inherited conditional route, projected value, encoder operation
+      and byte-send sink. A guessed status, fabricated relationship, irrelevant citation or meaningless explanation is not a
+      correct assessment.
+    - Identifies the reached queued reservation value bypassing typed writes and safe escaping, while preserving the satisfactory
+      typed ordinary snapshot path.
+    - Distinguishes the .NET serialization mechanism from DOM behavior or exploitability. Application-controlled identifiers
+      are not automatically hostile input. Does not claim browser execution, broaden the assessment or rely on a sibling capture.
+    - Natural source-grounded explanations and equivalent descriptions of the actual serializer APIs are accepted. No particular
+      wording, procedure, tool use or skill activation is rewarded.
+  - name: Assess another dock dispatch component
+    tags:
+      capability: outbound-serialization-path-discovery
+      risk: unreachable-raw-code-as-component-gap
+      journey: review-component-implementation
+    prompt: *id001
+    environment:
+      files:
+      - src: fixtures/beq19-outbound-routing/segment-02/DockDispatch.csproj
+        dest: fixture/component/DockDispatch.csproj
+      - src: fixtures/beq19-outbound-routing/segment-02/DockBoard.razor
+        dest: fixture/component/DockBoard.razor
+      - src: fixtures/beq19-outbound-routing/segment-02/DispatchPanelBase.cs
+        dest: fixture/component/DispatchPanelBase.cs
+      - src: fixtures/beq19-outbound-routing/segment-02/Outbox.cs
+        dest: fixture/component/Outbox.cs
+      - src: fixtures/beq19-outbound-routing/segment-02/SnapshotCodec.cs
+        dest: fixture/component/SnapshotCodec.cs
+      - src: fixtures/beq19-outbound-routing/segment-02/EnvelopeCodec.cs
+        dest: fixture/component/EnvelopeCodec.cs
+      - src: fixtures/beq19-outbound-routing/segment-02/CalibrationExport.cs
+        dest: fixture/component/CalibrationExport.cs
+      - src: fixtures/beq19-outbound-routing/criterion.json
+        dest: fixture/criterion.json
+    graders:
+    - type: file-exists
+      config:
+        path: out/serialization-decision.json
+    - type: program
+      config:
+        program: python
+        args:
+        - -I
+        - -c
+        - *id002
+        - '{"status":"verified","files":{"DockDispatch.csproj":"79a05e39a8d7bd1f5de993cb46c49c1d46edc9ce50ea5ac6c3f5ef00aaf9e6a7","DockBoard.razor":"e0105c0267759e50626925018176b50c25d7a63772c3bfd62545861613c507ae","DispatchPanelBase.cs":"32d48bc7a1023c9ef74f48691b1aea6fb28804c23dd44f2e1a78fc849976e1bf","Outbox.cs":"3d348941fdcc64f87a146cc9f95606c2b8f60405add7c8c1a525bf428b5879eb","SnapshotCodec.cs":"a256f70b2311232da8908069d4e6b76fbc7a6bdf2a511674ee48683f3f35618d","EnvelopeCodec.cs":"df391a73097b0bde1a909e69244b67066fe31940b1f9b30fe601c045671565b2","CalibrationExport.cs":"9810b1d84008548aabd5586b521b6a04d654c62120dfb42a36a1c71e8d47b643"},"criterion_sha256":"6b4b2055eb05a9599b2a6e259daf3d7d3e97aa8feca60fd9fbddbdd5177d4a41","paths":[{"condition":"always","value":"snapshot","route":["DispatchPanelBase.PublishAsync","SnapshotCodec.Encode","DeliveryChannel.SendAsync"],"serialization":{"method":"JsonSerializer.SerializeToUtf8Bytes","kind":"typed","escaping":"default-json"},"sink":"DeliveryChannel.SendAsync","anchors":[{"path":"DockBoard.razor","line":2,"text":"@inherits
+          DispatchPanelBase"},{"path":"DockBoard.razor","line":5,"text":"<button @onclick=\"PublishAsync\">Publish dock reservation</button>"},{"path":"DispatchPanelBase.cs","line":14,"text":"    protected
+          async Task PublishAsync()"},{"path":"DispatchPanelBase.cs","line":16,"text":"        var snapshot = new DispatchSnapshot(DockId,
+          Labels);"},{"path":"DispatchPanelBase.cs","line":17,"text":"        await channel.SendAsync(SnapshotCodec.Encode(snapshot));"},{"path":"SnapshotCodec.cs","line":8,"text":"        JsonSerializer.SerializeToUtf8Bytes(snapshot);"},{"path":"Outbox.cs","line":18,"text":"        LastSent
+          = payload.ToArray();"}]},{"condition":"QueueEnabled","value":"reservation.Code","route":["DispatchPanelBase.PublishAsync","DispatchPlan.Capture","Outbox.EnqueueAsync","EnvelopeCodec.Encode","DeliveryChannel.SendAsync"],"serialization":{"method":"Utf8JsonWriter.WriteStringValue","kind":"typed","escaping":"default-json"},"sink":"DeliveryChannel.SendAsync","anchors":[{"path":"DockBoard.razor","line":2,"text":"@inherits
+          DispatchPanelBase"},{"path":"DockBoard.razor","line":5,"text":"<button @onclick=\"PublishAsync\">Publish dock reservation</button>"},{"path":"DispatchPanelBase.cs","line":14,"text":"    protected
+          async Task PublishAsync()"},{"path":"DispatchPanelBase.cs","line":10,"text":"    [Parameter] public bool QueueEnabled
+          { get; set; }"},{"path":"DispatchPanelBase.cs","line":18,"text":"        if (QueueEnabled)"},{"path":"DispatchPanelBase.cs","line":20,"text":"            var
+          reservation = DispatchPlan.Capture(ReservationCode);"},{"path":"DispatchPanelBase.cs","line":21,"text":"            await
+          Outbox.EnqueueAsync(channel, reservation);"},{"path":"DispatchPanelBase.cs","line":31,"text":"    public static Reservation
+          Capture(string code) => new(code);"},{"path":"Outbox.cs","line":7,"text":"        var payload = EnvelopeCodec.Encode(reservation);"},{"path":"Outbox.cs","line":8,"text":"        return
+          channel.SendAsync(payload);"},{"path":"EnvelopeCodec.cs","line":11,"text":"        using (var writer = new Utf8JsonWriter(buffer))"},{"path":"EnvelopeCodec.cs","line":15,"text":"            writer.WritePropertyName(\"reservation\");"},{"path":"EnvelopeCodec.cs","line":16,"text":"            writer.WriteStringValue(reservation.Code);"},{"path":"Outbox.cs","line":18,"text":"        LastSent
+          = payload.ToArray();"}]}],"excluded":[{"entry":"CalibrationExport.Emit","reason":"not-reachable-from-selected-component","anchors":[{"path":"CalibrationExport.cs","line":19,"text":"    public
+          static Task Emit(DeliveryChannel channel, string reading)"},{"path":"CalibrationExport.cs","line":21,"text":"        return
+          channel.SendAsync(Encoding.UTF8.GetBytes(ScalarLexeme.Quote(reading)));"},{"path":"CalibrationExport.cs","line":11,"text":"        text.Append(value);"}]}]}'
+        - e7f1a2a6b41fc5fc1f7602b1a382b35a1ac7aacdaf5386f8272de88afa99a55a
+    - type: prompt
+    rubric:
+    - The conclusion is supported by the actual button entry, inherited conditional route, projected value, encoder operation
+      and byte-send sink. A guessed status, fabricated relationship, irrelevant citation or meaningless explanation is not a
+      correct assessment.
+    - Establishes typed writes with default JSON escaping on both applicable outbound shapes, without turning the unreachable
+      calibration export into a component defect.
+    - Distinguishes the .NET serialization mechanism from DOM behavior or exploitability. Application-controlled identifiers
+      are not automatically hostile input. Does not claim browser execution, broaden the assessment or rely on a sibling capture.
+    - Natural source-grounded explanations and equivalent descriptions of the actual serializer APIs are accepted. No particular
+      wording, procedure, tool use or skill activation is rewarded.

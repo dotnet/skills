@@ -1,0 +1,46 @@
+{
+  "requirement_id": "BEQ-19",
+  "requirement": "Serialization is typed and correctly escapes untrusted values.",
+  "scope": {
+    "selected_component": "DockBoard",
+    "supported_context": "Interactive .NET rendering with the Publish button enabled. QueueEnabled may be false or true. This capture contains the complete component-owned inheritance, batching, encoding and outbound channel closure.",
+    "values": "Labels may contain external text. ReservationCode and DockId are application-controlled identifiers; their presence does not establish hostile input or exploitability. Typed serialization is still a conjunct of the supplied requirement.",
+    "boundary": "Assess the .NET outbound byte-producing mechanism, not a decoded browser or DOM sink. Other utilities in the capture are applicable only if reachable from DockBoard in a supported context."
+  },
+  "status_definitions": {
+    "verified": "Complete applicable source establishes typed serialization and safe escaping on every reached outbound value path.",
+    "gap": "A supported reached path directly contradicts typed serialization or safe escaping. A satisfactory path does not cancel a conflicting one.",
+    "owner evidence required": "An applicable fact necessarily requires an absent owner record.",
+    "not tested": "Applicable evidence is insufficient to settle the mechanism, without a directly established conflict.",
+    "not applicable": "Complete scope establishes no applicable outbound serialization."
+  },
+  "worksheet": {
+    "path": "out/serialization-decision.json",
+    "fields": ["requirement_id", "status", "paths", "excluded", "limits"],
+    "path_record": {
+      "fields": ["condition", "value", "route", "serialization", "sink", "citations"],
+      "condition": "Use always for the unconditional path, otherwise the exact enabling Boolean parameter name.",
+      "value": "Use the source expression passed to the value writer, or snapshot for the complete ordinary snapshot object.",
+      "route": "An ordered array of Class.Method symbols connecting the selected component's inherited button entry to the codec, any scalar-producing helper and the send sink. Include DispatchPlan.Capture for the queued projection. Namespace qualification is optional.",
+      "serialization": {
+        "fields": ["method", "kind", "escaping"],
+        "method": "The actual serializer API symbol (Class.Method).",
+        "kind": ["typed", "raw-value"],
+        "escaping": ["default-json", "unescaped", "unresolved"]
+      },
+      "sink": "The actual outbound send method, not a browser sink or an unrelated diagnostic method.",
+      "citations": "Source ranges grounding the entry/inheritance, supported branch, projection, helper/writer, encoder configuration and send relationships. Each citation has exactly path, start_line, end_line, quote. Paths are relative to fixture/component; quote is the exact complete text of that range, with LF newlines. Broad ranges are allowed if they contain the relevant source and the structured relationships are correct."
+    },
+    "excluded_record": {
+      "fields": ["entry", "reason", "citations"],
+      "entry": "The Class.Method entry of a raw-code utility outside the selected component's supported call closure.",
+      "reason": "not-reachable-from-selected-component",
+      "citations": "The same exact source-range format as path citations."
+    },
+    "limits": {
+      "fields": ["browser_executed", "exploitability_established", "application_ids_hostile"],
+      "values": "Boolean observations. Do not turn application-controlled identifiers into hostile input or claim operations not performed."
+    },
+    "explanation": "The structured path records are the source-bound explanation, not free-form nonempty fact strings. In the final response explain the decision naturally, preserve satisfactory path facts, distinguish unrelated raw code and state the limits. No particular prose wording is required."
+  }
+}
