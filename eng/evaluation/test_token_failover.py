@@ -10,6 +10,7 @@ import sys
 import tempfile
 import textwrap
 import unittest
+from datetime import date, timedelta
 from pathlib import Path
 
 try:
@@ -170,7 +171,7 @@ def run_groom_publisher_without_rows(
     test_case: unittest.TestCase,
     *,
     include_active_finding: bool = True,
-    correlation_date: str = "2026-09-16",
+    correlation_date: str | None = None,
     row_status: str = "🔄 Dispatched",
     result_text: str = "[pending](https://github.com/dotnet/skills/actions/runs/123)",
     change_body_on_recheck: bool = False,
@@ -180,6 +181,13 @@ def run_groom_publisher_without_rows(
         test_case.skipTest("Node.js is required for publisher behavior tests")
 
     finding_id = "pipeline:evaluation:evaluate:test:failure"
+    # Default to a correlation that is still inside the 14-day retention
+    # window. A hard-coded date silently expires once real time passes it,
+    # which made the "resolved but dispatched" fixture drop its row.
+    if correlation_date is None:
+        correlation_date = (
+            date.today() - timedelta(days=1)
+        ).isoformat()
     correlation = f"hc-{correlation_date}-123-1"
     finding = {
         "fingerprint": finding_id,
@@ -187,7 +195,7 @@ def run_groom_publisher_without_rows(
         "severity": "critical",
         "category": "pipeline",
         "url": "https://github.com/dotnet/skills/actions/runs/123",
-        "first_seen": "2026-09-16",
+        "first_seen": correlation_date,
         "occurrences": 1,
     }
     encoded_finding = "pipeline%3Aevaluation%3Aevaluate%3Atest%3Afailure"
@@ -199,7 +207,7 @@ def run_groom_publisher_without_rows(
         f"#investigation-fingerprint:{encoded_finding}) "
         "[](https://github.com/dotnet/skills/issues/695"
         f"#investigation-correlation:{correlation}) Evaluation failed | "
-        f"🔴 critical | {row_status} | 2026-09-16 | "
+        f"🔴 critical | {row_status} | {correlation_date} | "
         f"{result_text} |\n\n"
         "<!-- devops-health-state:v1\n"
         f"{json.dumps({'active_findings': [finding] if include_active_finding else [], 'history': []}, separators=(',', ':'))}\n"
@@ -1395,9 +1403,13 @@ None found.
         self.assertNotIn("hc-2000-01-01-123-1", result["calls"][0]["body"])
 
     def test_groom_status_parser_ignores_result_text(self) -> None:
+        correlation_date = (
+            date.today() - timedelta(days=1)
+        ).isoformat()
         result = run_groom_publisher_without_rows(
             self,
             include_active_finding=False,
+            correlation_date=correlation_date,
             row_status="✅ Done",
             result_text=(
                 "[Summary contains ⏳ Dispatch pending]"
@@ -1410,7 +1422,10 @@ None found.
             [call["type"] for call in result["calls"]],
             ["update"],
         )
-        self.assertNotIn("hc-2026-09-16-123-1", result["calls"][0]["body"])
+        self.assertNotIn(
+            f"hc-{correlation_date}-123-1",
+            result["calls"][0]["body"],
+        )
 
     def test_groom_publisher_rejects_concurrent_body_change(self) -> None:
         result = run_groom_publisher_without_rows(

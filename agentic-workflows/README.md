@@ -11,6 +11,7 @@ that can be installed into other repositories. The workflow sources are kept out
 | [Build Failure Analysis](build-failure-analysis/) | Analyzes failed .NET Azure Pipelines builds from their existing binary logs and posts evidence-backed findings on the pull request. |
 | [MSBuild Quality Review](msbuild-quality-review/) | Reviews changed MSBuild project and infrastructure files and posts one bounded, evidence-backed PR review comment. |
 | [Test Failure Analysis](test-failure-analysis/) | Analyzes bounded, normalized test evidence from a repository-owned CI collector and reports supported failures, flakes, hangs, crashes, and duration regressions. |
+| [Unskip Closed Tests](unskip-closed-tests/) | Re-enables source-bound .NET tests only after deterministic tracking-state, revision, edit, and structured execution verification. |
 
 ## Installation
 
