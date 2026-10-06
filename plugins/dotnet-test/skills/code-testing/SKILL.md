@@ -92,7 +92,8 @@ Use this skill when you need to:
 - Migrating between test frameworks (use migration skills)
 - Answering an MSTest API/pattern or modernization question that does not ask to
   generate tests (use `writing-mstest-tests`)
-- Debugging failing test logic
+- Analysis-only diagnosis of failing tests when no code or test changes are
+  requested
 
 ## How It Works
 

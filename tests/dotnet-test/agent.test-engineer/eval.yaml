@@ -415,6 +415,8 @@ stimuli:
       files:
         - src: ../agent.test-quality-auditor/fixtures/weak-tests
           dest: WeakTests
+      commands:
+        - mkdir -p .eval-baseline && cp -R WeakTests .eval-baseline/WeakTests
       skills:
         - ../../plugins/dotnet-test/skills/test-anti-patterns
         - ../../plugins/dotnet-test/skills/assertion-quality
@@ -429,10 +431,11 @@ stimuli:
       - type: output-matches
         config:
           pattern: (RemoveItem|GetTotalWithDiscount|coverage gap|untested)
-      - type: file-contains
+      - type: run-command
         config:
-          path: WeakTests/ShoppingCartTests.cs
-          value: Assert.AreEqual(total, total)
+          command: diff -ru .eval-baseline/WeakTests WeakTests
+          expected_exit_code: 0
+          timeout: 1m
       - type: prompt
     rubric:
       - Identified the most severe false-confidence patterns
