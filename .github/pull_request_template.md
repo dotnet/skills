@@ -18,3 +18,17 @@
 - [ ] I updated CODEOWNERS when adding or moving owned content.
 - [ ] I updated all marketplace manifests when plugin metadata changed.
 - [ ] I updated `eng/known-domains.txt` for any new external domains referenced by skill content.
+
+<details>
+<summary>Evaluation changes only</summary>
+
+For every eval-related change, including a new eval:
+
+- [ ] Scenarios are necessary, distinct, and use natural prompts.
+- [ ] Graders cover the full result, accept the golden result, and reject a realistic mutation.
+- [ ] No-op, dormancy, and statistical power are covered where needed.
+- [ ] I ran the applicable production evaluation path and recorded the result above.
+- [ ] If this fixes a failed eval, I classified the failure before editing skill content.
+- [ ] If this broadly changes routing or behavior, I checked separate model-family evidence.
+
+</details>

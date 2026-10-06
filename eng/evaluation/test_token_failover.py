@@ -10,6 +10,7 @@ import sys
 import tempfile
 import textwrap
 import unittest
+from datetime import date, timedelta
 from pathlib import Path
 
 try:
@@ -170,7 +171,7 @@ def run_groom_publisher_without_rows(
     test_case: unittest.TestCase,
     *,
     include_active_finding: bool = True,
-    correlation_date: str = "2026-09-16",
+    correlation_date: str | None = None,
     row_status: str = "🔄 Dispatched",
     result_text: str = "[pending](https://github.com/dotnet/skills/actions/runs/123)",
     change_body_on_recheck: bool = False,
@@ -180,6 +181,13 @@ def run_groom_publisher_without_rows(
         test_case.skipTest("Node.js is required for publisher behavior tests")
 
     finding_id = "pipeline:evaluation:evaluate:test:failure"
+    # Default to a correlation that is still inside the 14-day retention
+    # window. A hard-coded date silently expires once real time passes it,
+    # which made the "resolved but dispatched" fixture drop its row.
+    if correlation_date is None:
+        correlation_date = (
+            date.today() - timedelta(days=1)
+        ).isoformat()
     correlation = f"hc-{correlation_date}-123-1"
     finding = {
         "fingerprint": finding_id,
@@ -187,7 +195,7 @@ def run_groom_publisher_without_rows(
         "severity": "critical",
         "category": "pipeline",
         "url": "https://github.com/dotnet/skills/actions/runs/123",
-        "first_seen": "2026-09-16",
+        "first_seen": correlation_date,
         "occurrences": 1,
     }
     encoded_finding = "pipeline%3Aevaluation%3Aevaluate%3Atest%3Afailure"
@@ -199,7 +207,7 @@ def run_groom_publisher_without_rows(
         f"#investigation-fingerprint:{encoded_finding}) "
         "[](https://github.com/dotnet/skills/issues/695"
         f"#investigation-correlation:{correlation}) Evaluation failed | "
-        f"🔴 critical | {row_status} | 2026-09-16 | "
+        f"🔴 critical | {row_status} | {correlation_date} | "
         f"{result_text} |\n\n"
         "<!-- devops-health-state:v1\n"
         f"{json.dumps({'active_findings': [finding] if include_active_finding else [], 'history': []}, separators=(',', ':'))}\n"
@@ -1395,9 +1403,13 @@ None found.
         self.assertNotIn("hc-2000-01-01-123-1", result["calls"][0]["body"])
 
     def test_groom_status_parser_ignores_result_text(self) -> None:
+        correlation_date = (
+            date.today() - timedelta(days=1)
+        ).isoformat()
         result = run_groom_publisher_without_rows(
             self,
             include_active_finding=False,
+            correlation_date=correlation_date,
             row_status="✅ Done",
             result_text=(
                 "[Summary contains ⏳ Dispatch pending]"
@@ -1410,7 +1422,10 @@ None found.
             [call["type"] for call in result["calls"]],
             ["update"],
         )
-        self.assertNotIn("hc-2026-09-16-123-1", result["calls"][0]["body"])
+        self.assertNotIn(
+            f"hc-{correlation_date}-123-1",
+            result["calls"][0]["body"],
+        )
 
     def test_groom_publisher_rejects_concurrent_body_change(self) -> None:
         result = run_groom_publisher_without_rows(
@@ -1588,30 +1603,35 @@ None found.
             )
         )
 
-        setup_sha = "e93dc06546adbe250a4bdf7d27cee653f22312a0"
-        self.assertFalse(
-            any(
-                key.startswith("github/gh-aw-actions/")
-                for key in actions_lock["entries"]
-            ),
-            "explicitly SHA-pinned gh-aw action refs should not require cache entries",
+        setup_sha = "2fbab69bfca02bebd76cd0fc43f2d12acfed994f"
+        self.assertEqual(
+            {
+                key: entry["sha"]
+                for key, entry in actions_lock["entries"].items()
+                if key.startswith("github/gh-aw-actions/")
+            },
+            {
+                f"github/gh-aw-actions/setup@{setup_sha}": setup_sha,
+                f"github/gh-aw-actions/setup-cli@{setup_sha}": setup_sha,
+            },
+            "cached gh-aw action annotations must preserve the explicit SHA pins",
         )
 
         expected_containers = {
-            "ghcr.io/github/gh-aw-firewall/agent:0.28.16":
-                "sha256:57a3e27388a6d7d32719088581e52567727fa0bf2f0d477bf565b0c4baa12a3f",
-            "ghcr.io/github/gh-aw-firewall/api-proxy:0.28.16":
-                "sha256:cd400948638ffe1b87ec319abf73fa29b6ac9881b015da58bba971c4cc13a400",
-            "ghcr.io/github/gh-aw-firewall/squid:0.28.16":
-                "sha256:452197f2e241b2cda8eb0b5674960aa8ca544a64dc242e24f8263c3df6452919",
-            "ghcr.io/github/gh-aw-mcpg:v0.4.21":
-                "sha256:f26f665840660581510746ed84f5fc706f4ca8c48833757dfb4d72d86587201e",
+            "ghcr.io/github/gh-aw-firewall/agent:0.28.25":
+                "sha256:25fbbefb92b690d4e6ef34de8df057c0349e6adf2b7486c0cc56954a8e9a3cd4",
+            "ghcr.io/github/gh-aw-firewall/api-proxy:0.28.25":
+                "sha256:c3c7082e73ba83052c580097e5a9c9c40a11e6f6b6fa0a4710e6859f83a62854",
+            "ghcr.io/github/gh-aw-firewall/squid:0.28.25":
+                "sha256:94cac14372280dbf4a08d021d7b5810a9fd7d73c88802e04a9e05551b1cbcd09",
+            "ghcr.io/github/gh-aw-mcpg:v0.4.26":
+                "sha256:2df1262a5b8877bfd8d99bc13e705f350a14709cf0d45005942fb63702a7a45b",
         }
         expected_executable_images = {
             f"{image}@{digest}"
             for image, digest in expected_containers.items()
         }
-        expected_executable_images.add("ghcr.io/github/gh-aw-mcpg:v0.4.21")
+        expected_executable_images.add("ghcr.io/github/gh-aw-mcpg:v0.4.26")
 
         def gh_aw_action_refs(text: str) -> set[tuple[str, str]]:
             return set(
@@ -1657,7 +1677,7 @@ None found.
                         executable_lock,
                     )
                 )
-                self.assertIn('"compiler_version":"v0.89.15"', lock)
+                self.assertIn('"compiler_version":"v0.89.22"', lock)
                 self.assertEqual(
                     gh_aw_action_refs(executable_lock),
                     {("setup", setup_sha)},
@@ -1679,13 +1699,13 @@ None found.
             gh_aw_action_refs(executable_lines(setup)),
             {("setup-cli", setup_sha)},
         )
-        self.assertIn("version: v0.89.15", setup)
+        self.assertIn("version: v0.89.22", setup)
 
         maintenance = (workflows / "agentics-maintenance.yml").read_text(
             encoding="utf-8"
         )
         self.assertIn(
-            "generated by pkg/workflow/maintenance_workflow.go (v0.89.15)",
+            "generated by pkg/workflow/maintenance_workflow.go (v0.89.22)",
             maintenance,
         )
         self.assertEqual(
