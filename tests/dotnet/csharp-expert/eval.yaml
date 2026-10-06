@@ -22,6 +22,9 @@ stimuli:
     constraints:
       reject_tools: [edit, create]
     graders:
+      - type: output-matches
+        config:
+          pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-aspnetcore@dotnet-agent-skills
       - type: exit-success
       - type: prompt
     rubric:
@@ -47,6 +50,9 @@ stimuli:
     constraints:
       reject_tools: [edit, create]
     graders:
+      - type: output-matches
+        config:
+          pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-blazor@dotnet-agent-skills
       - type: exit-success
       - type: prompt
     rubric:
@@ -71,6 +77,9 @@ stimuli:
     constraints:
       reject_tools: [edit, create]
     graders:
+      - type: output-matches
+        config:
+          pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-maui@dotnet-agent-skills
       - type: exit-success
       - type: prompt
     rubric:
@@ -99,6 +108,9 @@ stimuli:
     constraints:
       reject_tools: [edit, create]
     graders:
+      - type: output-matches
+        config:
+          pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-data@dotnet-agent-skills
       - type: exit-success
       - type: prompt
     rubric:
@@ -160,6 +172,9 @@ stimuli:
     constraints:
       reject_tools: [edit, create]
     graders:
+      - type: output-matches
+        config:
+          pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-test-migration@dotnet-agent-skills
       - type: file-contains
         config:
           path: "**/*.cs"
@@ -183,6 +198,9 @@ stimuli:
       Upgrade a solution from net8.0 to net9.0 and handle the compatibility changes across its
       projects.
     graders:
+      - type: output-matches
+        config:
+          pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-upgrade@dotnet-agent-skills
       - type: exit-success
       - type: prompt
     rubric:
@@ -204,6 +222,9 @@ stimuli:
     constraints:
       reject_tools: [edit, create]
     graders:
+      - type: output-matches
+        config:
+          pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-diag@dotnet-agent-skills
       - type: exit-success
       - type: prompt
     rubric:
@@ -226,6 +247,9 @@ stimuli:
     constraints:
       reject_tools: [edit, create]
     graders:
+      - type: output-matches
+        config:
+          pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-advanced@dotnet-agent-skills
       - type: exit-success
       - type: prompt
     rubric:
@@ -271,6 +295,9 @@ stimuli:
     constraints:
       reject_tools: [edit, create]
     graders:
+      - type: output-matches
+        config:
+          pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*dotnet-template-engine@dotnet-agent-skills[\s\S]*dotnet-blazor@dotnet-agent-skills
       - type: exit-success
       - type: prompt
     rubric:
@@ -324,6 +351,9 @@ stimuli:
     constraints:
       reject_tools: [edit, create]
     graders:
+      - type: output-matches
+        config:
+          pattern: codex plugin marketplace add\s+dotnet/skills[\s\S]*dotnet-test-migration
       - type: output-not-matches
         config:
           pattern: /plugin install dotnet-test-migration@dotnet-agent-skills
