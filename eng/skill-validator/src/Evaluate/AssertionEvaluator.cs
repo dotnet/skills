@@ -42,6 +42,41 @@ public static class AssertionEvaluator
                     : "No shell rejection was observed; the denial path was not exercised"));
         }
 
+        if (scenario.RejectAgents is { } rejectAgents)
+        {
+            foreach (var name in rejectAgents)
+            {
+                var delegated = metrics.Events.Any(evt =>
+                    evt.Type == "subagent.started"
+                    && evt.Data.TryGetValue("agentName", out var agentName)
+                    && agentName?.GetValue<string>() is { } actual
+                    && AgentRunner.AgentNamesMatch(actual, name));
+                results.Add(new AssertionResult(
+                    new Assertion(AssertionType.RejectAgents, Value: name),
+                    !delegated,
+                    delegated ? $"Agent '{name}' was started as a delegate" : $"No delegation to '{name}' was observed"));
+            }
+        }
+
+        if (scenario.RejectShellRetries)
+        {
+            var denialObserved = false;
+            var retryObserved = false;
+            foreach (var evt in metrics.Events)
+            {
+                if (evt.Type == "evaluator.shell_denied")
+                    denialObserved = true;
+                else if (denialObserved && evt.Type == "tool.execution_start"
+                    && evt.Data.TryGetValue("toolName", out var toolName)
+                    && AgentRunner.IsShellTool(toolName?.GetValue<string>()))
+                    retryObserved = true;
+            }
+            results.Add(new AssertionResult(
+                new Assertion(AssertionType.RejectShellRetries),
+                !retryObserved,
+                retryObserved ? "A shell tool was requested after capability-wide denial" : "No post-denial shell request was observed"));
+        }
+
         if (scenario.ExpectTools is not null)
         {
             foreach (var tool in scenario.ExpectTools)

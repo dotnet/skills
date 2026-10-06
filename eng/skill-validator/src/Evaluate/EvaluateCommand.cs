@@ -969,6 +969,35 @@ public static class EvaluateCommand
     internal static bool ShouldSelectAgentAsPrimary(EvalScenario scenario) =>
         scenario.ExpectActivation;
 
+    internal static string GetPreAssertionSessionStatus(RunMetrics metrics, bool reused = false)
+    {
+        var status = GetSessionStatus(metrics, reused);
+        return status == "completed" ? "grading" : status;
+    }
+
+    internal static async Task FinalizeRunMetrics(
+        EvalScenario scenario,
+        RunMetrics metrics,
+        SessionDatabase? sessionDb,
+        string sessionId,
+        bool reused = false)
+    {
+        if (!reused)
+        {
+            if (scenario.Assertions is { Count: > 0 })
+                metrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(
+                    scenario.Assertions, metrics.AgentOutput, metrics.WorkDir, scenario.Timeout, metrics);
+            var constraints = AssertionEvaluator.EvaluateConstraints(scenario, metrics);
+            metrics.AssertionResults = [..metrics.AssertionResults, ..constraints];
+            metrics.TaskCompleted = scenario.Assertions is { Count: > 0 } || constraints.Count > 0
+                ? metrics.AssertionResults.All(result => result.Passed)
+                : metrics.ErrorCount == 0;
+        }
+
+        sessionDb?.CompleteSession(sessionId, GetSessionStatus(metrics, reused),
+            JsonSerializer.Serialize(metrics, SkillValidatorJsonContext.Default.RunMetrics));
+    }
+
     private static async Task<RunExecutionResult> ExecuteAgentRun(
         int runIndex,
         EvalScenario scenario,
@@ -1069,60 +1098,21 @@ public static class EvaluateCommand
 
         if (sessionDb is not null)
         {
-            sessionDb.CompleteSession(baselineSessionId, GetSessionStatus(baselineMetrics, reusedBaseline is not null),
+            sessionDb.CompleteSession(baselineSessionId, GetPreAssertionSessionStatus(baselineMetrics, reusedBaseline is not null),
                 JsonSerializer.Serialize(baselineMetrics, SkillValidatorJsonContext.Default.RunMetrics));
-            sessionDb.CompleteSession(isolatedSessionId, GetSessionStatus(isolatedMetrics),
+            sessionDb.CompleteSession(isolatedSessionId, GetPreAssertionSessionStatus(isolatedMetrics),
                 JsonSerializer.Serialize(isolatedMetrics, SkillValidatorJsonContext.Default.RunMetrics));
-            sessionDb.CompleteSession(pluginSessionId, GetSessionStatus(pluginMetrics),
+            sessionDb.CompleteSession(pluginSessionId, GetPreAssertionSessionStatus(pluginMetrics),
                 JsonSerializer.Serialize(pluginMetrics, SkillValidatorJsonContext.Default.RunMetrics));
         }
         ThrowIfRunExecutionFailed(baselineMetrics, isolatedMetrics, pluginMetrics);
 
-        // Assertions, constraints, task completion, judging — same as skills.
-        // Baseline arm is skipped when reused (its results are cached).
-        if (scenario.Assertions is { Count: > 0 })
-        {
-            if (reusedBaseline is null)
-                baselineMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, baselineMetrics.AgentOutput, baselineMetrics.WorkDir, scenario.Timeout, baselineMetrics);
-            isolatedMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, isolatedMetrics.AgentOutput, isolatedMetrics.WorkDir, scenario.Timeout, isolatedMetrics);
-            pluginMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, pluginMetrics.AgentOutput, pluginMetrics.WorkDir, scenario.Timeout, pluginMetrics);
-        }
+        await FinalizeRunMetrics(scenario, baselineMetrics, sessionDb, baselineSessionId, reusedBaseline is not null);
+        await FinalizeRunMetrics(scenario, isolatedMetrics, sessionDb, isolatedSessionId);
+        await FinalizeRunMetrics(scenario, pluginMetrics, sessionDb, pluginSessionId);
 
-        var baselineConstraints = reusedBaseline is null ? AssertionEvaluator.EvaluateConstraints(scenario, baselineMetrics) : [];
-        var isolatedConstraints = AssertionEvaluator.EvaluateConstraints(scenario, isolatedMetrics);
-        var pluginConstraints = AssertionEvaluator.EvaluateConstraints(scenario, pluginMetrics);
-        if (reusedBaseline is null)
-            baselineMetrics.AssertionResults = [..baselineMetrics.AssertionResults, ..baselineConstraints];
-        isolatedMetrics.AssertionResults = [..isolatedMetrics.AssertionResults, ..isolatedConstraints];
-        pluginMetrics.AssertionResults = [..pluginMetrics.AssertionResults, ..pluginConstraints];
-
-        if (scenario.Assertions is { Count: > 0 } || baselineConstraints.Count > 0 || isolatedConstraints.Count > 0 || pluginConstraints.Count > 0)
-        {
-            if (reusedBaseline is null)
-                baselineMetrics.TaskCompleted = baselineMetrics.AssertionResults.All(a => a.Passed);
-            isolatedMetrics.TaskCompleted = isolatedMetrics.AssertionResults.All(a => a.Passed);
-            pluginMetrics.TaskCompleted = pluginMetrics.AssertionResults.All(a => a.Passed);
-        }
-        else
-        {
-            if (reusedBaseline is null)
-                baselineMetrics.TaskCompleted = baselineMetrics.ErrorCount == 0;
-            isolatedMetrics.TaskCompleted = isolatedMetrics.ErrorCount == 0;
-            pluginMetrics.TaskCompleted = pluginMetrics.ErrorCount == 0;
-        }
-
-        // --no-judge: re-persist enriched metrics and return without any LLM judging.
         if (config.NoJudge)
         {
-            if (sessionDb is not null)
-            {
-                sessionDb.CompleteSession(baselineSessionId, reusedBaseline is not null ? "reused" : (baselineMetrics.TimedOut ? "timed_out" : "completed"),
-                    JsonSerializer.Serialize(baselineMetrics, SkillValidatorJsonContext.Default.RunMetrics));
-                sessionDb.CompleteSession(isolatedSessionId, isolatedMetrics.TimedOut ? "timed_out" : "completed",
-                    JsonSerializer.Serialize(isolatedMetrics, SkillValidatorJsonContext.Default.RunMetrics));
-                sessionDb.CompleteSession(pluginSessionId, pluginMetrics.TimedOut ? "timed_out" : "completed",
-                    JsonSerializer.Serialize(pluginMetrics, SkillValidatorJsonContext.Default.RunMetrics));
-            }
             if (config.Verbose)
                 runLog("✓ run complete (judging deferred)");
             return UnjudgedRunResult(baselineMetrics, isolatedMetrics, pluginMetrics);
@@ -1792,64 +1782,21 @@ public static class EvaluateCommand
 
         if (sessionDb is not null)
         {
-            var baselineStatus = GetSessionStatus(baselineMetrics, reusedBaseline is not null);
-            var isolatedStatus = GetSessionStatus(isolatedMetrics);
-            var pluginStatus = GetSessionStatus(pluginMetrics);
+            var baselineStatus = GetPreAssertionSessionStatus(baselineMetrics, reusedBaseline is not null);
+            var isolatedStatus = GetPreAssertionSessionStatus(isolatedMetrics);
+            var pluginStatus = GetPreAssertionSessionStatus(pluginMetrics);
             sessionDb.CompleteSession(baselineSessionId, baselineStatus, JsonSerializer.Serialize(baselineMetrics, SkillValidatorJsonContext.Default.RunMetrics));
             sessionDb.CompleteSession(isolatedSessionId, isolatedStatus, JsonSerializer.Serialize(isolatedMetrics, SkillValidatorJsonContext.Default.RunMetrics));
             sessionDb.CompleteSession(pluginSessionId, pluginStatus, JsonSerializer.Serialize(pluginMetrics, SkillValidatorJsonContext.Default.RunMetrics));
         }
         ThrowIfRunExecutionFailed(baselineMetrics, isolatedMetrics, pluginMetrics);
 
-        // Evaluate assertions on the skilled runs (baseline assertions are cached when reused)
-        if (scenario.Assertions is { Count: > 0 })
-        {
-            if (reusedBaseline is null)
-                baselineMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, baselineMetrics.AgentOutput, baselineMetrics.WorkDir, scenario.Timeout, baselineMetrics);
-            isolatedMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, isolatedMetrics.AgentOutput, isolatedMetrics.WorkDir, scenario.Timeout, isolatedMetrics);
-            pluginMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, pluginMetrics.AgentOutput, pluginMetrics.WorkDir, scenario.Timeout, pluginMetrics);
-        }
+        await FinalizeRunMetrics(scenario, baselineMetrics, sessionDb, baselineSessionId, reusedBaseline is not null);
+        await FinalizeRunMetrics(scenario, isolatedMetrics, sessionDb, isolatedSessionId);
+        await FinalizeRunMetrics(scenario, pluginMetrics, sessionDb, pluginSessionId);
 
-        // Evaluate constraints on the skilled runs (baseline constraints are cached when reused)
-        var baselineConstraints = reusedBaseline is null ? AssertionEvaluator.EvaluateConstraints(scenario, baselineMetrics) : [];
-        var isolatedConstraints = AssertionEvaluator.EvaluateConstraints(scenario, isolatedMetrics);
-        var pluginConstraints = AssertionEvaluator.EvaluateConstraints(scenario, pluginMetrics);
-        if (reusedBaseline is null)
-            baselineMetrics.AssertionResults = [..baselineMetrics.AssertionResults, ..baselineConstraints];
-        isolatedMetrics.AssertionResults = [..isolatedMetrics.AssertionResults, ..isolatedConstraints];
-        pluginMetrics.AssertionResults = [..pluginMetrics.AssertionResults, ..pluginConstraints];
-
-        // Task completion for the skilled runs (baseline completion is cached when reused)
-        if (scenario.Assertions is { Count: > 0 } || baselineConstraints.Count > 0 || isolatedConstraints.Count > 0 || pluginConstraints.Count > 0)
-        {
-            if (reusedBaseline is null)
-                baselineMetrics.TaskCompleted = baselineMetrics.AssertionResults.All(a => a.Passed);
-            isolatedMetrics.TaskCompleted = isolatedMetrics.AssertionResults.All(a => a.Passed);
-            pluginMetrics.TaskCompleted = pluginMetrics.AssertionResults.All(a => a.Passed);
-        }
-        else
-        {
-            if (reusedBaseline is null)
-                baselineMetrics.TaskCompleted = baselineMetrics.ErrorCount == 0;
-            isolatedMetrics.TaskCompleted = isolatedMetrics.ErrorCount == 0;
-            pluginMetrics.TaskCompleted = pluginMetrics.ErrorCount == 0;
-        }
-
-        // --no-judge: re-persist the enriched metrics (assertions/constraints/task-completion
-        // now included) so a deferred judge scores exactly what an inline run would have, then
-        // return without performing any LLM judging. The returned result is discarded by the
-        // scenario aggregator, which also short-circuits under --no-judge.
         if (config.NoJudge)
         {
-            if (sessionDb is not null)
-            {
-                sessionDb.CompleteSession(baselineSessionId, reusedBaseline is not null ? "reused" : (baselineMetrics.TimedOut ? "timed_out" : "completed"),
-                    JsonSerializer.Serialize(baselineMetrics, SkillValidatorJsonContext.Default.RunMetrics));
-                sessionDb.CompleteSession(isolatedSessionId, isolatedMetrics.TimedOut ? "timed_out" : "completed",
-                    JsonSerializer.Serialize(isolatedMetrics, SkillValidatorJsonContext.Default.RunMetrics));
-                sessionDb.CompleteSession(pluginSessionId, pluginMetrics.TimedOut ? "timed_out" : "completed",
-                    JsonSerializer.Serialize(pluginMetrics, SkillValidatorJsonContext.Default.RunMetrics));
-            }
             if (config.Verbose)
                 runLog("✓ run complete (judging deferred)");
             return UnjudgedRunResult(baselineMetrics, isolatedMetrics, pluginMetrics);

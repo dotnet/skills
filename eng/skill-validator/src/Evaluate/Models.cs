@@ -53,6 +53,8 @@ public enum AssertionType
     MaxTurns,
     MaxTokens,
     ShellDenied,
+    RejectAgents,
+    RejectShellRetries,
 }
 
 public sealed record CommandAssertionArgs(
@@ -106,7 +108,9 @@ public sealed record EvalScenario(
     int? MaxTurns = null,
     int? MaxTokens = null,
     bool ExpectActivation = true,
-    bool DenyShell = false);
+    bool DenyShell = false,
+    IReadOnlyList<string>? RejectAgents = null,
+    bool RejectShellRetries = false);
 
 public sealed record EvalConfig(
     IReadOnlyList<EvalScenario> Scenarios,

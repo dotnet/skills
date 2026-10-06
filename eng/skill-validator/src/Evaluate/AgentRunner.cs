@@ -297,6 +297,10 @@ public static class AgentRunner
          toolName.Equals("run_shell_command", StringComparison.OrdinalIgnoreCase) ||
          toolName.Equals("local_shell", StringComparison.OrdinalIgnoreCase));
 
+    internal static bool AgentNamesMatch(string actual, string expected) =>
+        actual[(actual.LastIndexOf(':') + 1)..].Equals(
+            expected[(expected.LastIndexOf(':') + 1)..], StringComparison.OrdinalIgnoreCase);
+
     private static readonly HashSet<string> AllowedPathlessShellCommands = new(
         [
             "dir",
@@ -496,7 +500,8 @@ public static class AgentRunner
         AgentInfo? agent = null,
         IReadOnlyList<AgentInfo>? additionalAgents = null,
         bool denyShell = false,
-        Action<string?>? onShellDenied = null)
+        Action<string?>? onShellDenied = null,
+        bool selectAgentAsPrimary = false)
     {
         // Runtime guard: Skill and Agent are mutually exclusive targets.
         // (additionalSkills/additionalAgents are cross-dependencies and may co-exist with either target.)
@@ -739,6 +744,30 @@ public static class AgentRunner
             {
                 OnPreToolUse = (input, invocation) =>
                 {
+                    if (selectAgentAsPrimary && agent?.Agents is { } delegates
+                        && !delegates.Any(name => name == "*" || AgentNamesMatch(name, agent.Name))
+                        && (string.Equals(input.ToolName, "task", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(input.ToolName, "agent", StringComparison.OrdinalIgnoreCase))
+                        && input.ToolArgs is JsonElement taskArgs
+                        && taskArgs.ValueKind == JsonValueKind.Object)
+                    {
+                        foreach (var key in new[] { "agent_type", "agent", "agent_name", "agentName" })
+                        {
+                            if (taskArgs.TryGetProperty(key, out var requested)
+                                && requested.ValueKind == JsonValueKind.String
+                                && requested.GetString() is { } name
+                                && AgentNamesMatch(name, agent.Name))
+                            {
+                                return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
+                                {
+                                    PermissionDecision = "deny",
+                                    PermissionDecisionReason =
+                                        $"You are already the primary agent '{agent.Name}', which excludes itself from its declared delegates. Continue this work in the current context.",
+                                });
+                            }
+                        }
+                    }
+
                     if (IsShellTool(input.ToolName))
                     {
                         if (denyShell)
@@ -866,7 +895,7 @@ public static class AgentRunner
             Name = agent.Name,
             DisplayName = agent.Name,
             Description = agent.Description,
-            Prompt = body,
+            Prompt = $"Active custom-agent identity: `{agent.Name}`. You are already executing this agent.\n\n{body}",
             Tools = agent.Tools?.ToList(),
         };
     }
@@ -971,7 +1000,8 @@ public static class AgentRunner
                         eventBuffer.Record("evaluator.shell_denied", (agentEvent, _) =>
                         {
                             agentEvent.Data["sessionId"] = JsonValue.Create(requestingSessionId);
-                        })));
+                        }),
+                    selectAgentAsPrimary: options.SelectAgentAsPrimary));
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;

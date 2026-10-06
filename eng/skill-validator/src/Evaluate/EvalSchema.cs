@@ -135,7 +135,9 @@ public static class EvalSchema
                 MaxTurns: stimulus.Constraints?.MaxTurns,
                 MaxTokens: stimulus.Constraints?.MaxTokens,
                 ExpectActivation: stimulus.ExpectActivation ?? true,
-                DenyShell: stimulus.DenyShell));
+                DenyShell: stimulus.DenyShell,
+                RejectAgents: stimulus.Constraints?.RejectAgents,
+                RejectShellRetries: stimulus.Constraints?.RejectShellRetries ?? false));
         }
 
         return scenarios.Count > 0 ? new EvalConfig(scenarios) : null;
@@ -262,7 +264,9 @@ public static class EvalSchema
             MaxTurns: raw.MaxTurns,
             MaxTokens: raw.MaxTokens,
             ExpectActivation: raw.ExpectActivation ?? true,
-            DenyShell: raw.DenyShell);
+            DenyShell: raw.DenyShell,
+            RejectAgents: raw.RejectAgents,
+            RejectShellRetries: raw.RejectShellRetries);
     }
 
     private static Assertion ParseAssertion(RawAssertion raw)
@@ -362,6 +366,8 @@ public static class EvalSchema
         public int? MaxTokens { get; set; }
         public bool? ExpectActivation { get; set; }
         public bool DenyShell { get; set; }
+        public List<string>? RejectAgents { get; set; }
+        public bool RejectShellRetries { get; set; }
     }
 
     internal sealed class RawSetup
@@ -448,6 +454,8 @@ public static class EvalSchema
         public List<string>? RejectTools { get; set; }
         public int? MaxTurns { get; set; }
         public int? MaxTokens { get; set; }
+        public List<string>? RejectAgents { get; set; }
+        public bool RejectShellRetries { get; set; }
     }
 
     internal sealed class RawVallyGrader

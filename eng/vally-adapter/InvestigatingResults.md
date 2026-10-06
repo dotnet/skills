@@ -25,6 +25,14 @@ land the harness support at that trusted ref before enabling the scenario in CI.
 Older validators may ignore the unknown option, so a result missing the
 `ShellDenied` assertion and its trusted rejection event cannot prove denial.
 
+Native generator evals also check `constraints.reject_agents` against actual
+delegate-start events and `constraints.reject_shell_retries` against shell
+requests after trusted denial. Primary selection is not self-delegation.
+Both inline and deferred execution now persist enriched deterministic metrics
+before judging, so saved-run completion and denial evidence survive rejudge.
+An older recording with empty assertion results is not objective completion
+evidence merely because its rejection events survived.
+
 > Note: the linter (`skill-validator check`) is a **separate** workflow (`skill-check.yml`) and is unrelated to these eval results.
 
 ## Using this guide with an AI agent

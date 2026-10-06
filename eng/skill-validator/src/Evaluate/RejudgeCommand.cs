@@ -974,6 +974,7 @@ public static class RejudgeCommand
         var pluginMetrics = pluginSess?.MetricsJson is not null
             ? JsonSerializer.Deserialize(pluginSess.MetricsJson, SkillValidatorJsonContext.Default.RunMetrics)
             : null;
+        scenario = RestoreExecutionContract(scenario, isolatedMetrics);
 
         var judgeWorkRoot = CreateJudgeWorkDir("rejudge");
         try
@@ -1096,6 +1097,21 @@ public static class RejudgeCommand
     {
         return AgentRunner.CreatePrivateWorkDir(prefix);
     }
+
+    internal static EvalScenario RestoreExecutionContract(EvalScenario scenario, RunMetrics metrics) =>
+        scenario with
+        {
+            DenyShell = scenario.DenyShell
+                || metrics.AssertionResults.Any(result => result.Assertion.Type == AssertionType.ShellDenied)
+                || metrics.Events.Any(evt => evt.Type == "evaluator.shell_denied"),
+            RejectAgents = metrics.AssertionResults
+                .Where(result => result.Assertion.Type == AssertionType.RejectAgents)
+                .Select(result => result.Assertion.Value
+                    ?? throw new InvalidOperationException("Saved reject_agents assertion has no agent name."))
+                .ToArray(),
+            RejectShellRetries = metrics.AssertionResults.Any(
+                result => result.Assertion.Type == AssertionType.RejectShellRetries),
+        };
 
     private static string CreateJudgeWorkDir(string root, string name)
     {

@@ -470,6 +470,51 @@ public class BuildSessionConfigTests
     }
 
     [TestMethod]
+    [DataRow(true, false, "owner", "deny")]
+    [DataRow(true, false, "demo:owner", "deny")]
+    [DataRow(true, false, "worker", "allow")]
+    [DataRow(false, false, "owner", "allow")]
+    [DataRow(true, true, "owner", "allow")]
+    public async Task PrimaryAgentHonorsItsDeclaredSelfDelegationBoundary(
+        bool primarySelected, bool permitsSelf, string requestedAgent, string expectedDecision)
+    {
+        var agent = new AgentInfo(
+            "owner", "Test owner", "/owner.agent.md",
+            "---\nname: owner\n---\nComplete the assigned work.", "owner.agent.md",
+            Agents: permitsSelf ? ["owner", "worker"] : ["worker"]);
+        var config = await AgentRunner.BuildSessionConfig(
+            null, null, "gpt-4.1", AgentRunner.GetEvaluationRoot(),
+            agent: agent, selectAgentAsPrimary: primarySelected);
+        var result = await config.Hooks!.OnPreToolUse!(new PreToolUseHookInput
+        {
+            ToolName = "task",
+            ToolArgs = JsonDocument.Parse(
+                JsonSerializer.Serialize(new { agent_type = requestedAgent })).RootElement,
+        }, null!);
+
+        Assert.AreEqual(expectedDecision, result!.PermissionDecision);
+        Assert.Contains("Active custom-agent identity: `owner`",
+            Assert.ContainsSingle(config.CustomAgents!).Prompt);
+    }
+
+    [TestMethod]
+    public async Task PrimaryAgentWildcardDelegationRemainsAllowed()
+    {
+        var agent = new AgentInfo("owner", "Test owner", "/owner.agent.md",
+            "---\nname: owner\n---\nComplete the work.", "owner.agent.md", Agents: ["*"]);
+        var config = await AgentRunner.BuildSessionConfig(
+            null, null, "gpt-4.1", AgentRunner.GetEvaluationRoot(),
+            agent: agent, selectAgentAsPrimary: true);
+        var result = await config.Hooks!.OnPreToolUse!(new PreToolUseHookInput
+        {
+            ToolName = "task",
+            ToolArgs = JsonDocument.Parse("""{"agent_type":"owner"}""").RootElement,
+        }, null!);
+
+        Assert.AreEqual("allow", result!.PermissionDecision);
+    }
+
+    [TestMethod]
     public async Task OptInShellDenialKeepsIndependentFilePermissionsAndSandbox()
     {
         var workDir = Path.Combine(AgentRunner.GetEvaluationRoot(), "shell-denied-files");

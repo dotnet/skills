@@ -22,8 +22,12 @@ stimuli:
       capability: project-wide-pytest-generation
       risk: missed-boundary-coverage
       journey: generate-multimodule-python-suite
+    constraints:
+      reject_agents: [code-testing-generator]
     environment:
       files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: fixtures/python-multimodule
           dest: fixtures/python-multimodule
         - src: ../code-testing-agent/graders/check_python_tests.py
@@ -79,8 +83,12 @@ stimuli:
       capability: classic-mstest-suite-extension
       risk: legacy-project-drift
       journey: extend-classic-dotnet-suite
+    constraints:
+      reject_agents: [code-testing-generator]
     environment:
       files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: fixtures/classic-mstest
           dest: fixtures/classic-mstest
         - src: ../code-testing-agent/graders/check_production.py
@@ -175,8 +183,12 @@ stimuli:
       capability: cross-package-go-test-generation
       risk: collaborator-path-omission
       journey: generate-go-module-suite
+    constraints:
+      reject_agents: [code-testing-generator]
     environment:
       files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: fixtures/go-multipackage
           dest: fixtures/go-multipackage
         - src: ../code-testing-agent/graders/check_production.py
@@ -237,8 +249,12 @@ stimuli:
       capability: layered-vitest-suite-generation
       risk: async-integration-gaps
       journey: generate-typescript-cart-suite
+    constraints:
+      reject_agents: [code-testing-generator]
     environment:
       files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: fixtures/typescript-vitest-cart
           dest: fixtures/typescript-vitest-cart
         - src: ../code-testing-agent/graders/check_cart_tests.py
@@ -288,8 +304,12 @@ stimuli:
       capability: project-wide-xunit-generation
       risk: time-boundary-gaps
       journey: generate-dotnet-order-suite
+    constraints:
+      reject_agents: [code-testing-generator]
     environment:
       files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: fixtures/sdk-xunit-orders
           dest: fixtures/sdk-xunit-orders
         - src: ../code-testing-agent/graders/check_xunit_tests.py
@@ -329,6 +349,9 @@ stimuli:
       Run the tests and report the implementation and validation evidence
       for each requested behavior.
     deny_shell: true
+    constraints:
+      reject_agents: [code-testing-generator]
+      reject_shell_retries: true
     tags:
       capability: test-generation-with-unrun-validation
       risk: false-validation-success
@@ -448,6 +471,7 @@ stimuli:
             (?:at[ \t]+)?[0-9]+(?:\.[0-9]+)?%(?!\w)
       - type: prompt
     rubric:
+      - Host-denied shell execution is expected and must not itself reduce the score; evaluator-owned artifact checks are not agent execution evidence
       - Produced tests covering the requested public behaviors while preserving production code and pytest configuration
       - Identified test execution as unavailable because shell permission was denied, rather than reporting a failing test suite
       - Reported a partial result that distinguishes written tests from unrun validation and unmeasured coverage
