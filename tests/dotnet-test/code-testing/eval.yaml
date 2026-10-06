@@ -70,7 +70,7 @@ stimuli:
               | invalid max_length | tests/test_slug.py::test_invalid_max_length_raises |
     environment:
       files:
-        - src: ../code-testing-agent/fixtures/python-multimodule
+        - src: fixtures/python-multimodule
           dest: fixtures/python-multimodule
         - src: graders/check_python_tests.py
           dest: .eval/check_python_tests.py
@@ -155,7 +155,7 @@ stimuli:
               | registered once, classic stack preserved | Discounts.Tests.csproj Compile items; DiscountServiceTests.cs and packages.config unchanged |
     environment:
       files:
-        - src: ../code-testing-agent/fixtures/classic-mstest
+        - src: fixtures/classic-mstest
           dest: fixtures/classic-mstest
         - src: graders/check_production.py
           dest: .eval/check_production.py
@@ -329,7 +329,7 @@ stimuli:
               | short-circuit second collaborator | order/total_test.go::TestTotalShortCircuitsWhenDiscountFails, ::TestTotalRejectsNegativeSubtotalWithoutCallingCollaborators |
     environment:
       files:
-        - src: ../code-testing-agent/fixtures/go-multipackage
+        - src: fixtures/go-multipackage
           dest: fixtures/go-multipackage
         - src: graders/check_production.py
           dest: .eval/check_production.py
@@ -420,7 +420,7 @@ stimuli:
               | did not restore deleted source | no git restore/checkout; core/ and io/ remain absent |
     environment:
       files:
-        - src: ../code-testing-agent/fixtures/python-workspace-integrity
+        - src: fixtures/python-workspace-integrity
           dest: fixtures/python-workspace-integrity
         - src: graders/check_production.py
           dest: .eval/check_production.py
@@ -490,7 +490,7 @@ stimuli:
       journey: orchestrate-vitest-cart-tests
     environment:
       files:
-        - src: ../code-testing-agent/fixtures/typescript-vitest-cart
+        - src: fixtures/typescript-vitest-cart
           dest: fixtures/typescript-vitest-cart
         - src: graders/check_cart_tests.py
           dest: .eval/check_cart_tests.py
@@ -543,7 +543,7 @@ stimuli:
       journey: extend-ledger-test-suite
     environment:
       files:
-        - src: ../code-testing-agent/fixtures/failing-suite
+        - src: fixtures/failing-suite
           dest: fixtures/failing-suite
         - src: graders/check_production.py
           dest: .eval/check_production.py
@@ -601,7 +601,7 @@ stimuli:
       journey: orchestrate-sdk-dotnet-tests
     environment:
       files:
-        - src: ../code-testing-agent/fixtures/sdk-xunit-orders
+        - src: fixtures/sdk-xunit-orders
           dest: fixtures/sdk-xunit-orders
         - src: graders/check_xunit_tests.py
           dest: .eval/check_xunit_tests.py
@@ -645,7 +645,7 @@ stimuli:
       journey: add-reservation-tests
     environment:
       files:
-        - src: ../code-testing-agent/fixtures/sdk-xunit-orders
+        - src: fixtures/sdk-xunit-orders
           dest: fixtures/sdk-xunit-orders
         - src: graders/check_xunit_tests.py
           dest: .eval/check_xunit_tests.py
@@ -716,7 +716,7 @@ stimuli:
               | empty output | tests/test_slugify.py::test_empty_output_for_all_separators |
     environment:
       files:
-        - src: ../code-testing-agent/fixtures/python-single-function
+        - src: fixtures/python-single-function
           dest: fixtures/python-single-function
         - src: graders/check_production.py
           dest: .eval/check_production.py

@@ -26,9 +26,9 @@ stimuli:
       files:
         - src: fixtures/python-multimodule
           dest: fixtures/python-multimodule
-        - src: ../code-testing-agent/graders/check_python_tests.py
+        - src: ../code-testing/graders/check_python_tests.py
           dest: .eval/check_python_tests.py
-        - src: ../code-testing-agent/graders/check_production.py
+        - src: ../code-testing/graders/check_production.py
           dest: .eval/check_production.py
       commands:
         - git init -q
@@ -82,7 +82,7 @@ stimuli:
       files:
         - src: fixtures/classic-mstest
           dest: fixtures/classic-mstest
-        - src: ../code-testing-agent/graders/check_production.py
+        - src: ../code-testing/graders/check_production.py
           dest: .eval/check_production.py
         - src: graders/check_classic_preservation.py
           dest: .eval/check_classic_preservation.py
@@ -177,7 +177,7 @@ stimuli:
       files:
         - src: fixtures/go-multipackage
           dest: fixtures/go-multipackage
-        - src: ../code-testing-agent/graders/check_production.py
+        - src: ../code-testing/graders/check_production.py
           dest: .eval/check_production.py
       commands:
         - git init -q
@@ -238,9 +238,9 @@ stimuli:
       files:
         - src: fixtures/typescript-vitest-cart
           dest: fixtures/typescript-vitest-cart
-        - src: ../code-testing-agent/graders/check_cart_tests.py
+        - src: ../code-testing/graders/check_cart_tests.py
           dest: .eval/check_cart_tests.py
-        - src: ../code-testing-agent/graders/check_production.py
+        - src: ../code-testing/graders/check_production.py
           dest: .eval/check_production.py
       commands:
         - git init -q
@@ -288,7 +288,7 @@ stimuli:
       files:
         - src: fixtures/sdk-xunit-orders
           dest: fixtures/sdk-xunit-orders
-        - src: ../code-testing-agent/graders/check_xunit_tests.py
+        - src: ../code-testing/graders/check_xunit_tests.py
           dest: .eval/check_xunit_tests.py
       commands:
         - find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -delete
@@ -326,7 +326,7 @@ stimuli:
       journey: extend-one-python-function
     environment:
       files:
-        - src: ../code-testing-agent/fixtures/python-single-function
+        - src: ../code-testing/fixtures/python-single-function
           dest: slug-project
       skills:
         - ../../plugins/dotnet-test/skills/code-testing
@@ -380,6 +380,7 @@ stimuli:
         config:
           command: dotnet test WeakTests/WeakTests.csproj
           expected_exit_code: 0
+          stdout_matches: '(?i)(Passed!|Passed:\s*[1-9]|Test Run Successful)'
           timeout: 10m
       - type: file-not-contains
         config:

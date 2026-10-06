@@ -1,4 +1,4 @@
-"""Run: python -m unittest discover -s tests/dotnet-test/code-testing-agent/graders -p test_check_xunit_tests.py -v
+"""Run: python -m unittest discover -s tests/dotnet-test/code-testing/graders -p test_check_xunit_tests.py -v
 
 Integration cases use the actual .NET 10 SDK and xUnit v3 packages. Every case
 starts from a fresh fixture copy under cwd; all scratch directories are removed.

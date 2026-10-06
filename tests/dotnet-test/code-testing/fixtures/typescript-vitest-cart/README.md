@@ -1,6 +1,8 @@
-# Shopping cart (TypeScript + Vitest) — code-testing-agent polyglot eval fixture
+# Shopping cart (TypeScript + Vitest) — code-testing polyglot eval fixture
 
-A small TypeScript shopping-cart library used as a polyglot eval fixture for the `code-testing-agent` skill. The agent is asked to write a comprehensive Vitest suite; the eval verifies that `vitest run` passes against the suite the agent produced.
+A small TypeScript shopping-cart library used as a polyglot eval fixture for the
+`code-testing` skill. The agent is asked to write a comprehensive Vitest suite;
+the eval verifies that `vitest run` passes against the suite the agent produced.
 
 ## Layout
 
