@@ -64,7 +64,13 @@ screen-reader test names NVDA, JAWS, or Windows Narrator. Parameters explicitly
 include BL0007, auto-properties, no required/init, and no internal mutation.
 Disposal includes JSDisconnectedException, IAsyncDisposable and JS/.NET reference
 cleanup. JS modules are collocated .razor.js loaded in OnAfterRenderAsync.
-CSS uses .razor.css, avoids inline styles, and documents a prefixed global surface.
+Clause 4.8 author clarification (2026-10-01): component-style isolation is the intent;
+.razor.css or equivalent encapsulation, including shadow DOM, qualifies. Avoid inline styles
+and document/prefix global CSS. Note incidental shared theme-helper collision risks separately
+when they do not restyle app elements; this does not excuse unscoped app-wide styling.
+Clause 4.12 author clarification (2026-10-02): for BEQ-23, documenting the supported render
+modes is sufficient; per-component samples in every mode are not required. These clarifications
+interpret, rather than rewrite, the exact quotations in requirement-basis.json.
 Library .NET/BL* analyzer warnings cannot be waived by a migration plan. Trim/AOT
 warnings must be annotated or fixed, not suppressed; AOT is not optional merely
 because a vendor did not claim it. Every packaged binary needs source/upstream

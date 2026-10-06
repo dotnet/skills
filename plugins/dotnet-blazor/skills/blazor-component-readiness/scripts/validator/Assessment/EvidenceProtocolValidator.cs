@@ -1331,6 +1331,13 @@ public static class EvidenceProtocolValidator
                 continue;
             }
 
+            if (rowId == "TA-02" && row.Status == "gap" &&
+                row.EvidenceIds.Any(id => records.TryGetValue(id, out var record) &&
+                    record.Provenance.Kind == EvidenceIdentity.VendorSourceRepository))
+            {
+                continue;
+            }
+
             var matching = row.EvidenceIds
                 .Where(id =>
                     records.ContainsKey(id) &&
@@ -1342,7 +1349,10 @@ public static class EvidenceProtocolValidator
             if (!matching.Any(protocol => protocol.Result == expectedResult))
             {
                 throw new DeterministicValidationException(
-                    $"Row '{rowId}' status '{row.Status}' requires a supported named-toolchain protocol with result '{expectedResult}'.");
+                    $"Row '{rowId}' status '{row.Status}' requires a supported named-toolchain protocol with result '{expectedResult}'." +
+                    (rowId == "TA-02" && row.Status == "gap"
+                        ? " A source-observed suppression may instead cite vendor-source-repository evidence."
+                        : ""));
             }
         }
     }

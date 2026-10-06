@@ -46,6 +46,7 @@ internal static class EnforcementTests
             Path.Combine(pluginRoot, "skills", "blazor-component-readiness"));
         try
         {
+            TestToolchainSourceSuppression(root);
             TestDocumentedSourceFinding(repositoryRoot, pluginRoot, root);
             TestStructuredVerifiedBoundaries(root);
             TestAutoTransitionProtocol(root);
@@ -2508,6 +2509,176 @@ internal static class EnforcementTests
         ExpectValidation(
             () => Validate(fixture.Root, input, inputBytes, unresolved, evidence),
             "trim comparison row requires exact blocker");
+    }
+
+    private static void TestToolchainSourceSuppression(string root)
+    {
+        var fixture = CreateFixture(Path.Combine(root, "toolchain-source-suppression"), lifecycleRequired: false);
+        const string sourcePath = "src/StaticControl.cs";
+        const string contentPath = "static-control.cs";
+        const string source = """
+            using System.Diagnostics.CodeAnalysis;
+            sealed class StaticControl
+            {
+                [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Owner-reviewed reflection.")]
+                public void Render() { }
+            }
+            """;
+        WriteFile(fixture.Root, contentPath, source);
+        var sourceDigest = ContractJson.RawDigest(Encoding.UTF8.GetBytes(source));
+        WriteFile(fixture.Root, "trim.log", "Build succeeded; no trimming warnings were emitted.");
+        var rawLog = CreateEvidenceInput(fixture.Root, "trim.log", "toolchain-log");
+        var input = fixture.Manifest with
+        {
+            Source = new("source-available", "https://code.example.test/synthetic/static",
+                new string('a', 40), "Exact inert synthetic source fixture.", "high"),
+            SourceArtifacts = [new(sourcePath, contentPath, sourceDigest)],
+            Components = [fixture.Manifest.Components.Single() with { AllowedSourcePaths = [sourcePath] }],
+            EvidenceInputs = [rawLog]
+        };
+        InputManifestService.Validate(input, fixture.Root, requireConfirmed: true);
+        var sourceDraft = Draft(
+            AssessmentService.Initialize("component", fixture.Root, input, InputManifestService.Serialize(input),
+                "static-control").Identity,
+            EvidenceIdentity.VendorSourceRepository,
+            "source:" + sourcePath,
+            "source-inspection",
+            sourceDigest) with
+        {
+            Claim = "The component-reachable Render method suppresses trimming warning IL2026."
+        };
+
+        (ReadinessAssessment Assessment, EvidenceBundle Evidence) Build(
+            InputManifest confirmed, params EvidenceRecordDraft[] drafts)
+        {
+            var initialized = AssessmentService.Initialize("component", fixture.Root, confirmed,
+                InputManifestService.Serialize(confirmed), "static-control");
+            var evidence = BuildEvidence(initialized.Identity, drafts);
+            var completed = CompleteRows(initialized, new Dictionary<string, RowConclusion>(StringComparer.Ordinal)
+            {
+                ["TA-02"] = new("gap",
+                    "The reachable Render method suppresses IL2026 even though the build log has no warning.",
+                    evidence.Selection.Select(item => item.EvidenceId).Order(StringComparer.Ordinal).ToArray(),
+                    null, null, null)
+            });
+            return (completed, evidence);
+        }
+
+        var (assessment, evidence) = Build(input, sourceDraft);
+        Validate(fixture.Root, input, InputManifestService.Serialize(input), assessment, evidence);
+        Console.WriteLine("PASS TA-02 reachable source suppression gap with toolchain-log and no toolchain protocol.");
+
+        var noLog = input with { EvidenceInputs = [] };
+        var (noLogAssessment, noLogEvidence) = Build(noLog, sourceDraft);
+        Validate(fixture.Root, noLog, InputManifestService.Serialize(noLog), noLogAssessment, noLogEvidence);
+
+        var verified = assessment with
+        {
+            Rows = assessment.Rows.Select(row => row.Id == "TA-02" ? row with { Status = "verified" } : row).ToArray()
+        };
+        ExpectValidationMessage(
+            () => Validate(fixture.Root, input, InputManifestService.Serialize(input), verified, evidence),
+            "requires a supported named-toolchain protocol with result 'passed'",
+            "TA-02 source evidence cannot replace passed toolchain verification");
+        var ta04 = CompleteRows(assessment, new Dictionary<string, RowConclusion>(StringComparer.Ordinal)
+        {
+            ["TA-04"] = new("gap", "Source suppression alone does not establish annotation inadequacy.",
+                assessment.Rows.Single(row => row.Id == "TA-02").EvidenceIds, null, null, null)
+        });
+        ExpectValidationMessage(
+            () => Validate(fixture.Root, input, InputManifestService.Serialize(input), ta04, evidence),
+            "requires a supported named-toolchain protocol with result 'failed'",
+            "TA-04 source evidence cannot replace failed toolchain evidence");
+
+        foreach (var (kind, locator, digest) in new[]
+        {
+            (EvidenceIdentity.PackageArtifactMetadata, NupkgInspector.WholePackageEvidenceLocator,
+                input.Package.NupkgDigest),
+            (EvidenceIdentity.ReviewerGeneratedAnalysis, rawLog.Basename, rawLog.ContentDigest),
+            (EvidenceIdentity.ReproducedRuntimeObservation, rawLog.Basename, rawLog.ContentDigest)
+        })
+        {
+            var otherDraft = sourceDraft with
+            {
+                Provenance = sourceDraft.Provenance with { Kind = kind, Locator = locator, ContentDigest = digest }
+            };
+            var (otherAssessment, otherEvidence) = Build(input, otherDraft);
+            ExpectValidationMessage(
+                () => Validate(fixture.Root, input, InputManifestService.Serialize(input), otherAssessment, otherEvidence),
+                "requires a supported named-toolchain protocol with result 'failed'",
+                "TA-02 does not accept arbitrary " + kind + " evidence as a source suppression");
+        }
+
+        foreach (var provenance in new[]
+        {
+            sourceDraft.Provenance with { ContentDigest = new("sha256", new string('0', 64)) },
+            sourceDraft.Provenance with { Locator = "source:src/OtherControl.cs" }
+        })
+        {
+            var (unboundAssessment, unboundEvidence) = Build(input, sourceDraft with { Provenance = provenance });
+            ExpectValidationMessage(
+                () => Validate(fixture.Root, input, InputManifestService.Serialize(input), unboundAssessment, unboundEvidence),
+                "is not bound to the confirmed input manifest",
+                "TA-02 source exception preserves exact source locator and digest binding");
+        }
+        var outsideScope = input with
+        {
+            Components = [input.Components.Single() with { AllowedSourcePaths = [] }]
+        };
+        var (outsideAssessment, outsideEvidence) = Build(outsideScope, sourceDraft);
+        ExpectValidationMessage(
+            () => Validate(fixture.Root, outsideScope, InputManifestService.Serialize(outsideScope),
+                outsideAssessment, outsideEvidence),
+            "is not bound to the confirmed input manifest",
+            "TA-02 source exception cannot cite source outside the component allowlist");
+
+        var blocked = assessment with
+        {
+            Rows = assessment.Rows.Select(row => row.Id == "TA-02" ? row with
+            {
+                Status = "not tested",
+                Observation = "The required supported toolchain workload was unavailable.",
+                AssessmentFollowUp = "Provision the supported workload and retain its raw publish log."
+            } : row).ToArray()
+        };
+        Validate(fixture.Root, input, InputManifestService.Serialize(input), blocked, evidence);
+        var missingBlocker = blocked with
+        {
+            Rows = blocked.Rows.Select(row => row.Id == "TA-02" ? row with { Observation = null } : row).ToArray()
+        };
+        ExpectValidationMessage(
+            () => Validate(fixture.Root, input, InputManifestService.Serialize(input), missingBlocker, evidence),
+            "not tested status requires the exact toolchain blocker",
+            "TA-02 source exception does not change not-tested blocker requirements");
+
+        var passedBytes = StrictJson.SerializeCanonical(writer =>
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("schema_version", 1);
+            writer.WriteString("protocol", "toolchain-probe");
+            writer.WriteString("toolchain_name", "Synthetic .NET SDK");
+            writer.WriteString("toolchain_version", "11.0.100-preview.7");
+            writer.WriteString("target_framework", "net11.0");
+            writer.WriteString("support_disposition", "supported");
+            writer.WriteString("command", "dotnet publish -p:PublishTrimmed=true");
+            writer.WriteString("result", "passed");
+            WriteDigest(writer, "raw_log_sha256", rawLog.ContentDigest);
+            writer.WriteEndObject();
+        });
+        File.WriteAllBytes(Path.Combine(fixture.Root, "toolchain-protocol.json"), passedBytes);
+        var protocol = CreateEvidenceInput(fixture.Root, "toolchain-protocol.json", "structured-protocol");
+        var withPassedProtocol = input with { EvidenceInputs = [protocol, rawLog] };
+        var protocolDraft = sourceDraft with
+        {
+            Claim = "The supported toolchain emitted no trimming warning in the retained log.",
+            Provenance = new(EvidenceIdentity.ReproducedRuntimeObservation, protocol.Basename,
+                EvidenceProtocolValidator.ToolchainMethod, sourceDraft.Provenance.CapturedAtUtc,
+                protocol.ContentDigest, "commitment-only")
+        };
+        var (passedAssessment, passedEvidence) = Build(withPassedProtocol, sourceDraft, protocolDraft);
+        Validate(fixture.Root, withPassedProtocol, InputManifestService.Serialize(withPassedProtocol),
+            passedAssessment, passedEvidence);
+        Console.WriteLine("TA-02 source suppression: 13 full-assessment acceptance/rejection controls passed.");
     }
 
     private static void TestComparisonInputGate(string root)

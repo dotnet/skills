@@ -87,6 +87,13 @@ advice-only or reader-only rendering or override the selected route's prerequisi
 - [checklist.md](references/checklist.md) is only the generated view, not an independent ID source.
 - Use exactly `verified`, `gap`, `owner evidence required`, `not tested`, `not applicable`;
   read [status boundaries](references/status-boundaries.md) before classifying.
+  Before static rows become `not tested`, do the cheap deciding check: no mandatory input in
+  complete public-parameter closure => BEQ-10 `not applicable`; missing required collocated JS
+  module => BEQ-17 `gap`; no interop in the complete OnInitializedAsync call path => BEQ-18
+  `verified`; reachable trim/AOT suppression => TA-02 `gap`. Unrun broader probes do not soften
+  these facts. Structure alone cannot verify BEQ-01 restore/build/render, BEQ-04 prerender safety,
+  BEQ-06/07/08 Server/WebAssembly/Auto behavior, TA-01/03/05/06 execution, TA-04 annotation adequacy
+  or A11Y-11 browser/screen-reader exposure.
 - For full package coverage, retain all twelve conditional scaffolder/AI rows and explicitly
   declare each family's applicability. An omitted family is incomplete, not an automatic defect.
   These are package checks, not component prerequisites. An explicitly authorized package scope

@@ -6,9 +6,16 @@ Discover documentation without hardcoded organization domains.
 
 1. Exact package metadata: project/repository links, README, release notes, content files, and
    embedded documentation.
-2. Owner-controlled navigation reached from those package links.
+2. Owner-controlled navigation reached from those package links, including getting-started,
+   hosting and render-mode setup links on the component page. Retain supported-mode declarations
+   for BEQ-23; setup guides aid discovery, not a new per-mode sample/execution requirement.
 3. The confirmed source repository at the package-mapped commit, when source is available.
 4. Owner-supplied local documentation or evidence.
+
+Before deciding BEQ-02/08/23, read and retain the full "Supported render modes" section, or
+equivalent supported-mode declaration, in the exact package README and the package-mapped repository
+README when available. A prefix read or silent/partial manifest does not establish the
+supported-mode set.
 
 Prefer sources that explicitly identify the package, version, component, and supported render
 modes. Search results and page titles are navigation hints, not evidence.

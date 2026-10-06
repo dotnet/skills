@@ -61,7 +61,9 @@ they do not replace a missing native interaction or prove visible UI.
 - callback awaiting, exception routing, renderer affinity, and rerendering;
 - timers, subscriptions, cancellation, object/module/listener ownership, and async disposal;
 - JS initialization, module scope, serialization, DOM sinks, and custom-element upgrade;
-- CSS isolation or documented global styles;
+- component-style encapsulation (.razor.css or equivalent, including shadow DOM), no inline
+  styles on the reached render branch, and documented/prefixed global styles; do not attribute
+  unrelated branches or non-restyling shared theme helpers to failed component isolation;
 - initial/update render, late children, keyed reorder, selected removal/disablement, navigation,
   reset, detach/reattach, repeated initialization, callback failure, and cancellation;
 - typed values in both directions for every claimed supported shape.
@@ -105,6 +107,11 @@ discharge the error obligation; an error alone does not discharge documentation.
 established missing required conjunct is a `gap`. A blocked or unperformed applicable diagnostic
 with no direct conflict stays `not tested`, not an inferred pass or absence gap.
 
+For a documented unsupported mode, inspect the exact package's compiler assets and reached
+renderer/mode guards for both diagnostic alternatives. Complete evidence that neither a
+compile-time nor runtime error path exists establishes a BEQ-03 `gap` without executing that
+mode. A silent guard is not an error; an incomplete path search is not proved absence.
+
 Clause 4.2 retains the alternative of all modes working correctly versus a documented supported set
 with clear errors elsewhere. Do not invent an unsupported configuration or require support for an
 unsupported mode. Valid prerendering for supported interactive modes is not an unsupported-mode
@@ -145,9 +152,15 @@ The validator checks correspondence, not execution authenticity, semantic truth
 or complete accessibility conformance. Documentation alone is not runtime proof.
 
 Implementation-mechanism rows require mechanism evidence. A successful behavior probe does not
-prove `@key`, awaited callbacks, renderer affinity, `StateHasChanged`, or async disposal. Complete
-source may establish that no compile-time-required parameter exists for an `[EditorRequired]`
-surface; otherwise leave applicability unresolved as `not tested`.
+prove `@key`, awaited callbacks, renderer affinity, `StateHasChanged`, or async disposal.
+
+| Row | Cheap deciding check and limit |
+|---|---|
+| BEQ-10 | Inventory component/library-base public parameters and their documented contract. Defaults/optional inputs plus a valid bare usage can establish no mandatory input: `not applicable`. Missing EditorRequired alone cannot; accessible naming is a separate obligation. |
+| BEQ-17 | When JS interop exists, inventory exact module assets and trace loading. A directly missing required collocation/loading conjunct is `gap` despite unknown reference lifetime. Do not infer absence from a wrapper alone. |
+| BEQ-18 | Search and trace OnInitializedAsync through component/library bases and called helpers. Complete absence of interop there is `verified`; injection/setup outside that hook does not widen this row. This does not verify prerender safety. |
+| BEQ-19 | Trace every component-reachable .NET outbound serialization shape, typed writes, encoder configuration and raw-write/markup overrides. Typed writes plus established safe escaping can verify this mechanism without a hostile-input browser probe; decoded DOM sinks and unrelated data shapes are separate. |
+| BEQ-22 | Enumerate every public declaration on the component, event/value types and inherited library bases; compare comments/inheritdoc and applicable shipped XML entries. Exclude framework-inherited APIs and members of internal types. Mere XML-file presence or a few examples cannot verify coverage; prose quality is not scored. |
 
 For `BEQ-09`, inspect every component-owned assignment to each public `[Parameter]` property,
 including assignments in event handlers, callbacks, conditional branches, and inherited members.

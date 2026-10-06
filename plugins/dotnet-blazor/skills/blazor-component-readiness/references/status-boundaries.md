@@ -22,18 +22,52 @@ Schema-1 assessments are rejected, not migrated. Other artifacts have independen
    [trim/AOT applicability and execution prerequisites](area-trim-performance.md).
 2. Match the requirement's requested fact to the inspected evidence using the table below.
    Keep supplied historical operations distinct from probes performed during this assessment.
-3. Decide whether the remaining fact is owner-defined or owner-private. If the assessment cannot
-   define the acceptance decision, representative scenario, private review, or approval without
-   the owner, use `owner evidence required`.
-4. Otherwise, if an independently testable fact remains unestablished by supplied results or
-   performed acquisition/probes, use `not tested` with the exact missing fact and smallest next probe.
-5. If direct evidence satisfies or conflicts with the row, use `verified` or `gap`. Do not retreat
+3. First resolve a directly proved conflict as `gap`, or a fully satisfied requirement as
+   `verified`. Do not retreat
    to uncertainty after one required conjunct is directly observed missing.
+   Other unrun checks do not cancel it. Incomplete closure is not proved absence.
+4. If still undecided, distinguish an owner-defined/private fact from a reproducible one.
+   Missing required private process/review/approval records are `owner evidence required`, not a
+   source gap. Apply the row-specific evidence rule first: SEC-12 can be satisfied by a public
+   record in the vendor's own repository only when it applies to the assessed component, covers
+   both static SSR and Interactive Server guidance, and its mitigation claims hold where
+   spot-checked against code; do not demand a separate private release-review record for that
+   satisfied row.
+5. Before `not tested`, name the row's exact missing fact and perform its cheapest authorized
+   source/artifact check within the timebox; cite the path/absence search and closure limits.
+   Decide when that check settles the row. Otherwise retain `not tested` and the smallest next
+   probe. Do not widen a structural row to unrelated browser outcomes, or use structure to
+   claim unobserved behavior, conformance, completed release processes or toolchain success.
+
+`not applicable` requires the row-specific applicability or absence evidence named by the
+requirement, across the reached branch. An incomplete search, silent or partial manifest, or
+unstated support does not establish inapplicability; leave the row undecided under the existing `not
+tested` or `owner evidence required` boundaries.
 
 | Inspected evidence | Use it for this decision |
 |---|---|
 | Policy, workflow configuration or publication | Credit the published/configured fact when that is what the row requires. For actual incident handling, fix availability or release execution, inspect the relevant event/result records instead; intent does not establish completed operations or their timing. |
 | Incident records or completed run/job/scan results | Credit only the recorded operations/outcomes with their dates, source/release/package binding and coverage. If a supplied record lacks the identity or coverage needed to close the row, retain its supported fact and name that limitation; do not call it absent or infer complete/current coverage. |
+
+For applicable BEQ-04/06/07/08, structure cannot verify prerender safety or correct
+Server/WebAssembly/Auto behavior; without execution evidence retain `not tested`.
+For BEQ-13, `gap` needs a traced external-event/callback path mutating rendered state without
+required InvokeAsync/StateHasChanged marshaling. `verified` needs every such path in the complete
+component closure traced and correctly marshaled; otherwise retain `not tested`.
+
+## Owner clarifications of existing wording
+
+Keep canonical requirement fields and contract bytes unchanged; apply these owner clarifications
+when deciding status, not by rewriting the requirement.
+
+- BEQ-20 / clause 4.8 (owner clarification, 2026-10-01): isolation is the intent;
+  .razor.css or equivalent encapsulation, including shadow DOM, qualifies. The no-inline-style
+  and documented/prefixed-global-CSS obligations remain; inspect only reached styling.
+- BEQ-23 / clause 4.12 (owner clarification, 2026-10-02): public documentation stating the
+  supported render modes is sufficient; separate per-mode component samples are not required.
+  Retain component/release alignment. An exact-package or package-mapped supported-mode declaration
+  establishes alignment for that declared contract; an unversioned additional page does not
+  invalidate it. Documentation does not prove runtime mode behavior.
 
 ## Paired boundary examples
 
@@ -56,6 +90,7 @@ Schema-1 assessments are rejected, not migrated. Other artifacts have independen
 | All applicable distributed third-party assets, including embedded source content, have evidenced identities/versions and matching SBOM representation. | `verified` for `PI-08` | Complete representation can satisfy the row without executing distributed content; source-only references are not shipped bytes. |
 | A complete notice map directly omits applicable dependencies or bundled assets. | `gap` for `PI-09` | The representation evidence itself is incomplete. |
 | Exact source discards an asynchronous callback or cleanup task. | `gap` | Direct source can establish an implementation defect even when a separate runtime probe was not run. |
+| Complete source for a non-dynamic component proves owned polling can continue after disposal because no stop/cancel/join path exists. | `gap` for `BEQ-15` | Other awaited cleanup does not cancel this conflict. This is not `async-cleanup-not-awaited`; retain exact source evidence, not a fabricated proof kind. Existing lifecycle/protocol rules still apply where required. |
 
 Interpret `null` only according to declared semantics. Unspecified or contradictory null meanings
 prove neither absence nor compliant chronology; do not map every null to `owner evidence required`

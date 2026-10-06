@@ -31,13 +31,14 @@ when evidence needed for the applicable conclusion was not obtained.
 Do not demand a vendor budget, written performance targets or benchmark matrix.
 Missing such documents is not an independent readiness shortfall.
 
-For `PERF-06`, inspect relevant component/shared state and reuse applicable
-evidence. Investigate a concrete retention concern when authorized, rather than
-profiling every component by default. Distinguish retained objects from temporary
-allocations, framework caches, disconnected circuits, GC timing, test-host
-references and process working set. A small field list proves no universal pass;
-a memory increase alone proves no component leak. Preserve workload-specific
-facts and actual evidence limits without inventing a universal memory threshold.
+For `PERF-06`, trace reached component/shared state from its circuit-scoped root through
+insertion, disposal, pruning and circuit teardown, rather than profiling every component by default.
+A source-proven repeatable live-circuit path that adds entries without effective removal in that workload is a
+`gap` even when targets are weakly referenced: retained keys/wrappers still grow. Name the
+retained objects and workload; do not claim whole-component retention without proof.
+Distinguish temporary allocations, framework caches, disconnected circuits, GC timing,
+test-host references and process working set. A small field list proves no universal pass;
+a memory increase alone proves no component leak. No universal memory threshold is required.
 
 Payload, serialization and copy-cost troubleshooting is available only through
 [requested guidance](remediation-guidance.md#requested-data-transfer-troubleshooting).
@@ -45,8 +46,12 @@ That boundary does not disable investigation needed for an actual DOCX obligatio
 
 Separate mechanism rows from measured outcomes. Complete source can establish whether `ShouldRender`
 or `@key` is present and whether a cascading-value surface exists; a passing reorder probe cannot
-prove `@key`. Absence of expensive render-time work or bounded rerender cost still needs a complete
-execution-path analysis or measurement rather than a narrow wrapper scan.
+prove `@key`. For PERF-03, trace active parameter hooks, the reached inherited render branch,
+serialization and caches. A complete traced path can verify this row without benchmarks only when
+parameter-hook/render work is light, or expensive computation is offloaded to async lifecycle
+methods or memoized. Bounded-but-heavy work, a wrapper scan or a cache marker alone cannot
+verify it. Do not infer PERF-01
+rerender frequency, PERF-05 descendant propagation, consumer-fragment cost or production latency.
 
 For `PERF-02`, use `not applicable` only when complete component and inherited-renderer source
 proves the component owns no repeated identity surface where `@key` could apply, such as a rendered
@@ -65,12 +70,28 @@ observed; do not generalize a narrow measurement to production-wide coverage.
 Ask for necessary context, not a new formal budget document or benchmark campaign
 merely to fill a report row. Supplied targets may inform explicitly requested work.
 
-For a comparison that adjudicates `TA-02` or `TA-04`, name the supported SDK/workload/toolchain and
-target framework. A `verified` or `gap` result backed by supplied toolchain logs uses a canonical
-`toolchain-probe-v1` protocol with the exact command, supported-toolchain disposition, result, and
-raw-log digest. Otherwise finish the row as `not tested` and put the exact toolchain, workload, or
-diagnostic blocker in the observation plus the smallest rerun in `assessment_follow_up`. Never emit
-or retain an undefined `unresolved` final status.
+For `TA-02`, any reachable source-observed trim/AOT warning suppression establishes a `gap`,
+even if justified; no toolchain log is needed for that conflict. Inspect attributes, pragmas
+and project suppression settings, not annotations alone. This does not prove warning-free output.
+
+Search from the confirmed repository root for suppression attributes, pragmas and project settings,
+including inherited library bases and reached helpers; a component-subdirectory search alone is not
+closure. Only component-reachable findings decide TA-02.
+
+For a source-observed suppression, cite `vendor-source-repository` evidence with a
+`source:<relative logical path>` locator and the confirmed source capture's digest. The path must
+be in the assessed component's allowed-source list; state the suppression and its reachability in
+the claim/observation. This TA-02 `gap` remains valid when a toolchain log is also supplied, even
+if a passed probe is cited. Other evidence kinds alone do not substitute for this source evidence.
+
+For TA-02/TA-04 conclusions based on toolchain logs, name the supported SDK/workload/toolchain
+and target framework; use `toolchain-probe-v1` with exact command, result and raw-log digest.
+When any `toolchain-log` is supplied, TA-02 `verified` still requires a `passed` protocol;
+TA-04 `verified`/`gap` still requires a `passed`/`failed` protocol respectively.
+Without required results, retain `not tested` with the blocker and smallest follow-up.
+TA-04 asks for annotation adequacy, not attribute presence: if suppression adequacy cannot be
+checked statically, it remains `not tested` pending publish/runtime validation. TA-01/03/05/06
+also require their executed publish/compile/runtime evidence. Never use `unresolved` as a status.
 
 Register the protocol as `reproduced-runtime-observation`, use its confirmed basename as locator,
 and set `provenance.method` to `protocol:toolchain-probe-v1`.
