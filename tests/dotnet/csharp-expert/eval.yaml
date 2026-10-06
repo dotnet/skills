@@ -24,7 +24,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-aspnetcore@dotnet-agent-skills
+          pattern: plugin marketplace add\s+dotnet/skills[\s\S]*plugin install\s+dotnet-aspnetcore@dotnet-agent-skills
       - type: exit-success
       - type: prompt
     rubric:
