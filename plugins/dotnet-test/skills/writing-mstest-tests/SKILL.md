@@ -459,99 +459,16 @@ public async Task FetchData_ReturnsWithinTimeout()
 
 ### Step 7: Use advanced features where appropriate
 
-#### Retry flaky tests (MSTest 3.8+)
-
-Use only for genuinely flaky external dependencies (network, file system), not to paper over race conditions or shared state issues.
-For an external service, use bounded attempts plus a nonzero delay/backoff so
-the retry policy does not immediately hammer the same dependency:
-
-```csharp
-[TestMethod]
-[Retry(
-    3,
-    MillisecondsDelayBetweenRetries = 1_000,
-    BackoffType = DelayBackoffType.Exponential)]
-public async Task ExternalService_EventuallyResponds()
-{
-    var response = await WeatherClient.GetAsync();
-    Assert.IsNotNull(response);
-}
-```
-
-#### Conditional execution
-
-`OSCondition` requires MSTest 3.8+; `CICondition` requires MSTest 3.10+.
-
-```csharp
-[TestMethod]
-[OSCondition(OperatingSystems.Windows)]
-public void WindowsRegistry_ReadsValue() { }
-
-[TestMethod]
-[CICondition(ConditionMode.Exclude)]
-public void LocalOnly_InteractiveTest() { }
-```
-
-Attributes replace environment branches in test bodies; they do not replace
-the operation being tested. When correcting supplied code, retain the real
-registry/GPU/service operation and concrete resource cleanup rather than
-returning empty methods or comment-only placeholders.
-Show cleanup state initialized safely and released symmetrically (including a
-null guard when setup can fail). A policy-only sketch that omits the operation,
-assertion, or cleanup body is incomplete.
-
-#### Parallelization
-
-```csharp
-[assembly: Parallelize(Workers = 4, Scope = ExecutionScope.MethodLevel)]
-
-[TestClass]
-[DoNotParallelize]  // Opt out specific classes
-public sealed class DatabaseIntegrationTests { }
-```
+For retry, conditional execution, or parallelization requests, read
+[Advanced MSTest patterns](references/advanced-mstest-patterns.md). Apply its
+version gates and keep the real tested operation, assertion, and cleanup.
 
 ### Step 8: Fix MSTest analyzer diagnostics (MSTESTxxxx)
 
-The `MSTest.Analyzers` package reports `MSTESTxxxx` diagnostics during build and in the IDE. The analyzers come in automatically with the modern `MSTest` metapackage and `MSTest.Sdk` (and are bundled with `MSTest.TestFramework` 3.7+); for other setups, reference `MSTest.Analyzers` explicitly only when the user asks to adopt analyzers. Most rules have an automated code fix (light bulb) in Visual Studio. When fixing one by hand, apply the idiomatic, version-compatible change below rather than suppressing the rule.
-
-When asked to "fix MSTESTxxxx", look it up in the table of common diagnostics below, apply the fix, and rebuild to confirm the diagnostic is gone. The table is not exhaustive — for any rule it does not list, consult the full reference and apply the documented guidance: <https://learn.microsoft.com/dotnet/core/testing/mstest-analyzers/overview>.
-
-#### Common diagnostics and their fixes
-
-| Rule | Problem | Fix |
-|---|---|---|
-| MSTEST0006 | `[ExpectedException]` used | On 3.8+, replace with `Assert.Throws<T>` / `Assert.ThrowsExactly<T>`; otherwise use `Assert.ThrowsException<T>` |
-| MSTEST0017 | `Assert.AreEqual` args swapped | Put `expected` first, `actual` second |
-| MSTEST0023 | Negated boolean assertion (`Assert.IsTrue(!x)`) | Use `Assert.IsFalse(x)` |
-| MSTEST0025 | Always-false condition asserted | Use `Assert.Fail("reason")` |
-| MSTEST0032 | Always-true assert condition | Remove or correct the assertion |
-| MSTEST0037 | Sub-optimal assert (`IsTrue(x == null)`) | Use the specific assert (`Assert.IsNull`, `HasCount`, etc.) (Step 3) |
-| MSTEST0038 | `Assert.AreSame` on value types | Use `Assert.AreEqual` (value types box to distinct references) |
-| MSTEST0039 | Legacy `Assert.ThrowsException` | On 3.8+, use `Assert.Throws` / `Assert.ThrowsExactly` (+ `Async` variants) |
-| MSTEST0044 | `[DataTestMethod]` used | Replace with `[TestMethod]` only on a version where it supports data rows |
-| MSTEST0046 | `StringAssert` used | On 3.10+, use the equivalent `Assert` method (`Assert.Contains`, `StartsWith`, ...) |
-| MSTEST0052 | Explicit `DynamicDataSourceType` | Drop it — the source type is inferred |
-| MSTEST0042 / MSTEST0060 | Duplicate `[DataRow]` / `[TestMethod]` | Remove the duplicate attribute |
-| MSTEST0024 | Static `TestContext` field | Make it an instance member (Step 5) |
-| MSTEST0045 / MSTEST0049 / MSTEST0054 | Timeout/token not cooperative | Flow `TestContext.CancellationToken` into the awaited call (Step 6) |
-| MSTEST0036 | Member shadows a base test member | Rename or use `override` instead of `new` |
-| MSTEST0061 | Runtime OS check inside a test | Use `[OSCondition(...)]` (Step 7) |
-| MSTEST0002 / MSTEST0003 / MSTEST0005 / MSTEST0007–0014 | Invalid test class / method / fixture / `TestContext` / data-source layout | Correct the signature named by the rule (e.g. make it public, fix the return type and parameters, add `static` where required) |
-
-#### Tuning which rules are enforced
-
-Use the `MSTestAnalysisMode` MSBuild property (MSTest 3.8+) to control the rule set globally:
-
-```xml
-<PropertyGroup>
-  <!-- None | Default | Recommended | All -->
-  <MSTestAnalysisMode>Recommended</MSTestAnalysisMode>
-</PropertyGroup>
-```
-
-- `Recommended` escalates info-level rules to warnings and is the mode most projects should adopt.
-- A handful of rules are completely opt-in (e.g. MSTEST0015, MSTEST0019–0022); enable them per project via `.editorconfig` when you want their convention enforced.
-- Prefer fixing the underlying code over suppressing a diagnostic. Suppress only with a documented justification.
+For an `MSTESTxxxx` request, read
+[Advanced MSTest patterns](references/advanced-mstest-patterns.md), apply the
+version-compatible fix for that rule, and rebuild to confirm the diagnostic is
+gone. Prefer fixing the code over suppressing the rule.
 
 ### Step 9: Verify file-backed corrections
 

@@ -220,7 +220,7 @@ internal sealed class BaselineStore
                 else if (f.Source is not null)
                 {
                     var resolved = AgentRunner.ResolveSourcePath(f.Source, evalPath, skillPath: null);
-                    sb.Append("s:").Append(resolved is not null && File.Exists(resolved) ? HashFile(resolved) : "missing");
+                    AppendSourceIdentity(sb, resolved);
                 }
                 sb.Append('\n');
             }
@@ -234,6 +234,29 @@ internal sealed class BaselineStore
         }
 
         return Sha256Hex(Encoding.UTF8.GetBytes(sb.ToString()));
+    }
+
+    private static void AppendSourceIdentity(StringBuilder sb, string? resolved)
+    {
+        if (resolved is not null && File.Exists(resolved))
+        {
+            sb.Append("s:file:").Append(HashFile(resolved));
+            return;
+        }
+
+        if (resolved is not null && Directory.Exists(resolved))
+        {
+            sb.Append("s:directory:");
+            var sourceRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(resolved));
+            foreach (var (rel, full) in EnumerateDirFixtures(resolved, "", sourceRoot)
+                         .OrderBy(x => x.Rel, StringComparer.Ordinal))
+            {
+                sb.Append('\n').Append(rel).Append('=').Append(HashFile(full));
+            }
+            return;
+        }
+
+        sb.Append("s:missing");
     }
 
     private static readonly StringComparison PathComparison =
@@ -272,7 +295,9 @@ internal sealed class BaselineStore
         {
             if ((entry.Attributes & FileAttributes.ReparsePoint) != 0)
                 continue;
-            var rel = string.Concat(relBase, "/", entry.Name);
+            var rel = string.IsNullOrEmpty(relBase)
+                ? entry.Name
+                : string.Concat(relBase, "/", entry.Name);
             if (entry is DirectoryInfo sub)
             {
                 var subFull = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sub.FullName));
@@ -312,6 +337,7 @@ internal sealed class BaselineStore
                   .Append(a.Value ?? "").Append('|').Append(a.Pattern ?? "").Append('|');
                 if (a.CommandArgs is { } ca)
                     sb.Append(ca.CommandToRun).Append(';').Append(ca.CommandArguments ?? "").Append(';')
+                      .Append(ca.ArgumentList is null ? "" : string.Join('\u001f', ca.ArgumentList)).Append(';')
                       .Append(ca.ExpectedExitCode?.ToString() ?? "").Append(';').Append(ca.ExpectedStdOutContains ?? "").Append(';')
                       .Append(ca.ExpectedStdErrorContains ?? "").Append(';').Append(ca.ExpectedStdOutMatches ?? "").Append(';')
                       .Append(ca.ExpectedStdErrorMatches ?? "").Append(';').Append(ca.Timeout?.ToString() ?? "");

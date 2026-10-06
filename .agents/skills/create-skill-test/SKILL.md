@@ -44,12 +44,12 @@ tests/<plugin>/agent.<agent-name>/eval.yaml    # agents (the agent. prefix disam
 Verify the target exists at `plugins/<plugin>/skills/<skill-name>/SKILL.md` or
 `plugins/<plugin>/agents/<agent-name>.agent.md`, and read it.
 
-**Agent evals sit outside the verdict flow.** The canonical experiment declares
-`evals: tests/*/!(agent.*)/eval.yaml`, so `agent.*` specs are excluded: no verdict is ever computed
-for them, the stimulus floor does not apply, and `./eng/run-skill-evals.sh` drops them even when you
-name one explicitly (its `--eval-filter` is intersected with that glob). The distinct-stimulus
-floor therefore applies to **skill** evals only. Author agent evals for the
-scenario coverage and the deterministic graders, and run them as described in Step 10.
+**Agent evals use the native SDK agent lane.** Vally 0.14 cannot register custom
+agents, so `agent.*` specs do not run through the skill experiment. The
+evaluation workflow discovers them separately, runs the target agent through
+`skill-validator evaluate`, and adapts that evidence into the same
+schema-versioned result and dashboard pipeline. The distinct-stimulus floor
+applies to both skill and agent evals.
 
 **Be careful with a skill that sets `disable-model-invocation: true`.** The model cannot invoke it,
 so the skill is absent from the model-facing skilled arm and any direct eval compares two identical
@@ -147,9 +147,10 @@ environment:
 **Do not set `environment.skills` in a skill eval.** The experiment declares
 `vary: /environment/skills` and supplies the value itself — `[]` for the baseline arm and
 `plugins/<plugin>/skills/<skill>` for the skilled arm — so anything the eval declares is replaced,
-in every arm. It cannot add a skill to one arm only. `environment.skills` is meaningful only in an
-`agent.*` eval, which the experiment does not vary; there it is the set of skills the agent may
-invoke. Copy the shape from an existing agent eval such as
+in every arm. It cannot add a skill to one arm only. `environment.skills` is meaningful in an
+`agent.*` eval; the native agent lane loads those entries only in the isolated
+target run, while the plugin run loads the production plugin's complete skill
+surface. Copy the shape from an existing agent eval such as
 `tests/dotnet-test/agent.test-quality-auditor/eval.yaml` rather than reproducing a remembered form —
 the specs in this repo are not consistent about how they spell those entries.
 
@@ -291,15 +292,18 @@ python eng/eval-quality/check_eval_quality.py
 ./eng/run-skill-evals.sh <plugin> <skill-name>
 ```
 
-For an **agent** eval, the third command is a no-op: `agent.*` is outside the experiment's `evals:`
-glob. Exercise one by pointing the runner at an experiment file whose glob includes it:
+For an **agent** eval, exercise the native lane directly:
 
 ```bash
-# copy dotnet-skills.experiment.yaml, widen its evals: glob to tests/*/agent.*/eval.yaml
-EXPERIMENT_FILE=my-agent.experiment.yaml ./eng/run-skill-evals.sh <plugin>
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate \
+  plugins/<plugin>/agents/<agent>.agent.md \
+  --tests-dir tests/<plugin> \
+  --runs 1 \
+  --verdict-warn-only
 ```
 
-Read the trajectories rather than the verdict — there is no sign-test result for an agent eval.
+CI adapts this result through `eng/vally-adapter/adapt-agent-results.mjs`,
+which applies the same distinct-stimulus sign-test policy used by skill results.
 
 `check_eval_quality.py` blocks eleven structural defect classes that can corrupt a result:
 missing or untracked fixtures, self-contradicting coverage fixtures, empty grader configs, dormancy
@@ -314,7 +318,7 @@ For the official run, submit a PR review containing `/evaluate` so it binds to t
 
 - [ ] Directory is `tests/<plugin>/<skill-name>/` or `tests/<plugin>/agent.<agent-name>/`
 - [ ] Spec uses `stimuli:` / `graders:`, and exactly one of `defaults:` or `config:`
-- [ ] For a skill eval, at least 5 preference-eligible distinct stimuli exist; dormancy contracts do not count toward this floor (agent evals are exempt)
+- [ ] At least 5 preference-eligible distinct stimuli exist; dormancy contracts do not count toward this floor
 - [ ] Each stimulus discriminates a different property and has a stable, unique name
 - [ ] Prompts never name the skill, the agent, or its vocabulary
 - [ ] Every referenced fixture exists and is tracked by `git ls-files`
@@ -343,7 +347,7 @@ For the official run, submit a PR review containing `/evaluate` so it binds to t
 | Duplicate YAML key left behind by an edit | It overwrites the next stimulus field by field — delete the stray block |
 | Duplicate stimulus names | Vally uses names as comparison identity — give every stimulus a stable, unique name |
 | Direct eval for a `disable-model-invocation: true` skill | Remove it and cover the reference through consumer outcomes |
-| Agent eval sized for the stimulus floor | `agent.*` evals get no verdict; size them for scenario coverage instead |
-| Agent eval "run" with `./eng/run-skill-evals.sh` | The glob drops it — use a widened `EXPERIMENT_FILE` |
+| Agent eval below the stimulus floor | The native agent adapter uses the same sign-test gate; add independent preference-eligible stimuli |
+| Agent eval "run" with `./eng/run-skill-evals.sh` | That helper remains skill-only; use `skill-validator evaluate` |
 | Agent eval missing `environment.skills` | Declare the skills the agent routes to, or it cannot invoke them |
 | `environment.skills` set in a **skill** eval | The experiment varies that key and replaces it in every arm; the declaration does nothing |

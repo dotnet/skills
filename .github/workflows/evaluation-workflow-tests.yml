@@ -6,20 +6,52 @@ on:
       - ".github/workflows/evaluation.yml"
       - ".github/workflows/evaluation-run.yml"
       - ".github/workflows/evaluation-workflow-tests.yml"
+      - ".github/workflows/pr-triage.yml"
+      - ".github/aw/actions-lock.json"
+      - ".github/aw/shared/devops-health.lock.md"
+      - ".github/aw/shared/devops-investigate.lock.md"
+      - ".github/workflows/agentics-maintenance.yml"
+      - ".github/workflows/copilot-setup-steps.yml"
+      - ".github/workflows/devops-health-check.md"
+      - ".github/workflows/devops-health-groom.md"
+      - ".github/workflows/devops-health-investigate.md"
+      - ".github/workflows/issue-triage.md"
+      - ".github/workflows/*.lock.yml"
+      - ".github/scripts/**"
       - "eng/evaluation-tools/**"
       - "eng/evaluation/test_token_failover.py"
+      - "eng/evaluation/test_pr_triage_retry.py"
+      - "eng/evaluation/find-targets.ps1"
+      - "eng/evaluation/path-safety.ps1"
       - "eng/dashboard/**"
       - "eng/vally-adapter/**"
+      - "eng/skill-validator/src/**"
   push:
     branches: [main]
     paths:
       - ".github/workflows/evaluation.yml"
       - ".github/workflows/evaluation-run.yml"
       - ".github/workflows/evaluation-workflow-tests.yml"
+      - ".github/workflows/pr-triage.yml"
+      - ".github/aw/actions-lock.json"
+      - ".github/aw/shared/devops-health.lock.md"
+      - ".github/aw/shared/devops-investigate.lock.md"
+      - ".github/workflows/agentics-maintenance.yml"
+      - ".github/workflows/copilot-setup-steps.yml"
+      - ".github/workflows/devops-health-check.md"
+      - ".github/workflows/devops-health-groom.md"
+      - ".github/workflows/devops-health-investigate.md"
+      - ".github/workflows/issue-triage.md"
+      - ".github/workflows/*.lock.yml"
+      - ".github/scripts/**"
       - "eng/evaluation-tools/**"
       - "eng/evaluation/test_token_failover.py"
+      - "eng/evaluation/test_pr_triage_retry.py"
+      - "eng/evaluation/find-targets.ps1"
+      - "eng/evaluation/path-safety.ps1"
       - "eng/dashboard/**"
       - "eng/vally-adapter/**"
+      - "eng/skill-validator/src/**"
   workflow_dispatch:
 
 permissions:
@@ -93,4 +125,6 @@ jobs:
         run: python -m pip install --quiet pyyaml
 
       - name: Test evaluation workflow behavior
-        run: python eng/evaluation/test_token_failover.py
+        run: |
+          python eng/evaluation/test_token_failover.py
+          python eng/evaluation/test_pr_triage_retry.py

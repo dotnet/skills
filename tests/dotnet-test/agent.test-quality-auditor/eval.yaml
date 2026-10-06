@@ -1,14 +1,22 @@
 name: agent.test-quality-auditor
 description: Evaluates the dotnet-test/agent.test-quality-auditor internal specialist
 type: capability
-config:
+defaults:
   timeout: 5m
+environment:
+  files:
+    - src: ../graders/authenticated_artifacts.py
+      dest: .eval/authenticated_artifacts.py
 stimuli:
   - name: Comprehensive test quality audit of weak test suite
     prompt: |
       I'm worried our tests might be giving us false confidence. Can you audit
       the test suite in the WeakTests project and tell me how good our tests
       really are?
+    tags:
+      capability: comprehensive-test-audit
+      risk: false-confidence-in-tests
+      journey: audit-test-suite-health
     environment:
       files:
         - src: fixtures/weak-tests/WeakTests.csproj
@@ -17,10 +25,15 @@ stimuli:
           dest: WeakTests/ShoppingCart.cs
         - src: fixtures/weak-tests/ShoppingCartTests.cs
           dest: WeakTests/ShoppingCartTests.cs
+        - src: graders/check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot WeakTests
       skills:
         - ../../plugins/dotnet-test/skills/test-anti-patterns
         - ../../plugins/dotnet-test/skills/assertion-quality
         - ../../plugins/dotnet-test/skills/test-gap-analysis
+        - ../../plugins/dotnet-test/skills/grade-tests
     graders:
       - type: output-matches
         config:
@@ -37,6 +50,25 @@ stimuli:
       - type: output-matches
         config:
           pattern: (summary|priorit|rank|critical|sever)
+      - type: output-matches
+        config:
+          pattern: (AddItem_Works|cart\.AddItem)
+      - type: output-matches
+        config:
+          pattern: (GetTotal_ReturnsValue|total,\s*total)
+      - type: output-matches
+        config:
+          pattern: (RemoveItem|remov.*item)
+      - type: output-matches
+        config:
+          pattern: (GetTotalWithDiscount|discount)
+      - type: output-not-matches
+        config:
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 606142a930232cb26959562f7128f460defe42a82ac670a34074ace09feeb74e:.eval/check_readonly.py --expect d3a060f87da0f4ec8d561fb5855a2ce0cde1753d4fe7914ea99fb6febd55ca9a:.eval/baseline.json -- python .eval/check_readonly.py verify WeakTests
       - type: exit-success
       - type: prompt
     rubric:
@@ -45,11 +77,16 @@ stimuli:
       - Detected the catch-and-swallow exception test pattern
       - Identified untested production code (RemoveItem, GetTotalWithDiscount, boundary conditions)
       - Produced a summary or prioritized list of findings
+      - Did not replace the broad audit with a per-test Pass, Failed, Uncertain, or Not applicable report
 
   - name: Targeted anti-pattern review
     prompt: |
       Can you do a quick review of my test code for common problems? I just
       want to know what the biggest issues are.
+    tags:
+      capability: anti-pattern-triage
+      risk: undetected-test-smells
+      journey: quick-test-review
     environment:
       files:
         - src: fixtures/weak-tests/WeakTests.csproj
@@ -58,12 +95,35 @@ stimuli:
           dest: WeakTests/ShoppingCart.cs
         - src: fixtures/weak-tests/ShoppingCartTests.cs
           dest: WeakTests/ShoppingCartTests.cs
+        - src: graders/check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot WeakTests
       skills:
         - ../../plugins/dotnet-test/skills/test-anti-patterns
     graders:
       - type: output-matches
         config:
           pattern: (anti.pattern|problem|issue|warning|critical)
+      - type: output-matches
+        config:
+          pattern: (assertion.free|no.*assert|missing.*assert|without.*assert)
+      - type: output-matches
+        config:
+          pattern: (tautolog|self.compar|same.*value|trivial)
+      - type: output-matches
+        config:
+          pattern: (catch.*swallow|try.*catch|exception.*handling)
+      - type: output-matches
+        config:
+          pattern: (priorit|rank|critical|sever)
+      - type: output-matches
+        config:
+          pattern: (Throws|expected.*(value|total|exception)|assert.*(count|item|total)|verif.*(count|item|total))
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 606142a930232cb26959562f7128f460defe42a82ac670a34074ace09feeb74e:.eval/check_readonly.py --expect d3a060f87da0f4ec8d561fb5855a2ce0cde1753d4fe7914ea99fb6febd55ca9a:.eval/baseline.json -- python .eval/check_readonly.py verify WeakTests
       - type: exit-success
       - type: prompt
     rubric:
@@ -75,6 +135,10 @@ stimuli:
     prompt: |
       Are the assertions in my ShoppingCartTests actually testing anything
       meaningful? I want to understand if we have enough assertion variety.
+    tags:
+      capability: assertion-diversity-analysis
+      risk: shallow-assertions
+      journey: assess-assertion-quality
     environment:
       files:
         - src: fixtures/weak-tests/WeakTests.csproj
@@ -83,6 +147,10 @@ stimuli:
           dest: WeakTests/ShoppingCart.cs
         - src: fixtures/weak-tests/ShoppingCartTests.cs
           dest: WeakTests/ShoppingCartTests.cs
+        - src: graders/check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot WeakTests
       skills:
         - ../../plugins/dotnet-test/skills/assertion-quality
     graders:
@@ -95,6 +163,22 @@ stimuli:
       - type: output-matches
         config:
           pattern: (exception|collection|state|structural|missing.*type|more.*assert)
+      - type: output-matches
+        config:
+          pattern: (AreEqual|equalit|equal)
+      - type: output-matches
+        config:
+          pattern: (IsNotNull|null)
+      - type: output-matches
+        config:
+          pattern: (exception|Throws)
+      - type: output-matches
+        config:
+          pattern: (collection|state|structural|quantity|product.?id)
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 606142a930232cb26959562f7128f460defe42a82ac670a34074ace09feeb74e:.eval/check_readonly.py --expect d3a060f87da0f4ec8d561fb5855a2ce0cde1753d4fe7914ea99fb6febd55ca9a:.eval/baseline.json -- python .eval/check_readonly.py verify WeakTests
       - type: exit-success
       - type: prompt
     rubric:
@@ -102,11 +186,15 @@ stimuli:
       - Flagged tests with no assertions or meaningless assertions
       - Pointed out missing assertion types (exception assertions, collection/state checks, structural verification)
 
-  - name: Decline request to generate new tests
+  - name: Identify behavior gaps that existing tests would miss
     prompt: |
-      I need you to write comprehensive unit tests for the ShoppingCart class.
-      Generate tests that cover all methods with good coverage.
-    expect_activation: false
+      Review the ShoppingCart production code and its current tests. Identify
+      concrete behavior changes or boundary bugs that the suite would fail to
+      catch, and prioritize the missing tests that would close those gaps.
+    tags:
+      capability: test-gap-analysis-routing
+      risk: missed-behavior-gaps
+      journey: audit-test-suite-health
     environment:
       files:
         - src: fixtures/weak-tests/WeakTests.csproj
@@ -115,12 +203,157 @@ stimuli:
           dest: WeakTests/ShoppingCart.cs
         - src: fixtures/weak-tests/ShoppingCartTests.cs
           dest: WeakTests/ShoppingCartTests.cs
+        - src: graders/check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot WeakTests
+      skills:
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
     graders:
       - type: output-matches
         config:
-          pattern: (out.*scope|not.*cover|cannot|does not|generat|writ.*test|different)
+          pattern: (RemoveItem|GetTotalWithDiscount|boundary|negative|empty)
+      - type: output-matches
+        config:
+          pattern: (mutation|would.*pass|would.*miss|gap|not.*detect)
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 606142a930232cb26959562f7128f460defe42a82ac670a34074ace09feeb74e:.eval/check_readonly.py --expect d3a060f87da0f4ec8d561fb5855a2ce0cde1753d4fe7914ea99fb6febd55ca9a:.eval/baseline.json -- python .eval/check_readonly.py verify WeakTests
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified concrete production behaviors that the current tests do not protect
+      - Explained at least one plausible bug that would survive the current suite
+      - Prioritized missing tests by risk rather than proposing generic coverage increases
+
+  - name: Diagnose test smells and propose a repair order
+    prompt: |
+      Assess the maintainability and reliability of ShoppingCartTests. Call out
+      the most important test smells, explain why each one is risky, and give a
+      practical order for repairing the suite without changing production code.
+    tags:
+      capability: test-smell-routing
+      risk: brittle-test-suite
+      journey: audit-test-suite-health
+    environment:
+      files:
+        - src: fixtures/weak-tests/WeakTests.csproj
+          dest: WeakTests/WeakTests.csproj
+        - src: fixtures/weak-tests/ShoppingCart.cs
+          dest: WeakTests/ShoppingCart.cs
+        - src: fixtures/weak-tests/ShoppingCartTests.cs
+          dest: WeakTests/ShoppingCartTests.cs
+        - src: graders/check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot WeakTests
+      skills:
+        - ../../plugins/dotnet-test/skills/test-smell-detection
+    graders:
+      - type: output-matches
+        config:
+          pattern: (smell|brittle|flaky|maintain|reliab)
+      - type: output-matches
+        config:
+          pattern: (priority|first|critical|high)
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 606142a930232cb26959562f7128f460defe42a82ac670a34074ace09feeb74e:.eval/check_readonly.py --expect d3a060f87da0f4ec8d561fb5855a2ce0cde1753d4fe7914ea99fb6febd55ca9a:.eval/baseline.json -- python .eval/check_readonly.py verify WeakTests
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified multiple concrete maintainability or reliability problems in the supplied tests
+      - Explained the behavioral risk of the findings instead of listing labels only
+      - Proposed a prioritized repair sequence that keeps production code unchanged
+
+  - name: Route a curated test list to per-test decisions
+    prompt: |
+      Review just these two tests from
+      `WeakTests/ShoppingCartTests.cs` and give me a compact PR-ready table.
+      For each test, say whether it passes quality review, fails because it
+      needs improvement, or is uncertain and needs human review. Keep the A-F
+      quality grade as supporting detail.
+
+      Tests to review:
+        - WeakTests.ShoppingCartTests.ItemCount_AfterAdd
+        - WeakTests.ShoppingCartTests.AddItem_Works
+    tags:
+      capability: per-test-decision-routing
+      risk: wrong-audit-workflow
+      journey: assess-pr-test-quality
+    environment:
+      files:
+        - src: fixtures/weak-tests/WeakTests.csproj
+          dest: WeakTests/WeakTests.csproj
+        - src: fixtures/weak-tests/ShoppingCart.cs
+          dest: WeakTests/ShoppingCart.cs
+        - src: fixtures/weak-tests/ShoppingCartTests.cs
+          dest: WeakTests/ShoppingCartTests.cs
+        - src: graders/check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot WeakTests
+      skills:
+        - ../../plugins/dotnet-test/skills/grade-tests
+    graders:
+      - type: output-matches
+        config:
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
+      - type: output-matches
+        config:
+          pattern: (?i)ItemCount_AfterAdd.*Pass.*B\s*\(80.?89\)
+      - type: output-matches
+        config:
+          pattern: (?i)AddItem_Works.*Failed.*F\s*\(0.?59\)
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 606142a930232cb26959562f7128f460defe42a82ac670a34074ace09feeb74e:.eval/check_readonly.py --expect d3a060f87da0f4ec8d561fb5855a2ce0cde1753d4fe7914ea99fb6febd55ca9a:.eval/baseline.json -- python .eval/check_readonly.py verify WeakTests
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Assessed only the two requested tests instead of launching a suite-wide audit
+      - ItemCount_AfterAdd is Pass with B quality because its focused equality assertion completely verifies the stated behavior
+      - AddItem_Works is Failed with F quality because it executes the behavior without any assertion
+      - Used the primary decision result for follow-up and retained the quality grade only as supporting detail
+
+  - name: Decline request to generate new tests
+    prompt: |
+      I need you to write comprehensive unit tests for the ShoppingCart class.
+      Generate tests that cover all methods with good coverage.
+    expect_activation: false
+    tags:
+      capability: scope-boundary-enforcement
+      risk: unrequested-test-generation
+      journey: audit-test-suite-health
+    environment:
+      files:
+        - src: fixtures/weak-tests/WeakTests.csproj
+          dest: WeakTests/WeakTests.csproj
+        - src: fixtures/weak-tests/ShoppingCart.cs
+          dest: WeakTests/ShoppingCart.cs
+        - src: fixtures/weak-tests/ShoppingCartTests.cs
+          dest: WeakTests/ShoppingCartTests.cs
+        - src: graders/check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot WeakTests
+    graders:
+      - type: output-matches
+        config:
+          pattern: (out.*scope|not.*(role|job|audit)|cannot|does not|different.*(job|task|workflow)|diagnostic)
+      - type: output-matches
+        config:
+          pattern: (code.testing.(agent|generator)|test.generat|generat.*(agent|workflow))
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 606142a930232cb26959562f7128f460defe42a82ac670a34074ace09feeb74e:.eval/check_readonly.py --expect d3a060f87da0f4ec8d561fb5855a2ce0cde1753d4fe7914ea99fb6febd55ca9a:.eval/baseline.json -- python .eval/check_readonly.py verify WeakTests
       - type: exit-success
       - type: prompt
     rubric:
       - Did not attempt to run a test quality audit
       - Recognized that generating new tests is outside the scope of quality auditing
+      - Redirected to a test-generation workflow without writing tests or modifying the supplied project

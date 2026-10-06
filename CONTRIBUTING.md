@@ -52,11 +52,12 @@ If your skill does not fit any existing plugin, consider creating a new one.
 
 To create a new plugin:
 
-1. Add `plugins/<plugin-name>/plugin.json`, an identical copy at
+1. Add `plugins/<plugin-name>/plugin.json`, a Claude compatibility manifest at
    `plugins/<plugin-name>/.claude-plugin/plugin.json`, a Codex-specific compatibility manifest at
    `plugins/<plugin-name>/.codex-plugin/plugin.json`, and a `skills/` directory beneath them.
-   The Codex manifest must contain only components its runtime loads; do not copy `agents` or
-   `lspServers` into it.
+   Start the Claude manifest as a copy of the root manifest, then preserve any host-specific field
+   values that Claude requires. The Codex manifest must contain only components its runtime loads;
+   do not copy `agents` or `lspServers` into it.
 2. Add a matching entry in `.github/plugin/marketplace.json`, `.claude-plugin/marketplace.json`, `.cursor-plugin/marketplace.json`, and `.agents/plugins/marketplace.json`. Keep names and `plugins[].source` values consistent across all marketplace manifests. Descriptions may be host-specific when a capability is unavailable there; for example, the Codex marketplace must not advertise `.agent.md` agents or LSP integration.
    Also add a `plugins/<plugin-name>/version.json` (copy an existing one) so the plugin participates in automated versioning. Start its `plugin.json` version at `0.1.0`.
 3. Add a CODEOWNERS entry for the new plugin and its tests (see [Code ownership](#code-ownership)).
@@ -88,10 +89,10 @@ Place experimental skills under `plugins/dotnet-experimental/skills/` with match
 
 Each plugin is versioned independently. Every plugin carries the manifests its consumers read:
 `plugins/<plugin>/plugin.json`, `plugins/<plugin>/.codex-plugin/plugin.json`, and
-`plugins/<plugin>/.claude-plugin/plugin.json`. The Claude manifest is an exact generated copy of
-the root manifest. The Codex manifest shares the stamped version but is host-specific and may omit
-unsupported root-manifest fields. Consumers (Copilot CLI, Claude, Codex, Cursor) read the version
-directly from this repository.
+`plugins/<plugin>/.claude-plugin/plugin.json`. The Claude and Codex manifests share the stamped
+version with the root manifest, but both can preserve host-specific fields or omit unsupported
+fields. Consumers (Copilot CLI, Claude, Codex, Cursor) read the version directly from this
+repository.
 
 Each `plugins/<plugin>/version.json` declares the plugin's major/minor release base and the files
 that count as effective plugin content. A calculated manifest version transition is a release
@@ -340,6 +341,14 @@ stimuli:
 
 Each skill is evaluated in up to three variants — **baseline** (no skills), **skilled** (only the skill under test), and **plugin** (the whole plugin loaded) — and a skill "passes" only when the skilled run is a *credible* improvement over baseline. To assert that a skill should stay dormant for an out-of-scope task, add `expect_activation: false` to that stimulus. Dormancy is an isolated-skill activation contract: unexpected activation blocks a pass, while the stimulus's retained comparison does not vote in preference. See any existing `tests/*/*/eval.yaml` for a fuller example of the grader and stimulus format.
 
+Custom-agent evals live at `tests/<plugin>/agent.<name>/eval.yaml` and use the
+same baseline / isolated / plugin roles and verdict policy. Vally 0.14 cannot
+register custom agents, so CI executes those specs through the native Copilot
+SDK runner: isolated runs register the target agent plus declared dependencies,
+and plugin runs register the complete production plugin skill/agent surface.
+Agent results carry `skillKind: agent` and retain target activation, nested
+delegation, invoked skills, tools, completion, token, and wall-time evidence.
+
 #### Size the eval so it can return a verdict
 
 The pass gate gives each distinct stimulus one vote. Repeated runs collapse to one
@@ -385,6 +394,11 @@ Prerequisites: Node.js 20+ and the [GitHub CLI](https://cli.github.com) signed i
 
 # Run tests for a whole plugin
 ./eng/run-skill-evals.sh dotnet-msbuild
+
+# Exercise one custom-agent eval through the native SDK lane
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate \
+  plugins/dotnet-msbuild/agents/msbuild.agent.md \
+  --tests-dir tests/dotnet-msbuild --runs 1 --verdict-warn-only
 
 # Run every skill's tests
 ./eng/run-skill-evals.sh

@@ -70,7 +70,7 @@ Choose by dependency and repository constraints:
 | Current time / timers | Inject `TimeProvider`; use `FakeTimeProvider` in tests |
 | Filesystem | Existing repository abstraction; for one write/read operation use an injected delegate when conventions allow, otherwise a one-member interface or an already accepted `System.IO.Abstractions` |
 | HTTP | Existing typed `HttpClient`/handler or `IHttpClientFactory` seam |
-| Randomness | One generated value: injected delegate with `Random.Shared` as the production default; multiple operations/state: inject `Random` or a minimal generator interface |
+| Randomness | One final generated value: inject `Func<int>` and keep range selection in the real default; inject `Func<int, int, int>` only when range arguments are behavior the test must verify; multiple operations/state: inject `Random` or a minimal generator interface |
 | Environment/console/process | Minimal interface containing only members used by the target |
 
 The scoped `AsyncLocal<T>` rule applies to every static API that must retain its
@@ -116,73 +116,20 @@ advance to immediately before the deadline and assert the task is still
 incomplete before advancing across it; an immediate post-start assertion alone
 does not prove the boundary. Never wait for wall-clock time.
 
-For a nested ambient override, each scope owns the value that was active when it
-started. Dispose scopes in LIFO order with `using` (which emits `try/finally`) or
-an explicit `finally`; disposing the inner scope restores the outer value, never
-an unconditional `null`. For an environment-backed static API, use this shape:
+For a nested ambient override, each scope captures the value active when it
+starts and restores that value exactly once. Dispose scopes in LIFO order with
+`using`/`finally`; never reset the slot unconditionally to `null`. Tests must
+observe the outer value after an inner scope ends normally and, when requested,
+after an exception unwinds the inner scope. Use distinct values so clearing the
+slot cannot accidentally pass. Also overlap independent async flows and assert
+that each sees only its own fresh override. Do not mutate process environment
+variables to test an environment seam.
 
 ```csharp
-public static class FeatureFlags
-{
-    private static readonly AsyncLocal<Func<string, string?>?> s_environment = new();
-
-    public static bool IsEnabled(string name)
-    {
-        var reader = s_environment.Value;
-        var value = reader is null
-            ? Environment.GetEnvironmentVariable(name)
-            : reader(name);
-
-        return string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
-    }
-
-    public static IDisposable OverrideEnvironment(Func<string, string?> reader)
-    {
-        ArgumentNullException.ThrowIfNull(reader);
-
-        var previous = s_environment.Value;
-        s_environment.Value = reader;
-        return new RestoreScope(() => s_environment.Value = previous);
-    }
-
-    private sealed class RestoreScope : IDisposable
-    {
-        private Action? _restore;
-
-        public RestoreScope(Action restore)
-        {
-            _restore = restore;
-        }
-
-        public void Dispose() =>
-            Interlocked.Exchange(ref _restore, null)?.Invoke();
-    }
-}
+var previous = s_provider.Value;
+s_provider.Value = provider;
+return new RestoreScope(() => s_provider.Value = previous);
 ```
-
-The exception test must observe the outer value after the exception has escaped
-the inner `using` scope but before the outer scope is disposed:
-
-```csharp
-using var outer = FeatureFlags.OverrideEnvironment(_ => "true");
-Assert.True(FeatureFlags.IsEnabled("Preview"));
-
-Assert.Throws<InvalidOperationException>(() =>
-{
-    using var inner = FeatureFlags.OverrideEnvironment(_ => "false");
-    Assert.False(FeatureFlags.IsEnabled("Preview"));
-    throw new InvalidOperationException("test");
-});
-
-Assert.True(FeatureFlags.IsEnabled("Preview"));
-```
-
-Also overlap two async flows that each establish a fresh override and assert
-that each flow sees only its own value. Parallel-only tests do not catch the
-common "dispose sets null" bug. Do not mutate process environment variables in
-these tests; the scoped reader is the deterministic input. Choose an outer value
-different from the production fallback so clearing the slot cannot accidentally
-pass the restoration assertion.
 
 ### Step 3: Preserve behavior and API shape
 
@@ -242,6 +189,11 @@ that proves the fake dependency drove the path. Include a production-default tes
 only when it can remain deterministic; never touch the real filesystem merely to
 prove the adapter delegates.
 
+Cover every explicitly requested behavior and edge case. A theory or shared
+helper may keep the suite compact, but do not drop a case to minimize test count
+or replace retained tests with a smaller set. The seam should be minimal; the
+verification should still be complete.
+
 Choose the narrowest seam that supports the behavior. A single
 `File.WriteAllText` call can be an injected `Action<string, string>` with a real
 default; do not create an interface, implementation, friend-assembly setting,
@@ -263,8 +215,10 @@ internal to preserve the public API and the exact test assembly is known.
 
 ### Step 6: Verify the complete path
 
-Run the affected production build, targeted test project, and repository-level
-test command. Re-read the diff and confirm:
+Run the affected production build and the narrowest targeted test command.
+Run a repository-level test command only when the user requested broad
+validation, the repository contract requires that entry point, or the seam
+changes shared composition used beyond the target. Re-read the diff and confirm:
 
 1. every production change is required by the seam;
 2. no real ambient resource is used by the new tests;
@@ -278,11 +232,11 @@ When a new test does not compile, correct its imports, assertion overload, or as
 test shape against the existing test framework before changing the production seam;
 do not emulate missing framework APIs in source.
 For a static ambient seam, completion requires executed tests for substitution,
-nested restoration, and overlapping async-flow isolation; production compilation
-alone is never sufficient. Capture the passing test count or requested test
-names in the handoff. If no test was discovered or the output does not prove
-execution, correct the project/test source and rerun rather than reporting the
-seam as validated.
+nested restoration, exception restoration when requested, and overlapping
+async-flow isolation; production compilation alone is never sufficient. Capture
+the passing test count or requested test names in the handoff. If no test was
+discovered or the output does not prove execution, correct the project/test
+source and rerun rather than reporting the seam as validated.
 
 ## Output Contract
 

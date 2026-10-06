@@ -1,0 +1,345 @@
+name: msbuild
+description: Evaluates the dotnet/msbuild entry across build failures, performance, authoring, and routing boundaries
+type: capability
+defaults:
+  timeout: 6m
+  runs: 3
+stimuli:
+  - name: Diagnose a failed build from its only surviving artifact
+    tags:
+      capability: artifact-only-root-cause
+      risk: high
+      journey: diagnose-build-failure
+    prompt: |
+      The CI checkout is gone; failure.binlog is the only artifact available.
+      Explain why this build failed and the smallest repair the repository owner
+      should make. Do not search other checkouts or claim to have rebuilt the project.
+    environment:
+      files:
+        - src: fixtures/missing-schema/Build.proj
+          dest: Build.proj
+      commands:
+        - dotnet msbuild Build.proj -t:Build -p:Configuration=Release -p:SchemaFile=schemas/prod.json -bl:failure.binlog > capture.log 2>&1 || exit 0
+        - >-
+          node -e "const fs=require('fs'); const log=fs.statSync('failure.binlog');
+          if (log.isFile() === false || log.size === 0) throw new Error('Expected a nonempty failure.binlog');
+          if (fs.readFileSync('capture.log','utf8').includes('SCHEMA1001') === false) throw new Error('Expected build failure SCHEMA1001');
+          fs.unlinkSync('Build.proj'); fs.unlinkSync('capture.log');"
+    graders:
+      - type: output-contains
+        config:
+          substring: SCHEMA1001
+      - type: prompt
+    rubric:
+      - Identified the missing schemas/prod.json input reported by ValidateSchema in the Release build.
+      - Proposed restoring the required schema or correcting the configured schema path, rather than disabling validation.
+      - Distinguished the failed recorded build from any successful log inspection command.
+      - Stated that a repair and rebuild could not be performed without the original checkout, without searching unrelated paths.
+
+  - name: Capture a failing invocation without repairing it
+    tags:
+      capability: capture-without-repair
+      risk: high
+      journey: capture-build-evidence
+    prompt: |
+      Capture a binary log for this exact failing command and tell me the artifact
+      path and original exit code:
+      dotnet msbuild Build.proj -t:Build -p:Configuration=Release -p:SchemaFile=schemas/prod.json
+      Do not fix or investigate the failure yet, change the project, or clean anything.
+    environment:
+      files:
+        - src: fixtures/missing-schema/Build.proj
+          dest: Build.proj
+    graders:
+      - type: file-exists
+        config:
+          path: "**/*.binlog"
+      - type: file-not-exists
+        config:
+          path: schemas/prod.json
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require('node:fs');
+              const path = require('node:path');
+              const { createHash } = require('node:crypto');
+              const { spawnSync } = require('node:child_process');
+              const project = fs.readFileSync('Build.proj', 'utf8').replace(/\r\n/g, '\n');
+              if (createHash('sha256').update(project).digest('hex') !==
+                  '48bb2afa1aaece1ad91e8f92f748354ccbbf6bcfbcf962844b12147afe77628e') {
+                throw new Error('Build.proj was changed instead of only capturing the failure');
+              }
+              const logs = fs.readdirSync('.', { recursive: true }).filter(file =>
+                file.toLowerCase().endsWith('.binlog') && fs.statSync(file).isFile() &&
+                fs.statSync(file).size > 0);
+              if (logs.length === 0) throw new Error('No nonempty captured binlog found');
+              const capturedFailure = logs.some(file => {
+                const replay = spawnSync('dotnet',
+                  ['msbuild', path.resolve(file), '-nologo', '-v:diag', '-tl:off'],
+                  { encoding: 'utf8', timeout: 30000, maxBuffer: 8 * 1024 * 1024 });
+                if (replay.error) throw replay.error;
+                if (replay.status !== 0) {
+                  console.error('Cannot replay ' + file + ': ' + replay.stderr);
+                  return false;
+                }
+                const recorded = replay.stdout + replay.stderr;
+                return recorded.includes('(Build target(s))') && recorded.includes('ValidateSchema') &&
+                  recorded.split(/\r?\n/).some(line => line.includes('Build.proj') &&
+                    /error SCHEMA1001: Required schema 'schemas\/prod\.json' is missing for configuration 'Release'\./.test(line));
+              });
+              if (!capturedFailure) {
+                throw new Error('No binlog records the original Build.proj SCHEMA1001 failure, schema, and Release configuration');
+              }
+          expected_exit_code: 0
+          timeout: 2m
+      - type: file-contains
+        config:
+          path: Build.proj
+          value: Code="SCHEMA1001"
+      - type: prompt
+    rubric:
+      - Captured a nonempty binary log while preserving the target, Release configuration, schema property, and working directory.
+      - Reported a real artifact path and the nonzero exit code of the original build.
+      - Left the project and missing-input condition unchanged and stopped after capture rather than diagnosing or repairing it.
+
+  - name: Separate dependency waits from expensive compilation
+    tags:
+      capability: dependency-wait-attribution
+      risk: high
+      journey: diagnose-build-performance
+    prompt: |
+      A successful parallel .NET solution build took 12 seconds. Its recorded
+      summary lists ResolveProjectReferences at 21 seconds across parent projects,
+      while one dependency's Csc took 9 seconds. The timeline shows parents
+      waiting for that dependency. Should we remove project references or turn
+      off parallelism? Explain what the evidence supports and what to measure next.
+      This is an advisory question; no checkout is available.
+    graders:
+      - type: prompt
+    rubric:
+      - Explained that overlapping cumulative dependency waits can exceed elapsed time and do not establish exclusive task cost or CPU utilization.
+      - Followed the observed dependency compilation as a candidate bottleneck and identified missing compiler or analyzer detail.
+      - Did not recommend removing required references or disabling parallelism merely because the parent target has the largest total.
+      - Proposed comparing equivalent successful builds and preserving their required outputs before claiming an improvement.
+
+  - name: Reject an unsupported build speedup claim
+    tags:
+      capability: comparable-build-measurements
+      risk: medium
+      journey: diagnose-build-performance
+    prompt: |
+      We changed an MSBuild setting and want to claim it cut build time in half.
+      Before: dotnet build -t:Rebuild, 40 seconds, including restore.
+      After: dotnet build --no-restore, 20 seconds, no source changes.
+      Both succeeded. Is the claim justified? Give a minimal measurement plan;
+      don't change settings, purge caches, or stop shared build servers.
+    graders:
+      - type: prompt
+    rubric:
+      - Rejected the claimed speedup because forced work, restore policy, and input state differ between the measurements.
+      - Proposed repeated comparisons with the same invocation, inputs, configuration, and instrumentation.
+      - Kept first-build, changed-input, and unchanged-build results distinct and accounted for measurement variation.
+      - Avoided destructive cache clearing or shared-server shutdown as a generic prerequisite.
+
+  - name: Repair stale generation after input membership changes
+    tags:
+      capability: input-membership-invalidation
+      risk: high
+      journey: repair-incremental-build
+    prompt: |
+      A custom MSBuild target combines every Specs/*.json into obj/catalog.txt.
+      It declares Inputs="@(Specs)" and Outputs="obj/catalog.txt". Editing an
+      existing spec works, but deleting a spec or adding a file with an older
+      timestamp leaves stale entries in the catalog. Explain a targeted repair
+      and how to verify it; don't just force every target to rebuild.
+    graders:
+      - type: prompt
+    rubric:
+      - Explained why timestamp checks on the current item list do not remember removed inputs or necessarily detect older added inputs.
+      - Proposed tracking input membership with a stable manifest or equivalent mechanism while retaining content-change invalidation.
+      - Included deletion, older-file addition, missing output, and a second unchanged build in the verification plan.
+      - Preserved output completeness and did not invent a stamp that hides relevant changes or an invalid Incremental target attribute.
+
+  - name: Preserve a new hook when an optional predecessor is absent
+    tags:
+      capability: optional-hook-composition
+      risk: high
+      journey: review-build-authoring
+    prompt: |
+      Our custom .targets imports a hook like this:
+      <Import Project="$(BeforeHook)" Condition="Exists('$(BeforeHook)')" />
+      BeforeHook is set to "optional.targets;required.targets". The first file
+      is absent on fresh clones; required.targets exists and must always load.
+      It doesn't run on those clones. Explain why and show a fix that also
+      preserves the old hook's order on machines where optional.targets exists.
+    graders:
+      - type: prompt
+    rubric:
+      - Identified that the condition on the whole list can suppress the valid required import when the optional path is missing.
+      - Proposed separate imports or an aggregation file with an individual guard only for the optional import.
+      - Preserved optional-before-required ordering and an explicit failure when the required file is missing.
+      - Covered both present and absent optional-file cases without claiming all semicolon-separated MSBuild imports are invalid.
+
+  - name: Review framework conditions without breaking valid F sharp items
+    tags:
+      capability: evaluation-order-and-source-order
+      risk: high
+      journey: review-build-authoring
+    prompt: |
+      Review these build-file fragments, not the application code.
+      Directory.Build.props contains:
+      <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0'">
+        <DefineConstants>$(DefineConstants);FEATURE</DefineConstants>
+      </PropertyGroup>
+      <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+        <PackageReference Include="Example.BuildAssets" Version="1.2.3" />
+      </ItemGroup>
+      A single-targeted App.fsproj sets TargetFramework to net8.0 in its body
+      and explicitly lists Compile items in this order: Model.fsi, Model.fs,
+      Program.fs. Which changes are actually needed? Keep package versions
+      and compilation behavior intact.
+    graders:
+      - type: prompt
+    rubric:
+      - Identified the early property assignment as too early to observe the framework set in the project body and moved it after that assignment.
+      - Recognized that item conditions evaluate after properties and did not treat the early PackageReference condition as the same timing defect.
+      - Preserved the explicit F sharp source order and the adjacent signature and implementation pair.
+      - Kept existing constants and package versions rather than turning the review into a broader migration.
+
+  - name: Leave a valid packed import contract unchanged
+    tags:
+      capability: packed-import-contract
+      risk: high
+      journey: review-build-authoring
+    prompt: |
+      Please review this NuGet build import before I add an Exists guard.
+      In the package, build/net8.0/Example.props imports
+      ../../buildTransitive/net8.0/Example.props without a condition.
+      The source tree only has buildTransitive/common/Example.props.
+      An imported Packaging.props sets NuspecFile to
+      ../../eng/packaging/Example.nuspec and NuspecBasePath to the project
+      directory. There is no nuspec in the project directory or its immediate
+      parent. The configured nuspec maps that source file to
+      buildTransitive/net8.0/Example.props, and the produced nupkg contains it.
+      Is a guard or directory reorganization needed? No other changes are requested.
+    graders:
+      - type: prompt
+    rubric:
+      - Followed the configured NuspecFile outside the project and its parent, accounted for NuspecBasePath, and resolved the import against the packed layout.
+      - Recognized the required file is supplied by the package contract and left the valid import unchanged.
+      - Explained that an existence guard could hide a broken package if that required file were omitted later.
+      - Did not propose unrelated package upgrades or source-tree restructuring.
+
+  - name: Keep runtime CPU profiling out of build diagnosis
+    tags:
+      capability: runtime-profiling-boundary
+      risk: medium
+      journey: route-runtime-diagnostics
+    prompt: |
+      Our ASP.NET Core service builds successfully but consumes one CPU core
+      at 100 percent while handling requests. What runtime evidence should I
+      collect first? Don't change any build settings or install tools yet.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Recognized this as runtime CPU investigation and suggested suitable runtime counters or profiling evidence.
+      - Did not run a build-performance workflow, request an MSBuild binlog, modify build settings, or install tools.
+
+  - name: Keep failing assertions out of build troubleshooting
+    tags:
+      capability: assertion-failure-boundary
+      risk: medium
+      journey: route-test-failure
+    prompt: |
+      dotnet test built the solution successfully. One xUnit assertion failed:
+      expected invoice.Total to be 12.50, actual 12.49. How should I investigate
+      the rounding behavior without changing the project or test framework?
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Focused on rounding rules, decimal calculations, and the assertion rather than classifying this as a build failure.
+      - Did not collect build logs, change project files, or migrate the test framework.
+
+  - name: Keep a C sharp rename out of build authoring
+    tags:
+      capability: source-refactoring-boundary
+      risk: medium
+      journey: route-source-refactoring
+    prompt: |
+      I need to rename a public C# method CalculateTotal to CalculateInvoiceTotal
+      across a solution. What's a safe refactoring and compatibility plan?
+      The projects already build; don't edit any build files.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Recommended semantic reference updates and considered source or binary compatibility for external callers.
+      - Did not turn the source refactoring into an MSBuild review, binlog capture, or project cleanup.
+
+  - name: Keep SDK installation separate from build analysis
+    tags:
+      capability: sdk-installation-boundary
+      risk: medium
+      journey: route-sdk-installation
+    prompt: |
+      I only want to install the .NET SDK selected by global.json on this
+      machine. The file requests version 10.0.100 with rollForward set to
+      latestPatch. What should I check and install? Don't build or modify the repo.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Focused on discovering installed SDKs and installing a compatible version under the stated selection policy.
+      - Did not rewrite global.json, collect a binlog, or start a build troubleshooting workflow.
+
+  - name: Keep framework migration separate from build cleanup
+    tags:
+      capability: framework-migration-boundary
+      risk: medium
+      journey: route-framework-migration
+    prompt: |
+      Plan an upgrade of a working ASP.NET Core app from .NET 8 to .NET 10,
+      including framework and API compatibility risks. Don't edit files yet.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Treated this as framework and API migration, including compatibility checks and application testing.
+      - Did not replace the requested migration plan with MSBuild anti-pattern cleanup or build-performance experiments.
+
+  - name: Keep legacy project conversion with the migration workflow
+    tags:
+      capability: project-system-migration-boundary
+      risk: medium
+      journey: route-project-migration
+    prompt: |
+      I have a working non-SDK-style .NET Framework csproj using packages.config.
+      I want a plan to migrate it to SDK style while retaining its framework
+      and package behavior. Don't perform the migration or run builds yet.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Recognized a project-system migration and considered packages.config assets, imports, and compatibility.
+      - Did not apply generic XML cleanup, silently change frameworks or package versions, or start a build investigation.
+
+  - name: Keep an npm failure outside MSBuild
+    tags:
+      capability: non-msbuild-boundary
+      risk: medium
+      journey: route-non-msbuild-failure
+    prompt: |
+      npm run build fails in a Vite TypeScript application with TS2307:
+      Cannot find module '@app/config'. There are no .NET projects.
+      What should I inspect first?
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Focused on TypeScript module resolution, alias configuration, and file or package availability.
+      - Did not suggest dotnet commands, MSBuild binary logs, or changes to nonexistent project files.

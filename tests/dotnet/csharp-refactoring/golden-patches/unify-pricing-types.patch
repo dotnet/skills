@@ -1,0 +1,48 @@
+diff --git a/src/Billing/Pricing.cs b/src/Billing/Pricing.cs
+index b4bdf26..50dc270 100644
+--- a/src/Billing/Pricing.cs
++++ b/src/Billing/Pricing.cs
+@@ -17,14 +17,14 @@ internal static class PricingMath
+     internal static decimal ApplyDiscount(decimal amount, decimal rate) => amount - (amount * rate);
+ }
+ 
+-internal sealed class GoldPricing
++internal sealed class PricingTier
+ {
+-    public decimal Rate => 0.10m;
+-    public string Name => "gold";
+-}
++    internal PricingTier(string name, decimal rate)
++    {
++        Name = name;
++        Rate = rate;
++    }
+ 
+-internal sealed class SilverPricing
+-{
+-    public decimal Rate => 0.05m;
+-    public string Name => "silver";
++    public decimal Rate { get; }
++    public string Name { get; }
+ }
+diff --git a/tests/Billing.Tests/BillingTests.cs b/tests/Billing.Tests/BillingTests.cs
+index 16b686c..f923452 100644
+--- a/tests/Billing.Tests/BillingTests.cs
++++ b/tests/Billing.Tests/BillingTests.cs
+@@ -65,10 +65,12 @@ public class BillingTests
+     [Fact]
+     public void PricingTiers_HaveExpectedRatesAndNames()
+     {
+-        Assert.Equal(0.10m, new GoldPricing().Rate);
+-        Assert.Equal("gold", new GoldPricing().Name);
+-        Assert.Equal(0.05m, new SilverPricing().Rate);
+-        Assert.Equal("silver", new SilverPricing().Name);
++        var gold = new PricingTier("gold", 0.10m);
++        var silver = new PricingTier("silver", 0.05m);
++        Assert.Equal(0.10m, gold.Rate);
++        Assert.Equal("gold", gold.Name);
++        Assert.Equal(0.05m, silver.Rate);
++        Assert.Equal("silver", silver.Name);
+     }
+ 
+     [Fact]

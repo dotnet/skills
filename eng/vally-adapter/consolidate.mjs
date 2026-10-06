@@ -10,7 +10,7 @@ import { readFileSync, writeFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 
-import { trialDirection } from "./adapt.mjs";
+import { classifyNoChangeEvidence, trialDirection } from "./adapt.mjs";
 
 const { values: opts, positionals } = parseArgs({
   options: {
@@ -28,7 +28,7 @@ if (opts.help || (opts.format !== "full" && opts.format !== "simple")) {
   console.log(`Usage:
   node consolidate.mjs --format <full|simple> [--output <file>] [--root <dir>] [--commit <sha>] [<results.json>...]
 
-Consolidates per-skill results.json into a markdown summary table.
+Consolidates per-target results.json into a markdown summary table.
 
 Options:
   --format <full|simple>  full: all metrics and details (workflow summary).
@@ -41,12 +41,19 @@ Options:
   process.exit(opts.help ? 0 : 1);
 }
 
+// The agent timeout-retry tree holds a second, narrower native copy of one
+// scenario, kept only for audit. It is never a skill result, so a recursive
+// walk must step over it — the same exclusion the workflow collectors apply.
+const EXCLUDED_DIRECTORIES = new Set(["_agent-timeout-retry"]);
+
 function findNamedFiles(dir, fileName) {
   const out = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...findNamedFiles(full, fileName));
-    else if (entry.name === fileName) out.push(full);
+    if (entry.isDirectory()) {
+      if (EXCLUDED_DIRECTORIES.has(entry.name)) continue;
+      out.push(...findNamedFiles(full, fileName));
+    } else if (entry.name === fileName) out.push(full);
   }
   return out;
 }
@@ -178,6 +185,17 @@ function fmtOverfit(verdict) {
   return `${icon}${score}`;
 }
 
+function targetActivation(verdict, scenario, arm) {
+  if (verdict.skillKind === "agent") {
+    return arm === "isolated"
+      ? scenario?.agentActivationIsolated
+      : scenario?.agentActivationPlugin;
+  }
+  return arm === "isolated"
+    ? scenario?.skillActivationIsolated
+    : scenario?.skillActivationPlugin;
+}
+
 function activationStats(verdict) {
   const expected = (verdict.scenarios ?? []).filter(
     (scenario) => scenario?.expectActivation !== false,
@@ -185,11 +203,15 @@ function activationStats(verdict) {
   if (expected.length === 0) return null;
   const total = expected.length;
   const isolated = expected.filter(
-    (scenario) => scenario?.skillActivationIsolated?.activated,
+    (scenario) => targetActivation(verdict, scenario, "isolated")?.activated,
   ).length;
-  const hasPlugin = expected.some((scenario) => scenario?.skillActivationPlugin != null);
+  const hasPlugin = expected.some(
+    (scenario) => targetActivation(verdict, scenario, "plugin") != null,
+  );
   const plugin = hasPlugin
-    ? expected.filter((scenario) => scenario?.skillActivationPlugin?.activated).length
+    ? expected.filter(
+        (scenario) => targetActivation(verdict, scenario, "plugin")?.activated,
+      ).length
     : null;
   return {
     total,
@@ -245,23 +267,24 @@ function scenarioStats(scenario) {
   };
 }
 
-function isWeakOrWarningScenario(scenario) {
+function isWeakOrWarningScenario(verdict, scenario) {
   const { netWin } = scenarioStats(scenario);
+  const isolatedActivation = targetActivation(verdict, scenario, "isolated");
+  const pluginActivation = targetActivation(verdict, scenario, "plugin");
   return netWin <= 0
     || scenario?.timedOut === true
     || (scenario?.skillActivationIsolated?.failedActivationOnlyCompletions ?? 0) > 0
     || (scenario?.skillActivationPlugin?.failedActivationOnlyCompletions ?? 0) > 0
     || (scenario?.expectActivation === false
-      && scenario?.skillActivationIsolated?.activated === true)
+      && isolatedActivation?.activated === true)
     || (scenario?.expectActivation !== false
-      && (!scenario?.skillActivationIsolated?.activated
-        || (scenario?.skillActivationPlugin != null
-          && !scenario.skillActivationPlugin.activated)));
+      && (!isolatedActivation?.activated
+        || (pluginActivation != null && !pluginActivation.activated)));
 }
 
 function scenarioTable(verdict, weakOnly = false) {
   const scenarios = (verdict.scenarios ?? []).filter(
-    (scenario) => !weakOnly || isWeakOrWarningScenario(scenario),
+    (scenario) => !weakOnly || isWeakOrWarningScenario(verdict, scenario),
   );
   if (scenarios.length === 0) return [];
   const rows = [
@@ -288,13 +311,13 @@ function representativeEvidence(verdict) {
   const scenarios = [...(verdict.scenarios ?? [])].sort((left, right) => {
     const priority = (scenario) => {
       if (scenario.preferenceGateEligible !== false) return 0;
-      if (scenario.skillActivationIsolated?.activated === true) return 1;
+      if (targetActivation(verdict, scenario, "isolated")?.activated === true) return 1;
       return 2;
     };
     return priority(left) - priority(right);
   });
   for (const scenario of scenarios) {
-    if (!isWeakOrWarningScenario(scenario)) continue;
+    if (!isWeakOrWarningScenario(verdict, scenario)) continue;
     const trials = (scenario.trials ?? []).filter((trial) => !trial.errored);
     const trial = trials.find((candidate) => trialDirection(candidate) < 0)
       ?? trials.find((candidate) => trialDirection(candidate) === 0);
@@ -313,6 +336,24 @@ function representativeEvidence(verdict) {
   return [];
 }
 
+function noChangeDiagnosis(verdict) {
+  if (verdict.noChangeDiagnosis) return verdict.noChangeDiagnosis;
+  const evidence = verdict.signTest ?? verdict.scenarioEvidence;
+  if (!evidence) return null;
+  const wins = evidence.wins ?? verdict.wins ?? 0;
+  const ties = evidence.ties ?? verdict.ties ?? 0;
+  const losses = evidence.losses ?? verdict.losses ?? 0;
+  const discordant = evidence.discordant ?? wins + losses;
+  return classifyNoChangeEvidence({
+    wins,
+    ties,
+    losses,
+    discordant,
+    minCredibleStimuli: verdict.minCredibleStimuli,
+    reasonCode: verdict.stateReason?.code,
+  });
+}
+
 function resultLabel(verdict) {
   if (isIndeterminate(verdict)) {
     return verdict.underpowered === true
@@ -323,6 +364,18 @@ function resultLabel(verdict) {
   if (isObjectiveRegression(verdict)) return "🔻 Objective regression";
   if (hasActivationContractFailure(verdict)) return "⛔ Activation contract failed";
   if (isPreferenceRegression(verdict)) return "📉 Preference loss (report only)";
+  if (verdictState(verdict) === STATE.NO_CHANGE) {
+    return {
+      all_ties: "➖ No preference",
+      mixed: "➖ Mixed evidence",
+      positive_tie_limited: "➖ Improvement signal, tie-limited",
+      positive_unproven: "➖ Improvement signal, unproven",
+      negative_tie_limited: "➖ Baseline signal, tie-limited",
+      negative_unproven: "➖ Baseline signal, unproven",
+      positive_sparse: "➖ Improvement too sparse",
+      negative_sparse: "➖ Baseline signal too sparse",
+    }[noChangeDiagnosis(verdict)] ?? "➖ Not proven improved";
+  }
   return "➖ Not proven improved";
 }
 
@@ -417,13 +470,28 @@ function nextAction(verdict) {
     return "Inspect losing stimuli and fix skill behavior; this is not objective completion proof.";
   }
   if (state === STATE.NO_CHANGE) {
-    if (reasonCode === "practical_effect_below_floor") {
-      return "Improve the skill across more tested tasks; the credible effect is too sparse.";
+    switch (noChangeDiagnosis(verdict)) {
+      case "all_ties":
+        return "Inspect tie rationales and arm outputs; replace inert scenarios rather than adding repeated runs.";
+      case "mixed":
+        return "Compare winning and losing scenarios to isolate where the target helps versus hurts.";
+      case "positive_tie_limited":
+        return "The signal favors the target, but ties leave too few discordant tasks; inspect ties and predeclare more discriminating breadth.";
+      case "positive_unproven":
+        return "The signal favors the target but is inconsistent; inspect tied or lost scenarios and fix weak behavior.";
+      case "negative_tie_limited":
+        return "Evidence leans baseline but is not credible; inspect losses and make tied tasks discriminate.";
+      case "negative_unproven":
+        return "Evidence leans baseline but is not credible; inspect losing scenarios for recurring defects.";
+      case "positive_sparse":
+        return "The improvement is credible but affects too few tested tasks; improve coverage across predeclared breadth.";
+      case "negative_sparse":
+        return "The baseline lean is credible but too sparse for the practical-loss floor; inspect the losses for recurring defects.";
+      default:
+        return reasonCode === "practical_effect_below_floor"
+          ? "Inspect the sparse effect before changing the target or eval."
+          : "Inspect tied or lost stimuli and fix inconsistent target behavior.";
     }
-    if ((verdict.signTest?.discordant ?? 0) < 5) {
-      return "Inspect tied or lost stimuli; predeclare added breadth before a new experiment.";
-    }
-    return "Inspect tied or lost stimuli and fix inconsistent skill behavior.";
   }
 
   const actions = [];
@@ -476,7 +544,9 @@ const noChangeCount = verdicts.length
   - regressedCount
   - activationContractFailureCount
   - preferenceRegressedCount;
-const skillCount = new Set(verdicts.map((verdict) => verdict.skillName)).size;
+const targetCount = new Set(
+  verdicts.map((verdict) => `${verdict.skillKind ?? "skill"}:${verdict.skillName}`),
+).size;
 const models = [...new Set(verdicts.map((verdict) => verdict.model))];
 const judges = [...new Set(verdicts.map((verdict) => verdict.judgeModel))];
 const objectiveGateEnabled = regressedCount > 0
@@ -484,7 +554,7 @@ const objectiveGateEnabled = regressedCount > 0
 const isFull = opts.format === "full";
 
 const compactHeader = [
-  "Skill",
+  "Target",
   "Model",
   "Verdict",
   "Gate evidence",
@@ -493,7 +563,7 @@ const compactHeader = [
   "Next action",
 ];
 const fullHeader = [
-  "Skill",
+  "Target",
   "Model",
   "Verdict",
   "Gate evidence",
@@ -506,12 +576,12 @@ const fullHeader = [
   "Next action",
 ];
 const header = isFull ? fullHeader : compactHeader;
-const lines = ["## 📊 Skill Evaluation Results", ""];
+const lines = ["## 📊 Skill and Agent Evaluation Results", ""];
 
 lines.push(
-  `${countNoun(verdicts.length, "model/skill result")} across `
-  + `${countNoun(skillCount, "skill")} and ${countNoun(models.length, "model")} — `
-  + `✅ **${passedCount} improved**, ➖ **${noChangeCount} not proven improved**, `
+  `${countNoun(verdicts.length, "model/target result")} across `
+  + `${countNoun(targetCount, "target")} and ${countNoun(models.length, "model")} — `
+  + `✅ **${passedCount} improved**, ➖ **${countNoun(noChangeCount, "result")} without a clear winner**, `
   + `⚠️ **${underpoweredCount + invalidCount} invalid or underpowered**, `
   + `⛔ **${countNoun(activationContractFailureCount, "activation contract failure")}**, `
   + `📉 **${preferenceRegressedCount} preference losses (report only)**`
@@ -569,7 +639,7 @@ lines.push(
 lines.push("");
 
 if (verdicts.length === 0) {
-  lines.push("_No skill verdicts were produced._");
+  lines.push("_No target verdicts were produced._");
 } else {
   lines.push(`| ${header.join(" | ")} |`);
   lines.push(`|${header.map(() => "---").join("|")}|`);
@@ -604,11 +674,11 @@ if (verdicts.length === 0) {
   lines.push("<details><summary>ℹ️ How to read this report</summary>");
   lines.push("");
   lines.push("- **✅ Improved** — the result passed both the statistical gate and the 20% practical net-win floor.");
-  lines.push("- **➖ Not proven improved** — the result is valid but did not pass both gates. This is not automatically a regression.");
-  lines.push("- **⚠️ Invalid / underpowered** — the gate withheld a quality verdict. Fix the measurement before judging the skill.");
-  lines.push("- **⛔ Activation contract failed** — the isolated target skill activated on an explicit dormancy scenario. Dormancy preference is excluded, but this routing failure still blocks a pass.");
+  lines.push("- **➖ No clear winner** — the result is valid but did not pass both gates. The label distinguishes all ties, mixed evidence, directional but unproven evidence, and credible effects below the practical floor.");
+  lines.push("- **⚠️ Invalid / underpowered** — the gate withheld a quality verdict. Fix the measurement before judging the target.");
+  lines.push("- **⛔ Activation contract failed** — the isolated target activated on an explicit dormancy scenario. Dormancy preference is excluded, but this routing failure still blocks a pass.");
   lines.push("- **📉 Preference loss** — the LLM judge credibly preferred baseline. It is report-only, not objective completion proof.");
-  lines.push("- **Gate evidence** — `n` preference-eligible distinct-stimulus votes, W/T/L stimulus votes, `d` discordant votes, exact one-sided `p`, net win, and the count of separately retained dormancy stimuli. The `p` value applies to one model/skill result; no matrix-wide multiple-comparison correction is applied.");
+  lines.push("- **Gate evidence** — `n` preference-eligible distinct-stimulus votes, W/T/L stimulus votes, `d` discordant votes, exact one-sided `p`, net win, and the count of separately retained dormancy stimuli. The `p` value applies to one model/target result; no matrix-wide multiple-comparison correction is applied.");
   lines.push("- **Overfit** — overfitting-judge severity (✅ Low, 🟡 Moderate, 🔴 High, — none) and score.");
   lines.push("- **Warnings** — activation, timeout, retry recovery, or unresolved comparison conditions that need attention.");
   if (isFull) {
@@ -731,7 +801,7 @@ const markdown = lines.join("\n");
 if (opts.output) {
   writeFileSync(opts.output, markdown);
   console.error(
-    `Wrote ${opts.format} summary (${countNoun(verdicts.length, "model/skill result")}) to ${opts.output}`,
+    `Wrote ${opts.format} summary (${countNoun(verdicts.length, "model/target result")}) to ${opts.output}`,
   );
 } else {
   process.stdout.write(`${markdown}\n`);

@@ -61,6 +61,11 @@ skill-validator evaluate --help
 # Evaluate a skill (--tests-dir is required)
 skill-validator evaluate --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills/my-skill
 
+# Evaluate a custom agent without forcing it as the primary persona. The
+# default parent must route to the registered target agent.
+skill-validator evaluate --runs 1 --verdict-warn-only \
+  --tests-dir ./tests/my-plugin ./plugins/my-plugin/agents/my-agent.agent.md
+
 # Verbose output with per-scenario breakdowns
 skill-validator evaluate --verbose --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
@@ -140,7 +145,7 @@ of Codex's evolving server parser in `skill-validator`.
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `<paths...>` | *(required)* | Paths to skill directories or parent directories |
+| `<paths...>` | *(required)* | Paths to skill directories, agent files/directories, or their parent directories |
 | `--tests-dir <path>` | *(required)* | Directory containing test subdirectories |
 | `--model <name>` | `claude-opus-4.6` | Model for agent runs |
 | `--judge-model <name>` | same as `--model` | Model for LLM judge (can be different) |
@@ -192,7 +197,7 @@ The expensive part of an evaluation is the agent investigation, not the judging.
    skill-validator evaluate rejudge <treatment-results-dir> --baseline-dir <baseline-results-dir>
    ```
 
-   `rejudge` pairs each treatment scenario with its baseline by the shared key (prompt SHA + target SHA), runs the same pairwise/independent judges `evaluate` runs inline, writes the reports, and applies the usual pass/fail gates (`--min-improvement`, `--require-completion`, …). Baseline and treatment must share the same `--model`; the judge model defaults to the value persisted in the treatment `sessions.db` (then the baseline's), and a mismatch between the two persisted judge models is rejected unless you pass `--judge-model`.
+   `rejudge` pairs each treatment scenario with its baseline by the shared key (prompt SHA + target SHA), runs the same pairwise/independent judges `evaluate` runs inline, writes the reports, and applies the usual pass/fail gates (`--min-improvement`, `--require-completion`, …). Accounting is fail-closed: failed or nonterminal sessions, unmatched baseline or treatment runs, and duplicate required roles stop the command before judging or publishing a partial verdict. Baseline and treatment must share the same `--model`; the judge model defaults to the value persisted in the treatment `sessions.db` (then the baseline's), and a mismatch between the two persisted judge models is rejected unless you pass `--judge-model`.
 
 Without `--baseline-dir`, `rejudge` keeps its original single-directory behavior: it re-judges baseline+treatment runs that live in the **same** `sessions.db`.
 
@@ -248,6 +253,12 @@ scenarios:
 Both settings are optional. When omitted, the CLI defaults (`--parallel-scenarios`, `--parallel-runs`) apply unchanged. The override can only *reduce* parallelism (via `Math.Min`), never increase it beyond the CLI value.
 
 ### Scenarios
+
+Custom-agent evaluation also accepts the repository's Vally-native
+`stimuli:`/`graders:` format. `environment.skills` declares isolated-run skill
+dependencies, while an agent frontmatter `agents:` list declares custom-agent
+dependencies recursively. The plugin arm ignores those narrowed declarations
+and registers the complete production plugin skill and agent surface.
 
 ```yaml
 scenarios:

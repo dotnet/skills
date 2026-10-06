@@ -24,6 +24,12 @@ public enum FailureKind
     [JsonStringEnumMemberName("skill_not_activated")]
     SkillNotActivated,
 
+    [JsonStringEnumMemberName("unexpected_activation")]
+    UnexpectedActivation,
+
+    [JsonStringEnumMemberName("execution_error")]
+    ExecutionError,
+
     [JsonStringEnumMemberName("noise_degradation")]
     NoiseDegradation,
 }
@@ -56,7 +62,8 @@ public sealed record CommandAssertionArgs(
     string? ExpectedStdErrorContains = null,
     string? ExpectedStdOutMatches = null,
     string? ExpectedStdErrorMatches = null,
-    int? Timeout = null);
+    int? Timeout = null,
+    string[]? ArgumentList = null);
 
 public sealed record Assertion(
     AssertionType Type,
@@ -180,6 +187,7 @@ public sealed class RunMetrics
     public int TurnCount { get; set; }
     public long WallTimeMs { get; set; }
     public int ErrorCount { get; set; }
+    public int TerminalErrorCount { get; set; }
     public bool TimedOut { get; set; }
     public List<AssertionResult> AssertionResults { get; set; } = [];
     public bool TaskCompleted { get; set; }
@@ -210,6 +218,7 @@ public sealed class RunMetrics
         TurnCount = TurnCount,
         WallTimeMs = WallTimeMs,
         ErrorCount = ErrorCount,
+        TerminalErrorCount = TerminalErrorCount,
         TimedOut = TimedOut,
         AssertionResults = [.. AssertionResults],
         TaskCompleted = TaskCompleted,
@@ -358,6 +367,7 @@ public sealed class SkillVerdict
         get => _schemaVersion ?? LegacySkillValidatorResultsSchema.CurrentVersion;
         init => _schemaVersion = value;
     }
+    public string SkillKind { get; set; } = "skill";
     public required string SkillName { get; init; }
     public required string SkillPath { get; init; }
     public required bool Passed { get; set; }
@@ -482,6 +492,20 @@ public sealed record ValidatorConfig
 
     /// <summary>When set, reuse the precomputed baseline from this file instead of re-running the baseline arm.</summary>
     public string? BaselineFrom { get; init; }
+
+    /// <summary>
+    /// When non-empty, evaluate only the named scenarios. Used to re-run a single scenario
+    /// that failed for a transient reason (such as hitting its wall-clock timeout) without
+    /// re-running, and re-charging for, the scenarios that already produced valid evidence.
+    /// </summary>
+    public IReadOnlyList<string> ScenarioFilter { get; init; } = [];
+
+    /// <summary>
+    /// When non-empty, evaluate only the named targets before applying any scenario filter.
+    /// This keeps a targeted scenario retry from selecting a same-named scenario owned by
+    /// another skill or agent in the same invocation.
+    /// </summary>
+    public IReadOnlyList<string> TargetFilter { get; init; } = [];
 
     /// <summary>
     /// When set, run the requested agent arms and persist sessions/metrics but skip all judging.
