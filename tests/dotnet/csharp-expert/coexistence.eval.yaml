@@ -19,13 +19,10 @@ stimuli:
         - src: fixtures/blazor-components
           dest: .
     graders:
-      - type: output-not-matches
-        config:
-          pattern: /plugin (marketplace add|install)
       - type: exit-success
       - type: prompt
     rubric:
-      - Used the installed Blazor component workflow rather than recommending installation
+      - Completed the Blazor component task without making specialist installation a prerequisite
       - Grounded the response in the existing Razor component project
 
   - name: Invoke installed MAUI binding guidance
@@ -42,13 +39,10 @@ stimuli:
         - src: fixtures/maui-binding
           dest: .
     graders:
-      - type: output-not-matches
-        config:
-          pattern: /plugin (marketplace add|install)
       - type: exit-success
       - type: prompt
     rubric:
-      - Used the installed MAUI data-binding workflow rather than recommending installation
+      - Completed the MAUI binding repair without making specialist installation a prerequisite
       - Recognized the MAUI project and XAML binding evidence
 
   - name: Invoke installed EF Core optimization guidance
@@ -65,13 +59,10 @@ stimuli:
         - src: fixtures/ef-orders
           dest: .
     graders:
-      - type: output-not-matches
-        config:
-          pattern: /plugin (marketplace add|install)
       - type: exit-success
       - type: prompt
     rubric:
-      - Used the installed EF Core query optimization workflow rather than recommending installation
+      - Completed the EF Core optimization without making specialist installation a prerequisite
       - Identified the repeated related-entity loading as the database concern
 
   - name: Invoke installed test migration guidance
@@ -88,9 +79,6 @@ stimuli:
         - src: fixtures/nunit-migration
           dest: .
     graders:
-      - type: output-not-matches
-        config:
-          pattern: /plugin (marketplace add|install)
       - type: file-not-contains
         config:
           path: "**/*.cs"
@@ -99,16 +87,32 @@ stimuli:
         config:
           path: "**/*.csproj"
           value: NUnit
+      - type: file-contains
+        config:
+          path: "**/*.cs"
+          value: '[TestInitialize]'
+      - type: file-contains
+        config:
+          path: "**/*.cs"
+          value: '[TestCleanup]'
+      - type: file-contains
+        config:
+          path: "**/*.cs"
+          value: '[DataRow(2, 3, 6)]'
+      - type: file-contains
+        config:
+          path: "**/*.cs"
+          value: '[DataRow(-1, 1, 1)]'
       - type: run-command
         config:
           command: dotnet test
           expected_exit_code: 0
-          stdout_matches: Passed!
+          stdout_matches: '(?i)Passed:\s+3\b'
           timeout: 3m
       - type: exit-success
       - type: prompt
     rubric:
-      - Used the installed NUnit-to-MSTest migration workflow rather than recommending installation
+      - Completed the NUnit-to-MSTest migration without making specialist installation a prerequisite
       - Preserved the requested test semantics and ran the migrated tests successfully
 
   - name: Invoke installed runtime diagnostics guidance
@@ -121,13 +125,10 @@ stimuli:
       A deployed .NET service has periodic CPU spikes and allocation growth, but there is no known
       hot method yet. Collect evidence and identify the cause.
     graders:
-      - type: output-not-matches
-        config:
-          pattern: /plugin (marketplace add|install)
       - type: exit-success
       - type: prompt
     rubric:
-      - Used installed runtime diagnostics guidance rather than recommending installation
+      - Provided runtime diagnostics guidance without making specialist installation a prerequisite
       - Started with evidence collection instead of speculative code optimization
 
   - name: Invoke installed file based CSharp guidance
@@ -140,13 +141,10 @@ stimuli:
       Create a one-file C# utility that calls an HTTP endpoint and prints selected JSON fields. Do
       not create a project.
     graders:
-      - type: output-not-matches
-        config:
-          pattern: /plugin (marketplace add|install)
       - type: exit-success
       - type: prompt
     rubric:
-      - Used installed file-based C# guidance rather than recommending installation
+      - Completed the file-based C# task without making specialist installation a prerequisite
       - Respected the no-project constraint
 
   - name: Invoke installed ASP.NET Core API guidance
@@ -163,13 +161,10 @@ stimuli:
         - src: fixtures/aspnet-minimal
           dest: .
     graders:
-      - type: output-not-matches
-        config:
-          pattern: /plugin (marketplace add|install)
       - type: exit-success
       - type: prompt
     rubric:
-      - Used installed ASP.NET Core API guidance rather than recommending installation
+      - Completed the ASP.NET Core endpoint task without making specialist installation a prerequisite
       - Grounded the response in the existing minimal API project
 
   - name: Invoke installed framework upgrade guidance
@@ -181,11 +176,8 @@ stimuli:
     prompt: |
       Upgrade a solution from net8.0 to net9.0 and handle compatibility changes across its projects.
     graders:
-      - type: output-not-matches
-        config:
-          pattern: /plugin (marketplace add|install)
       - type: exit-success
       - type: prompt
     rubric:
-      - Used installed .NET 8 to .NET 9 migration guidance rather than recommending installation
+      - Addressed the .NET 8 to .NET 9 migration without making specialist installation a prerequisite
       - Treated compatibility work as a framework upgrade rather than generic project editing

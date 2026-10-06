@@ -1,6 +1,6 @@
-# Supplemental routing experiment: both treatment arms expose the marketplace specialists exercised
-# by tests/dotnet/csharp-expert/coexistence.eval.yaml. The normal csharp-expert eval covers the
-# missing-plugin acquisition path.
+# Supplemental routing experiment: the plugin arm exposes the marketplace specialists exercised by
+# tests/dotnet/csharp-expert/coexistence.eval.yaml. The normal csharp-expert eval covers the missing
+# plugin acquisition path.
 name: csharp-expert-coexistence
 evals:
   - tests/dotnet/csharp-expert/coexistence.eval.yaml
@@ -18,18 +18,6 @@ variants:
     environment:
       skills:
         - plugins/dotnet/skills/csharp-expert
-        - plugins/dotnet/skills/csharp-refactoring
-        - plugins/dotnet/skills/msbuild
-        - plugins/dotnet/skills/setup-local-sdk
-        - plugins/dotnet-advanced/skills/csharp-scripts
-        - plugins/dotnet-aspnetcore/skills/dotnet-webapi
-        - plugins/dotnet-data/skills/optimizing-ef-core-queries
-        - plugins/dotnet-diag/skills/analyzing-dotnet-performance
-        - plugins/dotnet-diag/skills/dotnet-trace-collect
-        - plugins/dotnet-maui/skills/maui-data-binding
-        - plugins/dotnet-test-migration/skills/migrate-nunit-to-mstest
-        - plugins/dotnet-upgrade/skills/migrate-dotnet8-to-dotnet9
-        - plugins/dotnet-blazor/skills/author-component
   plugin:
     environment:
       skills:

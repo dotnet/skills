@@ -60,7 +60,7 @@ solution detection, marketplace acquisition, fallback behavior, and dormancy.
 
 The supplemental
 [`csharp-expert-coexistence.experiment.yaml`](../../csharp-expert-coexistence.experiment.yaml)
-loads representative marketplace specialists in both treatment arms. Run it without a skill filter:
+loads representative marketplace specialists in the plugin arm. Run it without a skill filter:
 
 ```bash
 EXPERIMENT_FILE=./csharp-expert-coexistence.experiment.yaml ./eng/run-skill-evals.sh
