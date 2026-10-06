@@ -6,6 +6,7 @@ using SkillValidator.Shared;
 namespace SkillValidator.Tests;
 
 [TestClass]
+[DoNotParallelize]
 public class SessionDatabaseTests : IDisposable
 {
     private readonly string _dbPath;
@@ -37,7 +38,20 @@ public class SessionDatabaseTests : IDisposable
     {
         var rubricJson = JsonSerializer.Serialize(new[] { "Quality", "Completeness" });
 
-        _db.RegisterSession("s1", "my-skill", "/path/to/skill", "scenario-a", 0, "baseline", "gpt-4.1", "sessions/s1", "/work", "Fix the bug", "abcdef012345", rubricJson);
+        _db.RegisterSession(
+            "s1",
+            "my-skill",
+            "/path/to/skill",
+            "scenario-a",
+            0,
+            "baseline",
+            "gpt-4.1",
+            "sessions/s1",
+            "/work",
+            "Fix the bug",
+            "abcdef012345",
+            rubricJson,
+            expectActivation: false);
         _db.CompleteSession("s1", "completed", """{"TokenEstimate":100}""");
 
         var sessions = _db.GetCompletedSessions();
@@ -54,6 +68,7 @@ public class SessionDatabaseTests : IDisposable
         Assert.AreEqual("Fix the bug", s.Prompt);
         Assert.AreEqual("abcdef012345", s.SkillSha);
         Assert.AreEqual(rubricJson, s.RubricJson);
+        Assert.IsFalse(s.ExpectActivation);
         Assert.AreEqual("""{"TokenEstimate":100}""", s.MetricsJson);
         Assert.IsNull(s.JudgeJson);
         Assert.IsNull(s.PairwiseJson);
@@ -103,6 +118,21 @@ public class SessionDatabaseTests : IDisposable
     }
 
     [TestMethod]
+    public void GetNonterminalSessions_ReturnsOnlyRunningRows()
+    {
+        _db.RegisterSession("running", "skill", "/p", "scn", 0, "with-skill-plugin", "model", null, null);
+        _db.RegisterSession("completed", "skill", "/p", "scn", 0, "baseline", "model", null, null);
+        _db.RegisterSession("failed", "skill", "/p", "scn", 0, "with-skill-isolated", "model", null, null);
+        _db.CompleteSession("completed", "completed", "{}");
+        _db.CompleteSession("failed", "failed", "{}");
+
+        var session = Assert.ContainsSingle(_db.GetNonterminalSessions());
+
+        Assert.AreEqual("running", session.Id);
+        Assert.AreEqual("running", session.Status);
+    }
+
+    [TestMethod]
     public void GetCompletedSessions_IncludesTimedOut()
     {
         _db.RegisterSession("s1", "skill", "/p", "scn", 0, "baseline", "model", null, null);
@@ -111,6 +141,46 @@ public class SessionDatabaseTests : IDisposable
         var sessions = _db.GetCompletedSessions();
         Assert.ContainsSingle(sessions);
         Assert.AreEqual("timed_out", sessions[0].Status);
+    }
+
+    [TestMethod]
+    public void GetCompletedSessions_IncludesReusedBaseline()
+    {
+        _db.RegisterSession("s1", "skill", "/p", "scn", 0, "baseline-reused", "model", null, null);
+        _db.CompleteSession("s1", "reused", "{}");
+
+        var session = Assert.ContainsSingle(_db.GetCompletedSessions());
+        Assert.AreEqual("baseline-reused", session.Role);
+        Assert.AreEqual("reused", session.Status);
+    }
+
+    [TestMethod]
+    public void FailRunningSessions_PersistsTerminalFailure()
+    {
+        _db.RegisterSession("b", "skill", "/p", "scenario", 0, "baseline", "model", null, null);
+        _db.RegisterSession("s", "skill", "/p", "scenario", 0, "with-skill-isolated", "model", null, null);
+        _db.RegisterSession("b2", "skill", "/p", "scenario", 1, "baseline", "model", null, null);
+        _db.RegisterSession("s2", "skill", "/p", "scenario", 1, "with-skill-isolated", "model", null, null);
+
+        _db.FailRunningSessions(
+            "skill",
+            "scenario",
+            """{"ErrorCount":1}""",
+            runIndex: 0);
+        _db.CompleteSession("b2", "completed", "{}");
+        _db.CompleteSession("s2", "completed", "{}");
+
+        foreach (var session in _db.GetCompletedSessions())
+        {
+            Assert.AreEqual(1, session.RunIndex);
+        }
+        var failed = _db.GetFailedSessions();
+        Assert.AreEqual(2, failed.Count);
+        foreach (var session in failed)
+        {
+            Assert.AreEqual("failed", session.Status);
+            Assert.AreEqual("""{"ErrorCount":1}""", session.MetricsJson);
+        }
     }
 
     [TestMethod]
@@ -250,7 +320,7 @@ public class SessionDatabaseTests : IDisposable
     {
         var info = _db.GetSchemaInfo();
         Assert.AreEqual("skill-validator", info["type"]);
-        Assert.AreEqual("3", info["version"]);
+        Assert.AreEqual("5", info["version"]);
     }
 
     [TestMethod]
@@ -336,6 +406,7 @@ public class SessionDatabaseTests : IDisposable
             using var upgradedDb = new SessionDatabase(legacyDbPath);
             var legacySession = Assert.ContainsSingle(upgradedDb.GetCompletedSessions());
             Assert.IsNull(legacySession.BaselineKey);
+            Assert.IsNull(legacySession.ExpectActivation);
 
             upgradedDb.RegisterSession("s2", "skill", "/p", "scn", 1, "with-skill", "model",
                 null, null, "Prompt", null, null, "key-2");
@@ -343,6 +414,7 @@ public class SessionDatabaseTests : IDisposable
 
             var upgradedSession = Assert.ContainsSingle((upgradedDb.GetCompletedSessions()).Where(s => s.Id == "s2"));
             Assert.AreEqual("key-2", upgradedSession.BaselineKey);
+            Assert.IsTrue(upgradedSession.ExpectActivation);
         }
         finally
         {
@@ -350,6 +422,146 @@ public class SessionDatabaseTests : IDisposable
             TryDelete(legacyDbPath);
             TryDelete(legacyDbPath + "-wal");
             TryDelete(legacyDbPath + "-shm");
+        }
+    }
+
+    [TestMethod]
+    public void SchemaThreeDatabase_PreservesUnknownActivationExpectationDuringMigration()
+    {
+        var legacyDbPath = Path.Combine(Path.GetTempPath(), $"schema-v3-sessions-{Guid.NewGuid()}.db");
+        try
+        {
+            using (var connection = new SqliteConnection($"Data Source={legacyDbPath}"))
+            {
+                connection.Open();
+                using var cmd = connection.CreateCommand();
+                cmd.CommandText = """
+                    CREATE TABLE schema_info (
+                        key TEXT PRIMARY KEY,
+                        value TEXT NOT NULL
+                    );
+                    INSERT INTO schema_info (key, value) VALUES ('type', 'skill-validator');
+                    INSERT INTO schema_info (key, value) VALUES ('version', '3');
+
+                    CREATE TABLE sessions (
+                        id TEXT PRIMARY KEY,
+                        skill_name TEXT NOT NULL,
+                        skill_path TEXT NOT NULL,
+                        scenario_name TEXT NOT NULL,
+                        run_index INTEGER NOT NULL,
+                        role TEXT NOT NULL,
+                        model TEXT NOT NULL,
+                        config_dir TEXT,
+                        work_dir TEXT,
+                        prompt TEXT,
+                        skill_sha TEXT,
+                        status TEXT NOT NULL DEFAULT 'running',
+                        started_at TEXT NOT NULL,
+                        completed_at TEXT,
+                        rubric TEXT,
+                        baseline_key TEXT
+                    );
+
+                    CREATE TABLE run_results (
+                        session_id TEXT PRIMARY KEY REFERENCES sessions(id),
+                        metrics_json TEXT NOT NULL,
+                        judge_json TEXT,
+                        pairwise_json TEXT
+                    );
+
+                    INSERT INTO sessions (id, skill_name, skill_path, scenario_name, run_index, role, model, status, started_at, completed_at)
+                    VALUES ('s1', 'skill', '/p', 'dormant', 0, 'with-skill-isolated', 'model', 'completed', '2026-01-01T00:00:00Z', '2026-01-01T00:01:00Z');
+                    INSERT INTO run_results (session_id, metrics_json) VALUES ('s1', '{}');
+                    """;
+                cmd.ExecuteNonQuery();
+            }
+
+            using var upgradedDb = new SessionDatabase(legacyDbPath);
+            var session = Assert.ContainsSingle(upgradedDb.GetCompletedSessions());
+
+            Assert.IsNull(session.ExpectActivation);
+            Assert.AreEqual("5", upgradedDb.GetSchemaInfo()["version"]);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            TryDelete(legacyDbPath);
+            TryDelete(legacyDbPath + "-wal");
+            TryDelete(legacyDbPath + "-shm");
+        }
+    }
+
+    [TestMethod]
+    public void SchemaFourDatabase_PreservesExplicitActivationAndAcceptsNewSessions()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"schema-v4-sessions-{Guid.NewGuid()}.db");
+        try
+        {
+            using (var connection = new SqliteConnection($"Data Source={dbPath}"))
+            {
+                connection.Open();
+                using var cmd = connection.CreateCommand();
+                cmd.CommandText = """
+                    CREATE TABLE schema_info (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+                    INSERT INTO schema_info (key, value) VALUES ('type', 'skill-validator'), ('version', '4');
+                    CREATE TABLE sessions (
+                        id TEXT PRIMARY KEY, skill_name TEXT NOT NULL, skill_path TEXT NOT NULL,
+                        scenario_name TEXT NOT NULL, run_index INTEGER NOT NULL, role TEXT NOT NULL,
+                        model TEXT NOT NULL, config_dir TEXT, work_dir TEXT, prompt TEXT, skill_sha TEXT,
+                        status TEXT NOT NULL DEFAULT 'running', started_at TEXT NOT NULL, completed_at TEXT,
+                        rubric TEXT, baseline_key TEXT, expect_activation INTEGER NOT NULL DEFAULT 1
+                    );
+                    CREATE TABLE run_results (
+                        session_id TEXT PRIMARY KEY REFERENCES sessions(id),
+                        metrics_json TEXT NOT NULL, judge_json TEXT, pairwise_json TEXT
+                    );
+                    INSERT INTO sessions (
+                        id, skill_name, skill_path, scenario_name, run_index, role, model,
+                        expect_activation, status, started_at, completed_at)
+                    VALUES (
+                        's1', 'skill', '/p', 'dormant', 0, 'with-skill-isolated', 'model',
+                        0, 'completed', '2026-01-01T00:00:00Z', '2026-01-01T00:01:00Z');
+                    INSERT INTO run_results (session_id, metrics_json) VALUES ('s1', '{}');
+                    """;
+                cmd.ExecuteNonQuery();
+            }
+
+            using (var upgradedDb = new SessionDatabase(dbPath))
+            {
+                Assert.IsFalse(Assert.ContainsSingle(upgradedDb.GetCompletedSessions()).ExpectActivation);
+                upgradedDb.RegisterSession(
+                    "s2", "skill", "/p", "active", 0, "with-skill-isolated", "model",
+                    null, null);
+                upgradedDb.CompleteSession("s2", "completed", "{}");
+                Assert.IsTrue(Assert.ContainsSingle((upgradedDb.GetCompletedSessions()).Where(session => session.Id == "s2")).ExpectActivation);
+                Assert.AreEqual("5", upgradedDb.GetSchemaInfo()["version"]);
+            }
+
+            using var migratedConnection = new SqliteConnection($"Data Source={dbPath}");
+            migratedConnection.Open();
+            using var columnInfo = migratedConnection.CreateCommand();
+            columnInfo.CommandText = "PRAGMA table_info(sessions)";
+            using var reader = columnInfo.ExecuteReader();
+            int? notNull = null;
+            string? defaultValue = null;
+            while (reader.Read())
+            {
+                if (reader.GetString(1) == "expect_activation")
+                {
+                    notNull = reader.GetInt32(3);
+                    defaultValue = reader.IsDBNull(4) ? null : reader.GetString(4);
+                    break;
+                }
+            }
+            Assert.AreEqual(0, notNull);
+            Assert.IsNull(defaultValue);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            TryDelete(dbPath);
+            TryDelete(dbPath + "-wal");
+            TryDelete(dbPath + "-shm");
         }
     }
 
@@ -405,7 +617,7 @@ public class SessionDatabaseTests : IDisposable
             using var upgradedDb = new SessionDatabase(legacyDbPath);
             var legacySession = Assert.ContainsSingle(upgradedDb.GetCompletedSessions());
             Assert.IsNull(legacySession.RubricJson);
-            Assert.AreEqual("3", upgradedDb.GetSchemaInfo()["version"]);
+            Assert.AreEqual("5", upgradedDb.GetSchemaInfo()["version"]);
 
             var rubricJson = JsonSerializer.Serialize(new[] { "Quality" });
             upgradedDb.RegisterSession("s2", "skill", "/p", "scn", 1, "with-skill", "model", null, null, "Prompt", null, rubricJson);

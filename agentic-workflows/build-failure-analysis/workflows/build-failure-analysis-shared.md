@@ -116,7 +116,7 @@ of read-only `shell` commands (including `cat`).
 
 2. If `GH_AW_BUILD_OUTCOME == 'success'`, the build did not actually fail —
    there is nothing to analyze. Call `noop` with the message
-   `"Build succeeded — no analysis required."` and stop.
+   `"[build-succeeded] Build succeeded — no analysis required."` and stop.
 
 3. Load your detailed playbook: `cat .github/agents/build-failure-analyst.agent.md`
    (it is checked out with the repository config). Follow that methodology —
@@ -132,15 +132,17 @@ of read-only `shell` commands (including `cat`).
      no failed-target/process evidence, the build compiled cleanly — the
      pipeline failure is then a **non-build** (test/Helix/publishing) failure,
      which is **out of scope**. This workflow analyses build failures only, so
-     **post nothing**: call `noop` with a short reason and stop. Do **not**
+     **post nothing**: call `noop` with a short reason beginning with
+     `[non-build-failure]` and stop. Do **not**
      post a summary comment and do **not** invent fixes.
    - `GH_AW_MISSING_LEGS` lists build legs that **failed but published no
      logs**, so no binlog exists for them. It is normally empty. When it is
      non-empty you are working from an incomplete picture: the legs you can see
      may be clean while the failure lives in a leg you cannot see. In that case
      do **not** report the failure as non-build — say which legs are missing.
-     Name them in your `noop` reason when you have no other evidence, or call
-     them out in the summary comment when you do. A value starting with
+     Name them in a `noop` reason beginning with `[incomplete-binlogs]` when
+     you have no other evidence, or call them out in the summary comment when
+     you do. A value starting with
      `(unknown` means the build timeline could not be read at all, so
      completeness could **not** be verified — treat it exactly like a non-empty
      list and say so rather than assuming every leg reported in.

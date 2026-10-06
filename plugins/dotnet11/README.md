@@ -1,8 +1,7 @@
 # dotnet11
 
-Skills for .NET 11 targets, including new APIs and use of established APIs.
+Skills focused on new APIs and language features introduced in .NET 11.
 
 ## Skills
 
 - system-text-json-net11
-- lightweight-telemetry (uses stable metrics APIs in a `net11.0` console tool)

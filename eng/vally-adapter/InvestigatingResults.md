@@ -64,7 +64,7 @@ Its compact table has these columns:
 |--------|---------|
 | `Skill` | Skill under test |
 | `Model` | Model used for the baseline and skilled agent runs. This prevents duplicate skill rows from being ambiguous |
-| `Verdict` | ✅ Improved / ➖ Not proven improved / 📉 Preference loss (report only) / ⚠️ Invalid or underpowered / 🔻 Objective regression when that future gate is enabled |
+| `Verdict` | ✅ Improved / a cause-specific ➖ no-clear-winner label / 📉 Preference loss (report only) / ⚠️ Invalid or underpowered / 🔻 Objective regression when that future gate is enabled |
 | `Gate evidence` | `n` preference-eligible distinct-stimulus votes, stimulus W/T/L, `d` discordant votes, exact one-sided `p`, net win, and the separately retained dormancy count. A pass needs `p ≤ 0.05`, net win ≥20%, and a passing dormancy activation contract |
 | `Overfit` | Overfitting-judge severity — ✅ Low, 🟡 Moderate, 🔴 High, — none — with its score |
 | `Warnings` | Activation gaps, timeouts, recovered judge slots, and unresolved comparison errors |
@@ -93,9 +93,9 @@ table also separates expected dormancy (`expect_activation: false`) and
 non-model-invocable reference skills from missing or unexpected activation,
 and exposes compact paired-judge excerpts plus source links when the result
 contains them.
-Plugin-arm activation is labeled as aggregate plugin activity because the
-current adapter does not identify which loaded plugin skill emitted that event;
-only the isolated arm proves activation of the target skill.
+Plugin-arm activation is target-specific. The adapter reads named skill events
+and ignores sibling-skill invocations when computing the target's activation
+and post-activation telemetry.
 
 Each evidence header also shows the evaluated commit and compares it with the
 commit that supplied the deployed dashboard UI. A yellow warning means the
@@ -135,6 +135,7 @@ A verdict carries **both** the head-to-head preference and absolute per-role dat
 | `skillName` / `skillPath` | Compatibility field names containing the evaluated target name and source path; `skillKind` disambiguates skills and agents |
 | `state` | One of `VALID_PASS`, `VALID_REGRESSION`, `VALID_NO_CHANGE`, or `INVALID_INCONCLUSIVE` |
 | `stateReason` | Machine-readable `{ code, phase }`. Use this field for automation; do not parse `reason` |
+| `noChangeDiagnosis` | Canonical subtype for a `VALID_NO_CHANGE` preference result: `all_ties`, `mixed`, directional `*_tie_limited` / `*_unproven`, or `*_sparse`; renderers consume this key so PR and dashboard labels stay aligned |
 | `passed` | **The gate.** `true` only when `conclusive`, at least 5 preference-eligible distinct stimuli were counted, `signTest.pValue <= 0.05`, `netWin >= 0.20`, and `activationContract.passed == true` |
 | `netWin` | `(wins − losses) / preference-eligible stimulus votes` — the effect size the gate reads. Magnitude-free, so an identical eligible W/T/L record always yields an identical preference verdict |
 | `practicalSignificance` | `{ netWin, minimum, passed }`. The absolute directional effect must reach 20%; this blocks sparse records such as `5W/95T/0L` |
@@ -155,7 +156,7 @@ A verdict carries **both** the head-to-head preference and absolute per-role dat
 | `errors[]` / `recoveredErrors[]` | Structured unresolved and recovered comparison failures, with phase, code, stimulus, trial, and attempt provenance |
 | `scenarioEvidence` | One effective vote per preference-eligible stimulus after repeated runs are collapsed. Authoritative (`gateEligible: true`) |
 | `excludedScenarioEvidence` | W/T/L summary for retained dormancy scenarios, marked `gateEligible: false` with exclusion reason `activation_contract_only` |
-| `activationContract` | Explicit dormancy checks from isolated target-skill activation: count, satisfied, violated, pass state, failure names, and `unmatchedDormancyStimuli`. A violation blocks `passed` with `stateReason.code == "activation_contract_failed"`; unmatched annotations are warnings and do not change the pass rule |
+| `activationContract` | Explicit dormancy checks from isolated target-skill activation: count, satisfied, violated, pass state, failure names, and `unmatchedDormancyStimuli`. A violation or unmatched dormancy annotation blocks `passed` with `stateReason.code == "activation_contract_failed"` |
 | `completionTransitions` | Baseline/treatment aggregate pass transitions across **all** stimuli, including preference-excluded dormancy. Report-only because Vally aggregate pass can include LLM grading |
 | `reason` | Human-readable summary of the above |
 | `scenarios[]` | Per-scenario detail (below) |
@@ -173,7 +174,7 @@ Each scenario merges the compare preference for that stimulus with the absolute 
 | `timedOut` | Whether the skilled run hit its timeout |
 | `agentActivationIsolated` / `agentActivationPlugin` | Agent targets only: exact target activation plus invoked/delegated agent names and event counts |
 | `skillActivationIsolated` | Isolated activation telemetry: `activated`, `activatedRuns`, `continuedRuns`, `activationOnlyCompletions`, `failedActivationOnlyCompletions`, and `unclassifiedRuns`. `continuedRuns` requires an ordered non-skill tool call after skill activation. An activation-only completion is a normally completed run with no such post-activation call; the failed count includes only runs whose graders did not pass |
-| `skillActivationPlugin` | The same telemetry for the whole-plugin run. `activated` means some plugin skill activity was observed; the current adapter does not retain the emitting skill identity (present only when a plugin variant ran) |
+| `skillActivationPlugin` | The same telemetry for the whole-plugin run, filtered to named activation events for the target skill. Sibling-skill invocations do not set `activated` (present only when a plugin variant ran) |
 | `baseline` | `{ judgeResult: { overallScore }, metrics }` — the skill-free control (`overallScore` is 0–5) |
 | `skilledIsolated` | Same shape, for the isolated skilled run |
 | `skilledPlugin` | Same shape, for the whole-plugin run (may be absent) |
@@ -210,8 +211,8 @@ The adapter's zero-dependency YAML scanner follows PyYAML's Boolean spellings
 for `false` (`false`/`False`/`FALSE`, `no`/`No`/`NO`, and
 `off`/`Off`/`OFF`) and supports block and flow-mapping stimulus items.
 An annotation that matches no observed stimulus is retained under
-`activationContract.unmatchedDormancyStimuli` and emitted as a warning so a
-rename, typo, or missing result cannot silently erase contract evidence.
+`activationContract.unmatchedDormancyStimuli` and fails the activation contract
+so a rename, typo, or missing result cannot silently erase contract evidence.
 
 ### Adapter summary
 
@@ -469,9 +470,9 @@ The agent didn't finish within the eval's `config.timeout`. Either the task is t
 An explicit dormancy scenario (`expect_activation: false`) activated the
 isolated target skill. This is deterministic routing evidence, so it blocks a
 pass even though the scenario's judge preference is excluded from the sign
-test. Narrow the skill description or routing boundary. Plugin activity alone
-does not prove a violation because the plugin arm cannot identify which sibling
-skill emitted the activity event.
+test. Narrow the skill description or routing boundary. Plugin activation is
+also target-specific; inspect the named `skill.invoked` event when isolated and
+plugin routing differ.
 
 ### 4. Skill didn't activate (`skillActivationIsolated.activated == false`)
 The skill was available but the agent never invoked it, so "skilled" ≈ "baseline" and no improvement is possible. Fixes: sharpen the skill's `description`/trigger phrasing in `SKILL.md` so the model recognizes when to use it, and make sure the eval prompt actually describes a task the skill targets.
@@ -485,6 +486,11 @@ Clearing the floor is necessary, not sufficient. The sign test conditions on **d
 
 ### 6. No credible or practical net win
 The judge didn't consistently prefer the skilled run over baseline.
+- **All ties** are labeled **No preference**. Inspect the tie rationales and both arm outputs. If the behavior is genuinely equivalent, replace inert scenarios rather than increasing repeated runs.
+- **Equal wins and losses** are labeled **Mixed evidence**. Compare the winning and losing scenarios to identify where the target helps versus hurts.
+- **More wins than losses** are labeled **Improvement signal**, with **tie-limited** when fewer than five discordant tasks made a passing sign test impossible and **unproven** otherwise.
+- **More losses than wins** use the corresponding **Baseline signal** labels. These are directional diagnostics, not a credible preference loss unless `preferenceRegressed` is true.
+- **Statistically credible effects below the 20% practical floor** are labeled **Improvement too sparse** or **Baseline signal too sparse** according to direction.
 - **`netWin <= 0`** — at least as many losses as wins. Either the skill isn't helping for these scenarios, or the baseline model is already strong here. If `preferenceRegressed` is `true`, the LLM judge credibly preferred baseline. This is report-only preference evidence, not an objective completion regression.
 - **`netWin > 0` but `signTest.pValue > 0.05`** — a real but inconsistent signal: the skill wins some stimuli and ties or loses others. Ties hold the discordant vote count down. Add broader stimuli and make the skill help consistently.
 - **`signTest.pValue <= 0.05` but `practicalSignificance.passed == false`** — the direction is statistically credible but too sparse to matter across tested tasks. For example, 100 distinct stimuli with `5W/95T/0L` have `p=0.03125` but only a 5% net win. Add discriminating stimuli or improve the skill.

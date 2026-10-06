@@ -431,12 +431,14 @@ test("marks observed agents outside the manifest as unexpected", () => {
   try {
     const evalFile = writeAgentEval(root);
     writeFileSync(join(root, "expected.txt"), "tests/demo/agent.other/eval.yaml\n");
+    const scenarios = [1, 2, 3, 4, 5].map(winningScenario);
+    scenarios.at(-1).pairwiseResult.overallWinner = "baseline";
     const { output, result } = runAdapter(root, {
       skillName: "router",
       skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
       skillKind: "agent",
       passed: true,
-      scenarios: [1, 2, 3, 4, 5].map(winningScenario),
+      scenarios,
     });
 
     assert.equal(result.status, 0, result.stderr);
@@ -445,8 +447,11 @@ test("marks observed agents outside the manifest as unexpected", () => {
     );
     assert.equal(adapted.evalFile, evalFile);
     assert.equal(adapted.expectedEval, false);
+    assert.equal(adapted.verdicts[0].signTest.wins, 4);
+    assert.equal(adapted.verdicts[0].signTest.losses, 1);
     assert.equal(adapted.verdicts[0].state, "INVALID_INCONCLUSIVE");
     assert.equal(adapted.verdicts[0].stateReason.code, "unexpected_eval");
+    assert.equal(adapted.verdicts[0].noChangeDiagnosis, null);
     const summary = JSON.parse(
       readFileSync(join(output, "adapter-summary.json"), "utf8"),
     );
@@ -614,6 +619,42 @@ test("preserves a native target-agent activation failure", () => {
     assert.equal(verdict.stateReason.code, "target_agent_not_activated");
     assert.equal(verdict.passed, false);
     assert.match(verdict.reason, /target agent did not activate/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("activation failure clears a stale positive preference diagnosis", () => {
+  const root = mkdtempSync(join(tmpdir(), "agent-adapter-activation-diagnosis-"));
+  try {
+    writeAgentEval(root);
+    const scenarios = [1, 2, 3, 4, 5].map((index) => {
+      const scenario = winningScenario(index);
+      scenario.subagentActivationIsolated.invokedAgents = ["helper"];
+      scenario.subagentActivationPlugin.invokedAgents = ["helper"];
+      return scenario;
+    });
+    scenarios.at(-1).pairwiseResult.overallWinner = "baseline";
+
+    const { output, result } = runAdapter(root, {
+      skillName: "router",
+      skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
+      skillKind: "agent",
+      passed: false,
+      failureKind: "skill_not_activated",
+      skillNotActivated: true,
+      scenarios,
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const verdict = JSON.parse(
+      readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+    ).verdicts[0];
+    assert.equal(verdict.signTest.wins, 4);
+    assert.equal(verdict.signTest.losses, 1);
+    assert.equal(verdict.state, "VALID_NO_CHANGE");
+    assert.equal(verdict.stateReason.code, "target_agent_not_activated");
+    assert.equal(verdict.noChangeDiagnosis, null);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

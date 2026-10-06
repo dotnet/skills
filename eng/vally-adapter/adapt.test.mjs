@@ -693,6 +693,9 @@ test("scenario results retain post-activation telemetry for isolated and plugin 
       gradeResult: { passed: false, score: 0 },
       trajectory: {
         endReason: "completed",
+        events: [
+          { type: "skill.invoked", data: { name: IDENTITY.skill } },
+        ],
         metrics: {
           skillActivationCount: 1,
           toolCallCount: 1,
@@ -725,6 +728,52 @@ test("scenario results retain post-activation telemetry for isolated and plugin 
     verdict.scenarios[0].skillActivationPlugin,
     verdict.scenarios[0].skillActivationIsolated,
   );
+});
+
+test("plugin activation ignores sibling skills when the target stays dormant", () => {
+  const targetRecord = {
+    gradeResult: { passed: true, score: 1 },
+    trajectory: {
+      endReason: "completed",
+      events: [
+        { type: "skill.invoked", data: { name: IDENTITY.skill } },
+      ],
+      metrics: {
+        skillActivationCount: 1,
+        toolCallCount: 1,
+        toolCallBreakdown: { skill: 1 },
+      },
+    },
+  };
+  const siblingRecord = {
+    gradeResult: { passed: true, score: 1 },
+    trajectory: {
+      endReason: "completed",
+      events: [
+        { type: "skill.invoked", data: { name: "sibling-skill" } },
+      ],
+      metrics: {
+        skillActivationCount: 1,
+        toolCallCount: 1,
+        toolCallBreakdown: { skill: 1 },
+      },
+    },
+  };
+  const verdict = comparisonToVerdict(
+    reportFromScores([0]),
+    IDENTITY,
+    {
+      baselineByStim: new Map(),
+      skilledByStim: new Map([["Scenario 1", [targetRecord]]]),
+      pluginByStim: new Map([["Scenario 1", [siblingRecord]]]),
+      hasPlugin: true,
+    },
+    new Set(),
+  );
+
+  assert.equal(verdict.scenarios[0].skillActivationIsolated.activated, true);
+  assert.equal(verdict.scenarios[0].skillActivationPlugin.activated, false);
+  assert.equal(verdict.scenarios[0].skillActivationPlugin.activatedRuns, undefined);
 });
 
 test("dormancy parser matches PyYAML Boolean false spellings exactly", () => {
@@ -988,7 +1037,12 @@ test("dormancy scenarios are retained but excluded from preference inference", (
   const verdict = comparisonToVerdict(
     report,
     IDENTITY,
-    EMPTY_ROLES,
+    {
+      ...EMPTY_ROLES,
+      skilledByStim: new Map([
+        ["Scenario 6", [{ trajectory: { events: [], metrics: {} } }]],
+      ]),
+    },
     new Set(["Scenario 6"]),
   );
 
@@ -1013,7 +1067,7 @@ test("dormancy scenarios are retained but excluded from preference inference", (
   assert.deepEqual(verdict.activationContract.unmatchedDormancyStimuli, []);
 });
 
-test("dormancy annotations that match no observed stimulus remain visible", () => {
+test("missing dormancy stimuli fail the activation contract", () => {
   const verdict = comparisonToVerdict(
     reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4]),
     IDENTITY,
@@ -1021,11 +1075,56 @@ test("dormancy annotations that match no observed stimulus remain visible", () =
     new Set(["Renamed scenario"]),
   );
 
-  assert.equal(verdict.passed, true, "unmatched annotations do not change the pass rule");
+  assert.equal(verdict.passed, false);
+  assert.equal(verdict.activationContract.passed, false);
+  assert.equal(verdict.activationContract.count, 1);
+  assert.equal(verdict.activationContract.satisfied, 0);
+  assert.equal(verdict.activationContract.violated, 1);
+  assert.equal(verdict.activationContract.failures.length, 1);
+  assert.equal(
+    verdict.activationContract.failures[0].scenarioName,
+    "Renamed scenario",
+  );
+  assert.equal(verdict.activationContract.failures[0].expected, "dormant");
+  assert.equal(verdict.activationContract.failures[0].observed, "missing");
+  assert.equal(
+    verdict.scenarios.find((scenario) => scenario.scenarioName === "Renamed scenario")
+      ?.observedInAnyRole,
+    false,
+  );
   assert.deepEqual(
     verdict.activationContract.unmatchedDormancyStimuli,
     ["Renamed scenario"],
   );
+});
+
+test("dormancy requires isolated target evidence even when other roles are observed", () => {
+  const report = reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0]);
+  const observedRun = [{ trajectory: { events: [], metrics: {} } }];
+  const roles = {
+    ...EMPTY_ROLES,
+    baselineByStim: new Map([["Scenario 6", observedRun]]),
+    pluginByStim: new Map([["Scenario 6", observedRun]]),
+  };
+
+  const verdict = comparisonToVerdict(
+    report,
+    IDENTITY,
+    roles,
+    new Set(["Scenario 6"]),
+  );
+
+  assert.equal(verdict.scenarios[5].observedInAnyRole, true);
+  assert.equal(verdict.activationContract.passed, false);
+  assert.deepEqual(verdict.activationContract.failures, [
+    {
+      scenarioName: "Scenario 6",
+      expected: "dormant",
+      observed: "missing",
+      satisfied: false,
+    },
+  ]);
+  assert.equal(verdict.stateReason.code, "activation_contract_failed");
 });
 
 test("unexpected dormancy activation blocks an otherwise passing preference verdict", () => {
@@ -1035,7 +1134,14 @@ test("unexpected dormancy activation blocks an otherwise passing preference verd
     skilledByStim: new Map([
       [
         "Scenario 6",
-        [{ trajectory: { metrics: { skillActivationCount: 1 } } }],
+        [{
+          trajectory: {
+            events: [
+              { type: "skill.invoked", data: { name: IDENTITY.skill } },
+            ],
+            metrics: { skillActivationCount: 1 },
+          },
+        }],
       ],
     ]),
   };
@@ -1069,7 +1175,14 @@ test("activation contract failure remains definitive when preference is underpow
     skilledByStim: new Map([
       [
         "Scenario 5",
-        [{ trajectory: { metrics: { skillActivationCount: 1 } } }],
+        [{
+          trajectory: {
+            events: [
+              { type: "skill.invoked", data: { name: IDENTITY.skill } },
+            ],
+            metrics: { skillActivationCount: 1 },
+          },
+        }],
       ],
     ]),
   };
@@ -1225,6 +1338,7 @@ test("a tie-starved record says no record could have passed, not that none did",
   assert.equal(v.signTest.discordant, 1);
   assert.equal(v.passed, false);
   assert.equal(v.regressed, false);
+  assert.equal(v.noChangeDiagnosis, "positive_tie_limited");
   assert.match(v.reason, /4 of 5 preference-eligible stimulus vote\(s\) tied, leaving only 1 discordant preference vote\(s\)/);
   assert.match(v.reason, /no record could have passed here — this is not a measured null/);
   assert.match(v.reason, /inert/);
@@ -1234,6 +1348,7 @@ test("a tie-starved record says no record could have passed, not that none did",
   const four = gate([0.4, 0.4, 0.4, 0.4, 0]);
   assert.equal(four.signTest.discordant, 4);
   assert.equal(four.passed, false);
+  assert.equal(four.noChangeDiagnosis, "positive_tie_limited");
   assert.match(four.reason, /no record could have passed here/);
 
   // Five discordant stimulus votes is where the test becomes winnable, so a record that
@@ -1241,6 +1356,7 @@ test("a tie-starved record says no record could have passed, not that none did",
   const winnable = gate([0.4, 0.4, 0.4, 0.4, -0.4]);
   assert.equal(winnable.signTest.discordant, 5);
   assert.equal(winnable.passed, false);
+  assert.equal(winnable.noChangeDiagnosis, "positive_unproven");
   assert.match(winnable.reason, /not credible \(sign test p=/);
   assert.doesNotMatch(winnable.reason, /no record could have passed/);
 });
@@ -1266,7 +1382,12 @@ test("the gate ignores the statistics vally reports", () => {
 });
 
 test("losses sink a verdict, and a clean sweep of them is a credible regression", () => {
-  assert.equal(gate([0.4, 0.4, 0.4, -0.4, -0.4, -0.4]).passed, false, "even split");
+  const even = gate([0.4, 0.4, 0.4, -0.4, -0.4, -0.4]);
+  assert.equal(even.passed, false, "even split");
+  assert.equal(even.noChangeDiagnosis, "mixed");
+  const baselineLean = gate([0.4, -0.4, -0.4, -0.4, -0.4]);
+  assert.equal(baselineLean.regressed, false);
+  assert.equal(baselineLean.noChangeDiagnosis, "negative_unproven");
   const swept = gate([-0.4, -0.4, -0.4, -0.4, -0.4]);
   assert.equal(swept.passed, false);
   assert.equal(swept.regressed, true);
@@ -1387,6 +1508,11 @@ test("the practical net-win floor rejects sparse wins among many ties", () => {
   assert.equal(sparse.passed, false);
   assert.equal(sparse.state, VERDICT_STATES.VALID_NO_CHANGE);
   assert.equal(sparse.stateReason.code, "practical_effect_below_floor");
+  assert.equal(sparse.noChangeDiagnosis, "positive_sparse");
+
+  const sparseLoss = gate([...Array(95).fill(0), ...Array(5).fill(-0.4)]);
+  assert.equal(sparseLoss.stateReason.code, "practical_effect_below_floor");
+  assert.equal(sparseLoss.noChangeDiagnosis, "negative_sparse");
 
   const boundary = gate([...Array(5).fill(0.4), ...Array(20).fill(0)]);
   assert.equal(boundary.netWin, MIN_PRACTICAL_NET_WIN);
@@ -1716,8 +1842,14 @@ test("targeted recovery never re-judges semantic or activation outcomes", () => 
 
   assert.equal(calls, 0);
   assert.deepEqual(result, decided);
+  const roles = {
+    ...EMPTY_ROLES,
+    skilledByStim: new Map([
+      ["Scenario 2", [{ trajectory: { events: [], metrics: {} } }]],
+    ]),
+  };
   assert.equal(
-    comparisonToVerdict(result, IDENTITY, EMPTY_ROLES, new Set(["Scenario 2"])).state,
+    comparisonToVerdict(result, IDENTITY, roles, new Set(["Scenario 2"])).state,
     VERDICT_STATES.INVALID_INCONCLUSIVE,
   );
 });

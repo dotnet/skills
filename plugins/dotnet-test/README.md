@@ -36,7 +36,7 @@ Moved to the [`dotnet-test-migration`](../dotnet-test-migration/) plugin (`migra
 
 ### Test quality & analysis *(polyglot)*
 
-These six skills are all polyglot. They work across all supported languages by loading a per-language reference file from `test-analysis-extensions`. `grade-tests` additionally embeds its own scoring rubric (sub-grades, weighting, anti-pattern catalog) so the per-test grades stay consistent across calls.
+These six skills are all polyglot. They work across all supported languages by loading a per-language reference file from `test-analysis-extensions`. `grade-tests` additionally embeds its own decision and scoring rubric so per-test Pass / Failed / Uncertain outcomes and supporting A-F quality grades stay consistent across calls.
 
 | Skill | Description |
 |---|---|
@@ -45,7 +45,7 @@ These six skills are all polyglot. They work across all supported languages by l
 | **assertion-quality** | Measure assertion variety and depth — find shallow tests that barely verify anything (any language) |
 | **test-gap-analysis** | Verify test blind spots through pseudo-mutations and optionally add focused tests that kill them (any language) |
 | **test-tagging** | Tag tests with standardized traits (smoke, regression, boundary, critical-path, etc.); auto-edits where the framework has canonical syntax, report-only otherwise |
-| **grade-tests** | Grade a curated list of test methods individually and produce a compact, PR-comment-friendly table of letter grades (A–F), score bands, and one-line notes — designed for per-PR test-quality feedback (any language) |
+| **grade-tests** | Assess a curated list of test methods and produce a compact PR-ready table with Pass, Failed, or Uncertain decisions, A-F quality detail for resolved tests, and one-line notes; unresolved or empty scopes omit the grade, and a valid scope with no tests returns Not applicable (any language) |
 
 ### Coverage & risk *(.NET only)*
 
@@ -104,7 +104,7 @@ These are the entry-point agents you invoke directly:
 
 | Agent | Purpose |
 |---|---|
-| **test-quality-auditor** | Runs multi-skill audit pipelines for comprehensive test suite assessment |
+| **test-quality-auditor** | Routes focused quality requests, including curated per-test decisions, and runs multi-skill pipelines for comprehensive suite assessment |
 | **testability-migration** | End-to-end testability improvement: detect → generate wrappers → migrate call sites → add deterministic tests when requested |
 
 > **Test framework/platform migration** is handled by the `test-migration` agent in the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin.

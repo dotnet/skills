@@ -1,0 +1,24 @@
+diff --git a/TargetAuthoring.csproj b/TargetAuthoring.csproj
+--- a/TargetAuthoring.csproj
++++ b/TargetAuthoring.csproj
+@@ -7,2 +7,7 @@
+-  <Target Name="GetApiEndpoints" Outputs="@(ApiEndpoint)">
++  <ItemGroup>
++    <Compile Include="$(IntermediateOutputPath)ApiClient.g.cs" />
++    <FileWrites Include="$(IntermediateOutputPath)ApiClient.g.cs" />
++  </ItemGroup>
++
++  <Target Name="GetApiEndpoints" Returns="@(ApiEndpoint)">
+     <ItemGroup>
+@@ -15,2 +20,5 @@
+-  <Target Name="GenerateApiClient" BeforeTargets="CoreCompile">
++  <Target Name="GenerateApiClient"
++          BeforeTargets="CoreCompile"
++          Inputs="ApiClient.schema"
++          Outputs="$(IntermediateOutputPath)ApiClient.g.cs">
+     <PropertyGroup>
+@@ -25,4 +33 @@
+-    <ItemGroup>
+-      <Compile Include="$(_GenOutput)" />
+-    </ItemGroup>
+   </Target>

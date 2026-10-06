@@ -1,15 +1,14 @@
 ---
 name: lightweight-telemetry
-description: Emit structured metrics from a .NET 11 console app, CLI, or build tool using the built-in System.Diagnostics.Metrics API with no OpenTelemetry, APM, or collector dependency. Use when asked to "report how long it took", "count how many times it ran", expose queue depth or a running total, pick between a counter, gauge, and histogram, split one metric by a tag/dimension, keep the measurement path cheap when nothing is listening, or print readings as JSON lines from a short-lived process. Do not use for apps targeting before net11.0, distributed tracing across services (use configuring-opentelemetry-dotnet), cloud ingestion into Application Insights or Azure Monitor, or shipping log lines to Seq/Elasticsearch.
+description: Emit structured metrics from a .NET 11 console app, CLI, or build tool using the built-in System.Diagnostics.Metrics API with no OpenTelemetry, APM, or collector dependency. Use when asked to "report how long it took", "count how many times it ran", expose queue depth or a running total, pick between a counter, gauge, and histogram, split one metric by a tag/dimension, keep the measurement path cheap when nothing is listening, or print readings as JSON lines from a short-lived process. Do not use for distributed tracing across services (use configuring-opentelemetry-dotnet), cloud ingestion into Application Insights or Azure Monitor, or shipping log lines to Seq/Elasticsearch.
 license: MIT
 ---
 
 # Lightweight telemetry in .NET 11
 
 A minimal, dependency-free way to expose operational metrics from a CLI or tool.
-No OpenTelemetry SDK or external collector is required. These APIs predate .NET 11;
-this skill applies them to tools targeting `net11.0`. A listener can write JSON
-lines to stdout for a local consumer.
+No OpenTelemetry SDK, no external collector required — metrics are written to the
+console as structured lines and can be scraped or redirected.
 
 ## When to use
 
@@ -19,8 +18,6 @@ lines to stdout for a local consumer.
 
 ## When not to use
 
-- The project targets an earlier .NET version; these metrics APIs also work
-  there, but this skill is for the .NET 11 plugin.
 - You need distributed tracing across services → use the
   `configuring-opentelemetry-dotnet` skill instead.
 - You need cloud ingestion (Application Insights) → use the vendor SDK.
@@ -37,8 +34,8 @@ recoverable downstream — a consumer cannot turn a gauge back into a rate.
 | A per-operation duration or size you want percentiles for | `CreateHistogram<T>` | a counter | summing durations loses the distribution |
 | A level you can only sample when asked | `CreateObservableGauge<T>` | recording in a hot loop | the callback runs at collection time |
 
-Set the unit and description when defining the instrument. Do not rely only on
-a `.ms` name suffix to tell consumers which unit the value uses:
+Always pass the unit and description — put the unit in the **metadata**, not only
+in a `.ms` name suffix, or a consumer cannot tell seconds from milliseconds:
 
 ```csharp
 meter.CreateHistogram<double>("tool.step.duration", "ms", "Duration per build step");
@@ -74,89 +71,49 @@ A `MeterListener` only sees measurements recorded **after** `Start()`. In a
 short-lived CLI this is the difference between output and silence:
 
 ```csharp
-using var meter = new Meter("MyTool");
-using var listener = new MeterListener();
-listener.InstrumentPublished = (instrument, l) =>
-{
-    if (ReferenceEquals(instrument.Meter, meter))
-        l.EnableMeasurementEvents(instrument);
-};
-listener.Start(); // before any measurements
-// Record counters, histograms, and synchronous gauges after Start().
-listener.RecordObservableInstruments(); // only if observable instruments are used
+var listener = BuildListener(meter);   // Start() called inside
+// ... all recording happens after this point ...
+listener.RecordObservableInstruments(); // pull observable gauges once before exit
+listener.Dispose();
+meter.Dispose();
 ```
 
-Also register `SetMeasurementEventCallback<T>` before calling `Start()` to consume
-recorded values. Synchronous counter, histogram, and gauge callbacks run when
-the measurement is recorded; they cannot be flushed later. Observable instruments
-emit only when a listener calls `RecordObservableInstruments()`. Dispose the
-listener before its meter; do not make a listener dispose a caller-owned meter.
+Verified against the pinned preview SDK (`11.0.100-preview.3.26207.106`,
+`net11.0`): a measurement recorded before `listener.Start()` produces **no**
+output line, one recorded after it produces exactly one. Observable instruments
+emit nothing at all unless `RecordObservableInstruments()` is called, so a
+process that exits without it reports nothing for them.
 
 ## The pattern
 
-For a `net11.0` console project, this complete `Program.cs` prints one JSON line
-per measurement. The framework `MeterListener` needs no external package:
+Use `System.Diagnostics.Metrics.Meter` to define a counter and a histogram, drive
+time measurement with `TimeProvider.System`, and flush a snapshot on exit.
 
 ```csharp
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using System.Text.Json;
 
-using var meter = new Meter("MyTool", "1.0.0");
+var meter = new Meter("MyTool", "1.0.0");                       // stable name = metric identity
 var runs = meter.CreateCounter<int>("tool.runs", "{run}", "Number of executions");
 var duration = meter.CreateHistogram<double>("tool.step.duration", "ms", "Duration per step");
-int queueDepth = 3;
-meter.CreateObservableGauge<int>("tool.queue.depth", () => queueDepth, "{item}", "Items queued");
 
-TimeProvider clock = TimeProvider.System;
-using var listener = new MeterListener();
-listener.InstrumentPublished = (instrument, l) =>
-{
-    if (ReferenceEquals(instrument.Meter, meter))
-        l.EnableMeasurementEvents(instrument, clock);
-};
-listener.SetMeasurementEventCallback<int>(WriteReading);
-listener.SetMeasurementEventCallback<double>(WriteReading);
-listener.Start(); // start before the first measurement
+using var listener = new MetricListener(meter);                 // BEFORE the first measurement
 
-await RecordStepAsync(clock, duration);
+var clock = TimeProvider.System;                                // injectable, testable clock
+var start = clock.GetTimestamp();
+
+// ... work ...
+
+if (duration.Enabled)                                           // skip tag building when idle
+    duration.Record(clock.GetElapsedTime(start).TotalMilliseconds,
+                    new TagList { { "step", "compile" } });
 runs.Add(1);
-listener.RecordObservableInstruments(); // poll the observable gauge once before exit
 
-static async Task RecordStepAsync(TimeProvider clock, Histogram<double> duration)
-{
-    long start = clock.GetTimestamp();
-    await Task.Delay(TimeSpan.FromMilliseconds(10), clock);
-    if (duration.Enabled)
-        duration.Record(clock.GetElapsedTime(start).TotalMilliseconds,
-                        new TagList { { "step", "compile" } });
-}
-
-static void WriteReading<T>(
-    Instrument instrument, T value, ReadOnlySpan<KeyValuePair<string, object?>> tags,
-    object? state) where T : struct
-{
-    var dimensions = new Dictionary<string, object?>(tags.Length);
-    foreach (var tag in tags)
-        dimensions[tag.Key] = tag.Value;
-
-    var reading = new
-    {
-        meter = instrument.Meter.Name,
-        instrument = instrument.Name,
-        unit = instrument.Unit,
-        description = instrument.Description,
-        value,
-        tags = dimensions,
-        timestamp = ((TimeProvider)state!).GetUtcNow().ToString("O")
-    };
-    Console.WriteLine(JsonSerializer.Serialize(reading));
-}
+listener.Flush();                                               // pull observables before exit
 ```
 
-`RecordStepAsync` takes a `TimeProvider`, so a test can pass a controlled clock
-(for example `FakeTimeProvider`) without changing this method. A bare local
-assignment to `TimeProvider.System` is not itself an injection seam.
+Substitute a test `TimeProvider` (e.g. `Microsoft.Extensions.Time.Testing.FakeTimeProvider`)
+to assert on recorded durations without sleeping.
 
 ## Output contract
 
@@ -183,27 +140,26 @@ convention, and it is what a consumer expects to see — do not "fix" it to a
 plain noun.
 
 The listener must be constructed and `Start()`ed **before** the first `Record`/
-`Add`. When the program uses an observable instrument, call
-`RecordObservableInstruments()` before exit. That call polls observables; it
-does not flush counters, histograms, or synchronous gauges. Measurements taken
-before `Start()` produce no line.
+`Add`, and `RecordObservableInstruments()` must be called before exit. A
+measurement taken before `Start()` produces no line at all — in a short-lived
+CLI that is the whole difference between telemetry and silence.
 
 ## Verify it works
 
-1. Put the complete program above in a console project that targets `net11.0`.
-2. Run `dotnet run -c Release` from that project.
-3. Confirm the output has three JSON lines (duration, run count, queue depth),
-   with numeric `value` fields, and no extra lines from the application.
+```bash
+dotnet build -c Release          # must succeed with 0 errors
+dotnet run -c Release --no-build # one JSON line per measurement
+```
 
-If the application prints nothing, check that the listener is started, has
-registered callbacks, and has enabled the instruments before recording.
+If `run` prints nothing, the listener ordering above is the first thing to
+check — not the instrument definitions.
 
 ## Notes
 
 - `Meter`/`Counter`/`Histogram` are built into `System.Diagnostics.DiagnosticSource`
   (no extra NuGet package for the API itself).
-- For production scraping or OTLP export, use an exporter. This skill only
-  handles local consumption without an SDK or collector.
+- For production scraping, attach an `IMetricsListener` or export to OTLP; this
+  skill intentionally stays at the smallest useful surface.
 - Keep the meter name stable — it becomes the metric namespace downstream. The
   meter *version* string is safe to bump; the name is not.
 - One instrument + a tag beats one instrument per value, but keep tag values

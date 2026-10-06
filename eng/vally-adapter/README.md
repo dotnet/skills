@@ -249,16 +249,17 @@ sign test and net win.
 
 The same scenario becomes an isolated-arm activation contract. Unexpected
 target-skill activation blocks a pass with
-`stateReason.code = activation_contract_failed`. Plugin-arm activity remains
-diagnostic because the plugin event does not identify which sibling skill
-activated. Comparison errors, pairing errors, and completion transitions still
-account for every stimulus, including dormancy, so exclusion cannot hide a
-broken measurement or completion signal.
+`stateReason.code = activation_contract_failed`. Plugin-arm activation is
+target-scoped when the event names the target skill; sibling-skill invocations
+do not count as target activation. Comparison errors, pairing errors, and
+completion transitions still account for every stimulus, including dormancy,
+so exclusion cannot hide a broken measurement or completion signal.
 
 Dormancy annotations that match no observed stimulus are retained in
-`activationContract.unmatchedDormancyStimuli` and emitted as adapter warnings.
-They do not change the current pass rule, but make renames, typos, and missing
-scenario evidence visible instead of silently dropping the contract.
+`activationContract.unmatchedDormancyStimuli` and fail the activation contract
+with `stateReason.code = activation_contract_failed`. This makes renames,
+typos, and missing scenario evidence visible instead of silently dropping the
+contract.
 
 ### 8. Convert repeated trials into independent stimulus votes
 
@@ -356,7 +357,7 @@ LLM graders, so it cannot safely prove objective completion regression.
 | --- | --- | --- | --- |
 | `VALID_PASS` | Improved | Complete, adequately powered, statistically significant, at least a 20% task-level net win, and all explicit dormancy contracts passed | Passes the result |
 | `VALID_NO_CHANGE` with `activation_contract_failed` | Activation contract failed | Preference evidence may be positive, but the isolated target skill activated on an explicit dormancy case | Blocks a pass and reports the routing defect |
-| `VALID_NO_CHANGE` | Not proven improved | Measurement is valid, but improvement did not satisfy the full decision rule | Does not claim improvement |
+| `VALID_NO_CHANGE` | Cause-specific no-clear-winner label | Measurement is valid, but the evidence is all ties, mixed, directional but unproven, or credible but below the practical floor | Does not claim improvement; directs investigation to the actual evidence shape |
 | `VALID_NO_CHANGE` with reverse preference | Preference loss, report-only | The comparison judge credibly preferred baseline | Diagnostic only; it is not objective completion proof |
 | `INVALID_INCONCLUSIVE` | Invalid or underpowered | Result identity, accounting, judge health, or task breadth is not trustworthy | Fails closed; repair or rerun |
 | `VALID_REGRESSION` | Objective regression | Reserved for a future deterministic completion gate | Not emitted today |
@@ -364,6 +365,12 @@ LLM graders, so it cannot safely prove objective completion regression.
 The PR report keeps **Overfit** separate from the verdict. A result can improve
 and still be too tailored to known eval wording. A result can also have low
 overfit and fail because it did not improve.
+
+For newly generated `VALID_NO_CHANGE` results, the adapter emits
+`noChangeDiagnosis` as the canonical renderer key. PR comments and newly
+generated dashboard evidence use that field rather than reimplementing the
+evidence classification independently. Retained dashboard evidence created
+before this field was introduced keeps the generic `Not proven improved` label.
 
 ## Metrics that matter
 
@@ -479,7 +486,7 @@ Historical authoring defects included:
   equivalent to baseline;
 - duplicate stimulus names, which made comparison identity ambiguous.
 
-**Fix:** run the authoring gate before dispatch. It blocks eleven structural
+**Fix:** run the authoring gate before dispatch. It blocks 22 structural
 defect classes and checks the underpowered-eval debt ledger. See
 [Eval authoring quality](../eval-quality/README.md) for each pattern and repair.
 
