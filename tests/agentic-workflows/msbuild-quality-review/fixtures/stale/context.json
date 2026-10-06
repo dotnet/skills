@@ -1,0 +1,24 @@
+{
+  "pr": {
+    "number": 17,
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "base_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "current_pr": {
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "base_sha": "cccccccccccccccccccccccccccccccccccccccc"
+  },
+  "trusted_playbook_available": true,
+  "changed_files": {
+    "repo/Extension.targets": {
+      "lines": [
+        2
+      ],
+      "patch": "@@ -2 +2 @@\n-  <PropertyGroup><NoWarn>$(NoWarn);CA1000</NoWarn></PropertyGroup>\n+  <PropertyGroup><NoWarn>CA1000</NoWarn></PropertyGroup>"
+    }
+  },
+  "excluded_paths": "",
+  "environment": {
+    "MSBUILD_QUALITY_REVIEW_EXCLUDED_PATHS": ""
+  }
+}

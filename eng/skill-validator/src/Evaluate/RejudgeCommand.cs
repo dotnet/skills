@@ -503,7 +503,9 @@ public static class RejudgeCommand
         bool requireCompletion,
         double confidenceLevel)
     {
-        var target = new SkillInfo(targetName, "", targetPath, targetPath, "");
+        var workflow = isAgent && Path.GetFileName(targetPath).Equals("aw.yml", StringComparison.OrdinalIgnoreCase);
+        var publishedName = workflow ? Path.GetFileName(Path.GetDirectoryName(targetPath)!) : targetName;
+        var target = new SkillInfo(publishedName, "", targetPath, targetPath, "");
         if (!isAgent)
         {
             var skillPreferenceComparisons = comparisons.Where(c => c.ExpectActivation).ToList();
@@ -525,7 +527,7 @@ public static class RejudgeCommand
         var verdict = Comparator.ComputeAgentVerdict(
             target, agentPreferenceComparisons, minImprovement, requireCompletion, confidenceLevel,
             reportedComparisons: comparisons);
-        verdict.SkillKind = "agent";
+        verdict.SkillKind = workflow ? "workflow" : "agent";
         EvaluateCommand.ApplyAgentActivationGate(verdict, comparisons, targetName, _ => { });
         EvaluateCommand.ApplyExecutionErrorGate(verdict, comparisons, _ => { });
         return verdict;

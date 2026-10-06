@@ -1,0 +1,25 @@
+{
+  "pr": {
+    "number": 17,
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "base_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "current_pr": {
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "base_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "trusted_playbook_available": true,
+  "changed_files": {
+    "repo/Library.fsproj": {
+      "lines": [
+        4,
+        5
+      ],
+      "patch": "@@ -3,2 +3,4 @@\n   <ItemGroup>\n+    <Compile Include=\"Types.fs\" />\n+    <Compile Include=\"Consumer.fs\" />\n   </ItemGroup>"
+    }
+  },
+  "excluded_paths": "",
+  "environment": {
+    "MSBUILD_QUALITY_REVIEW_EXCLUDED_PATHS": ""
+  }
+}

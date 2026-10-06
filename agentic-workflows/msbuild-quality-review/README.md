@@ -67,6 +67,34 @@ updates can be pulled with `gh aw update msbuild-quality-review`; the updater us
 three-way merge to preserve local changes. Run the consuming repository's actionlint
 gate against the generated lock file before merging.
 
+## Offline decision evaluation
+
+From a `dotnet/skills` checkout:
+
+```powershell
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate `
+  agentic-workflows/msbuild-quality-review/aw.yml `
+  --tests-dir tests/agentic-workflows --runs 1 --verdict-warn-only
+```
+
+The ten scenarios stage deterministic diffs, full source, related imports and
+packaging maps, exclusions, and simulated current PR reads. The native prompt
+lane loads the packaged prompt/import bodies and reviewer, stages runtime
+resources at their installed `.github` paths, and grades one proposed review
+or justified no-op in `result.json`. Coverage includes extension chains,
+default items, generated output isolation, valid packed imports, F# source
+order, scope/exclusions, missing evidence, and revision freshness.
+
+This is read-only offline decision evidence: no PR code is executed and no
+GitHub review is published. See
+[`tests/agentic-workflows`](../../tests/agentic-workflows/README.md) for the
+result contract and deterministic grader regression command. Results are
+labelled `skillKind=workflow`, `evaluationLane=workflow-prompt-sdk`.
+The lane is **not gh-aw Actions E2E**. Only main/imported Markdown bodies are
+composed as prompts; frontmatter jobs/steps are not executed. Every case's
+`workflow-context.json` supplies the trusted base SHA and exclusion expression
+values as strings, separately from later simulated PR reads.
+
 ## Provenance
 
 This package generalizes the MSBuild quality workflow, shared configuration, and reviewer

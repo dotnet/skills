@@ -1,0 +1,30 @@
+{
+  "pr": {
+    "number": 17,
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "base_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "current_pr": {
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "base_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "trusted_playbook_available": true,
+  "changed_files": {
+    "repo/fixtures/Broken.csproj": {
+      "lines": [
+        1
+      ],
+      "patch": "@@ -0,0 +1 @@\n+<Project><Broken /></Project>"
+    },
+    "repo/eng/test-assets/Bad.targets": {
+      "lines": [
+        1
+      ],
+      "patch": "@@ -0,0 +1 @@\n+<Project><PropertyGroup><BuildDependsOn>DropEverything</BuildDependsOn></PropertyGroup></Project>"
+    }
+  },
+  "excluded_paths": "repo/eng/test-assets/**;repo/generated/**",
+  "environment": {
+    "MSBUILD_QUALITY_REVIEW_EXCLUDED_PATHS": "repo/eng/test-assets/**;repo/generated/**"
+  }
+}

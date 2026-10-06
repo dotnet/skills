@@ -186,7 +186,7 @@ function fmtOverfit(verdict) {
 }
 
 function targetActivation(verdict, scenario, arm) {
-  if (verdict.skillKind === "agent") {
+  if (verdict.skillKind === "agent" || verdict.skillKind === "workflow") {
     return arm === "isolated"
       ? scenario?.agentActivationIsolated
       : scenario?.agentActivationPlugin;
@@ -576,7 +576,13 @@ const fullHeader = [
   "Next action",
 ];
 const header = isFull ? fullHeader : compactHeader;
-const lines = ["## 📊 Skill and Agent Evaluation Results", ""];
+const hasWorkflows = verdicts.some((verdict) => verdict.skillKind === "workflow");
+const lines = [hasWorkflows
+  ? "## 📊 Skill, Agent, and Workflow Evaluation Results"
+  : "## 📊 Skill and Agent Evaluation Results", ""];
+if (hasWorkflows) {
+  lines.push("Workflow results measure offline prompt decisions and proposed outputs, not live Actions jobs or publication.", "");
+}
 
 lines.push(
   `${countNoun(verdicts.length, "model/target result")} across `

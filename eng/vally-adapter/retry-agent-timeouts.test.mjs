@@ -98,6 +98,19 @@ function resultsWith(scenarios, verdictOverrides = {}) {
   };
 }
 
+test("workflow aggregate recovery uses the synthetic workflow persona", () => {
+  const result = recomputeNativeAggregate({
+    skillName: "demo",
+    skillKind: "workflow",
+    scenarios: [scenario("review", {
+      subagentActivationIsolated: activated("workflow.demo"),
+      subagentActivationPlugin: activated("workflow.demo"),
+    })],
+  });
+  assert.equal(result.skillNotActivated, false);
+  assert.notEqual(result.failureKind, "skill_not_activated");
+});
+
 function writeAgentEval(
   root,
   scenarioCount = 5,

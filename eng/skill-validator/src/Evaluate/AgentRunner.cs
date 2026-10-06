@@ -25,7 +25,9 @@ public sealed record RunOptions(
     string? SessionId = null,
     AgentInfo? Agent = null,
     IReadOnlyList<AgentInfo>? AdditionalAgents = null,
-    bool SelectAgentAsPrimary = true);
+    bool SelectAgentAsPrimary = true,
+    WorkflowInfo? Workflow = null,
+    bool OfflineWorkflow = false);
 
 internal sealed class RunEventBuffer
 {
@@ -698,7 +700,7 @@ public static class AgentRunner
             Model = model,
             Streaming = true,
             WorkingDirectory = workDir,
-            SkillDirectories = [..skillDirs, ..noiseDirs],
+            SkillDirectories = [.. skillDirs, .. noiseDirs],
             ConfigDirectory = configDir,
             McpServers = sdkMcp,
             CustomAgents = customAgents,
@@ -923,6 +925,14 @@ public static class AgentRunner
     private static async Task<RunMetrics> RunAgentCore(RunOptions options, CancellationToken cancellationToken)
     {
         var workDir = await SetupWorkDir(options.Scenario, options.Skill?.Path, options.EvalPath);
+        var agent = options.Agent;
+        if (options.Workflow is not null)
+        {
+            var workflowAgent = agent
+                ?? throw new InvalidOperationException("Workflow execution requires its primary persona");
+            WorkflowDiscovery.StageResources(options.Workflow, workDir);
+            agent = workflowAgent with { AgentMdContent = WorkflowDiscovery.RenderPrompt(workflowAgent.AgentMdContent, workDir) };
+        }
         if (options.Verbose)
         {
             var write = options.Log ?? (msg => Console.Error.WriteLine(msg));
@@ -942,7 +952,7 @@ public static class AgentRunner
             await using var session = await client.CreateSessionAsync(
                 await BuildSessionConfig(options.Skill, options.PluginRoot, options.Model, workDir, options.McpServers,
                     options.AdditionalSkills, options.Log, options.Verbose, options.SessionsDir, options.SessionId,
-                    options.Agent, options.AdditionalAgents));
+                    agent, options.AdditionalAgents));
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;
@@ -1078,7 +1088,20 @@ public static class AgentRunner
                 }
             }
 
-            await session.SendAsync(new MessageOptions { Prompt = options.Scenario.Prompt });
+            var prompt = options.OfflineWorkflow
+                ? """
+                  This is an offline workflow decision evaluation. Only the supplied fixture
+                  evidence is available. GitHub, Azure DevOps, collectors, and safe-output
+                  publication are not connected. Use local file tools to inspect that evidence.
+                  Represent intended safe-output operations as a proposed action in result.json,
+                  using the JSON schema requested below. Do not invoke unavailable network or
+                  publication tools, claim a proposal was published, or execute untrusted code.
+                  Fixture context replaces runtime environment values. A workflow noop is a
+                  valid decision when justified by the evidence, not missing activation.
+
+                  """ + options.Scenario.Prompt
+                : options.Scenario.Prompt;
+            await session.SendAsync(new MessageOptions { Prompt = prompt });
             await done.Task;
         }
         catch (TimeoutException te)
@@ -1127,7 +1150,23 @@ public static class AgentRunner
         var (events, agentOutput) = eventBuffer.Snapshot();
         var metrics = MetricsCollector.CollectMetrics(events, agentOutput, wallTimeMs, workDir);
         metrics.TimedOut = timedOut;
+        if (options.OfflineWorkflow)
+            CaptureWorkflowProposal(metrics);
         return metrics;
+    }
+
+    internal static void CaptureWorkflowProposal(RunMetrics metrics)
+    {
+        var path = Path.Combine(metrics.WorkDir, "result.json");
+        if (!File.Exists(path))
+            return; // Missing output is a completion failure evaluated by the scenario graders.
+        if (PathSafety.ContainsReparsePoint(metrics.WorkDir, path))
+            throw new InvalidOperationException("Workflow proposal contains an unsafe file-system path");
+        if (new FileInfo(path).Length > 1_048_576)
+            throw new InvalidOperationException("Workflow proposal exceeds the 1 MiB evidence limit");
+        metrics.WorkflowProposalJson = File.ReadAllText(path);
+        metrics.AgentOutput += "\n\nProposed workflow output (offline; not published):\n"
+            + metrics.WorkflowProposalJson;
     }
 
     internal static async Task<string> SetupWorkDir(EvalScenario scenario, string? skillPath, string? evalPath)
