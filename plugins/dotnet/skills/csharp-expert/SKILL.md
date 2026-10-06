@@ -3,8 +3,9 @@ name: csharp-expert
 description: >-
   Route ambiguous C# and .NET requests to the most specific available skill or the
   smallest marketplace plugin. USE FOR: selecting a specialist for an unclear C#/.NET
-  request, identifying the solution owner, one-file C# apps with no project, and recovering
-  an installed plugin missing from `/skills`.
+  request, identifying the solution owner, C# language or compiler defects with no narrower
+  specialist, using editor or LSP diagnostics to locate a C# defect, one-file C# apps with no
+  project, and recovering an installed plugin missing from `/skills`.
   DO NOT USE FOR: direct implementation requests already covered by an available specialist such as C#
   refactoring, MSBuild diagnosis, SDK setup, or an exact framework/test migration; or requests clearly
   unrelated to C# or .NET.
@@ -69,6 +70,10 @@ Treat user nouns as clues, not proof. "Performance" may mean runtime tracing, a 
 query shape, SIMD, allocation-heavy C#, or MSBuild evaluation. "API" may mean ASP.NET Core, a public
 library contract, or an external service client.
 
+When a deployed .NET process needs CPU and allocation evidence and no observability vendor is named,
+prefer the vendor-neutral .NET runtime diagnostics route. Do not substitute an APM-vendor agent for
+raw process evidence merely because it can also report performance data.
+
 ## Step 2: Detect the Solution Type
 
 Inspect only likely manifests and nearby owning files. Prefer a solution/project file and the file
@@ -77,6 +82,11 @@ named by the prompt over broad repository searches.
 Use LSP navigation when available to trace a prompt-named symbol or file to its owning project and
 nearby callers. Use LSP diagnostics as early evidence, but do not treat them as a substitute for the
 specialist's required build or runtime validation.
+
+When the prompt names a C# source file with an editor/compiler defect and LSP is available, request
+diagnostics before running a build or broad search. Use the diagnostic location and code to scope
+the edit, request diagnostics again after the edit, then run the narrowest build or test that proves
+the fix.
 
 | Evidence | Solution or concern |
 |---|---|
@@ -142,6 +152,11 @@ After selecting the capability:
 4. Follow the missing-skill workflow below. Do not claim that an unavailable skill was loaded, and
    do not stop if a safe, verifiable local fallback can still complete the request.
 
+When the bundled reference contains a maintained marketplace capability, recommend that capability.
+Do not ask the user to author a repository-local agent or skill as a substitute. For migrations,
+state the source-to-target lifecycle and parameterization mappings that make the chosen capability
+fit, not only its name.
+
 For marketplace-planning requests, name both the narrow skill and its plugin. Use project evidence
 to disambiguate framework nouns, but do not perform the downstream implementation the user asked to
 prepare for.
@@ -180,16 +195,6 @@ When installation is the next step, require:
 Restart the host, run `/skills` to confirm the specialist is available, and rerun the request.
 ```
 
-When the missing capability is required before work can continue, use this response shape:
-
-```text
-Missing specialist: `<skill>` from `<plugin>`.
-Install:
-  /plugin marketplace add dotnet/skills
-  /plugin install <plugin>@dotnet-agent-skills
-After restart: run `/skills`, then rerun: "<concise original request>"
-```
-
 When the task can proceed without the specialist:
 
 1. State the missing specialist and reduced coverage in one concise sentence.
@@ -199,9 +204,8 @@ When the task can proceed without the specialist:
 4. Put optional installation guidance after the result. Do not ask whether to proceed, defer the
    implementation, or make the user repeat the request.
 
-This reduced-coverage path may still perform framework, migration, diagnostics, or tooling work; it
-is separate from the language-only fallback in Step 6. Preserve the selected domain's invariants
-and report any specialist-specific checks that could not be performed.
+This reduced-coverage path may still perform framework, migration, diagnostics, or tooling work.
+Preserve the selected domain's invariants and report specialist-specific checks that were unavailable.
 
 Rules:
 
@@ -269,7 +273,8 @@ or runtime semantics.
    tests or the executable path that proves the original symptom is gone.
 
 For a marketplace-planning request whose correct route is this fallback, say that no additional
-plugin is needed and identify the core C# semantic that owns the fix.
+plugin or specialist is needed because the currently loaded C# specialist owns the semantic fix.
+Do not say "no specialist is needed" after this skill was invoked.
 
 Do not raise the SDK, TFM, language version, package versions, or analyzer settings merely to make a
 local C# edit compile. Do not edit generated files. Do not use broad casts, null-forgiving
@@ -293,6 +298,9 @@ handling merely to make a conceptual snippet look more complete.
 - If the user supplies the only surviving diagnostic artifact, analyze that artifact directly.
   Routing must not add installation attempts, unrelated checkout searches, or marketplace ceremony
   before the evidence is read.
+- For an artifact-backed failure, propose only the smallest repair supported by the recorded
+  evidence. Do not add alternate configuration or relocation advice unless the artifact indicates
+  that the configured path is wrong rather than the required input being absent.
 - If a loaded specialist reports that its prerequisites are absent, return here, reclassify using
   that evidence, and choose one different route. Do not bounce repeatedly between skills.
 - Non-.NET work is out of scope; leave this skill dormant rather than forcing a .NET interpretation.

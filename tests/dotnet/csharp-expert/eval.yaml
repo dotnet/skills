@@ -86,27 +86,26 @@ stimuli:
       risk: high
       journey: optimize
     prompt: |
-      Loading orders and their lines issues many database queries. Reduce the database work without
-      changing the returned shape.
+      I use the dotnet/skills marketplace in Copilot CLI. Before changing this EF Core project,
+      identify the maintained specialist for reducing repeated order-and-line queries without
+      changing the returned shape. Explain how to make it available, but do not optimize the query
+      yet.
     environment:
       files:
         - src: global.json
           dest: global.json
         - src: fixtures/ef-orders
           dest: .
+    constraints:
+      reject_tools: [edit, create]
     graders:
-      - type: run-command
-        config:
-          command: dotnet build
-          expected_exit_code: 0
-          timeout: 2m
       - type: exit-success
       - type: prompt
     rubric:
-      - Completed the query optimization and verified that the affected project still builds
-      - Reduced repeated related-entity database work rather than optimizing unrelated application code
-      - Preserved the returned order-and-lines shape
-      - Identified the relevant data-access specialization without making it a prerequisite for the repair
+      - Recommended a maintained data-access capability that owns repeated related-entity query work
+      - Connected the capability to reducing database round trips while preserving the order-and-lines shape
+      - Supplied actionable Copilot CLI acquisition guidance
+      - Stopped after preparation instead of editing the query
 
   - name: Route an MSBuild binlog failure
     tags:
@@ -117,7 +116,8 @@ stimuli:
     prompt: |
       The CI checkout is gone and failure.binlog is the only surviving artifact. Analyze that
       artifact directly, find the recorded root cause, and describe the smallest repository repair.
-      Do not search unrelated checkouts or install anything before reading the artifact.
+      Give one evidence-backed repair only. Do not search unrelated checkouts or install anything
+      before reading the artifact.
     environment:
       files:
         - src: fixtures/msbuild-missing-schema/Build.proj
@@ -136,9 +136,10 @@ stimuli:
       - type: prompt
     rubric:
       - Identified the missing schemas/prod.json input recorded by the ValidateSchema target
-      - Proposed restoring the required schema or correcting its configured path
+      - Proposed restoring or committing schemas/prod.json as the single smallest repair supported by the artifact
       - Distinguished MSBuild evaluation from a C# compiler defect
       - Analyzed the supplied artifact without installation attempts or unrelated checkout searches
+      - Did not speculate about moving the schema or changing configuration without evidence
       - Did not claim that the missing file contents could be recovered from the binary log
 
   - name: Route a test framework migration
@@ -148,9 +149,10 @@ stimuli:
       risk: high
       journey: migrate
     prompt: |
-      Before changing this NUnit project, identify the specialist for converting it to MSTest while
-      preserving lifecycle hooks and parameterized cases. Explain how to make it available in
-      Copilot CLI, but do not perform the migration yet.
+      I use the dotnet/skills marketplace in Copilot CLI. Before changing this NUnit project,
+      identify the maintained specialist for converting it to MSTest while preserving lifecycle
+      hooks and parameterized cases. Explain how to make it available, but do not perform the
+      migration yet.
     environment:
       files:
         - src: fixtures/nunit-migration
@@ -166,6 +168,8 @@ stimuli:
       - type: prompt
     rubric:
       - Recommended a conversion capability that preserves lifecycle hooks and parameterized cases
+      - Used an existing maintained marketplace specialist instead of asking the user to author a local agent
+      - Explained the relevant NUnit-to-MSTest lifecycle and parameterized-test mappings
       - Supplied actionable Copilot CLI acquisition guidance
       - Stopped after marketplace preparation and left the NUnit fixture unchanged
 
@@ -193,9 +197,10 @@ stimuli:
       risk: high
       journey: diagnose
     prompt: |
-      Before touching the deployed service, identify the specialist that can collect CPU and
-      allocation evidence when no hot method is known. Explain how to make it available in Copilot
-      CLI, but do not start collection or claim a cause yet.
+      I use the dotnet/skills marketplace in Copilot CLI. Before touching the deployed service,
+      identify the maintained specialist that can collect vendor-neutral CPU and allocation evidence
+      when no hot method is known. Explain how to make it available, but do not start collection or
+      claim a cause yet.
     constraints:
       reject_tools: [edit, create]
     graders:
@@ -204,6 +209,7 @@ stimuli:
     rubric:
       - Recommended a capability that can capture both CPU and allocation evidence before a hot method is known
       - Distinguished deployed-process evidence from build-time or isolated-code optimization
+      - Preferred vendor-neutral .NET runtime tracing instead of assuming a third-party APM product
       - Supplied actionable Copilot CLI acquisition guidance
       - Stopped after preparation without claiming an unmeasured cause
 
@@ -234,10 +240,10 @@ stimuli:
       risk: medium
       journey: repair
     prompt: |
-      In a plain class library, a caller-owned Stream is closed after a helper reads one line from
-      it, with no framework-specific packages involved. Tell me whether I need a specialist and show
-      the minimal ownership fix. Preserve the helper's existing return behavior. There is no
-      repository to edit.
+      I already have the core C# specialist available. In a plain class library, a caller-owned
+      Stream is closed after a helper reads one line from it, with no framework-specific packages
+      involved. Tell me whether I need an additional specialist and show the minimal ownership fix.
+      Preserve the helper's existing return behavior. There is no repository to edit.
     graders:
       - type: output-not-matches
         config:
@@ -245,7 +251,7 @@ stimuli:
       - type: exit-success
       - type: prompt
     rubric:
-      - Correctly stated that no additional marketplace installation is needed
+      - Correctly stated that the loaded C# specialist owns the semantic fix and no additional specialist is needed
       - Gave a safe minimal fix despite the absence of repository files
       - Explained that the helper must not dispose the caller-owned stream
       - Preserved the helper's return semantics instead of adding null normalization or unrelated behavior
@@ -307,9 +313,10 @@ stimuli:
       risk: medium
       journey: migrate
     prompt: |
-      I am using Codex CLI. Before changing this NUnit project, identify the specialist for
-      converting it to MSTest while preserving parameterized tests and lifecycle hooks. Explain how
-      to make it available in Codex, but do not perform the migration yet.
+      I am using the dotnet/skills marketplace in Codex CLI. Before changing this NUnit project,
+      identify the maintained specialist for converting it to MSTest while preserving parameterized
+      tests and lifecycle hooks. Explain how to make it available in Codex, but do not perform the
+      migration yet.
     environment:
       files:
         - src: fixtures/nunit-migration
@@ -328,8 +335,38 @@ stimuli:
       - type: prompt
     rubric:
       - Recommended a conversion capability that preserves lifecycle hooks and parameterized cases
+      - Used the maintained dotnet/skills marketplace capability instead of asking the user to create a local skill
+      - Explained the relevant NUnit-to-MSTest lifecycle and parameterized-test mappings
       - Supplied installation steps that are executable in Codex rather than another host
       - Stopped after marketplace preparation and left the NUnit project unchanged
+
+  - name: Choose LSP diagnostics before building
+    tags:
+      capability: language-diagnostics
+      solution: library
+      risk: medium
+      journey: repair
+    prompt: |
+      Program.cs has an editor error, but I do not have build output. Before changing code or
+      building, identify the language-server diagnostic action to run and explain how its file,
+      location, and diagnostic code should scope the repair. Preserve the existing CountActive
+      behavior, but stop before editing.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/lsp-diagnostics
+          dest: .
+    constraints:
+      reject_tools: [bash, edit, create]
+    graders:
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Chose language-server diagnostics rather than a build as the first source of the compiler error
+      - Explained that the diagnostic file, range, code, and message should scope the next inspection
+      - Used the type-conversion evidence to describe the smallest likely repair while preserving CountActive semantics
+      - Stopped before editing or building as requested
 
   - name: Recover an installed but undiscovered plugin
     tags:
