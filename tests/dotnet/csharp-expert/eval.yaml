@@ -193,20 +193,32 @@ stimuli:
       capability: upgrade-routing
       solution: dotnet
       risk: high
-      journey: migrate
+      journey: plan
     prompt: |
-      Upgrade a solution from net8.0 to net9.0 and handle the compatibility changes across its
-      projects.
+      Before editing this net8.0 project, identify the maintained specialist that should own its
+      .NET 9 migration and compatibility work. Explain how to make that specialist available in
+      Copilot CLI, but do not modify the project yet.
+    environment:
+      files:
+        - src: fixtures/dotnet8-upgrade
+          dest: .
+    constraints:
+      reject_tools: [edit, create]
     graders:
       - type: output-matches
         config:
           pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-upgrade@dotnet-agent-skills
+      - type: file-contains
+        config:
+          path: App.csproj
+          value: <TargetFramework>net8.0</TargetFramework>
       - type: exit-success
       - type: prompt
     rubric:
       - Recommended a capability that covers the requested framework-version transition across multiple projects
       - Accounted for compatibility work rather than treating the request as an SDK installation only
       - Supplied an actionable installation path for the upgrade capability
+      - Stopped after marketplace preparation and left the net8.0 fixture unchanged
 
   - name: Route runtime performance evidence
     tags:

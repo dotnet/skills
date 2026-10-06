@@ -43,7 +43,7 @@ Choose the operating mode from the user's requested outcome:
 
 | User asks for | Required behavior |
 |---|---|
-| Implement, fix, diagnose, migrate, or create | Invoke the installed specialist, or complete a safe local fallback and report the optional plugin afterward. |
+| Implement, fix, diagnose, migrate, or create | Invoke the installed specialist, or complete a safe local fallback. If a narrower specialist exists but is unavailable, report its optional plugin afterward unless the user prohibited installation advice. |
 | Identify, choose, install, prepare, or load the right marketplace capability | Inspect enough solution evidence to choose the owner, give the exact acquisition steps, and stop without editing or generating the requested application artifact. |
 | Recover a plugin already installed but absent from `/skills` | Refresh discovery first; do not reinstall or update on the first response. |
 
@@ -204,6 +204,10 @@ When the task can proceed without the specialist:
 4. Put optional installation guidance after the result. Do not ask whether to proceed, defer the
    implementation, or make the user repeat the request.
 
+If the user explicitly says not to recommend or discuss installation, omit the missing-plugin
+sentence and all acquisition guidance. Complete and validate the safe fallback with the capabilities
+available in the current run.
+
 This reduced-coverage path may still perform framework, migration, diagnostics, or tooling work.
 Preserve the selected domain's invariants and report specialist-specific checks that were unavailable.
 
@@ -272,9 +276,9 @@ or runtime semantics.
 5. Check LSP diagnostics when available, then build the narrowest affected project and run focused
    tests or the executable path that proves the original symptom is gone.
 
-For a marketplace-planning request whose correct route is this fallback, say that no additional
-plugin or specialist is needed because the currently loaded C# specialist owns the semantic fix.
-Do not say "no specialist is needed" after this skill was invoked.
+For a marketplace-planning request whose correct route is this fallback, say: `No additional
+marketplace plugin is required; the loaded csharp-expert skill owns this C# semantic fix.` Do not
+claim that no skill or specialist is involved.
 
 Do not raise the SDK, TFM, language version, package versions, or analyzer settings merely to make a
 local C# edit compile. Do not edit generated files. Do not use broad casts, null-forgiving

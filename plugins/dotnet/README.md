@@ -60,10 +60,14 @@ solution detection, marketplace acquisition, fallback behavior, and dormancy.
 
 The supplemental
 [`csharp-expert-coexistence.experiment.yaml`](../../csharp-expert-coexistence.experiment.yaml)
-loads representative marketplace specialists in the plugin arm. Run it without a skill filter:
+and
+[`csharp-expert-coexistence.claude.experiment.yaml`](../../csharp-expert-coexistence.claude.experiment.yaml)
+load representative marketplace specialists in the plugin arm for GPT- and Claude-family executors.
+Run either without a skill filter:
 
 ```bash
 EXPERIMENT_FILE=./csharp-expert-coexistence.experiment.yaml ./eng/run-skill-evals.sh
+EXPERIMENT_FILE=./csharp-expert-coexistence.claude.experiment.yaml ./eng/run-skill-evals.sh
 ```
 
 Inspect the plugin-arm activation traces to confirm that installed specialists are invoked without
