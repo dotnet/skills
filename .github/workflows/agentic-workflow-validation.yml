@@ -46,9 +46,9 @@ jobs:
         run: python -m pip install --quiet pyyaml==6.0.3
 
       - name: Install gh-aw
-        uses: github/gh-aw-actions/setup-cli@e93dc06546adbe250a4bdf7d27cee653f22312a0 # v0.89.15
+        uses: github/gh-aw-actions/setup-cli@2fbab69bfca02bebd76cd0fc43f2d12acfed994f # v0.89.22
         with:
-          version: v0.89.15
+          version: v0.89.22
 
       - name: Validate active and packaged workflows
         run: |
@@ -56,6 +56,9 @@ jobs:
           python eng/agentic-workflows/validate_agentic_workflows.py
           python eng/agentic-workflows/test_unskip_closed_tests_package.py
           python agentic-workflows/unskip-closed-tests/tests/run_tests.py
+
+      - name: Test shipping Copilot proxy contract
+        run: python eng/agentic-workflows/test_copilot_proxy.py
 
       - name: Test build-failure operational-value grader
         run: python eng/agentic-workflows/test_build_failure_analysis_operational_value.py

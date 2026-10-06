@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -189,6 +190,41 @@ graders:
 
 
 class ActiveWorkflowTests(unittest.TestCase):
+    def test_active_workflows_use_fixed_copilot_proxy(self) -> None:
+        workflows = MODULE_PATH.parents[2] / ".github" / "workflows"
+        locks = VALIDATOR.expected_active_locks(workflows)
+        self.assertTrue(locks)
+        for lock in sorted(locks):
+            with self.subTest(workflow=lock.name):
+                manifest = json.loads(
+                    lock.read_text(encoding="utf-8")
+                    .splitlines()[1]
+                    .removeprefix("# gh-aw-manifest: ")
+                )
+                proxies = [
+                    container["image"]
+                    for container in manifest["containers"]
+                    if container["image"].startswith(
+                        "ghcr.io/github/gh-aw-firewall/api-proxy:"
+                    )
+                ]
+                self.assertEqual(len(proxies), 1)
+                version = tuple(map(int, proxies[0].rsplit(":", 1)[1].split(".")))
+                self.assertGreaterEqual(
+                    version,
+                    (0, 28, 25),
+                    "Older proxies corrupt custom-tool requests or replay IDs",
+                )
+
+    def test_packages_require_the_validated_compiler(self) -> None:
+        packages = MODULE_PATH.parents[2] / "agentic-workflows"
+        manifests = sorted(packages.rglob("aw.yml"))
+        self.assertTrue(manifests)
+        for manifest in manifests:
+            with self.subTest(package=manifest.parent.name):
+                data = VALIDATOR.yaml.safe_load(manifest.read_text(encoding="utf-8"))
+                self.assertEqual(data["min-version"], VALIDATOR.GH_AW_VERSION)
+
     def test_detects_block_and_inline_triggers(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
