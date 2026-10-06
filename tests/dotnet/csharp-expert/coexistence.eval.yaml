@@ -1,6 +1,8 @@
 name: csharp-expert-coexistence
 description: Evaluates routing when dotnet/skills marketplace specialists are already installed
 type: capability
+# Graders are shared by the target-only skilled arm and the full plugin arm. Verify installed-skill
+# activation and absence of installation advice from the plugin trajectory, not a shared output guard.
 defaults:
   timeout: 5m
   runs: 1
@@ -19,6 +21,23 @@ stimuli:
         - src: fixtures/blazor-components
           dest: .
     graders:
+      - type: file-contains
+        config:
+          path: Components/Editor.razor
+          value: '[Parameter]'
+      - type: file-contains
+        config:
+          path: Components/Editor.razor
+          value: RenderFragment
+      - type: file-contains
+        config:
+          path: Components/Editor.razor
+          value: EventCallback
+      - type: run-command
+        config:
+          command: dotnet build
+          expected_exit_code: 0
+          timeout: 3m
       - type: exit-success
       - type: prompt
     rubric:

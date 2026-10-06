@@ -66,5 +66,6 @@ loads representative marketplace specialists in the plugin arm. Run it without a
 EXPERIMENT_FILE=./csharp-expert-coexistence.experiment.yaml ./eng/run-skill-evals.sh
 ```
 
-Inspect activation traces to confirm that installed specialists are invoked and that the router no
-longer recommends `/plugin install` for capabilities already present.
+Inspect the plugin-arm activation traces to confirm that installed specialists are invoked without
+installation advice. This is trace evidence rather than a shared output grader because the
+target-only arm may legitimately identify a missing specialist after completing a safe fallback.
