@@ -64,8 +64,9 @@ stimuli:
       - type: prompt
     rubric:
       - Generated passing tests for all three modules and their distinct boundaries
-      - Used the broad research, plan, implementation, and quality-review pipeline
+      - Preserved production behavior and used concrete assertions for distinct validation and boundary cases
       - Mapped every requested behavior to concrete test evidence
+      - Distinguished implemented tests from executed results without repeated attempts to bypass permission or tool-availability blockers
 
   - name: Preserve a classic MSTest project while adding broad coverage
     prompt: |
@@ -161,6 +162,7 @@ stimuli:
       - Preserved the classic project format and pinned dependency stack
       - Used MSTest APIs compatible with version 3.5.2
       - Detected bounded regressions in DiscountService and TieredDiscountPolicy behavior
+      - Completed permitted test edits and reported any unrun validation without repeated blocked-command or unavailable-tool attempts
 
   - name: Generate collaborating Go package tests
     prompt: |
@@ -222,6 +224,7 @@ stimuli:
       - Generated passing tests in all three packages
       - Proved exact boundaries and collaborator error propagation
       - Used concrete assertions and mapped each requirement to evidence
+      - Reported validation truthfully without repeated blocked-command or unavailable-tool attempts
 
   - name: Generate layered Vitest coverage for an async cart
     prompt: |
@@ -272,6 +275,7 @@ stimuli:
       - Generated passing tests for every production module without real I/O
       - Covered the requested async, composition, failure, and isolation behaviors
       - Cleared the configured coverage thresholds and mapped requirements to evidence
+      - Distinguished configured thresholds from measured coverage and continued permitted test edits if execution was blocked
 
   - name: Generate project-wide xUnit tests for a .NET library
     prompt: |
@@ -314,3 +318,4 @@ stimuli:
       - Generated passing xUnit v3 tests for both production types
       - Covered every requested validation, pricing, and time boundary
       - Preserved production code and mapped each behavior to exact test evidence
+      - Reported validation truthfully without repeated blocked-command or unavailable-tool attempts
