@@ -44,7 +44,7 @@ devops-health-groom (Groomer) ─── runs daily
 
 ## Setup
 
-1. Install the `gh aw` CLI extension: `gh extension install github/gh-aw`
+1. Install the validated `gh aw` CLI extension: `gh extension install github/gh-aw --pin v0.89.22`
 2. Compile: `gh aw compile` (from the repo root — this compiles all `.md` files in `.github/workflows/`)
 3. Commit both the `.md` and generated `.lock.yml` files
 4. The health check runs daily, or on-demand via `workflow_dispatch`
@@ -56,7 +56,7 @@ devops-health-groom (Groomer) ─── runs daily
 # schedule seed (generates .lock.yml from .md frontmatter)
 gh aw compile --strict --validate --schedule-seed dotnet/skills `
   --action-mode action `
-  --action-tag e93dc06546adbe250a4bdf7d27cee653f22312a0
+  --action-tag 2fbab69bfca02bebd76cd0fc43f2d12acfed994f
 
 # Dry-run (validates without triggering on GitHub Actions)
 gh aw run devops-health-check --dry-run
@@ -64,12 +64,45 @@ gh aw run devops-health-check --dry-run
 # Run the same active-workflow and package validation used by CI
 python eng/agentic-workflows/validate_agentic_workflows.py --normalize
 
+# Exercise the shipping proxy's custom-tool request/result contract (requires Docker)
+python eng/agentic-workflows/test_copilot_proxy.py
+
 # Exercise the packaged build-failure operational-value evaluator fixtures
 python eng/agentic-workflows/test_build_failure_analysis_operational_value.py
 
 # Run on GitHub Actions (from a pushed branch)
 gh aw run devops-health-check --push --ref <branch>
 ```
+
+## Runtime Compatibility and HTTP 400 Failures
+
+The validated runtime is gh-aw **v0.89.22**, paired with the matching
+`gh-aw-actions` commit and AWF **v0.28.25**. Keep the CI and Copilot setup
+installers, validation constants, runtime-upgrade guard, package `min-version`
+fields, and compiled workflows aligned when
+upgrading. Commit regenerated locks and maintenance workflow together with
+`.github/aw/actions-lock.json`.
+
+When upgrading, run compilation with `--force-refresh-container-pins`, then
+repeat the standard compilation command above to finalize cache-derived action
+annotations before validation. This keeps Windows and Linux outputs identical.
+
+AWF v0.28.16 corrupts Copilot Responses requests containing a custom tool such
+as `apply_patch`: its provider body transform returns an object instead of a
+buffer, producing an invalid upstream request (`Content-Length: undefined`).
+The CLI reports only `400 Bad Request`, before any model tokens or workflow
+work are produced. [The upstream fix](https://github.com/github/gh-aw-firewall/pull/8720)
+is included in AWF v0.28.21 and later. AWF versions before v0.28.25 also
+fail when replaying a custom-tool result: the translated function call retains
+a `ctc_` ID, while Copilot requires an `fc_` ID.
+[The replay fix](https://github.com/github/gh-aw-firewall/pull/8944) is included
+in the pinned runtime too. Changing the model, rotating a working PAT, or
+retrying the same request does not fix these runtime incompatibilities.
+
+For this failure, use `gh aw audit <run-id> --repo dotnet/skills` and inspect
+`agent-stdio.log`, the Copilot process log, and the pinned proxy image. Verify
+the fix with the actual CLI through the pinned proxy, including a custom-tool
+call and its result; compilation alone cannot detect request corruption.
 
 ## File Structure
 

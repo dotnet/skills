@@ -1,6 +1,6 @@
 ---
 name: msbuild-antipatterns
-description: "Detect and fix MSBuild anti-patterns in project and build files. USE WHEN asked to review, audit, lint, clean up, or code-review a .csproj/.vbproj/.fsproj/.props/.targets/.proj (or Directory.Build.props/.targets) file, when asked 'is this project file correct?' or 'what's wrong with my build file?', or when hunting subtle build bugs caused by how a project is authored. Each anti-pattern has a symptom and a concrete BAD→GOOD fix. DO NOT USE FOR: non-MSBuild build systems (npm, Maven, CMake), or migrating a project to SDK-style (use msbuild-modernization)."
+description: "DO NOT INVOKE when the primary request explicitly asks to convert, migrate, modernize, or rewrite a legacy/old-style project to SDK style; use msbuild-modernization. Migration prompts often mention ToolsVersion, explicit Compile/Reference entries, packages.config, or Microsoft.CSharp.targets, but merely reviewing or auditing a file that contains those patterns remains in scope here. USE FOR broad review, audit, lint, or maintainability/correctness checks of project/build files, including custom targets; prioritized cross-cutting findings; discrete anti-patterns; F# ordering/FS0039; cross-platform paths; and focused Import safety verdicts. Review/audit is analysis-only unless fixes are requested. For concrete property/item defects use property-patterns/item-management; use target-authoring for implementation and extension-points for NuGet auto-import/layout discovery. Exclude non-MSBuild systems."
 license: MIT
 ---
 
@@ -13,6 +13,15 @@ A numbered catalog of common MSBuild anti-patterns. Each entry follows the forma
 - **Fix**: Concrete transformation
 
 Use this catalog when scanning project files for improvements.
+
+## Review output contract
+
+For review, audit, maintainability, or correctness-risk requests:
+
+1. Do not edit files unless the user explicitly asks for fixes.
+2. Return prioritized findings grounded in the supplied file, with impact and a targeted recommendation.
+3. Separate confirmed defects from conditional risks and already-correct patterns.
+4. Keep the final answer as the review; do not replace it with a terse summary of changes.
 
 ---
 

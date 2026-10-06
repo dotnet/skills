@@ -486,7 +486,7 @@ Historical authoring defects included:
   equivalent to baseline;
 - duplicate stimulus names, which made comparison identity ambiguous.
 
-**Fix:** run the authoring gate before dispatch. It blocks eleven structural
+**Fix:** run the authoring gate before dispatch. It blocks 22 structural
 defect classes and checks the underpowered-eval debt ledger. See
 [Eval authoring quality](../eval-quality/README.md) for each pattern and repair.
 
