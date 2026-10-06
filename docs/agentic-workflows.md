@@ -77,10 +77,15 @@ gh aw run devops-health-check --push --ref <branch>
 ## Runtime Compatibility and HTTP 400 Failures
 
 The validated runtime is gh-aw **v0.89.22**, paired with the matching
-`gh-aw-actions` commit and AWF **v0.28.25**. Keep the CI installer, validation
-constants, package `min-version` fields, and compiled workflows aligned when
+`gh-aw-actions` commit and AWF **v0.28.25**. Keep the CI and Copilot setup
+installers, validation constants, runtime-upgrade guard, package `min-version`
+fields, and compiled workflows aligned when
 upgrading. Commit regenerated locks and maintenance workflow together with
 `.github/aw/actions-lock.json`.
+
+When upgrading, run compilation with `--force-refresh-container-pins`, then
+repeat the standard compilation command above to finalize cache-derived action
+annotations before validation. This keeps Windows and Linux outputs identical.
 
 AWF v0.28.16 corrupts Copilot Responses requests containing a custom tool such
 as `apply_patch`: its provider body transform returns an object instead of a
