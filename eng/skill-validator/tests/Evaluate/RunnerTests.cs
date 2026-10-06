@@ -414,6 +414,96 @@ public class BuildSessionConfigTests
     }
 
     [TestMethod]
+    [DataRow("bash")]
+    [DataRow("powershell")]
+    [DataRow("local_shell")]
+    [DataRow("shell")]
+    [DataRow("run_shell_command")]
+    public async Task OptInShellDenialRejectsToolCallsFromNestedSessions(string toolName)
+    {
+        var deniedSessions = new List<string?>();
+        var config = await AgentRunner.BuildSessionConfig(
+            null, null, "gpt-4.1", AgentRunner.GetEvaluationRoot(),
+            denyShell: true, onShellDenied: deniedSessions.Add);
+        var args = JsonDocument.Parse("""{"command":"git status"}""").RootElement;
+
+        var result = await config.Hooks!.OnPreToolUse!(
+            new PreToolUseHookInput { ToolName = toolName, ToolArgs = args, SessionId = "nested-session" },
+            new HookInvocation { SessionId = "root-session" });
+
+        Assert.AreEqual("deny", result!.PermissionDecision);
+        Assert.Contains("All shell execution", result.PermissionDecisionReason!);
+        Assert.AreSequenceEqual(["nested-session"], deniedSessions);
+    }
+
+    [TestMethod]
+    public async Task OptInShellDenialRejectsOtherwiseAllowedPermissionRequests()
+    {
+        var deniedSessions = new List<string?>();
+        var config = await AgentRunner.BuildSessionConfig(
+            null, null, "gpt-4.1", AgentRunner.GetEvaluationRoot(),
+            denyShell: true, onShellDenied: deniedSessions.Add);
+        var decision = await config.OnPermissionRequest!(
+            new PermissionRequestShell
+            {
+                CanOfferSessionApproval = false,
+                Commands = [],
+                FullCommandText = "git status",
+                HasWriteFileRedirection = false,
+                Intention = "Inspect the worktree",
+                PossiblePaths = [],
+                PossibleUrls = [],
+            },
+            new PermissionInvocation { SessionId = "nested-session" });
+
+        Assert.AreEqual("reject", decision.Kind);
+        Assert.AreSequenceEqual(["nested-session"], deniedSessions);
+    }
+
+    [TestMethod]
+    public async Task OptInShellDenialKeepsIndependentFilePermissionsAndSandbox()
+    {
+        var workDir = Path.Combine(AgentRunner.GetEvaluationRoot(), "shell-denied-files");
+        var testPath = Path.Combine(workDir, "tests", "test_sample.py");
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir, denyShell: true);
+        foreach (var toolName in new[] { "view", "create", "edit" })
+        {
+            var result = await config.Hooks!.OnPreToolUse!(
+                new PreToolUseHookInput
+                {
+                    ToolName = toolName,
+                    ToolArgs = JsonDocument.Parse(JsonSerializer.Serialize(new { path = testPath })).RootElement,
+                }, null!);
+            Assert.AreEqual("allow", result!.PermissionDecision);
+        }
+
+        var read = await config.OnPermissionRequest!(new PermissionRequestRead
+        {
+            Kind = "read", Path = testPath, Intention = "Read tests", ToolCallId = "read",
+        }, null!);
+        var write = await config.OnPermissionRequest!(new PermissionRequestWrite
+        {
+            Kind = "write", FileName = testPath, Intention = "Write tests", ToolCallId = "write",
+            CanOfferSessionApproval = false, Diff = "", NewFileContents = "def test_sample(): assert 1 == 1",
+        }, null!);
+        var outside = await config.OnPermissionRequest!(new PermissionRequestRead
+        {
+            Kind = "read", Path = Path.Combine(workDir, "..", "secret.txt"),
+            Intention = "Read outside the workspace", ToolCallId = "outside",
+        }, null!);
+        var reserved = await config.Hooks!.OnPreToolUse!(new PreToolUseHookInput
+        {
+            ToolName = "edit",
+            ToolArgs = JsonDocument.Parse("""{"path":"session-state/events.jsonl"}""").RootElement,
+        }, null!);
+
+        Assert.AreEqual("approve-once", read.Kind);
+        Assert.AreEqual("approve-once", write.Kind);
+        Assert.AreEqual("reject", outside.Kind);
+        Assert.AreEqual("deny", reserved!.PermissionDecision);
+    }
+
+    [TestMethod]
     public async Task DeniesShellCommandWhenAnyPathIsOutsideAllowedDirectories()
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));

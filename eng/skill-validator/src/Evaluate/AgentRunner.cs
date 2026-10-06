@@ -292,6 +292,8 @@ public static class AgentRunner
         toolName is not null &&
         (toolName.Equals("bash", StringComparison.OrdinalIgnoreCase) ||
          toolName.Equals("powershell", StringComparison.OrdinalIgnoreCase) ||
+         toolName.Equals("shell", StringComparison.OrdinalIgnoreCase) ||
+         toolName.Equals("run_shell_command", StringComparison.OrdinalIgnoreCase) ||
          toolName.Equals("local_shell", StringComparison.OrdinalIgnoreCase));
 
     private static readonly HashSet<string> AllowedPathlessShellCommands = new(
@@ -491,7 +493,9 @@ public static class AgentRunner
         string? sessionsDir = null,
         string? sessionId = null,
         AgentInfo? agent = null,
-        IReadOnlyList<AgentInfo>? additionalAgents = null)
+        IReadOnlyList<AgentInfo>? additionalAgents = null,
+        bool denyShell = false,
+        Action<string?>? onShellDenied = null)
     {
         // Runtime guard: Skill and Agent are mutually exclusive targets.
         // (additionalSkills/additionalAgents are cross-dependencies and may co-exist with either target.)
@@ -693,6 +697,12 @@ public static class AgentRunner
                 ? (pluginRoot is not null ? "agent-plugin" : "agent-isolated")
                 : (skill is not null ? "skilled" : "baseline");
 
+        void RecordShellDenial(string? requestingSessionId)
+        {
+            log?.Invoke($"      ❌ Shell execution denied by evaluation policy ({runLabel})");
+            onShellDenied?.Invoke(requestingSessionId);
+        }
+
         return new SessionConfig
         {
             Model = model,
@@ -711,24 +721,33 @@ public static class AgentRunner
                 configDir,
                 workDir,
                 new[] { workDir }.Concat(additionalAllowedDirs)),
-            OnPermissionRequest = (request, _) =>
-                Task.FromResult(DecidePermissionRequest(
+            OnPermissionRequest = (request, invocation) =>
+            {
+                if (denyShell && request is PermissionRequestShell)
+                    RecordShellDenial(invocation?.SessionId);
+                return Task.FromResult(DecidePermissionRequest(
                     request,
                     workDir,
                     verbose ? log : null,
                     runLabel,
                     additionalAllowedDirs,
-                    sdkMcp)),
+                    sdkMcp,
+                    denyShell));
+            },
             Hooks = new SessionHooks
             {
                 OnPreToolUse = (input, invocation) =>
                 {
                     if (IsShellTool(input.ToolName))
                     {
+                        if (denyShell)
+                            RecordShellDenial(input.SessionId ?? invocation?.SessionId);
                         return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
                         {
-                            PermissionDecision = "ask",
-                            PermissionDecisionReason = "Validate shell command paths",
+                            PermissionDecision = denyShell ? "deny" : "ask",
+                            PermissionDecisionReason = denyShell
+                                ? "All shell execution is denied by evaluation policy; file tools retain their existing permissions"
+                                : "Validate shell command paths",
                         });
                     }
 
@@ -765,7 +784,8 @@ public static class AgentRunner
         Action<string>? log,
         string runLabel,
         IReadOnlyList<string> additionalAllowedDirs,
-        IDictionary<string, McpServerConfig>? allowedMcpServers)
+        IDictionary<string, McpServerConfig>? allowedMcpServers,
+        bool denyShell = false)
     {
         GitHub.Copilot.Rpc.PermissionDecision CheckPath(string? path)
         {
@@ -789,6 +809,8 @@ public static class AgentRunner
 
         return request switch
         {
+            PermissionRequestShell when denyShell => GitHub.Copilot.Rpc.PermissionDecision.Reject(
+                "All shell execution is denied by evaluation policy; file tools retain their existing permissions"),
             PermissionRequestShell shellRequest => CheckShellPermission(
                 shellRequest,
                 workDir,
@@ -942,7 +964,13 @@ public static class AgentRunner
             await using var session = await client.CreateSessionAsync(
                 await BuildSessionConfig(options.Skill, options.PluginRoot, options.Model, workDir, options.McpServers,
                     options.AdditionalSkills, options.Log, options.Verbose, options.SessionsDir, options.SessionId,
-                    options.Agent, options.AdditionalAgents));
+                    options.Agent, options.AdditionalAgents,
+                    denyShell: options.Scenario.DenyShell,
+                    onShellDenied: requestingSessionId =>
+                        eventBuffer.Record("evaluator.shell_denied", (agentEvent, _) =>
+                        {
+                            agentEvent.Data["sessionId"] = JsonValue.Create(requestingSessionId);
+                        })));
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;

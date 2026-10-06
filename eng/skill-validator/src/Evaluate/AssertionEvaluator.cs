@@ -31,6 +31,17 @@ public static class AssertionEvaluator
         var results = new List<AssertionResult>();
         var usedTools = metrics.ToolCallBreakdown.Keys.ToList();
 
+        if (scenario.DenyShell)
+        {
+            var denied = metrics.Events.Any(evt => evt.Type == "evaluator.shell_denied");
+            results.Add(new AssertionResult(
+                new Assertion(AssertionType.ShellDenied),
+                denied,
+                denied
+                    ? "Shell execution was rejected by the evaluator"
+                    : "No shell rejection was observed; the denial path was not exercised"));
+        }
+
         if (scenario.ExpectTools is not null)
         {
             foreach (var tool in scenario.ExpectTools)

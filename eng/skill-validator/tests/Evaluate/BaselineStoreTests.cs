@@ -255,6 +255,7 @@ public class BaselineStoreTests
         var withAssertion = baseScenario with { Assertions = [new Assertion(AssertionType.OutputContains, Value: "error")] };
         var withTurns = baseScenario with { MaxTurns = 5 };
         var withExpectTools = baseScenario with { ExpectTools = ["bash"] };
+        var withShellDenial = baseScenario with { DenyShell = true };
 
         var shaBase = BaselineStore.ComputeTargetSha(baseScenario, null);
 
@@ -263,6 +264,8 @@ public class BaselineStoreTests
         Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withAssertion, null));
         Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withTurns, null));
         Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withExpectTools, null));
+        Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withShellDenial, null));
+        Assert.AreEqual(shaBase, BaselineStore.ComputeTargetSha(baseScenario with { DenyShell = false }, null));
 
         // Same criteria → stable identity.
         Assert.AreEqual(

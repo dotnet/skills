@@ -6,6 +6,8 @@
 
   <ItemGroup>
     <None Update="fixtures\**\*" CopyToOutputDirectory="PreserveNewest" LinkBase="fixtures" />
+    <None Include="..\..\..\tests\dotnet-test\agent.code-testing-generator\eval.yaml"
+          Link="fixtures\generator.eval.yaml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
