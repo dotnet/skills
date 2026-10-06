@@ -401,13 +401,20 @@ public class BuildSessionConfigTests
     }
 
     [TestMethod]
-    public async Task ShellToolDefersToPermissionRequestPathInspection()
+    [DataRow("bash")]
+    [DataRow("powershell")]
+    [DataRow("local_shell")]
+    [DataRow("shell")]
+    [DataRow("run_shell_command")]
+    [DataRow("execute")]
+    [DataRow("EXECUTE")]
+    public async Task ShellToolDefersToPermissionRequestPathInspection(string toolName)
     {
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
         var args = JsonDocument.Parse("""{"fullCommandText": "cat /etc/passwd"}""").RootElement;
 
         var result = await config.Hooks!.OnPreToolUse!(
-            new PreToolUseHookInput { ToolName = "bash", ToolArgs = args },
+            new PreToolUseHookInput { ToolName = toolName, ToolArgs = args },
             null!);
 
         Assert.AreEqual("ask", result!.PermissionDecision);
@@ -419,6 +426,8 @@ public class BuildSessionConfigTests
     [DataRow("local_shell")]
     [DataRow("shell")]
     [DataRow("run_shell_command")]
+    [DataRow("execute")]
+    [DataRow("EXECUTE")]
     public async Task OptInShellDenialRejectsToolCallsFromNestedSessions(string toolName)
     {
         var deniedSessions = new List<string?>();

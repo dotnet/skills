@@ -292,6 +292,7 @@ public static class AgentRunner
         toolName is not null &&
         (toolName.Equals("bash", StringComparison.OrdinalIgnoreCase) ||
          toolName.Equals("powershell", StringComparison.OrdinalIgnoreCase) ||
+         toolName.Equals("execute", StringComparison.OrdinalIgnoreCase) ||
          toolName.Equals("shell", StringComparison.OrdinalIgnoreCase) ||
          toolName.Equals("run_shell_command", StringComparison.OrdinalIgnoreCase) ||
          toolName.Equals("local_shell", StringComparison.OrdinalIgnoreCase));

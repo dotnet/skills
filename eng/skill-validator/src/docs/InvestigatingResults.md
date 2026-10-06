@@ -227,7 +227,8 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > **Denied-shell native scenarios:** A stimulus with `deny_shell: true` keeps
 > shell tools available but rejects their execution through evaluator-owned
 > pre-tool and permission callbacks in every arm, including nested-agent
-> callbacks. The policy is captured from the eval before the session starts,
+> callbacks. Run-command aliases such as `execute`, `bash`, and `powershell`
+> are shell tools for this policy. The policy is captured from the eval before the session starts,
 > not read from an agent-editable workspace file. File reads and edits retain
 > the existing path and session-state restrictions; this option never grants
 > additional permissions. Setup commands and post-run command graders remain

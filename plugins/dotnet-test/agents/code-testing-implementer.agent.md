@@ -151,8 +151,12 @@ If your language extension has no "Harness Discovery Check" section, use the can
 
 ### 8. Format Code (Optional)
 
-If a lint command is available, call the `code-testing-linter` sub-agent,
-passing the exact lint command and absolute `<TESTAGENT_DIR>`.
+When formatting or linting is needed, run the repository's existing command
+directly for the changed tests, using the conventions captured in research.
+Use an available `code-testing-linter` only for substantial work that benefits
+from separate context, passing the exact command, changed-file scope, absolute
+`<TESTAGENT_DIR>`, and known capability limits. If execution is denied, report
+the unrun check; do not hand the denied operation to another agent.
 
 ### 9. Report Results
 
