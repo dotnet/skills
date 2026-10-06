@@ -1,34 +1,24 @@
 name: optimizing-ef-core-queries
-description: Evaluates the dotnet-data/optimizing-ef-core-queries skill
+description: Evaluates EF Core performance review and benchmarked remediation
 type: capability
-config:
+defaults:
   timeout: 30m
-# The skill is exercised with one open-ended "audit" scenario rather than a set
-# of single-fix micro-tasks. The stimulus stages a self-contained service class
-# (its entity model and DbContext live in the same file) that deliberately packs
-# most of the anti-patterns the skill addresses, and asks the agent to make it
-# faster IN PLACE and explain each change.
+  runs: 1
+# Keep the original open-ended remediation scenario as an end-to-end check alongside
+# the focused review stimuli below. Its hybrid grading combines review completeness
+# with a seeded in-memory SQLite harness that compares the rewritten service against
+# preserved original method bodies for equivalent results and at least 10% lower time.
 #
-# Grading is hybrid. The prompt/rubric judge scores review completeness, so the
-# skill earns preference when its systematic coverage catches the subtler issues
-# an unaided review tends to miss — for example recommending an index that code
-# alone can't add. A micro-benchmark harness (staged into perf/) then times each
-# rewritten method against a preserved copy of the original body over the same
-# seeded in-memory SQLite database: one run-command grader per benchmarkable method
-# requires the agent's version to return identical results AND run at least 10% faster
-# (improved=True), giving the grader objective per-method signal. Eleven of the twelve
-# methods have a result-preserving, signature-stable faster form and are benchmarked;
-# GetOrderPage is the exception — its only real fix, keyset paging, pages by the last
-# key seen rather than a page number, so the frozen signature rules out an in-place
-# switch and the rubric grades the recommendation instead. The rubric additionally
-# credits recognitions the benchmarks can't see, such as that keyset recommendation
-# and a missing-index one.
+# Eleven of the twelve service methods have a result-preserving, signature-stable
+# benchmark. GetOrderPage is the exception: replacing page-number offset pagination
+# with keyset pagination changes the method contract, so that recommendation remains
+# rubric-graded rather than benchmark-graded.
 stimuli:
   - name: Audit a back-office operations service riddled with query problems
     prompt: |
-      Our internal back-office service has gotten slow in production: the ops-dashboard tiles, the
-      order and product lookups, and the nightly maintenance jobs have all degraded as the tables
-      grew into the millions of rows. The code is in `SalesOperationsService.cs` (the entity model
+      Our internal back-office service uses EF Core and has gotten slow in production: the
+      ops-dashboard tiles, order and product lookups, and nightly maintenance jobs have all degraded
+      as the tables grew into the millions of rows. The code is in `SalesOperationsService.cs` (the entity model
       and DbContext are in the same file so you can see the columns and relationships).
 
       Go through the service and make it faster: apply your optimizations directly in
@@ -40,6 +30,10 @@ stimuli:
 
       Work through every method: optimize the ones that can be improved, and briefly note any that
       are already efficient.
+    tags:
+      capability: end-to-end-query-optimization
+      risk: high
+      journey: back-office-performance-remediation
     environment:
       files:
         - src: audit-fixtures/SalesOperationsService.cs
@@ -52,10 +46,8 @@ stimuli:
           pattern: (N\+1|per[- ]customer|round[- ]trip|Cartesian|keyset|projection|index|scan|memory|SaveChanges)
       - type: exit-success
       - type: prompt
-      # One micro-benchmark per benchmarkable method (11 of the 12): each requires the
-      # agent's rewrite to return identical results and run at least 10% faster than the
-      # preserved original body (improved=True). GetOrderPage has no in-place faster form
-      # under its frozen page-number signature, so it is graded by the rubric instead.
+      # Each command isolates one benchmarkable method so a fast rewrite cannot
+      # hide a regression or behavior change in another method.
       - type: run-command
         config:
           command: dotnet run -c Release --project perf -- --method GetCustomerSales
@@ -134,7 +126,277 @@ stimuli:
       - "Notes that GetUnpaidInvoices returns entities for a read-only export while still tracking them, and recommends running it without change tracking"
       - "Identifies that ListActiveProducts loads full Product entities — including the wide Description and Image columns — and only projects to a few fields in memory afterward, and recommends projecting to those fields in the database so the wide columns are never read"
       - "Recognizes that SearchProducts materializes full product rows (including the wide description and image columns) before projecting, and should project to the needed fields in the database"
-      - "Recognizes that GetProductForCard is a minimal query on an extremely hot path where the remaining cost is EF Core re-translating the same query on every call, and recommends eliminating that repeated per-call translation cost while returning identical results"
+      - "Recognizes that GetProductForCard is a minimal query on an extremely hot path where EF's per-call expression processing and query-cache lookup can still matter despite cached translation, and recommends reducing that overhead while returning identical results"
       - "Identifies that ApplyCategoryDiscount saves changes once per product inside the loop, issuing a round-trip per row, and recommends a single set-based update"
       - "Recognizes that CountActiveProducts loads the entire product table into memory before counting, and that the count should be performed by the database"
-    timeout: 600
+  - name: Review customer directory search
+    prompt: |
+      Please review this application's EF Core customer-directory and catalog searches before a
+      release to larger customers. The application uses EF Core 10 with SQL Server. Search latency
+      grows with data volume, and the search modes have existing matching contracts. The same
+      module supplies numeric overview tiles and regional comparisons; some overview requests
+      fail intermittently.
+
+      Recommend evidenced performance or correctness improvements with locations and tradeoffs,
+      preserving those contracts. Use source-browsing tools only; do not edit files or run shell
+      commands, code, tests, builds, benchmarks, or analyzers.
+    tags:
+      capability: predicate-search-review
+      risk: medium
+      journey: search-latency-review
+    environment:
+      files:
+        - src: fixtures/customer-search
+          dest: .
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, powershell, edit, create]
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Connects FindByEmailAsync to DirectoryMatching.Email and the configured stored NormalizedEmail index, recommending that indexed expression value instead of computing LOWER on Email for every lookup
+      - Identifies SearchCatalogAsync as arbitrary substring matching despite the indirect predicate and ordinary Name index; any alternate search strategy must retain the required matching semantics or disclose changes such as token-based full-text behavior
+      - Identifies the StringComparison overload in FindPreferredNamesAsync as unsupported by the supplied provider and recommends a compatible comparison without suggesting that EF Core 10 silently evaluates the predicate locally
+      - Does not misclassify regions.Contains(customer.Region) as string substring search
+      - Recognizes that the plain name prefix, bounded region membership, and normalized-email lookup already align with their supplied model indexes and do not need speculative new indexes or compiled queries
+      - Avoids asserting that a particular deployed index or generated SQL plan was observed
+      - Connects GetOverviewAsync's overlapping reader calls to the single DirectoryDbContext supplied to both repositories by DirectorySession, rather than assuming different repositories own different contexts
+      - Recommends sequential operations on the shared context or separately owned contexts, preserving both numeric counts instead of substituting existence checks
+      - Recognizes GetExportOverviewAsync as safe sequential use and GetRegionComparisonAsync as safe parallel use of two independently created and disposed sessions
+
+  - name: Review order operations query boundaries
+    prompt: |
+      The order-operations API shows rising memory use and uneven latency for high-volume tenants.
+      Review this application's EF Core services and repositories in the supplied source.
+      The dashboard combines several operational tiles; finance also uses the service for its
+      ledger. Partner feeds contain tens of thousands of orders, with returned IDs in feed order
+      and a receipt for each accepted order. Failed partner imports can restart from the beginning;
+      archive imports resume from an externally acknowledged chunk boundary.
+      Use source-browsing tools only. Do not edit files or run shell commands, code, tests, builds,
+      benchmarks, or analyzers.
+
+      Produce a prioritized review tied to concrete call paths, with safe remediations. Avoid
+      duplicate findings for one root cause, and preserve methods whose contracts intentionally
+      require every matching row.
+    tags:
+      capability: materialization-bound-review
+      risk: high
+      journey: memory-latency-review
+    environment:
+      files:
+        - src: fixtures/shared/CommerceData.cs
+          dest: CommerceData.cs
+        - src: fixtures/materialization
+          dest: .
+        - src: fixtures/order-import
+          dest: .
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, powershell, edit, create]
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Traces GetLateOrdersAsync into LoadOpenOrderCandidatesAsync and identifies that the cutoff filter and projection happen after ToListAsync
+      - Traces HasBackorderedProductsAsync into LoadActiveProductPricesAsync and recommends a query-side AnyAsync predicate instead of materializing the price array
+      - Traces HasOrdersToShipAsync into CountReadyOrdersAsync and recommends AnyAsync for the existence check
+      - Identifies that GetQueueStatistics enumerates GetQueue's deferred database sequence three times through IEnumerable-based aggregates, loading rows repeatedly instead of computing a combined database summary
+      - Recommends a server-side aggregate for the queue statistics while preserving all three numeric outputs, rather than parallelizing queries on the same context or merely caching an unbounded list
+      - Identifies GetDashboardRowsAsync as potentially unbounded despite its tenant filter and recommends a stable page, chunk, or explicit limit
+      - Does not duplicate the materialize-then-reduce findings as separate unbounded-query findings
+      - Recognizes GetRecentPageAsync as bounded and ordered and treats the small status lookup and explicit ledger export according to their stated contracts rather than declaring every ToListAsync defective
+      - Preserves ExportLedgerAsync's complete result contract; streaming or chunking is acceptable optional mitigation, not required to invent a defect in the export
+      - Identifies that ImportJournal.RecordImportedAsync persists the shared import context per order, so the final CommitAsync does not establish one batched operation
+      - Explains that saved orders remain tracked and per-row Entries inspection triggers repeated detection over the growing graph
+      - Recommends bounded persistence of orders and receipts together, with progress counters or equivalent removal of repeated tracker scans
+      - Preserves receipt progress and returned-ID order by retaining input-ordered entities rather than assuming numerical identity allocation order
+      - Addresses partial commits and durable replay handling for whole-feed retries rather than presenting chunking or a final save as sufficient idempotency
+      - Recognizes the import's bounded review mutation and archive's explicit chunk saves and owned-context clearing as sound counterparts
+      - States that the conclusions are source-based and that no executable validation was performed
+
+  - name: Review order history pagination behavior
+    prompt: |
+      Review this application's EF Core order-history endpoints and shared query helpers.
+      Mobile clients continue from the timestamp and ID of the last displayed order; support staff
+      still jump to arbitrary page numbers. Partner backfills can add older orders with newly
+      allocated IDs. Users report missing history entries and inconsistent support queue ordering.
+
+      Recommend supported performance and correctness improvements without changing these
+      endpoint contracts. Use source-browsing tools only. Do not edit files or run shell commands,
+      code, tests, builds, applications, or analyzers.
+    tags:
+      capability: paging-order-review
+      risk: high
+      journey: history-query-review
+    environment:
+      files:
+        - src: fixtures/shared/CommerceData.cs
+          dest: CommerceData.cs
+        - src: fixtures/paging-sorting
+          dest: .
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, powershell, edit, create]
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identifies GetSearchPageAsync as reaching Page with no deterministic order before Skip and Take
+      - Identifies that GetNextPageAsync applies independent bounds to CreatedAt and Id rather than advancing through their combined descending order, which can exclude older backfilled orders with higher IDs
+      - Proposes a lexicographic continuation predicate that accepts any earlier timestamp and uses the ID bound only for equal timestamps, preserving the descending sort and last-row cursor
+      - Identifies that SupportPriority replaces the arrival-time ordering with value ordering, contrary to the stated queue contract, and recommends preserving arrival time as the primary key
+      - Recognizes GetRecentPageAsync's fully ordered bounded query as sound
+      - Recognizes GetWindowSortedByValue as selecting an ID-ordered database window before reordering only that bounded window in memory
+      - Notes that GetJumpPageAsync can become slower on deep pages but does not present keyset pagination as behavior-preserving because the documented API requires random page-number access
+      - Avoids claiming measured latency or an observed execution plan
+
+  - name: Review route planning data access
+    prompt: |
+      Review this application's EF Core route-planning service before a regional rollout. The
+      application uses EF Core 10 with SQL Server. Warehouse-wide departure boards have become
+      slower as routes accumulate, while carrier-specific requests remain responsive.
+
+      Find any supported performance or correctness improvements in the supplied service and
+      configuration, with locations, impact, and safe next steps. Distinguish evidence from
+      deployment assumptions. Use source-browsing tools only; do not edit files or run shell
+      commands, code, tests, builds, database commands, or analyzers.
+    tags:
+      capability: model-query-performance-review
+      risk: medium
+      journey: migration-review
+    environment:
+      files:
+        - src: fixtures/route-planning
+          dest: .
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, powershell, edit, create]
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Correlates GetWarehouseRoutesAsync's warehouse equality, departure range, and date-ID ordering with the configured index beginning CarrierId, which the query does not constrain
+      - Recognizes that EF's foreign-key convention can also supply a WarehouseId-CarrierId index, so the problem is incomplete coverage for the date range and ordering rather than proof of no WarehouseId-leading index
+      - Recommends workload validation of a WarehouseId-DepartsAt-Id index or equivalent coverage, explaining the unused CarrierId between the desired equality and range keys
+      - Recognizes that GetCarrierRoutesAsync constrains both initial index columns by equality, so their reversed order is not itself a defect for that call path
+      - Recognizes GetUpcomingWindowsAsync's configured index as matching its equality, range, and order shape
+      - Uses the model-building code as evidence of intended coverage without claiming that production plans or all physical indexes were observed
+
+  - name: Review pre-merge data access changes
+    prompt: |
+      Perform a pre-merge EF Core performance and correctness review of
+      `CleanDataAccessService.cs`. Be conservative: recommend a change only when the supplied source
+      demonstrates a concrete problem. Do not edit files or run any code, tests, builds, database
+      commands, benchmarks, or analyzers.
+
+      Return the same concise evidence-based report you would use for production code, even if the
+      correct result is that no actionable changes are needed.
+    tags:
+      capability: false-positive-restraint
+      risk: low
+      journey: pre-merge-review
+    environment:
+      files:
+        - src: fixtures/shared/CommerceData.cs
+          dest: CommerceData.cs
+        - src: fixtures/clean/CleanDataAccessService.cs
+          dest: CleanDataAccessService.cs
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, powershell, edit, create]
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Concludes that the supplied service has no actionable source-proven EF Core defects rather than inventing optimizations
+      - Recognizes the existence check, one-collection-plus-reference Include, keyset-style bounded page, bounded raw-SQL read, sequential awaits, and bounded materialization as sound patterns
+      - Recognizes that MarkReviewedAsync validates a small tenant-scoped batch and saves once after mutation rather than treating it as per-item persistence
+      - Does not demand AsSplitQuery for one collection Include
+      - Does not recommend compiled queries, new indexes, or bulk updates without workload or semantic evidence
+      - Clearly states that the assessment was source-only and that no executable validation was performed
+
+  - name: Review saved order search implementation
+    prompt: |
+      Review this application's EF Core implementation of saved order searches. The application
+      uses EF Core 10 with SQL Server. Users combine the supported filters with their own values;
+      the same search layouts are used throughout the day across many tenants and customer codes.
+      The UI needs both the first page and the exact matching total. Support activity feeds also
+      use the same layouts frequently across many customer codes.
+
+      Recommend source-supported performance or correctness improvements that preserve the
+      search results and endpoint contracts. Include locations, likely impact, and remedies,
+      distinguishing nearby sound paths. Use source-browsing tools only; do not edit files or run
+      shell commands, code, tests, builds, benchmarks, or analyzers.
+    tags:
+      capability: dynamic-query-review
+      risk: medium
+      journey: saved-search-rollout
+    environment:
+      files:
+        - src: fixtures/saved-search
+          dest: .
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, powershell, edit, create]
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identifies that OrderFilterCompiler embeds each user's filter value as an expression constant, producing value-dependent EF query shapes and potentially different SQL instead of reusable value parameters
+      - Recommends parameter-representing expressions or another translatable query builder that keeps a given filter layout stable while changing its values
+      - Does not claim that making the compiler static, caching a delegate per user value, or compiling each newly built expression eliminates the value-dependent query-shape problem
+      - Recognizes GetCustomerHistoryAsync's captured arguments and GetArchiveAsync's fixed structural constant as distinct from the dynamic per-request literals
+      - Traces GetCustomerActivityAsync through OrderQueryPolicies and identifies that its forced customer-code literal can create distinct server SQL and reduce plan reuse across the stated high-volume workload
+      - Recommends ordinary captured-value parameterization or an appropriate parameter override without claiming that EF.Constant necessarily defeats EF Core 10's own query-translation cache
+      - Recognizes GetImportedPageAsync's forced parameter and GetArchiveAsync's fixed literal as deliberate SQL-shape choices, not automatically faster or defective without plan/workload evidence
+      - Preserves the UI's actual matching count rather than substituting an existence test, and recognizes the bounded scalar page projection without inventing tracking overhead
+      - Distinguishes the source-proven construction pattern from an observed cache-hit rate or measured speedup
+
+  - name: Review statement export implementation
+    prompt: |
+      Review this application's EF Core statement-export data access before a finance rollout.
+      It uses EF Core 10 with SQL Server. Accounts can have thousands of invoices and uploaded
+      compliance documents of several megabytes. The payment file format expects one account
+      entry per account ID, with invoice rows referring to that entry. Export consumers do not
+      modify returned entities, and portfolio reads require a single-statement view. Collection
+      reminders include lifetime amounts but list only unpaid invoice IDs.
+
+      The module also posts received payments plus signed reconciliation adjustments. The
+      account balance and posting receipt must commit together, and the caller's optimistic
+      revision contract must remain intact when payments compete for the same account.
+
+      Find performance and correctness improvements supported by the supplied repository,
+      service, and model. Preserve the exported information, provide locations and remedies, and
+      distinguish paths that do not need changes. Use source-browsing tools only; do not edit
+      files or run shell commands, code, tests, builds, benchmarks, or analyzers.
+    tags:
+      capability: result-graph-review
+      risk: high
+      journey: finance-export-rollout
+    environment:
+      files:
+        - src: fixtures/statement-export
+          dest: .
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, powershell, edit, create]
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identifies that GetPortfolioAsync joins a wide account row to many invoices even with only one collection Include, while the service needs only scalar account fields and aggregates
+      - Recommends a narrow database projection with invoice aggregates or equivalent selective queries, preserving all PortfolioRow values without fetching the compliance document
+      - Preserves GetPortfolioAsync's deliberately selected single-statement consistency when reducing payload rather than treating AsSingleQuery as a missing mode selection
+      - Identifies that GetCardsAsync still materializes and tracks StatementAccount entities inside InvoiceCard records, despite projecting the invoice itself
+      - Recommends scalar account fields or detached reads for the proven read-only cards path, and does not claim that every record projection automatically avoids tracking
+      - Connects GetPaymentRunAsync's plain no-tracking reference Include to distinct account instances and the writer's reference-keyed dictionary, which can emit duplicate entries for one account ID
+      - Recommends per-query identity resolution or a key-based writer and narrow projection that preserves a single account entry, explaining that identity deduplication alone does not remove repeated SQL payload
+      - Recognizes GetTotalsAsync's server-side scalar aggregation as sound and does not require AsNoTracking or AsSplitQuery merely because it returns records
+      - Traces BuildReminderAsync's earlier tracking history query into the later filtered Include, explaining how paid invoices can enter UnpaidInvoiceIds through navigation fixup
+      - Recommends a detached projection, suitable no-tracking read, or independent read context that preserves the lifetime amount and unpaid subset rather than clearing pending write state
+      - Identifies that RecordPaymentAsync changes the database without refreshing the tracked account, so the subsequent adjustment and CommitAsync can overwrite the payment even within one sequential request
+      - Recommends a coherent tracked save or synchronized set-based path that preserves payment plus adjustment, the returned balance, and the posting receipt
+      - Explains that the preliminary revision comparison does not protect RecordPaymentAsync's unconditional update and preserves token enforcement or an equivalent revision predicate with affected-row handling
+      - Identifies the separate immediate-write and receipt-save commit boundaries, requiring one atomic save unit or an explicit shared transaction without claiming a transaction alone refreshes the tracked account
+      - Recognizes FlagAccountsAsync's standalone set-based marker update as distinct from mixing tracked balance arithmetic with immediate writes
