@@ -526,6 +526,8 @@ internal static class WorkflowTests
                 AssertContains(evalText, $"&guidance_{item.Item1}_digest {hashesDigest}", "selected-case hash manifest pinned");
                 Assert(Directory.GetFiles(Path.Combine(caseRoot, ".grading")).Length == 2,
                     "no eval spec, alternative case or canned remediation answers staged");
+                var revisionRoot = Path.Combine(caseRoot, "out", "revisions", "0001");
+                using var producer = new FixtureProducerContext(pluginRoot, caseRoot, revisionRoot);
                 var revision = RevisionService.VerifyRevision(caseRoot, Path.Combine(caseRoot, "out", "revisions", "0001"),
                     null, null, validateChain: true);
                 Assert(revision.Assessment.Rows.Count == 60 && revision.Assessment.RubricVersion == "2.1.0",
@@ -648,6 +650,7 @@ internal static class WorkflowTests
                     "--case", "established", "--root", caseRoot);
                 Assert(setup.ExitCode == 0, $"native grader control setup: {setup.StandardError}");
                 var seed = Path.Combine(caseRoot, "out", "revisions", "0001");
+                using var producer = new FixtureProducerContext(pluginRoot, caseRoot, seed);
                 var retained = RevisionService.VerifyRevision(caseRoot, seed, null, null, validateChain: true);
                 var evidenceId = retained.Assessment.Rows.Single(row => row.Id == "PI-07").EvidenceIds.Single();
                 var rows = retained.Assessment.Rows.Select(row => row.Id == "PI-08" ? row with
@@ -741,6 +744,59 @@ internal static class WorkflowTests
         var error = process.StandardError.ReadToEndAsync();
         process.WaitForExit();
         return new ProcessResult(process.ExitCode, output.GetAwaiter().GetResult(), error.GetAwaiter().GetResult());
+    }
+
+    private sealed class FixtureProducerContext : IDisposable
+    {
+        private readonly string? previousSkillRoot;
+        private readonly string installedVersion;
+        private readonly string fixturePluginRoot;
+
+        public FixtureProducerContext(string pluginRoot, string caseRoot, string revisionRoot)
+        {
+            previousSkillRoot = Environment.GetEnvironmentVariable("READINESS_SKILL_ROOT");
+            Assert(previousSkillRoot == Path.Combine(pluginRoot, "skills", "blazor-component-readiness"),
+                "retained fixture starts in the real installed plugin context");
+            installedVersion = ContractVersions.PluginVersion;
+            using var manifest = JsonDocument.Parse(
+                File.ReadAllBytes(Path.Combine(revisionRoot, "package.validation.json")));
+            var fixtureVersion = manifest.RootElement.GetProperty("plugin_version").GetString();
+            Assert(!string.IsNullOrWhiteSpace(fixtureVersion), "retained fixture declares its producing plugin version");
+            if (fixtureVersion != installedVersion)
+            {
+                var rejected = false;
+                try
+                {
+                    RevisionService.VerifyRevision(caseRoot, revisionRoot, null, null, validateChain: true);
+                }
+                catch (BlazorComponentReadiness.Validator.IO.DeterministicValidationException exception)
+                    when (exception.Message == "Validation manifest does not use the current supported rubric and scope contract.")
+                {
+                    rejected = true;
+                }
+                Assert(rejected, "current installation rejects retained artifacts from a different plugin version");
+            }
+
+            // Frozen revisions retain their producing installation context instead of being relabeled on release.
+            fixturePluginRoot = Path.Combine(caseRoot, "producer-plugin");
+            var fixtureSkillRoot = Path.Combine(fixturePluginRoot, "skills", "blazor-component-readiness");
+            Directory.CreateDirectory(fixtureSkillRoot);
+            var installedSkillRoot = Path.Combine(pluginRoot, "skills", "blazor-component-readiness");
+            File.Copy(Path.Combine(installedSkillRoot, "SKILL.md"), Path.Combine(fixtureSkillRoot, "SKILL.md"));
+            CopyDirectory(Path.Combine(installedSkillRoot, "references"), Path.Combine(fixtureSkillRoot, "references"));
+            File.WriteAllText(Path.Combine(fixturePluginRoot, "plugin.json"),
+                JsonSerializer.Serialize(new { version = fixtureVersion }));
+            Environment.SetEnvironmentVariable("READINESS_SKILL_ROOT", fixtureSkillRoot);
+        }
+
+        public void Dispose()
+        {
+            Environment.SetEnvironmentVariable("READINESS_SKILL_ROOT", previousSkillRoot);
+            Directory.Delete(fixturePluginRoot, recursive: true);
+            Assert(Environment.GetEnvironmentVariable("READINESS_SKILL_ROOT") == previousSkillRoot &&
+                ContractVersions.PluginVersion == installedVersion,
+                "retained fixture restores the real current installation before subsequent cases");
+        }
     }
 
     private static void AssertOwnedRules(string skill, string referencesRoot)
