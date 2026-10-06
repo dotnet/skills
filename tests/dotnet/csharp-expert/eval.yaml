@@ -90,6 +90,8 @@ stimuli:
       changing the returned shape.
     environment:
       files:
+        - src: global.json
+          dest: global.json
         - src: fixtures/ef-orders
           dest: .
     graders:
