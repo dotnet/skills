@@ -2,11 +2,11 @@
 
 Toolkit components require CSS theming. Use the host file for your app type and link the Fluent stylesheet there.
 
-## Blazor Web App / Modern Blazor Server
+## Blazor Web App
 
-**Host file**: `App.razor`
+**Host file**: `Components/App.razor`
 
-**Theme**: Syncfusion Blazor Toolkit supports **Fluent theme only**.
+**Theme**: Fluent is the default Toolkit stylesheet. The package also includes `highcontrast.min.css`. Do not link commercial theme files such as Bootstrap, Tailwind, or Material.
 
 **Example**:
 ```razor
@@ -28,11 +28,11 @@ Toolkit components require CSS theming. Use the host file for your app type and 
 
 **Legacy Blazor Server note**: If you are on an older Server template, `_Host.cshtml` may still be the host file and `blazor.server.js` may still appear there. Prefer `App.razor` and `blazor.web.js` for current Blazor Web App templates.
 
-## Blazor WebAssembly
+## Standalone Blazor WebAssembly
 
-**Host file**: `index.html` (in the `wwwroot` folder)
+**Host file**: `wwwroot/index.html`
 
-**Theme**: Syncfusion Blazor Toolkit supports **Fluent theme only**.
+**Theme**: Same stylesheets as the Web App host. Link `fluent.min.css` unless the user asks for high contrast.
 
 **Example**:
 ```html
@@ -53,14 +53,13 @@ Toolkit components require CSS theming. Use the host file for your app type and 
 </html>
 ```
 
-## Available Themes
+## Available stylesheets
 
-Syncfusion Blazor Toolkit supports **only the Fluent theme**:
+- `fluent.min.css` — default Fluent stylesheet. Use this unless the user asks for something else.
+- `highcontrast.min.css` — high-contrast stylesheet shipped with the Toolkit package.
+- Individual component stylesheets: `button.min.css`, `calendar.min.css`, `chart.min.css`, `checkbox.min.css`, `dialog.min.css`, `dropdown.min.css`, `input.min.css`, `spinner.min.css`, `textbox.min.css`, `tooltip.min.css`, and others.
 
-- `fluent.min.css` — Microsoft Fluent Design theme (the only supported theme) — use this for the common stylesheet
-- Individual component stylesheets: `button.min.css`, `calendar.min.css`, `chart.min.css`, `checkbox.min.css`, `dialog.min.css`, `dropdown.min.css`, `input.min.css`, `spinner.min.css`, `textbox.min.css`, `tooltip.min.css`, etc.
-
-Do not attempt to use other theme CSS files (bootstrap5, tailwind, material, etc.) with the Toolkit; they are not supported and will not work correctly.
+Do not link commercial theme files (`bootstrap5`, `tailwind`, `material`, and similar). They are not part of this package and will not style Toolkit components.
 
 ## Local References
 
@@ -76,9 +75,9 @@ Local references are preferred because they:
 
 ## Common Mistakes
 
-1. **Linking in the wrong file**: Link the theme in the app's host file (`App.razor` for Blazor Web App / modern Blazor Server; `wwwroot/index.html` for Blazor WebAssembly).
-2. **Wrong path directory**: Ensure the path is `_content/Syncfusion.Blazor.Toolkit/styles/` exactly (note: `styles/`, not `themes/`).
-3. **Wrong theme name**: Using `bootstrap5.min.css`, `tailwind.min.css`, `material.min.css`, or other non-Fluent themes won't work. Toolkit supports **only `fluent.min.css`**.
-4. **Missing .min extension**: Ensure you use `.min.css` (not just `.css`). The correct filename is `fluent.min.css`.
+1. **Linking in the wrong file**: Use `_Host.cshtml` for legacy Blazor Server, `Components/App.razor` for a Blazor Web App, or `wwwroot/index.html` for standalone WebAssembly.
+2. **Wrong path directory**: The path is `_content/Syncfusion.Blazor.Toolkit/styles/` (`styles/`, not `themes/`).
+3. **Wrong stylesheet name**: `bootstrap5`, `tailwind`, and `material` files are not in this package. Use `fluent.min.css` or `highcontrast.min.css`.
+4. **Missing `.min` extension**: The filenames are `fluent.min.css` and `highcontrast.min.css`, not `fluent.css`.
 5. **Missing link entirely**: Without the theme, components render unstyled and may be hard to see.
 6. **Individual stylesheet only**: If you link only individual component stylesheets (e.g., just `button.min.css`), components not included will be unstyled. Use `fluent.min.css` for all components unless performance optimization is needed.

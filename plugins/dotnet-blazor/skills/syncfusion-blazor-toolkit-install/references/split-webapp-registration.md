@@ -1,21 +1,25 @@
 # Split Blazor Web App Service Registration
 
-When using a split Blazor Web App, register Toolkit services in every project that actually renders Toolkit components.
+A generated `.Client` project is not a standalone WebAssembly app. The server owns `App.razor`, and the host markup has no `#app` element. Never call `RootComponents.Add<App>("#app")` in `.Client/Program.cs`.
 
-## Current template note
+Default prerendering renders Interactive WebAssembly and Interactive Auto components on the server first. If the server does not have Toolkit services, that first render fails even when `.Client` is registered correctly. Disable prerendering only when the user explicitly asks; otherwise register Toolkit on both hosts.
 
-For `dotnet new blazor -int Auto` and `dotnet new blazor -int WebAssembly`, the generated Server project typically wires interactive server and WebAssembly support in `Program.cs`, while the `.Client` project is the browser-side app. Keep Toolkit registration in whichever project uses Toolkit components.
+`dotnet new blazor -int Auto` and `dotnet new blazor -int WebAssembly` already add interactive server and WebAssembly endpoints on the server. Keep those endpoints. A server-only Interactive Server app should not gain WebAssembly endpoints just to host Toolkit.
 
-## Scenario 1: Only Server uses Toolkit
+## Scenario 1: Interactive Server only
+
+The server does not host Client components, so leave WebAssembly endpoints off. Do not add a `.Client` registration for components that project never renders, and do not add `RootComponents.Add<App>("#app")`.
 
 **Server/Program.cs**:
 ```csharp
+using Syncfusion.Blazor.Toolkit;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddSyncfusionBlazorToolkit();  // Server-side registration
+builder.Services.AddSyncfusionBlazorToolkit();
 
 var app = builder.Build();
 
@@ -23,54 +27,21 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 ```
 
-**Client/Program.cs**:
-```csharp
-var builder = WebAssemblyHostBuilder.CreateDefault(args);
+## Scenario 2: Client components use Toolkit
 
-builder.RootComponents.Add<App>("#app");
-
-// No Toolkit registration needed if Client doesn't use Toolkit
-await builder.Build().RunAsync();
-```
-
-## Scenario 2: Only Client uses Toolkit
+This is not "Client only" while prerendering is on. Keep the generated WebAssembly endpoints, and register Toolkit on the server as well.
 
 **Server/Program.cs**:
 ```csharp
-var builder = WebApplication.CreateBuilder(args);
+using Syncfusion.Blazor.Toolkit;
 
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
-// No Toolkit registration; Server doesn't use it
-
-var app = builder.Build();
-
-app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
-```
-
-**Client/Program.cs**:
-```csharp
-var builder = WebAssemblyHostBuilder.CreateDefault(args);
-
-builder.RootComponents.Add<App>("#app");
-
-builder.Services.AddSyncfusionBlazorToolkit();  // Client-side registration
-
-await builder.Build().RunAsync();
-```
-
-## Scenario 3: Both Server and Client use Toolkit (MOST COMMON)
-
-**Server/Program.cs**:
-```csharp
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     .AddInteractiveWebAssemblyComponents();
 
-builder.Services.AddSyncfusionBlazorToolkit();  // Register here
+builder.Services.AddSyncfusionBlazorToolkit();
 
 var app = builder.Build();
 
@@ -79,48 +50,33 @@ app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode();
 ```
 
-**Client/Program.cs**:
+**.Client/Program.cs**:
 ```csharp
+using Syncfusion.Blazor.Toolkit;
+
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
-builder.RootComponents.Add<App>("#app");
-
-builder.Services.AddSyncfusionBlazorToolkit();  // Also register here
+builder.Services.AddSyncfusionBlazorToolkit();
 
 await builder.Build().RunAsync();
 ```
 
-## Scenario 4: Auto render mode uses Toolkit on both sides
+## Scenario 3: Interactive Auto
 
-If you use `@rendermode InteractiveAuto`, keep Toolkit registration in both Server and Client when both halves render Toolkit components.
+Use the same server and client registration as Scenario 2. Interactive Auto needs both, because the first visit renders on the server and later cached visits render in WebAssembly. Do not add `RootComponents.Add<App>("#app")` to `.Client`.
 
-## Common Mistake: Forgetting Client Registration
+## Common Mistake: Registering only one host
 
-If Toolkit components are used in the Client project but `AddSyncfusionBlazorToolkit()` is only called in Server `Program.cs`, the Client will not have access to Toolkit services and components will fail.
+Calling `AddSyncfusionBlazorToolkit()` only in the server `Program.cs` does not register it for `.Client`. The reverse is also wrong while prerendering is on.
 
-**Symptom**: Components work in Server-hosted components but fail in Client components.
+**Symptom**: Server-hosted components work, but Client components fail on first load or after the WASM runtime takes over.
 
-**Solution**: Ensure both projects have the registration call if both use Toolkit.
+**Fix**: Register Toolkit in every host that renders it, keep the template's WebAssembly endpoints, and never add `RootComponents.Add<App>("#app")` to `.Client`.
 
-## Theme CSS in Split Web App
+## Theme CSS in a Split Web App
 
-Theme CSS should be linked in the shared `App.razor` host file so both Server and Client components can use it:
+Link the stylesheet in `Components/App.razor` so both Server and Client components can use it. Fluent is the default; `highcontrast.min.css` is also valid.
 
 ```razor
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <base href="/" />
-    <link href="_content/Syncfusion.Blazor.Toolkit/styles/fluent.min.css" rel="stylesheet" />
-    <link rel="stylesheet" href="app.css" />
-</head>
-<body>
-    <Routes />
-    <script src="_framework/blazor.web.js"></script>
-</body>
-</html>
+<link href="_content/Syncfusion.Blazor.Toolkit/styles/fluent.min.css" rel="stylesheet" />
 ```
-
-This ensures the theme is available to both Server and Client components.

@@ -25,13 +25,13 @@ Blazor supports multiple render modes. Toolkit components need an interactive mo
 
 ## Interactive Server Rendering
 
-**When to use**: Interactive components hosted on a Blazor Server app or on the Server side of a Blazor Web App.
+**When to use**: Interactive components on a Blazor Web App configured for Interactive Server, or a page that opts into `@rendermode InteractiveServer`.
 
-**Characteristic**: User interactions are sent to the server, processed, and updates stream back to the client in real time.
+**Characteristic**: User interactions are sent to the server, processed, and updates stream back to the client.
 
-**Toolkit requirement**: Fully supported; all event handlers and state changes work.
+**Toolkit requirement**: Fully supported. Register Toolkit in the server `Program.cs`.
 
-**Example**:
+**Example** (only when the page does not already inherit an interactive mode):
 ```razor
 @page "/counter"
 @rendermode InteractiveServer
@@ -45,33 +45,33 @@ Blazor supports multiple render modes. Toolkit components need an interactive mo
 }
 ```
 
-**Current template setup**:
+**Server-only template setup**. Do not add WebAssembly services here; a server-only project may not reference `Microsoft.AspNetCore.Components.WebAssembly.Server`.
+
 ```csharp
-// Program.cs
+using Syncfusion.Blazor.Toolkit;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents()
-    .AddInteractiveWebAssemblyComponents();
+    .AddInteractiveServerComponents();
 
 builder.Services.AddSyncfusionBlazorToolkit();
 
 var app = builder.Build();
 
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode()
-    .AddInteractiveWebAssemblyRenderMode();
+    .AddInteractiveServerRenderMode();
 ```
 
 ## Interactive WebAssembly Rendering
 
-**When to use**: Interactive components running as WebAssembly on the client (standalone Blazor WebAssembly or the Client project in a Blazor Web App).
+**When to use**: A Blazor Web App page or component that should run in the browser after download (`dotnet new blazor -int WebAssembly`, or a component in the `.Client` project).
 
-**Characteristic**: .NET runs in the browser; no server round-trip for user interactions after load.
+**Characteristic**: .NET runs in the browser; no server round-trip for user interactions after load. Default prerendering still executes the component on the server first, so the server also needs Toolkit services.
 
-**Toolkit requirement**: Fully supported; all event handlers and state changes work.
+**Do not use `@rendermode` in a standalone Blazor WebAssembly app.** That app is already interactive. The directive has no effect there and can look like a fix for a different problem.
 
-**Example**:
+**Blazor Web App example** (only when the page does not already inherit an interactive mode):
 ```razor
 @page "/counter"
 @rendermode InteractiveWebAssembly
@@ -85,12 +85,25 @@ app.MapRazorComponents<App>()
 }
 ```
 
-**Setup**:
+**`.Client/Program.cs`** (not a standalone app; no root component):
 ```csharp
-// Program.cs (standalone WASM or .Client project)
+using Syncfusion.Blazor.Toolkit;
+
+var builder = WebAssemblyHostBuilder.CreateDefault(args);
+
+builder.Services.AddSyncfusionBlazorToolkit();
+
+await builder.Build().RunAsync();
+```
+
+**Standalone WebAssembly `Program.cs`**:
+```csharp
+using Syncfusion.Blazor.Toolkit;
+
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
 builder.RootComponents.Add<App>("#app");
+builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Services.AddSyncfusionBlazorToolkit();
 
@@ -99,11 +112,11 @@ await builder.Build().RunAsync();
 
 ## Interactive Auto Rendering
 
-**When to use**: Blazor Web App projects that should start on the server and then continue running in the browser when available.
+**When to use**: A Blazor Web App that should use server interactivity on the first visit, then WebAssembly on later visits once the runtime bundle is downloaded and cached.
 
-**Characteristic**: The app can begin with server interactivity and transition to client-side WebAssembly for later interactions.
+**Characteristic**: Auto chooses the runtime per visit. A component that is already running does not switch from server to WebAssembly mid-circuit. See the render-mode documentation: https://learn.microsoft.com/aspnet/core/blazor/components/render-modes
 
-**Toolkit requirement**: Fully supported; all event handlers and state changes work.
+**Toolkit requirement**: Fully supported. Register Toolkit in both the server and `.Client` projects, because the first visit renders on the server and later visits render in WebAssembly.
 
 **Example**:
 ```razor
@@ -119,9 +132,10 @@ await builder.Build().RunAsync();
 }
 ```
 
-**Setup**:
+**Server setup** (keep both interactive endpoints; this is the combined hosting case, not the server-only case):
 ```csharp
-// Program.cs
+using Syncfusion.Blazor.Toolkit;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents()
@@ -137,25 +151,29 @@ app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode();
 ```
 
+Also call `AddSyncfusionBlazorToolkit()` in `.Client/Program.cs`. Do not add `RootComponents.Add<App>("#app")` there.
+
 ## Decision Tree
 
 1. **Does the component need to respond to user clicks or changes?**
-   - **No** → Static SSR is fine (no render mode needed)
-   - **Yes** → Go to question 2
+   - **No** → Static rendering is enough. Stop.
+   - **Yes** → Go to question 2.
 
-2. **Should processing happen on the server, in the browser, or both?**
-   - **Server** → Use `@rendermode InteractiveServer`
-   - **Browser (WASM)** → Use `@rendermode InteractiveWebAssembly`
-   - **Start on server, continue in browser** → Use `@rendermode InteractiveAuto`
+2. **Which app is this?**
+   - **Legacy Blazor Server or standalone WebAssembly** → Already interactive. Do not add `@rendermode`.
+   - **Blazor Web App** → Go to question 3.
 
-3. **Toolkit component won't respond?**
-   - **Symptom**: Click or input events don't work
-   - **Solution**: Ensure the component or page has an interactive render mode applied
+3. **Does `Routes` in `App.razor` already apply an interactive mode?**
+   - **Yes** → Inherit it. A child cannot switch to a different interactive mode.
+   - **No** → Apply one mode on the page or component:
+     - Server processing → `@rendermode InteractiveServer`
+     - Browser processing → `@rendermode InteractiveWebAssembly`
+     - Server on the first visit, WebAssembly on later cached visits → `@rendermode InteractiveAuto`
 
 ## Common Mistakes
 
-1. **Forgetting `@rendermode`**: Interactive components in a static page won't respond to clicks.
-2. **Using static SSR for interactive components**: Toolkit components require interactive mode for event handling.
-3. **Mismatched render mode**: Trying to use `InteractiveServer` in a WebAssembly-only app won't work.
-4. **Ignoring `InteractiveAuto`**: Auto is a first-class render mode for current Blazor Web App templates.
-5. **Assuming automatic**: Render mode doesn't "just work"; it must be explicitly declared.
+1. **Adding `@rendermode` under an inherited mode**: If `Routes` already has an interactive mode, a child that names a different one fails. Match the parent or move the component.
+2. **Treating standalone WebAssembly as static SSR**: It has no static SSR and no render-mode directive.
+3. **Adding WebAssembly endpoints to a server-only project**: That project may not reference the WebAssembly server package.
+4. **Describing Auto as a live runtime switch**: The first visit uses the server; later visits use the cached WebAssembly bundle. A running component does not migrate.
+5. **Assuming a missing directive means the component is static**: Check the inherited mode first.

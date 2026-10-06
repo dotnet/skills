@@ -20,14 +20,14 @@
    ```
 3. If found, verify:
    - Path is **exactly** `_content/Syncfusion.Blazor.Toolkit/styles/` (not `themes/`)
-   - Filename is **exactly** `fluent.min.css` (Toolkit only supports Fluent; no Bootstrap, Tailwind, or Material)
+   - Filename is `fluent.min.css` or `highcontrast.min.css`. Bootstrap, Tailwind, and Material files are not in this package.
    - No typos; `.min` extension is required
 4. If missing, add it to the `<head>` section
 5. Open browser DevTools (F12) Network tab and verify the CSS file loads with status 200 (not 404)
 
 **Common mistakes**:
 - Wrong path: `_content/Syncfusion.Blazor.Toolkit/themes/fluent.min.css` (should be `styles/`)
-- Wrong theme name: `bootstrap5.min.css`, `tailwind.min.css`, `material.min.css` (must be `fluent.min.css`)
+- Wrong stylesheet name: `bootstrap5.min.css`, `tailwind.min.css`, `material.min.css` (use `fluent.min.css` or `highcontrast.min.css`)
 - Missing `.min` extension: `fluent.css` (should be `.min.css`)
 - Linked in wrong host file: use `App.razor` for Blazor Web App/Server or `wwwroot/index.html` for WebAssembly
 - Linked in a component file instead of the host file (always place it in the host file's `<head>` section for best results)
@@ -58,10 +58,12 @@
 
 **Fix**:
 ```csharp
+using Syncfusion.Blazor.Toolkit;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents();
-builder.Services.AddSyncfusionBlazorToolkit();  // <-- Add this
+builder.Services.AddSyncfusionBlazorToolkit();
 
 var app = builder.Build();
 ```
@@ -75,18 +77,18 @@ var app = builder.Build();
 - Clicking buttons or entering text in forms has no effect
 - No errors in the browser console
 
-**Root cause**: Component is rendered in static SSR mode; interactive render mode is not applied.
+**Root cause**: The component is static, or an interactive child is trying to switch modes. A missing `@rendermode` does not by itself mean the component is static.
 
 **Diagnosis**:
-1. Check the component or page definition:
-   - Look for `@rendermode InteractiveServer` or `@rendermode InteractiveWebAssembly`
-   - If missing, the component is static
-2. Confirm the interaction type (Server or WebAssembly)
+1. Identify the app. Legacy Blazor Server and standalone WebAssembly are already interactive; do not add `@rendermode`.
+2. In a Blazor Web App, open `Components/App.razor` and check `Routes`. If `Routes` already has an interactive mode, the page inherits it. A child cannot switch to a different interactive mode.
+3. If neither the page nor `Routes` has an interactive mode, the page is static SSR.
+4. If a mode is already present and clicks still do nothing, check the circuit, the browser console, and failed `_content` script requests before editing the page.
 
-**Fix**:
+**Fix** (only when no interactive mode is inherited):
 ```razor
 @page "/mypage"
-@* Add this line *@
+@* Add one mode that matches the app's configured interactivity *@
 @rendermode InteractiveServer
 
 <SfButton @onclick="OnClick">Click me</SfButton>
@@ -162,14 +164,8 @@ Or for a Blazor Web App using WebAssembly interactivity (`dotnet new blazor -int
 3. If only one has it, the other is missing registration
 
 **Fix**:
-- **Server/Program.cs**:
-  ```csharp
-  builder.Services.AddSyncfusionBlazorToolkit();
-  ```
-- **Client/Program.cs**:
-  ```csharp
-  builder.Services.AddSyncfusionBlazorToolkit();
-  ```
+- Add `using Syncfusion.Blazor.Toolkit;` and `builder.Services.AddSyncfusionBlazorToolkit();` to `.Client/Program.cs`. Do not add `RootComponents.Add<App>("#app")`.
+- Also register Toolkit in the server `Program.cs` while prerendering is enabled. Keep the generated `AddInteractiveWebAssemblyComponents()` and `AddInteractiveWebAssemblyRenderMode()` calls.
 
 Also ensure both projects have the NuGet package reference in their `.csproj` files and both have namespace imports in their `_Imports.razor` files.
 
@@ -182,30 +178,16 @@ Also ensure both projects have the NuGet package reference in their `.csproj` fi
 - Code references license keys or methods like `AddSyncfusionLicense()`
 - Components work but you're on a commercial license
 
-**Root cause**: The commercial Syncfusion.Blazor package was installed instead of the open-source Toolkit.
+**Root cause**: The commercial package was installed for a request that asked for the open-source Toolkit. Confirm that before deleting anything.
 
 **Diagnosis**:
-1. Check the `.csproj` file:
-   ```xml
-   <!-- Wrong -->
-   <PackageReference Include="Syncfusion.Blazor" Version="..." />
-   
-   <!-- Correct -->
-   <PackageReference Include="Syncfusion.Blazor.Toolkit" Version="..." />
-   ```
-2. Check `Program.cs` for license-key setup.
+1. Check the `.csproj` and search the app for `Syncfusion.Blazor` component usage.
+2. License registration, when present, uses `Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense(...)`. There is no `AddSyncfusionLicense()` API.
 
 **Fix**:
-1. Uninstall the commercial package:
-   ```bash
-   dotnet remove package Syncfusion.Blazor
-   ```
-2. Install the Toolkit:
-   ```bash
-   dotnet add package Syncfusion.Blazor.Toolkit
-   ```
-3. Remove any license-key registration code.
-4. Add `AddSyncfusionBlazorToolkit()` instead.
+1. If Toolkit is replacing every commercial component, remove the unused commercial package and its `RegisterLicense` call, then add `Syncfusion.Blazor.Toolkit`.
+2. If any page still uses a commercial component, leave that package and its license registration alone. Add `Syncfusion.Blazor.Toolkit` beside it.
+3. Do not invent a license key for the Toolkit package. Toolkit does not require one.
 
 ---
 
@@ -283,3 +265,7 @@ Before troubleshooting further, verify:
 7. ✓ No license-key registration code is present
 8. ✓ Build completes without errors: `dotnet build`
 9. ✓ Browser console shows no 404 or JavaScript errors
+Stylesheet link is `fluent.min.css` or `highcontrast.min.css` in the host file (`Components/App.razor`, `_Host.cshtml`, or `wwwroot/index.html`)
+5. ✓ Path uses `styles/`, not `themes/`, and keeps the `.min` extension
+6. ✓ Blazor Web App interactivity is inherited from `Routes` or declared once. Do not add `@rendermode` to legacy Server or standalone WebAssembly
+7. ✓ Commercial packages and `SyncfusionLicenseProvider.RegisterLicense(...)` remain only where commercial components are still used

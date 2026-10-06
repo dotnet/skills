@@ -18,8 +18,9 @@
 - **Package name(s)**: `Syncfusion.Blazor`, `Syncfusion.Blazor.Core`, `Syncfusion.Blazor.Buttons`, `Syncfusion.Blazor.Calendars`, `Syncfusion.Blazor.Charts`, `Syncfusion.Blazor.Grids`, `Syncfusion.Blazor.Inputs`, etc.
 - **License**: Commercial (requires valid license key for production)
 - **Scope**: Full-featured Syncfusion component library
-- **Requires**: License-key registration via `AddSyncfusionLicense()` (or similar)
+- **Requires**: License registration through `Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense(...)`. There is no `AddSyncfusionLicense()` API.
 - **Not the same as Toolkit**: Commercial packages are separate products with different APIs and licensing
+- **Do not remove them blindly**: If any page still uses a commercial component, keep that package and its `RegisterLicense` call. Remove them only when Toolkit is replacing every commercial component in the app.
 
 ## Install the Toolkit (and ONLY the Toolkit for this skill)
 
