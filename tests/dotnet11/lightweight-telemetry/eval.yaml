@@ -13,6 +13,10 @@ stimuli:
       is resource constrained. Show me a minimal `net11.0` program that reports a
       count and a duration distribution and prints one structured line per
       measurement.
+    tags:
+      capability: structured-metrics-emission
+      risk: external-sdk-dependency
+      journey: add-console-tool-metrics
     graders:
       - type: exit-success
       - type: output-contains
@@ -37,6 +41,10 @@ stimuli:
       as a metric, and I want the timing to be testable — I don't want DateTime.Now
       scattered through the code. Show a small `net11.0` snippet that takes the
       start timestamp, computes the elapsed milliseconds, and records it.
+    tags:
+      capability: testable-elapsed-time
+      risk: untestable-wall-clock
+      journey: record-operation-duration
     graders:
       - type: exit-success
       - type: output-matches
@@ -58,6 +66,10 @@ stimuli:
       values with an external system later. Give me a `net11.0` example of setting
       up the metric source, and tell me what I must be careful about so my
       dashboards and queries don't break when I ship the next version.
+    tags:
+      capability: stable-metric-identity
+      risk: dashboard-query-breakage
+      journey: define-stable-metrics
     graders:
       - type: exit-success
       - type: output-matches
@@ -79,6 +91,10 @@ stimuli:
       API, but nothing consumes them so I see no output. Without adding any NuGet
       package, how do I subscribe to my own measurements in the same process and
       write each reading to the console as a JSON line? Show a `net11.0` example.
+    tags:
+      capability: in-process-metric-consumption
+      risk: silent-unobserved-measurements
+      journey: consume-local-metrics
     graders:
       - type: exit-success
       - type: output-matches
@@ -103,6 +119,10 @@ stimuli:
       queued as telemetry. A running total is wrong here — I need whatever the
       value is right now. Show me a `net11.0` snippet that picks the right
       instrument for that and publishes the value.
+    tags:
+      capability: current-value-instrument-selection
+      risk: cumulative-value-misrepresentation
+      journey: report-current-queue-depth
     graders:
       - type: exit-success
       - type: output-matches
@@ -121,6 +141,10 @@ stimuli:
       bytes it has processed since start, so an external system can compute a rate
       from it. Show me a `net11.0` snippet with the right instrument for that and
       explain why it is the right one.
+    tags:
+      capability: monotonic-total-instrument-selection
+      risk: incorrect-rate-semantics
+      journey: report-processed-byte-total
     graders:
       - type: exit-success
       - type: output-matches
@@ -139,6 +163,10 @@ stimuli:
       the durations land in one bucket and I cannot tell "restore" from "compile".
       I don't want a separate metric per step name. Show me a `net11.0` example
       that fixes this.
+    tags:
+      capability: bounded-metric-dimensions
+      risk: metric-cardinality-explosion
+      journey: separate-build-step-durations
     graders:
       - type: exit-success
       - type: output-matches
@@ -157,6 +185,10 @@ stimuli:
       tell whether a duration value is seconds or milliseconds, or what a metric
       means. Show me a `net11.0` snippet that fixes that at the point where the
       metrics are defined.
+    tags:
+      capability: metric-unit-description-metadata
+      risk: ambiguous-measurement-semantics
+      journey: define-interpretable-metrics
     graders:
       - type: exit-success
       - type: output-matches
@@ -175,6 +207,10 @@ stimuli:
       is collecting them and I don't want to pay for building tag arrays and
       formatting values on every iteration. How do I keep that path cheap? Show a
       `net11.0` snippet.
+    tags:
+      capability: disabled-instrument-fast-path
+      risk: hot-path-allocation-overhead
+      journey: optimize-unobserved-measurements
     graders:
       - type: exit-success
       - type: output-matches
@@ -193,6 +229,10 @@ stimuli:
       sometimes see no output at all for the last operations. Show me how to
       structure a `net11.0` program so the recorded values are all accounted for
       before it terminates.
+    tags:
+      capability: short-lived-listener-lifetime
+      risk: dropped-final-measurements
+      journey: flush-short-lived-tool-metrics
     graders:
       - type: exit-success
       - type: output-matches
@@ -210,6 +250,10 @@ stimuli:
       My .NET 11 service needs distributed tracing across several microservices,
       with spans, context propagation, and a Jaeger backend so I can follow one
       request end to end. How should I set that up?
+    tags:
+      capability: tracing-boundary
+      risk: incorrect-skill-activation
+      journey: route-distributed-tracing
     expect_activation: false
     graders:
       - type: output-matches
@@ -227,6 +271,10 @@ stimuli:
       I want my .NET 11 app's telemetry to land in Application Insights so my team
       gets hosted dashboards, retention, and alerting without running anything
       ourselves. What should I use?
+    tags:
+      capability: cloud-ingestion-boundary
+      risk: incorrect-skill-activation
+      journey: route-hosted-telemetry
     expect_activation: false
     graders:
       - type: output-matches
@@ -244,6 +292,10 @@ stimuli:
       I just want my .NET 11 app to ship its existing info/warn/error log lines to
       a central place like Seq or Elasticsearch so I can search them. How do I do
       that?
+    tags:
+      capability: log-shipping-boundary
+      risk: incorrect-skill-activation
+      journey: route-centralized-logging
     expect_activation: false
     graders:
       - type: output-matches
