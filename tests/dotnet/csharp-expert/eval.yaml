@@ -139,6 +139,7 @@ stimuli:
         - >-
           node -e "const fs=require('fs'); const log=fs.statSync('failure.binlog');
           if (!log.isFile() || log.size === 0) throw new Error('Expected failure.binlog');
+          if (!fs.readFileSync('capture.log','utf8').includes('SCHEMA1001')) throw new Error('Expected build failure SCHEMA1001');
           fs.unlinkSync('Build.proj'); fs.unlinkSync('capture.log');"
     graders:
       - type: output-contains
@@ -170,7 +171,7 @@ stimuli:
         - src: fixtures/nunit-migration
           dest: .
     constraints:
-      reject_tools: [edit, create]
+      reject_tools: [bash, edit, create]
     graders:
       - type: output-matches
         config:
@@ -179,6 +180,34 @@ stimuli:
         config:
           path: "**/*.cs"
           value: NUnit.Framework
+      - type: file-contains
+        config:
+          path: CalculatorTests.cs
+          value: '[SetUp]'
+      - type: file-contains
+        config:
+          path: CalculatorTests.cs
+          value: '[TearDown]'
+      - type: file-contains
+        config:
+          path: CalculatorTests.cs
+          value: '[TestCase(2, 3, 6)]'
+      - type: file-contains
+        config:
+          path: CalculatorTests.cs
+          value: '[TestCase(-1, 1, 1)]'
+      - type: file-contains
+        config:
+          path: TestProject.csproj
+          value: '<PackageReference Include="NUnit" Version="4.6.1" />'
+      - type: file-contains
+        config:
+          path: TestProject.csproj
+          value: '<PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />'
+      - type: file-contains
+        config:
+          path: global.json
+          value: '"version": "8.0.100"'
       - type: exit-success
       - type: prompt
     rubric:
@@ -281,6 +310,9 @@ stimuli:
       involved. Tell me whether I need an additional specialist and show the minimal ownership fix.
       Preserve the helper's existing return behavior. There is no repository to edit.
     graders:
+      - type: output-matches
+        config:
+          pattern: leaveOpen\s*:\s*true
       - type: output-not-matches
         config:
           pattern: (Step 6|language fallback|routing contract)
@@ -361,7 +393,7 @@ stimuli:
         - src: fixtures/nunit-migration
           dest: .
     constraints:
-      reject_tools: [edit, create]
+      reject_tools: [bash, edit, create]
     graders:
       - type: output-matches
         config:
@@ -373,6 +405,34 @@ stimuli:
         config:
           path: "**/*.cs"
           value: NUnit.Framework
+      - type: file-contains
+        config:
+          path: CalculatorTests.cs
+          value: '[SetUp]'
+      - type: file-contains
+        config:
+          path: CalculatorTests.cs
+          value: '[TearDown]'
+      - type: file-contains
+        config:
+          path: CalculatorTests.cs
+          value: '[TestCase(2, 3, 6)]'
+      - type: file-contains
+        config:
+          path: CalculatorTests.cs
+          value: '[TestCase(-1, 1, 1)]'
+      - type: file-contains
+        config:
+          path: TestProject.csproj
+          value: '<PackageReference Include="NUnit" Version="4.6.1" />'
+      - type: file-contains
+        config:
+          path: TestProject.csproj
+          value: '<PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />'
+      - type: file-contains
+        config:
+          path: global.json
+          value: '"version": "8.0.100"'
       - type: exit-success
       - type: prompt
     rubric:
@@ -422,10 +482,13 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: /skills
+          pattern: (restart|reload)[\s\S]*/skills
+      - type: output-matches
+        config:
+          pattern: (maui-data-binding|MAUI data.binding)
       - type: output-not-matches
         config:
-          pattern: (/plugin (marketplace add|install|update)|copilot plugin|/skills reload)
+          pattern: (/plugin (marketplace add|install|update)|copilot plugin|/skills reload|reinstall|update (the )?plugin|plugin update)
       - type: exit-success
       - type: prompt
     rubric:

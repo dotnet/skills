@@ -74,6 +74,26 @@ stimuli:
         config:
           path: StatusViewModel.cs
           value: 'public string Status { get; set; }'
+      - type: file-contains
+        config:
+          path: MainPage.xaml
+          value: 'Text="{Binding Status}"'
+      - type: file-contains
+        config:
+          path: MainPage.xaml
+          value: 'Clicked="OnAdvanceClicked"'
+      - type: file-contains
+        config:
+          path: MainPage.xaml.cs
+          value: BindingContext = ViewModel
+      - type: file-contains
+        config:
+          path: MainPage.xaml.cs
+          value: ViewModel.Status = "Ready"
+      - type: file-contains
+        config:
+          path: App.csproj
+          value: <UseMaui>true</UseMaui>
       - type: exit-success
       - type: prompt
     rubric:
