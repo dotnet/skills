@@ -111,7 +111,7 @@ static void WriteReading(Instrument inst, double value, ReadOnlySpan<KeyValuePai
 }
 
 // Wire a listener BEFORE the first measurement, or the readings are lost.
-using var listener = new MeterListener();
+var listener = new MeterListener();
 listener.InstrumentPublished = (instrument, l) => {
     if (instrument.Meter.Name == meter.Name) l.EnableMeasurementEvents(instrument);
 };
@@ -122,22 +122,35 @@ listener.SetMeasurementEventCallback<double>((inst, value, tags, state) =>
 listener.Start();                                               // measurements before this are dropped
 
 var clock = TimeProvider.System;                                // injectable, testable clock
-var start = clock.GetTimestamp();
+var timing = duration.Enabled;                                  // read once: it can flip at runtime
+var start = timing ? clock.GetTimestamp() : default;            // the idle path pays no clock read
 
 // ... work ...
 
-if (duration.Enabled)                                           // skip tag building when idle
+if (timing)                                                     // skip tag building when idle
     duration.Record(clock.GetElapsedTime(start).TotalMilliseconds,
                     new TagList { { "step", "compile" } });
 runs.Add(1);
 
-listener.RecordObservableInstruments();                          // pull observables before exit
+// Lifecycle, in order: setup + callbacks (above), final poll, disposal.
+listener.RecordObservableInstruments();                          // observable instruments ONLY
+listener.Dispose();
+meter.Dispose();
 ```
 
 `InstrumentPublished` + `EnableMeasurementEvents` is what opts each instrument in;
 without it the callback is never invoked and the process prints nothing (measured,
 not assumed). `MeterListener` has no `Flush` — the pull method is
-`RecordObservableInstruments()`, and it only matters for observable instruments.
+`RecordObservableInstruments()`, and it matters for **observable instruments only**:
+it does **not** flush counters, histograms, or synchronous gauges. Those are
+delivered through the callbacks as they are recorded, so a process that records them
+and then exits has already emitted every reading — but an observable gauge emits
+nothing at all unless the final poll happens.
+
+Note the hot path: when the only reason for timing is telemetry, the clock read
+belongs behind the same `Instrument.Enabled` check as the tag building. Otherwise the
+"idle" path still pays the timing cost the guard was meant to avoid. Read `Enabled`
+into a local once so the start stamp and the record decision cannot disagree.
 
 Substitute a test `TimeProvider` (e.g. `Microsoft.Extensions.Time.Testing.FakeTimeProvider`)
 to assert on recorded durations without sleeping.
