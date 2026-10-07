@@ -75,6 +75,20 @@ started a filesystem-root search, then replaced its useful answer with an
 irrelevant background-completion message. Reference lookup is now explicitly
 bounded to the skill/workspace; unavailable guidance must remain an evidence gap,
 not permission to inventory the machine.
+In the sixth run, Sonnet still searched the filesystem root despite the loaded
+scope rule. Both families also encountered a reader discrepancy: `view` rejected
+the reported reference path while a shell reader could read that same path.
+The incomplete-report branch now stops before unnecessary vendor-reference
+lookup; this does not claim to fix the underlying reader. Luna's isolated
+missing-SDK answer did not load the skill and relaxed the pin, while its
+plugin-context answer loaded it and preserved the pin. Advice-only pinned-SDK
+diagnosis is now explicit in the routing description. The eval retains its
+existing tasks and scope requirements; no additional votes are introduced.
+The targeted follow-up also exposed a lexical false negative for "From the app's
+directory": every semantic criterion passed, but the context regex accepted only
+project/repository wording. The production regex now accepts app/application
+directories and checkouts, with replay cases for both equivalents and missing
+context mutations. Historical preference votes are not rewritten.
 The incomplete-Java case uses semantic judging rather than requiring a particular
 adjective before "error"; an actual correct request for the first actionable Java
 error failed that vocabulary proxy. Its judge still checks evidence limits,

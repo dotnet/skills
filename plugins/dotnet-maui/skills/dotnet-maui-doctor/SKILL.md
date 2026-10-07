@@ -1,7 +1,8 @@
 ---
 name: dotnet-maui-doctor
 description: >-
-  Use ONLY for .NET MAUI toolchain provisioning, build-tool failures or scoped
+  Use ONLY for .NET MAUI SDK/workload selection failures, including advice-only
+  CI repair that preserves global.json pins, toolchain provisioning, scoped
   environment verification, or workload dependency discovery/automation. Do not
   load for an app that builds and launches but
   throws in a button handler or ViewModel; debug that application code instead.
@@ -11,7 +12,7 @@ description: >-
   MAUI setup plans, offline CI workload dependency/manifest scripts, supplied
   environment evidence review and scoped health checks after updates on
   macOS, Windows, or Linux. Respect project SDK
-  pins, target frameworks, and diagnosis-only requests. Not for non-MAUI projects,
+  pins and target frameworks. Not for non-MAUI projects,
   Xamarin.Forms, UI implementation, or app-store signing/publishing.
 license: MIT
 ---
@@ -45,6 +46,12 @@ Diagnose the requested host and target, not every possible MAUI dependency.
 1. Identify the request, host, project, target framework, and first actionable
    error. Inspect the project and applicable `global.json` (including ancestors),
    imported build settings and CI configuration only as needed.
+   For an unexplained build failure with no saved error or diagnostic report,
+   stop before platform/vendor reference lookup: state that the cause is
+   unconfirmed and request the first actionable error and build-selected
+   toolchain evidence. Reference recommendations cannot establish what failed.
+   This stop does not apply to a requested setup plan or reference comparison
+   that is not diagnosing a failed build.
 2. From the project directory, inspect `dotnet --version`, `dotnet --info`, and
    `dotnet workload list` when relevant. Check SDK `version`, `rollForward`,
    `allowPrerelease`, and `workloadVersion`; installed SDKs alone do not establish

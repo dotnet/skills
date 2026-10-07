@@ -30,14 +30,16 @@ alone do not prove cost neutrality. Follow the repository's
 and dormancy requirements.
 
 No project-default set is currently supported by the measured quality and cost
-evidence. In [evaluation 37652729093](https://github.com/dotnet/skills/actions/runs/37652729093),
-Shell navigation and theming passed preference gates on both model families, but
-every suite's matched plugin-context SDK execution counters increased: 24.1% to
-86.7% for Claude Sonnet 5 and 7.7% to 44.0% for GPT-5.6 Luna. These counters include
-dormancy tasks and exclude judges; they are not invoices or a task-weighted
-cost-neutrality proof. Aggregate completion passes also do not guarantee every
-generated sample is correct. Keep guidance task-specific and on-demand pending
-fresh evidence; no default installer policy is changed by this documentation.
+evidence. In [evaluation 37663692784](https://github.com/dotnet/skills/actions/runs/37663692784),
+lifecycle and safe-area passed preference gates on both model families. Every
+suite's matched plugin-context SDK execution counters increased for Claude
+Sonnet 5 (15.3% to 75.2%). GPT-5.6 Luna's safe-area counters decreased 2.0%;
+the other suites increased 17.3% to 47.3%. Earlier preference passes and cost
+reductions did not consistently persist. These counters include dormancy tasks
+and exclude judges; they are not invoices or a task-weighted cost-neutrality
+proof. Aggregate completion passes also do not guarantee every generated sample
+is correct. Keep guidance task-specific and on-demand pending fresh evidence;
+no default installer policy is changed by this documentation.
 
 When models or supported SDKs change, repeat the comparison before retaining a
 default. Classify fixture, harness, power, routing and content failures separately.

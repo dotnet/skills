@@ -58,6 +58,21 @@ def check_output_variants(document):
             "then update workloads.",
         ),
         (
+            "Preserve project selection after a machine SDK upgrade", 1,
+            r"(?i)(project|repo).*(directory|folder|root)|\b(?:inside|within)\s+(?:the\s+)?(?:repo(?:sitory)?|project)\b|\bcd(?:`|\s)",
+            "Keep global.json unchanged. From the app\u2019s directory, capture "
+            "dotnet --version, dotnet --info and dotnet workload list. Confirm "
+            "the exact pinned SDK and inspect the first build error.",
+            "Read global.json and inventory the machine, then update workloads.",
+        ),
+        (
+            "Preserve project selection after a machine SDK upgrade", 1,
+            r"(?i)(project|repo).*(directory|folder|root)|\b(?:inside|within)\s+(?:the\s+)?(?:repo(?:sitory)?|project)\b|\bcd(?:`|\s)",
+            "From the application's checkout, check dotnet --version and "
+            "global.json before diagnosing the build. Keep the pins unchanged.",
+            "Read global.json and inventory outside the checkout, then upgrade.",
+        ),
+        (
             "Apple setup chooses Xcode for the selected workload", 0,
             r"(?i)developer\.apple\.com|Apple Developer Downloads",
             "Get the supported Xcode version from Apple\u2019s **Developer Downloads**; "

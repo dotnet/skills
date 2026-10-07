@@ -16,7 +16,7 @@ stimuli:
       - type: output-matches
         config: {pattern: '(?i)global\.json'}
       - type: output-matches
-        config: {pattern: '(?i)(project|repo).*(directory|folder|root)|\b(?:inside|within)\s+(?:the\s+)?(?:repo(?:sitory)?|project)\b|\bcd(?:`|\s)'}
+        config: {pattern: '(?i)\b(project|repo(?:sitory)?|app(?:lication)?)\b.*(directory|folder|root|checkout|working[ -]tree)|\b(?:inside|within)\s+(?:the\s+)?(?:repo(?:sitory)?|project)\b|\bcd(?:`|\s)'}
       - type: prompt
     rubric:
       - Explains that the SDK observed outside the repository does not establish the project's selected SDK.
