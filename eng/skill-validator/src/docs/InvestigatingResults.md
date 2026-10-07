@@ -214,6 +214,11 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > Normal shell pre-tool hooks defer to the SDK's typed shell permission request,
 > where path and URL metadata is available for those checks. Generic hook
 > permission requests remain unsupported and are rejected.
+> The authenticated SDK routing regression test is opt-in because it invokes
+> a real model. Run it with
+> `SKILL_VALIDATOR_PERMISSION_E2E_MODEL=<model> dotnet test eng/skill-validator/tests/SkillValidator.Tests.csproj --filter "FullyQualifiedName~ShellPermissionRuntimeIntegrationTests"`.
+> It gates the real permission callback before approving an allowed shell call
+> and verifies that an outside-workspace request is rejected without execution.
 > The native evaluator currently accepts only the repository's shipped
 > `dotnet dnx Microsoft.AITools.BinlogMcp --yes --prerelease` stdio launch
 > shape as input, then rewrites it to package version 3.0.2 with a

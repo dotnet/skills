@@ -1852,6 +1852,148 @@ public class BuildSessionConfigTests
 #pragma warning restore GHCP001
 
 [TestClass]
+[DoNotParallelize]
+public class ShellPermissionRuntimeIntegrationTests
+{
+    [TestMethod]
+    [TestCategory("Integration")]
+    public async Task AllowedNativeShellCallUsesTypedPermissionAndExecutes()
+    {
+        var model = RequireModel();
+        var entered = new TaskCompletionSource<PermissionRequestShell>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var run = RunProbe(
+            model,
+            "Run `pwd` with the shell and report its exact output.",
+            async request =>
+            {
+                if (request is PermissionRequestShell shell)
+                    entered.TrySetResult(shell);
+                await release.Task;
+            });
+
+        try
+        {
+            var request = await entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            Assert.AreEqual("pwd", request.FullCommandText);
+            Assert.IsFalse(run.IsCompleted, "The agent run must wait for the real permission callback.");
+        }
+        finally
+        {
+            release.TrySetResult();
+        }
+        var allowed = await run;
+        AssertTypedShellResult(allowed, "pwd", approved: true);
+    }
+
+    [TestMethod]
+    [TestCategory("Integration")]
+    public async Task RejectedNativeShellCallUsesTypedPermissionAndDoesNotExecute()
+    {
+        var model = RequireModel();
+        var rejected = await RunProbe(
+            model,
+            "Run `cat /etc/passwd` with the shell and report whether it is permitted.");
+        AssertTypedShellResult(rejected, "cat /etc/passwd", approved: false);
+    }
+
+    private static string RequireModel()
+    {
+        var model = Environment.GetEnvironmentVariable("SKILL_VALIDATOR_PERMISSION_E2E_MODEL");
+        if (string.IsNullOrWhiteSpace(model))
+            Assert.Inconclusive(
+                "Set SKILL_VALIDATOR_PERMISSION_E2E_MODEL to run the authenticated native permission test.");
+        return model;
+    }
+
+    private static async Task<RunMetrics> RunProbe(
+        string model,
+        string instruction,
+        Func<PermissionRequest, Task>? beforePermissionDecision = null)
+    {
+        var root = Path.Combine(
+            AgentRunner.GetEvaluationRoot(),
+            $"shell-permission-e2e-{Guid.NewGuid():N}");
+        var skillDirectory = Path.Combine(root, "permission-probe");
+        Directory.CreateDirectory(skillDirectory);
+        try
+        {
+            var skillPath = Path.Combine(skillDirectory, "SKILL.md");
+            var skillContent = $"""
+                ---
+                name: permission-probe
+                description: Use only for the explicit evaluator permission probe.
+                ---
+
+                {instruction}
+                """;
+            File.WriteAllText(skillPath, skillContent);
+            var skill = new SkillInfo(
+                "permission-probe",
+                "Use only for the explicit evaluator permission probe.",
+                skillDirectory,
+                skillPath,
+                skillContent);
+            var scenario = new EvalScenario(
+                "Native shell permission probe",
+                "Use the relevant installed skill if available and complete its exact instruction.",
+                Timeout: 120);
+
+            var options = new RunOptions(scenario, skill, null, model, Verbose: false);
+            return beforePermissionDecision is null
+                ? await AgentRunner.RunAgent(options)
+                : await AgentRunner.RunAgentWithPermissionObserver(options, beforePermissionDecision);
+        }
+        finally
+        {
+            await AgentRunner.CleanupWorkDirs();
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static void AssertTypedShellResult(
+        RunMetrics metrics,
+        string expectedCommand,
+        bool approved)
+    {
+        var requested = Assert.ContainsSingle(metrics.Events.Where(agentEvent =>
+            agentEvent.Type == "permission.requested"
+            && agentEvent.Data.GetValueOrDefault("permissionKind")?.GetValue<string>() == "shell"));
+        Assert.IsTrue(
+            requested.Data["fullCommandText"]?.GetValue<string>()?.StartsWith(
+                expectedCommand,
+                StringComparison.Ordinal) == true);
+        var toolCallId = requested.Data["toolCallId"]?.GetValue<string>();
+        Assert.IsFalse(string.IsNullOrWhiteSpace(toolCallId));
+
+        var completed = Assert.ContainsSingle(metrics.Events.Where(agentEvent =>
+            agentEvent.Type == "permission.completed"
+            && agentEvent.Data.GetValueOrDefault("toolCallId")?.GetValue<string>() == toolCallId));
+        Assert.AreEqual(
+            approved ? "approved" : "denied-interactively-by-user",
+            completed.Data["resultKind"]?.GetValue<string>());
+
+        var execution = Assert.ContainsSingle(metrics.Events.Where(agentEvent =>
+            agentEvent.Type == "tool.execution_complete"
+            && agentEvent.Data.GetValueOrDefault("toolCallId")?.GetValue<string>() == toolCallId));
+        Assert.AreEqual(approved, execution.Data["success"]?.GetValue<bool>());
+        if (approved)
+        {
+            Assert.Contains("sv-", execution.Data["result"]?.GetValue<string>() ?? "");
+        }
+        else
+        {
+            Assert.Contains("rejected", execution.Data["result"]?.GetValue<string>() ?? "",
+                StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("root:", metrics.AgentOutput);
+        }
+    }
+}
+
+[TestClass]
 public class RunEventBufferTests
 {
     [TestMethod]
