@@ -63,26 +63,112 @@ stimuli:
         type: run-command
         config:
           command: |
-            python3 -c 'import json,os,shlex
-            p=json.load(open("capture-plan.json"))
-            commands=p["commands"]["collect"]
-            assert len(commands)==1, "Keep the guarded capture in one shell command"
-            lex=shlex.shlex(commands[0],posix=True,punctuation_chars=True)
-            lex.whitespace_split=True
-            tokens=list(lex)
-            assert tokens.count("dotnet-gcdump")==1, "Each capture must be guarded"
-            index=tokens.index("dotnet-gcdump")
-            assert tokens[index+1]=="collect"
-            output=tokens[tokens.index("--output")+1] if "--output" in tokens else tokens[tokens.index("-o")+1]
-            prefix=tokens[:index]
-            direct=prefix[-1:]==["&&"]
-            conditional=prefix[:1]==["if"] and prefix[-2:]==[";","then"] and tokens[-2:]==[";","fi"]
-            assert direct or conditional, "Collector lacks a short-circuit output-exists guard"
-            guard=prefix[:-1] if direct else prefix[1:-2]
-            norm=lambda value: os.path.abspath(value.replace("$"+"{PWD}",os.getcwd()).replace("$PWD",os.getcwd()))
-            forms=[["test","!","-e",output],["!","test","-e",output],["[","!","-e",output,"]"]]
-            assert any(len(guard)==len(form) and guard[:3]==form[:3] and norm(guard[3])==norm(output) and guard[4:]==form[4:] for form in forms), "Guard must test the actual output path"
-            print("No-overwrite guard valid")'
+            python3 -c 'import json, os, shlex, re
+            
+            def check(path):
+                p = json.load(open(path))
+                commands = p["commands"]["collect"]
+                assert isinstance(commands, list) and commands, "collect must be a non-empty list"
+            
+                def tokenize(s):
+                    lex = shlex.shlex(s, posix=True, punctuation_chars=True)
+                    lex.whitespace_split = True
+                    return list(lex)
+            
+                norm = lambda value: os.path.abspath(value.replace("$" + "{PWD}", os.getcwd()).replace("$PWD", os.getcwd()))
+            
+                # Locate the single array element that actually invokes the collector,
+                # accepting either the literal binary name or a variable resolved from it
+                # earlier in that same element (e.g. collector="$(command -v dotnet-gcdump)").
+                invoke_idx = None
+                invoke_tokens = None
+                invoke_pos = None
+                for i, elem in enumerate(commands):
+                    assert isinstance(elem, str)
+                    tokens = tokenize(elem)
+                    literal_positions = [j for j, t in enumerate(tokens) if t == "dotnet-gcdump" and j + 1 < len(tokens) and tokens[j + 1] == "collect"]
+                    var_pos = None
+                    m = re.search(r"(\w+)=.*dotnet-gcdump", elem)
+                    if m:
+                        var = m.group(1)
+                        for j, t in enumerate(tokens):
+                            if t.strip(chr(34) + chr(39)) == "$" + var and j + 1 < len(tokens) and tokens[j + 1] == "collect":
+                                var_pos = j
+                                break
+                    pos = literal_positions[0] if literal_positions else var_pos
+                    if pos is not None:
+                        assert invoke_idx is None, "Exactly one collect element may invoke the collector"
+                        invoke_idx = i
+                        invoke_tokens = tokens
+                        invoke_pos = pos
+            
+                assert invoke_idx is not None, "No guarded capture invocation found"
+                tokens = invoke_tokens
+                index = invoke_pos
+                assert tokens[index + 1] == "collect"
+                output = tokens[tokens.index("--output") + 1] if "--output" in tokens else tokens[tokens.index("-o") + 1]
+                prefix = tokens[:index]
+            
+                def guard_tests_output(guard_tokens):
+                    forms = [["test", "!", "-e", output], ["!", "test", "-e", output], ["[", "!", "-e", output, "]"]]
+                    return any(
+                        len(guard_tokens) == len(form) and guard_tokens[:3] == form[:3]
+                        and norm(guard_tokens[3]) == norm(output) and guard_tokens[4:] == form[4:]
+                        for form in forms
+                    )
+            
+                matched = False
+            
+                # Form A: "<guard> && [<other guards> &&]... <invoke>" -- take the clause
+                # immediately preceding the invocation (the rightmost "&&"-joined clause),
+                # so additional defensive checks earlier in the chain (binary resolution,
+                # executability) does not block recognition of the actual guard.
+                if not matched and prefix[-1:] == ["&&"]:
+                    chain = prefix[:-1]
+                    # split chain by top-level "&&" tokens into clauses
+                    clauses = [[]]
+                    for t in chain:
+                        if t == "&&":
+                            clauses.append([])
+                        else:
+                            clauses[-1].append(t)
+                    if clauses and guard_tests_output(clauses[-1]):
+                        matched = True
+            
+                # Form B: "if <guard>; then <invoke>; fi"
+                if not matched and prefix[:1] == ["if"] and prefix[-2:] == [";", "then"] and tokens[-2:] == [";", "fi"]:
+                    guard = prefix[1:-2]
+                    if guard_tests_output(guard):
+                        matched = True
+            
+                # Form C: "<guard> || { ...; exit N; }; <invoke>" -- inverse guard with an
+                # early-exit block, joined to the invocation within the SAME shell string
+                # so the exit genuinely short-circuits execution of the collector.
+                if not matched and prefix[-1:] == [";"] and len(prefix) >= 2 and prefix[-2] == "}":
+                    # find matching "{" by scanning backward, tracking brace depth
+                    # (prefix[-2] is the already-identified closing brace, so depth starts at 1)
+                    depth = 1
+                    open_idx = None
+                    for j in range(len(prefix) - 3, -1, -1):
+                        if prefix[j] == "}":
+                            depth += 1
+                        elif prefix[j] == "{":
+                            depth -= 1
+                            if depth == 0:
+                                open_idx = j
+                                break
+                    if open_idx is not None and open_idx >= 1 and prefix[open_idx - 1] == "||":
+                        block = prefix[open_idx + 1:-2]
+                        guard = prefix[:open_idx - 1]
+                        has_exit = any(block[k] == "exit" and k + 1 < len(block) and block[k + 1].isdigit() for k in range(len(block)))
+                        if has_exit and guard_tests_output(guard):
+                            matched = True
+            
+                assert matched, "Collector lacks a short-circuit output-exists guard connected to the invocation in the same command"
+                print("No-overwrite guard valid:", path)
+            
+            check("capture-plan.json")
+            '
       - type: prompt
     rubric:
       - Provides a coherent selected-serial USB connection between the Mono app and host collector, not a host attach to the phone PID.
