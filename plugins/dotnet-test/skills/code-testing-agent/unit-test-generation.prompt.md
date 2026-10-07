@@ -93,6 +93,48 @@ Quick self-review before finishing a test: would emptying the function body make
 - Combine logically related test cases into a single parameterized method
 - Never generate multiple tests with identical logic that differ only by input values
 
+## Report-safe test names and result validation
+
+Apply this contract to both direct generation and delegated implementation or
+validation, even when the caller supplies its own test style.
+
+- **Separate metadata from data.** Give each case a stable, descriptive,
+  distinguishable ID/display name. Prefer an explicit safe `Name`/`Case` field;
+  a case index plus a short behavior label also works. Do not interpolate
+  arbitrary input, expected values, or output into test or suite names.
+- Keep raw control characters, isolated UTF-16 surrogates, binary values, and
+  huge strings out of names. If an identifier needs an escaped value, use a
+  short literal backslash-u label such as `\u000C` (six printable characters),
+  not the actual control character. Normal Unicode labels and harmless numeric
+  interpolation are fine.
+- Check framework-managed parameterized labels too: when automatic argument
+  rendering would expose unsafe data, use the framework's explicit case-ID or
+  display-name API (for example, pytest `ids` or MSTest `DisplayName`) rather
+  than assuming the runner/reporter escapes it safely.
+- **Preserve the case.** Control characters and malformed strings are legitimate
+  test data. Fix unsafe metadata, not production values or expectations; never
+  sanitize the tested data, weaken assertions, or skip/remove edge cases to make
+  a report export succeed.
+
+Before claiming tests passed:
+
+1. Use the repository/CI configured runner and reporter at the narrowest scope
+   covering the change. Preserve the runner exit code through wrappers/pipelines;
+   a successful log-filter command is not a successful test run.
+2. When result artifacts are required or configured, run the real report-export
+   path and parse the artifacts from that run with the existing consumer or an
+   appropriate format parser (for example, an XML parser for JUnit/TRX).
+   Console-green alone is insufficient if required export failed.
+3. Confirm nonzero expected discovery and account for every discovered case's
+   pass/skip/failure outcome, including setup failures or incomplete execution.
+   Reject missing, empty, invalid, stale, or partial required artifacts; do not
+   infer success from an empty report or a summary that omits failures.
+4. Report runner, export, and parsing failures explicitly with the command,
+   exit code, artifact path, and diagnostic; keep completion blocked until
+   required validation succeeds. Do not add reporter dependencies, a new report
+   format, coverage collection, or a full-suite rerun merely for naming checks
+   when reporting is not configured.
+
 ## Analysis Before Generation
 
 Do this analysis privately; do not emit a plan or inventory unless the user

@@ -321,6 +321,14 @@ internal sealed class BaselineStore
         sb.Append("turns=").Append(scenario.MaxTurns?.ToString() ?? "").Append('\0');
         sb.Append("tokens=").Append(scenario.MaxTokens?.ToString() ?? "").Append('\0');
         sb.Append("timeout=").Append(scenario.Timeout).Append('\0');
+        // Preserve existing identities when the opt-in policy is absent.
+        if (scenario.DenyShell)
+            sb.Append("deny-shell=true").Append('\0');
+        if (scenario.RejectShellRetries)
+            sb.Append("reject-shell-retries=true").Append('\0');
+        if (scenario.RejectAgents is { } rejectAgents)
+            foreach (var agent in rejectAgents.OrderBy(name => name, StringComparer.Ordinal))
+                sb.Append("RA:").Append(agent).Append('\0');
         if (scenario.Rubric is { } rubric)
             foreach (var r in rubric)
                 sb.Append("R:").Append(r).Append('\n');
