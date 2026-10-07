@@ -143,6 +143,55 @@ ${Array.from({ length: 5 }, (_, index) => `  - name: Scenario ${index + 1}
     assert.equal(adapted.verdicts[0].skillPath, "agentic-workflows/demo/aw.yml");
     assert.equal(adapted.verdicts[0].scenarios[0].agentActivationIsolated.activated, true);
     assert.equal(adapted.verdicts[0].passed, true);
+    for (const scenario of adapted.verdicts[0].scenarios) {
+      scenario.skillActivationIsolated = { activated: false, detectedSkills: [] };
+      scenario.skillActivationPlugin = { activated: false, detectedSkills: [] };
+    }
+    const resultsFile = join(output, "agentic-workflows", "demo", "results.json");
+    writeFileSync(resultsFile, JSON.stringify(adapted));
+    const revision = "a".repeat(40);
+    const dashboardOutput = join(root, "dashboard");
+    const dashboardArgs = [
+      "-NoLogo", "-NoProfile", "-NonInteractive", "-File", dashboardScript,
+      "-ResultsFile", resultsFile,
+      "-PluginName", "agentic-workflows",
+      "-OutputDir", dashboardOutput,
+      "-CommitJson", JSON.stringify({ id: revision }),
+      "-SkipTokenUsage",
+    ];
+    const dashboardResult = spawnSync("pwsh", dashboardArgs, { encoding: "utf8" });
+    assert.equal(dashboardResult.status, 0, dashboardResult.stdout + dashboardResult.stderr);
+    const benchmark = JSON.parse(readFileSync(join(dashboardOutput, "agentic-workflows.json"), "utf8"));
+    const evidence = benchmark.entries.Quality[0].verdictEvidence[0];
+    assert.equal(evidence.skillKind, "workflow");
+    assert.equal(evidence.evaluationLane, "workflow-prompt-sdk");
+    assert.ok(evidence.activationScenarios.every((scenario) =>
+      scenario.isolated === "activated" && scenario.plugin === "activated"));
+    assert.deepEqual(evidence.activationScenarios[0].invokedAgents, ["workflow.demo"]);
+    assert.equal(evidence.activationScenarios[0].isolatedCompleted, true);
+    assert.equal(evidence.activationScenarios[0].pluginCompleted, true);
+    assert.deepEqual(evidence.links, [{
+      label: "Workflow source",
+      url: `https://github.com/dotnet/skills/blob/${revision}/agentic-workflows/demo/aw.yml`,
+    }, {
+      label: "Eval source",
+      url: `https://github.com/dotnet/skills/blob/${revision}/${evalFile}`,
+    }]);
+    const value = benchmark.entries.SkillValue[0].skills[0];
+    assert.equal(value.activationExpected, 5);
+    assert.equal(value.activationFired, 5);
+    delete adapted.verdicts[0].scenarios[0].agentActivationIsolated;
+    delete adapted.verdicts[0].scenarios[0].agentActivationPlugin;
+    adapted.verdicts[0].scenarios[0].skillActivationIsolated.activated = true;
+    adapted.verdicts[0].scenarios[0].skillActivationPlugin.activated = true;
+    writeFileSync(resultsFile, JSON.stringify(adapted));
+    const missingActivation = spawnSync("pwsh", dashboardArgs, { encoding: "utf8" });
+    assert.equal(missingActivation.status, 0, missingActivation.stdout + missingActivation.stderr);
+    const missingBenchmark = JSON.parse(readFileSync(join(dashboardOutput, "agentic-workflows.json"), "utf8"));
+    const missingEvidence = missingBenchmark.entries.Quality[0].verdictEvidence[0];
+    assert.equal(missingEvidence.activationScenarios[0].isolated, "unknown");
+    assert.equal(missingEvidence.activationScenarios[0].plugin, null);
+    assert.equal(missingBenchmark.entries.SkillValue[0].skills[0].activationFired, 4);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

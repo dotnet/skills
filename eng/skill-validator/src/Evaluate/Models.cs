@@ -110,7 +110,8 @@ public sealed record EvalScenario(
     bool ExpectActivation = true,
     bool DenyShell = false,
     IReadOnlyList<string>? RejectAgents = null,
-    bool RejectShellRetries = false);
+    bool RejectShellRetries = false,
+    bool OfflineWorkflow = false);
 
 public sealed record EvalConfig(
     IReadOnlyList<EvalScenario> Scenarios,

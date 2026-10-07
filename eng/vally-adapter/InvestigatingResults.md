@@ -16,6 +16,10 @@ fixture-based decision/proposal evaluations, not live Actions jobs or published
 safe outputs. Compile/helper checks and consumer runtime evidence are separate.
 Missing context/import/resource errors invalidate the measurement; no-op
 scenarios still require primary `workflow.<package>` activation.
+The native runner enforces shell denial for all offline workflow model arms;
+this is not merely an instruction in the prompt. Published dashboard JSON keeps
+`skillKind: workflow`, its offline execution lane, exact persona activation, and
+package-manifest/eval source links.
 
 Every target runs in up to three variants — **baseline** (no target), **isolated** (only the target plus declared dependencies), and **plugin** (the production plugin surface). Skill evals run through Vally (`@microsoft/vally-cli`). Agent evals run through `skill-validator evaluate`, which registers `CustomAgents` directly and retains target activation, nested delegation, invoked skills, tool calls, completion, tokens, and wall time. Both adapters write one `results.json` per expected target, including an explicit invalid result when required evidence is missing.
 

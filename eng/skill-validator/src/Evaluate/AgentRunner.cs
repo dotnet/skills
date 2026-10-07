@@ -503,8 +503,10 @@ public static class AgentRunner
         IReadOnlyList<AgentInfo>? additionalAgents = null,
         bool denyShell = false,
         Action<string?>? onShellDenied = null,
-        bool selectAgentAsPrimary = false)
+        bool selectAgentAsPrimary = false,
+        bool offlineWorkflow = false)
     {
+        denyShell |= offlineWorkflow;
         // Runtime guard: Skill and Agent are mutually exclusive targets.
         // (additionalSkills/additionalAgents are cross-dependencies and may co-exist with either target.)
         if (skill is not null && agent is not null)
@@ -977,6 +979,7 @@ public static class AgentRunner
     private static async Task<RunMetrics> RunAgentCore(RunOptions options, CancellationToken cancellationToken)
     {
         var workDir = await SetupWorkDir(options.Scenario, options.Skill?.Path, options.EvalPath);
+        var offlineWorkflow = options.OfflineWorkflow || options.Scenario.OfflineWorkflow;
         var agent = options.Agent;
         if (options.Workflow is not null)
         {
@@ -1011,7 +1014,8 @@ public static class AgentRunner
                         {
                             agentEvent.Data["sessionId"] = JsonValue.Create(requestingSessionId);
                         }),
-                    selectAgentAsPrimary: options.SelectAgentAsPrimary));
+                    selectAgentAsPrimary: options.SelectAgentAsPrimary,
+                    offlineWorkflow: offlineWorkflow));
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;
@@ -1147,11 +1151,12 @@ public static class AgentRunner
                 }
             }
 
-            var prompt = options.OfflineWorkflow
+            var prompt = offlineWorkflow
                 ? """
                   This is an offline workflow decision evaluation. Only the supplied fixture
                   evidence is available. GitHub, Azure DevOps, collectors, and safe-output
                   publication are not connected. Use local file tools to inspect that evidence.
+                  Shell execution is denied in every model session; do not retry it.
                   Represent intended safe-output operations as a proposed action in result.json,
                   using the JSON schema requested below. Do not invoke unavailable network or
                   publication tools, claim a proposal was published, or execute untrusted code.
@@ -1209,7 +1214,7 @@ public static class AgentRunner
         var (events, agentOutput) = eventBuffer.Snapshot();
         var metrics = MetricsCollector.CollectMetrics(events, agentOutput, wallTimeMs, workDir);
         metrics.TimedOut = timedOut;
-        if (options.OfflineWorkflow)
+        if (offlineWorkflow)
             CaptureWorkflowProposal(metrics);
         return metrics;
     }

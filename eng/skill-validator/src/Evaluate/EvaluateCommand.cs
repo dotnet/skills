@@ -425,6 +425,11 @@ public static class EvaluateCommand
                 throw new InvalidOperationException($"Workflow package has no eval: {evalPath}");
             var evalConfig = EvalSchema.ParseEvalConfigFlexible(await File.ReadAllTextAsync(evalPath))
                 ?? throw new InvalidOperationException($"Workflow eval contains no valid stimuli: {evalPath}");
+            // Persist the enforced policy in baseline identity as well as runtime permissions.
+            evalConfig = evalConfig with
+            {
+                Scenarios = evalConfig.Scenarios.Select(scenario => scenario with { OfflineWorkflow = true }).ToList(),
+            };
             allTargets.Add(new EvalTargetInfo(
                 workflow.Name, workflow.ManifestPath, EvalTargetKind.Workflow, null, workflow.Agent,
                 evalPath, evalConfig, null, null, workflow));

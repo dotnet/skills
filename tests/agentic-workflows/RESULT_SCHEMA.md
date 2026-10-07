@@ -62,6 +62,7 @@ Write exactly one JSON object to `result.json` in the working-directory root:
 
 Do not edit inputs or installed resources, run repository code/tests/builds,
 install tools, access the network, or claim any live operation succeeded. The
-offline file/shell tools may read evidence and write `result.json`. Commands
+offline file tools may read evidence and write `result.json`; shell execution
+is denied by the evaluator in every model session. Commands
 are not evidence of live GitHub, Azure DevOps, MCP, or safe-output publication.
 Do not read or modify evaluator-owned files under `.eval/`.

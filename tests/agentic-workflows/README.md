@@ -5,6 +5,9 @@ and installed agents against deterministic evidence. The lane is
 `workflow-prompt-sdk`, **not gh-aw Actions E2E**: no artifact download, bootstrap
 job, live GitHub/ADO/MCP tool, safe-output publisher, or consumer verification
 hook runs.
+The evaluator denies shell execution in all model sessions, including nested
+agents, while preserving file tools for reading evidence and writing proposals.
+Trusted setup/grader commands run outside that model permission boundary.
 
 From the repository root, select a package manifest:
 

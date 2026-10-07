@@ -401,6 +401,63 @@ public class BuildSessionConfigTests
     }
 
     [TestMethod]
+    [DataRow(false, false)]
+    [DataRow(true, false)]
+    [DataRow(true, true)]
+    public async Task OfflineWorkflowDeniesShellAcrossAllArmsAndNestedSessions(
+        bool includePrimaryAgent, bool includePackagedAgent)
+    {
+        var workDir = AgentRunner.CreatePrivateWorkDir("offline-policy");
+        var source = Path.Combine(workDir, "inputs", "untrusted.py");
+        Directory.CreateDirectory(Path.GetDirectoryName(source)!);
+        File.WriteAllText(source, "print('fixture source')\n");
+        var primary = new AgentInfo(
+            "workflow.demo", "Workflow fixture", source, "Inspect fixture evidence.", "workflow.demo.agent.md");
+        var packaged = new AgentInfo(
+            "demo", "Packaged fixture", source, "Inspect fixture evidence.", "demo.agent.md");
+        var config = await AgentRunner.BuildSessionConfig(
+            null, null, "gpt-4.1", workDir,
+            agent: includePrimaryAgent ? primary : null,
+            additionalAgents: includePackagedAgent ? [packaged] : null,
+            denyShell: false, offlineWorkflow: true);
+
+        foreach (var toolName in new[] { "bash", "powershell", "local_shell", "shell", "run_shell_command", "execute", "EXECUTE" })
+        {
+            var denied = await config.Hooks!.OnPreToolUse!(new PreToolUseHookInput
+            {
+                ToolName = toolName,
+                ToolArgs = JsonDocument.Parse("""{"command":"python inputs/untrusted.py"}""").RootElement,
+                SessionId = "nested-session",
+            }, new HookInvocation { SessionId = "root-session" });
+            Assert.AreEqual("deny", denied!.PermissionDecision);
+        }
+        var permission = await config.OnPermissionRequest!(new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = "python inputs/untrusted.py",
+            HasWriteFileRedirection = false,
+            Intention = "Run submitted source",
+            PossiblePaths = [source],
+            PossibleUrls = [],
+        }, new PermissionInvocation { SessionId = "nested-session" });
+        Assert.AreEqual("reject", permission.Kind);
+
+        var read = await config.OnPermissionRequest!(new PermissionRequestRead
+        {
+            Kind = "read", Path = source, Intention = "Read evidence", ToolCallId = "read",
+        }, null!);
+        var proposal = await config.OnPermissionRequest!(new PermissionRequestWrite
+        {
+            Kind = "write", FileName = Path.Combine(workDir, "result.json"),
+            Intention = "Write proposal", ToolCallId = "write",
+            CanOfferSessionApproval = false, Diff = "", NewFileContents = "{}",
+        }, null!);
+        Assert.AreEqual("approve-once", read.Kind);
+        Assert.AreEqual("approve-once", proposal.Kind);
+    }
+
+    [TestMethod]
     [DataRow("bash")]
     [DataRow("powershell")]
     [DataRow("local_shell")]

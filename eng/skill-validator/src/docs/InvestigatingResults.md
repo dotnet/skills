@@ -77,6 +77,15 @@ This lane measures offline decisions and proposed outputs, **not** live Actions
 bootstrap jobs, collector execution, authentication, or GitHub publication.
 Keep compiled-package and trusted-helper checks separate from prompt-quality
 results. Do not interpret an agent's publication claim as execution evidence.
+Shell execution is denied by runtime permission and pre-tool hooks in every
+baseline, isolated, package, and nested model session. File tools remain
+available for evidence inspection and proposal creation; evaluator-owned setup
+and deterministic grader commands are separate from model tool permissions.
+Workflow scenarios record an internal offline-policy marker in baseline criteria
+so cached baselines from a shell-enabled policy are not reused. This is separate
+from an explicit `deny_shell` stimulus constraint, which deliberately requires a
+denial attempt to prove that its negative path was exercised. Ordinary offline
+scenarios need not request a forbidden tool to complete successfully.
 
 A missing import/resource or an unresolved prompt expression is a setup failure.
 Provide expression values as strings in the fixture `workflow-context.json`,
@@ -104,6 +113,11 @@ to their owning package. Both same-repository and fork PR status gates recognize
 shared inputs. Fixture integrity uses POSIX relative-path ordering and LF-normalized
 content so Windows and Linux authenticate the same inputs; a digest mismatch is
 not a model-quality failure and must not be bypassed.
+
+The dashboard data generator preserves workflow kind and execution-lane metadata,
+uses exact workflow-persona activation in both benchmark and value aggregates,
+and links to the evaluated package manifest and eval spec. Missing persona
+activation stays unknown rather than borrowing sibling-skill activity.
 
 ## Using this guide with an AI agent
 
