@@ -45,6 +45,14 @@ for (const [index, original] of spec.stimuli.entries()) {
       { label: "equivalent-wording", message: rootAlternative, passed: true },
       { label: "resolution-wording", message: rootResolution, passed: true },
       {
+        label: "negation-after-constructor",
+        message: "In MAUI 10, keep the root ShellContent and constructor injection. "
+          + "With its handler/context available, MAUI resolves DetailsPage from DI or uses "
+          + "ActivatorUtilities to construct it. A registered IProductService is sufficient; "
+          + "an empty constructor is neither needed nor recommended.",
+        passed: true,
+      },
+      {
         label: "unnecessary-constructor",
         message: "Add an empty constructor and replace the root tab with a pushed route.",
         passed: false,
@@ -111,4 +119,4 @@ for (const [index, original] of spec.stimuli.entries()) {
   }
   console.log(`PASS: production oracle golden acceptance / mutation rejection: ${original.name}`);
 }
-console.log("PASS: 13 goldens, 18 mutations and 9 alternatives; no agent execution or paid prompt grader");
+console.log("PASS: 13 goldens, 18 mutations and 10 alternatives; no agent execution or paid prompt grader");

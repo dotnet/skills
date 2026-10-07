@@ -67,12 +67,14 @@ in the final answer, derived from the named hierarchy. A slash-separated
 breadcrumb without the leading `//` is not an absolute Shell URI, even if the
 source repair and checks pass.
 
-**Answer narrowly, but completely.** Staying on topic does not mean being terse. When
-you show a navigation change, include the pieces needed to run it: the `AppShell.xaml`
-markup *and* the `Routing.RegisterRoute` call, or the `GoToAsync` call *and* the
-receiving `IQueryAttributable` / `[QueryProperty]` code. Where two approaches are both
-valid (query string vs `ShellNavigationQueryParameters`), show both and say when each
-fits — a single snippet the user still has to complete is a worse answer.
+**Answer narrowly, but completely.** Supply one working approach with the pieces
+the request needs: a registration and navigation call for a new detail route,
+or the sender and receiver when passing data. Compare alternatives only when the
+user needs to choose between them.
+
+For a how-to question without app files, show usable app-level code. The loaded
+guide and its references are not the user's `AppShell`; do not edit them as a
+substitute for answering the question.
 
 ## Shell Visual Hierarchy
 

@@ -31,7 +31,7 @@ members, package/usings and runtime wiring needed to use it.
 
 | Symptom or request | Correction | Do not |
 |---|---|---|
-| Blank labels | Check the actual inherited/code-behind `BindingContext` and public property paths; wire a context only if missing | Treat shown XAML as proof no context exists, or assume `x:DataType` creates one |
+| Blank labels | Check the actual inherited/code-behind `BindingContext` and public property paths; wire a context only if missing, then add the matching `x:DataType` scope to catch path errors at build time | Treat shown XAML as proof no context exists, or assume compilation metadata restores a missing runtime source |
 | A later value does not display | Notify for the public bound property on the same ViewModel instance; publish UI-bound state safely | Assign only a field, notify the wrong member, or replace the context |
 | A row member is checked against the page ViewModel | Put the row model's `x:DataType` on the `DataTemplate` | Disable compilation with `x:Object`/`x:Null`, or rewrite the surrounding list |
 | A child changes its runtime context | Keep the parent type and declare the child's new type; use the inferred context-setting binding below on MAUI 10 | Assume a new `BindingContext` resets inherited compilation metadata |

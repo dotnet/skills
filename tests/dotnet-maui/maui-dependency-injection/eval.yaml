@@ -212,7 +212,7 @@ stimuli:
           pattern: '(?im)^\s*(ContentTemplate pages bypass DI entirely|typed Shell templates never use (DI|the service provider))'
       - type: output-matches
         config:
-          pattern: '(?i)(no|not|needn.t|don.t|do not)[^\n.]{0,130}(empty|parameterless|replace|route)'
+          pattern: '(?i)((no|not|needn.t|don.t|do not)[^\n.]{0,130}(empty|parameterless|replace|route)|(empty|parameterless)[^\n.]{0,80}(neither|not|unnecessary|unneeded))'
       - type: prompt
     rubric:
       - Correctly explains that typed ShellContent creation can inject registered dependencies in MAUI 10.

@@ -278,7 +278,7 @@ stimuli:
   - type: exit-success
   - type: output-matches
     config:
-      pattern: (?i)(custom|separate|peer\s+(ResourceDictionary\s+)?theme|independent\w*\s+of\s+the\s+OS|orthogonal)
+      pattern: (?i)(custom|separate|(?:peer|independent)(?:[\s,*_"'-]+(?:peer|independent|ResourceDictionary)){0,2}[\s,*_"'-]+theme|independent\w*\s+of\s+the\s+OS|orthogonal)
   - type: prompt
     config:
       evidence:

@@ -92,7 +92,9 @@ stimuli:
       - trajectory
   rubric:
   - The agent uses ConfigureLifecycleEvents in MauiProgram.cs
-  - 'The agent shows platform-specific hooks with #if ANDROID and #if IOS preprocessor directives'
+  - Shows syntactically complete platform-specific hooks with appropriate Android and iOS
+    preprocessor branches. The actual MAUI iOS builder method is AddiOS, not AddIOS;
+    either separate conditional blocks or an equivalent elif structure is valid.
   - The agent maps Window events to their native counterparts
   tags:
     capability: platform-specific-lifecycle-mapping

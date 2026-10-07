@@ -309,7 +309,9 @@ stimuli:
       - trajectory
   rubric:
   - Releases pending navigation reliably whether the confirmation succeeds, is declined, or throws.
-  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  - Provides a concrete app-level implementation for the pending-navigation failure, not only
+    a summary of documentation edits. One correct implementation is sufficient; do not
+    require multiple alternatives or one particular sample's syntax.
   golden_trajectory:
     inline:
       schema_version: ATIF-v1.2
@@ -321,8 +323,65 @@ stimuli:
       steps:
       - step_id: 1
         source: agent
-        message: Complete the deferral in finally, cancel when staying or on failure, and avoid starting
-          GoToAsync until the pending navigation is completed.
+        message: |
+          Keep the guard on the Shell instance. For the editor's cancelable back
+          navigation, complete the original deferral in finally and cancel it if
+          the dialog fails:
+
+          ```csharp
+          private bool _checkingNavigation;
+
+          protected override async void OnNavigating(ShellNavigatingEventArgs args)
+          {
+              base.OnNavigating(args);
+              if (_checkingNavigation)
+              {
+                  if (args.CanCancel) args.Cancel();
+                  return;
+              }
+              if (args.Source != ShellNavigationSource.Pop || !args.CanCancel)
+                  return;
+              var deferral = args.GetDeferral();
+              _checkingNavigation = true;
+              try
+              {
+                  if (!await DisplayAlert("Unsaved changes", "Discard changes?", "Discard", "Stay"))
+                      args.Cancel();
+              }
+              catch (Exception ex)
+              {
+                  args.Cancel();
+                  System.Diagnostics.Debug.WriteLine(ex);
+              }
+              finally
+              {
+                  deferral.Complete();
+                  _checkingNavigation = false;
+              }
+          }
+          ```
+
+          Route programmatic requests through the same guard, and handle a
+          pending-deferral rejection at the initiating call:
+
+          ```csharp
+          public async Task<bool> TryNavigateAsync(string route)
+          {
+              if (_checkingNavigation) return false;
+              try
+              {
+                  await Shell.Current.GoToAsync(route);
+                  return true;
+              }
+              catch (InvalidOperationException ex)
+              {
+                  System.Diagnostics.Debug.WriteLine(ex);
+                  return false;
+              }
+          }
+          ```
+
+          Do not start another navigation from the dialog's catch or finally.
 - name: Repair supplied executable contract
   prompt: The supplied .NET MAUI Shell Products flyout entry has Active and Archived top subtabs, but their route identifiers
     collide. Fix only Program.cs without adding another visible tab level or eager page construction.

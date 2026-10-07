@@ -114,6 +114,11 @@ Preserve repository pins. `workload update` is an intentional version change;
 `workload repair` reinstalls installed workload packs for corruption. Neither is
 a first response to an unexplained error, nor universally forbidden.
 
+For offline automation, distinguish supplied inputs and validation state from
+outputs you create. Clean up only your own outputs; do not delete or recapture
+an existing validation baseline to make a check pass. Report a failed check
+without changing its evidence or claiming input preservation afterward.
+
 If a build is authorized, use the existing project with its exact target:
 `dotnet build <project> -f <project-target-framework>`. Building writes outputs
 and can restore packages; do not call it read-only. Do not create an all-platform

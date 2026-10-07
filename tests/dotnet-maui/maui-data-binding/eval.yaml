@@ -160,7 +160,8 @@ stimuli:
   rubric:
   - Checks whether BindingContext is supplied in code or inherited; identifies a missing context if absent
     rather than treating the shown markup as proof.
-  - Shows how to set BindingContext either in XAML or code-behind
+  - Demonstrates one valid runtime BindingContext assignment, in XAML or code-behind.
+    Either approach is sufficient; do not require both.
   - Points out the missing x:DataType and recommends compiled bindings
   - Explains that without BindingContext, bindings resolve to null and display empty
   tags:

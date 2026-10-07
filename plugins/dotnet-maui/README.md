@@ -48,10 +48,25 @@ Sonnet (8W/3T/0L) and Luna (7W/3T/1L), but plugin execution counters still rose
 complete manual notification example produced 7W/1T/2L and 5W/4T/1L respectively:
 positive, still statistically unproven. Its matched isolated/plugin counters
 were Sonnet -7.4%/+7.4% and Luna +16.3%/+23.3%. Neither comparison establishes a
-cross-family cost-neutral default. Two Sonnet binding losses did not load the
-target; the subsequent repair/review description revision needs new routing
-evidence. The separately repaired workspace reader also requires fresh normal
-execution evidence; historical records are not rewritten.
+cross-family cost-neutral default. In that binding comparison, treatment aggregate
+grades passed, but a Sonnet baseline aggregate and individual treatment criteria
+failed; it was not an all-arm correctness pass.
+
+The ninth full-eight local comparison measured the revised binding description
+and workspace reader at `03ce473c`. Preference gates passed for four Sonnet
+suites and three Luna suites; Doctor, DI and safe-area passed on both. The other
+results remain unproven, and generated-code/preservation defects remain even in
+passing suites. All dormancy contracts passed. Matched plugin counters increased
+12.0% to 71.6% for Sonnet. Luna safe-area decreased 3.2%; the other suites increased
+8.1% to 48.3%.
+
+Native reads succeeded in all 413 observed calls, but Luna still had 69 native
+patch failures across 22 task/arm slots: workspace writes hit the separate
+session-log boundary. The subsequent bounded filesystem repair has passed
+real SDK create/edit/delete checks, not a fresh full comparison. This distinction
+matters for both correctness and cost interpretation; historical records are
+not rewritten or attributed to later fixes. Correct phrase-regex failures and
+factual judge errors are repaired separately from skill content.
 
 When models or supported SDKs change, repeat the comparison before retaining a
 default. Classify fixture, harness, power, routing and content failures separately.
@@ -81,7 +96,9 @@ against real MAUI Controls packages. The six UI/lifecycle suites share
 their references through Vally with paid prompt graders removed.
 It compiles the binding core's actual notifying property, rejects a wrong-name
 notification mutation, and compiles converter/resource examples from the
-on-demand binding reference. Native `MainThread` dispatch is not exercised.
+on-demand binding reference. Real-package probes also check back-button property
+ownership and reject sibling-theme `var` conditionals and undeclared dictionary
+`RemoveWhere` calls. Native `MainThread` dispatch is not exercised.
 
 These checks validate contracts, fixture behavior and reference answers, not fresh
 model improvement or native UI/OS delivery. Run normal cross-family evaluations

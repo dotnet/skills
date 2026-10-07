@@ -295,6 +295,14 @@ def api_probe():
     theme_manager = theme_skill.read_text().split(
         "```csharp\npublic sealed class ThemeManager\n", 1)[1].split(
         "\npublic partial class App", 1)[0]
+    theme_choice = theme_skill.read_text().split("Themes.ApplyTheme(", 1)[1].split(");", 1)[0]
+    shell_spec = yaml.safe_load(
+        (ROOT / "tests/dotnet-maui/maui-shell-navigation/eval.yaml").read_text())
+    deferral = next(s for s in shell_spec["stimuli"]
+                    if s["name"] == "Confirmation pending during navigation")
+    deferral_response = deferral["golden_trajectory"]["inline"]["steps"][-1]["message"]
+    deferral_code = "\n".join(re.findall(r"```csharp\n(.*?)\n```", deferral_response, re.S))
+    assert deferral_code, "deferral golden must supply the requested app-level code"
     event_reference = ROOT / "plugins/dotnet-maui/skills/maui-theming/references/event-ownership.md"
     event_page = event_reference.read_text().split("```csharp\n", 1)[1].split("\n```", 1)[0]
     event_page = "\n".join(line for line in event_page.splitlines() if not line.startswith("using "))
@@ -324,6 +332,9 @@ public static class Checks
             "sizing property owner changed");
         Require(typeof(ContentPage).GetProperty("Content")!.PropertyType == typeof(View),
             "page content is not a single View");
+        Require(typeof(BackButtonBehavior).GetProperty("TextOverride") is not null &&
+            typeof(BackButtonBehavior).GetProperty("Text") is null,
+            "back-button text property ownership changed");
         var products = new System.Collections.ObjectModel.ObservableCollection<string>();
         var directList = new CollectionView { ItemsSource = products };
         Require(directList.BindingContext is null && ReferenceEquals(directList.ItemsSource, products),
@@ -457,6 +468,8 @@ public static class Checks
             resources.MergedDictionaries.Contains(styles) &&
             resources.MergedDictionaries.Contains(light) &&
             !resources.MergedDictionaries.Contains(dark), "theme ownership/preservation failed");
+        var saved = "Dark";
+        manager.ApplyTheme(__THEME_STARTUP_CHOICE__);
         Console.WriteLine("PASS: package-api-probe (no XAML/native/device execution)");
     }
 }
@@ -476,7 +489,11 @@ public sealed class NoteViewModel
     public string DraftText { get; set; } = "";
     public double ScrollY { get; set; }
 }
+public sealed class LightTheme : ResourceDictionary { }
+public sealed class DarkTheme : ResourceDictionary { }
 """
+    source = source.replace("__THEME_STARTUP_CHOICE__", theme_choice)
+    source += "\npublic sealed class DeferralGolden : Shell\n{\n" + deferral_code + "\n}\n"
     try:
         workspace.mkdir()
         for filename in ("Fixture.csproj", "Directory.Build.props", "Directory.Build.targets"):
@@ -488,6 +505,32 @@ public sealed class NoteViewModel
         assert result.returncode == 0, result.stdout + result.stderr
         assert "PASS: package-api-probe" in result.stdout, result.stdout
         print(result.stdout.strip())
+        mutations = (
+            ("CS0173", """
+public static class InvalidThemeChoice
+{
+    public static object Create(bool dark)
+    {
+        var theme = dark ? new DarkTheme() : new LightTheme();
+        return theme;
+    }
+}
+"""),
+            ("CS1061", """
+public static class InvalidThemeRemoval
+{
+    public static void Remove(ResourceDictionary resources)
+        => resources.MergedDictionaries.RemoveWhere(theme => theme is LightTheme or DarkTheme);
+}
+"""),
+        )
+        for diagnostic, mutation in mutations:
+            (workspace / "Program.cs").write_text(source + mutation)
+            failed = command(["dotnet", "build", "Fixture.csproj", "--no-restore",
+                              "--verbosity", "quiet"], workspace)
+            assert failed.returncode != 0 and diagnostic in failed.stdout + failed.stderr, (
+                diagnostic, failed.stdout, failed.stderr)
+        print("PASS: real-package compiler rejects sibling-var choice and undeclared RemoveWhere")
     finally:
         shutil.rmtree(workspace)
 
@@ -587,6 +630,12 @@ def wording_regressions(production=False):
         ("maui-theming", "Accessible branding",
          "Model high contrast as a peer ResourceDictionary theme, selected independently of the OS signal.",
          "Add HighContrast as another AppTheme enum value."),
+        ("maui-theming", "Accessible branding",
+         "High contrast needs to be a **peer, independent theme choice**, handled via ResourceDictionary swapping.",
+         "Use the OS AppTheme enum as the only selection model."),
+        ("maui-theming", "Accessible branding",
+         '**Model it as an independent, peer "theme choice" with three ResourceDictionary options**',
+         "Let the operating system choose between light and dark."),
         ("maui-shell-navigation", "Repair supplied executable contract",
          'await Shell.Current.GoToAsync("//products/status/archived");',
          'await Shell.Current.GoToAsync("/products/status/archived");'),
