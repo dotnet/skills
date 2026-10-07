@@ -105,6 +105,10 @@ plugin. Update marketplace plugins with:
 codex plugin marketplace upgrade dotnet-agent-skills
 ```
 
+Codex installs the plugin's portable skills, not its Copilot `.agent.md` agents. Name the exact
+skill the user should request after installation; do not promise an agent that the Codex manifest
+does not expose.
+
 ## VS Code
 
 Enable plugin support and register the marketplace in settings:

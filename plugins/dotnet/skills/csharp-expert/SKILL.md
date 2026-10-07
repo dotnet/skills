@@ -5,10 +5,10 @@ description: >-
   smallest marketplace plugin. USE FOR: selecting a specialist for an unclear C#/.NET
   request, identifying the solution owner, C# language or compiler defects with no narrower
   specialist, using editor or LSP diagnostics to locate a C# defect, one-file C# apps with no
-  project, a lone MSBuild `.binlog` when its specialist is unavailable, selecting vendor-neutral
-  CPU or allocation evidence for a deployed .NET process, and recovering an installed plugin
-  missing from `/skills`. DO NOT USE FOR: a request that already names the exact installed
-  specialist to invoke, or work clearly unrelated to C# or .NET.
+  project, analyzing a surviving MSBuild `.binlog` directly after its checkout is gone, selecting
+  vendor-neutral CPU or allocation evidence for a deployed .NET process, and recovering an
+  installed plugin missing from `/skills`. DO NOT USE FOR: a request that already names the exact
+  installed specialist to invoke, or work clearly unrelated to C# or .NET.
 license: MIT
 ---
 
@@ -82,7 +82,9 @@ library contract, or an external service client.
 
 When a deployed .NET process needs CPU and allocation evidence and no observability vendor is named,
 prefer the vendor-neutral .NET runtime diagnostics route. Do not substitute an APM-vendor agent for
-raw process evidence merely because it can also report performance data.
+raw process evidence merely because it can also report performance data. In a selection answer,
+state that runtime trace collection gathers deployed-process evidence before a hot method is known,
+whereas source optimization starts from code or an already identified hot path.
 
 ## Step 2: Detect the Solution Type
 
@@ -302,7 +304,9 @@ When a framework type provides an ownership-preserving overload such as `leaveOp
 canonical fix only. Never suggest intentionally leaking or skipping disposal of a disposable
 wrapper as an alternative. Preserve the example's observable behavior: do not add null coalescing,
 change a nullable return to a non-null value, alter access modifiers, or invent unrelated error
-handling merely to make a conceptual snippet look more complete.
+handling merely to make a conceptual snippet look more complete. If an example directly returns
+`StreamReader.ReadLine()`, use a nullable `string?` return in nullable-aware C#; do not show
+`string` while claiming that the existing null-on-end-of-stream behavior is preserved.
 
 ## Boundaries and Failure Handling
 
@@ -319,6 +323,9 @@ handling merely to make a conceptual snippet look more complete.
 - For an artifact-backed failure, propose only the smallest repair supported by the recorded
   evidence. Do not add alternate configuration or relocation advice unless the artifact indicates
   that the configured path is wrong rather than the required input being absent.
+- Describe a missing artifact at its exact configured relative path. Do not call a nested path such
+  as `schemas/prod.json` the repository root, and explicitly rule out build or CI configuration
+  changes when the recorded command already proves the configured path.
 - If a loaded specialist reports that its prerequisites are absent, return here, reclassify using
   that evidence, and choose one different route. Do not bounce repeatedly between skills.
 - Non-.NET work is out of scope; leave this skill dormant rather than forcing a .NET interpretation.
