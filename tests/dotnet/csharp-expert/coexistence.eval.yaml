@@ -274,6 +274,17 @@ stimuli:
           expected_exit_code: 0
       - type: run-command
         config:
+          command: >-
+            node -e "const fs=require('fs'); const source=fs.readFileSync('Program.cs','utf8');
+            const guard=source.search(/\.Length[\s\S]{0,80}>\s*/);
+            const reject=source.search(/(?:Results|TypedResults)\.(?:BadRequest|StatusCode|Problem|ValidationProblem)\s*\(/);
+            const stream=source.search(/(?:OpenReadStream|CopyToAsync)\s*\(/);
+            const success=stream < 0 ? -1 : source.slice(stream).search(/(?:Results|TypedResults)\.(?:Ok|Created|NoContent)\s*\(/);
+            if (guard < 0 || reject < guard || stream < reject || success < 0)
+            throw new Error('Expected oversized rejection before streaming and success after streaming');"
+          expected_exit_code: 0
+      - type: run-command
+        config:
           command: dotnet build
           expected_exit_code: 0
           timeout: 3m

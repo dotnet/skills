@@ -145,6 +145,15 @@ stimuli:
       - type: output-contains
         config:
           substring: SCHEMA1001
+      - type: output-contains
+        config:
+          substring: schemas/prod.json
+      - type: output-matches
+        config:
+          pattern: ((restore|commit)[\s\S]{0,120}schemas/prod\.json|schemas/prod\.json[\s\S]{0,120}(restore|commit))
+      - type: output-not-matches
+        config:
+          pattern: ((change|set|override) (the )?(SchemaFile|Configuration)|move (the )?(schema|file)|relocat)
       - type: exit-success
       - type: prompt
     rubric:
@@ -462,6 +471,27 @@ stimuli:
     constraints:
       reject_tools: [bash, edit, create]
     graders:
+      - type: output-matches
+        config:
+          pattern: (LSP|language.server)[\s\S]*diagnostic
+      - type: output-matches
+        config:
+          pattern: Program\.cs
+      - type: output-matches
+        config:
+          pattern: (CS0029|cannot implicitly convert|List<string>[\s\S]*int)
+      - type: file-contains
+        config:
+          path: Program.cs
+          value: int count = values.Where(value => value.Length > 0).ToList();
+      - type: file-contains
+        config:
+          path: Program.cs
+          value: CountActive
+      - type: file-contains
+        config:
+          path: DiagnosticsApp.csproj
+          value: <TargetFramework>net10.0</TargetFramework>
       - type: exit-success
       - type: prompt
     rubric:
