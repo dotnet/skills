@@ -62,7 +62,7 @@ Both evaluation and comparison commands use this launcher through `PATH`.
 When updating the SDK, reassess the guard and run
 `node --test eng/evaluation-tools/*.test.mjs` before removing it.
 
-### Existing workspace files reported missing
+### Existing workspace files reported missing or native patches rejected
 
 With Vally 0.14 and Copilot runtime 1.0.80, native `view` can report
 `Path does not exist` for a file that a shell reader opens at the exact same
@@ -71,12 +71,23 @@ provider calls reproduce the cause: native `view` calls the session-fs provider'
 `stat` with the workspace path, but Vally's `LocalSessionFsHandler` confines paths
 to the separate session-log root and rejects the request as a root escape.
 
-The launcher also installs a Vally-version-checked workspace-read adapter for
-that local provider. Absolute reads inside the trial's actual workspace use the
-host filesystem; canonical-path checks reject symlinks escaping that workspace.
-Relative session paths, log-root paths, writes and other providers retain their
-original behavior. Missing files still fail; this is not a successful-empty
-fallback or permission bypass. Tests cover the reader boundary, unchanged log
+The same mismatch affects native `apply_patch` writes. A read-only repair makes
+`view` work but leaves editing broken: SDK events can show repeated
+`Session filesystem path escapes root` failures before the model falls back to
+shell edits. Inspect `tool.execution_complete.data.error`, not just the shorter
+normalized tool result. This can affect one executor family more than another
+and inflate its turns/cost even when the final answer and comparison complete.
+
+The launcher installs a Vally-version-checked workspace adapter for that local
+provider. Absolute reads and mutations inside the trial's actual workspace use
+the host filesystem. Canonical-path checks reject accesses through parents
+escaping the workspace and writes through unresolved symlinks; new output paths
+are checked against their existing ancestors. Rename and removal operate on a
+final symlink entry rather than its target. Removing or renaming the workspace
+root is prohibited. Relative session paths, log-root paths and other providers
+retain their original behavior. Missing inputs still fail; this is not a
+successful-empty fallback or a bypass of tool authorization. Tests cover native
+create/edit/delete operations, boundary and symlink semantics, unchanged log
 writes and the SDK's synchronous provider-factory contract:
 
 ```bash
