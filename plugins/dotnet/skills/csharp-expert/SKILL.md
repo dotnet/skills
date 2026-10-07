@@ -5,10 +5,10 @@ description: >-
   smallest marketplace plugin. USE FOR: selecting a specialist for an unclear C#/.NET
   request, identifying the solution owner, C# language or compiler defects with no narrower
   specialist, using editor or LSP diagnostics to locate a C# defect, one-file C# apps with no
-  project, and recovering an installed plugin missing from `/skills`.
-  DO NOT USE FOR: direct implementation requests already covered by an available specialist such as C#
-  refactoring, MSBuild diagnosis, SDK setup, or an exact framework/test migration; or requests clearly
-  unrelated to C# or .NET.
+  project, a lone MSBuild `.binlog` when its specialist is unavailable, selecting vendor-neutral
+  CPU or allocation evidence for a deployed .NET process, and recovering an installed plugin
+  missing from `/skills`. DO NOT USE FOR: a request that already names the exact installed
+  specialist to invoke, or work clearly unrelated to C# or .NET.
 license: MIT
 ---
 
@@ -38,6 +38,16 @@ Routing is not task completion. A missing specialist changes the confidence and 
 it does not automatically justify stopping. Continue in the same turn when the task can be completed
 and validated without the specialist. Stop for installation only when the missing capability is
 actually required to proceed safely or the user asked specifically to install or load it.
+
+Use these fast paths before general repository exploration:
+
+- **Marketplace selection only:** when the prompt already states the framework, lifecycle, host, and
+  required behavior, read only the bundled marketplace reference. Do not inspect the fixture,
+  repository, GitHub, or plugin source. Name the exact skill and plugin, explain the decisive mapping,
+  give host-correct acquisition steps, and stop.
+- **Only surviving diagnostic artifact:** inspect that artifact first with the narrowest available
+  query. For a supplied `.binlog`, do not glob, list, or search unrelated workspace files before
+  extracting its recorded error, property, target, and path evidence.
 
 Choose the operating mode from the user's requested outcome:
 
@@ -160,6 +170,10 @@ fit, not only its name.
 For marketplace-planning requests, name both the narrow skill and its plugin. Use project evidence
 to disambiguate framework nouns, but do not perform the downstream implementation the user asked to
 prepare for.
+
+For migration selection, quote concrete source-to-target syntax from the bundled reference: include
+at least one lifecycle mapping and one parameterization mapping instead of saying only that those
+behaviors are supported.
 
 Use the bundled marketplace reference as the authoritative lookup. Do not search GitHub, inspect
 unrelated plugin source, or enumerate alternatives after the prompt and one nearby manifest already

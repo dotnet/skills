@@ -78,6 +78,15 @@ or installing a marketplace route.
 | Optimize repeated EF Core query work | `optimizing-ef-core-queries` | `dotnet-data` |
 | Collect a runtime trace before a hot method is known | `dotnet-trace-collect` | `dotnet-diag` |
 
+Use the discriminator that makes each route valuable:
+
+- `migrate-nunit-to-mstest` preserves parameterized and lifecycle behavior by mapping NUnit
+  `[TestCase]` to MSTest `[DataRow]`, `[SetUp]` to `[TestInitialize]`, and `[TearDown]` to
+  `[TestCleanup]`.
+- `dotnet-trace-collect` gathers vendor-neutral CPU, allocation, GC, and related deployed-process
+  evidence before a hot method is known. Do not substitute `optimizing-dotnet-performance`, which
+  starts from source or known hot-code analysis rather than collecting the initial runtime evidence.
+
 For a multi-phase request, list one exact skill per independently owned phase and install each
 distinct owning plugin once.
 
