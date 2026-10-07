@@ -258,6 +258,20 @@ class GraderTests(unittest.TestCase):
                 result["findings"][0]["evidence"] = [{"path": path, "record": record}]
                 self.reject("test/failures", result)
 
+    def test_drive_qualified_or_rooted_citations_are_rejected_before_file_access(self):
+        for value in (
+            "D:outside.json", "C:outside.json", "inputs/D:outside.json",
+            "D:/outside.json", "/outside.json", "//server/share/outside.json",
+            "inputs/evidence/records.jsonl:stream",
+        ):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    GRADER.input_relative_path(value)
+                with patch.object(Path, "is_file") as probe:
+                    with self.assertRaises(ValueError):
+                        GRADER.input_file(self.root, value)
+                    probe.assert_not_called()
+
     def test_line_citations_require_the_documented_line_prefix(self):
         source = self.root / "Source.cs"
         source.write_text("first\nsecond\n", encoding="utf-8")

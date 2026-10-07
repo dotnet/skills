@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
@@ -455,6 +456,67 @@ public class BuildSessionConfigTests
         }, null!);
         Assert.AreEqual("approve-once", read.Kind);
         Assert.AreEqual("approve-once", proposal.Kind);
+
+        foreach (var relative in new[]
+        {
+            ".github/workflows/demo.md", ".github/agents/demo.agent.md",
+            ".github/graders/check.sh", "inputs/context.json", "package-resource.json",
+        })
+        {
+            var path = Path.Combine(workDir, relative.Replace('/', Path.DirectorySeparatorChar));
+            var write = await config.OnPermissionRequest!(new PermissionRequestWrite
+            {
+                Kind = "write", FileName = path, Intention = "Alter staged resource", ToolCallId = "resource",
+                CanOfferSessionApproval = false, Diff = "", NewFileContents = "changed",
+            }, new PermissionInvocation { SessionId = "nested-session" });
+            Assert.AreEqual("reject", write.Kind);
+            foreach (var toolName in new[] { "edit", "create", "delete", "remove", "rename", "move", "write_file", "append_file" })
+            {
+                var mutation = await config.Hooks!.OnPreToolUse!(new PreToolUseHookInput
+                {
+                    ToolName = toolName,
+                    ToolArgs = JsonDocument.Parse(JsonSerializer.Serialize(new
+                    {
+                        path,
+                        source = path,
+                        destination = Path.Combine(workDir, "result.json"),
+                    })).RootElement,
+                    SessionId = "nested-session",
+                }, new HookInvocation { SessionId = "root-session" });
+                Assert.AreEqual("deny", mutation!.PermissionDecision);
+            }
+        }
+    }
+
+    [TestMethod]
+    public async Task OfflineMutationsWithoutHookPathsRemainBoundByResolvedWritePermissions()
+    {
+        var workDir = AgentRunner.CreatePrivateWorkDir("offline-unresolved-write");
+        var config = await AgentRunner.BuildSessionConfig(
+            null, null, "gpt-4.1", workDir, offlineWorkflow: true);
+        foreach (var args in new JsonElement?[]
+        {
+            null,
+            JsonDocument.Parse("null").RootElement,
+            JsonSerializer.SerializeToElement("""{"path":"result.json"}"""),
+        })
+        {
+            var deferred = await config.Hooks!.OnPreToolUse!(new PreToolUseHookInput
+            {
+                ToolName = "create", ToolArgs = args, SessionId = "nested-session",
+            }, new HookInvocation { SessionId = "root-session" });
+            Assert.AreEqual("allow", deferred!.PermissionDecision);
+        }
+        foreach (var relative in new[] { "result.json", ".github/workflows/demo.md" })
+        {
+            var decision = await config.OnPermissionRequest!(new PermissionRequestWrite
+            {
+                Kind = "write", FileName = Path.Combine(workDir, relative.Replace('/', Path.DirectorySeparatorChar)),
+                Intention = "Resolved write", ToolCallId = "write",
+                CanOfferSessionApproval = false, Diff = "", NewFileContents = "{}",
+            }, new PermissionInvocation { SessionId = "nested-session" });
+            Assert.AreEqual(relative == "result.json" ? "approve-once" : "reject", decision.Kind);
+        }
     }
 
     [TestMethod]
@@ -1856,6 +1918,61 @@ public class ExtractPathsFromToolArgsTests
 public class LocalSessionFsHandlerTests
 {
     public TestContext TestContext { get; set; } = null!;
+
+    private static TCallback ProviderCallback<TCallback>(LocalSessionFsHandler handler, string name)
+        where TCallback : Delegate
+    {
+        var method = typeof(LocalSessionFsHandler).GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(method);
+        return method.CreateDelegate<TCallback>(handler);
+    }
+
+    [TestMethod]
+    public async Task OfflineProviderPreservesResourcesThroughEveryMutationCallback()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"offline-fs-{Guid.NewGuid():N}");
+        var stateRoot = Path.Combine(root, "state");
+        var workDir = Path.Combine(root, "work");
+        var handler = new LocalSessionFsHandler(stateRoot, workDir, [workDir], offlineWorkflow: true);
+        var token = TestContext.CancellationToken;
+        var write = ProviderCallback<Func<string, string, int?, CancellationToken, Task>>(handler, "WriteFileAsync");
+        var append = ProviderCallback<Func<string, string, int?, CancellationToken, Task>>(handler, "AppendFileAsync");
+        var remove = ProviderCallback<Func<string, bool, bool, CancellationToken, Task>>(handler, "RemoveAsync");
+        var rename = ProviderCallback<Func<string, string, CancellationToken, Task>>(handler, "RenameAsync");
+        var mkdir = ProviderCallback<Func<string, bool, int?, CancellationToken, Task>>(handler, "MakeDirectoryAsync");
+        var read = ProviderCallback<Func<string, CancellationToken, Task<string>>>(handler, "ReadFileAsync");
+        try
+        {
+            foreach (var relative in new[]
+            {
+                ".github/workflows/demo.md", ".github/agents/demo.agent.md",
+                ".github/graders/check.sh", "inputs/context.json", "package-resource.json",
+            })
+            {
+                var path = Path.Combine(workDir, relative.Replace('/', Path.DirectorySeparatorChar));
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllText(path, "original");
+                await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => write(relative, "changed", null, token));
+                await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => append(relative, "changed", null, token));
+                await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => remove(relative, false, false, token));
+                await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => rename(relative, "result.json", token));
+                await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => rename("result.json", relative, token));
+                Assert.AreEqual("original", await read(relative, token));
+            }
+            await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => remove(".github", true, false, token));
+            await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => mkdir(".github/injected", true, null, token));
+            await mkdir(".", true, null, token);
+            await write("result.json", "{}", null, token);
+            await append("result.json", "\n", null, token);
+            Assert.AreEqual("{}\n", await read("result.json", token));
+            await write("session-state/events.jsonl", "state", null, token);
+            Assert.AreEqual("state", await read("session-state/events.jsonl", token));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
 
     [TestMethod]
     public void ResolvesStateWorkspaceAndStagedPathsSeparately()

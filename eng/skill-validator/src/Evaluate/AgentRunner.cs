@@ -303,6 +303,10 @@ public static class AgentRunner
         actual[(actual.LastIndexOf(':') + 1)..].Equals(
             expected[(expected.LastIndexOf(':') + 1)..], StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsFileMutationTool(string? toolName) =>
+        toolName?.ToLowerInvariant() is "edit" or "create" or "delete" or "remove"
+            or "rename" or "move" or "write" or "write_file" or "append" or "append_file" or "apply_patch";
+
     private static readonly HashSet<string> AllowedPathlessShellCommands = new(
         [
             "dir",
@@ -730,7 +734,8 @@ public static class AgentRunner
             CreateSessionFsProvider = _ => new LocalSessionFsHandler(
                 configDir,
                 workDir,
-                new[] { workDir }.Concat(additionalAllowedDirs)),
+                new[] { workDir }.Concat(additionalAllowedDirs),
+                offlineWorkflow),
             OnPermissionRequest = (request, invocation) =>
             {
                 if (denyShell && request is PermissionRequestShell)
@@ -742,7 +747,8 @@ public static class AgentRunner
                     runLabel,
                     additionalAllowedDirs,
                     sdkMcp,
-                    denyShell));
+                    denyShell,
+                    offlineWorkflow));
             },
             Hooks = new SessionHooks
             {
@@ -802,6 +808,17 @@ public static class AgentRunner
                         runLabel,
                         pluginRoot: null,
                         additionalAllowedDirs);
+                    // SDK hooks may omit paths; the filesystem provider enforces every resolved write.
+                    if (offlineWorkflow && IsFileMutationTool(input.ToolName)
+                        && reqPaths.Any(path => !LocalSessionFsHandler.IsWorkflowProposalPath(path, workDir)))
+                    {
+                        return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
+                        {
+                            PermissionDecision = "deny",
+                            PermissionDecisionReason =
+                                "Offline workflow inputs and resources are read-only; only result.json may be written",
+                        });
+                    }
                     return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
                     {
                         PermissionDecision = allowed ? "allow" : "deny",
@@ -819,7 +836,8 @@ public static class AgentRunner
         string runLabel,
         IReadOnlyList<string> additionalAllowedDirs,
         IDictionary<string, McpServerConfig>? allowedMcpServers,
-        bool denyShell = false)
+        bool denyShell = false,
+        bool offlineWorkflow = false)
     {
         GitHub.Copilot.Rpc.PermissionDecision CheckPath(string? path)
         {
@@ -857,6 +875,10 @@ public static class AgentRunner
                     : GitHub.Copilot.Rpc.PermissionDecision.Reject(
                         "Path outside allowed directories, network access requested, or command not allowlisted"),
             PermissionRequestRead readRequest => CheckPath(readRequest.Path),
+            PermissionRequestWrite writeRequest when offlineWorkflow
+                && !LocalSessionFsHandler.IsWorkflowProposalPath(writeRequest.FileName, workDir) =>
+                    GitHub.Copilot.Rpc.PermissionDecision.Reject(
+                        "Offline workflow inputs and resources are read-only; only result.json may be written"),
             PermissionRequestWrite writeRequest => CheckPath(writeRequest.FileName),
             PermissionRequestMcp mcpRequest => IsAllowedMcpPermission(
                 mcpRequest,
@@ -1157,6 +1179,7 @@ public static class AgentRunner
                   evidence is available. GitHub, Azure DevOps, collectors, and safe-output
                   publication are not connected. Use local file tools to inspect that evidence.
                   Shell execution is denied in every model session; do not retry it.
+                  Evidence and installed resources are read-only; only result.json may be written.
                   Represent intended safe-output operations as a proposed action in result.json,
                   using the JSON schema requested below. Do not invoke unavailable network or
                   publication tools, claim a proposal was published, or execute untrusted code.

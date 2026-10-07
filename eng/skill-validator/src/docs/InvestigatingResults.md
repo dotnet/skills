@@ -79,13 +79,22 @@ Keep compiled-package and trusted-helper checks separate from prompt-quality
 results. Do not interpret an agent's publication claim as execution evidence.
 Shell execution is denied by runtime permission and pre-tool hooks in every
 baseline, isolated, package, and nested model session. File tools remain
-available for evidence inspection and proposal creation; evaluator-owned setup
+available for evidence inspection and proposal creation; only `result.json` is
+writable in an offline model workspace. Permission hooks and filesystem-provider
+callbacks prevent writes, appends, renames, removals, and new directories from
+altering evidence or installed package resources, including resources outside
+`.github/`. Evaluator-owned session-state I/O, setup,
 and deterministic grader commands are separate from model tool permissions.
+SDK pre-tool events may omit argument paths; the filesystem provider still
+validates every resolved mutation rather than treating missing metadata as a
+write authorization.
 Workflow scenarios record an internal offline-policy marker in baseline criteria
 so cached baselines from a shell-enabled policy are not reused. This is separate
 from an explicit `deny_shell` stimulus constraint, which deliberately requires a
 denial attempt to prove that its negative path was exercised. Ordinary offline
 scenarios need not request a forbidden tool to complete successfully.
+The proposal-only write scope also participates in baseline identity so
+shell-denied but resource-writable baselines cannot be reused.
 
 A missing import/resource or an unresolved prompt expression is a setup failure.
 Provide expression values as strings in the fixture `workflow-context.json`,

@@ -7,6 +7,8 @@ job, live GitHub/ADO/MCP tool, safe-output publisher, or consumer verification
 hook runs.
 The evaluator denies shell execution in all model sessions, including nested
 agents, while preserving file tools for reading evidence and writing proposals.
+Only `result.json` may be written; staged evidence, context, and package resources
+are protected from file-tool and filesystem-provider mutations.
 Trusted setup/grader commands run outside that model permission boundary.
 
 From the repository root, select a package manifest:
@@ -117,6 +119,8 @@ workflow contexts when changing ignored-test evidence. Update evaluator-only
 `--input-digest` arguments when changing inputs and the authenticated command
 pins in all four specs when changing the generic grader. JSON source/evidence
 paths use portable `/` separators.
+Drive-relative paths, rooted paths, and colon/alternate-stream forms are rejected
+before any evidence-file lookup on both Windows and Linux.
 
 The regression suite materializes each case under this test directory and
 cleans up afterward. It exercises correct, wrong-action, spurious-noop,
