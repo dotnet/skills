@@ -13,9 +13,9 @@ stimuli:
       or collect anything. The JSON must have status "planned", device_id,
       physical_capture_verified (boolean), and a nested "commands" object
       containing route, collect, validate, cleanup arrays of shell command
-      strings. Use the reserved ports and artifact name. The host collector
+      strings. Use the reserved ports and artifact name. The diagnostics router
       (dsrouter) belongs in the route array, started before the device-side
-      reverse/setprop steps. Include selected-device routing, a host collector,
+      reverse/setprop steps; it is not the heap collector. Include selected-device routing, a host collector,
       an executable no-overwrite check before invoking the collector, file-format
       validation, and restoration of only our temporary settings.
       Explain the approval/relaunch checkpoint and any remaining verification.
