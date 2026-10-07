@@ -46,6 +46,10 @@ Classify scope **before editing**:
   module is present.
 
 For either scope, run the narrowest relevant test command to a clean exit.
+Always apply [Report-safe test names and result validation](unit-test-generation.prompt.md#report-safe-test-names-and-result-validation),
+including when the caller supplies conventions. Pass this contract to delegated
+implementers/testers; preserve edge-case data and validate configured reports,
+not just console output.
 Keep the handoff proportional: for one to three focused requirements, use a
 compact bullet list under a **Requirement coverage** label that names the tests
 and successful command; for broader or multi-requirement work, use a
@@ -251,7 +255,8 @@ Do not report completion until all of these are true:
    inventory, existing test conventions, and the acceptance checklist.
 2. *(broad scope)* `<TESTAGENT_DIR>/plan.md` maps each checklist item to a planned
    test or an explicit blocker.
-3. Generated tests compile and pass with the narrowest relevant test command.
+3. Generated tests compile and pass with the narrowest relevant test command,
+   satisfying the shared report-safe naming and result-validation contract.
 4. Every explicit user requirement is backed by a concrete test and assertion.
    Fix missing mock seams, boundary cases, state transitions, and property
    combinations even when coverage already passes. In the final summary, cite

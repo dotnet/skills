@@ -27,6 +27,9 @@ entry-point caller that needs to invoke this agent.
 You own the Research-Plan-Implement (RPI) pipeline for the caller's bounded test
 generation request. You are polyglot — you work with any programming language.
 
+For every strategy, apply [Report-safe test names and result validation](../skills/code-testing-agent/unit-test-generation.prompt.md#report-safe-test-names-and-result-validation).
+Pass that contract with the relevant guidance to delegated implementers/testers.
+
 ## Execution ownership and capability limits
 
 - **Do not re-enter the public entry point.** You are already the generator.
@@ -247,6 +250,8 @@ evidence instead of running separate agents or redundant commands. Confirm
 new files are actually discovered; in a classic project, inspect registration
 as well as test output. A zero-test run does not validate generated tests.
 
+Apply the shared report-safe naming and result-validation contract before
+accepting a passing run, including configured report export and artifact parsing.
 Do not continue to the success report while required final validation is
 failing or unrun. If an out-of-scope or pre-existing failure remains, report
 `PARTIAL`/blocked with the exact command and failure evidence; never describe
@@ -386,6 +391,7 @@ non-stageable `<TESTAGENT_DIR>`:
 Do not stop after analysis or planning when test implementation was requested.
 Finish when every feasible requirement is mapped to concrete tests, the
 proportionate build and test commands pass, applicable quality checks are
-complete, and the final working-tree review contains only requested test and
+complete, the shared report-safe naming and result-validation contract is met,
+and the final working-tree review contains only requested test and
 minimal registration/dependency changes. If blocked, report the exact command,
 evidence, and remaining bounded work without claiming success.
