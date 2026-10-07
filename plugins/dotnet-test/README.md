@@ -117,8 +117,10 @@ Use this single entry-point agent for end-to-end test work:
 
 ### Internal subagents
 
-These specialists are invoked by `test-engineer` (`user-invocable: false`). You
-do not need to call them directly:
+These specialists are available to `test-engineer` (`user-invocable: false`);
+you do not need to call them directly. The agent owns research, planning,
+implementation, and review inline by default, and delegates only substantial
+work that benefits from separate context.
 
 | Agent | Called by | Purpose |
 |---|---|---|
@@ -132,13 +134,18 @@ do not need to call them directly:
 | **code-testing-fixer** | code-testing-implementer | Fixes compilation errors in source or test files |
 | **code-testing-linter** | code-testing-implementer | Runs code formatting and linting |
 
-> **VS Code — enabling full multi-level fan-out:** The pipeline delegates in two levels: `test-engineer` → researcher / planner / implementer, and `code-testing-implementer` → builder / tester / fixer / linter. VS Code gates *nested* delegation (a subagent spawning its own subagents) behind a setting that is **off by default**, so the first level runs out of the box but the second one does not. For large scopes — many files or modules, where parallel build/test/fix/lint workers help — enable it in your VS Code settings:
+> **VS Code — optional nested delegation:** The pipeline does not require
+> phase-agent fan-out. When substantial work warrants a subagent invoking
+> another available named agent, VS Code gates that nested delegation behind a
+> setting that is **off by default**. To allow it, enable:
 >
 > ```jsonc
 > "chat.subagents.allowInvocationsFromSubagents": true
 > ```
 >
-> Without it, `code-testing-implementer` still builds, tests, fixes, and lints — it just does that work inline instead of delegating to the worker subagents, so results are unaffected. The GitHub Copilot CLI has no such gate and always fans out.
+> Without it, `test-engineer` or a delegated implementer completes the phases
+> inline; required validation and review are unchanged. The GitHub Copilot CLI
+> has no such gate, but delegation remains optional.
 
 ## Prerequisites
 

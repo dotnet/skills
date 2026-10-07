@@ -224,6 +224,52 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > When `args` is absent, the command remains a shell string so existing quoting,
 > redirection, and compound-command behavior stays compatible.
 
+> **Denied-shell native scenarios:** A stimulus with `deny_shell: true` keeps
+> shell tools available but rejects their execution through evaluator-owned
+> pre-tool and permission callbacks in every arm, including nested-agent
+> callbacks. Run-command aliases such as `execute`, `bash`, and `powershell`
+> are shell tools for this policy. The policy is captured from the eval before the session starts,
+> not read from an agent-editable workspace file. File reads and edits retain
+> the existing path and session-state restrictions; this option never grants
+> additional permissions. Setup commands and post-run command graders remain
+> evaluator-owned and run normally. Each actual rejection records
+> `evaluator.shell_denied` with the requesting `sessionId` in the saved events.
+> The automatic `ShellDenied` assertion fails when no rejection was observed,
+> even if the output claims denial or a shell tool was merely advertised.
+> This is a native-lane extension, not a Vally tool constraint.
+> A denied operation is recoverable and does not itself invalidate a completed
+> run; the scenario's artifact and output graders decide whether the partial
+> task outcome is correct. Omission (or `false`) preserves normal permissions
+> and existing baseline identities. Enabling denial changes the baseline key,
+> preventing reuse of a normal-permission baseline for a restricted run.
+> The trusted validator must include this extension before enabling such
+> stimuli in CI: evaluation workflows build it from `github.workflow_sha`,
+> not the evaluated PR checkout. Older binaries can ignore the unknown YAML
+> option, so results without the `ShellDenied` assertion and trusted rejection
+> event are not denied-shell evidence. Do not rebuild the control plane from
+> untrusted eval content to work around version skew.
+
+> **Saved deterministic results:** Both inline and `--no-judge` execution save
+> assertion results and `taskCompleted` after artifact/constraint evaluation,
+> before any judge runs. Rejudge retains those results and restores expected
+> denial from saved `ShellDenied` assertions or evaluator-owned denial events.
+> It must not reinterpret evaluator artifact validation as agent execution.
+> Older recordings with empty assertion results cannot establish artifact
+> completion from rejection events alone; rerun them for objective evidence.
+> Pre-assertion snapshots remain in the nonterminal `grading` state, so an
+> interrupted grader cannot leave raw metrics masquerading as a completed run.
+>
+> **Native routing checks:** `constraints.reject_agents` rejects actual
+> `subagent.started` events for the named delegates, not primary-agent selection.
+> Qualified agent names are matched to their canonical names.
+> `constraints.reject_shell_retries: true` rejects shell-tool requests after an
+> evaluator-recorded capability-wide denial, including parent requests after a
+> child's denial. These opt-in constraints enter baseline identity and persist
+> as assertion evidence through rejudge. The SDK prompt includes the active
+> custom-agent identity; primary evaluation also honors a profile's declared
+> exclusion of itself from its delegates. Organic routing remains available
+> when the target has not been selected as primary.
+
 > **Reused baselines:** When the run was invoked with `--baseline-from`, the `baseline` arm is not executed — its `metrics` and `judgeResult` come from the shared baseline file produced earlier with `--baseline-out` (computed once, honoring `--runs`). Such scenarios are reported with the `baseline-reused` session phase and a `reused` baseline status. The baseline file is keyed on `--model` and `--judge-model` plus, per scenario, a SHA-256 of the prompt and a composite SHA-256 over its setup inputs (copied test files, explicit setup files, and setup commands) and its evaluation criteria (rubric, assertions, expect/reject tools, and turn/token/timeout limits); reuse fails fast if the agent model, judge model, or any prompt-plus-setup-plus-criteria identity is missing, so the baseline you compare against is always identity-matched and a shared prompt across cases with different fixtures or rubrics cannot cross-contaminate. Because the baseline output is identical across every skill/agent that consumes the same file, this acts as a shared control group and removes baseline run-to-run variance from cross-skill comparisons.
 
 > **Decoupled runs and judging:** `evaluate --no-judge` runs the agent arms and persists `sessions.db` but performs no judging and needs no baseline file, so baseline and treatment arms can run in one parallel pool. Each persisted session row carries a `baseline_key` column — the same prompt-SHA-plus-target-SHA identity used for baseline reuse. Scenario execution failures are persisted with terminal `failed` status and make `--no-judge` return nonzero; recoverable failed tool calls remain ordinary error metrics and do not invalidate a completed run. Rejudge rejects any baseline or treatment database containing failed sessions instead of silently dropping them. A later `rejudge <treatment-dir> --baseline-dir <baseline-dir>` selects baseline roles from the baseline database and isolated/plugin roles from the treatment database, requires exactly one baseline with the same key and run index for every treatment run, and requires every selected treatment role to carry the same key. It then runs the same judges and gates an inline `evaluate` would and writes results back to the owning databases. Cross-directory rejudge also requires complete accounting: any unmatched, duplicate, unknown-role, keyless baseline, or key-mismatched selected run is listed by skill, scenario, run, role, session ID, and baseline key, and stops rejudge before judging or publishing a partial verdict. Complete three-arm recordings are supported in both databases; irrelevant valid arm roles are ignored after role selection. Inline rejudge enforces the same baseline-key agreement and rejects duplicate baseline, isolated, or plugin role records for the same skill, scenario, and run. Every run for one scenario must agree on its persisted activation expectation; mixed eval revisions fail closed. Inline and cross-directory rejudge reject any database with a nonterminal session before judging, including an interrupted `running` plugin arm beside completed baseline and isolated arms. Inline rejudge similarly stops when a completed run group lacks its required baseline or isolated arm. Inline rejudge accepts normal and reused baselines plus both skill and agent isolated/plugin roles. It persists each new scenario's activation expectation, reconstructs target activation from saved events, and reapplies the skill or agent activation-contract gate. When an older database has no expectation, rejudge first reads the current matching eval scenario and otherwise preserves the legacy expected-active behavior. Baseline and treatment must share `--model`; the judge model resolves to `--judge-model`, else the treatment DB's persisted judge model, else the baseline DB's, and a mismatch between the two persisted judge models (without an explicit override) is rejected.
@@ -281,6 +327,7 @@ Several scenario-level options in `eval.yaml` are relevant when diagnosing failu
 |--------|-------------|
 | `timeout` | Maximum wall-clock time per run in seconds. Default is 120 seconds if omitted. Increase when skilled runs time out. |
 | `reject_tools` | Array of tool names that will cause the run to fail if they are used (e.g., `["bash", "edit"]`). This is enforced as a post-run assertion in the validator (it does not sandbox or block the tool calls), and is useful to force the agent to explain rather than explore/build, leveling the playing field between baseline and skilled runs. |
+| `deny_shell` | Native lane only: opt-in boolean on a stimulus (or legacy scenario). Rejects actual shell execution while preserving independent file permissions, and requires an evaluator-recorded rejection before the denial scenario can pass. Default: `false`. |
 | `setup.files` | Array of files to create before the run. Gives the agent concrete code to work with, reducing variance from different scaffolding strategies. |
 
 ## Common failure patterns

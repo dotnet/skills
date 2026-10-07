@@ -3,33 +3,42 @@ name: code-testing
 description: >-
   ALWAYS USE for test work that requires changes: write, add, generate, repair,
   or strengthen tests for existing code in xUnit, MSTest, NUnit, pytest,
-  Vitest/Jest, Go, or another framework, including regression cases, failing or
+  Vitest/Jest, Go, or another framework. Includes regression cases, failing or
   flaky tests, coverage-driven additions, and audit-then-fix requests. Focused
-  requests use a proportional direct workflow; broad or multi-stage requests
-  invoke the test-engineer agent. DO NOT USE for only running tests (run-tests),
-  analysis-only audits, test framework/platform migrations, a test blocked on a
-  missing production seam (testability-obstacle), or MSTest API/configuration
-  corrections that do not design new cases (writing-mstest-tests).
+  work stays direct; broad or multi-stage work invokes test-engineer. DO NOT USE
+  for only running tests, analysis-only audits, framework/platform migrations,
+  a test blocked on a missing production seam (testability-obstacle), or MSTest
+  API/configuration corrections that do not design new cases
+  (writing-mstest-tests). Within an active test-engineer pipeline, reuse supplied
+  guidance and do not re-enter this skill.
 license: MIT
 ---
 
 # Code Testing Skill
 
-The reliable implicit entry point for test changes. It handles focused work
-directly and invokes the public `test-engineer` agent for broad or multi-stage
-requests.
+The reliable implicit entry point for generating, repairing, and strengthening
+tests. It handles focused work directly and invokes the public `test-engineer`
+agent for broad or multi-stage requests.
 
 ## Non-negotiable execution contract
+
+**Check pipeline ownership first.** If the active agent is
+`test-engineer` (including a plugin-qualified name such as
+`dotnet-test:test-engineer`), or the caller assigned you a phase of
+that pipeline, do not delegate to another generator. Continue the assigned
+work inline. This guard takes precedence over every broad-scope delegation
+instruction below, even if this skill was loaded automatically.
 
 Classify scope **before editing**:
 
 - **Broad** (a project/package-wide suite, or multiple production
   files/modules): create `research.md` and `plan.md` in a resolved
   non-stageable `<TESTAGENT_DIR>` before implementation, then `status.md` there
-  after the final test-quality review. When `test-engineer` is available,
-  invoke that named custom agent before implementing; do not replace it with a
-  generic subagent carrying the same label or implement the broad request
-  inline. If the state files are absent, the broad workflow is incomplete.
+  after the final test-quality review. When `test-engineer` is
+  available, invoke that named custom agent before implementing; do not replace
+  it with a generic subagent carrying the same label or implement the broad
+  request inline. If the state files are absent, the broad workflow is
+  incomplete.
 - **Focused** (the user explicitly limits work to one function/class/file or one
   missing method): do not create intermediate state files or fan out to multiple
   agents. A sparse project-wide request remains broad even when only one source
@@ -41,6 +50,11 @@ compact bullet list under a **Requirement coverage** label that names the tests
 and successful command; for broader or multi-requirement work, use a
 `Requirement | Evidence` table. Each requested behavior must cite an exact test
 name.
+
+Before sending a broad-scope final response, check that the response itself
+contains `| Requirement | Evidence |` and exact test names for every behavioral
+row. A table in a child report or internal plan is not enough. Do not summarize
+away those names into module-level bullets or an `Area | Tests` table.
 
 Intermediate state files are internal working data, never deliverables. Keep
 `<TESTAGENT_DIR>` non-stageable, never place it or its files in
@@ -57,6 +71,17 @@ named module direct tests for its non-trivial public behavior. Cross-module test
 prove composition, but do not substitute for the requested module-level
 coverage. Judge breadth by the behavior matrix, never by matching or exceeding a
 raw test count.
+
+At the public entry point, delegate broad work to `test-engineer`
+once. Research, plan, implementation, and review remain required, but they
+need not be separate sub-agent calls.
+
+Use only capabilities available in the current runtime. Do not retry a missing
+skill under aliases or use another agent to retry a policy-denied operation.
+If scratch storage is denied, keep the research and plan in context, continue
+permitted test edits, and report the missing state artifacts. If execution is
+denied, continue permitted static review and report tests as unrun, never passed.
+Neither blocker authorizes modifying production code or weakening requirements.
 
 For a **broad or comprehensive** request, the explicit matrix is the floor, not
 the ceiling. Treat each requested module or layer as an inventory heading, not
@@ -140,12 +165,8 @@ Classify both intent and scope before editing:
 - **Audit then fix**: invoke `test-engineer` so it can coordinate the internal
   quality specialist and implementation work.
 
-Make sure you understand what the user is asking and for what scope.
-When the user does not express strong requirements for test style, coverage
-goals, or conventions, source the guidelines from
-[unit-test-generation.prompt.md](unit-test-generation.prompt.md). This prompt
-provides best practices for discovering conventions, parameterization
-strategies, behavior-focused coverage, and language-specific patterns.
+Make sure you understand what user is asking and for what scope.
+When the user does not express strong requirements for test style, coverage goals, or conventions, source the guidelines from [unit-test-generation.prompt.md](unit-test-generation.prompt.md). This prompt provides best practices for discovering conventions, parameterization strategies, behavior-focused coverage, and language-specific patterns.
 
 ### Step 2: Size the request before invoking anything
 
@@ -171,24 +192,28 @@ Before ending a focused request, check all three conditions together:
 
 Do not replace requirement-level evidence with a generic list of covered areas.
 
-### Step 3: Invoke the Test Engineer (broad or multi-stage scope)
+### Step 3: Invoke the Test Generator (broad scope)
 
-Invoke the named `test-engineer` custom agent with the complete original
-request. Do not use a generic/general-purpose subagent merely named
+Start by invoking the named `test-engineer` custom agent with your test
+generation request. Do not use a generic/general-purpose subagent merely named
 `test-engineer`:
 
 ```text
-Handle this test engineering request end to end: [original request]. Treat the current workspace as authoritative even when it is sparse, gutted-looking, synthetic, or missing tracked files; never restore or reconstruct it, including with `git checkout`, `git restore`, `git reset`, or `git clean`.
+You are the sole pipeline owner for this request. Do not invoke code-testing or another test-engineer; complete the phases in your current context. Generate unit tests for [path or description of what to test], following the [unit-test-generation.prompt.md](unit-test-generation.prompt.md) guidelines. Treat the current workspace as authoritative even when it is sparse, gutted-looking, synthetic, or missing tracked files; never restore or reconstruct it, including with `git checkout`, `git restore`, `git reset`, or `git clean`.
 ```
 
-The Test Engineer will select the appropriate generation, repair, execution, or
-quality workflow and manage its internal specialists.
+The Test Generator owns the pipeline. After it returns, consume its recorded
+quality checks, validation results, and requirement matrix instead of repeating
+Steps 4 and 5 as another pipeline. Do not reload review skills or rerun unchanged
+passing commands. Preserve exact test names from its evidence in the final
+handoff. If evidence is missing, inspect or follow up on that specific gap
+without restarting generation. A reported capability-wide denial also applies
+to the caller; do not attempt another command using that capability.
 
-If `test-engineer` is unavailable, do not skip the request. Execute the
-equivalent workflow inline for the classified intent. For broad generation,
-use the Research → Plan → Implement sequence below, resolve `<TESTAGENT_DIR>`
-as described below, create the intermediate state files there, and apply the
-same completion contract.
+If `test-engineer` is unavailable, do not skip the workflow. Execute the
+same Research → Plan → Implement sequence inline, resolve `<TESTAGENT_DIR>` as
+described below, create the intermediate state files there, and apply the same
+completion contract.
 
 For broad scope, resolve one absolute `<TESTAGENT_DIR>` before creating
 intermediate state files:
@@ -211,7 +236,7 @@ For multi-file requests:
 1. Turn every explicit user requirement into a checklist before implementation. Include requested layers, collaborators to mock, boundary cases, integrations, coverage thresholds, and report artifacts. Copy multi-condition requirements verbatim — they must each map to one test that exercises the whole combination.
 2. Research only the requested module or project and write the checklist plus a compact target inventory to `<TESTAGENT_DIR>/research.md`.
 3. Reuse manifests, symbol references, and deterministic pairing tools instead of reading every source and test file.
-4. For multi-file scopes in C#, Python, TypeScript/JavaScript, Go, Java, Rust, Ruby, Kotlin, Swift, PowerShell, or C++, run `find-untested-sources` once and consume its pairing and suggested-path output; do not repeat that discovery manually.
+4. When an available `find-untested-sources` skill is useful for a substantial multi-file inventory, run it once and reuse its pairing and suggested-path output. Otherwise pair the bounded targets manually once; do not probe for an unavailable skill.
 5. Plan each target file once, then implement phases sequentially. Map every checklist item to at least one concrete test or explain why it is blocked.
 6. Build and test the narrow target during fix cycles. Run workspace-level
    validation once at the end only for broad work, when the repository contract
@@ -297,7 +322,7 @@ focused request does not create these files:
 
 | Agent                      | Purpose              |
 | -------------------------- | -------------------- |
-| `test-engineer`            | Coordinates pipeline |
+| `test-engineer`   | Coordinates pipeline |
 | `code-testing-researcher`  | Analyzes codebase    |
 | `code-testing-planner`     | Creates test plan    |
 | `code-testing-implementer` | Writes test files    |

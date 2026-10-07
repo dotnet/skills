@@ -13,6 +13,38 @@ python eng/eval-quality/check_eval_quality.py --all    # audit every eval suite
 python eng/eval-quality/selftest_eval_quality.py       # prove the gate still fires
 ```
 
+The gate has **22 failing checks**. It proves deterministic structure and reference integrity. It
+does not decide whether a scenario is necessary, whether it belongs to the target, whether a prompt
+sounds like a real developer request, or whether the scenario portfolio has product value.
+
+## Author and reviewer acceptance model
+
+Apply these checks before treating a passing gate as a good eval:
+
+1. **Necessity and fit:** a preference case should improve the outcome. A dormancy contract or
+   no-op guard may instead protect a meaningful routing or preservation invariant with
+   baseline-equivalent correct behavior. Do not measure generic knowledge, path recall, or an
+   unreachable reference skill.
+2. **Tags and distinct value:** every stimulus in a `type: capability` eval has stable `capability`,
+   `risk`, and `journey` tags, including dormancy cases. Each preference-eligible case adds a
+   different capability, risk, or customer journey.
+3. **Natural prompt:** the request does not name the target, quote its vocabulary, disclose the
+   solution, or prescribe its workflow.
+4. **Deterministic outcome:** graders prove the required response and workspace state over the
+   complete in-scope file set.
+5. **Golden acceptance:** the golden trajectory and patch pass all applicable deterministic
+   graders.
+6. **Mutation rejection:** a realistic broken result fails the grader that protects the behavior.
+7. **Restraint:** rewrite skills include an already-correct no-op case, and routing boundaries use
+   `expect_activation: false` without `reject_skills`.
+8. **Power:** task breadth is sized for the expected tie rate, not only the five-stimulus floor.
+9. **Production execution:** Vally parses skill evals, the native SDK lane parses agent evals, and
+   each eval completes under normal worker concurrency and its declared time budget.
+10. **Cross-family evidence:** broad routing or behavior changes have separate GPT-family and
+    Claude-family results. These are sensitivity checks, not extra stimulus votes.
+11. **Failure classification:** fixture, spec-load, reliability, power, design, content, routing,
+    and cost failures are separated before skill content changes.
+
 By default, the gate enforces structural checks on eval suites changed since
 the previous commit. Pull-request CI passes `--base-ref` explicitly, so every
 fixture, reference, or spec changed by the PR is checked as one suite. This is
@@ -297,7 +329,17 @@ Fix it by deleting the stray block. Check it really is stray first: compare it
 against the scenario it duplicates before removing it, so a genuinely distinct
 scenario that merely lost its `- name:` line is restored rather than dropped.
 
-### 10. Duplicate stimulus names
+### 10. Deprecated top-level `config:` alias
+
+Vally 0.14 warns when it loads the deprecated top-level `config:` alias and
+throws if a later edit adds `defaults:` beside it. The gate requires
+`defaults:` so every eval uses one settings schema and cannot drift into the
+mixed-key failure.
+
+Rename `config:` to `defaults:` and preserve its `timeout`, `runs`, and other
+settings. Do not keep both keys.
+
+### 11. Duplicate stimulus names
 
 Vally pairs baseline and treatment trajectories by `(stimulus name, trial
 index)`. Two stimuli with the same name therefore create ambiguous comparison
@@ -305,7 +347,7 @@ slots even when their prompts differ. The authoring gate requires every
 stimulus name in one eval to be unique; the runtime adapter also rejects missing
 or duplicate comparison slot identities.
 
-### 11. Stimulus-level timeout
+### 12. Stimulus-level timeout
 
 Vally supports `defaults.timeout` for an eval. Its stimulus schema has no
 top-level `timeout`, so this shape parses but the runner silently keeps the
@@ -322,7 +364,7 @@ stimuli:
 This can leave a trial failing at six minutes even though the spec appears to
 give it ten. Set a truthful suite-level budget in `defaults.timeout` instead.
 
-### 12. Unquoted rubric code token treated as a YAML comment
+### 13. Unquoted rubric code token treated as a YAML comment
 
 YAML treats `#` as the start of a comment when whitespace precedes it in a
 plain scalar. A rubric such as this parses successfully but enforces only
@@ -338,13 +380,13 @@ The same defect affects C# preprocessor tokens such as `#if`, `#nullable`, and
 scalars and only these known code-token forms. It does not reject ordinary
 comments. Quote the whole rubric item when it contains such a token.
 
-### 13. Golden trajectory or patch missing on disk
+### 14. Golden trajectory or patch missing on disk
 
 A stimulus points at a `golden_trajectory.path` or `golden_patch.path` that does
 not exist. Vally cannot load the oracle, so the trial cannot prove the reference
 behavior.
 
-### 14. Golden trajectory or patch not tracked by git
+### 15. Golden trajectory or patch not tracked by git
 
 The reference exists in the local working tree but is absent from the git
 index. Local validation can read it, while CI receives an eval that points at a
@@ -352,7 +394,7 @@ file that was never checked out. The gate checks both trajectory JSON and patch
 files with the same index-only rule used for fixtures. If the reference is a
 symlink, both the link and its contained target must be tracked.
 
-### 15. Golden patch does not apply to declared fixture inputs
+### 16. Golden patch does not apply to declared fixture inputs
 
 A patch can remain present and tracked after its fixture changes, but its
 preimage no longer exists. The gate materializes each stimulus's declared
@@ -369,7 +411,7 @@ directory; any link that resolves outside its suite is rejected. These rules
 stop an eval from copying or reading unrelated host files while the gate checks
 a patch.
 
-### 16. Output grader has a patch but no response trajectory
+### 17. Output grader has a patch but no response trajectory
 
 A golden patch supplies workspace state, not assistant output. If a stimulus
 uses an `output-*` grader with only `golden_patch`, its reference has no response

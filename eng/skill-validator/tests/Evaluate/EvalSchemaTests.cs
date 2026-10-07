@@ -292,6 +292,7 @@ public class ParseEvalConfigTests
         var scenario = Assert.ContainsSingle(config!.Scenarios);
         Assert.AreEqual(1200, scenario.Timeout);
         Assert.IsFalse(scenario.ExpectActivation);
+        Assert.IsFalse(scenario.DenyShell);
         Assert.AreSequenceEqual(["bash"], scenario.ExpectTools);
         Assert.AreSequenceEqual(["web"], scenario.RejectTools);
         Assert.AreEqual(12, scenario.MaxTurns);
@@ -320,6 +321,25 @@ public class ParseEvalConfigTests
             Assert.AreSequenceEqual(["-c", "dotnet test Project"], command.ArgumentList!);
             Assert.IsNull(command.CommandArguments);
         }
+    }
+
+    [TestMethod]
+    [DataRow("stimuli")]
+    [DataRow("scenarios")]
+    public void ParsesOptInShellDenial(string scenarioKey)
+    {
+        var config = EvalSchema.ParseEvalConfigFlexible($$"""
+            {{scenarioKey}}:
+              - name: Generate tests
+                prompt: Add and run the tests.
+                deny_shell: true
+              - name: Normal execution
+                prompt: Run the tests.
+            """);
+
+        Assert.IsNotNull(config);
+        Assert.IsTrue(config.Scenarios[0].DenyShell);
+        Assert.IsFalse(config.Scenarios[1].DenyShell);
     }
 
     [TestMethod]
