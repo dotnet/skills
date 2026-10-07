@@ -5,14 +5,15 @@ description: >
   Collect a managed .gcdump from a running .NET MAUI Mono app on a physical Android or iOS device.
   USE FOR: device memory snapshots, growing managed heap, preparing a profiling build,
   diagnostic-port or dsrouter connectivity failures during mobile GC dump collection.
-  DO NOT USE FOR: any CoreCLR or NativeAOT app or request, including heap snapshots,
-  growing-heap, or GC dump requests (NativeAOT does not support gcdump collection
-  regardless of framing; explain the Mono-only boundary instead), existing dump
-  analysis or process/crash dumps (dump-collect), CPU traces, native Java/Objective-C
-  heaps, Windows/Mac Catalyst apps, emulator/simulator-only requests,
-  acknowledgments of already completed collection, or production/store-distributed
-  (App Store, TestFlight, Play Store, enterprise-signed) binaries where attaching a
-  diagnostic port or bypassing platform signing/security would be required.
+  DO NOT USE FOR (decline without opening this skill): any CoreCLR or NativeAOT app
+  or request, including heap snapshots, growing-heap, or GC dump requests (NativeAOT
+  does not support gcdump collection regardless of framing; explain the Mono-only
+  boundary instead); production/store-distributed (App Store, TestFlight, Play Store,
+  enterprise-signed) binaries where attaching a diagnostic port or bypassing platform
+  signing/security would be required; existing dump analysis or process/crash dumps
+  (dump-collect), CPU traces, native Java/Objective-C heaps, Windows/Mac Catalyst
+  apps, emulator/simulator-only requests, or acknowledgments of already completed
+  collection.
 ---
 
 # Collect a MAUI managed heap on a physical device
