@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Security.AccessControl;
+using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
@@ -539,6 +540,48 @@ public class BuildSessionConfigTests
     public async Task ExactScenarioShellCommandAllowsUnclassifiedRequest()
     {
         const string command = "node _acceptance/audit-lifecycle.mjs MyApp --json";
+        var workDir = Directory.CreateTempSubdirectory("trusted-shell-");
+        try
+        {
+            var helperDirectory = Directory.CreateDirectory(Path.Combine(workDir.FullName, "_acceptance"));
+            var helperPath = Path.Combine(helperDirectory.FullName, "audit-lifecycle.mjs");
+            await File.WriteAllTextAsync(helperPath, "console.log('ok');");
+            var trustedFile = new TrustedShellFile(
+                "_acceptance/audit-lifecycle.mjs",
+                Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(helperPath))));
+            var config = await AgentRunner.BuildSessionConfig(
+                null,
+                null,
+                "gpt-4.1",
+                workDir.FullName,
+                explicitlyAllowedShellCommands: [command],
+                trustedShellFiles: [trustedFile]);
+            var request = new PermissionRequestShell
+            {
+                CanOfferSessionApproval = false,
+                Commands = [],
+                FullCommandText = " node   _acceptance/audit-lifecycle.mjs   MyApp   --json ",
+                HasWriteFileRedirection = false,
+                Intention = "Run the authenticated acceptance helper",
+                PossiblePaths = [],
+                PossibleUrls = [],
+                ToolCallId = "allowed-scenario-shell",
+            };
+
+            var decision = await config.OnPermissionRequest!(request, null!);
+
+            Assert.AreEqual("approve-once", decision.Kind);
+        }
+        finally
+        {
+            workDir.Delete(recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public async Task ScenarioShellCommandWithoutTrustedFileDigestsIsRejected()
+    {
+        const string command = "node _acceptance/audit-lifecycle.mjs MyApp --json";
         var config = await AgentRunner.BuildSessionConfig(
             null,
             null,
@@ -549,17 +592,61 @@ public class BuildSessionConfigTests
         {
             CanOfferSessionApproval = false,
             Commands = [],
-            FullCommandText = " node   _acceptance/audit-lifecycle.mjs   MyApp   --json ",
+            FullCommandText = command,
             HasWriteFileRedirection = false,
-            Intention = "Run the authenticated acceptance helper",
+            Intention = "Run an unauthenticated acceptance helper",
             PossiblePaths = [],
             PossibleUrls = [],
-            ToolCallId = "allowed-scenario-shell",
+            ToolCallId = "missing-trusted-file",
         };
 
         var decision = await config.OnPermissionRequest!(request, null!);
 
-        Assert.AreEqual("approve-once", decision.Kind);
+        Assert.AreEqual("reject", decision.Kind);
+    }
+
+    [TestMethod]
+    public async Task ModifiedTrustedShellHelperIsRejectedBeforeExecution()
+    {
+        const string command = "node _acceptance/audit-lifecycle.mjs MyApp --json";
+        var workDir = Directory.CreateTempSubdirectory("trusted-shell-");
+        try
+        {
+            var helperDirectory = Directory.CreateDirectory(Path.Combine(workDir.FullName, "_acceptance"));
+            var helperPath = Path.Combine(helperDirectory.FullName, "audit-lifecycle.mjs");
+            await File.WriteAllTextAsync(helperPath, "console.log('reviewed');");
+            var trustedFile = new TrustedShellFile(
+                "_acceptance/audit-lifecycle.mjs",
+                Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(helperPath))));
+            await File.WriteAllTextAsync(helperPath, "console.log('modified');");
+            var config = await AgentRunner.BuildSessionConfig(
+                null,
+                null,
+                "gpt-4.1",
+                workDir.FullName,
+                explicitlyAllowedShellCommands: [command],
+                trustedShellFiles: [trustedFile]);
+            var executed = false;
+            var request = new PermissionRequestShell
+            {
+                CanOfferSessionApproval = false,
+                Commands = [],
+                FullCommandText = command,
+                HasWriteFileRedirection = false,
+                Intention = "Run a modified acceptance helper",
+                PossiblePaths = [],
+                PossibleUrls = [],
+                ToolCallId = "modified-trusted-file",
+            };
+
+            Assert.IsFalse(await RunShellPermissionPipelineAsync(
+                config, request, execute: () => executed = true));
+            Assert.IsFalse(executed);
+        }
+        finally
+        {
+            workDir.Delete(recursive: true);
+        }
     }
 
     [TestMethod]

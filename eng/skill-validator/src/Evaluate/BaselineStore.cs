@@ -329,6 +329,9 @@ internal sealed class BaselineStore
         if (scenario.AllowShellCommands is { } allowShellCommands)
             foreach (var command in allowShellCommands.OrderBy(command => command, StringComparer.Ordinal))
                 sb.Append("ASC:").Append(command).Append('\0');
+        if (scenario.TrustedShellFiles is { } trustedShellFiles)
+            foreach (var file in trustedShellFiles.OrderBy(file => file.Path, StringComparer.Ordinal))
+                sb.Append("TSF:").Append(file.Path).Append('=').Append(file.Sha256).Append('\0');
         if (scenario.RejectAgents is { } rejectAgents)
             foreach (var agent in rejectAgents.OrderBy(name => name, StringComparer.Ordinal))
                 sb.Append("RA:").Append(agent).Append('\0');
