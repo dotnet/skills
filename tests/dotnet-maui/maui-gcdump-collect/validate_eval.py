@@ -128,11 +128,14 @@ def main():
                 mutations.append(wrong_path)
                 # Trailing shell control operators after the invocation can mask its
                 # real exit status even though the guard itself is genuine; these must
-                # still be rejected.
+                # still be rejected. "&& cleanup" and a bare trailing ";" are NOT in
+                # this list: a success-only "&&" follow-up still short-circuits on a
+                # collector failure, and a lone trailing ";" with nothing after it is
+                # just a statement terminator -- both are covered as safe equivalents
+                # below instead.
                 for masked_capture in (
                     capture + ' || true',
                     capture + '; echo done',
-                    capture + ' && cleanup',
                     capture + ' | cat',
                 ):
                     masked = copy.deepcopy(plan)
@@ -154,6 +157,11 @@ def main():
                     '[ ! -e "./after-navigation.gcdump" ] && ' + capture,
                     '! test -e "$PWD/after-navigation.gcdump" && ' + capture,
                     'if [ ! -e "$PWD/after-navigation.gcdump" ]; then ' + capture + '; fi',
+                    # A bare trailing ";" cannot mask a status: nothing runs after it.
+                    'test ! -e "$PWD/after-navigation.gcdump" && ' + capture + ';',
+                    # A success-only "&&" follow-up still short-circuits on a collector
+                    # failure, so it cannot bypass the preceding guard either.
+                    'test ! -e "$PWD/after-navigation.gcdump" && ' + capture + ' && cleanup',
                 ):
                     equivalent = copy.deepcopy(plan)
                     equivalent["commands"]["collect"] = [guarded_capture]
@@ -196,8 +204,8 @@ def main():
         print(f"Golden acceptance: {len(doc['stimuli'])} responses, {workspace_count} workspaces")
         print(f"Mutation rejection: {len(doc['stimuli'])} empty responses; "
               f"{len(doc['stimuli']) * 2} realistic response defects; "
-              f"{workspace_count * 12} workspace defects")
-        print(f"No-overwrite equivalents accepted: {workspace_count * 3}")
+              f"{workspace_count * 11} workspace defects")
+        print(f"No-overwrite equivalents accepted: {workspace_count * 5}")
 
         if args.oracle:
             deterministic = copy.deepcopy(doc)

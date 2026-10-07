@@ -170,14 +170,25 @@ stimuli:
             
                 # The guard is worthless if a trailing shell control operator after the
                 # invocation (in the SAME array element) can mask its real exit status,
-                # e.g. "dotnet-gcdump collect ... || true" or "; echo done" or "&& cleanup"
-                # or a trailing pipe. Form B syntactically requires a trailing "; fi"
-                # closer -- that is the sole carve-out; everything else after the
-                # invocation must be free of &&, ||, ;, | tokens so the collector exit
-                # code is what actually propagates.
+                # e.g. "dotnet-gcdump collect ... || true" (unconditionally succeeds),
+                # "; echo done" (runs regardless of the exit code of the invocation), or a
+                # trailing pipe (the exit code of the pipeline becomes that of the last
+                # stage, not that of the collector). Form B syntactically requires a trailing "; fi"
+                # closer -- that is one carve-out. Two more safety-preserving forms are
+                # also allowed: a single bare trailing ";" with nothing after it (just a
+                # statement terminator, nothing can run unconditionally), and any chain
+                # of additional "&&"-joined commands (each only runs if everything
+                # before it, including the collector, already succeeded, so a collector
+                # failure still short-circuits the chain and surfaces as the failure).
+                # A single bare trailing ";" is stripped before scanning: any "||", "|",
+                # or additional ";" remaining after that strip means a later clause can
+                # run (or an exit code can be swallowed) regardless of whether
+                # the collector itself succeeded, which is what must be rejected.
                 invocation_tail = tokens[index:-2] if matched_form_b else tokens[index:]
-                control_operators = {"&&", "||", ";", "|"}
-                assert not any(t in control_operators for t in invocation_tail), (
+                if invocation_tail and invocation_tail[-1] == ";":
+                    invocation_tail = invocation_tail[:-1]
+                unsafe_operators = {"||", ";", "|"}
+                assert not any(t in unsafe_operators for t in invocation_tail), (
                     "A shell control operator after the collector invocation can mask its exit status"
                 )
                 print("No-overwrite guard valid:", path)
