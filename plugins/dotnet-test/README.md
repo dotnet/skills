@@ -7,7 +7,7 @@ Skills and GitHub Copilot custom agents for running, generating, analyzing, and 
 ## When to use this plugin
 
 - **Run tests** *(.NET only)* — execute SDK-style projects with `dotnet test`, or preserve a classic project's checked-in MSBuild + VSTest/MSTest command
-- **Generate tests** *(polyglot)* — scaffold comprehensive unit tests for any language via a multi-agent pipeline
+- **Generate tests** *(polyglot)* — scaffold unit tests for any language with a scope-sized Research → Plan → Implement workflow
 - **Migrate tests** *(.NET only)* — see the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin (MSTest v1/v2 → v3 → v4, xUnit v2 → v3, xUnit → MSTest, VSTest → Microsoft.Testing.Platform)
 - **Audit test quality** *(polyglot)* — detect anti-patterns, test smells, assertion gaps, and (for .NET) coverage risks
 - **Improve testability** *(.NET only)* — find static dependencies, generate wrappers, and migrate call sites to injectable abstractions
@@ -26,7 +26,7 @@ Skills and GitHub Copilot custom agents for running, generating, analyzing, and 
 
 | Skill | Description |
 |---|---|
-| **code-testing-agent** | Multi-agent pipeline (Research → Plan → Implement → Build → Test → Fix → Lint) that generates tests for any language |
+| **code-testing-agent** | Scope-sized test generation for any language: focused additions stay direct; broad requests use the generator-owned Research → Plan → Implement pipeline with proportionate validation and review |
 | **scaffold-dotnet-test-project** *(.NET)* | Create a missing test project or repair its project/solution/filter wiring |
 | **writing-mstest-tests** | Version-compatible MSTest authoring for modern and classic projects, including MSTest 3.x/4.x APIs |
 
@@ -111,26 +111,26 @@ These are the entry-point agents you invoke directly:
 
 ### Internal subagents
 
-These are pipeline stages invoked automatically by the agents above (`user-invocable: false`). You do not need to call them directly:
+These agents are internal (`user-invocable: false`); you do not need to call them directly. For broad requests, the `code-testing-agent` skill invokes the named `code-testing-generator` once when available. The generator owns the pipeline and returns evidence for the caller to reuse. Research, planning, implementation, and review remain required, but run inline by default, including bounded project-wide suites. The other agents below are optional workers for substantial work that benefits from separate context, used only when available in the runtime. Focused additions stay direct, without intermediate state artifacts or agent fan-out.
 
-| Agent | Called by | Purpose |
+| Agent | Caller | Purpose |
 |---|---|---|
-| **code-testing-generator** | code-testing-agent skill | Orchestrates the full test generation pipeline (research → plan → implement → build → test → fix → lint) |
-| **code-testing-researcher** | code-testing-generator | Analyzes codebase structure, testing patterns, and testability |
-| **code-testing-planner** | code-testing-generator | Creates phased test implementation plans from research findings |
-| **code-testing-implementer** | code-testing-generator | Implements one phase from the plan, runs build-test-fix cycles |
-| **code-testing-builder** | code-testing-implementer | Runs build/compile commands and reports results |
-| **code-testing-tester** | code-testing-implementer | Runs test commands and reports pass/fail results |
-| **code-testing-fixer** | code-testing-implementer | Fixes compilation errors in source or test files |
-| **code-testing-linter** | code-testing-implementer | Runs code formatting and linting |
+| **code-testing-generator** | code-testing-agent skill (broad requests) | Owns the full test generation pipeline, with phases inline by default |
+| **code-testing-researcher** | code-testing-generator (optional) | Analyzes codebase structure, testing patterns, and testability |
+| **code-testing-planner** | code-testing-generator (optional) | Creates phased test implementation plans from research findings |
+| **code-testing-implementer** | code-testing-generator (optional) | Implements one phase from the plan, runs build-test-fix cycles |
+| **code-testing-builder** | code-testing-generator or delegated implementer (optional) | Runs build/compile commands and reports results |
+| **code-testing-tester** | code-testing-generator or delegated implementer (optional) | Runs test commands and reports pass/fail results |
+| **code-testing-fixer** | code-testing-generator or delegated implementer (optional) | Fixes compilation errors in source or test files |
+| **code-testing-linter** | code-testing-generator or delegated implementer (optional) | Runs code formatting and linting |
 
-> **VS Code — enabling full multi-level fan-out:** The pipeline delegates in two levels: `code-testing-generator` → researcher / planner / implementer, and `code-testing-implementer` → builder / tester / fixer / linter. VS Code gates *nested* delegation (a subagent spawning its own subagents) behind a setting that is **off by default**, so the first level runs out of the box but the second one does not. For large scopes — many files or modules, where parallel build/test/fix/lint workers help — enable it in your VS Code settings:
+> **VS Code — optional nested delegation:** The pipeline does not require phase-agent fan-out. When substantial work warrants a subagent invoking another available named agent, VS Code gates that *nested* delegation behind a setting that is **off by default**. To allow it, enable this in your VS Code settings:
 >
 > ```jsonc
 > "chat.subagents.allowInvocationsFromSubagents": true
 > ```
 >
-> Without it, `code-testing-implementer` still builds, tests, fixes, and lints — it just does that work inline instead of delegating to the worker subagents, so results are unaffected. The GitHub Copilot CLI has no such gate and always fans out.
+> Without it, the generator or delegated implementer completes the phases inline; required validation and review are unchanged. The GitHub Copilot CLI has no such gate, but delegation is still optional: phases stay inline by default, and agents are used only for substantial separate-context work when available.
 
 ## Prerequisites
 

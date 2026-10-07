@@ -8,6 +8,31 @@ historical examples, start with the
 
 Every target runs in up to three variants — **baseline** (no target), **isolated** (only the target plus declared dependencies), and **plugin** (the production plugin surface). Skill evals run through Vally (`@microsoft/vally-cli`). Agent evals run through `skill-validator evaluate`, which registers `CustomAgents` directly and retains target activation, nested delegation, invoked skills, tool calls, completion, tokens, and wall time. Both adapters write one `results.json` per expected target, including an explicit invalid result when required evidence is missing.
 
+Native agent stimuli may opt in to `deny_shell: true`. Unlike the post-run
+`reject_tools` constraint, this rejects actual shell execution in all arms
+without changing file-tool permissions or the existing sandbox. Setup and
+post-run command graders still execute under evaluator control. A
+`ShellDenied` assertion requires an evaluator-recorded `evaluator.shell_denied`
+event; an agent's claim of denial is not evidence. Check this assertion alongside
+the generated-file and truthful-partial-output graders. The saved event includes
+the requesting session ID, including nested-agent callbacks. Omitted or false
+policies preserve existing behavior, and a denied-shell run cannot reuse a
+normal-permission baseline. See the shipping validator's
+[permission policy reference](../skill-validator/src/docs/InvestigatingResults.md)
+for the contract. This extension is not supported by the Vally skill lane.
+The trusted validator is built from `github.workflow_sha`, not the PR checkout;
+land the harness support at that trusted ref before enabling the scenario in CI.
+Older validators may ignore the unknown option, so a result missing the
+`ShellDenied` assertion and its trusted rejection event cannot prove denial.
+
+Native generator evals also check `constraints.reject_agents` against actual
+delegate-start events and `constraints.reject_shell_retries` against shell
+requests after trusted denial. Primary selection is not self-delegation.
+Both inline and deferred execution now persist enriched deterministic metrics
+before judging, so saved-run completion and denial evidence survive rejudge.
+An older recording with empty assertion results is not objective completion
+evidence merely because its rejection events survived.
+
 > Note: the linter (`skill-validator check`) is a **separate** workflow (`skill-check.yml`) and is unrelated to these eval results.
 
 ## Using this guide with an AI agent
