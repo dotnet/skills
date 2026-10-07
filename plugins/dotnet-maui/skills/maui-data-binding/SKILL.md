@@ -1,9 +1,9 @@
 ---
 name: maui-data-binding
 description: >-
-  Guidance for .NET MAUI XAML and C# data bindings — compiled bindings,
-  INotifyPropertyChanged / ObservableObject, value converters, binding modes,
-  multi-binding, relative bindings, fallbacks, and MVVM best practices.
+  Repair and review .NET MAUI binding contexts and ViewModel PropertyChanged
+  notifications; implement compiled XAML/C# bindings, ObservableObject,
+  converters, binding modes, multi-binding, relative sources and fallbacks.
   USE FOR: setting up compiled bindings with x:DataType, implementing
   INotifyPropertyChanged or CommunityToolkit ObservableObject, creating
   IValueConverter / IMultiValueConverter, choosing binding modes, configuring
@@ -19,94 +19,76 @@ license: MIT
 
 # .NET MAUI Data Binding
 
-Wire UI controls to ViewModel properties with compile-time safety, correct
-change notification, and minimal overhead. Prefer compiled bindings everywhere
-and treat binding warnings as build errors.
+Fix the binding's runtime source, compilation scope or change notification.
+Preserve supplied models and already-working code; do not replace an existing
+`BindingContext`, invent collection properties, or add unrelated converters.
 
-## When to Use
+For a small markup defect, return the changed fragment and any new namespace
+declaration, not a full page scaffold. For a new implementation, supply the
+members, package/usings and runtime wiring needed to use it.
 
-- Adding `x:DataType` compiled bindings to a new or existing page
-- Implementing `INotifyPropertyChanged` or CommunityToolkit `ObservableObject`
-- Creating or consuming `IValueConverter` / `IMultiValueConverter`
-- Choosing the correct `BindingMode` for a control property
-- Setting `BindingContext` in XAML or code-behind
-- Using relative bindings (`Self`, `AncestorType`, `TemplatedParent`)
-- Applying `StringFormat`, `FallbackValue`, or `TargetNullValue`
-- Writing AOT-safe code bindings with `SetBinding` and lambdas (.NET 9+)
+## Choose the correction
 
-## When Not to Use
-
-- **CollectionView layout, selection, paging or template design** — use the `maui-collectionview` skill. Binding-path / `x:DataType` defects inside templates still belong here.
-- **Shell navigation parameters** — use the `maui-shell-navigation` skill
-- **Service registration / DI** — use the `maui-dependency-injection` skill
-- **Property-change-triggered animations** — use built-in [.NET MAUI animation APIs](https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic)
-
-## Inputs
-
-- A .NET MAUI project targeting .NET 8 or later
-- XAML pages or C# code-behind where bindings are declared
-- A ViewModel class (or plan to create one)
-
-## Rules That Change the Answer
-
-Apply these to every binding answer — they are the differences between "it compiles"
-and "it actually updates the UI".
-
-| Situation | Do this | Not this |
+| Symptom or request | Correction | Do not |
 |---|---|---|
-| Deciding where `x:DataType` goes | Put it wherever a binding scope starts — the page/view root, and **each** `DataTemplate` | Scattering it on arbitrary children that share the parent's `BindingContext` |
-| A binding falls back to reflection (XC0022 / XC0023) | Add the right `x:DataType` for that binding scope; for XC0023 remove the explicit `x:DataType="{x:Null}"` | `x:DataType="x:Object"` to silence it — this disables compile-time checking |
-| A `DataTemplate` inherits `x:DataType` from an outer scope (XC0024) | Give the `DataTemplate` its **own** `x:DataType` | Leaving it to resolve against the wrong type |
-| A child changes `BindingContext` | Redeclare `x:DataType` for the new runtime context; include its namespace | Claiming `BindingContext` reassignment resets the inherited `x:DataType` automatically |
-| ViewModel change notification | `ObservableObject` + `[ObservableProperty]`, or implement `INotifyPropertyChanged` | A plain POCO base class — bindings will never update |
-| Bindings show blank | Check `BindingContext` is actually set | Assuming the binding path is wrong |
-| Enforcing compiled bindings | Set `MauiEnableXamlCBindingWithSourceCompilation` to `true`, **then** `<WarningsAsErrors>XC0022;XC0025</WarningsAsErrors>` | Promoting `XC0025` without the switch if the project uses `Source=` / `RelativeSource` bindings |
+| Blank labels | Check the actual inherited/code-behind `BindingContext` and public property paths; wire a context only if missing | Treat shown XAML as proof no context exists, or assume `x:DataType` creates one |
+| A later value does not display | Notify for the public bound property on the same ViewModel instance; publish UI-bound state safely | Assign only a field, notify the wrong member, or replace the context |
+| A row member is checked against the page ViewModel | Put the row model's `x:DataType` on the `DataTemplate` | Disable compilation with `x:Object`/`x:Null`, or rewrite the surrounding list |
+| A child changes its runtime context | Keep the parent type and declare the child's new type; use the inferred context-setting binding below on MAUI 10 | Assume a new `BindingContext` resets inherited compilation metadata |
+| An explicit `Source` is a control, not the page ViewModel | Give that binding the source's type and enable source compilation if necessary | Change the entire page's type |
+| Build-time checking | Enable strict diagnostics, type each real scope and preserve existing warning settings | Invent `MauiEnableXamlCompilation`, or treat XC0022 as an invalid-member error |
+| A scalar selection property is supplied | Bind that scalar to the selected value; use only an actual supplied collection for `ItemsSource` | Invent a collection or bind the scalar to `ItemsSource` |
+| A command behavior cannot resolve its command | Supply its context or an explicit source | Assume behaviors inherit their associated view's context |
+| A converter is requested | Implement both interface methods and define the resource/prefix used by the binding | Reference an undefined converter or require Toolkit for a simple manual property |
 
-**Do not** restructure a ViewModel or add a converter that the user did not ask for
-and that fixes no real defect. Adding `x:DataType` is different: when you are
-already editing a page's bindings, recommending compiled bindings is in scope.
+CollectionView layout/selection/paging belongs to `maui-collectionview`; Shell
+parameters to `maui-shell-navigation`; construction/registration to
+`maui-dependency-injection`. Do not apply MAUI binding APIs to WPF or other UI
+frameworks.
 
-For a requested smallest markup fix, show only the changed binding/template
-fragment, not a full page scaffold. Declare any new namespace prefix without
-reproducing unchanged surrounding markup.
-Preserve a supplied `BindingContext`; `x:DataType` does not create or replace it.
-Use the supplied model's members: an `ItemsSource` needs a collection, not a
-scalar selection value. Do not invent a collection property to populate a picker.
-Name the Toolkit package/usings when using its generators, and define every
-converter resource referenced by a complete example.
+## Compile the actual binding scopes
 
-For supplied-code reviews, preserve an already-passing implementation and report
-what the checks actually cover. A platform-neutral build/contract does not prove
-XAML compilation, native rendering or device behavior.
+`x:DataType` is inherited compilation metadata, not a ViewModel instance. Put it
+at a page/view root with its actual context, on every `DataTemplate`, and at a
+child that changes context. Do not scatter it on children sharing the same type.
+Typed missing-member paths are compiler errors; missing metadata can instead
+leave a reflection binding.
 
----
-
-## Compiled Bindings — x:DataType Placement
-
-Compiled bindings are **8–20× faster** than reflection-based bindings and are
-required for NativeAOT / trimming. Enable them with `x:DataType`.
-Explain that missing members in typed binding paths are compiler errors;
-`XC0022` instead detects missing type metadata and reflection fallback.
-
-### Placement rules
-
-Set `x:DataType` at the binding's actual type boundary:
-
-1. **Page / View root** — where you assign `BindingContext`.
-2. **DataTemplate** — which creates a new binding scope.
-3. **Explicit `Source` binding** — give that binding its source type without changing
-   the page's ViewModel type or runtime context.
-
-Keep one content root per `ContentPage`; put sibling controls inside a layout,
-not directly beside each other under the page.
-
-Do **not** scatter `x:DataType` on arbitrary child elements. Adding
-`x:DataType="x:Object"` on children to escape compiled bindings is an
-anti-pattern — it disables compile-time checking and reintroduces reflection.
+Smallest row-type correction, with `model` declared on the surrounding page:
 
 ```xml
-<!-- ✅ Correct: x:DataType at the page root -->
-<ContentPage xmlns:vm="clr-namespace:MyApp.ViewModels"
+<DataTemplate x:DataType="model:Person">
+    <Label Text="{Binding FullName}" />
+</DataTemplate>
+```
+
+On MAUI 10 XamlC, the child's context-setting binding is compiled against the
+parent type; the other child bindings use the child's declared type. Prefer
+this inferred form when supported:
+
+```xml
+<VerticalStackLayout x:DataType="model:Address"
+                     BindingContext="{Binding SelectedAddress}">
+    <Label Text="{Binding City}" />
+</VerticalStackLayout>
+```
+
+Here the surrounding page has `x:DataType="vm:CustomerViewModel"`, whose
+`SelectedAddress` is an `Address`. Explicit
+`BindingContext="{Binding SelectedAddress, x:DataType={x:Type vm:CustomerViewModel}}"`
+is also valid when explicit outer typing is needed; it is not mandatory on that
+compiler. Context changes normally rebind descendants.
+
+### Page and control scopes
+
+An explicit source needs its own type, without changing the page's ViewModel.
+This page fragment assumes the supplied `MainViewModel` already exposes `Title`
+and `Progress` and is assigned as the runtime context:
+
+```xml
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:MyApp.ViewModels"
              x:DataType="vm:MainViewModel">
     <StackLayout>
         <Label Text="{Binding Title}" />
@@ -115,383 +97,106 @@ anti-pattern — it disables compile-time checking and reintroduces reflection.
                               x:DataType={x:Type Slider}}" />
     </StackLayout>
 </ContentPage>
-
-<!-- ❌ Wrong: x:DataType scattered on children -->
-<ContentPage x:DataType="vm:MainViewModel">
-    <StackLayout>
-        <Label Text="{Binding Title}" />
-        <Slider x:DataType="x:Object" Value="{Binding Progress}" />
-    </StackLayout>
-</ContentPage>
 ```
 
-### DataTemplate always needs its own x:DataType
+For full page markup, declare matching CLR namespaces, preserve/set the real
+runtime context and keep one content root (use a layout for sibling controls).
+For example, constructor injection assigns `BindingContext = vm` after
+`InitializeComponent`; inline `<ContentPage.BindingContext>` construction is
+valid when the ViewModel's constructor permits it.
+
+### Diagnostics
+
+| Code | Meaning | Correction |
+|---|---|---|
+| XC0022 | Missing type metadata; reflection fallback | Type the actual binding scope |
+| XC0023 | Explicit null type | Remove the opt-out and supply the correct type |
+| XC0024 | Template inherits an outer type | Type the template against its row |
+| XC0025 | Explicit source binding not compiled | Enable source compilation and type its source |
+
+These codes/properties are verified against MAUI 10/11. Check installed targets
+for other SDK bands rather than guessing diagnostic meanings.
 
 ```xml
-<CollectionView ItemsSource="{Binding People}">
-    <CollectionView.ItemTemplate>
-        <DataTemplate x:DataType="model:Person">
-            <Label Text="{Binding FullName}" />
-        </DataTemplate>
-    </CollectionView.ItemTemplate>
-</CollectionView>
-```
-
-### Enforce binding warnings as errors
-
-| Warning | Meaning |
-|---------|---------|
-| **XC0022** | Binding used **without `x:DataType` in scope** — not compiled, falls back to reflection |
-| **XC0023** | Binding not compiled because `x:DataType` is **explicitly `null`** |
-| **XC0024** | `x:DataType` came from an **outer scope** — annotate the `DataTemplate` with its own `x:DataType` |
-| **XC0025** | Binding not compiled because it has an explicit **`Source`** — enable `<MauiEnableXamlCBindingWithSourceCompilation>` |
-
-> These four codes are **verified against .NET 10 / .NET 11 MAUI**
-> (`Build.Tasks/BuildException.cs`, `ErrorMessages.resx`). Diagnostic numbering is
-> SDK-band-sensitive — re-check against `BuildException.cs` before relying on it on a
-> newer SDK.
-
-Add to the `.csproj`:
-
-```xml
-<!-- Emit the opt-in binding diagnostics in ordinary non-AOT builds too. -->
 <MauiStrictXamlCompilation>true</MauiStrictXamlCompilation>
-<!-- Compile bindings that use Source= as well; otherwise XC0025 fires on every
-     Source= / RelativeSource binding. As of .NET 10/11 this is on by default
-     only for AOT / full-trim builds. -->
 <MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
 <WarningsAsErrors>$(WarningsAsErrors);XC0022;XC0025</WarningsAsErrors>
 ```
 
-`MauiEnableXamlCBindingWithSourceCompilation` is a real MAUI build property,
-not an alias for a general XAML compilation switch. `MauiStrictXamlCompilation`
-enables binding diagnostics that are otherwise suppressed in ordinary builds.
-Verify these against the project's installed MAUI targets if SDK versions differ;
-do not replace them with an invented `MauiEnableXamlCompilation` property.
+Strict compilation emits the opt-in warnings in ordinary builds. Source
+compilation is otherwise on by default only for AOT/full-trim builds on MAUI
+10/11. Promoting XC0025 without enabling source compilation reports source
+bindings rather than making them compile.
 
-If you promote `XC0025` without enabling that switch, make sure the project has no
-`Source=` / `RelativeSource` bindings — otherwise they will be reported.
+## Publish changes without unnecessary dependencies
 
----
-
-## Binding Modes
-
-Set `Mode` explicitly **only** when overriding the default. Most properties
-already have the correct default:
-
-| Mode | Direction | Use case |
-|------|-----------|----------|
-| `OneWay` | Source → Target | Display-only (default for most properties) |
-| `TwoWay` | Source ↔ Target | Editable controls (`Entry.Text`, `Switch.IsToggled`) |
-| `OneWayToSource` | Target → Source | Read user input without pushing back to UI |
-| `OneTime` | Source → Target (once) | Static values; no change-tracking overhead |
-
-```xml
-<!-- ✅ Defaults — omit Mode -->
-<Label Text="{Binding Score}" />
-<Entry Text="{Binding UserName}" />
-<Switch IsToggled="{Binding DarkMode}" />
-
-<!-- ✅ Override only when needed -->
-<Label Text="{Binding Title, Mode=OneTime}" />
-<Entry Text="{Binding SearchQuery, Mode=OneWayToSource}" />
-
-<!-- ❌ Redundant — adds noise -->
-<Label Text="{Binding Score, Mode=OneWay}" />
-<Entry Text="{Binding UserName, Mode=TwoWay}" />
-```
-
----
-
-## BindingContext and Property Paths
-
-Views normally inherit `BindingContext` from their parent unless explicitly
-set; behaviors do not inherit it. If using a command behavior, give it an
-explicit context or source rather than assuming the page's context propagates.
-Property paths support dot notation and indexers:
-
-`x:DataType` is inherited XAML compilation metadata, independent of the runtime
-`BindingContext`. It remains inherited even when a child explicitly changes its
-context. Redeclare it on that child for the new type and on every `DataTemplate`.
-On MAUI 10 XamlC, a child's `BindingContext="{Binding SelectedAddress}"` is
-compiled against the parent's type while its other bindings use the child's
-declared type. The compiler skips the child's `x:DataType` for that context-setting
-binding. Explicit binding-level typing is also valid, but is not required when
-this inference applies:
-
-```xml
-<!-- Panel fragment; vm/model prefixes are declared on the page. -->
-<VerticalStackLayout x:DataType="model:Address"
-    BindingContext="{Binding SelectedAddress, x:DataType={x:Type vm:CustomerViewModel}}">
-    <Label Text="{Binding City}" />
-</VerticalStackLayout>
-```
-
-Changing `BindingContext` normally rebinds descendants; it does not leave them
-permanently attached to the previous ViewModel.
-
-```xml
-<Label Text="{Binding Address.City}" />
-<Label Text="{Binding Items[0].Name}" />
-```
-
-Set `BindingContext` in XAML:
-
-```xml
-<ContentPage xmlns:vm="clr-namespace:MyApp.ViewModels"
-             x:DataType="vm:MainViewModel">
-    <ContentPage.BindingContext>
-        <vm:MainViewModel />
-    </ContentPage.BindingContext>
-</ContentPage>
-```
-
-Or in code-behind (preferred with DI):
+For a minimal notifying-property repair, a manual implementation needs no new
+package. Bind the label to `Value` on the existing context; call `PublishAsync`
+with each new service result, not just the first:
 
 ```csharp
-public MainPage(MainViewModel vm)
+using System.ComponentModel;
+using System.Threading.Tasks;
+using Microsoft.Maui.ApplicationModel;
+
+public sealed class DetailsViewModel : INotifyPropertyChanged
 {
-    InitializeComponent();
-    BindingContext = vm;
-}
-```
+    private string _value = string.Empty;
 
----
-
-## INotifyPropertyChanged and ObservableObject
-
-### Manual implementation
-
-```csharp
-public class MainViewModel : INotifyPropertyChanged
-{
-    public event PropertyChangedEventHandler? PropertyChanged;
-
-    private string _title = string.Empty;
-    public string Title
+    public string Value
     {
-        get => _title;
+        get => _value;
         set
         {
-            if (_title != value)
-            {
-                _title = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Title)));
-            }
+            if (_value == value) return;
+            _value = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
         }
     }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public Task PublishAsync(string value) =>
+        MainThread.InvokeOnMainThreadAsync(() => Value = value);
 }
 ```
 
-### CommunityToolkit.Mvvm (recommended)
-
-```csharp
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-
-public partial class MainViewModel : ObservableObject
-{
-    [ObservableProperty]
-    private string _title = string.Empty;
-
-    [RelayCommand]
-    private async Task LoadDataAsync() { /* ... */ }
-}
-```
-
-The source generator creates the `Title` property, `PropertyChanged` raise,
-and `LoadDataCommand` automatically.
-Async relay commands disallow concurrent executions by default. If `CanExecute`
-depends on state changed outside command execution, invalidate it with
-`NotifyCanExecuteChanged` or `[NotifyCanExecuteChangedFor]`.
-
----
-
-## Value Converters — IValueConverter
-
-Implement `Convert` (source → target) and `ConvertBack` (target → source):
-
-```csharp
-using System.Globalization;
-using Microsoft.Maui.Controls;
-
-namespace MyApp.Converters;
-
-public class IntToBoolConverter : IValueConverter
-{
-    public object? Convert(object? value, Type targetType,
-        object? parameter, CultureInfo culture)
-        => value is int i && i != 0;
-
-    public object? ConvertBack(object? value, Type targetType,
-        object? parameter, CultureInfo culture)
-        => value is true ? 1 : 0;
-}
-```
-
-Declare matching CLR namespaces in XAML resources and consume. Here the existing
-`MainViewModel.Count` and runtime `BindingContext` are already supplied by the page:
-
 ```xml
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:conv="clr-namespace:MyApp.Converters"
-             xmlns:vm="clr-namespace:MyApp.ViewModels"
-             x:DataType="vm:MainViewModel">
-    <ContentPage.Resources>
-        <conv:IntToBoolConverter x:Key="IntToBool" />
-    </ContentPage.Resources>
-
-    <Switch IsToggled="{Binding Count, Converter={StaticResource IntToBool}}" />
-</ContentPage>
+<Label Text="{Binding Value}" />
 ```
 
-`ConverterParameter` is always passed as a **string** — parse inside `Convert`:
+Keep the typed ViewModel reference owned by the page, not a cast of whatever its
+`BindingContext` happens to be later. Do not invent an undeclared `service` field
+in a supposedly complete class; use the supplied service or show its injection.
+MAUI can dispatch binding updates, but this does not mean every setter or event
+subscriber runs on the UI thread. Direct control access and bound
+`ObservableCollection` mutations require the UI thread.
+`ConfigureAwait(false)` does not move a service onto a worker thread; if it drops
+the UI continuation context, marshal all bound publication, including
+`IsBusy = false` in `finally`, not just fetched data.
 
-```xml
-<Label Text="{Binding Score, Converter={StaticResource ThresholdConverter},
-              ConverterParameter=50}" />
-```
+For a requested Toolkit ViewModel, add `CommunityToolkit.Mvvm`, use a `partial`
+class deriving from `ObservableObject`, import its ComponentModel/Input
+namespaces, and show `[ObservableProperty]` and `[RelayCommand]` members.
+Generators create notifying public properties and an async command from an async
+method. Async relay commands prevent concurrent executions by default; changes
+to external `CanExecute` dependencies need `NotifyCanExecuteChanged` or
+`[NotifyCanExecuteChangedFor]`.
 
----
+## Read specialized examples only when needed
 
-## Multi-Binding
+The common fixes above do not require a reference read. For converter
+implementation/resource wiring, multi-binding, binding modes, relative sources,
+formatting, fallbacks or typed C# bindings, read the relevant section of
+[specialized-bindings.md](references/specialized-bindings.md), not every section.
+Resolve this path relative to this skill's loaded directory. If a reader fails,
+use at most a bounded retry at that same path; never search root/home.
 
-Combine multiple source values with `IMultiValueConverter`:
-
-```xml
-<Label>
-    <Label.Text>
-        <MultiBinding Converter="{StaticResource FullNameConverter}">
-            <Binding Path="FirstName" />
-            <Binding Path="LastName" />
-        </MultiBinding>
-    </Label.Text>
-</Label>
-```
-
-```csharp
-public class FullNameConverter : IMultiValueConverter
-{
-    public object Convert(object[] values, Type targetType,
-        object parameter, CultureInfo culture)
-    {
-        if (values.Length == 2 && values[0] is string first
-            && values[1] is string last)
-            return $"{first} {last}";
-        return string.Empty;
-    }
-
-    public object[] ConvertBack(object value, Type[] targetTypes,
-        object parameter, CultureInfo culture)
-        => throw new NotSupportedException();
-}
-```
-
----
-
-## Relative Bindings
-
-| Source | Syntax | Use case |
-|--------|--------|----------|
-| Self | `{Binding Source={RelativeSource Self}, Path=WidthRequest}` | Bind to own properties |
-| Ancestor | `{Binding BindingContext.Title, Source={RelativeSource AncestorType={x:Type ContentPage}}}` | Reach parent BindingContext |
-| TemplatedParent | `{Binding Source={RelativeSource TemplatedParent}, Path=Padding}` | Inside ControlTemplate |
-
-```xml
-<!-- Square box: Height = Width -->
-<BoxView WidthRequest="100"
-         HeightRequest="{Binding Source={RelativeSource Self}, Path=WidthRequest}" />
-```
-
----
-
-## StringFormat
-
-Use `Binding.StringFormat` for simple display formatting without a converter:
-
-```xml
-<Label Text="{Binding Price, StringFormat='Total: {0:C2}'}" />
-<Label Text="{Binding DueDate, StringFormat='{0:MMM dd, yyyy}'}" />
-```
-
-Wrap the format string in single quotes when it contains commas or braces.
-
----
-
-## Binding Fallbacks
-
-- **FallbackValue** — used when the binding path cannot be resolved or the
-  converter throws.
-- **TargetNullValue** — used when the bound value is `null`.
-
-```xml
-<Label Text="{Binding MiddleName, TargetNullValue='(none)',
-              FallbackValue='unavailable'}" />
-<Image Source="{Binding AvatarUrl, TargetNullValue='default_avatar.png'}" />
-```
-
----
-
-## .NET 9+ Code Bindings (AOT-safe)
-
-Fully AOT-safe, no reflection:
-
-```csharp
-label.SetBinding(Label.TextProperty,
-    static (PersonViewModel vm) => vm.FullName);
-
-entry.SetBinding(Entry.TextProperty,
-    static (PersonViewModel vm) => vm.Age,
-    mode: BindingMode.TwoWay,
-    converter: new IntToStringConverter());
-```
-
----
-
-## Threading
-
-MAUI's binding pipeline can dispatch property-change updates, but this is not a
-promise that the setter or every `PropertyChanged` subscriber executes on the UI
-thread. Keep background work separate from UI-bound state publication. Direct
-control access and bound `ObservableCollection` mutations must use the UI thread.
-Keep a typed ViewModel reference rather than recovering ownership by casting a
-page's `BindingContext`:
-`ConfigureAwait(false)` does not move the service call onto a background thread.
-If it drops the UI continuation context, marshal **all** bound state publication,
-including `IsBusy = false` in `finally`, not just fetched data.
-
-```csharp
-var result = await service.LoadAsync().ConfigureAwait(false);
-await MainThread.InvokeOnMainThreadAsync(() =>
-{
-    viewModel.Title = result.Title; // Setter raises PropertyChanged.
-    viewModel.Items.Add(result.Item);
-});
-```
-
----
-
-## Common Pitfalls
-
-| Mistake | Fix |
-|---------|-----|
-| Missing `x:DataType` — bindings silently fall back to reflection | Add `x:DataType` at page root and every `DataTemplate`; promote `XC0022` (see [Enforce binding warnings as errors](#enforce-binding-warnings-as-errors)) |
-| Forgetting to set `BindingContext` | Set in XAML (`<Page.BindingContext>`) or inject via constructor |
-| Specifying redundant `Mode=OneWay` / `Mode=TwoWay` | Omit `Mode` when using the control's default |
-| ViewModel does not implement `INotifyPropertyChanged` | Use `ObservableObject` from CommunityToolkit.Mvvm or implement manually |
-| Mutating `ObservableCollection` off the UI thread | Wrap mutations in `MainThread.BeginInvokeOnMainThread` |
-| Complex converter chains in hot paths | Pre-compute values in the ViewModel instead |
-| Using `x:DataType="x:Object"` to escape compiled bindings | Restructure bindings; keep compile-time safety |
-| Binding to non-public properties | Binding targets must be `public` properties (fields are ignored) |
-
----
+For supplied-code checks, report the actual command/result and preserve passing
+source. Platform-neutral contracts do not prove XAML compilation, native
+rendering or device behavior.
 
 ## References
 
-- [Data binding overview](https://learn.microsoft.com/dotnet/maui/fundamentals/data-binding/)
 - [Compiled bindings](https://learn.microsoft.com/dotnet/maui/fundamentals/data-binding/compiled-bindings)
-- [Value converters](https://learn.microsoft.com/dotnet/maui/fundamentals/data-binding/converters)
-- [Relative bindings](https://learn.microsoft.com/dotnet/maui/fundamentals/data-binding/relative-bindings)
-- [Multi-bindings](https://learn.microsoft.com/dotnet/maui/fundamentals/data-binding/multibindings)
 - [CommunityToolkit.Mvvm](https://learn.microsoft.com/dotnet/communitytoolkit/mvvm/)

@@ -172,7 +172,22 @@ public static class Checks
         (workspace / "Probe.csproj").write_text(project.replace("TASK", ""))
         (workspace / "Program.cs").write_text(source)
         binding_skill = (ROOT / "plugins/dotnet-maui/skills/maui-data-binding/SKILL.md").read_text()
-        converter_section = binding_skill.split("## Value Converters — IValueConverter", 1)[1]
+        notification_section = binding_skill.split("## Publish changes without unnecessary dependencies", 1)[1]
+        notification_source = notification_section.split("```csharp\n", 1)[1].split("\n```", 1)[0]
+        (workspace / "DetailsViewModel.cs").write_text(notification_source)
+        notification_checks = """var details = new DetailsViewModel();
+        var notifications = new List<string?>();
+        details.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+        details.Value = "first";
+        details.Value = "first";
+        if (details.Value != "first" || notifications.Count != 1 || notifications[0] != "Value")
+            throw new InvalidOperationException("documented notification property contract");
+        Console.WriteLine("PASS: documented notifying property compiles and notifies once");"""
+        (workspace / "Program.cs").write_text(source.replace(
+            'Console.WriteLine("PASS: inferred and explicit child scopes use typed bindings");',
+            notification_checks + '\n        Console.WriteLine("PASS: inferred and explicit child scopes use typed bindings");'))
+        converter_reference = ROOT / "plugins/dotnet-maui/skills/maui-data-binding/references/specialized-bindings.md"
+        converter_section = converter_reference.read_text().split("## IValueConverter and resources", 1)[1]
         converter_source = converter_section.split("```csharp\n", 1)[1].split("\n```", 1)[0]
         converter_markup = converter_section.split("```xml\n", 1)[1].split("\n```", 1)[0]
         (workspace / "Converter.cs").write_text(converter_source)
@@ -219,6 +234,13 @@ public sealed class MainViewModel { public int Count { get; set; } }""")
         run = command(["dotnet", "run", "--project", "Probe.csproj", "--no-build"], workspace)
         assert run.returncode == 0, run.stdout + run.stderr
         print(run.stdout.strip())
+        (workspace / "DetailsViewModel.cs").write_text(
+            notification_source.replace("nameof(Value)", '"_value"'))
+        broken = command(["dotnet", "run", "--project", "Probe.csproj", "--verbosity", "quiet"], workspace)
+        assert broken.returncode != 0 and "documented notification property contract" in broken.stderr, (
+            broken.stdout + broken.stderr)
+        print("PASS: documented notification rejects the backing-field-name mutation")
+        (workspace / "DetailsViewModel.cs").write_text(notification_source)
         (workspace / "ExplicitPage.xaml").write_text(
             markup("ExplicitPage", True).replace("{Binding City}", "{Binding MissingCity}"))
         broken = command(["dotnet", "build", "Probe.csproj", "--no-restore", "--verbosity", "quiet"], workspace)
@@ -253,12 +275,13 @@ public sealed class MainViewModel { public int Count { get; set; } }""")
 def api_probe():
     """Probe load-bearing snippets against the same real package as the fixtures."""
     binding_skill = ROOT / "plugins/dotnet-maui/skills/maui-data-binding/SKILL.md"
-    binding_markup = binding_skill.read_text().split(
-        "```xml\n<!-- ✅ Correct: x:DataType at the page root -->", 1)[1].split(
-        "<!-- ❌ Wrong:", 1)[0]
+    binding_markup = binding_skill.read_text().split("### Page and control scopes", 1)[1].split(
+        "```xml\n", 1)[1].split("\n```", 1)[0]
     page = ET.fromstring('<Root xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">'
                         + binding_markup + "</Root>")[0]
-    assert len(page) == 1 and page[0].tag == "StackLayout", "page has multiple content roots"
+    assert len(page) == 1 and page[0].tag == (
+        "{http://schemas.microsoft.com/dotnet/2021/maui}StackLayout"
+    ), "page has multiple content roots or an incorrect layout namespace"
     layout = page[0]
     page.remove(layout)
     page.extend(list(layout))

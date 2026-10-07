@@ -41,6 +41,18 @@ proof. Aggregate completion passes also do not guarantee every generated sample
 is correct. Keep guidance task-specific and on-demand pending fresh evidence;
 no default installer policy is changed by this documentation.
 
+Targeted local follow-ups are not a newer official full-plugin certification.
+Doctor's advice-only SDK routing and missing-error stop passed separately on
+Sonnet (8W/3T/0L) and Luna (7W/3T/1L), but plugin execution counters still rose
+43.1% and 39.5%. A smaller binding core, inferred child-context example and
+complete manual notification example produced 7W/1T/2L and 5W/4T/1L respectively:
+positive, still statistically unproven. Its matched isolated/plugin counters
+were Sonnet -7.4%/+7.4% and Luna +16.3%/+23.3%. Neither comparison establishes a
+cross-family cost-neutral default. Two Sonnet binding losses did not load the
+target; the subsequent repair/review description revision needs new routing
+evidence. The separately repaired workspace reader also requires fresh normal
+execution evidence; historical records are not rewritten.
+
 When models or supported SDKs change, repeat the comparison before retaining a
 default. Classify fixture, harness, power, routing and content failures separately.
 An underpowered result is not evidence to retire a skill. Conversely, keep neither
@@ -67,6 +79,9 @@ Doctor's test README documents its offline replay. DI includes executable probes
 against real MAUI Controls packages. The six UI/lifecycle suites share
 `tests/dotnet-maui/maui-collectionview/replay_goldens.py`; `--production` replays
 their references through Vally with paid prompt graders removed.
+It compiles the binding core's actual notifying property, rejects a wrong-name
+notification mutation, and compiles converter/resource examples from the
+on-demand binding reference. Native `MainThread` dispatch is not exercised.
 
 These checks validate contracts, fixture behavior and reference answers, not fresh
 model improvement or native UI/OS delivery. Run normal cross-family evaluations
