@@ -63,6 +63,10 @@ run-command assertion to prevent self-modification. Prompt rubrics judge
 decision quality and explanation rather than workflow terminology. No-op
 cases are preference-eligible, not dormancy guards.
 
+Input-tree digests sort case-sensitive, POSIX-style relative paths and normalize
+CRLF content to LF before hashing. This keeps the authenticated fixture identity
+the same on Windows and Linux without relaxing source/evidence tamper checks.
+
 Completion is established by the result artifact and generic structured
 grader, not `exit-success`: recoverable SDK tool errors are diagnostics rather
 than terminal failure evidence. Equivalent contained citation paths with or

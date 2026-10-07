@@ -98,6 +98,13 @@ from comparison or later investigation. Missing or malformed proposals are
 completion evidence for deterministic graders, not successful defaults. Linked
 files and proposals larger than 1 MiB fail evidence capture explicitly.
 
+Shared `tests/agentic-workflows/` root contracts and grader changes require
+evaluation and select every workflow package; package-local edits remain scoped
+to their owning package. Both same-repository and fork PR status gates recognize
+shared inputs. Fixture integrity uses POSIX relative-path ordering and LF-normalized
+content so Windows and Linux authenticate the same inputs; a digest mismatch is
+not a model-quality failure and must not be bypassed.
+
 ## Using this guide with an AI agent
 
 This document is designed to be read by AI coding agents. When a skill evaluation has failures, the PR comment includes a ready-to-use prompt — just copy and paste it to your AI agent. The agent will download the artifacts, read this guide, analyze the results, and suggest fixes.

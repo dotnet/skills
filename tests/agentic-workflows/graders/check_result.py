@@ -32,7 +32,7 @@ def read_json(path):
 def tree_digest(root):
     require(root.is_dir() and not root.is_symlink(), "Missing or symlinked input tree")
     digest = hashlib.sha256()
-    for path in sorted(root.rglob("*")):
+    for path in sorted(root.rglob("*"), key=lambda path: path.relative_to(root).as_posix()):
         require(not path.is_symlink(), f"Symlinked input: {path}")
         if path.is_file():
             relative = path.relative_to(root).as_posix().encode("utf-8")

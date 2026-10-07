@@ -235,7 +235,7 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
 
   # Also check for skill, agent, and test changes so we don't lose them.
   $hasSkillChanges = $changedFiles |
-    Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|agentic-workflows/|\.github/graders/)' } |
+    Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
     Select-Object -First 1
 
   if ($hasInfraChanges -and -not $hasSkillChanges) {
@@ -349,7 +349,7 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   })
   if ($workflowChanges.Count -gt 0) {
     $allWorkflows = $workflowChanges | Where-Object {
-      $_ -match '^agentic-workflows/[^/]+$|^\.github/graders/|^tests/agentic-workflows/_'
+      $_ -match '^agentic-workflows/[^/]+$|^\.github/graders/|^tests/agentic-workflows/(?:[^/]+$|graders/|_)'
     } | Select-Object -First 1
     $selectedPackages = @()
     if (-not $allWorkflows) {

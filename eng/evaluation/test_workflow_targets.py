@@ -51,6 +51,17 @@ class WorkflowTargetsTests(unittest.TestCase):
         lines = self.output.read_text(encoding="utf-8").splitlines()
         return json.loads(next(line.removeprefix("entries=") for line in lines if line.startswith("entries=")))
 
+    def git(self, *args):
+        result = subprocess.run(["git", *args], cwd=self.root, text=True, capture_output=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return result.stdout.strip()
+
+    def commit_fixture(self, message):
+        self.git("add", ".")
+        self.git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+                 "commit", "--quiet", "-m", message)
+        return self.git("rev-parse", "HEAD")
+
     def test_manual_collection_and_single_package_dispatch(self):
         for selected, count in (("", 2), ("alpha", 1)):
             with self.subTest(selected=selected):
@@ -103,6 +114,31 @@ class WorkflowTargetsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual({entry["package_path"] for entry in self.entries()}, {"agentic-workflows/alpha/aw.yml"})
         self.assertEqual(git("worktree", "list", "--porcelain").count("worktree "), 1)
+
+    def test_pr_shared_workflow_inputs_select_all_packages(self):
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        for relative in (
+            "tests/agentic-workflows/graders/check_result.py",
+            "tests/agentic-workflows/RESULT_SCHEMA.md",
+            "tests/agentic-workflows/test_graders.py",
+            "tests/agentic-workflows/make_workflow_contexts.py",
+        ):
+            with self.subTest(relative=relative):
+                shared = self.root / relative
+                shared.parent.mkdir(parents=True, exist_ok=True)
+                shared.write_text("shared input\n", encoding="utf-8")
+                head = self.commit_fixture("Change shared workflow input")
+                result = self.run_script(
+                    "& .\\eng\\evaluation\\find-targets.ps1", GATE_PR_NUMBER="1",
+                    GATE_BASE_SHA=base, GATE_HEAD_SHA=head, EVAL_EVENT_NAME="workflow_dispatch", INPUT_PLUGIN="")
+                base = head
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                entries = self.entries()
+                self.assertEqual({entry["package_path"] for entry in entries},
+                                 {"agentic-workflows/alpha/aw.yml", "agentic-workflows/beta/aw.yml"})
+                self.assertEqual(len(entries), 4)
+                self.assertEqual(self.git("worktree", "list", "--porcelain").count("worktree "), 1)
 
     def test_missing_spec_unknown_package_and_traversal_fail_closed(self):
         for selected in ("missing", "../alpha", "alpha/.."):

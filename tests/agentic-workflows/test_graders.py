@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import unittest
+from unittest.mock import patch
 
 import yaml
 
@@ -233,6 +234,22 @@ class GraderTests(unittest.TestCase):
                     if path.is_file():
                         path.write_bytes(path.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
                 GRADER.validate_result(self.root, OPTIONS[case])
+
+    def test_fixture_digest_uses_canonical_posix_relative_path_order(self):
+        inputs = self.root / "inputs"
+        (inputs / "repo").mkdir(parents=True)
+        contents = {
+            "repo/Tests.cs": b"main\r\n",
+            "repo/Tests.Other.cs": b"partial\r\n",
+        }
+        for relative, content in contents.items():
+            (inputs / relative).write_bytes(content)
+        expected = hashlib.sha256(
+            b"repo/Tests.Other.cs\0partial\n\0repo/Tests.cs\0main\n\0").hexdigest()
+        self.assertEqual(expected, GRADER.tree_digest(inputs))
+        entries = list(inputs.rglob("*"))
+        with patch.object(Path, "rglob", return_value=iter(reversed(entries))):
+            self.assertEqual(expected, GRADER.tree_digest(inputs))
 
     def test_fabricated_or_traversing_citations_are_rejected(self):
         for path, record in (("../outside.json", "line 1"), ("inputs/../outside.json", "line 1"), ("inputs/missing.json", "record"), ("missing.json", "record"), ("evidence/records.jsonl", "nonexistent-record"), ("evidence/records.jsonl", "line 999"), ("inputs/evidence/records.jsonl", "line 999"), ("evidence\\records.jsonl", "core")):
