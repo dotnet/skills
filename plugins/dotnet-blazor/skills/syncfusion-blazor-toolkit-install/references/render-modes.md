@@ -1,22 +1,45 @@
 ﻿# Render Modes Reference
 
-Blazor supports multiple render modes. Toolkit components need an interactive mode whenever they handle clicks, binding, or other live updates.
+Toolkit components need an interactive render mode whenever they handle clicks, bindings, dialogs, calendar navigation, or any other client interaction. A Toolkit component rendered in static SSR is display-only.
 
-> **Framework support.** The Toolkit targets `net8.0`, `net9.0`, and `net10.0`. If `<TargetFramework>` is older, recommend upgrading first: restore succeeds on `net7.0` and earlier but supplies no assemblies, so the build fails with `CS0246`.
+> **Framework support.** `Syncfusion.Blazor.Toolkit` 1.0.2 targets `net8.0`, `net9.0`, and `net10.0`. Always check the project's `<TargetFramework>` before installation. On `net6.0`, `net7.0`, or older frameworks, the package may restore successfully, but Toolkit assemblies are not available to the application, so the build later fails with errors such as `CS0246: The type or namespace name 'Syncfusion' could not be found`. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first, then continue with the installation steps.
 
 > **Namespaces.** `SfButton` lives in `Syncfusion.Blazor.Toolkit.Buttons`, so each sample below includes `@using Syncfusion.Blazor.Toolkit.Buttons`. If it is already in `_Imports.razor`, the per-page line can be dropped.
 
 Toolkit itself only needs `AddSyncfusionBlazorToolkit()`. Keep every `AddInteractive*` and `AddAdditionalAssemblies(...)` call exactly as the project template generated it; do not add or remove them for Toolkit.
 
-## Static SSR (Server-Side Rendering)
+## Template matrix (verified with `dotnet new blazor`)
 
-**When to use**: Read-only content where no user interaction or dynamic updates are needed.
+`dotnet new blazor -int <mode>` makes the **server project** interactive-capable but leaves pages **static** until a page opts in. Adding `-ai` (`--all-interactive`) puts the mode on `HeadOutlet` and `Routes` in `App.razor`, so every page inherits it.
 
-**Characteristic**: Components are rendered on the server and sent as HTML; no .NET code runs on the client.
+| Template command | Scope | `.Client` project | `Routes` in `App.razor` | Sample page |
+| --- | --- | --- | --- | --- |
+| `-int None` | Static SSR only | No | `<Routes />` | none; no interactive endpoints |
+| `-int Server` | **Per-page** | No | `<Routes />` (static) | `Counter.razor` has `@rendermode InteractiveServer` |
+| `-int Server -ai` | **Global** | No | `<Routes @rendermode="InteractiveServer" />` | pages inherit; no per-page directive |
+| `-int WebAssembly` | **Per-page** | Yes | `<Routes />` (static) | `Counter.razor` has `@rendermode InteractiveWebAssembly` |
+| `-int WebAssembly -ai` | **Global** | Yes | `<Routes @rendermode="InteractiveWebAssembly" />` | pages inherit |
+| `-int Auto` | **Per-page** | Yes | `<Routes />` (static) | `Counter.razor` has `@rendermode InteractiveAuto` |
+| `-int Auto -ai` | **Global** | Yes | `<Routes @rendermode="InteractiveAuto" />` | pages inherit |
+| Legacy `blazorserver` (`_Host.cshtml`) | Always interactive | No | n/a | no render modes |
+| Standalone `blazorwasm` | Always interactive | n/a | n/a | no render modes |
 
-**Toolkit limitation**: Static SSR is not sufficient for interactive Toolkit components (buttons, forms, inputs, etc.). Event handlers and state changes will not work. Toolkit services are still required: a static page that renders `SfButton` returns HTTP 500 without `AddSyncfusionBlazorToolkit()`.
+**Do not assume `-int Server` is global.** Only `-ai` is. With the default per-page template, any page that is not marked with a `@rendermode` is static SSR.
 
-**Example (read-only only)**:
+## Rule for placing Toolkit components
+
+1. Find the scope: read `Components/App.razor`. If `Routes` (and `HeadOutlet`) carry `@rendermode="..."`, the app is **global** and every page inherits that mode. If `<Routes />` has no directive, the app is **per-page**.
+2. **Global**: place Toolkit components anywhere. Do not add a different `@rendermode` to a page; a child cannot switch to a different interactive mode.
+3. **Per-page**: put every Toolkit component that uses events, bindings, dialogs, calendar navigation, or button clicks on a page or component that has its own `@rendermode`, or inside a component that is rendered from such a page. Pages without a directive are static SSR and must only host display-only Toolkit markup.
+4. Choose the mode to match the template: `InteractiveServer` for `-int Server`, `InteractiveWebAssembly` for `-int WebAssembly`, `InteractiveAuto` for `-int Auto`. Use a mode the app already supports; never add endpoints for Toolkit.
+
+## Static SSR
+
+**When to use**: Read-only content with no user interaction.
+
+**Toolkit limitation**: Static SSR is not sufficient for interactive Toolkit components. Event handlers and state changes will not work. Toolkit services are still required: a static page that renders `SfButton` returns HTTP 500 without `AddSyncfusionBlazorToolkit()`.
+
+**Example (display-only)**:
 ```razor
 @page "/status"
 @using Syncfusion.Blazor.Toolkit.Buttons
@@ -24,15 +47,10 @@ Toolkit itself only needs `AddSyncfusionBlazorToolkit()`. Keep every `AddInterac
 <SfButton Disabled="true">Read-only button</SfButton>
 ```
 
-## Interactive Server Rendering
+## Interactive Server
 
-**When to use**: Interactive components on a Blazor Web App configured for Interactive Server, or a page that opts into `@rendermode InteractiveServer`.
+**Per-page (`-int Server`)**: add `@rendermode InteractiveServer` to each page that hosts interactive Toolkit components.
 
-**Characteristic**: User interactions are sent to the server, processed, and updates stream back to the client.
-
-**Toolkit requirement**: Fully supported. Register Toolkit in the server `Program.cs`.
-
-**Example** (only when the page does not already inherit an interactive mode):
 ```razor
 @page "/counter"
 @rendermode InteractiveServer
@@ -47,17 +65,16 @@ Toolkit itself only needs `AddSyncfusionBlazorToolkit()`. Keep every `AddInterac
 }
 ```
 
-**Server `Program.cs`** (`dotnet new blazor -int Server`): leave the template's `AddInteractiveServerComponents()` and `AddInteractiveServerRenderMode()` as generated, and add only `using Syncfusion.Blazor.Toolkit;` plus `builder.Services.AddSyncfusionBlazorToolkit();` before `builder.Build()`. Do not add WebAssembly services to this template.
+**Global (`-int Server -ai`)**: `Routes` already carries `@rendermode="InteractiveServer"`. Write the same page **without** the `@rendermode` line.
 
-## Interactive WebAssembly Rendering
+**`Program.cs`**: leave the template's `AddInteractiveServerComponents()` and `AddInteractiveServerRenderMode()` as generated. Add only `using Syncfusion.Blazor.Toolkit;` and `builder.Services.AddSyncfusionBlazorToolkit();` before `builder.Build()`. Do not add WebAssembly services to this template.
 
-**When to use**: A Blazor Web App page or component that should run in the browser after download (`dotnet new blazor -int WebAssembly`, or a component in the `.Client` project).
+## Interactive WebAssembly
 
-**Characteristic**: .NET runs in the browser; no server round-trip for user interactions after load. Default prerendering still executes the component on the server first, so the server also needs Toolkit services.
+Interactive pages live in the `.Client` project. Default prerendering still runs the component on the server first, so the server also needs Toolkit services.
 
-**Do not use `@rendermode` in a standalone Blazor WebAssembly app.** That app is already interactive. The directive has no effect there and can look like a fix for a different problem.
+**Per-page (`-int WebAssembly`)**: add `@rendermode InteractiveWebAssembly` to the page, and keep that page in the `.Client` project. Verified: an `InteractiveWebAssembly` page placed in the server project returns HTTP 200 and shows the button from the prerender, then fails in the browser with `Root component type '...' could not be found in the assembly '<ServerApp>'`.
 
-**Blazor Web App example** (only when the page does not already inherit an interactive mode):
 ```razor
 @page "/counter"
 @rendermode InteractiveWebAssembly
@@ -72,19 +89,18 @@ Toolkit itself only needs `AddSyncfusionBlazorToolkit()`. Keep every `AddInterac
 }
 ```
 
-**Server and `.Client` `Program.cs`** (`dotnet new blazor -int WebAssembly`): the template registers WebAssembly endpoints only. Keep them, and keep `AddAdditionalAssemblies(...)` on `MapRazorComponents<App>()`. Add `using Syncfusion.Blazor.Toolkit;` and `builder.Services.AddSyncfusionBlazorToolkit();` to **both** the server and `.Client/Program.cs` (prerendering runs the component on the server). Do not add `RootComponents.Add<App>("#app")` to `.Client`. See [Split Blazor Web App registration](./split-webapp-registration.md).
+**Global (`-int WebAssembly -ai`)**: `Routes` already carries `@rendermode="InteractiveWebAssembly"`. Omit the page directive.
 
-**Standalone WebAssembly `Program.cs`** (no Web App, no `.Client` project): the template already has `RootComponents.Add<App>("#app")` and `RootComponents.Add<HeadOutlet>("head::after")`. Add only `using Syncfusion.Blazor.Toolkit;` and `builder.Services.AddSyncfusionBlazorToolkit();` before `Build()`.
+**`Program.cs`** (server and `.Client`): the template registers WebAssembly endpoints only. Keep them and `AddAdditionalAssemblies(...)` on `MapRazorComponents<App>()`. Add `using Syncfusion.Blazor.Toolkit;` and `builder.Services.AddSyncfusionBlazorToolkit();` to **both** the server and `.Client/Program.cs`. Do not add `RootComponents.Add<App>("#app")` to `.Client`. See [Split Blazor Web App registration](./split-webapp-registration.md).
 
-## Interactive Auto Rendering
+**Standalone WebAssembly** is a different app (no Web App, no `.Client`): it is always interactive, has no `@rendermode`, and its `Program.cs` already contains `RootComponents.Add<App>("#app")`. Add only the Toolkit `using` and the registration.
 
-**When to use**: A Blazor Web App that should use server interactivity on the first visit, then WebAssembly on later visits once the runtime bundle is downloaded and cached.
+## Interactive Auto
 
-**Characteristic**: Auto chooses the runtime per visit. A component that is already running does not switch from server to WebAssembly mid-circuit. See https://learn.microsoft.com/aspnet/core/blazor/components/render-modes
+First visit runs on the server; later visits use the cached WebAssembly bundle. A running component does not switch runtimes. As with WebAssembly, interactive Auto pages and components must live in the `.Client` project, because the same code has to run in both places. Verified: an `@rendermode InteractiveAuto` page placed in the server project returns HTTP 200 and shows the button from the prerender, then fails in the browser with `Root component type '...' could not be found in the assembly '<ServerApp>'`, so it never becomes interactive. See https://learn.microsoft.com/aspnet/core/blazor/components/render-modes
 
-**Toolkit requirement**: Fully supported. Register Toolkit in both the server and `.Client` projects, because the first visit renders on the server and later visits render in WebAssembly.
+**Per-page (`-int Auto`)**: add `@rendermode InteractiveAuto` to the page, and keep that page in the `.Client` project (the template's sample `Counter.razor` is in `<App>.Client/Pages`).
 
-**Example** (page-level `@rendermode InteractiveAuto`):
 ```razor
 @page "/counter"
 @rendermode InteractiveAuto
@@ -99,32 +115,32 @@ Toolkit itself only needs `AddSyncfusionBlazorToolkit()`. Keep every `AddInterac
 }
 ```
 
-**Server and `.Client` `Program.cs`** (`dotnet new blazor -int Auto`): the template registers both Interactive Server and Interactive WebAssembly, and `AddAdditionalAssemblies(...)` on `MapRazorComponents<App>()`. Keep all of it. Add `using Syncfusion.Blazor.Toolkit;` and `builder.Services.AddSyncfusionBlazorToolkit();` to **both** the server and `.Client/Program.cs`. Do not add `RootComponents.Add<App>("#app")` to `.Client`.
+**Global (`-int Auto -ai`)**: `Routes` already carries `@rendermode="InteractiveAuto"`. Omit the page directive.
+
+**`Program.cs`** (server and `.Client`): the template registers both Interactive Server and Interactive WebAssembly, plus `AddAdditionalAssemblies(...)`. Keep all of it. Add the Toolkit `using` and `AddSyncfusionBlazorToolkit()` to **both** the server and `.Client/Program.cs`. Do not add `RootComponents.Add<App>("#app")` to `.Client`.
 
 ## Decision Tree
 
-1. **Does the component need to respond to user clicks or changes?**
-   - **No** → Static rendering is enough. Stop.
-   - **Yes** → Go to question 2.
-
+1. **Does the component handle clicks, bindings, dialogs, calendar navigation, or any client interaction?**
+   - **No** → Static rendering is enough (services are still required). Stop.
+   - **Yes** → Continue.
 2. **Which app is this?**
-   - **Legacy Blazor Server or standalone WebAssembly** → Already interactive. Do not add `@rendermode`.
-   - **Blazor Web App** → Go to question 3.
+   - **Legacy `_Host.cshtml` Server or standalone WebAssembly** → Already interactive. Do not add `@rendermode`.
+   - **Blazor Web App** → Continue.
+3. **Is `Routes` in `App.razor` already carrying `@rendermode`?**
+   - **Yes (global, `-ai`)** → Inherit it. Do not add a different mode.
+   - **No (per-page)** → Add exactly one directive on the page that hosts the component, matching the template: `InteractiveServer`, `InteractiveWebAssembly`, or `InteractiveAuto`.
 
-3. **Does `Routes` in `App.razor` already apply an interactive mode?**
-   - **Yes** → Inherit it. A child cannot switch to a different interactive mode.
-   - **No** → Apply one mode on the page or component:
-     - Server processing → `@rendermode InteractiveServer`
-     - Browser processing → `@rendermode InteractiveWebAssembly`
-     - Server on the first visit, WebAssembly on later cached visits → `@rendermode InteractiveAuto`
+An interactive Toolkit component must never be left on a page with no `@rendermode` in a per-page app.
 
 ## Common Mistakes
 
-1. **Adding `@rendermode` under an inherited mode**: If `Routes` already has an interactive mode, a child that names a different one fails. Match the parent or move the component.
-2. **Treating standalone WebAssembly as static SSR**: It has no static SSR and no render-mode directive.
-3. **Adding WebAssembly endpoints to a server-only project**: That project may not reference the WebAssembly server package.
-4. **Mixing the WebAssembly and Auto templates**: `-int WebAssembly` registers WebAssembly endpoints only; `-int Auto` registers both Server and WebAssembly. Keep the shape the template generated.
-5. **Editing endpoints to "fit" Toolkit**: Toolkit needs only `AddSyncfusionBlazorToolkit()`. Do not add or remove `AddInteractive*` or `AddAdditionalAssemblies(...)` calls for it.
-6. **Describing Auto as a live runtime switch**: The first visit uses the server; later visits use the cached WebAssembly bundle. A running component does not migrate.
-7. **Assuming a missing directive means the component is static**: Check the inherited mode first.
-
+1. **Assuming `-int Server` is global**: it is per-page. Only `-ai` is global. A page without `@rendermode` is static SSR in a per-page app.
+2. **Leaving an interactive Toolkit component on a static page**: clicks, bindings, and dialogs do nothing. Add the template's `@rendermode` to the page.
+3. **Adding `@rendermode` under an inherited mode**: if `Routes` already has one (global), a child that names a different mode fails. Match the parent or move the component.
+4. **Treating standalone WebAssembly or legacy Server as needing `@rendermode`**: they have no render modes.
+5. **Adding WebAssembly endpoints to a server-only project**: Toolkit does not need them.
+6. **Mixing the WebAssembly and Auto templates**: `-int WebAssembly` registers WebAssembly endpoints only; `-int Auto` registers both Server and WebAssembly. Keep the shape the template generated.
+7. **Editing endpoints to "fit" Toolkit**: Toolkit needs only `AddSyncfusionBlazorToolkit()`. Do not add or remove `AddInteractive*` or `AddAdditionalAssemblies(...)` calls.
+8. **Describing Auto as a live runtime switch**: a running component does not migrate.
+9. **Assuming a missing directive means the component is interactive or static**: read `Routes` in `App.razor` first.

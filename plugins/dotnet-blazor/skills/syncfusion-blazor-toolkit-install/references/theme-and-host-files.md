@@ -2,7 +2,7 @@
 
 Toolkit components require CSS theming. Use the host file for your app type and link the Fluent stylesheet there.
 
-> **Framework support.** The Toolkit targets `net8.0`, `net9.0`, and `net10.0`. If `<TargetFramework>` is older, recommend upgrading before installing: restore succeeds on `net7.0` and earlier but supplies no assemblies, so the build fails with `CS0246`.
+> **Framework support.** `Syncfusion.Blazor.Toolkit` 1.0.2 targets `net8.0`, `net9.0`, and `net10.0`. Always check the project's `<TargetFramework>` before installation. On `net6.0`, `net7.0`, or older frameworks, the package may restore successfully, but Toolkit assemblies are not available to the application, so the build later fails with errors such as `CS0246: The type or namespace name 'Syncfusion' could not be found`. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first, then continue with the installation steps.
 
 > **Never replace the whole host file.** The examples below show only the lines to add to the template-generated host file. Keep `HeadOutlet`, `Routes`, the render-mode directive on `Routes`, and the existing script tags (`_framework/blazor.web.js`, `_framework/blazor.webassembly.js`, or `blazor.server.js`) exactly as the template generated them.
 

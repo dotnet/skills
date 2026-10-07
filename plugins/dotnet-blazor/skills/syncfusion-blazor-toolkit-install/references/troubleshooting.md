@@ -1,6 +1,6 @@
 ﻿# Troubleshooting Toolkit Installation
 
-> **Framework support.** `Syncfusion.Blazor.Toolkit` 1.0.2 targets `net8.0`, `net9.0`, and `net10.0`. On an older `<TargetFramework>` (for example `net6.0` or `net7.0`) restore **succeeds** but supplies no assemblies, so the build fails with `CS0246: The type or namespace name 'Syncfusion' could not be found` in `Program.cs`. Recommend upgrading the app to .NET 8 or later first; do not edit the TFM just to make the package install.
+> **Framework support.** `Syncfusion.Blazor.Toolkit` 1.0.2 targets `net8.0`, `net9.0`, and `net10.0`. Always check the project's `<TargetFramework>` before installation. On `net6.0`, `net7.0`, or older frameworks, the package may restore successfully, but Toolkit assemblies are not available to the application, so the build later fails with errors such as `CS0246: The type or namespace name 'Syncfusion' could not be found`. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first, then continue with the installation steps.
 
 ## Problem: Theme CSS not loading (404) or components unstyled
 
@@ -74,15 +74,15 @@ builder.Services.AddSyncfusionBlazorToolkit();         // before builder.Build()
 - Clicking buttons or entering text in forms has no effect
 - No errors in the browser console
 
-**Root cause**: The component is static, or an interactive child is trying to switch modes. A missing `@rendermode` does not by itself mean the component is static.
+**Root cause**: In a Blazor Web App the component is on a static SSR page. `dotnet new blazor -int Server`, `-int WebAssembly` and `-int Auto` are **per-page**: `<Routes />` has no `@rendermode`, so a page is static unless it declares its own. Only `-ai` (`--all-interactive`) makes the whole app interactive. A less common cause is an interactive child trying to switch to a different mode than the one it inherits.
 
 **Diagnosis**:
 1. Identify the app. Legacy Blazor Server and standalone WebAssembly are already interactive; do not add `@rendermode`.
-2. In a Blazor Web App, open `Components/App.razor` and check `Routes`. If `Routes` already has an interactive mode, the page inherits it. A child cannot switch to a different interactive mode.
-3. If neither the page nor `Routes` has an interactive mode, the page is static SSR.
-4. If a mode is already present and clicks still do nothing, check the circuit, the browser console, and failed `_content` script requests before editing the page.
+2. In a Blazor Web App, open `Components/App.razor` and check `Routes`. If `Routes` carries `@rendermode="..."` (a `-ai` app), every page inherits it. A child cannot switch to a different interactive mode.
+3. If `<Routes />` has no directive (a per-page app) and the page has no `@rendermode`, the page is static SSR. That is the cause.
+4. If a mode is already in effect and clicks still do nothing, check the circuit, the browser console, and failed `_content` script requests before editing the page.
 
-**Fix** (only when no interactive mode is inherited):
+**Fix** (per-page app, page has no interactive mode): add exactly one directive matching the template (`InteractiveServer` for `-int Server`, `InteractiveWebAssembly` for `-int WebAssembly`, `InteractiveAuto` for `-int Auto`) to the page that hosts the component:
 ```razor
 @page "/mypage"
 @* Add one mode that matches the app's configured interactivity *@
@@ -99,7 +99,7 @@ builder.Services.AddSyncfusionBlazorToolkit();         // before builder.Build()
 }
 ```
 
-Or for a Blazor Web App using WebAssembly interactivity (`dotnet new blazor -int WebAssembly`):
+Or, for a per-page Blazor Web App created with `dotnet new blazor -int WebAssembly` (the page lives in `.Client`):
 ```razor
 @page "/mypage"
 @rendermode InteractiveWebAssembly
@@ -124,7 +124,7 @@ Or for a Blazor Web App using WebAssembly interactivity (`dotnet new blazor -int
 
 **Root cause** (check in this order):
 1. The package is not referenced in **that project's** `.csproj`. In a split Web App both the server and `.Client` projects need the `PackageReference`.
-2. The project targets `net7.0` or older. Restore succeeds but supplies no assemblies, so this exact error appears. Upgrade to .NET 8 or later.
+2. The project targets `net6.0`, `net7.0`, or older. The package may restore, but Toolkit assemblies are not available to the application, so this error appears at build time. Upgrade to .NET 8 or later first.
 
 **Diagnosis**:
 1. Check the `.csproj` file for:

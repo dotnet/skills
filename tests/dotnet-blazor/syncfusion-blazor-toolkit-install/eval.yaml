@@ -11,7 +11,7 @@ stimuli:
       risk: wrong-package-or-host
       journey: install-legacy-server
     prompt: |
-      I'm setting up a new legacy Blazor Server project that uses _Host.cshtml.
+      I'm setting up a legacy-style Blazor Server project that targets net8.0 and uses _Host.cshtml.
       I want to install the open-source Syncfusion Blazor Toolkit.
       What are the steps I need to follow to get it working?
     graders:
@@ -32,10 +32,10 @@ stimuli:
           pattern: (?i)_content/Syncfusion\.Blazor\.Toolkit/styles/fluent\.min\.css
       - type: output-not-matches
         config:
-          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|avoid|without|instead of|rather than|no need|unlike|wrong|mistake|incorrect)\b|\w+n[''’]t\b|\bcannot\b))[^\n]*(?:dotnet add package|PackageReference Include=)\s*"?Syncfusion\.Blazor(?!\.Toolkit)\b'
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|without|instead of|rather than|no need|unlike|cannot)\b|\w+n[''’]t\b)(?:(?![.:;!?](?:\s|$))[^\n])*?(?:dotnet add package|PackageReference Include=)\s*"?Syncfusion\.Blazor(?!\.Toolkit)\b)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:dotnet add package|PackageReference Include=)\s*"?Syncfusion\.Blazor(?!\.Toolkit)\b(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:wrong|commercial|incorrect|mistake|deprecated)\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:dotnet add package|PackageReference Include=)\s*"?Syncfusion\.Blazor(?!\.Toolkit)\b'
       - type: output-not-matches
         config:
-          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|no|without|free|nothing|avoid|unlike)\b|\w+n[''’]t\b|\bcannot\b))[^\n]*\b(?:enter|provide|paste|add|register) (?:your|a) (?:syncfusion )?license key'
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|no|without|free|nothing|avoid|unlike)\b|\w+n[''’]t\b|\bcannot\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:enter|provide|paste|add|register) (?:your|a) (?:syncfusion )?license key'
       - type: prompt
     rubric:
       - Installs the open-source Toolkit package and registers its extension method with the namespace in scope.
@@ -48,8 +48,8 @@ stimuli:
       risk: wrong-wasm-host
       journey: install-standalone-wasm
     prompt: |
-      I'm building a standalone Blazor WebAssembly application and want to add the Syncfusion Blazor Toolkit.
-      Can you guide me through installation and setup?
+      I'm building a standalone Blazor WebAssembly application that targets net9.0 and want to add
+      the Syncfusion Blazor Toolkit. Can you guide me through installation and setup?
     graders:
       - type: output-matches
         config:
@@ -92,7 +92,7 @@ stimuli:
           pattern: (?i)prerender
       - type: output-not-matches
         config:
-          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|avoid|wrong|mistake|incorrect|instead of|rather than|without)\b|\w+n[''’]t\b|\bcannot\b))[^\n]*(?:register (?:it )?only (?:in|on) (?:the )?server|only (?:in|on) the server is (?:enough|sufficient)|client inherits (?:the )?(?:server(?:''s)? )?(?:registration|services))'
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|wrong|mistake|incorrect|instead of|rather than|without)\b|\w+n[''’]t\b|\bcannot\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:register (?:it )?only (?:in|on) (?:the )?server|only (?:in|on) the server is (?:enough|sufficient)|client inherits (?:the )?(?:server(?:''s)? )?(?:registration|services))'
       - type: prompt
     rubric:
       - Registers Toolkit in both the server and Client hosts when both render Toolkit components.
@@ -120,7 +120,7 @@ stimuli:
           pattern: '(?i)<head|<link[^>]*styles/(?:fluent|highcontrast)\.min\.css'
       - type: output-not-matches
         config:
-          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|avoid|instead of|rather than|wrong)\b|\w+n[''’]t\b))[^\n]*(?:(?:\.csproj|appsettings|Program\.cs)[^\n]{0,80}(?:<link|fluent\.min\.css)|(?:<link|fluent\.min\.css)[^\n]{0,80}(?:in|to) (?:the |your )?(?:\.csproj|appsettings|Program\.cs))'
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|instead of|rather than|wrong)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:(?:\.csproj|appsettings|Program\.cs)[^\n]{0,80}(?:<link|fluent\.min\.css)|(?:<link|fluent\.min\.css)[^\n]{0,80}(?:in|to) (?:the |your )?(?:\.csproj|appsettings|Program\.cs))'
       - type: prompt
     rubric:
       - Diagnoses a missing or misplaced stylesheet rather than a package problem.
@@ -132,9 +132,9 @@ stimuli:
       risk: static-ssr
       journey: enable-interactivity
     prompt: |
-      I have a Blazor Web App with a SfButton component from the Syncfusion Blazor Toolkit.
-      When I click the button, nothing happens. The component is visible and styled correctly,
-      but events don't fire. What's the issue?
+      I have a net8.0 Blazor Web App created with dotnet new blazor -int Server, and a page with a
+      SfButton component from the Syncfusion Blazor Toolkit. When I click the button, nothing happens.
+      The component is visible and styled correctly, but events don't fire. What's the issue?
     graders:
       - type: output-matches
         config:
@@ -144,11 +144,12 @@ stimuli:
           pattern: (?i)(static|inherit|Routes)
       - type: output-not-matches
         config:
-          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|avoid|unless|without|if)\b|\w+n[''’]t\b))[^\n]*(?:\bInteractive(?:Server|WebAssembly|Auto)\b[^\n]{0,40}\b(?:on|for|to) (?:everything|every page|all pages)\b|\b(?:everything|every page|all pages)\b[^\n]{0,40}\bInteractive(?:Server|WebAssembly|Auto)\b)'
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|unless|without|if)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\bInteractive(?:Server|WebAssembly|Auto)\b[^\n]{0,40}\b(?:on|for|to) (?:everything|every page|all pages)\b|\b(?:everything|every page|all pages)\b[^\n]{0,40}\bInteractive(?:Server|WebAssembly|Auto)\b)'
       - type: prompt
     rubric:
-      - Checks whether the page already inherits an interactive mode before treating it as static.
-      - Recommends one interactive mode when none is inherited, without requiring every mode to be named.
+      - Recognizes that dotnet new blazor -int Server is per-page, not global, so a page without its own @rendermode is static SSR; only -ai (--all-interactive) makes every page inherit a mode from Routes.
+      - Checks whether Routes in App.razor already carries a mode before treating the page as static.
+      - Recommends adding exactly one matching directive (InteractiveServer for this template) to the page that hosts the component, without requiring every mode to be named.
 
   - name: interactive-auto-success
     tags:
@@ -156,7 +157,7 @@ stimuli:
       risk: auto-misdescribed
       journey: configure-auto
     prompt: |
-      I created the app with dotnet new blazor -int Auto. I want the first visit to stay interactive
+      I created a net10.0 app with dotnet new blazor -int Auto. I want the first visit to stay interactive
       on the server, and later visits to use WebAssembly after the runtime is downloaded. What setup
       does the current template need for the Syncfusion Blazor Toolkit?
     graders:
@@ -174,7 +175,7 @@ stimuli:
           pattern: (?i)AddSyncfusionBlazorToolkit
       - type: output-not-matches
         config:
-          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|only|without|cannot)\b|\w+n[''’]t\b))[^\n]*\b(?:will|does|would)\s+(?:switch|transition)\b[^\n]{0,60}(?:mid-|while running|same component|without reload)'
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|only|without|cannot)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:will|does|would)\s+(?:switch|transition)\b[^\n]{0,60}(?:mid-|while running|same component|without reload)'
       - type: prompt
     rubric:
       - Describes Auto as server interactivity on the first visit and WebAssembly on later cached visits.
@@ -202,7 +203,7 @@ stimuli:
           pattern: (?i)\b(no|not|n['’]t|without|free)\b[^\n]{0,40}\blicense key
       - type: output-not-matches
         config:
-          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|no|nonexistent|doesn|wrong|fake)\b|\w+n[''’]t\b))[^\n]*\b(?:call|use|add)\b[^\n]{0,30}AddSyncfusionLicense\s*\('
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|no|nonexistent|doesn|wrong|fake)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:call|use|add)\b[^\n]{0,30}AddSyncfusionLicense\s*\('
       - type: prompt
     rubric:
       - Identifies the installed package as the commercial package and replaces it for this Toolkit-only app.
@@ -227,7 +228,7 @@ stimuli:
           pattern: (?i)AddSyncfusionBlazorToolkit
       - type: output-not-matches
         config:
-          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|wrong|mistake|incorrect|false)\b|\w+n[''’]t\b|\bcannot\b))[^\n]*only (?:the )?server needs'
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|wrong|mistake|incorrect|false)\b|\w+n[''’]t\b|\bcannot\b))(?:(?![.:;!?](?:\s|$))[^\n])*?only (?:the )?server needs'
       - type: prompt
     rubric:
       - Adds the missing Client registration without removing the server registration.
@@ -314,7 +315,7 @@ stimuli:
           pattern: (?i)(AddSyncfusionBlazorToolkit|rebuild|clean)
       - type: output-not-matches
         config:
-          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|wrong|rather than|instead of)\b|\w+n[''’]t\b|\bcannot\b))[^\n]*(?:fluent theme only|only the fluent theme)'
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|wrong|rather than|instead of)\b|\w+n[''’]t\b|\bcannot\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:fluent theme only|only the fluent theme)'
       - type: prompt
     rubric:
       - Treats the 404s as missing package assets or registration, not as a theme-choice problem.
@@ -332,7 +333,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|nothing|keep)\b|\w+n[''’]t\b))[^\n]*\b(?:remove|delete|drop)\b[^\n]{0,80}(?:script|cdn)'
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|nothing|keep)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:remove|delete|drop)\b[^\n]{0,80}(?:script|cdn)'
       - type: output-matches
         config:
           pattern: (?i)(embedded|bundled|included in the (nuget )?package|ships with the package)
@@ -358,12 +359,34 @@ stimuli:
           pattern: (?i)(upgrade|migrat)
       - type: output-not-matches
         config:
-          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|before|after|once|cannot|fail|until|yet)\b|\w+n[''’]t\b))[^\n]*dotnet add package Syncfusion\.Blazor\.Toolkit'
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|before|after|once|cannot|fail|until|yet)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?dotnet add package Syncfusion\.Blazor\.Toolkit'
       - type: prompt
     rubric:
-      - Identifies that the Toolkit does not support net7.0 (it targets net8.0, net9.0, and net10.0) and that restore would fail.
+      - Identifies that the Toolkit targets net8.0, net9.0, and net10.0 and does not support net7.0, so the Toolkit assemblies would not be available and the build would fail (for example with CS0246 on Syncfusion).
       - Recommends upgrading the app to .NET 8 or later before installing, rather than installing immediately.
+      - Does not claim that NuGet restore is guaranteed to fail or guaranteed to succeed.
       - Does not suggest editing only the TargetFramework as a workaround without an upgrade.
+
+  - name: unknown-framework-check-first
+    tags:
+      capability: framework-support
+      risk: install-without-tfm-check
+      journey: check-target-framework
+    prompt: |
+      I have an existing Blazor app and I want to add the open-source Syncfusion Blazor Toolkit.
+      Walk me through installing it.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)TargetFramework
+      - type: output-matches
+        config:
+          pattern: (?i)net8\.0
+      - type: prompt
+    rubric:
+      - Checks the project's TargetFramework before installing, because the framework version was not given.
+      - States that the Toolkit targets net8.0, net9.0, and net10.0 and that an older framework needs an upgrade first.
+      - Does not run or require the install command before the TargetFramework is known and supported.
 
   - name: component-namespace-resolution
     tags:
@@ -376,7 +399,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|avoid|wrong)\b|\w+n[''’]t\b))[^\n]*@using\s+Syncfusion\.Blazor\.Toolkit\.Buttons'
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|wrong)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?@using\s+Syncfusion\.Blazor\.Toolkit\.Buttons'
       - type: prompt
     rubric:
       - Explains that SfButton is in the child namespace Syncfusion.Blazor.Toolkit.Buttons, not the root namespace.
@@ -400,7 +423,7 @@ stimuli:
           pattern: (?i)using\s+Syncfusion\.Blazor\.Toolkit
       - type: output-not-matches
         config:
-          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|avoid|wrong)\b|\w+n[''’]t\b))[^\n]*\b(?:remove|uninstall|downgrade|roll back)\b[^\n]{0,40}(?:package|Syncfusion)'
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|wrong)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:remove|uninstall|downgrade|roll back)\b[^\n]{0,40}(?:package|Syncfusion)'
       - type: prompt
     rubric:
       - Diagnoses a missing AddSyncfusionBlazorToolkit() registration, not a package or stylesheet problem.
@@ -436,7 +459,7 @@ stimuli:
     graders:
       - type: output-not-matches
         config:
-          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|no need|without|already)\b|\w+n[''’]t\b|\bcannot\b))[^\n]*\b(?:first|before (?:answering|anything)|start by)\b[^\n]{0,80}(?:install the package|AddSyncfusionBlazorToolkit|installation steps)'
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|no need|without|already)\b|\w+n[''’]t\b|\bcannot\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:first|before (?:answering|anything)|start by)\b[^\n]{0,80}(?:install the package|AddSyncfusionBlazorToolkit|installation steps)'
       - type: prompt
     rubric:
       - The install skill stayed dormant: answer the chart API question or point to component documentation.
@@ -455,7 +478,7 @@ stimuli:
     graders:
       - type: output-not-matches
         config:
-          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|no need|without|later|avoid|instead of)\b|\w+n[''’]t\b|\bcannot\b))[^\n]*(?:dotnet add package|PackageReference)[^\n]{0,40}Syncfusion'
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|no need|without|later|avoid|instead of)\b|\w+n[''’]t\b|\bcannot\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:dotnet add package|PackageReference)[^\n]{0,40}Syncfusion'
       - type: prompt
     rubric:
       - The install skill stayed dormant: the request is about creating a project, not installing a UI package.
@@ -473,16 +496,18 @@ stimuli:
       and how do I wire it up?
     expect_activation: false
     graders:
-      # Directional guards. They fire only on a line that INSTRUCTS the user to edit a
-      # Web App / legacy Server host file, or on a code line that is a Web App /
-      # standalone WASM registration. Any line containing a negator (not, never,
-      # avoid, unlike, instead of, ... or any n't contraction) is skipped, so a
-      # correct boundary explanation may name Components/App.razor, _Host.cshtml,
-      # @rendermode or RootComponents.Add<App> freely. AddSyncfusionBlazorToolkit
-      # and `dotnet add package` are NOT banned: Hybrid apps may legitimately use them.
+      # Directional guards, scoped to a single CLAUSE (text between . : ; ! ? marks), not a
+      # whole line. The first fires only on a clause that INSTRUCTS the user to edit a
+      # Web App / legacy Server host file. A negator (not, never, avoid, unlike, instead
+      # of, ... or any n't contraction) exempts only its own clause, so a correct
+      # boundary explanation may name Components/App.razor, _Host.cshtml, @rendermode
+      # or RootComponents.Add<App>, while "You should not skip this: open
+      # Components/App.razor" (negator in a different clause) is still caught.
+      # AddSyncfusionBlazorToolkit and `dotnet add package` are NOT banned: Hybrid apps
+      # may legitimately use them.
       - type: output-not-matches
         config:
-          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|avoid|without|instead of|rather than|no need|unlike|wrong|mistake|incorrect)\b|\w+n[''’]t\b|\bcannot\b))[^\n]*(?:^|[.:;]\s*)\s*(?:open|edit|add|put|place|update|modify|link)\b[^\n]{0,60}(?:Components/App\.razor|_Host\.cshtml)'
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|without|instead of|rather than|no need|unlike|cannot)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:open|edit|add|put|place|update|modify|link)\b(?:(?![.:;!?](?:\s|$))[^\n]){0,60}(?:Components/App\.razor|_Host\.cshtml)'
       - type: output-not-matches
         config:
           pattern: '(?im)^\s*(?:builder\.RootComponents\.Add<App>\(|\.?AddInteractive(?:Server|WebAssembly)(?:Components|RenderMode)\()'
