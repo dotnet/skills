@@ -114,6 +114,45 @@ build-only CI; include optional items only for the requested task/host.
 Do not invent `apiLevel`, `buildToolsVersion` or `cmdLineToolsVersion` fields if
 they are absent: derive them from the actual package IDs when needed.
 
+For build-only Python automation, normalize each entry before collecting IDs.
+Checking only `entry["id"]` misses the published nested `sdkPackage` shape:
+
+```python
+def required_android_packages(entries):
+    if not isinstance(entries, list):
+        raise ValueError("Android package list unavailable")
+    required = set()
+    for entry in entries:
+        if isinstance(entry, str):
+            package_id = entry
+        elif isinstance(entry, dict):
+            optional = entry.get("optional", False)
+            if isinstance(optional, str) and optional.lower() in ("true", "false"):
+                optional = optional.lower() == "true"
+            if not isinstance(optional, bool):
+                raise ValueError("Invalid optional package flag")
+            if optional:
+                continue
+            package = entry.get("sdkPackage", entry)
+            if not isinstance(package, dict):
+                raise ValueError("Invalid Android package object")
+            package_id = package.get("id")
+        else:
+            raise ValueError("Invalid Android package entry")
+        if not isinstance(package_id, str) or not package_id.strip():
+            raise ValueError("Required package ID unavailable")
+        required.add(package_id)
+    if not required:
+        raise ValueError("Required Android package list is empty")
+    return sorted(required)
+```
+
+Pass the selected manifest's actual `androidsdk.packages` list to this helper;
+do not hardcode a fixture's IDs. Optional host-keyed system-image maps are skipped
+for build-only discovery. A required host-keyed ID needs explicit host selection,
+not an arbitrary first value. Report malformed/unavailable metadata as a
+nonzero failure before writing normal requirements output.
+
 `androidsdk.packages` describes workload dependencies, not necessarily every
 project-specific API/package. Inspect the evaluated compile API/Android TFM:
 an explicit higher compile API requires its matching `platforms;android-XX`,

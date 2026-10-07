@@ -38,6 +38,7 @@ members, package/usings and runtime wiring needed to use it.
 | An explicit `Source` is a control, not the page ViewModel | Give that binding the source's type and enable source compilation if necessary | Change the entire page's type |
 | Build-time checking | Enable strict diagnostics, type each real scope and preserve existing warning settings | Invent `MauiEnableXamlCompilation`, or treat XC0022 as an invalid-member error |
 | A scalar selection property is supplied | Bind that scalar to the selected value; use only an actual supplied collection for `ItemsSource` | Invent a collection or bind the scalar to `ItemsSource` |
+| A parameterized command is requested | Preserve the supplied parameter type; use a typed bound value or an `x:Int32` object element for an integer | Invent an unrequested parameter, or pass literal `CommandParameter="123"` as an integer |
 | A command behavior cannot resolve its command | Supply its context or an explicit source | Assume behaviors inherit their associated view's context |
 | A converter is requested | Implement both interface methods and define the resource/prefix used by the binding | Reference an undefined converter or require Toolkit for a simple manual property |
 

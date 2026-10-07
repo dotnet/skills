@@ -334,6 +334,32 @@ is `async void`: log/report a caught error and cancel safely rather than rethrow
 an unhandled exception. Route initiating calls through the same in-flight policy;
 a second `GoToAsync` can be rejected by Shell before another callback is raised.
 
+For a pending-deferral problem, show the initiating method as well as the
+handler. Call this on the same `AppShell` instance that owns the guard:
+
+```csharp
+public async Task<bool> TryNavigateAsync(string route)
+{
+    if (_checkingNavigation)
+        return false;
+    try
+    {
+        await GoToAsync(route);
+        return true;
+    }
+    catch (InvalidOperationException ex)
+    {
+        System.Diagnostics.Debug.WriteLine(ex);
+        return false;
+    }
+}
+```
+
+The caller awaits the result; `false` means the request was skipped or rejected.
+`true` only means `GoToAsync` completed: a canceled transition need not throw,
+so it does not prove the route changed. Do not claim a pending second request
+always reaches `OnNavigating`.
+
 ## Tab Configuration
 
 ### Bottom Tabs

@@ -43,11 +43,11 @@ Apply light/dark mode support, custom branded themes, and runtime theme switchin
 
 1. Detect the current theme approach in the project (AppThemeBinding, ResourceDictionary, or none).
 2. Choose the appropriate strategy: AppThemeBinding for simple light/dark, ResourceDictionary swap for custom/multiple themes, or both combined.
-3. Define theme resources — inline `AppThemeBinding` values or separate `ResourceDictionary` files with matching keys.
-4. Replace hardcoded colors with `DynamicResource` bindings (or `AppThemeBinding` markup) throughout XAML pages.
-5. Add system theme detection via `Application.Current.RequestedTheme` and the `RequestedThemeChanged` event.
-6. Implement user preference persistence with `Preferences.Set` / `Preferences.Get` and apply on startup.
-7. Verify Android `ConfigChanges.UiMode` is set on `MainActivity` to avoid activity restarts on theme change.
+3. Define the requested light/dark values; use shared palette resources when colors repeat, or matching dictionary keys for custom themes.
+4. Replace fixed light-only colors with `AppThemeBinding`; use `DynamicResource` for values in dictionaries that actually change at runtime.
+5. Read `RequestedTheme` or subscribe to `RequestedThemeChanged` only when custom logic needs them; `AppThemeBinding` follows theme changes itself.
+6. Persist and restore a user preference only when the app offers one.
+7. Inspect Android `ConfigChanges.UiMode` when platform configuration or custom runtime switching is part of the request, not as an extra setup step for every answer.
 8. Run available checks and distinguish their scope. Only claim native light/dark rendering or device validation when actually exercised; package/object-model checks do not certify it.
 
 ## Rules That Change the Answer
@@ -96,8 +96,9 @@ settings. For stored choices, use a switch with a System fallback (or validated
 
 Putting `{AppThemeBinding Light=#333333, Dark=#FFFFFF}` on every element is the
 single most common theming mistake: the palette ends up duplicated across dozens of
-files and cannot be changed in one place. **Recommend this shape as the final
-answer**, not inline literals:
+files and cannot be changed in one place. Prefer this shared-palette shape for
+repeated colors; a literal Light/Dark pair is valid for a genuine one-off and
+does not freeze the control to a light-only color:
 
 ```xml
 <!-- App.xaml — one source of truth for the whole app -->
@@ -128,8 +129,9 @@ answer**, not inline literals:
 ```
 
 Pages then need **no theming markup at all** — they pick the styles up implicitly.
-Use an inline `AppThemeBinding` only for genuine one-offs, and even then reference
-`{StaticResource}` keys rather than literal hex.
+Use inline `AppThemeBinding` for genuine one-offs. Reuse `{StaticResource}` keys
+when the values are already part of the shared palette; do not require a
+dictionary architecture just to demonstrate the API.
 
 ### XAML (inline form, for one-offs)
 

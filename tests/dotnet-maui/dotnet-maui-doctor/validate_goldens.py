@@ -38,6 +38,40 @@ def assert_bad_discovery(workspace, mutation):
     finally:
         script.write_text(original)
 
+def check_package_example():
+    reference = ROOT / (
+        "plugins/dotnet-maui/skills/dotnet-maui-doctor/references/"
+        "workload-dependencies-discovery.md")
+    source = reference.read_text().split("```python\n", 1)[1].split("\n```", 1)[0]
+    namespace = {}
+    exec(compile(source, str(reference), "exec"), namespace)
+    resolve = namespace["required_android_packages"]
+    entries = [
+        "platform-tools",
+        {"id": "platforms;android-36", "optional": False},
+        {"sdkPackage": {"id": "build-tools;35.0.0"}, "optional": "false"},
+        {"sdkPackage": {"id": "platform-tools"}, "optional": "FALSE"},
+        {"sdkPackage": {"id": {"macos": "system-images;android-36;x86_64"}},
+         "optional": "true"},
+        {"id": "emulator", "optional": True},
+    ]
+    expected = ["build-tools;35.0.0", "platform-tools", "platforms;android-36"]
+    assert resolve(entries) == expected
+    assert resolve([{"sdkPackage": {"id": "platforms;android-37"}}]) == [
+        "platforms;android-37"]
+    for malformed in (
+        None, [], [None], [{"optional": "unknown", "id": "platform-tools"}],
+        [{"sdkPackage": {}}], [{"sdkPackage": {"id": {"macos": "required"}}}],
+    ):
+        try:
+            resolve(malformed)
+        except ValueError:
+            continue
+        raise AssertionError(f"Malformed required packages accepted: {malformed}")
+    assert [entry["id"] for entry in entries if isinstance(entry, dict)
+            and "id" in entry and not entry.get("optional")] != expected
+    print("PASS: actual package helper handles nested IDs and rejects unavailable metadata")
+
 
 def check_output_variants(document):
     cases = [
@@ -124,6 +158,7 @@ def check_output_variants(document):
 
 
 def main():
+    check_package_example()
     document = yaml.safe_load((SUITE / "eval.yaml").read_text())
     # Keep the production file unmodified. Prompt judges are intentionally omitted:
     # these checks establish deterministic correctness, not model preference.

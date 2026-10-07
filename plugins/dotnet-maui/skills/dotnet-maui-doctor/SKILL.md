@@ -113,6 +113,8 @@ for project-aware Android dependency installation and workload-set rules.
 Preserve repository pins. `workload update` is an intentional version change;
 `workload repair` reinstalls installed workload packs for corruption. Neither is
 a first response to an unexplained error, nor universally forbidden.
+Repair covers all installed workloads for the selected SDK/workload installation,
+not only MAUI or the current project; explain that mutation scope when proposing it.
 
 For offline automation, distinguish supplied inputs and validation state from
 outputs you create. Clean up only your own outputs; do not delete or recapture

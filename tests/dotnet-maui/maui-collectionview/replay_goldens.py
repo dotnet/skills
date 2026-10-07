@@ -101,6 +101,10 @@ public partial class LiteralSourcePage : ContentPage
 {
     public LiteralSourcePage() => InitializeComponent();
 }
+public partial class ParameterPage : ContentPage
+{
+    public ParameterPage() => InitializeComponent();
+}
 public static class Checks
 {
     static BindingBase BindingOf(BindableObject target, BindableProperty property)
@@ -147,6 +151,9 @@ public static class Checks
             throw new InvalidOperationException(
                 $"literal source binding: {BindingOf(sourceLabel, Label.TextProperty).GetType()}, " +
                 $"text={sourceLabel.Text}, value={((Slider)((StackLayout)sourcePage.Content!).Children[0]).Value}");
+        if (((Button)new ParameterPage().Content!).CommandParameter is not int value || value != 123)
+            throw new InvalidOperationException("documented command parameter is not an integer");
+        Console.WriteLine("PASS: x:Int32 command parameter compiles and preserves its runtime type");
         Console.WriteLine("PASS: inferred and explicit child scopes use typed bindings");
         Console.WriteLine("PASS: documented converter namespace/resource wiring compiles and binds");
         Console.WriteLine("PASS: literal binding-local Slider source type compiles and binds");
@@ -213,6 +220,15 @@ public sealed class MainViewModel { public int Count { get; set; } }""")
   <Label Text="{Binding Source={x:Reference amount}, Path=Value, x:DataType=Slider}" />
  </StackLayout>
 </ContentPage>""")
+        parameter_markup = """<ContentPage
+ xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+ xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ x:Class="Probe.ParameterPage">
+ <Button Text="Load">
+  <Button.CommandParameter><x:Int32>123</x:Int32></Button.CommandParameter>
+ </Button>
+</ContentPage>"""
+        (workspace / "ParameterPage.xaml").write_text(parameter_markup)
         restored = command(["dotnet", "restore", "Probe.csproj", "--verbosity", "quiet"], workspace)
         assert restored.returncode == 0, restored.stdout + restored.stderr
         location = command(["dotnet", "msbuild", "Probe.csproj",
@@ -234,6 +250,15 @@ public sealed class MainViewModel { public int Count { get; set; } }""")
         run = command(["dotnet", "run", "--project", "Probe.csproj", "--no-build"], workspace)
         assert run.returncode == 0, run.stdout + run.stderr
         print(run.stdout.strip())
+        (workspace / "ParameterPage.xaml").write_text(parameter_markup.replace(
+            '<Button Text="Load">', '<Button Text="Load" CommandParameter="123">').replace(
+                "<Button.CommandParameter><x:Int32>123</x:Int32></Button.CommandParameter>", ""))
+        broken = command(["dotnet", "run", "--project", "Probe.csproj",
+                          "--verbosity", "quiet"], workspace)
+        assert broken.returncode != 0 and "documented command parameter is not an integer" in broken.stderr, (
+            broken.stdout + broken.stderr)
+        print("PASS: compiled literal command parameter remains a string and is rejected")
+        (workspace / "ParameterPage.xaml").write_text(parameter_markup)
         (workspace / "DetailsViewModel.cs").write_text(
             notification_source.replace("nameof(Value)", '"_value"'))
         broken = command(["dotnet", "run", "--project", "Probe.csproj", "--verbosity", "quiet"], workspace)
@@ -303,6 +328,11 @@ def api_probe():
     deferral_response = deferral["golden_trajectory"]["inline"]["steps"][-1]["message"]
     deferral_code = "\n".join(re.findall(r"```csharp\n(.*?)\n```", deferral_response, re.S))
     assert deferral_code, "deferral golden must supply the requested app-level code"
+    shell_skill = (ROOT / "plugins/dotnet-maui/skills/maui-shell-navigation/SKILL.md").read_text()
+    guard_section = shell_skill.split("## Workflow: Guard Navigation", 1)[1].split(
+        "## Tab Configuration", 1)[0]
+    guard_code = "\n".join(re.findall(r"```csharp\n(.*?)\n```", guard_section, re.S))
+    assert "public async Task<bool> TryNavigateAsync" in guard_code
     event_reference = ROOT / "plugins/dotnet-maui/skills/maui-theming/references/event-ownership.md"
     event_page = event_reference.read_text().split("```csharp\n", 1)[1].split("\n```", 1)[0]
     event_page = "\n".join(line for line in event_page.splitlines() if not line.startswith("using "))
@@ -470,6 +500,8 @@ public static class Checks
             !resources.MergedDictionaries.Contains(dark), "theme ownership/preservation failed");
         var saved = "Dark";
         manager.ApplyTheme(__THEME_STARTUP_CHOICE__);
+        Require(!new DeferralCore().SkipPending().GetAwaiter().GetResult(),
+            "the actual source caller did not reject a pending request");
         Console.WriteLine("PASS: package-api-probe (no XAML/native/device execution)");
     }
 }
@@ -494,6 +526,18 @@ public sealed class DarkTheme : ResourceDictionary { }
 """
     source = source.replace("__THEME_STARTUP_CHOICE__", theme_choice)
     source += "\npublic sealed class DeferralGolden : Shell\n{\n" + deferral_code + "\n}\n"
+    source += """
+public sealed class DeferralCore : Shell
+{
+    private bool _checkingNavigation;
+    private bool hasUnsavedChanges = true;
+    private Task<bool> ShowConfirmationDialog() => Task.FromResult(true);
+    public Task<bool> SkipPending()
+    {
+        _checkingNavigation = true;
+        return TryNavigateAsync("not-started");
+    }
+""" + guard_code + "\n}\n"
     try:
         workspace.mkdir()
         for filename in ("Fixture.csproj", "Directory.Build.props", "Directory.Build.targets"):

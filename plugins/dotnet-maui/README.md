@@ -62,11 +62,50 @@ passing suites. All dormancy contracts passed. Matched plugin counters increased
 
 Native reads succeeded in all 413 observed calls, but Luna still had 69 native
 patch failures across 22 task/arm slots: workspace writes hit the separate
-session-log boundary. The subsequent bounded filesystem repair has passed
-real SDK create/edit/delete checks, not a fresh full comparison. This distinction
-matters for both correctness and cost interpretation; historical records are
-not rewritten or attributed to later fixes. Correct phrase-regex failures and
-factual judge errors are repaired separately from skill content.
+session-log boundary.
+
+The tenth full-eight local comparison at `836d5f6c` measured the bounded
+filesystem repair and the subsequent content/grading fixes. All 16 comparisons
+were conclusive with zero errored or unmatched trials; all nine dormancy cases
+per family stayed dormant in both isolated and plugin contexts.
+
+| Skill | Sonnet 5 W/T/L | GPT-5.6 Luna W/T/L |
+|---|---|---|
+| Doctor | 7/3/1, pass | 6/2/3, unproven |
+| Lifecycle | 6/3/1, unproven | 4/6/0, tie-limited |
+| CollectionView | 5/4/1, unproven | 8/2/0, pass |
+| Binding | 5/3/2, unproven | 6/4/0, pass |
+| DI | 6/4/1, unproven | 2/7/2, mixed |
+| Safe area | 8/1/1, pass | 9/1/0, pass |
+| Shell | 8/2/0, pass | 7/1/2, unproven |
+| Theming | 7/2/1, pass | 6/3/1, unproven |
+
+All 24 Luna native patches and all 353 cross-family native reads succeeded.
+The preceding root-escape failures are not erased: ninth had 69 patch
+failures, tenth had zero. The harness-only repair is proposed separately in
+[PR #1280](https://github.com/dotnet/skills/pull/1280); local results do not mean
+that it has landed in trusted CI.
+
+All isolated aggregate grades passed, but Sonnet still had five failed-leaf
+trials and Luna one. Each plugin arm had one aggregate failure: Sonnet's offline
+dependency resolver omitted nested package objects; Luna's new CollectionView
+answer omitted runtime context wiring. Other generated defects survived
+aggregate grades. Positive activation requirements also remain unmet on several
+preservation/repair cases; clean dormancy is not complete routing compliance.
+
+Matched shutdown accounting covers 273 sessions per family without missing,
+duplicate or unpaired records. Every suite's plugin counters increased:
+13.6% to 81.3% for Sonnet and 4.3% to 43.6% for Luna. Only safe-area passed the
+preference gate on both families, and it is still not a cost-neutral default.
+DI content was unchanged between ninth and tenth; its vote shift is not evidence
+that a new DI content edit caused a regression.
+
+Historical records are not rewritten or attributed to later fixes. Correct
+phrase-regex failures, contradictory rubric/golden contracts and factual judge
+errors are repaired separately from skill content. Compiler/runtime replay of
+the actual Toolkit answer confirms that a zero-parameter `CanExecute` method
+works with an integer command and that async execution updates command
+availability; a literal string parameter still cannot supply that integer.
 
 When models or supported SDKs change, repeat the comparison before retaining a
 default. Classify fixture, harness, power, routing and content failures separately.
@@ -96,7 +135,10 @@ against real MAUI Controls packages. The six UI/lifecycle suites share
 their references through Vally with paid prompt graders removed.
 It compiles the binding core's actual notifying property, rejects a wrong-name
 notification mutation, and compiles converter/resource examples from the
-on-demand binding reference. Real-package probes also check back-button property
+on-demand binding reference. XamlC/runtime probes verify an `x:Int32` command
+parameter retains its integer type and reject a literal-string substitute.
+The Shell core's actual guard/caller example is compiled and its pending-request
+skip path exercised. Real-package probes also check back-button property
 ownership and reject sibling-theme `var` conditionals and undeclared dictionary
 `RemoveWhere` calls. Native `MainThread` dispatch is not exercised.
 
