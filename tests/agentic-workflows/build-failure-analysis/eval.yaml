@@ -29,7 +29,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='99e8073962509fcd129e0f70e585c0da712ffa3ced330d98f9af6086308e2f0e';runpy.run_path(str(p),run_name='__main__')"
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='abccbf29bf3d765d1f85042df7782f75bcba3c370ec35c63a8d96daf96556046';runpy.run_path(str(p),run_name='__main__')"
             --expected-action "comment"
             --input-digest "5bb7bb79929621caec6026218cea5720e1376a99f0d45bed261aeea87f2828ff"
             --min-findings 1 --max-findings 1
@@ -60,7 +60,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='99e8073962509fcd129e0f70e585c0da712ffa3ced330d98f9af6086308e2f0e';runpy.run_path(str(p),run_name='__main__')"
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='abccbf29bf3d765d1f85042df7782f75bcba3c370ec35c63a8d96daf96556046';runpy.run_path(str(p),run_name='__main__')"
             --expected-action "comment"
             --input-digest "4e98c2227663f579a2858cf233436453a6b0ec4537bd48f3ad27fcb7b08bfd60"
             --min-findings 1 --max-findings 1
@@ -91,7 +91,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='99e8073962509fcd129e0f70e585c0da712ffa3ced330d98f9af6086308e2f0e';runpy.run_path(str(p),run_name='__main__')"
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='abccbf29bf3d765d1f85042df7782f75bcba3c370ec35c63a8d96daf96556046';runpy.run_path(str(p),run_name='__main__')"
             --expected-action "noop"
             --input-digest "9cf9fdc914e1e158f117b54acc4ddbc84015a51e0a21ce638133c0a817646724"
             --min-findings 0 --max-findings 0
@@ -120,7 +120,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='99e8073962509fcd129e0f70e585c0da712ffa3ced330d98f9af6086308e2f0e';runpy.run_path(str(p),run_name='__main__')"
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='abccbf29bf3d765d1f85042df7782f75bcba3c370ec35c63a8d96daf96556046';runpy.run_path(str(p),run_name='__main__')"
             --expected-action "noop"
             --input-digest "176c565c7f4fb449de5db4697956efdcedbb23b4bd7953991b7f8515415b104d"
             --min-findings 0 --max-findings 0
@@ -149,7 +149,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='99e8073962509fcd129e0f70e585c0da712ffa3ced330d98f9af6086308e2f0e';runpy.run_path(str(p),run_name='__main__')"
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='abccbf29bf3d765d1f85042df7782f75bcba3c370ec35c63a8d96daf96556046';runpy.run_path(str(p),run_name='__main__')"
             --expected-action "comment"
             --input-digest "ccc9970133b866b443a43758583600f3757c3dcf56c865353c1d734efe8dc59b"
             --min-findings 0 --max-findings 0
@@ -178,7 +178,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='99e8073962509fcd129e0f70e585c0da712ffa3ced330d98f9af6086308e2f0e';runpy.run_path(str(p),run_name='__main__')"
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='abccbf29bf3d765d1f85042df7782f75bcba3c370ec35c63a8d96daf96556046';runpy.run_path(str(p),run_name='__main__')"
             --expected-action "comment"
             --input-digest "31944ad75ebd9e16edf10ccaf6404cb16bee2d1da7fc313005689082e0fcfc71"
             --min-findings 1 --max-findings 1
@@ -210,7 +210,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='99e8073962509fcd129e0f70e585c0da712ffa3ced330d98f9af6086308e2f0e';runpy.run_path(str(p),run_name='__main__')"
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='abccbf29bf3d765d1f85042df7782f75bcba3c370ec35c63a8d96daf96556046';runpy.run_path(str(p),run_name='__main__')"
             --expected-action "noop"
             --input-digest "ea4f149335bee88599f41a533e28d0b40ebc0ae03a6192f55e9d4d2dfbe0ff71"
             --min-findings 0 --max-findings 0
@@ -240,7 +240,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='99e8073962509fcd129e0f70e585c0da712ffa3ced330d98f9af6086308e2f0e';runpy.run_path(str(p),run_name='__main__')"
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='abccbf29bf3d765d1f85042df7782f75bcba3c370ec35c63a8d96daf96556046';runpy.run_path(str(p),run_name='__main__')"
             --expected-action "noop"
             --input-digest "b7d1c4e4af834f71dda8fca1728ecdcca19547cbff769b9ba13fd27e4175a32d"
             --min-findings 0 --max-findings 0
@@ -269,7 +269,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='99e8073962509fcd129e0f70e585c0da712ffa3ced330d98f9af6086308e2f0e';runpy.run_path(str(p),run_name='__main__')"
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='abccbf29bf3d765d1f85042df7782f75bcba3c370ec35c63a8d96daf96556046';runpy.run_path(str(p),run_name='__main__')"
             --expected-action "comment"
             --input-digest "ee6fb2efc8e75b74278ba70bdc2bc3397a55f8c93764f730b30eeb4fc8e56457"
             --min-findings 1 --max-findings 1
@@ -301,7 +301,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='99e8073962509fcd129e0f70e585c0da712ffa3ced330d98f9af6086308e2f0e';runpy.run_path(str(p),run_name='__main__')"
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='abccbf29bf3d765d1f85042df7782f75bcba3c370ec35c63a8d96daf96556046';runpy.run_path(str(p),run_name='__main__')"
             --expected-action "comment"
             --input-digest "6cb5b01f4c7fef400ddd7ef0447226db456d769b3ec3e420c32af04a8a32181f"
             --min-findings 1 --max-findings 1

@@ -45,7 +45,7 @@ def input_relative_path(value):
     require(isinstance(value, str) and value.strip(), "Evidence path must be a nonempty string")
     require("\\" not in value, "Evidence paths must be repository-relative JSON paths")
     relative = Path(value)
-require(not relative.is_absolute() and not relative.drive and ".." not in relative.parts, "Evidence path escapes inputs")
+    require(not relative.is_absolute() and not relative.drive and ".." not in relative.parts, "Evidence path escapes inputs")
     if relative.parts and relative.parts[0] == "inputs":
         relative = Path(*relative.parts[1:])
     require(relative.parts, "Evidence path must identify a file under inputs")
