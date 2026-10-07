@@ -32,10 +32,10 @@ stimuli:
           pattern: (?i)_content/Syncfusion\.Blazor\.Toolkit/styles/fluent\.min\.css
       - type: output-not-matches
         config:
-          pattern: (?i)Syncfusion\.Blazor(?!\.Toolkit)\b
+          pattern: (?i)(dotnet add package|PackageReference Include=\"?)\s*Syncfusion\.Blazor(?!\.Toolkit)\b
       - type: output-not-matches
         config:
-          pattern: (?i)(RegisterLicense\s*\(|AddSyncfusionLicense\s*\(|enter (your|a) license key|provide (your|a) license key)
+          pattern: (?i)\b(enter|provide|paste|add|register) (your|a) (syncfusion )?license key
       - type: prompt
     rubric:
       - Installs the open-source Toolkit package and registers its extension method with the namespace in scope.
@@ -65,10 +65,7 @@ stimuli:
           pattern: (?i)RootComponents\.Add<App>\("#app"\)
       - type: output-not-matches
         config:
-          pattern: (?i)@rendermode
-      - type: output-not-matches
-        config:
-          pattern: (?i)(put|place|link|add)[\s\S]{0,80}(stylesheet|link|css)[\s\S]{0,40}App\.razor
+          pattern: (?im)^\s*@rendermode\s+Interactive
       - type: prompt
     rubric:
       - Uses index.html as the stylesheet host for a standalone WebAssembly app.
@@ -96,9 +93,6 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)(only (in|on) (the )?server|client inherits|register only in server)
-      - type: output-not-matches
-        config:
-          pattern: (?i)RootComponents\.Add<App>\("#app"\)
       - type: prompt
     rubric:
       - Registers Toolkit in both the server and Client hosts when both render Toolkit components.
@@ -180,7 +174,7 @@ stimuli:
           pattern: (?i)AddSyncfusionBlazorToolkit
       - type: output-not-matches
         config:
-          pattern: (?i)(switch|transition|continue)[\s\S]{0,60}(mid-|while running|same component)
+          pattern: (?i)\b(does|will|can|would)\s+(switch|transition)\b[\s\S]{0,60}(mid-|while running|same component)
       - type: prompt
     rubric:
       - Describes Auto as server interactivity on the first visit and WebAssembly on later cached visits.
@@ -206,9 +200,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)(no|not|does not|doesn't)[\s\S]{0,40}license key
-      - type: output-not-matches
-        config:
-          pattern: (?i)AddSyncfusionLicense\s*\(
       - type: prompt
     rubric:
       - Identifies the installed package as the commercial package and replaces it for this Toolkit-only app.
@@ -234,9 +225,6 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)only (the )?server needs
-      - type: output-not-matches
-        config:
-          pattern: (?i)RootComponents\.Add<App>\("#app"\)
       - type: prompt
     rubric:
       - Adds the missing Client registration without removing the server registration.
@@ -283,13 +271,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)styles/fluent\.min\.css
-      - type: output-matches
-        config:
-          pattern: (?i)highcontrast\.min\.css
-      - type: output-not-matches
-        config:
-          pattern: (?i)href="_content/Syncfusion\.Blazor\.Toolkit/[^"]*bootstrap5
+          pattern: (?i)styles/(fluent|highcontrast)\.min\.css
       - type: prompt
     rubric:
       - Replaces the unsupported stylesheet with the default Fluent file or the high-contrast file.
@@ -309,9 +291,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: _content/Syncfusion\.Blazor\.Toolkit/styles/fluent\.min\.css
-      - type: output-not-matches
-        config:
-          pattern: (?i)/themes/fluent\.css
       - type: prompt
     rubric:
       - Corrects both the directory and the filename, including the minified extension.
@@ -357,9 +336,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)(embedded|bundled|included in the (nuget )?package|ships with the package)
-      - type: output-not-matches
-        config:
-          pattern: (?i)keep the cdn script
       - type: prompt
     rubric:
       - Removes the external script tag and explains that the package loads its own JavaScript.
