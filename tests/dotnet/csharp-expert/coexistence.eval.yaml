@@ -24,18 +24,33 @@ stimuli:
         - src: fixtures/blazor-components
           dest: .
     graders:
-      - type: file-contains
+      - type: run-command
         config:
-          path: Components/Editor.razor
-          value: '[Parameter]'
-      - type: file-contains
-        config:
-          path: Components/Editor.razor
-          value: RenderFragment
-      - type: file-contains
-        config:
-          path: Components/Editor.razor
-          value: EventCallback
+          command: >-
+            node -e "const fs=require('fs');
+            const strip=s=>s.replace(/@\*[\s\S]*?\*@/g,'').replace(/<!--[\s\S]*?-->/g,'').replace(/\/\/.*$/gm,'');
+            const editor=strip(fs.readFileSync('Components/Editor.razor','utf8'));
+            const codeBehind=fs.existsSync('Components/Editor.razor.cs')?strip(fs.readFileSync('Components/Editor.razor.cs','utf8')):'';
+            const declarations=editor+'\n'+codeBehind; const params=[];
+            const parameter=/\[\s*Parameter(?:Attribute)?\s*\]\s*public\s+([^\r\n{=]+?)\s+(\w+)\s*\{\s*get\s*;\s*set\s*;\s*\}/g;
+            for(let match;(match=parameter.exec(declarations));) params.push({type:match[1],name:match[2]});
+            const fragment=params.find(p=>/RenderFragment/.test(p.type));
+            const callback=params.find(p=>/EventCallback/.test(p.type));
+            const value=params.find(p=>!/RenderFragment|EventCallback/.test(p.type));
+            if(!fragment||!callback||!value) throw new Error('Expected value, RenderFragment, and EventCallback parameters');
+            const escape=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+            if(!new RegExp('@'+escape(value.name)+'\\b').test(editor)) throw new Error('Value parameter is not rendered');
+            if(!new RegExp('@'+escape(fragment.name)+'\\b').test(editor)) throw new Error('RenderFragment is not rendered');
+            if(!new RegExp(escape(callback.name)+'\\s*\\.\\s*InvokeAsync\\s*\\(').test(declarations))
+            throw new Error('EventCallback is not invoked');
+            const parent=strip(fs.readFileSync('Components/App.razor','utf8'));
+            const opening=parent.match(/<Editor\b([^>]*)>/); const body=parent.match(/<Editor\b[^>]*>([\s\S]*?)<\/Editor>/);
+            if(!opening||!body||!body[1].trim()) throw new Error('Parent does not supply child content');
+            if(!new RegExp('\\b'+escape(value.name)+'\\s*=').test(opening[1])) throw new Error('Parent does not supply value parameter');
+            const callbackWired=new RegExp('\\b'+escape(callback.name)+'\\s*=').test(opening[1]);
+            const bindWired=/Changed$/.test(callback.name)&&new RegExp('@bind-'+escape(callback.name.slice(0,-7))+'\\s*=').test(opening[1]);
+            if(!callbackWired&&!bindWired) throw new Error('Parent does not wire callback');"
+          expected_exit_code: 0
       - type: run-command
         config:
           command: dotnet build

@@ -73,6 +73,7 @@ or installing a marketplace route.
 | Create a Blazor project with framework-specific defaults | `create-blazor-project` | `dotnet-blazor` |
 | Discover or instantiate a general `dotnet new` template | `template-discovery` or `template-instantiation` | `dotnet-template-engine` |
 | Repair MAUI XAML binding and change notification | `maui-data-binding` | `dotnet-maui` |
+| Create, modify, or debug a Windows Forms application | `winforms-expert` | `dotnet-winforms` |
 | Convert NUnit tests to MSTest | `migrate-nunit-to-mstest` | `dotnet-test-migration` |
 | Create or run a file-based C# app without a project | `csharp-scripts` | `dotnet-advanced` |
 | Optimize repeated EF Core query work | `optimizing-ef-core-queries` | `dotnet-data` |
