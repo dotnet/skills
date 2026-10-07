@@ -32,15 +32,17 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c 'import json,pathlib; p=json.loads(pathlib.Path("capture-plan.json").read_text());
+            python3 -c 'import json,pathlib,re; p=json.loads(pathlib.Path("capture-plan.json").read_text());
             assert p["status"]=="planned" and p["device_id"]=="R58M123" and p["physical_capture_verified"] is False;
             c=p["commands"]; assert all(isinstance(c[k],list) and c[k] and all(isinstance(s,str) for s in c[k]) for k in ("route","collect","validate","cleanup"));
             r="\n".join(c["route"]); q="\n".join(c["collect"]); v="\n".join(c["validate"]); x="\n".join(c["cleanup"]);
+            q1=chr(39); q2=chr(34); m=re.search("(\\w+)=["+q1+q2+"]?R58M123["+q1+q2+"]?", r); sid=m.group(1) if m else None;
+            has=lambda text,lit: (lit in text) or (sid is not None and (lit.replace("R58M123", q2+"$"+sid+q2) in text or lit.replace("R58M123", "$"+sid) in text));
             assert "server-server" in r and "127.0.0.1:9001" in r and "capture-diag.sock" in r;
-            assert "adb -s R58M123 reverse tcp:9000 tcp:9001" in r and "127.0.0.1:9000,nosuspend,connect" in r;
+            assert has(r, "adb -s R58M123 reverse tcp:9000 tcp:9001") and "127.0.0.1:9000,nosuspend,connect" in r;
             assert "dotnet-gcdump collect" in q and "--diagnostic-port" in q and "capture-diag.sock,connect" in q and "after-navigation.gcdump" in q;
             assert "dotnet-gcdump report" in v and "after-navigation.gcdump" in v and "-p " not in v;
-            assert "adb -s R58M123 reverse --remove tcp:9000" in x and "debug.mono.profile" in x;
+            assert has(x, "adb -s R58M123 reverse --remove tcp:9000") and "debug.mono.profile" in x;
             a=r+q+v+x; assert "0.0.0.0" not in a and "--remove-all" not in a and "-p 2841" not in a and "adb pull" not in a;
             assert pathlib.Path("android-session.txt").read_text()=="""Operator-supplied facts for a planning exercise; no device is attached to the eval worker.\nHost: macOS, .NET SDK 10.0.102; installed Android workload matches the project.\nProject: App.csproj, net10.0-android, Mono, Release.\nProfiling APK includes libmono-component-diagnostics_tracing.so for arm64-v8a.\nDevice: physical serial R58M123, USB debugging authorized; other serials may be present.\nPackage: com.example.catalog; device PID 2841 is identity information, not a host PID.\ndotnet-gcdump and dotnet-dsrouter: 9.0.621003, installed on host.\nNo diagnostic route is configured yet; a controlled relaunch is acceptable after operator approval.\nPrevious debug.mono.profile: empty. Device port 9000 reverse rule: absent.\nReserved host TCP port: 9001. Reserved host IPC path: capture-diag.sock in workspace.\nArtifact requested: after-navigation.gcdump in host workspace.\n""";
             print("Android plan and input preservation valid")'
@@ -507,7 +509,9 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(stop|do not retry|don't retry|pause.*retry)
+          # \W{0,4} tolerates markdown emphasis markers (e.g. "**Don't** retry")
+          # between the keywords without requiring an exact literal phrase.
+          pattern: (?i)(stop|do\W{0,4}not\W{0,4}retry|don['’]?t\W{0,4}retry|pause.*retry)
       - type: output-matches
         config:
           pattern: (?i)(full GC|full garbage|GC.*pause|garbage.*pause)
