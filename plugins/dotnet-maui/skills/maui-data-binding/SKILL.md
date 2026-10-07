@@ -66,6 +66,10 @@ and "it actually updates the UI".
 and that fixes no real defect. Adding `x:DataType` is different: when you are
 already editing a page's bindings, recommending compiled bindings is in scope.
 
+For a requested smallest markup fix, show only the changed binding/template
+fragment, not a full page scaffold. Declare any new namespace prefix without
+reproducing unchanged surrounding markup.
+
 For supplied-code reviews, preserve an already-passing implementation and report
 what the checks actually cover. A platform-neutral build/contract does not prove
 XAML compilation, native rendering or device behavior.
@@ -200,9 +204,20 @@ explicitly set. Property paths support dot notation and indexers:
 `x:DataType` is inherited XAML compilation metadata, independent of the runtime
 `BindingContext`. It remains inherited even when a child explicitly changes its
 context. Redeclare it on that child for the new type and on every `DataTemplate`.
-On current MAUI, a child's `BindingContext="{Binding SelectedAddress}"` can be
+On MAUI 10 XamlC, a child's `BindingContext="{Binding SelectedAddress}"` is
 compiled against the parent's type while its other bindings use the child's
-declared type; older versions may need an explicit binding-level `x:DataType`.
+declared type. The compiler skips the child's `x:DataType` for that context-setting
+binding. Explicit binding-level typing is also valid, but is not required when
+this inference applies:
+
+```xml
+<!-- Panel fragment; vm/model prefixes are declared on the page. -->
+<VerticalStackLayout x:DataType="model:Address"
+    BindingContext="{Binding SelectedAddress, x:DataType={x:Type vm:CustomerViewModel}}">
+    <Label Text="{Binding City}" />
+</VerticalStackLayout>
+```
+
 Changing `BindingContext` normally rebinds descendants; it does not leave them
 permanently attached to the previous ViewModel.
 
@@ -285,6 +300,11 @@ and `LoadDataCommand` automatically.
 Implement `Convert` (source → target) and `ConvertBack` (target → source):
 
 ```csharp
+using System.Globalization;
+using Microsoft.Maui.Controls;
+
+namespace MyApp.Converters;
+
 public class IntToBoolConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType,
@@ -297,14 +317,21 @@ public class IntToBoolConverter : IValueConverter
 }
 ```
 
-Declare in XAML resources and consume:
+Declare matching CLR namespaces in XAML resources and consume. Here the existing
+`MainViewModel.Count` and runtime `BindingContext` are already supplied by the page:
 
 ```xml
-<ContentPage.Resources>
-    <local:IntToBoolConverter x:Key="IntToBool" />
-</ContentPage.Resources>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:conv="clr-namespace:MyApp.Converters"
+             xmlns:vm="clr-namespace:MyApp.ViewModels"
+             x:DataType="vm:MainViewModel">
+    <ContentPage.Resources>
+        <conv:IntToBoolConverter x:Key="IntToBool" />
+    </ContentPage.Resources>
 
-<Switch IsToggled="{Binding Count, Converter={StaticResource IntToBool}}" />
+    <Switch IsToggled="{Binding Count, Converter={StaticResource IntToBool}}" />
+</ContentPage>
 ```
 
 `ConverterParameter` is always passed as a **string** — parse inside `Convert`:

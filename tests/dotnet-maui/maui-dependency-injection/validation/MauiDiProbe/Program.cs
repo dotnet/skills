@@ -12,6 +12,7 @@ ProbeFactoryTemplate();
 ProbeDirectTemplate();
 ProbeExistingContent();
 ProbeLifetimes();
+ProbeMainGraphLifetimes();
 ProbePreferencesTypes();
 await ProbeDbContextFactory();
 ProbeScopedShellProviders();
@@ -184,6 +185,35 @@ static async Task ProbeDbContextFactory()
     existing.AddDbContextFactory<ProbeContext>();
     Require(existing.Single(s => s.ServiceType == typeof(ProbeContext)).Lifetime
         == ServiceLifetime.Transient, "factory preserves existing context registration");
+    existing.AddSingleton<CapturingWorker>();
+    using var root = existing.BuildServiceProvider();
+    var worker = root.GetRequiredService<CapturingWorker>();
+    Require(ReferenceEquals(worker.Context,
+        root.GetRequiredService<CapturingWorker>().Context),
+        "singleton keeps constructor-injected transient across worker resolutions");
+    Require(!ReferenceEquals(worker.Context, root.GetRequiredService<ProbeContext>()),
+        "fresh direct transient resolution does not replace singleton's context");
+}
+
+static void ProbeMainGraphLifetimes()
+{
+    foreach (var lifetime in new[] { ServiceLifetime.Singleton, ServiceLifetime.Transient })
+    {
+        var registrations = new ServiceCollection().AddSingleton<DataService>()
+            .AddTransient<DetailGraph>();
+        registrations.Add(new ServiceDescriptor(typeof(MainGraph), typeof(MainGraph), lifetime));
+        using var root = registrations.BuildServiceProvider();
+        var main = root.GetRequiredService<MainGraph>();
+        var first = root.GetRequiredService<DetailGraph>();
+        var second = root.GetRequiredService<DetailGraph>();
+        Require(ReferenceEquals(main, root.GetRequiredService<MainGraph>())
+            == (lifetime == ServiceLifetime.Singleton), $"main graph lifetime {lifetime}");
+        Require(ReferenceEquals(main.Data, first.Data) && ReferenceEquals(first.Data, second.Data),
+            $"shared data service with {lifetime} main graph");
+        first.EditText = "first draft";
+        Require(!ReferenceEquals(first, second) && second.EditText.Length == 0,
+            $"independent detail edit state with {lifetime} main graph");
+    }
 }
 
 static void ProbePreferencesTypes()
@@ -292,6 +322,15 @@ static void RequireThrows<T>(Action action, string name) where T : Exception
 }
 
 public sealed class DataService;
+public sealed class MainGraph(DataService data)
+{
+    public DataService Data { get; } = data;
+}
+public sealed class DetailGraph(DataService data)
+{
+    public DataService Data { get; } = data;
+    public string EditText { get; set; } = "";
+}
 public sealed class AppPreferences;
 public sealed class CapturingWorker(ProbeContext context)
 {

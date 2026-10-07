@@ -32,7 +32,7 @@ quality.check_references(spec_name, document, set())
 assert not quality.errors, "\n".join(quality.errors)
 eligible, dormancy, _, _ = quality.eval_evidence_counts(document)
 assert eligible == 11 and dormancy == 2, (eligible, dormancy)
-if "--export" not in sys.argv:
+if not any(arg.startswith("--export") for arg in sys.argv):
     print("PASS: scoped eval structure; 10 preference tasks, 1 no-op, 2 dormancy guards")
 
 # Each answer represents a plausible defect, not random text or an empty result.
@@ -71,9 +71,33 @@ mutations = [
 ]
 
 stimuli = document["stimuli"]
+ownership_alternatives = [
+    (0, "singleton-main", stimuli[0]["golden_trajectory"]["inline"]["steps"][-1]["message"]
+        .replace("AddTransient<MainViewModel>", "AddSingleton<MainViewModel>")
+        .replace("AddTransient<MainPage>", "AddSingleton<MainPage>"), True),
+    (3, "ordinary-root-provider", "Ordinary MAUI has no request scope. A second window "
+        "also resolves from the root unless you explicitly create a separate scope. "
+        "Use IDbContextFactory<OrdersContext>; await using var db = "
+        "await factory.CreateDbContextAsync(); await UploadAsync(db);", True),
+    (6, "operation-factory", "The singleton constructor resolves OrdersContext once, "
+        "so every upload shares that context. Keep the worker shared but inject "
+        "IDbContextFactory<OrdersContext>. In each upload: await using var db = "
+        "await factory.CreateDbContextAsync(); await UploadOrdersAsync(db);", True),
+    (6, "operation-scope", "A transient injected into a singleton is created only once "
+        "and then reused. Keep SyncService shared. In each upload: await using var scope = "
+        "scopeFactory.CreateAsyncScope(); var db = scope.ServiceProvider."
+        "GetRequiredService<OrdersContext>(); await UploadOrdersAsync(db);", True),
+    (6, "factory-without-disposal", "Use IDbContextFactory<OrdersContext>. "
+        "var db = await factory.CreateDbContextAsync(); await UploadOrdersAsync(db);", False),
+    (6, "scoped-context-kept", "Keep the singleton's constructor context but register it "
+        "scoped. Dispose the context when the app closes.", False),
+]
 assert len(stimuli) == len(mutations)
 if "--export" in sys.argv:
     print(json.dumps(mutations))
+    raise SystemExit(0)
+if "--export-ownership" in sys.argv:
+    print(json.dumps(ownership_alternatives))
     raise SystemExit(0)
 for stimulus, mutation in zip(stimuli, mutations):
     trajectory = stimulus["golden_trajectory"]["inline"]
@@ -171,3 +195,11 @@ for label, text, passed in [
     quality.check_trajectory_output_graders(spec_name, stimuli[4], alternative, label)
     assert bool(quality.errors) != passed, (label, quality.errors)
     print(f"PASS: root workaround contract: {label} {'accepted' if passed else 'rejected'}")
+
+for index, label, text, passed in ownership_alternatives:
+    trajectory = copy.deepcopy(stimuli[index]["golden_trajectory"]["inline"])
+    trajectory["steps"][-1]["message"] = text
+    quality.errors.clear()
+    quality.check_trajectory_output_graders(spec_name, stimuli[index], trajectory, label)
+    assert bool(quality.errors) != passed, (label, quality.errors)
+    print(f"PASS: ownership contract: {label} {'accepted' if passed else 'rejected'}")

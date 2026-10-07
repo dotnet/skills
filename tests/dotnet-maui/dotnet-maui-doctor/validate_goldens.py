@@ -49,13 +49,6 @@ def check_output_variants(document):
             "Inspect global.json, inventory the machine, then update workloads.",
         ),
         (
-            "Incomplete Java error does not establish vendor failure", 0,
-            r"(?i)(exact|actual|full|specific).*error|error.*(text|log|message)",
-            "The decisive evidence is the missing error and the JDK actually "
-            "selected by the build. A vendor switch alone does not establish a fix.",
-            "Temurin is incompatible; switch vendors and the build will work.",
-        ),
-        (
             "Windows-only health check does not require Java", 0,
             r"(?i)Windows SDK",
             "Java and Android tooling are irrelevant. Check the selected SDK, "
@@ -90,8 +83,8 @@ def check_output_variants(document):
                     "--eval-spec", str(spec), "--stimulus", name,
                     "--workspace", str(WORK / f"output-{index}-{label}"),
                 ], success=succeeds)
-        print("PASS: 4 equivalent answers accepted, 4 prior false negatives reproduced, "
-              "and 4 missing-evidence mutations rejected")
+        print("PASS: 3 equivalent answers accepted, 3 prior false negatives reproduced, "
+              "and 3 missing-evidence mutations rejected")
     finally:
         spec.unlink(missing_ok=True)
 

@@ -243,6 +243,10 @@ private async Task OpenSelectedAsync()
 The generated async command prevents concurrent execution by default; preserve
 that guard. Bind `RefreshView.IsRefreshing` and `RefreshView.Command` to the same
 ViewModel, with `IsRefreshing` set/reset around its refresh in `try/finally`.
+Complete ViewModel examples must declare and initialize any API dependency used
+by refresh. Inject the existing service rather than emitting an undefined `api`
+field; no new HTTP implementation is needed. Identify assumed dependencies when
+showing only a method fragment.
 The event-based alternative below is for requests that permit code-behind, not
 a replacement for an explicitly requested selection binding.
 
@@ -367,8 +371,8 @@ property-mapping table. Keep the bindings/content but remove the cell wrapper:
 Apply these only when the user reports a performance problem or explicitly asks
 about performance — they are not a default checklist.
 
-- **Use `MeasureFirstItem`** for uniform item sizes — significantly faster than the default
-  `MeasureAllItems`, which measures every item individually. Set it on the `CollectionView`
+- **For sizing questions, name the default `MeasureAllItems`**, which measures each item.
+  Recommend `MeasureFirstItem` only for uniform measured sizes. Set it on the `CollectionView`
   itself (it is declared on `StructuredItemsView`), **not** on `LinearItemsLayout` /
   `GridItemsLayout`:
   ```xml

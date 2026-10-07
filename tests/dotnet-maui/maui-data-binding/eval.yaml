@@ -301,7 +301,9 @@ stimuli:
       - trajectory
   rubric:
   - Checks each changed binding context against its correct model without globally disabling compile-time
-    checking.
+    checking. MAUI 10 XamlC compiles the BindingContext-setting binding using the inherited parent type,
+    skipping the child's x:DataType for that binding; explicit binding-local outer typing is also valid
+    but not mandatory when this supported inference applies.
   - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
   golden_trajectory:
     inline:

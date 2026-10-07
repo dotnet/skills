@@ -213,7 +213,9 @@ stimuli:
       - trajectory
   rubric:
   - Keeps the submit control reachable with a scrollable form using an element that supports keyboard
-    insets.
+    insets. On .NET 10, SafeAreaEdges.All includes keyboard protection and SoftInput is the keyboard
+    region on ContentPage/Layout containers such as Grid. A supported wrapper policy does not require
+    a separate custom keyboard event service; ScrollView itself does not handle SoftInput.
   - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
   golden_trajectory:
     inline:
@@ -335,6 +337,9 @@ stimuli:
       - diff
   rubric:
   - Repairs the stated defect without changing protected files or weakening checks.
+    The supplied factory has no multiple-row geometry, and Checks.cs specifies a 10-unit ColumnSpacing.
+    Grid.Spacing is unsupported, so it had no valid prior uniform row-spacing behavior to preserve.
+    Do not require RowSpacing=10; both column-only and harmless additional row-spacing solutions are valid.
   - Reports only validation actually performed and distinguishes object-model checks from native/device
     behavior.
   golden_patch:

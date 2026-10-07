@@ -62,6 +62,11 @@ For supplied-code checks, leave a passing source set unchanged and report the
 validation limits explicitly: package/object-model checks do not execute native
 navigation, XAML rendering or device handlers.
 
+If the user requests an absolute URI, give the actual `GoToAsync("//…")` value
+in the final answer, derived from the named hierarchy. A slash-separated
+breadcrumb without the leading `//` is not an absolute Shell URI, even if the
+source repair and checks pass.
+
 **Answer narrowly, but completely.** Staying on topic does not mean being terse. When
 you show a navigation change, include the pieces needed to run it: the `AppShell.xaml`
 markup *and* the `Routing.RegisterRoute` call, or the `GoToAsync` call *and* the
@@ -437,9 +442,16 @@ protected override void OnNavigated(ShellNavigatedEventArgs args)
 
 - **Eager page creation**: Using `Content` directly instead of `ContentTemplate` with `DataTemplate` creates all pages at Shell init, hurting startup time. Always use `ContentTemplate`.
 - **Duplicate route names**: `Routing.RegisterRoute` throws `ArgumentException` if a route name matches an existing route or a visual hierarchy route. Every route must be unique across the app.
-- **Relative routes without registration**: You cannot `GoToAsync("somepage")` unless `somepage` was registered with `Routing.RegisterRoute`. Visual hierarchy pages use absolute `//` routes.
+- **Relative-route diagnosis**: Register pushed detail routes before navigating.
+  MAUI 10 does not support ordinary relative pushes to visual Shell elements;
+  select those destinations with absolute `//` routes. Relative global routes and
+  `..` back navigation use the current location. Inspect the actual exception:
+  missing registration is not the only cause — destination construction can fail too.
 - **Fire-and-forget GoToAsync**: Not awaiting `GoToAsync` causes race conditions and silent failures. Always `await` the call.
 - **Wrong absolute route path**: Absolute routes select the visual hierarchy; global/detail routes registered with `Routing.RegisterRoute` are pushed relatively. A non-existent route can throw `ArgumentException`, and `//globalRoute` is unsupported on MAUI 10. Do not describe either as a guaranteed silent no-op.
+  If navigation completes without a visible change, check whether that destination
+  is already selected or its data stayed unchanged. A unique absolute leaf can
+  resolve, but prefer named full paths for stable deep links.
 - **Manipulating Tab.Stack directly**: The navigation stack is read-only. Use `GoToAsync` for all navigation changes.
 - **Forgetting `GetDeferral()` for async guards**: Synchronous cancellation in `OnNavigating` works, but async checks require `GetDeferral()` / `deferral.Complete()` to avoid race conditions.
 

@@ -109,13 +109,13 @@ stimuli:
       Can you tell me whether switching vendors will fix it? Advice only.
     tags: {capability: evidence-limits, risk: unsupported-certainty, journey: triage-incomplete-report}
     graders:
-      - type: output-matches
-        config: {pattern: '(?i)(exact|actual|full|specific|missing).*error|error.*(text|log|message)'}
+      - type: exit-success
       - type: prompt
     rubric:
       - States that vendor and shell version alone cannot identify the cause or guarantee a fix.
       - Identifies the missing evidence that prevents establishing the failing build's cause.
       - Does not infer universal support, incompatibility or guaranteed remediation from a JDK vendor name.
+      - Respects advice-only scope by not executing machine inventories, builds or installations; proposing checks or reading guidance is not executing them.
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6

@@ -150,8 +150,12 @@ stimuli:
       evidence:
       - trajectory
   rubric:
-  - Identifies missing Routing.RegisterRoute for the relative route case
-  - Explains that the absolute route path must match the full visual hierarchy
+  - Checks Routing.RegisterRoute for a pushed detail destination and inspects the actual exception.
+    MAUI 10 does not support ordinary relative pushes to visual Shell elements; describing that limitation
+    is correct, not a reason to penalize the answer.
+  - Explains absolute route resolution within the visual hierarchy. A unique absolute leaf may resolve;
+    canonical named full paths are appropriate for stable deep links. Does not claim nonexistent paths
+    silently fall back, and distinguishes successful navigation to an already-selected destination.
   - Recommends ContentTemplate with DataTemplate to fix eager page creation at startup
   - Does not suggest NavigationPage-based solutions for Shell navigation issues
   tags:
@@ -169,10 +173,11 @@ stimuli:
       steps:
       - step_id: 1
         source: agent
-        message: A relative productdetails route needs Routing.RegisterRoute or an existing matching visual
-          route; inspect the exact exception and registered spelling. An absolute //products/active path
-          must match the full declared visual hierarchy and target; it may need a Tab segment and may
-          already be current. Use ContentTemplate="{DataTemplate ...}" instead of eager page Content for
+        message: A pushed relative productdetails route needs Routing.RegisterRoute; an ordinary relative
+          push to a visual Shell element is unsupported on MAUI 10. Inspect the exact exception and registered
+          spelling, including destination initialization errors. An absolute //products/active path must
+          resolve to the declared target; a canonical path may include a Tab segment, while a unique
+          absolute leaf can also resolve. The destination may already be current. Use ContentTemplate="{DataTemplate ...}" instead of eager page Content for
           lazy startup. Keep the Shell container, not a nested NavigationPage.
 - name: Stable routes for deep linking into tabs
   prompt: |
@@ -270,6 +275,8 @@ stimuli:
   - Distinguishes a registered detail destination from a visual root and supplies a supported navigation
     path.
   - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+    Explicit or implicit single-page wrappers are valid, as is a unique absolute leaf route that resolves
+    to a real visual destination; do not infer ambiguity solely from a TabBar wrapper.
   golden_trajectory:
     inline:
       schema_version: ATIF-v1.2

@@ -86,6 +86,10 @@ Diagnose the requested host and target, not every possible MAUI dependency.
    build-selected
    `JavaSdkDirectory`, JDK executables/version/architecture, `JAVA_HOME`, and PATH.
    Check `AndroidSdkDirectory` and selected SDK packages similarly.
+   An evaluated path does not identify the setting's origin. Do not invent an
+   IDE preference location or claim Java fallback never occurs. Propose an
+   explicit project/build `JavaSdkDirectory` override when appropriate;
+   changing IDE configuration still requires authorization.
 6. Load just the matching platform requirement or troubleshooting reference for
    the unresolved issue. Installation references are for an authorized fix or a
    requested plan, not compulsory reads on every invocation.

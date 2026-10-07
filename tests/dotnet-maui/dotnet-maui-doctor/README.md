@@ -56,9 +56,15 @@ It checks all golden responses, executes the offline resolver including changed
 and malformed inputs, compares the entire protected file set, and rejects five
 mutations (modified/deleted no-op inputs, wrong band, optional package inclusion,
 and pin rewrite). It never installs SDKs, workloads or JDKs and does not build MAUI.
-It also replays four equivalent answers through shipping Vally, reproduces their
-prior lexical false negatives, and rejects four missing-evidence mutations.
+It also replays three equivalent answers through shipping Vally, reproduces their
+prior lexical false negatives, and rejects three missing-evidence mutations.
 These checks protect equivalent wording, not semantic correctness of every answer.
+The incomplete-Java case uses semantic judging rather than requiring a particular
+adjective before "error"; an actual correct request for the first actionable Java
+error failed that vocabulary proxy. Its judge still checks evidence limits,
+compatibility claims and advice-only restraint.
+Free replay checks only response completion for that advisory case; it does not
+claim to replace the semantic judge.
 All fixture files must be staged by the coordinator before the tracking gate passes.
 
 The golden patch supplies one valid implementation, not a required technique.

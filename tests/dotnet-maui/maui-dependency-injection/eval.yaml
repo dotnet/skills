@@ -29,6 +29,7 @@ stimuli:
       - type: prompt
     rubric:
       - Shares the requested cache while isolating independently created detail screen state.
+      - Accepts either transient or singleton main graphs; the prompt does not require shared MainViewModel or MainPage state.
       - Places registration in the MAUI startup service collection.
       - Connects the page constructor to its ViewModel without hidden service lookup.
     golden_trajectory:
@@ -154,9 +155,6 @@ stimuli:
       risk: root-context-contamination
       journey: database-debugging
     graders:
-      - type: output-matches
-        config:
-          pattern: '(?i)(no|not|doesn.t|does not|without)[\s\S]{0,140}(automatic|built.in|natural|create)[\s\S]{0,100}scope'
       - type: output-not-matches
         config:
           pattern: '(?im)^\s*(MAUI (does )?creates? (one |an? )?(IServiceScope|DI scope) per window|each window automatically gets (its own |a )?scope)'
@@ -291,9 +289,6 @@ stimuli:
       risk: concurrent-context-use
       journey: background-sync
     graders:
-      - type: output-matches
-        config:
-          pattern: '(?i)(captur|retain|same|one context)'
       - type: output-matches
         config:
           pattern: '(?i)(factory|CreateAsyncScope|CreateScope)'

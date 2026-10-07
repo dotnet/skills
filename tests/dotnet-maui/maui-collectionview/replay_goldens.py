@@ -3,8 +3,9 @@
 Run from the repository root using a Python with PyYAML. Add --production to replay
 all references with the pinned Vally oracle, with LLM graders removed. Requires
 the repository's pinned Vally tooling and .NET 10 or later. Scratch workspaces stay inside each
-suite and are removed after replay. MAUI objects here are real package types;
-these checks do not test device layout, navigation, or OS lifecycle delivery.
+suite and are removed after replay. MAUI objects here are real package types.
+The shipping XamlC probe compiles child-context and converter examples; the
+object-model probes do not test device layout, navigation, or OS lifecycle delivery.
 """
 from pathlib import Path
 import importlib.util
@@ -52,6 +53,166 @@ ROOT = Path(__file__).resolve().parents[3]
 
 def command(args, cwd):
     return subprocess.run(args, cwd=cwd, text=True, capture_output=True)
+
+
+def compiler_probe():
+    """Compile both child-context forms with shipping XamlC, without a native host."""
+    workspace = ROOT / "tests/dotnet-maui/maui-collectionview/.compiler-probe-workspace"
+    if workspace.exists():
+        raise RuntimeError(f"Refusing to overwrite {workspace}")
+    project = """<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Maui.Controls.Build.Tasks" Version="10.0.0"
+                      GeneratePathProperty="true" PrivateAssets="all" />
+  </ItemGroup>
+  TASK
+</Project>"""
+    source = """using System.ComponentModel;
+using Microsoft.Maui.Controls;
+using Microsoft.Maui.Controls.Xaml;
+namespace Probe;
+public class CustomerViewModel : INotifyPropertyChanged
+{
+    Address _address = new() { City = "First" };
+    public Address SelectedAddress
+    {
+        get => _address;
+        set { _address = value; PropertyChanged?.Invoke(this, new(nameof(SelectedAddress))); }
+    }
+    public event PropertyChangedEventHandler? PropertyChanged;
+}
+public class Address { public string City { get; set; } = ""; }
+public partial class InferredPage : ContentPage
+{
+    public InferredPage() => InitializeComponent();
+}
+public partial class ExplicitPage : ContentPage
+{
+    public ExplicitPage() => InitializeComponent();
+}
+public static class Checks
+{
+    static BindingBase BindingOf(BindableObject target, BindableProperty property)
+    {
+        const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance |
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic;
+        var context = typeof(BindableObject).GetMethod("GetContext", flags)!
+            .Invoke(target, new object[] { property })!;
+        var bindings = context.GetType().GetField("Bindings")!.GetValue(context)!;
+        return (BindingBase)bindings.GetType().GetMethod("GetValue", flags, null, Type.EmptyTypes, null)!
+            .Invoke(bindings, null)!;
+    }
+    public static void Main()
+    {
+        foreach (ContentPage page in new ContentPage[] { new InferredPage(), new ExplicitPage() })
+        {
+            var panel = (StackLayout)((StackLayout)page.Content!).Children[0];
+            var label = (Label)panel.Children[0];
+            var contextBinding = BindingOf(panel, BindableObject.BindingContextProperty);
+            var cityBinding = BindingOf(label, Label.TextProperty);
+            var outerTypes = contextBinding.GetType().GenericTypeArguments;
+            var childTypes = cityBinding.GetType().GenericTypeArguments;
+            if (outerTypes.Length != 2 || childTypes.Length != 2 ||
+                outerTypes[0] != typeof(CustomerViewModel) || childTypes[0] != typeof(Address))
+                throw new InvalidOperationException(
+                    $"wrong compiled source types: {contextBinding.GetType()}, {cityBinding.GetType()}");
+            var vm = new CustomerViewModel();
+            page.BindingContext = vm;
+            if (label.Text != "First") throw new InvalidOperationException("initial binding failed");
+            page.BindingContext = new CustomerViewModel
+                { SelectedAddress = new Address { City = "Second" } };
+            if (label.Text != "Second") throw new InvalidOperationException("context replacement failed");
+        }
+        var converterPage = new MyApp.ConverterPage();
+        converterPage.BindingContext = new MyApp.ViewModels.MainViewModel { Count = 1 };
+        var toggle = (Switch)converterPage.Content!;
+        if (!toggle.IsToggled) throw new InvalidOperationException("converter resource did not resolve");
+        converterPage.BindingContext = new MyApp.ViewModels.MainViewModel { Count = 0 };
+        if (toggle.IsToggled) throw new InvalidOperationException("converter scope did not rebind");
+        Console.WriteLine("PASS: inferred and explicit child scopes use typed bindings");
+        Console.WriteLine("PASS: documented converter namespace/resource wiring compiles and binds");
+    }
+}"""
+    def markup(name, explicit=False):
+        context = ("{Binding SelectedAddress, x:DataType={x:Type local:CustomerViewModel}}"
+                   if explicit else "{Binding SelectedAddress}")
+        return f"""<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+ xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ xmlns:local="clr-namespace:Probe" x:Class="Probe.{name}"
+ x:DataType="local:CustomerViewModel">
+ <StackLayout>
+  <StackLayout BindingContext="{context}" x:DataType="local:Address">
+   <Label Text="{{Binding City}}" />
+  </StackLayout>
+ </StackLayout>
+</ContentPage>"""
+    try:
+        workspace.mkdir()
+        for filename in ("Directory.Build.props", "Directory.Build.targets"):
+            (workspace / filename).write_text("<Project />")
+        (workspace / "Probe.csproj").write_text(project.replace("TASK", ""))
+        (workspace / "Program.cs").write_text(source)
+        binding_skill = (ROOT / "plugins/dotnet-maui/skills/maui-data-binding/SKILL.md").read_text()
+        converter_section = binding_skill.split("## Value Converters — IValueConverter", 1)[1]
+        converter_source = converter_section.split("```csharp\n", 1)[1].split("\n```", 1)[0]
+        converter_markup = converter_section.split("```xml\n", 1)[1].split("\n```", 1)[0]
+        (workspace / "Converter.cs").write_text(converter_source)
+        (workspace / "ConverterPage.xaml").write_text(converter_markup.replace(
+            'x:DataType="vm:MainViewModel"',
+            'x:Class="MyApp.ConverterPage" x:DataType="vm:MainViewModel"'))
+        (workspace / "ConverterPage.cs").write_text("""using Microsoft.Maui.Controls;
+namespace MyApp;
+public partial class ConverterPage : ContentPage
+{
+    public ConverterPage() => InitializeComponent();
+}""")
+        (workspace / "MainViewModel.cs").write_text("""namespace MyApp.ViewModels;
+public sealed class MainViewModel { public int Count { get; set; } }""")
+        for name in ("InferredPage", "ExplicitPage"):
+            (workspace / f"{name}.xaml").write_text(markup(name, name.startswith("Explicit")))
+        restored = command(["dotnet", "restore", "Probe.csproj", "--verbosity", "quiet"], workspace)
+        assert restored.returncode == 0, restored.stdout + restored.stderr
+        location = command(["dotnet", "msbuild", "Probe.csproj",
+                            "-getProperty:PkgMicrosoft_Maui_Controls_Build_Tasks"], workspace)
+        package = Path(location.stdout.strip())
+        tasks = list(package.rglob("Microsoft.Maui.Controls.Build.Tasks.dll"))
+        assert tasks, location.stdout + location.stderr
+        task = next((p for p in tasks if "netstandard2.0" in p.parts), tasks[0])
+        target = f"""<UsingTask TaskName="Microsoft.Maui.Controls.Build.Tasks.XamlCTask"
+ AssemblyFile="{task}" />
+ <Target Name="ProbeCompileXaml" AfterTargets="Build">
+  <XamlCTask Assembly="$(TargetPath)" ReferencePath="@(ReferencePath)"
+   DefaultCompile="true" ForceCompile="true" CompileBindingsWithSource="true"
+   TreatWarningsAsErrors="true" />
+ </Target>"""
+        (workspace / "Probe.csproj").write_text(project.replace("TASK", target))
+        built = command(["dotnet", "build", "Probe.csproj", "--no-restore", "--verbosity", "quiet"], workspace)
+        assert built.returncode == 0, built.stdout + built.stderr
+        run = command(["dotnet", "run", "--project", "Probe.csproj", "--no-build"], workspace)
+        assert run.returncode == 0, run.stdout + run.stderr
+        print(run.stdout.strip())
+        (workspace / "ExplicitPage.xaml").write_text(
+            markup("ExplicitPage", True).replace("{Binding City}", "{Binding MissingCity}"))
+        broken = command(["dotnet", "build", "Probe.csproj", "--no-restore", "--verbosity", "quiet"], workspace)
+        assert broken.returncode != 0 and "MissingCity" in broken.stdout, broken.stdout + broken.stderr
+        print("PASS: XamlC rejects the missing child property (no native/device execution)")
+        (workspace / "ExplicitPage.xaml").write_text(markup("ExplicitPage", True))
+        (workspace / "ConverterPage.xaml").write_text(converter_markup.replace(
+            'x:DataType="vm:MainViewModel"',
+            'x:Class="MyApp.ConverterPage" x:DataType="vm:MainViewModel"').replace(
+                "clr-namespace:MyApp.Converters", "clr-namespace:MyApp.MissingConverters"))
+        broken = command(["dotnet", "build", "Probe.csproj", "--no-restore", "--verbosity", "quiet"], workspace)
+        assert broken.returncode != 0 and "IntToBoolConverter" in broken.stdout, broken.stdout + broken.stderr
+        print("PASS: XamlC rejects the mismatched converter CLR namespace")
+    finally:
+        shutil.rmtree(workspace)
 
 
 def api_probe():
@@ -119,11 +280,50 @@ public static class Checks
         Require(axes.Left == SafeAreaRegions.Container && axes.Right == SafeAreaRegions.Container &&
             axes.Top == SafeAreaRegions.SoftInput && axes.Bottom == SafeAreaRegions.SoftInput,
             "two-value form confused with region combination");
+        var all = (SafeAreaEdges)converter.ConvertFromInvariantString("All")!;
+        Require(all.Left == SafeAreaRegions.All && all.Top == SafeAreaRegions.All &&
+            all.Right == SafeAreaRegions.All && all.Bottom == SafeAreaRegions.All,
+            "All converter no longer matches the public all-regions policy");
+        var keyboardWrapper = new Grid { SafeAreaEdges = all };
+        Require(keyboardWrapper.SafeAreaEdges == SafeAreaEdges.All,
+            "Grid cannot own the all-regions policy");
+        var composer = ChatLayout.Create();
+        Require(composer.ColumnSpacing == 10 && composer.RowDefinitions.Count == 0 &&
+            composer.ColumnDefinitions.Count == 0, "safe-area fixture geometry/column contract changed");
+        composer.RowSpacing = 10;
+        Require(composer.ColumnSpacing == 10, "optional row spacing changed the required column gap");
         Require(typeof(Image).GetProperty("SafeAreaEdges") is null,
             "unsupported Image property assumption changed");
         var legacyPage = new ContentPage();
         legacyPage.On<iOS>().SetUseSafeArea(true);
         Require(legacyPage.On<iOS>().UsingSafeArea(), "legacy C# safe-area setup failed");
+        var routes = new Shell();
+        var animals = new FlyoutItem { Route = "animals" };
+        var domestic = new Tab { Route = "domestic" };
+        domestic.Items.Add(new ShellContent {
+            Route = "cats", ContentTemplate = new DataTemplate(() => new ContentPage()) });
+        animals.Items.Add(domestic);
+        routes.Items.Add(animals);
+        var uriHandler = typeof(Shell).Assembly.GetType("Microsoft.Maui.Controls.ShellUriHandler")!;
+        var resolve = uriHandler.GetMethod("GetNavigationRequest",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        object? Resolve(string path) => resolve.Invoke(null,
+            new object?[] { routes, new Uri(path, UriKind.Relative), false, true, null });
+        Require(Resolve("//animals/domestic/cats") is not null, "absolute hierarchy route failed");
+        Require(Resolve("//cats") is not null, "unique absolute leaf route failed");
+        try
+        {
+            Resolve("domestic");
+            throw new InvalidOperationException("relative visual push unexpectedly supported");
+        }
+        catch (System.Reflection.TargetInvocationException ex)
+            when (ex.InnerException?.Message.Contains("Relative routing to shell elements") == true) { }
+        Routing.RegisterRoute("replay-details", typeof(ContentPage));
+        try
+        {
+            Require(Resolve("replay-details") is not null, "registered relative detail failed");
+        }
+        finally { Routing.UnRegisterRoute("replay-details"); }
         foreach (bool explicitWrapper in new[] { false, true })
         {
             var shell = new Shell();
@@ -195,6 +395,8 @@ public sealed class ProbeThemeAwarePage(Application publisher) : ThemeAwarePage(
         for filename in ("Fixture.csproj", "Directory.Build.props", "Directory.Build.targets"):
             shutil.copy2(suite / "fixtures/working" / filename, workspace / filename)
         (workspace / "Program.cs").write_text(source)
+        shutil.copy2(ROOT / "tests/dotnet-maui/maui-safe-area/fixtures/working/Program.cs",
+                     workspace / "ChatLayout.cs")
         result = command(["dotnet", "run", "--project", "Fixture.csproj", "--verbosity", "quiet"], workspace)
         assert result.returncode == 0, result.stdout + result.stderr
         assert "PASS: package-api-probe" in result.stdout, result.stdout
@@ -440,6 +642,7 @@ def main():
         print(f"{name}: references, repaired/working execution and mutation rejection pass")
     assert not gate.errors, "\n".join(gate.errors)
     api_probe()
+    compiler_probe()
     wording_regressions("--production" in sys.argv)
     print(json.dumps(totals, sort_keys=True))
 

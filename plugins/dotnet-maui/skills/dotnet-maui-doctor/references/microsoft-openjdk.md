@@ -19,6 +19,20 @@ Do not replace an existing working JDK merely because its vendor differs.
 4. A supplied log selecting an obsolete JDK outweighs a shell showing a newer one.
    Prefer a project/build-scoped explicit path for a test over global changes.
 
+The log establishes the selected path, not whether it came from a project,
+environment, IDE or auto-detection. Do not infer a universal discovery order,
+invent an IDE preference page, or dismiss `JAVA_HOME` for every configuration.
+
+For an authorized build, a concrete process-scoped override is:
+
+```bash
+dotnet build "$PROJECT" -f "$ANDROID_TFM" "-p:JavaSdkDirectory=$JDK"
+```
+
+Use the existing project/TFM and a verified compatible JDK. This is a proposed
+build, not read-only inspection; it writes outputs and may restore packages.
+Changing a persistent project/IDE setting also requires authorization.
+
 Read-only examples (replace paths with the actual selected directory):
 
 ```bash

@@ -15,6 +15,9 @@ const python = process.env.PYTHON ?? "python3";
 const mutations = JSON.parse(execFileSync(
   python, [resolve(here, "check_contracts.py"), "--export"], { encoding: "utf8" },
 ));
+const ownershipCases = JSON.parse(execFileSync(
+  python, [resolve(here, "check_contracts.py"), "--export-ownership"], { encoding: "utf8" },
+));
 assert.equal(mutations.length, spec.stimuli.length);
 const rootAlternative = "No, neither an empty constructor nor a replacement route is required. "
   + "Typed ShellContent first tries GetService(typeof(DetailsPage)), then "
@@ -35,6 +38,8 @@ for (const [index, original] of spec.stimuli.entries()) {
     { label: "golden", message: null, passed: true },
     { label: "mutation", message: mutations[index], passed: false },
   ];
+  cases.push(...ownershipCases.filter(([caseIndex]) => caseIndex === index)
+    .map(([, label, message, passed]) => ({ label, message, passed })));
   if (original.name === "Keep typed root content constructor injection") {
     cases.push(
       { label: "equivalent-wording", message: rootAlternative, passed: true },
@@ -106,4 +111,4 @@ for (const [index, original] of spec.stimuli.entries()) {
   }
   console.log(`PASS: production oracle golden acceptance / mutation rejection: ${original.name}`);
 }
-console.log("PASS: 13 goldens, 16 mutations and 5 alternatives; no agent execution or paid prompt grader");
+console.log("PASS: 13 goldens, 18 mutations and 9 alternatives; no agent execution or paid prompt grader");
