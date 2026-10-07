@@ -36,6 +36,7 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)(RegisterLicense\s*\(|AddSyncfusionLicense\s*\(|enter (your|a) license key|provide (your|a) license key)
+      - type: prompt
     rubric:
       - Installs the open-source Toolkit package and registers its extension method with the namespace in scope.
       - Links the Fluent stylesheet from the package's styles directory in the legacy Server host file.
@@ -68,6 +69,7 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)(put|place|link|add)[\s\S]{0,80}(stylesheet|link|css)[\s\S]{0,40}App\.razor
+      - type: prompt
     rubric:
       - Uses index.html as the stylesheet host for a standalone WebAssembly app.
       - Registers the root component only because this is a standalone app, not a Web App Client project.
@@ -97,6 +99,7 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)RootComponents\.Add<App>\("#app"\)
+      - type: prompt
     rubric:
       - Registers Toolkit in both the server and Client hosts when both render Toolkit components.
       - Keeps server registration because prerendering executes Client components on the server.
@@ -124,6 +127,7 @@ stimuli:
       - type: output-not-contains
         config:
           substring: install a different package
+      - type: prompt
     rubric:
       - Diagnoses a missing or misplaced stylesheet rather than a package problem.
       - Gives a package stylesheet path and a host file that matches the app type.
@@ -147,6 +151,7 @@ stimuli:
       - type: output-not-contains
         config:
           substring: static SSR is sufficient
+      - type: prompt
     rubric:
       - Checks whether the page already inherits an interactive mode before treating it as static.
       - Recommends one interactive mode when none is inherited, without requiring every mode to be named.
@@ -176,6 +181,7 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)(switch|transition|continue)[\s\S]{0,60}(mid-|while running|same component)
+      - type: prompt
     rubric:
       - Describes Auto as server interactivity on the first visit and WebAssembly on later cached visits.
       - Does not describe a running component switching runtimes.
@@ -203,6 +209,7 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)AddSyncfusionLicense\s*\(
+      - type: prompt
     rubric:
       - Identifies the installed package as the commercial package and replaces it for this Toolkit-only app.
       - Names the real commercial license API and states that Toolkit does not need a license key.
@@ -230,6 +237,7 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)RootComponents\.Add<App>\("#app"\)
+      - type: prompt
     rubric:
       - Adds the missing Client registration without removing the server registration.
       - Does not add a standalone WebAssembly root component to the Client project.
@@ -256,6 +264,7 @@ stimuli:
       - type: output-not-contains
         config:
           substring: downgrade
+      - type: prompt
     rubric:
       - Diagnoses script loading or service registration before changing packages.
       - Points at console, network, or static-asset evidence rather than a version rollback.
@@ -281,6 +290,7 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)href="_content/Syncfusion\.Blazor\.Toolkit/[^"]*bootstrap5
+      - type: prompt
     rubric:
       - Replaces the unsupported stylesheet with the default Fluent file or the high-contrast file.
       - Does not recommend the bootstrap5 path as the fix.
@@ -302,6 +312,7 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)/themes/fluent\.css
+      - type: prompt
     rubric:
       - Corrects both the directory and the filename, including the minified extension.
 
@@ -325,6 +336,7 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)(fluent theme only|only the fluent theme)
+      - type: prompt
     rubric:
       - Treats the 404s as missing package assets or registration, not as a theme-choice problem.
       - Recommends verifying the package, registration, and a clean rebuild.
@@ -348,6 +360,7 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)keep the cdn script
+      - type: prompt
     rubric:
       - Removes the external script tag and explains that the package loads its own JavaScript.
       - Does not accept leaving the CDN script in place.
@@ -365,6 +378,7 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)(first|before answering|instead)[\s\S]{0,80}(install the package|AddSyncfusionBlazorToolkit|follow these installation steps)
+      - type: prompt
     rubric:
       - The install skill stayed dormant: answer the chart API question or point to component documentation.
       - Does not hijack the question with package installation, Program.cs registration, or theme setup.

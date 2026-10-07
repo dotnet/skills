@@ -1,4 +1,5 @@
 ---
+license: MIT
 name: syncfusion-blazor-toolkit-install
 description: >
   Install and register the open-source Syncfusion Blazor Toolkit package,

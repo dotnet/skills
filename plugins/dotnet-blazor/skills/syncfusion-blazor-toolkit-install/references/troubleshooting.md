@@ -11,7 +11,7 @@
 
 **Diagnosis**:
 1. Check the correct host file for your project type:
-   - Blazor Web App / modern Blazor Server: `App.razor`
+   - Blazor Web App: `Components/App.razor`
    - Legacy Blazor Server: `_Host.cshtml`
    - Blazor WebAssembly: `wwwroot/index.html`
 2. Look for the CSS link in the `<head>` section:
@@ -29,7 +29,7 @@
 - Wrong path: `_content/Syncfusion.Blazor.Toolkit/themes/fluent.min.css` (should be `styles/`)
 - Wrong stylesheet name: `bootstrap5.min.css`, `tailwind.min.css`, `material.min.css` (use `fluent.min.css` or `highcontrast.min.css`)
 - Missing `.min` extension: `fluent.css` (should be `.min.css`)
-- Linked in wrong host file: use `App.razor` for Blazor Web App/Server or `wwwroot/index.html` for WebAssembly
+- Linked in wrong host file: use `Components/App.razor` for a Blazor Web App, `_Host.cshtml` for legacy Blazor Server, or `wwwroot/index.html` for standalone WebAssembly
 - Linked in a component file instead of the host file (always place it in the host file's `<head>` section for best results)
 
 **Fix**:
@@ -256,16 +256,12 @@ Also ensure both projects have the NuGet package reference in their `.csproj` fi
 
 Before troubleshooting further, verify:
 
-1. ✓ Package name is `Syncfusion.Blazor.Toolkit` (not commercial packages)
-2. ✓ `AddSyncfusionBlazorToolkit()` is in `Program.cs` (both in split Web Apps)
-3. ✓ `@using Syncfusion.Blazor.Toolkit` is in `_Imports.razor` (both in split Web Apps)
-4. ✓ Theme CSS link is `fluent.min.css` in the correct host file (`App.razor` for Blazor Server/Web App or `wwwroot/index.html` for Blazor WebAssembly)
-5. ✓ Theme filename is exactly `fluent.min.css` (not other theme names)
-6. ✓ Interactive components have `@rendermode InteractiveServer`, `@rendermode InteractiveWebAssembly`, or `@rendermode InteractiveAuto`
-7. ✓ No license-key registration code is present
-8. ✓ Build completes without errors: `dotnet build`
-9. ✓ Browser console shows no 404 or JavaScript errors
-Stylesheet link is `fluent.min.css` or `highcontrast.min.css` in the host file (`Components/App.razor`, `_Host.cshtml`, or `wwwroot/index.html`)
+1. ✓ Package name is `Syncfusion.Blazor.Toolkit` (not a commercial `Syncfusion.Blazor.*` package)
+2. ✓ `using Syncfusion.Blazor.Toolkit;` and `AddSyncfusionBlazorToolkit()` are in `Program.cs` (in both Server and Client projects of a split Web App)
+3. ✓ `@using Syncfusion.Blazor.Toolkit` is in `_Imports.razor` (in both projects of a split Web App)
+4. ✓ Stylesheet link is `fluent.min.css` or `highcontrast.min.css` in the host file (`Components/App.razor` for a Blazor Web App, `Pages/_Host.cshtml` for legacy Blazor Server, `wwwroot/index.html` for standalone WebAssembly)
 5. ✓ Path uses `styles/`, not `themes/`, and keeps the `.min` extension
 6. ✓ Blazor Web App interactivity is inherited from `Routes` or declared once. Do not add `@rendermode` to legacy Server or standalone WebAssembly
 7. ✓ Commercial packages and `SyncfusionLicenseProvider.RegisterLicense(...)` remain only where commercial components are still used
+8. ✓ Build completes without errors: `dotnet build`
+9. ✓ Browser console shows no 404 or JavaScript errors
