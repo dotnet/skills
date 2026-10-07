@@ -41,7 +41,7 @@ stimuli:
             assert "server-server" in r and "127.0.0.1:9001" in r and "capture-diag.sock" in r;
             assert has(r, "adb -s R58M123 reverse tcp:9000 tcp:9001") and "127.0.0.1:9000,nosuspend,connect" in r;
             assert "dotnet-gcdump collect" in q and "--diagnostic-port" in q and "capture-diag.sock,connect" in q and "after-navigation.gcdump" in q;
-            assert "dotnet-gcdump report" in v and "after-navigation.gcdump" in v and "-p " not in v;
+            assert "dotnet-gcdump report" in v and "after-navigation.gcdump" in v and "-p " not in v and "|| true" not in v and "|| :" not in v;
             assert has(x, "adb -s R58M123 reverse --remove tcp:9000") and has(x, "adb -s R58M123 shell setprop debug.mono.profile");
             a=r+q+v+x; assert "0.0.0.0" not in a and "--remove-all" not in a and "-p 2841" not in a and "adb pull" not in a;
             assert pathlib.Path("android-session.txt").read_text()=="""Operator-supplied facts for a planning exercise; no device is attached to the eval worker.\nHost: macOS, .NET SDK 10.0.102; installed Android workload matches the project.\nProject: App.csproj, net10.0-android, Mono, Release.\nProfiling APK includes libmono-component-diagnostics_tracing.so for arm64-v8a.\nDevice: physical serial R58M123, USB debugging authorized; other serials may be present.\nPackage: com.example.catalog; device PID 2841 is identity information, not a host PID.\ndotnet-gcdump and dotnet-dsrouter: 9.0.621003, installed on host.\nNo diagnostic route is configured yet; a controlled relaunch is acceptable after operator approval.\nPrevious debug.mono.profile: empty. Device port 9000 reverse rule: absent.\nReserved host TCP port: 9001. Reserved host IPC path: capture-diag.sock in workspace.\nArtifact requested: after-navigation.gcdump in host workspace.\n""";
@@ -162,7 +162,11 @@ stimuli:
                     if open_idx is not None and open_idx >= 1 and prefix[open_idx - 1] == "||":
                         block = prefix[open_idx + 1:-2]
                         guard = prefix[:open_idx - 1]
-                        has_exit = any(block[k] == "exit" and k + 1 < len(block) and block[k + 1].isdigit() for k in range(len(block)))
+                        # "exit 0" would unconditionally terminate the script before the
+                        # collector runs too, but it falsely reports success to any caller
+                        # even though the guard skipped the capture -- only a nonzero exit
+                        # correctly signals "nothing was captured" to an orchestrating process.
+                        has_exit = any(block[k] == "exit" and k + 1 < len(block) and block[k + 1].isdigit() and int(block[k + 1]) != 0 for k in range(len(block)))
                         if has_exit and guard_tests_output(guard):
                             matched = True
             
@@ -284,7 +288,7 @@ stimuli:
             r="\n".join(c["route"]); q="\n".join(c["collect"]); v="\n".join(c["validate"]); a=r+q+v+"\n".join(c["cleanup"]);
             assert "server-client" in r and "127.0.0.1:9001" in r and "--forward-port iOS" in r and "capture-diag.sock" in r;
             assert "dotnet-gcdump collect" in q and "--diagnostic-port" in q and "capture-diag.sock,connect" in q and "after-navigation.gcdump" in q;
-            assert "dotnet-gcdump report" in v and "after-navigation.gcdump" in v and "-p " not in v;
+            assert "dotnet-gcdump report" in v and "after-navigation.gcdump" in v and "-p " not in v and "|| true" not in v and "|| :" not in v;
             assert all(t not in a for t in ("--launchdev","--installdev","--launchsim","ios-sim","simctl","adb ","0.0.0.0","-p 519"));
             assert pathlib.Path("ios-session.txt").read_text()=="""Operator-supplied facts for a planning exercise; no device is attached to the eval worker.\nHost: macOS, .NET SDK 9.0.300, matching iOS workload/Xcode and tools 9.0.621003.\nProject: Catalog.csproj, net9.0-ios, ios-arm64, Mono AOT (PublishAot=false), Release.\nSigned development .app has the real static diagnostics_tracing component, not the stub.\nOne physical USB iPhone: UDID 00008110-001234567890001E; trusted, unlocked, Developer Mode enabled.\nBundle: com.example.catalog; device PID 519 is not a host diagnostics PID.\nmlaunch path is already known to the operator from MlaunchPath.\nThe app is already running with DOTNET_DiagnosticPorts=127.0.0.1:9001,nosuspend,listen.\nNo host router is currently running; no app restart or install is permitted.\nReserved host IPC path: capture-diag.sock in workspace.\nArtifact requested: after-navigation.gcdump in host workspace.\n""";
             print("iOS live plan and input preservation valid")'

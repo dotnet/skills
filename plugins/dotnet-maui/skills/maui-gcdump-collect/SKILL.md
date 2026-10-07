@@ -93,9 +93,11 @@ On Windows use a unique named pipe, not a Unix socket path. The file is written
 Choose a new output name if it already exists: the collector can delete/overwrite
 an existing file. The existence check and the `collect` invocation must run as
 **one executable unit whose exit/failure propagates** (for example chained with
-`&&`, or an `if`/`then`, or a guard that `exit`s before a `;`-joined invocation)
-— never as separate commands or separate steps, since nothing then stops the
-invocation from running after a failed or skipped check. In tool version
+`&&`, or an `if`/`then`, or a guard that `exit`s **nonzero** before a `;`-joined
+invocation) — never as separate commands or separate steps, since nothing then
+stops the invocation from running after a failed or skipped check. An early
+`exit 0` is still wrong even though it does stop the invocation: it falsely
+reports success to the caller when the guard actually skipped the capture. In tool version
 9.0.621003 explicit diagnostic-port collection supports **connect only**; the
 `,connect` suffix is required.
 Require successful collector exit, a new nonempty file, and a successful report

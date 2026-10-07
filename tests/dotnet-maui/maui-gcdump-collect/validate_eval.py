@@ -149,6 +149,22 @@ def main():
                     + capture + ' || true; fi'
                 ]
                 mutations.append(masked_form_b)
+                # Form C with "exit 0": the guard genuinely stops the collector (exit
+                # always terminates the script), but reporting success for a skipped
+                # capture is still a defect the no-overwrite grader must reject.
+                masked_form_c_exit0 = copy.deepcopy(plan)
+                masked_form_c_exit0["commands"]["collect"] = [
+                    '[ ! -e "$PWD/after-navigation.gcdump" ] || { exit 0; }; ' + capture
+                ]
+                mutations.append(masked_form_c_exit0)
+                # A "|| true" (or "|| :") suffix on the report validation would mask a
+                # genuine report/parse failure while still satisfying every substring
+                # check on the command text.
+                masked_report = copy.deepcopy(plan)
+                masked_report["commands"]["validate"] = [
+                    cmd + ' || true' for cmd in plan["commands"]["validate"]
+                ]
+                mutations.append(masked_report)
                 for mutant in mutations:
                     plan_path.write_text(json.dumps(mutant))
                     assert any(run(c, workspace, shell=True).returncode != 0
@@ -162,6 +178,9 @@ def main():
                     # A success-only "&&" follow-up still short-circuits on a collector
                     # failure, so it cannot bypass the preceding guard either.
                     'test ! -e "$PWD/after-navigation.gcdump" && ' + capture + ' && cleanup',
+                    # Form C with a genuine nonzero exit correctly signals "skipped" to
+                    # any caller/operator, unlike the "exit 0" mutation rejected above.
+                    '[ ! -e "$PWD/after-navigation.gcdump" ] || { exit 1; }; ' + capture,
                 ):
                     equivalent = copy.deepcopy(plan)
                     equivalent["commands"]["collect"] = [guarded_capture]
