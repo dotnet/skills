@@ -101,6 +101,10 @@ These rules apply to every language and override any pattern an existing test fi
 
 Coverage alone gives false confidence — every test must *pin down behavior* so it would fail under a plausible bug. Apply the `code-testing-agent` skill's `unit-test-generation.prompt.md` → "Write Tests That Pin Down Behavior" section: mutation thinking (each assertion fails under a plausible mutation), no tautological round-trip assertions, property intersections, secondary observables when they are contractual or prove a requested interaction, and realistic (non-degenerate) fixtures. This is a depth requirement on top of the happy/edge/error-path and mocking rules above, and applies to every language.
 
+Also apply [Report-safe test names and result validation](../skills/code-testing-agent/unit-test-generation.prompt.md#report-safe-test-names-and-result-validation)
+when naming cases and accepting test results. Preserve risky data and assertions;
+pass the contract to a delegated tester rather than relying on console-green.
+
 ### 5. Verify with Build
 
 Run the supplied scoped build command directly. A fresh-build test command can
@@ -190,5 +194,6 @@ Consult a language example only when the repository has no representative tests 
 
 The phase is complete only when all planned in-scope tests are implemented, the
 scoped build and tests pass, and harness-equivalent discovery sees the expected
-new tests. If an external blocker prevents that, stop with `PARTIAL` or
+new tests. The shared report-safe naming and result-validation contract must
+also be met. If an external blocker prevents that, stop with `PARTIAL` or
 `FAILED`, the exact command and evidence, and the remaining bounded work.
