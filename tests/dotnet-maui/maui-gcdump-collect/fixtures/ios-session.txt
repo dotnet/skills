@@ -1,0 +1,11 @@
+Operator-supplied facts for a planning exercise; no device is attached to the eval worker.
+Host: macOS, .NET SDK 9.0.300, matching iOS workload/Xcode and tools 9.0.621003.
+Project: Catalog.csproj, net9.0-ios, ios-arm64, Mono AOT (PublishAot=false), Release.
+Signed development .app has the real static diagnostics_tracing component, not the stub.
+One physical USB iPhone: UDID 00008110-001234567890001E; trusted, unlocked, Developer Mode enabled.
+Bundle: com.example.catalog; device PID 519 is not a host diagnostics PID.
+mlaunch path is already known to the operator from MlaunchPath.
+The app is already running with DOTNET_DiagnosticPorts=127.0.0.1:9001,nosuspend,listen.
+No host router is currently running; no app restart or install is permitted.
+Reserved host IPC path: capture-diag.sock in workspace.
+Artifact requested: after-navigation.gcdump in host workspace.
