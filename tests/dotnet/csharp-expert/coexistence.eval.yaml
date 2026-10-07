@@ -312,8 +312,8 @@ stimuli:
       risk: medium
       journey: create
     prompt: |
-      Add an endpoint that accepts a multipart file upload, validates the size, and streams it
-      rather than buffering the whole file.
+      Add an endpoint that accepts a multipart file upload, validates the size before processing,
+      and asynchronously copies the uploaded file to its destination.
     environment:
       files:
         - src: global.json
