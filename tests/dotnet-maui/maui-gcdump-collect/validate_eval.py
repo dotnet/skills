@@ -126,6 +126,26 @@ def main():
                     'test ! -e "$PWD/unrelated.gcdump" && ' + capture
                 ]
                 mutations.append(wrong_path)
+                # Trailing shell control operators after the invocation can mask its
+                # real exit status even though the guard itself is genuine; these must
+                # still be rejected.
+                for masked_capture in (
+                    capture + ' || true',
+                    capture + '; echo done',
+                    capture + ' && cleanup',
+                    capture + ' | cat',
+                ):
+                    masked = copy.deepcopy(plan)
+                    masked["commands"]["collect"] = [
+                        'test ! -e "$PWD/after-navigation.gcdump" && ' + masked_capture
+                    ]
+                    mutations.append(masked)
+                masked_form_b = copy.deepcopy(plan)
+                masked_form_b["commands"]["collect"] = [
+                    'if [ ! -e "$PWD/after-navigation.gcdump" ]; then '
+                    + capture + ' || true; fi'
+                ]
+                mutations.append(masked_form_b)
                 for mutant in mutations:
                     plan_path.write_text(json.dumps(mutant))
                     assert any(run(c, workspace, shell=True).returncode != 0
@@ -164,10 +184,19 @@ def main():
                 assert any(g["type"] == "output-not-matches"
                            and quality.vally_regex_found(g["config"]["pattern"], broken)
                            for g in output_graders), f"Broken advice survived: {defect}"
+                # A model phrasing the same broken advice as a Markdown list item
+                # must not evade the line-start-anchored rejection patterns.
+                for prefix in ("- ", "* ", "1. "):
+                    listed = reference + "\n" + prefix + defect
+                    assert any(g["type"] == "output-not-matches"
+                               and quality.vally_regex_found(g["config"]["pattern"], listed)
+                               for g in output_graders), (
+                        f"Markdown-list broken advice survived: {prefix!r}{defect}"
+                    )
         print(f"Golden acceptance: {len(doc['stimuli'])} responses, {workspace_count} workspaces")
         print(f"Mutation rejection: {len(doc['stimuli'])} empty responses; "
               f"{len(doc['stimuli']) * 2} realistic response defects; "
-              f"{workspace_count * 7} workspace defects")
+              f"{workspace_count * 12} workspace defects")
         print(f"No-overwrite equivalents accepted: {workspace_count * 3}")
 
         if args.oracle:

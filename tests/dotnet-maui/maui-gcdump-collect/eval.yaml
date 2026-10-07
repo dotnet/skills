@@ -42,7 +42,7 @@ stimuli:
             assert has(r, "adb -s R58M123 reverse tcp:9000 tcp:9001") and "127.0.0.1:9000,nosuspend,connect" in r;
             assert "dotnet-gcdump collect" in q and "--diagnostic-port" in q and "capture-diag.sock,connect" in q and "after-navigation.gcdump" in q;
             assert "dotnet-gcdump report" in v and "after-navigation.gcdump" in v and "-p " not in v;
-            assert has(x, "adb -s R58M123 reverse --remove tcp:9000") and "debug.mono.profile" in x;
+            assert has(x, "adb -s R58M123 reverse --remove tcp:9000") and has(x, "adb -s R58M123 shell setprop debug.mono.profile");
             a=r+q+v+x; assert "0.0.0.0" not in a and "--remove-all" not in a and "-p 2841" not in a and "adb pull" not in a;
             assert pathlib.Path("android-session.txt").read_text()=="""Operator-supplied facts for a planning exercise; no device is attached to the eval worker.\nHost: macOS, .NET SDK 10.0.102; installed Android workload matches the project.\nProject: App.csproj, net10.0-android, Mono, Release.\nProfiling APK includes libmono-component-diagnostics_tracing.so for arm64-v8a.\nDevice: physical serial R58M123, USB debugging authorized; other serials may be present.\nPackage: com.example.catalog; device PID 2841 is identity information, not a host PID.\ndotnet-gcdump and dotnet-dsrouter: 9.0.621003, installed on host.\nNo diagnostic route is configured yet; a controlled relaunch is acceptable after operator approval.\nPrevious debug.mono.profile: empty. Device port 9000 reverse rule: absent.\nReserved host TCP port: 9001. Reserved host IPC path: capture-diag.sock in workspace.\nArtifact requested: after-navigation.gcdump in host workspace.\n""";
             print("Android plan and input preservation valid")'
@@ -55,10 +55,10 @@ stimuli:
       - &false-verification
         type: output-not-matches
         config:
-          pattern: (?im)^\s*(?:Physical[- ]device capture (?:was |is )?(?:verified|tested|successful)|(?:I |We )?(?:successfully collected|verified the physical[- ]device))
+          pattern: (?im)^\s*(?:[-*+]\s+|\d+[.)]\s+)?(?:Physical[- ]device capture (?:was |is )?(?:verified|tested|successful)|(?:I |We )?(?:successfully collected|verified the physical[- ]device))
       - type: output-not-matches
         config:
-          pattern: (?im)^\s*(?:Run|Use)\s+dotnet-gcdump\s+collect\s+-p\s+2841\b
+          pattern: (?im)^\s*(?:[-*+]\s+|\d+[.)]\s+)?(?:Run|Use)\s+dotnet-gcdump\s+collect\s+-p\s+2841\b
       - &no-overwrite
         type: run-command
         config:
@@ -118,6 +118,7 @@ stimuli:
                     )
             
                 matched = False
+                matched_form_b = False
             
                 # Form A: "<guard> && [<other guards> &&]... <invoke>" -- take the clause
                 # immediately preceding the invocation (the rightmost "&&"-joined clause),
@@ -140,6 +141,7 @@ stimuli:
                     guard = prefix[1:-2]
                     if guard_tests_output(guard):
                         matched = True
+                        matched_form_b = True
             
                 # Form C: "<guard> || { ...; exit N; }; <invoke>" -- inverse guard with an
                 # early-exit block, joined to the invocation within the SAME shell string
@@ -165,6 +167,19 @@ stimuli:
                             matched = True
             
                 assert matched, "Collector lacks a short-circuit output-exists guard connected to the invocation in the same command"
+            
+                # The guard is worthless if a trailing shell control operator after the
+                # invocation (in the SAME array element) can mask its real exit status,
+                # e.g. "dotnet-gcdump collect ... || true" or "; echo done" or "&& cleanup"
+                # or a trailing pipe. Form B syntactically requires a trailing "; fi"
+                # closer -- that is the sole carve-out; everything else after the
+                # invocation must be free of &&, ||, ;, | tokens so the collector exit
+                # code is what actually propagates.
+                invocation_tail = tokens[index:-2] if matched_form_b else tokens[index:]
+                control_operators = {"&&", "||", ";", "|"}
+                assert not any(t in control_operators for t in invocation_tail), (
+                    "A shell control operator after the collector invocation can mask its exit status"
+                )
                 print("No-overwrite guard valid:", path)
             
             check("capture-plan.json")
@@ -268,7 +283,7 @@ stimuli:
       - *false-verification
       - type: output-not-matches
         config:
-          pattern: (?im)^\s*(?:Run|Use)\s+dotnet-gcdump\s+collect\s+-p\s+519\b
+          pattern: (?im)^\s*(?:[-*+]\s+|\d+[.)]\s+)?(?:Run|Use)\s+dotnet-gcdump\s+collect\s+-p\s+519\b
       - *no-overwrite
       - type: prompt
     rubric:
@@ -345,7 +360,7 @@ stimuli:
       - *false-verification
       - type: output-not-matches
         config:
-          pattern: (?im)^\s*(?:You|The property|This setting)\s+(?:can|will)\s+(?:retrofit|enable)\s+(?:the\s+)?diagnostic[^\n]*(?:already running|without (?:a )?restart)
+          pattern: (?im)^\s*(?:[-*+]\s+|\d+[.)]\s+)?(?:You|The property|This setting)\s+(?:can|will)\s+(?:retrofit|enable)\s+(?:the\s+)?diagnostic[^\n]*(?:already running|without (?:a )?restart)
       - type: prompt
     rubric:
       - Explains both missing component and launch-time endpoint as blockers to collecting the current live heap.
@@ -386,10 +401,10 @@ stimuli:
     graders:
       - type: output-contains
         config:
-          substring: _BundlerDebug
+          substring: EnableDiagnostics
       - type: output-matches
         config:
-          pattern: (?i)(static|link).*(component|diagnostic)|(component|diagnostic).*(static|link)
+          pattern: (?is)(static|link).*(component|diagnostic)|(component|diagnostic).*(static|link)
       - type: output-matches
         config:
           pattern: nosuspend,listen
@@ -399,7 +414,7 @@ stimuli:
       - *false-verification
       - type: output-not-matches
         config:
-          pattern: (?im)^\s*(?:Use|Require|Verify|Load)[^\n]*libmono-component-diagnostics_tracing\.so
+          pattern: (?im)^\s*(?:[-*+]\s+|\d+[.)]\s+)?(?:Use|Require|Verify|Load)[^\n]*libmono-component-diagnostics_tracing\.so
       - type: prompt
     rubric:
       - Treats the diagnostics stub as a blocker and proposes a separate diagnostic test build with version-specific verification, not a shipping edit.
@@ -416,9 +431,11 @@ stimuli:
             source: agent
             message: |
               Blocked until the test build links the real static diagnostics_tracing
-              component rather than its stub. For this .NET 9 Mono Release lane,
-              investigate -p:_BundlerDebug=true on an ios-arm64 test build; this
-              is an internal SDK-dependent switch, so inspect actual link evidence.
+              component rather than its stub. For this Mono Release lane,
+              investigate -p:EnableDiagnostics=true on an ios-arm64 test build; this
+              is the documented, version-independent switch (the older
+              _BundlerDebug=true recipe only gates an unrelated debugger
+              component), so inspect actual link evidence.
               Keep shipping configuration untouched. Mono AOT is not NativeAOT.
               On the Mac verify matching workload/Xcode, signed provisioning for
               the selected UDID, trust/unlock and Developer Mode as required.
@@ -501,7 +518,7 @@ stimuli:
       - *false-verification
       - type: output-not-matches
         config:
-          pattern: (?im)^\s*(?:Bind|Listen|Start)[^\n]*0\.0\.0\.0
+          pattern: (?im)^\s*(?:[-*+]\s+|\d+[.)]\s+)?(?:Bind|Listen|Start)[^\n]*0\.0\.0\.0
       - type: prompt
     rubric:
       - Identifies both a TCP client/client mismatch and the wrong forwarding direction for the supplied runtime connect configuration.
@@ -553,7 +570,7 @@ stimuli:
       - *false-verification
       - type: output-not-matches
         config:
-          pattern: (?im)^\s*(?:The\s+)?(?:artifact|dump|file)\s+(?:is|counts as)\s+(?:ready|valid|complete)[^\n]*(?:despite|even though|regardless)
+          pattern: (?im)^\s*(?:[-*+]\s+|\d+[.)]\s+)?(?:The\s+)?(?:artifact|dump|file)\s+(?:is|counts as)\s+(?:ready|valid|complete)[^\n]*(?:despite|even though|regardless)
       - type: prompt
     rubric:
       - Rejects completion based on the file extension or byte count when heap completion failed.
@@ -604,7 +621,7 @@ stimuli:
       - *false-verification
       - type: output-not-matches
         config:
-          pattern: (?im)^\s*(?:Keep|Continue)\s+(?:retrying|collecting)
+          pattern: (?im)^\s*(?:[-*+]\s+|\d+[.)]\s+)?(?:Keep|Continue)\s+(?:retrying|collecting)
       - type: prompt
     rubric:
       - Stops blind repeated collection because induced GC and diagnostic buffering can pause or terminate a memory-constrained app.
@@ -650,7 +667,7 @@ stimuli:
       - &unnecessary-collection
         type: output-not-matches
         config:
-          pattern: (?im)^\s*(?:Run|Use)\s+dotnet-gcdump\s+collect\b
+          pattern: (?im)^\s*(?:[-*+]\s+|\d+[.)]\s+)?(?:Run|Use)\s+dotnet-gcdump\s+collect\b
       - type: prompt
     rubric:
       - Acknowledges supplied completion evidence without claiming independent verification.
@@ -780,7 +797,7 @@ stimuli:
       - *false-verification
       - type: output-not-matches
         config:
-          pattern: (?im)^\s*(?:Open|Bind|Expose|Enable)\s+(?:an?\s+)?(?:public|0\.0\.0\.0)
+          pattern: (?im)^\s*(?:[-*+]\s+|\d+[.)]\s+)?(?:Open|Bind|Expose|Enable)\s+(?:an?\s+)?(?:public|0\.0\.0\.0)
       - type: prompt
     rubric:
       - Rejects unauthorized production heap access and unauthenticated public diagnostics exposure.

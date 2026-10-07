@@ -9,8 +9,10 @@ description: >
   growing-heap, or GC dump requests (NativeAOT does not support gcdump collection
   regardless of framing; explain the Mono-only boundary instead), existing dump
   analysis or process/crash dumps (dump-collect), CPU traces, native Java/Objective-C
-  heaps, Windows/Mac Catalyst apps, emulator/simulator-only requests, or
-  acknowledgments of already completed collection.
+  heaps, Windows/Mac Catalyst apps, emulator/simulator-only requests,
+  acknowledgments of already completed collection, or production/store-distributed
+  (App Store, TestFlight, Play Store, enterprise-signed) binaries where attaching a
+  diagnostic port or bypassing platform signing/security would be required.
 ---
 
 # Collect a MAUI managed heap on a physical device

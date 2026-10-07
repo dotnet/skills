@@ -24,19 +24,31 @@ dotnet build App.csproj -f net10.0-ios -getProperty:MlaunchPath
 Use the returned full path and its `--help` / `--listdev` to identify the selected
 UDID. Discovery does not authorize deployment.
 
-Debug builds normally include profiling support. For Mono Release test builds,
-the MAUI wiki uses the **internal, SDK-dependent** `_BundlerDebug=true` property:
+Debug builds normally include profiling support (diagnostics is on by default when
+`MtouchDebug`/`MmpDebug` is enabled). For Mono Release test builds, the officially
+documented, version-independent property across current .NET SDKs is
+**`EnableDiagnostics=true`** (see `docs/building-apps/build-properties.md` in
+`dotnet/macios`); it is what actually gates linking the `diagnostics_tracing`
+Mono component into the build:
 
 ```sh
-dotnet build App.csproj -f net10.0-ios -r ios-arm64 -c Release -p:_BundlerDebug=true
+dotnet build App.csproj -f net10.0-ios -r ios-arm64 -c Release -p:EnableDiagnostics=true
 ```
+
+The MAUI wiki's older Release-preparation example instead sets `_BundlerDebug=true`.
+Treat that as stale: `_BundlerDebug` only gates a separate, unrelated `debugger`
+Mono component, not `diagnostics_tracing` — do not rely on it to include
+diagnostics support. If `EnableDiagnostics` is ever unavailable on the installed
+workload, fall back to setting one of the `Diagnostic*` MSBuild properties
+(for example `DiagnosticPort`), which implicitly enables it.
 
 Verify the installed workload honors it and links the **real static**
 `diagnostics_tracing` component rather than its stub. The wiki's `.so` description
 must not be interpreted as a physical-iOS dynamic library requirement.
 If current build/link evidence cannot establish component inclusion, stop before
 claiming capture-ready; do not assume Release contains it or ship this setting.
-`PublishAot=true` (NativeAOT) is excluded; ordinary Mono AOT is compatible in principle.
+`PublishAot=true` (NativeAOT) is excluded — CoreCLR always supports diagnostics,
+NativeAOT never does; ordinary Mono AOT is compatible in principle.
 
 ## Route and approved launch
 
@@ -86,6 +98,7 @@ do not promise this USB implementation on Windows or Linux.
 
 Stop the router and the approved diagnostic app launch after capture. The launch
 environment is session-specific: remove it from any persisted launch configuration
-and launch the ordinary build without it. Revert `_BundlerDebug` changes or use
-the original configuration; rebuild without diagnostics before distribution.
+and launch the ordinary build without it. Revert `EnableDiagnostics` (or any
+`Diagnostic*` property) changes or use the original configuration; rebuild
+without diagnostics before distribution.
 Do not delete a trusted pairing or other sessions' forwarding as “cleanup.”

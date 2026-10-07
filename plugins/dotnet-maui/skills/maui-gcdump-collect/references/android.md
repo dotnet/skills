@@ -7,7 +7,7 @@ do not copy its `EnableDiagnostics` recipe into an unverified Mono deployment.
 
 ## Preflight
 
-Use an Android host with the compatible SDK/workload, Android SDK platform-tools
+Use a development host with the compatible SDK/workload, Android SDK platform-tools
 (`adb`), a USB data cable, USB debugging, an unlocked device and accepted RSA
 authorization. `adb devices -l` must show the selected **physical serial** in
 `device` state, not `unauthorized`, `offline`, or an emulator.
