@@ -72,6 +72,9 @@ grader, not `exit-success`: recoverable SDK tool errors are diagnostics rather
 than terminal failure evidence. Equivalent contained citation paths with or
 without the `inputs/` prefix are accepted. A no-op/selection may omit its body
 or serialize it as null/empty, but any visible body still fails.
+Line citations must use `line N`. Filename-like IDs such as `records.jsonl:1`
+are accepted only when that exact value occurs in the cited JSON; a filename
+prefix cannot be discarded to invent a matching line citation.
 Retry assessment grades the observed recovery in each finding summary, not
 whether a generic classification label uses the word “failure” or “flake”.
 Selection requests may carry cited explanatory findings; exact candidate

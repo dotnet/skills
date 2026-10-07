@@ -258,6 +258,29 @@ class GraderTests(unittest.TestCase):
                 result["findings"][0]["evidence"] = [{"path": path, "record": record}]
                 self.reject("test/failures", result)
 
+    def test_line_citations_require_the_documented_line_prefix(self):
+        source = self.root / "Source.cs"
+        source.write_text("first\nsecond\n", encoding="utf-8")
+        for record in ("line 1", "LINE 2"):
+            with self.subTest(record=record):
+                GRADER.check_record(source, record)
+        for record in ("1", "Source.cs:1", "unrelated.json:1", "line 0", "line 3"):
+            with self.subTest(record=record):
+                with self.assertRaises(ValueError):
+                    GRADER.check_record(source, record)
+
+    def test_filename_like_structured_ids_must_occur_in_the_cited_json(self):
+        for suffix in (".json", ".jsonl"):
+            evidence = self.root / f"records{suffix}"
+            evidence.write_text('{"id":"records.jsonl:1","numeric_id":"1"}\n', encoding="utf-8")
+            for record in ("records.jsonl:1", "1", "line 1"):
+                with self.subTest(suffix=suffix, record=record):
+                    GRADER.check_record(evidence, record)
+            for record in ("not-the-cited-file.json:1", "records.jsonl:2"):
+                with self.subTest(suffix=suffix, record=record):
+                    with self.assertRaises(ValueError):
+                        GRADER.check_record(evidence, record)
+
     def test_workdir_prefixed_citations_and_locations_preserve_containment(self):
         for case in FINDINGS:
             with self.subTest(case=case):

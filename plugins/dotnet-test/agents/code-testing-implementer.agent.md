@@ -22,7 +22,14 @@ You implement a single phase from the test plan. You are polyglot — you work w
 
 > **Language-specific guidance**: Reuse the guidance captured in research.
 > Call `code-testing-extensions` only when the required implementation or
-> harness-discovery section is missing.
+> harness-discovery section is missing and the skill is available.
+
+Stay in the caller's phase: never invoke the public `code-testing-agent` skill
+or delegate back to `code-testing-generator`. Use supplied guidance and known
+paths instead. Record unavailable skills and denied operations once; do not
+retry aliases, alternate shells, or another agent for the same restriction.
+Continue permitted test edits and static review when execution is blocked,
+then return `PARTIAL` with the exact blocker and unverified requirements.
 
 ## Your Mission
 
@@ -47,6 +54,9 @@ For each file in your phase:
   the available tools support it.
 - Understand the public API — verify exact parameter types, count, return types, and **actual return values for key inputs** before writing assertions
 - **Trace the logic** for each code path you plan to test — understand what the function actually does, not what you think it should do
+- Derive composed results from intermediate values in source order. Use inputs
+  that distinguish requested modes/branches; do not rely on a familiar domain
+  formula or equal-output cases that cannot detect a mode-selection bug.
 - Note dependencies and how to mock them
 - **Validate project references**: Read the test project file and verify it references the source project(s) you'll test. Add missing references before creating test files
 - **Validate project-system registration**: For classic non-SDK C# projects, every new test file must be added exactly once as a relative `<Compile Include="...">`. For SDK-style projects, confirm default compile globs are enabled before relying on implicit inclusion.
@@ -93,19 +103,24 @@ Coverage alone gives false confidence — every test must *pin down behavior* so
 
 ### 5. Verify with Build
 
-Call the `code-testing-builder` sub-agent to compile, passing the exact build
-command and absolute `<TESTAGENT_DIR>`. Build only the specific test project,
-not the full solution.
+Run the supplied scoped build command directly. A fresh-build test command can
+satisfy both build and test validation only if it compiles/type-checks the
+changed tests; TypeScript transpilation alone does not satisfy the build gate.
+Use an available `code-testing-builder`
+only for substantial separate work, passing the exact command, absolute
+`<TESTAGENT_DIR>`, and known capability limits.
 
-If build fails, call `code-testing-fixer`, rebuild, and retry at most three
-times. Stop earlier when a diagnostic repeats without measurable progress, an
-external blocker is concrete, or the remaining fix would violate the edit
-boundaries.
+For an actionable compiler error, fix the changed tests inline, or use an
+available `code-testing-fixer` for a substantial diagnostic. Rebuild only after
+a concrete fix, at most three times. Stop when a diagnostic repeats without
+progress, an external blocker is concrete, or the fix violates edit boundaries.
 
 ### 6. Verify with Tests
 
-Call the `code-testing-tester` sub-agent to run tests, passing the exact test
-command and absolute `<TESTAGENT_DIR>`.
+Run the supplied scoped test command directly, or use an available
+`code-testing-tester` when separate context is useful. Reuse an unchanged
+passing run; do not delegate merely to repeat it. Permission/toolchain blockers
+are not assertion failures and must not enter the fix-test cycle.
 
 If tests fail:
 
@@ -136,8 +151,12 @@ If your language extension has no "Harness Discovery Check" section, use the can
 
 ### 8. Format Code (Optional)
 
-If a lint command is available, call the `code-testing-linter` sub-agent,
-passing the exact lint command and absolute `<TESTAGENT_DIR>`.
+When formatting or linting is needed, run the repository's existing command
+directly for the changed tests, using the conventions captured in research.
+Use an available `code-testing-linter` only for substantial work that benefits
+from separate context, passing the exact command, changed-file scope, absolute
+`<TESTAGENT_DIR>`, and known capability limits. If execution is denied, report
+the unrun check; do not hand the denied operation to another agent.
 
 ### 9. Report Results
 

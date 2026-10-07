@@ -60,7 +60,7 @@ def input_file(root, value):
 
 
 def check_record(path, record):
-    line = re.fullmatch(r"(?:line\s+|.*:)?([1-9][0-9]*)", record, re.IGNORECASE)
+    line = re.fullmatch(r"line\s+([1-9][0-9]*)", record, re.IGNORECASE)
     text = path.read_text(encoding="utf-8-sig")
     if line:
         require(int(line[1]) <= len(text.splitlines()), "Evidence line is outside the file")

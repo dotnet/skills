@@ -11,15 +11,24 @@ description: >-
   running/diagnosing tests, coverage/audits, a test blocked on a missing
   production seam (testability-obstacle), or correcting supplied MSTest
   assertions, attributes, lifecycle, or configuration without designing new
-  cases (writing-mstest-tests).
+  cases (writing-mstest-tests). Within an active code-testing-generator
+  pipeline, reuse supplied guidance; do not re-enter this skill.
 license: MIT
 ---
 
 # Code Testing Generation Skill
 
-An AI-powered skill that generates comprehensive, workable unit tests for any programming language using a coordinated multi-agent pipeline.
+Generate comprehensive, workable unit tests for any programming language using
+a bounded Research → Plan → Implement workflow.
 
 ## Non-negotiable execution contract
+
+**Check pipeline ownership first.** If the active agent is
+`code-testing-generator` (including a plugin-qualified name such as
+`dotnet-test:code-testing-generator`), or the caller assigned you a phase of
+that pipeline, do not delegate to another generator. Continue the assigned
+work inline. This guard takes precedence over every broad-scope delegation
+instruction below, even if this skill was loaded automatically.
 
 Classify scope **before editing**:
 
@@ -43,6 +52,11 @@ and successful command; for broader or multi-requirement work, use a
 `Requirement | Evidence` table. Each requested behavior must cite an exact test
 name.
 
+Before sending a broad-scope final response, check that the response itself
+contains `| Requirement | Evidence |` and exact test names for every behavioral
+row. A table in a child report or internal plan is not enough. Do not summarize
+away those names into module-level bullets or an `Area | Tests` table.
+
 Intermediate state files are internal working data, never deliverables. Keep
 `<TESTAGENT_DIR>` non-stageable, never place it or its files in
 version-controlled workspace content, and never modify `.gitignore` to hide
@@ -58,6 +72,17 @@ named module direct tests for its non-trivial public behavior. Cross-module test
 prove composition, but do not substitute for the requested module-level
 coverage. Judge breadth by the behavior matrix, never by matching or exceeding a
 raw test count.
+
+At the public entry point, delegate broad work to `code-testing-generator`
+once. Research, plan, implementation, and review remain required, but they
+need not be separate sub-agent calls.
+
+Use only capabilities available in the current runtime. Do not retry a missing
+skill under aliases or use another agent to retry a policy-denied operation.
+If scratch storage is denied, keep the research and plan in context, continue
+permitted test edits, and report the missing state artifacts. If execution is
+denied, continue permitted static review and report tests as unrun, never passed.
+Neither blocker authorizes modifying production code or weakening requirements.
 
 For a **broad or comprehensive** request, the explicit matrix is the floor, not
 the ceiling. Treat each requested module or layer as an inventory heading, not
@@ -165,10 +190,16 @@ generation request. Do not use a generic/general-purpose subagent merely named
 `code-testing-generator`:
 
 ```text
-Generate unit tests for [path or description of what to test], following the [unit-test-generation.prompt.md](unit-test-generation.prompt.md) guidelines. Treat the current workspace as authoritative even when it is sparse, gutted-looking, synthetic, or missing tracked files; never restore or reconstruct it, including with `git checkout`, `git restore`, `git reset`, or `git clean`.
+You are the sole pipeline owner for this request. Do not invoke code-testing-agent or another code-testing-generator; complete the phases in your current context. Generate unit tests for [path or description of what to test], following the [unit-test-generation.prompt.md](unit-test-generation.prompt.md) guidelines. Treat the current workspace as authoritative even when it is sparse, gutted-looking, synthetic, or missing tracked files; never restore or reconstruct it, including with `git checkout`, `git restore`, `git reset`, or `git clean`.
 ```
 
-The Test Generator will manage the entire pipeline automatically.
+The Test Generator owns the pipeline. After it returns, consume its recorded
+quality checks, validation results, and requirement matrix instead of repeating
+Steps 4 and 5 as another pipeline. Do not reload review skills or rerun unchanged
+passing commands. Preserve exact test names from its evidence in the final
+handoff. If evidence is missing, inspect or follow up on that specific gap
+without restarting generation. A reported capability-wide denial also applies
+to the caller; do not attempt another command using that capability.
 
 If `code-testing-generator` is unavailable, do not skip the workflow. Execute the
 same Research → Plan → Implement sequence inline, resolve `<TESTAGENT_DIR>` as
@@ -196,7 +227,7 @@ For multi-file requests:
 1. Turn every explicit user requirement into a checklist before implementation. Include requested layers, collaborators to mock, boundary cases, integrations, coverage thresholds, and report artifacts. Copy multi-condition requirements verbatim — they must each map to one test that exercises the whole combination.
 2. Research only the requested module or project and write the checklist plus a compact target inventory to `<TESTAGENT_DIR>/research.md`.
 3. Reuse manifests, symbol references, and deterministic pairing tools instead of reading every source and test file.
-4. For multi-file scopes in C#, Python, TypeScript/JavaScript, Go, Java, Rust, Ruby, Kotlin, Swift, PowerShell, or C++, run `find-untested-sources` once and consume its pairing and suggested-path output; do not repeat that discovery manually.
+4. When an available `find-untested-sources` skill is useful for a substantial multi-file inventory, run it once and reuse its pairing and suggested-path output. Otherwise pair the bounded targets manually once; do not probe for an unavailable skill.
 5. Plan each target file once, then implement phases sequentially. Map every checklist item to at least one concrete test or explain why it is blocked.
 6. Build and test the narrow target during fix cycles. Run workspace-level
    validation once at the end only for broad work, when the repository contract
