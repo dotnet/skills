@@ -1,32 +1,19 @@
-# Windows Troubleshooting
+# Windows scoped diagnostics
 
-## Emulator Issues
+For Java selection, inspect `JavaSdkDirectory`, `JAVA_HOME`, and
+`Get-Command java`; invoke `bin\java.exe` and `bin\javac.exe` under the build's
+actual directory. A vendor substring is not a pass/fail test.
 
-### Hyper-V conflict with Android Emulator
-
-**Cause**: HAXM and Hyper-V cannot coexist.
-
-**Solution**:
-- Use Android Emulator Hypervisor Driver instead of HAXM
-- Or disable Hyper-V: `bcdedit /set hypervisorlaunchtype off`
-
----
-
-## Windows Diagnostic Commands
+For Android packages, use the resolved SDK path and actual `sdkmanager.bat`:
 
 ```powershell
-# JDK detection (Windows-specific)
-Get-ChildItem "$env:ProgramFiles\Microsoft" -Filter "jdk-*" -ErrorAction SilentlyContinue
-java -version 2>&1 | Select-String "Microsoft"
-
-# Android SDK location
-echo $env:ANDROID_SDK_ROOT
-# Known paths: $env:LOCALAPPDATA\Android\Sdk
-ls "$env:LOCALAPPDATA\Android\Sdk" -ErrorAction SilentlyContinue
-
-# Android SDK list installed (Windows)
-& "$env:ANDROID_SDK_ROOT\cmdline-tools\latest\bin\sdkmanager.bat" --list_installed
-
-# Logs
-# %LOCALAPPDATA%\Xamarin\Logs\
+& $SdkManager "--sdk_root=$AndroidSdk" --list_installed
 ```
+
+For Windows SDK failures, inspect the requested Windows TFM/platform version
+and installed SDK components, not Android dependencies.
+
+Emulator acceleration is not required for build-only CI. Do not disable Hyper-V,
+edit boot settings or install legacy acceleration drivers during toolchain
+diagnosis. Investigate a requested emulator failure separately with its exact
+error and current official Android guidance.

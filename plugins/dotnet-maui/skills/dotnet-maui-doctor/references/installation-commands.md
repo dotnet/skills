@@ -1,171 +1,93 @@
-# Installation Commands Reference
+# Authorized installation and repair
 
-Commands for installing and validating .NET MAUI development dependencies.
+These commands mutate the machine or project outputs. Present them as a plan
+unless execution is authorized. License acceptance needs approval too.
 
-**See also platform-specific references:**
-- macOS: `installation-commands-macos.md`
-- Windows: `installation-commands-windows.md`
+## SDK and workloads
 
----
+Install the SDK resolved by repository policy from
+[official .NET downloads](https://dotnet.microsoft.com/download) or the
+[dotnet-install script](https://learn.microsoft.com/dotnet/core/tools/dotnet-install-script).
+Do not replace a pin just because another major release exists.
 
-**Important**: All specific versions shown below are placeholders. Always discover the actual versions to use:
-- **SDK/Workload versions**: Query releases-index.json and NuGet APIs (see `workload-dependencies-discovery.md`)
-- **Android SDK packages**: From `androidsdk` in WorkloadDependencies.json
-- **JDK version**: From `jdk.version` in WorkloadDependencies.json
+For SDKs supporting workload sets (8.0.400 onward), inspect:
 
-## .NET SDK
-
-For installation instructions, see the official docs: https://dotnet.microsoft.com/download
-
-For scripted/CI installs, use the [dotnet-install scripts](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-install-script).
-
----
-
-## .NET Workloads
-
-**Always use explicit workload set version** to ensure consistent, reproducible installs.
-
-First, find the latest workload set version:
-```bash
-# Use the CLI to discover the latest workload version for your SDK
-dotnet workload search version --format json --take 1
-# Returns: [{"workloadVersion":"10.0.103"}]
-```
-
-Then install with explicit version:
-```bash
-# Full MAUI installation (recommended)
-dotnet workload install maui --version $WORKLOAD_VERSION
-
-# Individual workloads
-dotnet workload install android --version $WORKLOAD_VERSION
-dotnet workload install ios --version $WORKLOAD_VERSION           # macOS only meaningful
-dotnet workload install maccatalyst --version $WORKLOAD_VERSION   # macOS only meaningful
-
-# Multiple at once
-dotnet workload install maui android ios maccatalyst --version $WORKLOAD_VERSION
-```
-
-### List Installed Workloads
-
-```bash
+```console
+dotnet workload config --update-mode
+dotnet workload --version
 dotnet workload list
 ```
 
-### ⚠️ Commands to Avoid
+If `sdk.workloadVersion` exists in the applicable `global.json`, run workload
+commands there and let the pin select the set; do not also pass a conflicting
+`--version`. Do not leave the repository to bypass the pin.
 
-**Never use these commands** - they can cause version inconsistencies:
-- ❌ `dotnet workload update` - Can introduce mixed versions
-- ❌ `dotnet workload repair` - May not fix version issues
-- ❌ `dotnet workload install` without `--version` - Gets unpredictable versions
+Without a repository workload pin, an approved set can be made explicit:
 
-**Instead**: Always reinstall with explicit `--version` to fix workload issues.
-
----
-
-## Java JDK (Microsoft OpenJDK ONLY)
-
-**CRITICAL: Only Microsoft Build of OpenJDK is supported.** Other JDK vendors (Oracle, Azul, Amazon Corretto, Temurin, etc.) are NOT supported for .NET MAUI development.
-
-> Use the JDK version recommended by WorkloadDependencies.json (`jdk.recommendedVersion`), ensuring it satisfies the `jdk.version` range. Do not hardcode JDK versions.
-
-See `microsoft-openjdk.md` for detection paths, identification, and JAVA_HOME guidance.
-
-For installation instructions, see the official docs: https://learn.microsoft.com/en-us/java/openjdk/install
-
-After installing, verify it is Microsoft OpenJDK:
 ```bash
-# MUST show "Microsoft" in output
-java -version
+dotnet workload install maui-android --version "$WORKLOAD_VERSION"
 ```
 
----
+Use `maui` for a requested full macOS/Windows setup; use only the required workload
+for a limited target. Older SDKs can use their version-specific manifests/rollback
+mechanism: do not assume `--version` or workload-set discovery exists there.
 
-## Android SDK
+| Evidence and intent | Appropriate action after approval |
+|---|---|
+| Missing project workload | `dotnet workload restore <project>` with effective pin/mode understood |
+| Missing workload for a known set | Scoped `workload install` with repository pin or explicit set |
+| Installed pack corruption | `dotnet workload repair` reinstalls installed packs; not an SDK upgrade |
+| Intentional coordinated upgrade | `dotnet workload update --version <approved-set>` when no global pin controls it |
+| SDK selection/path mismatch | Correct selection first; reinstalling every workload is not the diagnosis |
 
-### Detecting Existing Android SDK
+Unversioned update can advance workloads. Repair is not an update command.
+Neither repairs a wrong JDK/Android directory. Preserve existing update-mode
+configuration; do not change default install modes as part of routine diagnosis.
 
-```bash
-# Check common environment variables
-echo $ANDROID_HOME
-echo $ANDROID_SDK_ROOT
+## Project-aware Android dependencies
 
-# Known SDK locations by platform:
-# macOS: ~/Library/Android/sdk
-# Linux: ~/Android/Sdk or /usr/lib/android-sdk
-# Windows: $env:LOCALAPPDATA\Android\Sdk
-
-# Check known paths directly
-ls -d ~/Library/Android/sdk 2>/dev/null    # macOS
-ls -d ~/Android/Sdk 2>/dev/null            # Linux
-
-# Check if sdkmanager is available
-# macOS/Linux
-$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --version
-
-# Windows (PowerShell)
-& "$env:ANDROID_SDK_ROOT\cmdline-tools\latest\bin\sdkmanager.bat" --version
-```
-
-### Installing Android SDK Command-Line Tools
-
-If no Android SDK exists, download the command-line tools:
-
-1. Download from: https://developer.android.com/studio#command-line-tools-only
-2. Extract to your SDK root:
+Prefer the documented
+[`InstallAndroidDependencies`](https://learn.microsoft.com/dotnet/android/getting-started/installation/dependencies)
+target when the project and Android workload are available. It examines the
+project's target API and installs required components, including Java when a
+destination is supplied. Run under the project's selected SDK/workload set.
 
 ```bash
-# macOS/Linux
-export ANDROID_SDK_ROOT="$HOME/Library/Android/sdk"  # macOS
-# export ANDROID_SDK_ROOT="$HOME/Android/Sdk"        # Linux
-mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
-# Extract downloaded zip, move contents to:
-# $ANDROID_SDK_ROOT/cmdline-tools/latest/
+dotnet build "$PROJECT" -t:InstallAndroidDependencies -f "$ANDROID_TFM" \
+  "-p:AndroidSdkDirectory=$ANDROID_SDK" "-p:JavaSdkDirectory=$JDK"
 ```
 
 ```powershell
-# Windows
-$env:ANDROID_SDK_ROOT = "$env:LOCALAPPDATA\Android\Sdk"
-New-Item -ItemType Directory -Force -Path "$env:ANDROID_SDK_ROOT\cmdline-tools"
-# Extract downloaded zip, move contents to:
-# $env:ANDROID_SDK_ROOT\cmdline-tools\latest\
+dotnet build $Project -t:InstallAndroidDependencies -f $AndroidTfm `
+  "-p:AndroidSdkDirectory=$AndroidSdk" "-p:JavaSdkDirectory=$Jdk"
 ```
 
-### Install Required Packages with sdkmanager
+Use absolute paths, not a literal `~` embedded in an MSBuild property. Add
+`-p:AcceptAndroidSdkLicenses=True` only when acceptance has been approved.
+Omit Java installation when an existing compatible JDK should be retained.
+This target downloads/installs dependencies; it is **not** a read-only query.
 
-Get exact versions from WorkloadDependencies.json (`androidsdk.packages`, `androidsdk.buildToolsVersion`, `androidsdk.apiLevel`).
+## Manual package installation
+
+If the target cannot be used, discover requirements for the **effective**
+manifest using `workload-dependencies-discovery.md`, accounting for the project's
+target API. Download missing command-line tools from
+[Android's official site](https://developer.android.com/studio#command-line-tools-only).
+Resolve the real `sdkmanager` path; `latest` is not guaranteed to exist.
 
 ```bash
-# macOS/Linux
-$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "platform-tools"
-$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "build-tools;$BUILD_TOOLS_VERSION"
-$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "platforms;android-$API_LEVEL"
-$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "cmdline-tools;$CMDLINE_TOOLS_VERSION"
-
-# Accept all licenses
-$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
+"$SDKMANAGER" --sdk_root="$ANDROID_SDK" --list_installed
+# Only after approval, with packages from the resolved requirements:
+"$SDKMANAGER" --sdk_root="$ANDROID_SDK" "${PACKAGES[@]}"
 ```
 
 ```powershell
-# Windows
-& "$env:ANDROID_SDK_ROOT\cmdline-tools\latest\bin\sdkmanager.bat" "platform-tools"
-& "$env:ANDROID_SDK_ROOT\cmdline-tools\latest\bin\sdkmanager.bat" "build-tools;$BUILD_TOOLS_VERSION"
-& "$env:ANDROID_SDK_ROOT\cmdline-tools\latest\bin\sdkmanager.bat" "platforms;android-$API_LEVEL"
-& "$env:ANDROID_SDK_ROOT\cmdline-tools\latest\bin\sdkmanager.bat" "cmdline-tools;$CMDLINE_TOOLS_VERSION"
-
-# Accept all licenses
-& "$env:ANDROID_SDK_ROOT\cmdline-tools\latest\bin\sdkmanager.bat" --licenses
+# SDKMANAGER is the actual sdkmanager.bat path on Windows.
+& $SdkManager "--sdk_root=$AndroidSdk" --list_installed
+& $SdkManager "--sdk_root=$AndroidSdk" @Packages
 ```
 
-### Verify Android SDK
-
-```bash
-# Check ADB
-adb --version
-
-# List installed packages (macOS/Linux)
-$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --list_installed
-
-# List installed packages (Windows)
-# & "$env:ANDROID_SDK_ROOT\cmdline-tools\latest\bin\sdkmanager.bat" --list_installed
-```
+Quote package IDs containing semicolons. Do not install emulator/system images
+for build-only CI. Inspect installed packages after installation, then build
+only the requested project target if authorized. A package list is not build
+validation.
