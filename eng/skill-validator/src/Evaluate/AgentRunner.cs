@@ -771,14 +771,20 @@ public static class AgentRunner
                     if (IsShellTool(input.ToolName))
                     {
                         if (denyShell)
-                            RecordShellDenial(input.SessionId ?? invocation?.SessionId);
-                        return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
                         {
-                            PermissionDecision = denyShell ? "deny" : "ask",
-                            PermissionDecisionReason = denyShell
-                                ? "All shell execution is denied by evaluation policy; file tools retain their existing permissions"
-                                : "Validate shell command paths",
-                        });
+                            RecordShellDenial(input.SessionId ?? invocation?.SessionId);
+                            return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
+                            {
+                                PermissionDecision = "deny",
+                                PermissionDecisionReason =
+                                    "All shell execution is denied by evaluation policy; file tools retain their existing permissions",
+                            });
+                        }
+
+                        // Shell calls are authorized by the typed permission request below.
+                        // Returning "ask" here creates a PermissionRequestHook instead, which
+                        // has no path or URL metadata and is intentionally rejected.
+                        return Task.FromResult<PreToolUseHookOutput?>(null);
                     }
 
                     var reqPaths = ExtractPathsFromToolArgs(input);

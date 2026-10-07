@@ -211,6 +211,9 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > are limited to a small exact local-command allowlist, and MCP access is
 > limited to registered, sanitized servers and their explicitly declared
 > tools; an omitted tool list permits none, while an explicit `*` permits all.
+> Normal shell pre-tool hooks defer to the SDK's typed shell permission request,
+> where path and URL metadata is available for those checks. Generic hook
+> permission requests remain unsupported and are rejected.
 > The native evaluator currently accepts only the repository's shipped
 > `dotnet dnx Microsoft.AITools.BinlogMcp --yes --prerelease` stdio launch
 > shape as input, then rewrites it to package version 3.0.2 with a

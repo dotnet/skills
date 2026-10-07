@@ -10,6 +10,8 @@ using SkillValidator.Shared;
 
 namespace SkillValidator.Tests;
 
+#pragma warning disable GHCP001 // Tests intentionally exercise the SDK's evaluation permission contract.
+
 [TestClass]
 [DoNotParallelize]
 public class BuildSessionConfigTests
@@ -20,6 +22,35 @@ public class BuildSessionConfigTests
         Path: Path.Combine("C:", "home", "user", "skills", "test-skill"),
         SkillMdPath: Path.Combine("C:", "home", "user", "skills", "test-skill", "SKILL.md"),
         SkillMdContent: "# Test");
+
+    private static async Task<bool> RunShellPermissionPipelineAsync(
+        SessionConfig config,
+        PermissionRequestShell request,
+        Func<PermissionRequest, PermissionInvocation, Task<GitHub.Copilot.Rpc.PermissionDecision>>? permissionHandler = null,
+        Action? execute = null)
+    {
+        var args = JsonDocument.Parse(
+            JsonSerializer.Serialize(new { command = request.FullCommandText })).RootElement;
+        var preToolResult = await config.Hooks!.OnPreToolUse!(
+            new PreToolUseHookInput
+            {
+                ToolName = "bash",
+                ToolArgs = args,
+                SessionId = "test-session",
+            },
+            new HookInvocation { SessionId = "test-session" });
+        if (preToolResult is not null)
+            return false;
+
+        var decision = await (permissionHandler ?? config.OnPermissionRequest!)(
+            request,
+            new PermissionInvocation { SessionId = "test-session" });
+        if (decision.Kind != "approve-once")
+            return false;
+
+        execute?.Invoke();
+        return true;
+    }
 
     private static MCPServerDef SafeMcpServer(
         string[]? tools = null,
@@ -417,7 +448,128 @@ public class BuildSessionConfigTests
             new PreToolUseHookInput { ToolName = toolName, ToolArgs = args },
             null!);
 
-        Assert.AreEqual("ask", result!.PermissionDecision);
+        Assert.IsNull(result);
+        Assert.IsNotNull(config.OnPermissionRequest);
+    }
+
+    [TestMethod]
+    public async Task UnexpectedShellHookPermissionRequestIsDenied()
+    {
+        var config = await AgentRunner.BuildSessionConfig(
+            MockSkill, null, "gpt-4.1", AgentRunner.GetEvaluationRoot());
+        var decision = await config.OnPermissionRequest!(
+            new PermissionRequestHook
+            {
+                Kind = "hook",
+                ToolName = "bash",
+                ToolArgs = JsonDocument.Parse("""{"command":"git status --short"}""").RootElement,
+                HookMessage = "Run a shell command",
+                ToolCallId = "unexpected-shell-hook",
+            },
+            null!);
+
+        Assert.AreEqual("reject", decision.Kind);
+    }
+
+    [TestMethod]
+    public async Task ShellExecutionWaitsForTypedPermissionApproval()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var allowedPath = Path.Combine(workDir, "src", "Program.cs");
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = $"cat \"{allowedPath}\"",
+            HasWriteFileRedirection = false,
+            Intention = "Read a source file",
+            PossiblePaths = [allowedPath],
+            PossibleUrls = [],
+            ToolCallId = "pending-shell",
+        };
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var executed = false;
+
+        async Task<GitHub.Copilot.Rpc.PermissionDecision> GatedPermission(
+            PermissionRequest permission,
+            PermissionInvocation invocation)
+        {
+            entered.SetResult();
+            await release.Task;
+            return await config.OnPermissionRequest!(permission, invocation);
+        }
+
+        var pipeline = RunShellPermissionPipelineAsync(
+            config, request, GatedPermission, () => executed = true);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.IsFalse(pipeline.IsCompleted);
+        Assert.IsFalse(executed);
+
+        release.SetResult();
+        Assert.IsTrue(await pipeline);
+        Assert.IsTrue(executed);
+    }
+
+    [TestMethod]
+    public async Task RejectedTypedShellPermissionNeverExecutes()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var executed = false;
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = "cat /etc/passwd",
+            HasWriteFileRedirection = false,
+            Intention = "Read outside the workspace",
+            PossiblePaths = ["/etc/passwd"],
+            PossibleUrls = [],
+            ToolCallId = "rejected-shell",
+        };
+
+        Assert.IsFalse(await RunShellPermissionPipelineAsync(
+            config, request, execute: () => executed = true));
+        Assert.IsFalse(executed);
+    }
+
+    [TestMethod]
+    public async Task ApprovedTypedShellPermissionPreservesRequestMetadataBeforeExecution()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var allowedPath = Path.Combine(workDir, "src", "Program.cs");
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var executed = false;
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = $"cat \"{allowedPath}\"",
+            HasWriteFileRedirection = false,
+            Intention = "Read a source file",
+            PossiblePaths = [allowedPath],
+            PossibleUrls = [],
+            ToolCallId = "allowed-shell",
+        };
+
+        async Task<GitHub.Copilot.Rpc.PermissionDecision> InspectPermission(
+            PermissionRequest permission,
+            PermissionInvocation invocation)
+        {
+            var shell = permission as PermissionRequestShell;
+            Assert.IsNotNull(shell);
+            Assert.AreEqual(request.FullCommandText, shell.FullCommandText);
+            Assert.AreEqual(request.ToolCallId, shell.ToolCallId);
+            Assert.AreSequenceEqual(request.PossiblePaths!, shell.PossiblePaths!);
+            Assert.IsFalse(executed);
+            return await config.OnPermissionRequest!(permission, invocation);
+        }
+
+        Assert.IsTrue(await RunShellPermissionPipelineAsync(
+            config, request, InspectPermission, () => executed = true));
+        Assert.IsTrue(executed);
     }
 
     [TestMethod]
@@ -1696,6 +1848,8 @@ public class BuildSessionConfigTests
         }
     }
 }
+
+#pragma warning restore GHCP001
 
 [TestClass]
 public class RunEventBufferTests
