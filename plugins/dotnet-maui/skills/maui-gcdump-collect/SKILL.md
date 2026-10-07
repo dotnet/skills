@@ -2,10 +2,10 @@
 name: maui-gcdump-collect
 license: MIT
 description: >
-  Collect a managed .gcdump from a running .NET MAUI Mono app on a physical Android or iOS device.
-  USE FOR: device memory snapshots, growing managed heap, preparing a profiling build,
-  diagnostic-port or dsrouter connectivity failures during mobile GC dump collection.
-  DO NOT USE FOR (decline without opening this skill): any CoreCLR or NativeAOT app
+  Capture a .gcdump from a confirmed Mono-runtime MAUI app on a physical Android or
+  iOS device. USE FOR: that physical-device Mono capture action — device memory
+  snapshots, growing managed heap, preparing a profiling build, or diagnostic-port/dsrouter
+  connectivity failures during the capture. DO NOT USE FOR (decline without opening this skill): any CoreCLR or NativeAOT app
   or request, including heap snapshots, growing-heap, or GC dump requests (NativeAOT
   does not support gcdump collection regardless of framing; explain the Mono-only
   boundary instead); production/store-distributed (App Store, TestFlight, Play Store,
