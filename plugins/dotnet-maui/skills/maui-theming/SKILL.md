@@ -319,6 +319,10 @@ Use the same required keys in every peer dictionary and consume them through
 also put Light/Dark `AppThemeBinding` expressions over those same peer-theme keys,
 which creates competing selection paths. `UserAppTheme` cannot represent a third
 high-contrast enum value.
+For Follow system, re-run that resolver on `RequestedThemeChanged`, not just at
+startup; retain the user's explicit Light/Dark/HighContrast choice when the OS
+changes. A deliberately orthogonal contrast overlay is also valid: resolve the
+current Light/Dark base, then the contrast overrides, on each relevant change.
 
 For a different design that deliberately defines separate Light/Dark keys, use
 `AppThemeBinding` with `DynamicResource` values — the

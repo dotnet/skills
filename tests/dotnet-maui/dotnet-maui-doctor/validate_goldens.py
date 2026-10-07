@@ -49,6 +49,24 @@ def check_output_variants(document):
             "Inspect global.json, inventory the machine, then update workloads.",
         ),
         (
+            "Preserve project selection after a machine SDK upgrade", 1,
+            r"(?i)(project|repo).*(directory|folder|root)|cd ",
+            "Keep global.json unchanged. Confirm selection inside the repo: "
+            "`cd` into the repo and propose dotnet --version there, rather than "
+            "using the outside-repo inventory. No checks ran.",
+            "Read global.json, inventory the machine outside the checkout, "
+            "then update workloads.",
+        ),
+        (
+            "Apple setup chooses Xcode for the selected workload", 0,
+            r"(?i)developer\.apple\.com|Apple Developer Downloads",
+            "Get the supported Xcode version from Apple\u2019s **Developer Downloads**; "
+            "select it with xcode-select and verify using xcodebuild -version. "
+            "Retain the pinned workload. No setup or checks ran.",
+            "Obtain any Xcode from an arbitrary mirror, select it with "
+            "xcode-select and check xcodebuild -version.",
+        ),
+        (
             "Windows-only health check does not require Java", 0,
             r"(?i)Windows SDK",
             "Java and Android tooling are irrelevant. Check the selected SDK, "
@@ -83,8 +101,9 @@ def check_output_variants(document):
                     "--eval-spec", str(spec), "--stimulus", name,
                     "--workspace", str(WORK / f"output-{index}-{label}"),
                 ], success=succeeds)
-        print("PASS: 3 equivalent answers accepted, 3 prior false negatives reproduced, "
-              "and 3 missing-evidence mutations rejected")
+        print(f"PASS: {len(cases)} equivalent answers accepted, "
+              f"{len(cases)} prior false negatives reproduced, "
+              f"and {len(cases)} missing-evidence mutations rejected")
     finally:
         spec.unlink(missing_ok=True)
 

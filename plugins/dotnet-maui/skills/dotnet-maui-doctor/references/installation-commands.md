@@ -44,6 +44,17 @@ Unversioned update can advance workloads. Repair is not an update command.
 Neither repairs a wrong JDK/Android directory. Preserve existing update-mode
 configuration; do not change default install modes as part of routine diagnosis.
 
+Run repair from the project directory under its selected SDK and workload policy.
+It repairs all recorded installed workloads in that SDK feature band using the
+currently resolved manifests, not just the one damaged pack. It can also run
+workload garbage collection; do not promise that only broken files are touched.
+The [.NET 10 implementation](https://github.com/dotnet/sdk/blob/v10.0.100/src/Cli/dotnet/Commands/Workload/Repair/WorkloadRepairCommand.cs)
+does not update manifests as an install/update operation would.
+[`workload repair`](https://learn.microsoft.com/dotnet/core/tools/dotnet-workload-repair)
+has no `--skip-manifest-update` option; do not borrow unsupported flags from other
+workload commands. Keep the resolved policy unchanged and recheck selection and
+the requested target build afterward.
+
 ## Project-aware Android dependencies
 
 Prefer the documented

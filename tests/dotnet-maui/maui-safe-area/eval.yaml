@@ -98,6 +98,12 @@ stimuli:
   - Provides a valid keyboard-aware layout keeping the composer above input while protecting container
     edges.
   - Places keyboard avoidance on a supported wrapper rather than assuming ScrollView honors SoftInput.
+  - '.NET 10 SafeAreaRegions.SoftInput is a documented keyboard/soft-input policy;
+    All includes it. SafeAreaEdges="Container, Container, Container, SoftInput" is valid
+    left/top/right/bottom syntax on a Grid. Do not reject these APIs as nonexistent
+    or demand a custom keyboard listener instead. Insets/padding can change the
+    available layout space without changing the native window size; actual native
+    configuration and device behavior still require platform testing.'
   - Does not claim WindowSoftInputModeAdjust.Resize was removed or promise device validation without evidence.
   tags:
     capability: keyboard-avoidance-with-safe-area-for-chat-ui

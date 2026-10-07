@@ -16,7 +16,7 @@ stimuli:
       - type: output-matches
         config: {pattern: '(?i)global\.json'}
       - type: output-matches
-        config: {pattern: '(?i)(project|repo).*(directory|folder|root)|cd '}
+        config: {pattern: '(?i)(project|repo).*(directory|folder|root)|\b(?:inside|within)\s+(?:the\s+)?(?:repo(?:sitory)?|project)\b|\bcd(?:`|\s)'}
       - type: prompt
     rubric:
       - Explains that the SDK observed outside the repository does not establish the project's selected SDK.
@@ -219,7 +219,7 @@ stimuli:
     tags: {capability: apple-version-pairing, risk: latest-xcode-mismatch, journey: provision-ios}
     graders:
       - type: output-matches
-        config: {pattern: '(?i)developer\.apple\.com|Apple Developer Downloads'}
+        config: {pattern: '(?i)developer\.apple\.com|Apple(?:[''\u2019]s)?[\s*_]+Developer[\s*_]+Downloads'}
       - type: output-matches
         config: {pattern: '(?i)xcodebuild|xcode-select'}
       - type: prompt
@@ -287,6 +287,7 @@ stimuli:
     rubric:
       - Recognizes workload repair as legitimate for evidenced installed-pack corruption.
       - Explains that repair reinstalls installed packs and is not a general version upgrade or JDK fix.
+      - Uses the selected SDK's current resolved manifests for repair; .NET 10 repair does not update manifests or support --skip-manifest-update, so that unsupported option is not a required pin safeguard.
       - Preserves effective pins, notes mutation scope and proposes revalidation without claiming execution.
     golden_trajectory:
       inline:

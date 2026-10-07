@@ -97,6 +97,10 @@ public partial class ExplicitPage : ContentPage
 {
     public ExplicitPage() => InitializeComponent();
 }
+public partial class LiteralSourcePage : ContentPage
+{
+    public LiteralSourcePage() => InitializeComponent();
+}
 public static class Checks
 {
     static BindingBase BindingOf(BindableObject target, BindableProperty property)
@@ -136,8 +140,16 @@ public static class Checks
         if (!toggle.IsToggled) throw new InvalidOperationException("converter resource did not resolve");
         converterPage.BindingContext = new MyApp.ViewModels.MainViewModel { Count = 0 };
         if (toggle.IsToggled) throw new InvalidOperationException("converter scope did not rebind");
+        var sourcePage = new LiteralSourcePage();
+        var sourceLabel = (Label)((StackLayout)sourcePage.Content!).Children[1];
+        if (BindingOf(sourceLabel, Label.TextProperty).GetType().GenericTypeArguments[0] != typeof(Slider) ||
+            sourceLabel.Text != "42")
+            throw new InvalidOperationException(
+                $"literal source binding: {BindingOf(sourceLabel, Label.TextProperty).GetType()}, " +
+                $"text={sourceLabel.Text}, value={((Slider)((StackLayout)sourcePage.Content!).Children[0]).Value}");
         Console.WriteLine("PASS: inferred and explicit child scopes use typed bindings");
         Console.WriteLine("PASS: documented converter namespace/resource wiring compiles and binds");
+        Console.WriteLine("PASS: literal binding-local Slider source type compiles and binds");
     }
 }"""
     def markup(name, explicit=False):
@@ -177,6 +189,15 @@ public partial class ConverterPage : ContentPage
 public sealed class MainViewModel { public int Count { get; set; } }""")
         for name in ("InferredPage", "ExplicitPage"):
             (workspace / f"{name}.xaml").write_text(markup(name, name.startswith("Explicit")))
+        (workspace / "LiteralSourcePage.xaml").write_text("""<ContentPage
+ xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+ xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ x:Class="Probe.LiteralSourcePage">
+ <StackLayout>
+  <Slider x:Name="amount" Maximum="100" Value="42" />
+  <Label Text="{Binding Source={x:Reference amount}, Path=Value, x:DataType=Slider}" />
+ </StackLayout>
+</ContentPage>""")
         restored = command(["dotnet", "restore", "Probe.csproj", "--verbosity", "quiet"], workspace)
         assert restored.returncode == 0, restored.stdout + restored.stderr
         location = command(["dotnet", "msbuild", "Probe.csproj",
@@ -204,6 +225,13 @@ public sealed class MainViewModel { public int Count { get; set; } }""")
         assert broken.returncode != 0 and "MissingCity" in broken.stdout, broken.stdout + broken.stderr
         print("PASS: XamlC rejects the missing child property (no native/device execution)")
         (workspace / "ExplicitPage.xaml").write_text(markup("ExplicitPage", True))
+        source_markup = (workspace / "LiteralSourcePage.xaml").read_text()
+        (workspace / "LiteralSourcePage.xaml").write_text(
+            source_markup.replace("x:DataType=Slider", "x:DataType=Entry"))
+        broken = command(["dotnet", "build", "Probe.csproj", "--no-restore", "--verbosity", "quiet"], workspace)
+        assert broken.returncode != 0 and "Value" in broken.stdout, broken.stdout + broken.stderr
+        print("PASS: XamlC rejects a binding-local source type without the requested property")
+        (workspace / "LiteralSourcePage.xaml").write_text(source_markup)
         (workspace / "ConverterPage.xaml").write_text(converter_markup.replace(
             'x:DataType="vm:MainViewModel"',
             'x:Class="MyApp.ConverterPage" x:DataType="vm:MainViewModel"').replace(
@@ -246,6 +274,7 @@ using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.PlatformConfiguration;
 using Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;
 using Application = Microsoft.Maui.Controls.Application;
+public sealed class ProbeBindingBehavior : Behavior<Label> { }
 public static class Checks
 {
     static void Require(bool condition, string message)
@@ -269,6 +298,11 @@ public static class Checks
         Require(ReferenceEquals(child.BindingContext, first), "context not inherited");
         parent.BindingContext = second;
         Require(ReferenceEquals(child.BindingContext, second), "context replacement not propagated");
+        var behavior = new ProbeBindingBehavior();
+        child.Behaviors.Add(behavior);
+        Require(behavior.BindingContext is null, "behavior unexpectedly inherited its view context");
+        behavior.BindingContext = child.BindingContext;
+        Require(ReferenceEquals(behavior.BindingContext, second), "explicit behavior context failed");
         var converter = TypeDescriptor.GetConverter(typeof(SafeAreaEdges));
         var perEdge = (SafeAreaEdges)converter.ConvertFromInvariantString(
             "Container,Container,Container,SoftInput")!;
@@ -491,6 +525,12 @@ def wording_regressions(production=False):
         ("maui-theming", "Explicit theme event ownership",
          "_observedApplication.RequestedThemeChanged -= OnRequestedThemeChanged;",
          "_observedApplication.RequestedThemeChanged += OnRequestedThemeChanged;"),
+        ("maui-theming", "Accessible branding",
+         "Model high contrast as a peer ResourceDictionary theme, selected independently of the OS signal.",
+         "Add HighContrast as another AppTheme enum value."),
+        ("maui-shell-navigation", "Repair supplied executable contract",
+         'await Shell.Current.GoToAsync("//products/status/archived");',
+         'await Shell.Current.GoToAsync("/products/status/archived");'),
     )
     gate_spec = importlib.util.spec_from_file_location(
         "quality_gate", ROOT / "eng/eval-quality/check_eval_quality.py")

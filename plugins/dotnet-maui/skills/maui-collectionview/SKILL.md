@@ -53,6 +53,8 @@ Keep these correctness rules when writing a relevant CollectionView change:
 2. Use `ObservableCollection<T>` when the list mutates after first render.
 3. Update `ItemsSource` and mutate bound collections on the UI thread.
 4. Set `x:DataType` on every `DataTemplate` (and on the page root) for compiled bindings.
+5. Preserve an existing runtime context or assign the object exposing the collection;
+   `x:DataType` alone does not instantiate a ViewModel or supply `ItemsSource`.
 
 ## Inputs
 

@@ -56,9 +56,18 @@ It checks all golden responses, executes the offline resolver including changed
 and malformed inputs, compares the entire protected file set, and rejects five
 mutations (modified/deleted no-op inputs, wrong band, optional package inclusion,
 and pin rewrite). It never installs SDKs, workloads or JDKs and does not build MAUI.
-It also replays three equivalent answers through shipping Vally, reproduces their
-prior lexical false negatives, and rejects three missing-evidence mutations.
+It also replays five equivalent answers through shipping Vally, reproduces their
+prior lexical false negatives, and rejects five missing-evidence mutations.
 These checks protect equivalent wording, not semantic correctness of every answer.
+One retained plugin answer proposed checks "inside the repo" with Markdown
+`` `cd` ``; the former directory-wording proxy incorrectly rejected it.
+The retained Luna Apple plan named "Apple's Developer Downloads" with a
+possessive apostrophe and bold text; the old literal-adjacency pattern rejected
+that correct official source. Both ASCII and typographic apostrophes are accepted.
+Repair judging is grounded in the tagged .NET 10 implementation and CLI help:
+repair uses current resolved manifests and has no `--skip-manifest-update` option.
+Missing that unsupported flag is not a legitimate grading failure. Repair can
+run workload garbage collection, so selective-mutation guarantees are not valid.
 The incomplete-Java case uses semantic judging rather than requiring a particular
 adjective before "error"; an actual correct request for the first actionable Java
 error failed that vocabulary proxy. Its judge still checks evidence limits,

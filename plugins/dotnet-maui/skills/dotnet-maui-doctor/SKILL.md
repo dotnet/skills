@@ -117,8 +117,9 @@ Keep small requests concise. Report:
 - **Validation:** what actually ran and its result; distinguish supplied evidence,
   static inspection, successful target build, and unverified plan. Never claim a
   healthy environment or working app from version strings or simulated fixtures.
-  A read-only shell command still ran: describe file inspection accurately,
-  rather than saying "no commands ran" when you used the shell to read evidence.
+  For file-only review, say how the files were read and that no inventory,
+  build or installation ran. Reserve "no shell commands ran" for a trajectory
+  with no shell calls; shell commands used only to read files still count.
 
 Keep the decisive evidence in the answer: name the conflicting selected path or
 pin, rather than only listing places to search. If supplied configuration already

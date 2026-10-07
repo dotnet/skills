@@ -324,9 +324,10 @@ stimuli:
         message: Complete the deferral in finally, cancel when staying or on failure, and avoid starting
           GoToAsync until the pending navigation is completed.
 - name: Repair supplied executable contract
-  prompt: The supplied Products flyout entry has Active and Archived top subtabs, but their route identifiers
+  prompt: The supplied .NET MAUI Shell Products flyout entry has Active and Archived top subtabs, but their route identifiers
     collide. Fix only Program.cs without adding another visible tab level or eager page construction.
-    Run the object-model checks and give the absolute path to Archived. Do not claim that navigation was
+    Run the object-model checks and give the absolute navigation URI you would pass to
+    Shell.Current.GoToAsync to reach Archived, not just the route-segment hierarchy. Do not claim that navigation was
     exercised on a device. Keep the existing products/status parent routes. The supplied files
     are in your working directory; inspect and edit only that copy, not fixture originals elsewhere.
   tags:

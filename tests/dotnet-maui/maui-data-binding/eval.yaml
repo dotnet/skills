@@ -19,11 +19,16 @@ stimuli:
       evidence:
       - trajectory
   rubric:
-  - Types the page bindings against SettingsViewModel and establishes an actual BindingContext.
+  - Types the page bindings against SettingsViewModel while preserving the BindingContext already
+    supplied by the prompt. Explaining that x:DataType is metadata rather than a runtime context is
+    valid; repeating context assignment or adding constructor/DI wiring is not required.
   - Uses valid MAUI diagnostic properties, including strict diagnostics where needed, and preserves other
-    warning settings.
-  - Explains compile-time path checking, performance and trimming/AOT implications without disabling binding
-    compilation.
+    warning settings. MauiStrictXamlCompilation and MauiEnableXamlCBindingWithSourceCompilation
+    are documented MAUI properties; XC0022-XC0025 are real binding diagnostics, not invented flags/codes.
+    Do not invent properties absent from the supplied ViewModel or bind a scalar string to Picker.ItemsSource.
+  - Explains that typed binding paths are checked at build time, distinguishing invalid members
+    from missing-type/reflection-fallback warnings, without disabling binding compilation.
+    Performance and trimming/AOT benefits are useful optional context, not requested prerequisites.
   tags:
     capability: set-up-compiled-bindings-with-x-datatype-on-a-page
     risk: incorrect-guidance
@@ -232,7 +237,8 @@ stimuli:
   - Compiles the named-control binding against its actual source type without changing the unrelated invoice
     context. MauiEnableXamlCBindingWithSourceCompilation is a documented MAUI 9+ build option, not an
     invented property; mentioning it is valid, but repeating already-correct project configuration is
-    not required.
+    not required. Binding markup supports binding-local x:DataType, including
+    x:DataType={x:Type Slider} and the literal x:DataType=Slider form.
   - Complete page markup has one content root, which may be a layout containing multiple controls.
     A valid binding fragment need not reproduce the entire page.
   - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
@@ -303,7 +309,9 @@ stimuli:
   - Checks each changed binding context against its correct model without globally disabling compile-time
     checking. MAUI 10 XamlC compiles the BindingContext-setting binding using the inherited parent type,
     skipping the child's x:DataType for that binding; explicit binding-local outer typing is also valid
-    but not mandatory when this supported inference applies.
+    but not mandatory when this supported inference applies. The syntax
+    x:DataType={x:Type vm:CustomerViewModel} inside a Binding markup extension is supported,
+    not an invalid XAML attribute placement.
   - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
   golden_trajectory:
     inline:

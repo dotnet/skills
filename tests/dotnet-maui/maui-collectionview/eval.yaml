@@ -20,6 +20,9 @@ stimuli:
   rubric:
   - Uses CollectionView with ItemsSource bound to the collection
   - Defines a DataTemplate with x:DataType for compiled bindings
+  - Declares the namespace prefixes used by both page and template types and supplies
+    or identifies the runtime context exposing the collection; x:DataType alone
+    does not establish BindingContext.
   - Binds both Name and Price properties inside the template
   - Does NOT use ViewCell as the template root
   - Uses ObservableCollection<T> rather than List<T>

@@ -69,6 +69,11 @@ already editing a page's bindings, recommending compiled bindings is in scope.
 For a requested smallest markup fix, show only the changed binding/template
 fragment, not a full page scaffold. Declare any new namespace prefix without
 reproducing unchanged surrounding markup.
+Preserve a supplied `BindingContext`; `x:DataType` does not create or replace it.
+Use the supplied model's members: an `ItemsSource` needs a collection, not a
+scalar selection value. Do not invent a collection property to populate a picker.
+Name the Toolkit package/usings when using its generators, and define every
+converter resource referenced by a complete example.
 
 For supplied-code reviews, preserve an already-passing implementation and report
 what the checks actually cover. A platform-neutral build/contract does not prove
@@ -80,6 +85,8 @@ XAML compilation, native rendering or device behavior.
 
 Compiled bindings are **8–20× faster** than reflection-based bindings and are
 required for NativeAOT / trimming. Enable them with `x:DataType`.
+Explain that missing members in typed binding paths are compiler errors;
+`XC0022` instead detects missing type metadata and reflection fallback.
 
 ### Placement rules
 
@@ -198,8 +205,10 @@ already have the correct default:
 
 ## BindingContext and Property Paths
 
-Every `BindableObject` inherits `BindingContext` from its parent unless
-explicitly set. Property paths support dot notation and indexers:
+Views normally inherit `BindingContext` from their parent unless explicitly
+set; behaviors do not inherit it. If using a command behavior, give it an
+explicit context or source rather than assuming the page's context propagates.
+Property paths support dot notation and indexers:
 
 `x:DataType` is inherited XAML compilation metadata, independent of the runtime
 `BindingContext`. It remains inherited even when a child explicitly changes its
@@ -292,6 +301,9 @@ public partial class MainViewModel : ObservableObject
 
 The source generator creates the `Title` property, `PropertyChanged` raise,
 and `LoadDataCommand` automatically.
+Async relay commands disallow concurrent executions by default. If `CanExecute`
+depends on state changed outside command execution, invalidate it with
+`NotifyCanExecuteChanged` or `[NotifyCanExecuteChangedFor]`.
 
 ---
 
@@ -445,6 +457,9 @@ thread. Keep background work separate from UI-bound state publication. Direct
 control access and bound `ObservableCollection` mutations must use the UI thread.
 Keep a typed ViewModel reference rather than recovering ownership by casting a
 page's `BindingContext`:
+`ConfigureAwait(false)` does not move the service call onto a background thread.
+If it drops the UI continuation context, marshal **all** bound state publication,
+including `IsBusy = false` in `finally`, not just fetched data.
 
 ```csharp
 var result = await service.LoadAsync().ConfigureAwait(false);
