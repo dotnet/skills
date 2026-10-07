@@ -381,6 +381,9 @@ stimuli:
       and how do I wire it up?
     expect_activation: false
     graders:
+      - type: output-not-matches
+        config:
+          pattern: (?i)(Components/App\.razor|_Host\.cshtml|@rendermode|RootComponents\.Add<App>\("#app"\)|AddInteractive(Server|WebAssembly)|AddSyncfusionBlazorToolkit)
       - type: prompt
     rubric:
       - The install skill stayed dormant: the app is a MAUI Blazor Hybrid app, which is outside this skill's scope.
