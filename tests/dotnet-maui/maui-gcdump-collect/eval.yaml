@@ -82,8 +82,6 @@ stimuli:
             assert any(len(guard)==len(form) and guard[:3]==form[:3] and norm(guard[3])==norm(output) and guard[4:]==form[4:] for form in forms), "Guard must test the actual output path"
             print("No-overwrite guard valid")'
       - type: prompt
-        config:
-          evidence: [trajectory, golden_patch]
     rubric:
       - Provides a coherent selected-serial USB connection between the Mono app and host collector, not a host attach to the phone PID.
       - Accounts for diagnostics starting at app launch and reproduction after an approved restart, without claiming the current heap can survive that restart.
@@ -185,8 +183,6 @@ stimuli:
           pattern: (?im)^\s*(?:Run|Use)\s+dotnet-gcdump\s+collect\s+-p\s+519\b
       - *no-overwrite
       - type: prompt
-        config:
-          evidence: [trajectory, golden_patch]
     rubric:
       - Reaches a physical USB iPhone via the matching runtime listener and Mac router, not simulator tooling or direct host attach to PID 519.
       - Preserves the prepared running session rather than introducing an unnecessary install, rebuild, or restart.
