@@ -305,7 +305,23 @@ Application.Current!.RequestedThemeChanged += (s, e) =>
 
 ## Combining Both Approaches
 
-Use `AppThemeBinding` with `DynamicResource` values for maximum flexibility — the
+Choose one palette resolver when high contrast is a peer theme. A custom
+high-contrast setting is independent of the OS `AppTheme` signal:
+
+| User choice | Applied dictionary |
+|---|---|
+| High contrast | HighContrast, regardless of OS Light/Dark |
+| Explicit Light / Dark | The selected palette |
+| Follow system | Light or Dark from the current OS theme |
+
+Use the same required keys in every peer dictionary and consume them through
+`DynamicResource`. Verify that each palette supplies that key contract. Do not
+also put Light/Dark `AppThemeBinding` expressions over those same peer-theme keys,
+which creates competing selection paths. `UserAppTheme` cannot represent a third
+high-contrast enum value.
+
+For a different design that deliberately defines separate Light/Dark keys, use
+`AppThemeBinding` with `DynamicResource` values — the
 nested `DynamicResource` stays live, so swapping the dictionary updates the value
 *and* the OS light/dark switch is still honoured:
 
@@ -346,6 +362,26 @@ Application.Current!.UserAppTheme = saved switch
     _       => AppTheme.Unspecified
 };
 ```
+
+Strings with a safe fallback are valid; a typed enum is an optional convenience.
+Whichever representation is used, centralize the choice-to-theme mapping so
+startup restore and the settings action apply the same policy.
+
+## Page-Owned Theme Event Subscriptions
+
+`RequestedThemeChanged` is an **instance event on Application**, not a static
+event. MAUI 10 implements it through a weak-event manager, so do not diagnose a
+strong-reference leak solely from that subscription. Still prevent duplicate
+callbacks on live pages: pair appearance with disappearance and reattach on reappearance.
+Read [event ownership](references/event-ownership.md) for the complete page
+implementation when the request concerns leaks, duplicate callbacks or
+subscription lifecycle.
+
+Use the exact captured publisher and handler for removal. Do not subscribe only
+in the constructor and unsubscribe on disappearance: a reappearing page would
+stop observing. Do not declare `IDisposable` without implementing `Dispose`, or
+assume MAUI automatically disposes a page. An application-lifetime theme service
+may instead own one subscription for its own lifetime.
 
 ## Common Pitfalls
 

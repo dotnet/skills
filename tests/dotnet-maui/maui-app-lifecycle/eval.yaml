@@ -193,7 +193,7 @@ stimuli:
   - type: exit-success
   - type: output-matches
     config:
-      pattern: (?i)(per.window|each window|per window)
+      pattern: (?i)(per.window|per\s+`window`|each (?:editor )?window|window['’]s (own|document|session)|window.scoped)
   - type: prompt
     config:
       evidence:
@@ -227,7 +227,7 @@ stimuli:
   - type: exit-success
   - type: output-matches
     config:
-      pattern: Deactivated
+      pattern: (?i)(Deactivated|temporar.{0,40}(interrupt|inactiv|focus).{0,100}(background|terminat))
   - type: prompt
     config:
       evidence:
@@ -259,7 +259,7 @@ stimuli:
   - type: exit-success
   - type: output-matches
     config:
-      pattern: (?i)(not|do not).*(grant|background|guarantee)
+      pattern: (?i)((?:not|do not).*(?:grant|background|guarantee)|(?:aren['’]t|isn['’]t|not) guaranteed to (?:complete|run)|(?:no|without) (?:guarantee|background.execution entitlement))
   - type: prompt
     config:
       evidence:

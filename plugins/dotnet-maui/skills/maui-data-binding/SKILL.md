@@ -79,10 +79,15 @@ required for NativeAOT / trimming. Enable them with `x:DataType`.
 
 ### Placement rules
 
-Set `x:DataType` **only where `BindingContext` is set**:
+Set `x:DataType` at the binding's actual type boundary:
 
 1. **Page / View root** — where you assign `BindingContext`.
 2. **DataTemplate** — which creates a new binding scope.
+3. **Explicit `Source` binding** — give that binding its source type without changing
+   the page's ViewModel type or runtime context.
+
+Keep one content root per `ContentPage`; put sibling controls inside a layout,
+not directly beside each other under the page.
 
 Do **not** scatter `x:DataType` on arbitrary child elements. Adding
 `x:DataType="x:Object"` on children to escape compiled bindings is an
@@ -94,7 +99,9 @@ anti-pattern — it disables compile-time checking and reintroduces reflection.
              x:DataType="vm:MainViewModel">
     <StackLayout>
         <Label Text="{Binding Title}" />
-        <Slider Value="{Binding Progress}" />
+        <Slider x:Name="progressSlider" Value="{Binding Progress}" />
+        <Label Text="{Binding Value, Source={x:Reference progressSlider},
+                              x:DataType={x:Type Slider}}" />
     </StackLayout>
 </ContentPage>
 

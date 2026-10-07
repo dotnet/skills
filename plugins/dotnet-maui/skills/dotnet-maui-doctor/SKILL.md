@@ -2,12 +2,13 @@
 name: dotnet-maui-doctor
 description: >-
   Use ONLY for .NET MAUI toolchain provisioning, build-tool failures or scoped
-  environment verification. Do not load for an app that builds and launches but
+  environment verification, or workload dependency discovery/automation. Do not
+  load for an app that builds and launches but
   throws in a button handler or ViewModel; debug that application code instead.
   Diagnose missing SDK/workloads,
   Android SDK not found, Java/JDK version or path errors, Xcode not found, and
   "A compatible .NET SDK was not found" with a MAUI global.json pin. Use for
-  MAUI setup plans, offline workload dependency/manifest discovery, supplied
+  MAUI setup plans, offline CI workload dependency/manifest scripts, supplied
   environment evidence review and scoped health checks after updates on
   macOS, Windows, or Linux. Respect project SDK
   pins, target frameworks, and diagnosis-only requests. Not for non-MAUI projects,
@@ -47,6 +48,9 @@ Diagnose the requested host and target, not every possible MAUI dependency.
    propose provisioning that exact SDK in CI; changing `version`, `rollForward`
    or `allowPrerelease` changes repository policy and needs an explicit upgrade
    decision. A newer installed feature band does not satisfy an exact pin.
+   If IDE and CLI resolution differ, compare their `dotnet` executable, PATH and
+   `DOTNET_ROOT` before changing versions; an outside-repository inventory alone
+   cannot settle that discrepancy.
 3. Select only relevant checks:
 
    | Target on host | Checks |
@@ -65,11 +69,21 @@ Diagnose the requested host and target, not every possible MAUI dependency.
    exact versions/package discovery is needed. Resolve manifest version **and its
    feature band**, which can differ from the selected SDK's band. Missing metadata
    is an uncertainty, not a license to query an unrelated latest release.
+   The manifest is a baseline, not an override of the project's compile API.
+   If the evaluated Android TFM compiles against API 36, platform 35 alone is
+   insufficient: provision `platforms;android-36` or use the project-aware
+   `InstallAndroidDependencies` target. Do not infer compile API from
+   `minSdkVersion` or `targetSdkVersion` alone, or assume build-tools must share
+   the platform's version number. .NET Android does not silently switch to a
+   lower installed compile platform as a Gradle fallback.
 5. For Java errors, use the supplied error and build-selected path first. Read
    `references/microsoft-openjdk.md` only for unresolved version/vendor questions.
    Microsoft OpenJDK is
    recommended and tested; a different vendor is not by itself a proven failure
-   or a blanket compatibility guarantee. Compare the actual build-selected
+   or a blanket compatibility guarantee. Without the selected workload's
+   requirements, leave JDK version compatibility unconfirmed rather than
+   endorsing a familiar Java major across current releases. Compare the actual
+   build-selected
    `JavaSdkDirectory`, JDK executables/version/architecture, `JAVA_HOME`, and PATH.
    Check `AndroidSdkDirectory` and selected SDK packages similarly.
 6. Load just the matching platform requirement or troubleshooting reference for
@@ -99,6 +113,8 @@ Keep small requests concise. Report:
 - **Validation:** what actually ran and its result; distinguish supplied evidence,
   static inspection, successful target build, and unverified plan. Never claim a
   healthy environment or working app from version strings or simulated fixtures.
+  A read-only shell command still ran: describe file inspection accurately,
+  rather than saying "no commands ran" when you used the shell to read evidence.
 
 Keep the decisive evidence in the answer: name the conflicting selected path or
 pin, rather than only listing places to search. If supplied configuration already

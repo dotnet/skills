@@ -39,39 +39,20 @@ license: MIT
 
 ## Scope Control — Answer Only What Was Asked
 
-This skill is a **reference you consult**, not a checklist you apply. Most requests
-need one or two sections from it. Pulling in the rest makes the answer worse.
+Answer only the requested capability, using the relevant sections below.
+Preserve working user code; do not rename, reorder or restructure it for style.
+Do not append unrequested grouping, swipe, empty-view, snap-point or performance
+features. `CarouselView` and `BindableLayout` have different contracts.
+Leave maintained `ListView` code alone unless migration/control choice is asked;
+then recommend `CollectionView` (see [migration](#migrating-from-listview)).
+For a binding, DI or navigation defect, use the corresponding sibling skill.
 
-**Stop conditions — do NOT act when:**
-
-- **The user asked a narrow question.** Answer that question only. Do not append
-  grouping, swipe actions, empty views, snap points, or performance tips that
-  were not asked about.
-- **The user's existing code already works.** Do not rewrite working markup to
-  match the examples here. Point out a concrete defect; if there is none, say so
-  and answer the question that was asked.
-- **The change is stylistic.** Renaming, reordering attributes, or restructuring
-  a template that already behaves correctly is churn, not a fix.
-- **The control isn't `CollectionView`.** `CarouselView`, `BindableLayout`, and
-  `ListView`-in-maintenance code have different rules. Do not rewrite `ListView`
-  code the user did not ask about — but if they ask *which* control to use, or are
-  migrating from Xamarin.Forms, recommend `CollectionView` (see
-  [Migrating from ListView](#migrating-from-listview)).
-- **The problem is really a binding, DI, or navigation problem** that happens to
-  involve a list — defer to `maui-data-binding`, `maui-dependency-injection`, or
-  `maui-shell-navigation`.
-
-**The API sections below are a reference, not a checklist — offer them only when
-relevant.** Four rules are non-negotiable, because violating them produces code that
-does not work or silently loses compile-time checking:
+Keep these correctness rules when writing a relevant CollectionView change:
 
 1. Never use `ViewCell` as a `DataTemplate` root in `CollectionView`.
 2. Use `ObservableCollection<T>` when the list mutates after first render.
-3. Mutate the bound collection on the UI thread.
+3. Update `ItemsSource` and mutate bound collections on the UI thread.
 4. Set `x:DataType` on every `DataTemplate` (and on the page root) for compiled bindings.
-
-Everything else — sizing strategy, snap points, header/footer, empty views — is
-optional and should be offered only when it addresses the user's actual problem.
 
 ## Inputs
 
@@ -229,6 +210,42 @@ For navigation on single selection, reset `SelectedItem` so the same item can be
 selected again after returning. Resetting also raises `SelectionChanged`: ignore
 empty `e.CurrentSelection`, and guard navigation already in flight.
 
+For an **MVVM** request, keep the `SelectedItem` binding and command rather than
+substituting a code-behind event. Resetting a notifying bound property works just
+as well for repeat selection. For example, in an existing partial
+`ObservableObject` ViewModel using CommunityToolkit.Mvvm:
+
+```xml
+<CollectionView SelectionMode="Single"
+                SelectedItem="{Binding CurrentItem, Mode=TwoWay}"
+                SelectionChangedCommand="{Binding OpenSelectedCommand}" />
+```
+
+```csharp
+[ObservableProperty] private Item? _currentItem;
+
+[RelayCommand]
+private async Task OpenSelectedAsync()
+{
+    var item = CurrentItem;
+    if (item is null)
+        return; // Reset also triggers SelectionChanged.
+    CurrentItem = null;
+    try
+    {
+        await Shell.Current.GoToAsync("details",
+            new ShellNavigationQueryParameters { ["item"] = item });
+    }
+    catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex); }
+}
+```
+
+The generated async command prevents concurrent execution by default; preserve
+that guard. Bind `RefreshView.IsRefreshing` and `RefreshView.Command` to the same
+ViewModel, with `IsRefreshing` set/reset around its refresh in `try/finally`.
+The event-based alternative below is for requests that permit code-behind, not
+a replacement for an explicitly requested selection binding.
+
 ```csharp
 bool _openingDetails;
 
@@ -328,6 +345,23 @@ you to touch.
 The missing separator API is the most common migration surprise: `CollectionView`
 has no built-in separators, so add one to the template yourself.
 
+Show the actual template conversion when migration is requested, not just a
+property-mapping table. Keep the bindings/content but remove the cell wrapper:
+
+```xml
+<!-- Existing ListView template -->
+<DataTemplate>
+    <ViewCell>
+        <Grid Padding="8"><Label Text="{Binding Name}" /></Grid>
+    </ViewCell>
+</DataTemplate>
+
+<!-- CollectionView.ItemTemplate; models points to the existing item namespace -->
+<DataTemplate x:DataType="models:Item">
+    <Grid Padding="8"><Label Text="{Binding Name}" /></Grid>
+</DataTemplate>
+```
+
 ## Performance Tips
 
 Apply these only when the user reports a performance problem or explicitly asks
@@ -371,23 +405,6 @@ about performance — they are not a default checklist.
   A `List<T>` is fine for a list that never changes after it is bound. Note that *replacing*
   `ItemsSource` re-renders everything regardless of the collection type — so mutate the bound
   collection in place rather than reassigning it.
-- **Update collections on the UI thread** — `MainThread.BeginInvokeOnMainThread(() => Items.Add(item))`.
-
-## Common Pitfalls
-
-| Issue | Fix |
-|---|---|
-| UI doesn't update when items change | Use `ObservableCollection<T>`, not `List<T>`. |
-| App crashes or blank items | **Never use `ViewCell`** — use `Grid`, `StackLayout`, or any `View` as template root. |
-| Items disappear or layout breaks | Always update `ItemsSource` and the collection on the **UI thread** (`MainThread.BeginInvokeOnMainThread`). |
-| Incremental loading fires endlessly | Constrain the control's height and guard overlap/exhaustion in the loading command; changing `ItemsLayout` alone is not a paging fix. |
-| EmptyView doesn't render correctly | Wrap custom empty views in `ContentView`. |
-| Poor scroll performance | Use `MeasureFirstItem` sizing strategy for uniform item sizes. |
-| `ItemSizingStrategy` doesn't compile | It is declared on `StructuredItemsView` — set it on `<CollectionView>`, not on `<LinearItemsLayout>` / `<GridItemsLayout>`. |
-| Items clipped or stretched | `MeasureFirstItem` assumes uniform item size. Use the default `MeasureAllItems` for variable-height items. |
-| Selected state not visible | Add `VisualState Name="Selected"` to the item template root element. |
-| Binding errors in SwipeView commands | Use `RelativeSource AncestorType` to reach the ViewModel from inside the item template. |
-
 ## Validation
 
 Before returning CollectionView markup you wrote or edited, confirm:

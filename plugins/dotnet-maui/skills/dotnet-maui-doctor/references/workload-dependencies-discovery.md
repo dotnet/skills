@@ -115,8 +115,11 @@ Do not invent `apiLevel`, `buildToolsVersion` or `cmdLineToolsVersion` fields if
 they are absent: derive them from the actual package IDs when needed.
 
 `androidsdk.packages` describes workload dependencies, not necessarily every
-project-specific API/package. Inspect evaluated project targets/overrides:
-an explicit higher Android target API may need an additional platform. The
+project-specific API/package. Inspect the evaluated compile API/Android TFM:
+an explicit higher compile API requires its matching `platforms;android-XX`,
+even if the workload baseline lists an older platform. Minimum/target runtime
+SDK policy is not the compile API, and build-tools need not have the same version
+number as the platform. Do not assume a Gradle-style fallback to any installed API. The
 authorized `InstallAndroidDependencies` target handles project-aware installation.
 For build-only CI avoid emulator images unless actually requested.
 

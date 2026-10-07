@@ -230,7 +230,11 @@ stimuli:
       - trajectory
   rubric:
   - Compiles the named-control binding against its actual source type without changing the unrelated invoice
-    context.
+    context. MauiEnableXamlCBindingWithSourceCompilation is a documented MAUI 9+ build option, not an
+    invented property; mentioning it is valid, but repeating already-correct project configuration is
+    not required.
+  - Complete page markup has one content root, which may be a layout containing multiple controls.
+    A valid binding fragment need not reproduce the entire page.
   - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
   golden_trajectory:
     inline:

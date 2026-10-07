@@ -217,7 +217,11 @@ activation, dependency failures, factory/direct-template/existing-content creati
 root-context sharing, explicit scope disposal, and scope validation failures.
 It also probes real EF Core 10 `AddDbContextFactory` registrations, context
 identity, captive dependency validation, and caller-owned factory disposal;
-it does not connect to a database or test database queries.
+it checks root-resolved disposable transient retention, scoped route/template
+provider selection, and awaiting worker completion before async scope disposal.
+It distinguishes MAUI's static `Microsoft.Maui.Storage.Preferences` API from
+a concrete application settings service registered as Singleton.
+It does not connect to a database or test database queries.
 This is **not** a device/UI-navigation or window-lifecycle test. The lack of an
 automatic per-window DI scope is grounded in the official scope contract below,
 not inferred from simulating windows.
@@ -249,6 +253,14 @@ Choose the operation boundary, not just a registration label:
 - **Transient context:** can fit a short-lived owner that disposes it, but a
   Singleton or cached root ViewModel capturing a transient context still retains
   that same context. Changing `AddScoped` to `AddTransient` alone may not fix it.
+
+A Singleton `Func<T>` that closes over the root provider only repeats root
+resolution. The root tracks disposable transient objects until root teardown,
+even when callers dispose them early, and scoped collaborators remain
+root-scoped (or resolution throws with scope validation). Prefer an EF context
+factory when only the context needs isolation; use an owned operation scope
+when the worker has a wider scoped/disposable graph. These are different
+ownership contracts, not interchangeable factory spellings.
 
 **Registration is not a consumer rewrite.** With the default Singleton factory,
 `AddDbContextFactory<TContext>` also registers `TContext` as Scoped for convenient
@@ -285,10 +297,28 @@ public sealed class SyncService(IServiceScopeFactory scopeFactory)
 ```
 
 Do not return a scoped dependency or start unawaited work that outlives this
-scope. A custom per-window scope also needs an owner that keeps it alive through
-the window lifetime, resolves that window's graph through its provider, and
-disposes it on teardown. Shell will not automatically switch to an arbitrary
-scope you created.
+scope.
+
+### Auditing an existing per-window scope
+
+Keep a working window-owned scope. Check the actual graph end-to-end:
+
+- Resolve the window's Shell/root Page and ViewModels from `scope.ServiceProvider`.
+  A root `IServiceProvider` injected into a Singleton, static/global resolver, or
+  cached factory can bypass it even when the window itself owns a scope.
+- Typed root templates and registered type routes use the provider reachable
+  through their MAUI context. Creating a scope does not attach it to Shell.
+  Check that navigation actually reaches the window's provider, or use an
+  explicit window-aware page factory/navigation owner that resolves from it.
+  A global route factory must not capture one window's scope for other windows.
+- Resolve the session twice within one window and assert identity; across
+  window scopes assert different instances. Include root content and pushed
+  pages, not just `CreateWindow`.
+- At the app's real window teardown boundary, stop new work, cancel/await
+  outstanding operations and async cleanup, then dispose the owned scope.
+  Merely starting asynchronous cleanup from a closing event and immediately
+  disposing the scope races the work. Don't let another window retain that
+  session; async disposables require awaited scope disposal.
 
 ## Startup resolution
 

@@ -5,7 +5,15 @@ Failure classification: the supplied judge evidence identified a content defect
 code can select the wrong SDK manifest"). The old eval also encoded unsupported
 vendor-failure assumptions and blanket command bans: that is coupled eval-design
 bias, not independent proof of correctness. Common-path inventory and mandatory
-reference discovery are scope/cost risks; actual runtime cost remains unmeasured.
+reference discovery are scope/cost risks; SDK usage counters are not invoice
+cost-neutrality evidence.
+
+Follow-up transcripts also exposed routing/spec ambiguity: the exact-SDK CI
+question did not establish a MAUI project, and neither skilled arm loaded Doctor.
+The prompt now identifies the application framework without relaxing the skill's
+non-MAUI boundary. The API override case explicitly identifies the compile TFM
+and workload support, rather than conflating compile API with runtime SDK policy.
+Manifest-only provisioning of an older platform is not a valid answer.
 
 The suite covers SDK selection, missing pins, JDK path disagreement, uncertain
 vendor claims, healthy no-op behavior, host/target limits, Apple version pairing,
@@ -48,6 +56,9 @@ It checks all golden responses, executes the offline resolver including changed
 and malformed inputs, compares the entire protected file set, and rejects five
 mutations (modified/deleted no-op inputs, wrong band, optional package inclusion,
 and pin rewrite). It never installs SDKs, workloads or JDKs and does not build MAUI.
+It also replays four equivalent answers through shipping Vally, reproduces their
+prior lexical false negatives, and rejects four missing-evidence mutations.
+These checks protect equivalent wording, not semantic correctness of every answer.
 All fixture files must be staged by the coordinator before the tracking gate passes.
 
 The golden patch supplies one valid implementation, not a required technique.
@@ -56,5 +67,5 @@ same deterministic contract. Prompt rubrics cover semantic restraint where a
 substring or command ban would wrongly reject valid advice.
 
 No fresh model execution or cross-family comparison is implied by these checks.
-Token/time/cost neutrality remains unmeasured until separately authorized model
-runs provide that evidence.
+Interpret separately collected official quality, activation and usage results
+before claiming improvement or token/time/cost neutrality.

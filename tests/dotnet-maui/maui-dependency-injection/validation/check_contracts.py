@@ -120,3 +120,54 @@ quality.errors.clear()
 quality.check_trajectory_output_graders(spec_name, stimuli[4], alternative, "alternative")
 assert not quality.errors, "\n".join(quality.errors)
 print("PASS: equivalent constructor-satisfaction wording accepted")
+
+route_alternative = (
+    "Yes. Shell's type route can construct an unregistered DetailsPage through DI, "
+    "resolving its registered DetailsViewModel and IProductService. If IProductService "
+    "is missing, page activation fails with a resolution exception. Page registration "
+    "is optional lifetime control."
+)
+template_alternative = (
+    "The DataTemplate(Func<object>) explicitly constructs the page and ViewModel, "
+    "so registrations and the test fake are never consulted. Use "
+    "new DataTemplate(() => services.GetRequiredService<DetailsPage>()). "
+    "Keep the dependency-taking constructors."
+)
+template_mutation = (
+    "The correct fix is new DataTemplate(() => new DetailsPage("
+    "new DetailsViewModel(new ProductService()))). This uses the registered test fake."
+)
+for index, label, text, passed in [
+    (1, "route-resolution", route_alternative, True),
+    (8, "template-resolution", template_alternative, True),
+    (8, "nested-manual-graph", template_mutation, False),
+    (8, "typed-xaml", 'Use ContentTemplate="{DataTemplate views:DetailsPage}" on initialized MAUI 10 ShellContent.', True),
+]:
+    alternative = copy.deepcopy(stimuli[index]["golden_trajectory"]["inline"])
+    alternative["steps"][-1]["message"] = text
+    quality.errors.clear()
+    quality.check_trajectory_output_graders(spec_name, stimuli[index], alternative, label)
+    if passed:
+        assert not quality.errors, (label, quality.errors)
+    else:
+        assert any("fails its grader" in error for error in quality.errors), (label, quality.errors)
+    print(f"PASS: activation contract: {label} {'accepted' if passed else 'rejected'}")
+
+root_resolution = (
+    "Neither: you don't need an empty constructor or a pushed route. "
+    "Typed ShellContent obtains the parent context's services, tries "
+    "GetService(typeof(DetailsPage)), and falls back to "
+    "ActivatorUtilities.CreateInstance, which resolves IProductService from DI. "
+    "Registering DetailsPage is optional lifetime control; leave the root tab alone."
+)
+for label, text, passed in [
+    ("resolution-wording", root_resolution, True),
+    ("unnecessary-constructor", "Add an empty constructor and replace the root tab with a pushed route.", False),
+    ("template-bypass", "Typed Shell templates never use DI. No empty constructor is needed; replace the root tab.", False),
+]:
+    alternative = copy.deepcopy(stimuli[4]["golden_trajectory"]["inline"])
+    alternative["steps"][-1]["message"] = text
+    quality.errors.clear()
+    quality.check_trajectory_output_graders(spec_name, stimuli[4], alternative, label)
+    assert bool(quality.errors) != passed, (label, quality.errors)
+    print(f"PASS: root workaround contract: {label} {'accepted' if passed else 'rejected'}")

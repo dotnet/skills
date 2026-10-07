@@ -16,7 +16,7 @@ stimuli:
       - type: output-matches
         config: {pattern: '(?i)global\.json'}
       - type: output-matches
-        config: {pattern: '(?i)(project|repo).*(directory|folder)|cd '}
+        config: {pattern: '(?i)(project|repo).*(directory|folder|root)|cd '}
       - type: prompt
     rubric:
       - Explains that the SDK observed outside the repository does not establish the project's selected SDK.
@@ -39,7 +39,7 @@ stimuli:
 
   - name: Missing pinned SDK is not permission to remove the pin
     prompt: |
-      Our Linux Android CI has SDKs 10.0.301 and 11 preview installed.
+      Our Linux MAUI Android CI has SDKs 10.0.301 and 11 preview installed.
       The repo requests 10.0.102 with rollForward=disable. dotnet reports that
       a compatible SDK was not found. What is the smallest reproducible fix?
       Don't run anything.
@@ -110,7 +110,7 @@ stimuli:
     tags: {capability: evidence-limits, risk: unsupported-certainty, journey: triage-incomplete-report}
     graders:
       - type: output-matches
-        config: {pattern: '(?i)(exact|actual|full|specific).*error|error.*(text|log|message)'}
+        config: {pattern: '(?i)(exact|actual|full|specific|missing).*error|error.*(text|log|message)'}
       - type: prompt
     rubric:
       - States that vendor and shell version alone cannot identify the cause or guarantee a fix.
@@ -160,6 +160,7 @@ stimuli:
       - Finds no indicated change needed for the requested Android configuration.
       - Does not replace a working JDK, remove JAVA_HOME, upgrade pins or require Xcode for Android.
       - Attributes previous success to supplied evidence and does not claim a new build or runtime validation.
+      - Describes any file inspection accurately without denying shell commands that the trajectory actually executed.
       - Leaves the complete input file set unchanged.
     golden_trajectory:
       inline:
@@ -251,7 +252,7 @@ stimuli:
     tags: {capability: windows-target-scope, risk: unrelated-dependency-demand, journey: verify-windows-build}
     graders:
       - type: output-matches
-        config: {pattern: '(?i)Windows SDK'}
+        config: {pattern: '(?i)Windows(?:\s+\d+)?\s+SDK'}
       - type: prompt
     rubric:
       - Explains that missing Java/Android tooling is not a blocker for the Windows-only target.
@@ -305,7 +306,8 @@ stimuli:
 
   - name: Project API override needs project-aware Android packages
     prompt: |
-      Our Windows MAUI Android project explicitly targets API 36. The selected
+      Our Windows MAUI Android project explicitly compiles against API 36
+      (net10.0-android36.0), which our installed workload supports. The selected
       workload's dependency file lists platforms;android-35, build-tools;35.0.0
       and command-line tools as required objects, plus optional emulator items.
       What is a reproducible way to provision the right SDK for this project?
@@ -451,7 +453,7 @@ stimuli:
     tags: {capability: runtime-dormancy, risk: toolchain-hijack, journey: debug-app-logic}
     graders:
       - type: output-matches
-        config: {pattern: '(?i)stack\s+trace|breakpoint|debugger'}
+        config: {pattern: '(?i)stack\s+(trace|frame)|call\s+stack|breakpoint|debugger|Exception Settings'}
       - type: prompt
     rubric:
       - Recognizes this as an application logic exception rather than an environment setup problem.

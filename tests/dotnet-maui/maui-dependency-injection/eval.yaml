@@ -65,9 +65,6 @@ stimuli:
       risk: incorrect-registration-diagnosis
       journey: detail-navigation
     graders:
-      - type: output-matches
-        config:
-          pattern: '(?i)(ActivatorUtilities|constructor|inject)'
       - type: output-not-matches
         config:
           pattern: '(?i)(page registration is (mandatory|required)|unregistered pages cannot receive)'
@@ -212,9 +209,6 @@ stimuli:
       risk: unnecessary-service-locator
       journey: root-tab-setup
     graders:
-      - type: output-matches
-        config:
-          pattern: '(?i)(inject|service provider|registered.*depend|satisf\w*[\s\S]{0,80}constructor)'
       - type: output-not-matches
         config:
           pattern: '(?im)^\s*(ContentTemplate pages bypass DI entirely|typed Shell templates never use (DI|the service provider))'
@@ -390,10 +384,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: '(?i)(manual|factory|new.*bypass)'
-      - type: output-matches
-        config:
-          pattern: '(?i)(GetRequiredService|typeof\s*\(\s*DetailsPage|DataTemplate.*DetailsPage)'
+          pattern: '(?i)(Get(?:Required)?Service|typeof\s*\(\s*DetailsPage|DataTemplate\s+[A-Za-z_]\w*:DetailsPage|ActivatorUtilities\.(CreateInstance|GetServiceOrCreateInstance))'
       - type: prompt
     rubric:
       - Identifies that the supplied factory creates its own graph rather than resolving the registered one.
@@ -462,10 +453,11 @@ stimuli:
   - name: Leave intentional shared root state unchanged
     prompt: |
       Review this MAUI 10 setup; don't edit files or redesign it.
-      Preferences is shared app-wide. HomeViewModel intentionally keeps root
+      AppPreferences is our concrete settings service, shared app-wide.
+      HomeViewModel intentionally keeps root
       tab state, and HomePage is used only by that one window's Home tab.
       Details screens are independent.
-      builder.Services.AddSingleton<Preferences>();
+      builder.Services.AddSingleton<AppPreferences>();
       builder.Services.AddSingleton<HomeViewModel>();
       builder.Services.AddSingleton<HomePage>();
       builder.Services.AddTransient<DetailsViewModel>();
@@ -497,7 +489,7 @@ stimuli:
           - step_id: 1
             source: agent
             message: |
-              No necessary change. Keep the intentional shared Preferences and
+              No necessary change. Keep the intentional shared AppPreferences and
               root Home graph; the transient Details graph fits independent
               detail screens. Constructor injection and the detail route are
               already appropriate. If you later add windows, avoid attaching

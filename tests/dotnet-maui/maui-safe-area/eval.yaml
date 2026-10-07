@@ -206,7 +206,7 @@ stimuli:
   - type: exit-success
   - type: output-matches
     config:
-      pattern: (?i)(parent|wrapper)
+      pattern: (?i)(parent|wrapper|wrapping layout|wrap.{0,80}(?:grid|layout)|outer (?:grid|layout)|(page|window).{0,15}root)
   - type: prompt
     config:
       evidence:
@@ -272,7 +272,7 @@ stimuli:
   - type: exit-success
   - type: output-matches
     config:
-      pattern: (?i)(runtime|safe.area)
+      pattern: (?i)(SafeAreaEdges|safe.area|runtime.{0,40}insets|insets.{0,40}runtime)
   - type: prompt
     config:
       evidence:

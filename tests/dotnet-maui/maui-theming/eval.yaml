@@ -167,7 +167,7 @@ stimuli:
   - type: exit-success
   - type: output-matches
     config:
-      pattern: (?i)(previous|reference)
+      pattern: (?i)(previous|reference|\.Remove\(\s*\w*(active|current|old)Theme\s*\)|\bis\s+LightTheme\s*\|\|\s*\w+\s+is\s+DarkTheme)
   - type: prompt
     config:
       evidence:
@@ -242,13 +242,16 @@ stimuli:
   - type: exit-success
   - type: output-matches
     config:
-      pattern: (?i)(unsubscribe|lifetime)
+      pattern: (?i)(unsubscrib\w*|lifetime|RequestedThemeChanged\s*-=)
   - type: prompt
     config:
       evidence:
       - trajectory
   rubric:
   - Keeps logging active for the current owner without duplicate callbacks or retaining obsolete pages.
+  - Does not falsely describe RequestedThemeChanged as static or infer a strong-reference leak from
+    the subscription alone; MAUI 10 uses an instance-owned weak-event manager. Cleanup still prevents
+    duplicate callbacks on live pages.
   - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
   golden_trajectory:
     inline:
@@ -424,8 +427,9 @@ stimuli:
       - trajectory
   rubric:
   - Recognizes the requested platform/control boundary and gives appropriate guidance.
-  - Treats the native app workflow as out of scope; does not apply its APIs, edit unrelated files, or
-    install tools.
+  - Treats MAUI app development as out of scope; does not apply MAUI APIs, edit unrelated files, or
+    install tools. Opening Windows Terminal's settings editor to edit its JSON is legitimate terminal
+    configuration, not a MAUI development workflow.
   golden_trajectory:
     inline:
       schema_version: ATIF-v1.2

@@ -1,5 +1,6 @@
 """Replay deterministic production graders and reject realistic broken results."""
 
+import copy
 import json
 import os
 from pathlib import Path
@@ -36,6 +37,63 @@ def assert_bad_discovery(workspace, mutation):
         run([sys.executable, "check_discovery.py"], cwd=workspace, success=False)
     finally:
         script.write_text(original)
+
+
+def check_output_variants(document):
+    cases = [
+        (
+            "Preserve project selection after a machine SDK upgrade", 1,
+            r"(?i)(project|repo).*(directory|folder)|cd ",
+            "From the repository root, inspect global.json and run dotnet --version "
+            "there; preserve the SDK/workload pins before diagnosing the build.",
+            "Inspect global.json, inventory the machine, then update workloads.",
+        ),
+        (
+            "Incomplete Java error does not establish vendor failure", 0,
+            r"(?i)(exact|actual|full|specific).*error|error.*(text|log|message)",
+            "The decisive evidence is the missing error and the JDK actually "
+            "selected by the build. A vendor switch alone does not establish a fix.",
+            "Temurin is incompatible; switch vendors and the build will work.",
+        ),
+        (
+            "Windows-only health check does not require Java", 0,
+            r"(?i)Windows SDK",
+            "Java and Android tooling are irrelevant. Check the selected SDK, "
+            "MAUI Windows components and Windows 10 SDK 10.0.19041.0.",
+            "Check the selected SDK and Java; nothing else is required.",
+        ),
+        (
+            "Runtime UI crash stays outside toolchain diagnosis", 0,
+            r"(?i)stack\s+trace|breakpoint|debugger",
+            "Enable Exception Settings for thrown NullReferenceException and "
+            "inspect the failing line, stack frame and locals. Debug application "
+            "code; do not repair a toolchain that builds and launches the app.",
+            "Repair the workloads and install a newer JDK to fix Save.",
+        ),
+    ]
+    spec = SUITE / ".output-variants.yaml"
+    try:
+        for index, (name, grader_index, old_pattern, equivalent, mutation) in enumerate(cases):
+            for label, output, old, succeeds in (
+                ("equivalent", equivalent, False, True),
+                ("old-false-negative", equivalent, True, False),
+                ("mutation", mutation, False, False),
+            ):
+                variant = copy.deepcopy(document)
+                stimulus = next(s for s in variant["stimuli"] if s["name"] == name)
+                stimulus["golden_trajectory"]["inline"]["steps"][-1]["message"] = output
+                if old:
+                    stimulus["graders"][grader_index]["config"]["pattern"] = old_pattern
+                spec.write_text(yaml.safe_dump(variant, sort_keys=False))
+                run([
+                    "node", "eng/evaluation-tools/vally.mjs", "oracle",
+                    "--eval-spec", str(spec), "--stimulus", name,
+                    "--workspace", str(WORK / f"output-{index}-{label}"),
+                ], success=succeeds)
+        print("PASS: 4 equivalent answers accepted, 4 prior false negatives reproduced, "
+              "and 4 missing-evidence mutations rejected")
+    finally:
+        spec.unlink(missing_ok=True)
 
 
 def main():
@@ -85,6 +143,7 @@ def main():
                 finally:
                     pin.write_text(original)
                 print("Rejected discovery mutations: wrong band, optional packages and pin rewrite")
+        check_output_variants(document)
         print(f"PASS: {count} deterministic golden trajectories and 5 behavioral mutations")
     finally:
         spec.unlink(missing_ok=True)

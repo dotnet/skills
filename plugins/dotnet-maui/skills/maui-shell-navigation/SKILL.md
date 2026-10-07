@@ -114,6 +114,12 @@ wrapper based only on a claimed extra native UI level.
 5. **Give every `ShellContent` an explicit `Route`** (see below)
 6. Register detail-page routes in the `AppShell` constructor
 
+For a stable full absolute URI, explicitly route **every level referenced by the
+URI**, including `FlyoutItem`/`Tab`. A title does not assign that route. Return
+the leading `//`, not only a slash-separated component path, when asked for an
+absolute Shell route. Check that the exact segments in `GoToAsync` exist in the
+markup you just supplied; preserve supplied fixture route names.
+
 Match the requested visible levels before adding wrappers. For one flyout entry
 with two **top** subtabs, use one `FlyoutItem`, one `Tab`, and two sibling
 `ShellContent` elements titled for the subtabs. Leave that grouping `Tab` untitled;
@@ -137,19 +143,19 @@ tab named after the flyout section unless the user requests that extra level.
        x:Class="MyApp.AppShell"
        FlyoutBehavior="Flyout">
 
-    <FlyoutItem Title="Animals" Icon="animals.png">
-        <Tab Title="Cats">
+    <FlyoutItem Title="Animals" Route="animals" Icon="animals.png">
+        <Tab Title="Cats" Route="cats">
             <ShellContent Title="Domestic" Route="domesticcats"
                           ContentTemplate="{DataTemplate views:DomesticCatsPage}" />
             <ShellContent Title="Wild" Route="wildcats"
                           ContentTemplate="{DataTemplate views:WildCatsPage}" />
         </Tab>
-        <Tab Title="Dogs" Icon="dogs.png">
+        <Tab Title="Dogs" Route="dogtab" Icon="dogs.png">
             <ShellContent Route="dogs" ContentTemplate="{DataTemplate views:DogsPage}" />
         </Tab>
     </FlyoutItem>
 
-    <TabBar>
+    <TabBar Route="main">
         <ShellContent Title="Home" Icon="home.png" Route="home"
                       ContentTemplate="{DataTemplate views:HomePage}" />
         <ShellContent Title="Settings" Icon="settings.png" Route="settings"
@@ -188,7 +194,7 @@ All programmatic navigation uses `Shell.Current.GoToAsync`. Always `await` the c
 
 ```csharp
 // 1. Absolute — switch to a specific hierarchy location
-await Shell.Current.GoToAsync("//animals/cats/domestic");
+await Shell.Current.GoToAsync("//animals/cats/domesticcats");
 
 // 2. Relative — push a registered detail page
 await Shell.Current.GoToAsync("animaldetails");
@@ -287,16 +293,39 @@ Use `GetDeferral()` in `OnNavigating` for async checks (e.g., "save unsaved chan
 protected override async void OnNavigating(ShellNavigatingEventArgs args)
 {
     base.OnNavigating(args);
-    if (hasUnsavedChanges && args.Source == ShellNavigationSource.Pop)
+    if (_checkingNavigation)
     {
-        var deferral = args.GetDeferral();
-        bool discard = await ShowConfirmationDialog();
-        if (!discard)
+        if (args.CanCancel)
             args.Cancel();
+        return;
+    }
+    if (!hasUnsavedChanges || args.Source != ShellNavigationSource.Pop || !args.CanCancel)
+        return;
+    var deferral = args.GetDeferral();
+    _checkingNavigation = true;
+    try
+    {
+        if (!await ShowConfirmationDialog())
+            args.Cancel();
+    }
+    catch (Exception ex)
+    {
+        args.Cancel();
+        System.Diagnostics.Debug.WriteLine(ex);
+    }
+    finally
+    {
         deferral.Complete();
+        _checkingNavigation = false;
     }
 }
 ```
+
+Declare `_checkingNavigation` as an instance `bool`. Always complete the deferral
+and clear the guard on success, cancellation and dialog failure. `OnNavigating`
+is `async void`: log/report a caught error and cancel safely rather than rethrowing
+an unhandled exception. Route initiating calls through the same in-flight policy;
+a second `GoToAsync` can be rejected by Shell before another callback is raised.
 
 ## Tab Configuration
 

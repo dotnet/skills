@@ -230,8 +230,8 @@ builder.ConfigureLifecycleEvents(events =>
 
 3. **No guaranteed final callback.** Back navigation can bypass `Stopped`, and process death can bypass both `Stopped` and `Destroying`. Save critical state during ordinary changes and reload it on cold start; lifecycle saves only supplement that policy.
 
-4. **Multi-window apps fire events independently.** On iPad, Mac Catalyst, and desktop Windows each `Window` instance fires its own lifecycle events. Do not assume a single global lifecycle.
+4. **Multi-window ownership is not service isolation.** Each window owns its document identity, edit state and subscriptions. A shared persistence service or event publisher is valid when operations identify the document and each window removes only its own exact handler/delegate. Do not demand separate stores/services or ban shared events. Make saves dirty-aware/idempotent rather than blindly writing twice when both `Stopped` and `Destroying` occur.
 
-5. **Long-running handlers cause kills.** Android enforces a ~5 second ANR timeout; iOS has limited background execution time. Keep lifecycle handlers synchronous and fast — use `Preferences` for quick saves, not database writes.
+5. **Lifecycle events confer no background-execution entitlement.** An awaited upload does not gain a guaranteed execution window by starting in `Stopped`. Do not apply a universal Android ANR deadline to asynchronous work or promise that Windows will simply keep running. Persist pending intent/checkpoints and retry idempotently. If execution while suspended is actually required, verify the target platform's supported transfer/job facility and its constraints; scheduling one still does not guarantee completion after force-stop, network failure or OS policy changes.
 
 6. **Do not use legacy Xamarin.Forms lifecycle methods.** `Application.OnStart()`, `Application.OnSleep()`, and `Application.OnResume()` exist for backward compatibility but bypass Window-level events. In .NET MAUI, prefer `Window` lifecycle events (`OnActivated`, `OnStopped`, `OnResumed`, etc.) for correct multi-window behavior.

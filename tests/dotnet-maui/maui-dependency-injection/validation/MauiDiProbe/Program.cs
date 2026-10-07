@@ -12,7 +12,11 @@ ProbeFactoryTemplate();
 ProbeDirectTemplate();
 ProbeExistingContent();
 ProbeLifetimes();
+ProbePreferencesTypes();
 await ProbeDbContextFactory();
+ProbeScopedShellProviders();
+ProbeRootResolvingFactory();
+await ProbeAsyncOperationScope();
 Console.WriteLine("PASS: real MAUI Controls template, route, cache, failure and DI lifetime probes");
 
 static ServiceProvider Services(bool registerPage)
@@ -182,6 +186,97 @@ static async Task ProbeDbContextFactory()
         == ServiceLifetime.Transient, "factory preserves existing context registration");
 }
 
+static void ProbePreferencesTypes()
+{
+    var frameworkType = typeof(Microsoft.Maui.Storage.Preferences);
+    Require(frameworkType.IsAbstract && frameworkType.IsSealed,
+        "framework Preferences is static, not an app service class");
+    using var services = new ServiceCollection().AddSingleton<AppPreferences>()
+        .BuildServiceProvider();
+    Require(ReferenceEquals(services.GetRequiredService<AppPreferences>(),
+        services.GetRequiredService<AppPreferences>()), "concrete AppPreferences singleton is valid");
+}
+
+static void ProbeScopedShellProviders()
+{
+    using var root = new ServiceCollection().AddScoped<DisposableWork>()
+        .BuildServiceProvider();
+    using var windowScope = root.CreateScope();
+    using var otherScope = root.CreateScope();
+    var expected = windowScope.ServiceProvider.GetRequiredService<DisposableWork>();
+    Require(!ReferenceEquals(expected, otherScope.ServiceProvider.GetRequiredService<DisposableWork>()),
+        "separate owned scopes isolate session");
+    var rootTemplate = Content(root, new DataTemplate(typeof(ScopedPage)));
+    var scopedTemplate = Content(windowScope.ServiceProvider, new DataTemplate(typeof(ScopedPage)));
+    Require(!ReferenceEquals(expected,
+        ((ScopedPage)((IShellContentController)rootTemplate).GetOrCreateContent()).Work),
+        "root template provider bypasses existing scope");
+    Require(ReferenceEquals(expected,
+        ((ScopedPage)((IShellContentController)scopedTemplate).GetOrCreateContent()).Work),
+        "scoped template provider supplies scoped session");
+    const string route = "probe-scoped-route";
+    Routing.RegisterRoute(route, typeof(ScopedPage));
+    try
+    {
+        Require(!ReferenceEquals(expected,
+            ((ScopedPage)Routing.GetOrCreateContent(route, root)).Work),
+            "root route provider bypasses existing scope");
+        Require(ReferenceEquals(expected,
+            ((ScopedPage)Routing.GetOrCreateContent(route, windowScope.ServiceProvider)).Work),
+            "scoped route provider supplies scoped session");
+    }
+    finally
+    {
+        Routing.UnRegisterRoute(route);
+    }
+}
+
+static void ProbeRootResolvingFactory()
+{
+    var registrations = new ServiceCollection().AddTransient<ProbeContext>();
+    registrations.AddDbContextFactory<ProbeContext>();
+    registrations.AddSingleton<Func<ProbeContext>>(sp => () => sp.GetRequiredService<ProbeContext>());
+    var root = registrations.BuildServiceProvider();
+    ProbeContext context;
+    try
+    {
+        context = root.GetRequiredService<Func<ProbeContext>>()();
+        context.Dispose();
+        Require(context.DisposeCount == 1, "caller disposes root-factory context");
+    }
+    finally
+    {
+        root.Dispose();
+    }
+    Require(context.DisposeCount == 2, "root retains disposable transient until teardown");
+
+    using var validating = new ServiceCollection().AddScoped<DisposableWork>()
+        .AddTransient<ScopedPage>()
+        .AddSingleton<Func<ScopedPage>>(sp => () => sp.GetRequiredService<ScopedPage>())
+        .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+    RequireThrows<InvalidOperationException>(
+        () => validating.GetRequiredService<Func<ScopedPage>>()(),
+        "root factory does not isolate scoped collaborators");
+}
+
+static async Task ProbeAsyncOperationScope()
+{
+    var registrations = new ServiceCollection().AddScoped<OperationWorker>();
+    registrations.AddDbContextFactory<ProbeContext>();
+    using var root = registrations.BuildServiceProvider(
+        new ServiceProviderOptions { ValidateScopes = true });
+    OperationWorker worker;
+    await using (var operation = root.CreateAsyncScope())
+    {
+        worker = operation.ServiceProvider.GetRequiredService<OperationWorker>();
+        Require(!worker.Context.Disposed, "operation context alive before work");
+        await worker.RunAsync();
+        Require(worker.Completed && !worker.Context.Disposed,
+            "awaited worker finishes before scope teardown");
+    }
+    Require(worker.Context.Disposed, "async operation scope owns graph disposal");
+}
+
 static void Require(bool condition, string name)
 {
     if (!condition)
@@ -197,6 +292,7 @@ static void RequireThrows<T>(Action action, string name) where T : Exception
 }
 
 public sealed class DataService;
+public sealed class AppPreferences;
 public sealed class CapturingWorker(ProbeContext context)
 {
     public ProbeContext Context { get; } = context;
@@ -204,16 +300,35 @@ public sealed class CapturingWorker(ProbeContext context)
 public sealed class ProbeContext(DbContextOptions<ProbeContext> options) : DbContext(options)
 {
     public bool Disposed { get; private set; }
+    public int DisposeCount { get; private set; }
     public override void Dispose()
     {
         Disposed = true;
+        DisposeCount++;
         base.Dispose();
     }
     public override ValueTask DisposeAsync()
     {
         Disposed = true;
+        DisposeCount++;
         return base.DisposeAsync();
     }
+}
+public sealed class OperationWorker(ProbeContext context)
+{
+    public ProbeContext Context { get; } = context;
+    public bool Completed { get; private set; }
+    public async Task RunAsync()
+    {
+        await Task.Yield();
+        if (Context.Disposed)
+            throw new InvalidOperationException("Operation context disposed before completion");
+        Completed = true;
+    }
+}
+public sealed class ScopedPage(DisposableWork work) : ContentPage
+{
+    public DisposableWork Work { get; } = work;
 }
 public sealed class InjectedPage(DataService data) : ContentPage
 {

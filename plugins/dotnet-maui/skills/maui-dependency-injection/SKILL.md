@@ -3,13 +3,16 @@ name: maui-dependency-injection
 description: >
   Configure or diagnose dependency injection in .NET MAUI — MauiProgram
   registration, lifetimes, constructor injection, Shell activation and startup
-  handler timing. Answer supplied-code advisory questions directly; inspect
+  handler timing. Use when service construction, registration or lifetime is
+  at issue, not a wrong binding path on an already-correct BindingContext.
+  Answer supplied-code advisory questions directly; inspect
   sources only for edits or unresolved version/project facts.
   USE FOR: "dependency injection", "DI setup", "AddSingleton", "AddTransient",
   "AddScoped", "service registration", "constructor injection", "IServiceProvider",
-  "MauiProgram DI", "register services", "BindingContext injection", "same
+  "MauiProgram DI", "register services", "same
   ViewModel after switching tabs", "retained DbContext", "singleton captures transient".
-  DO NOT USE FOR: ASP.NET Core request DI, data binding (use maui-data-binding),
+  DO NOT USE FOR: ASP.NET Core request DI, binding/property-name defects after
+  successful injection (use maui-data-binding),
   Shell route/query design without a DI issue (use maui-shell-navigation), unit-test mocking frameworks (use standard xUnit
   and NSubstitute patterns).
 license: MIT
@@ -30,7 +33,7 @@ paths for facts already covered here; disclose any uncertainty that matters.
 
 ## When Not to Use
 
-- XAML data-binding syntax or compiled bindings — use the **maui-data-binding** skill
+- XAML binding/property-path defects with an already-correct ViewModel and BindingContext, data-binding syntax or compiled bindings — use **maui-data-binding**, not a DI investigation
 - Shell route/query design without a DI issue — use the **maui-shell-navigation** skill
 - ASP.NET Core request-scoped DI — ordinary MAUI's missing scope boundary does not apply
 - Mocking frameworks or test runners — use standard .NET testing tools (xUnit, NUnit, MSTest) and mocking libraries (NSubstitute, Moq)
@@ -42,10 +45,10 @@ paths for facts already covered here; disclose any uncertainty that matters.
 | Registering a Page or ViewModel | Prefer `AddTransient` for independently created detail pages | Transient means fresh **per resolution**, not per tab selection. Shell can cache a root page. A Singleton is defensible for intentionally shared root state; do not attach the same Page instance to multiple parents/windows |
 | Registering shared/expensive state | `AddSingleton` | One instance app-wide (settings, DB connection, `HttpClient` handler) |
 | Tempted to use `AddScoped` | Decide who creates, resolves from, and disposes the scope | Ordinary non-Blazor MAUI has **no automatic DI scope per window or navigation**. Scoped instances resolved from the root are shared until root disposal (or resolution throws when scope validation is enabled) |
-| App already owns explicit per-window scopes | Preserve the scoped graph and teardown boundary | Resolve through that scope's provider; merely creating a scope does not switch Shell to it |
+| App already owns explicit per-window scopes | Preserve the graph; audit root/template/route resolution and teardown | Shell uses its MAUI context's provider, not an arbitrary new scope. Avoid root/static resolvers; cancel and await outstanding work before disposing the window scope |
 | Navigating to a detail page | Register its dependencies and `Routing.RegisterRoute`; optionally register the page to control lifetime | With a service provider, Shell's type route factory uses `ActivatorUtilities.GetServiceOrCreateInstance`: an unregistered page can still receive registered constructor dependencies |
 | Typed Shell `ContentTemplate` | Keep constructor injection; check the MAUI version and available context | MAUI 10's `ShellContent` looks up the page in DI, then falls back to `ActivatorUtilities.CreateInstance`. It does **not** universally bypass DI. Root content is cached; refresh on activation rather than expecting transient registration to recreate it |
-| Singleton captures a transient `DbContext` | Change the consumer to inject a factory and create/dispose a context per operation | Constructor injection resolves once when the Singleton is constructed. `AddDbContextFactory` also registers the context type (scoped by default); it does **not** prevent direct injection or repair an unchanged consumer |
+| Singleton captures a transient `DbContext` | Use `IDbContextFactory<TContext>` for EF-only work, or an owned operation scope for a complete dependency graph | Constructor injection resolves once. A root-resolving `Func<T>` is not a scope: it retains disposable transients and shares scoped collaborators. `AddDbContextFactory` also registers the context type; change the consumer too |
 | Intentional single-window Singleton root Page | Leave it alone; state the ownership assumption briefly | If another window/parent later needs that Page, create separate Page instances; sharing a ViewModel is a separate state decision |
 | Platform-specific implementation | `#if` per platform **with every platform covered** | A missing platform branch leaves the service unregistered and throws at resolution time |
 
@@ -54,9 +57,12 @@ lifetime, or add an interface purely for symmetry — only when the user asked o
 fixes a real defect.
 
 **Answer narrowly, but completely.** For a `DbContext` lifetime defect, explain
-root-scope behavior and show a suitable registration/ownership change. Compare
-short-lived contexts via `AddDbContextFactory`, a deliberately created/disposed
-scope, and transient contexts when relevant. Transient alone does not ensure
+root-scope behavior and show a suitable registration/ownership change. Choose
+`AddDbContextFactory` for context-only operations, or `CreateAsyncScope` and
+resolve the complete worker graph from its provider when collaborators need
+that boundary. Await the operation before disposing its context/scope; do not
+return a scoped object or start fire-and-forget work that escapes it.
+Transient alone does not ensure
 operation-level freshness if a long-lived ViewModel retains the context, nor is
 a `DbContext` safe for concurrent operations. With scope validation enabled,
 root resolution of scoped services throws instead of silently reusing them.
