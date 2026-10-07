@@ -258,6 +258,7 @@ public class BaselineStoreTests
         var withShellDenial = baseScenario with { DenyShell = true };
         var withRejectedAgent = baseScenario with { RejectAgents = ["owner"] };
         var withRejectedRetry = baseScenario with { RejectShellRetries = true };
+        var withAllowedShellCommand = baseScenario with { AllowShellCommands = ["node verify.mjs"] };
 
         var shaBase = BaselineStore.ComputeTargetSha(baseScenario, null);
 
@@ -269,6 +270,7 @@ public class BaselineStoreTests
         Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withShellDenial, null));
         Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withRejectedAgent, null));
         Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withRejectedRetry, null));
+        Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withAllowedShellCommand, null));
         Assert.AreEqual(shaBase, BaselineStore.ComputeTargetSha(baseScenario with { DenyShell = false }, null));
 
         // Same criteria → stable identity.

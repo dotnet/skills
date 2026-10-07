@@ -536,6 +536,118 @@ public class BuildSessionConfigTests
     }
 
     [TestMethod]
+    public async Task ExactScenarioShellCommandAllowsUnclassifiedRequest()
+    {
+        const string command = "node _acceptance/audit-lifecycle.mjs MyApp --json";
+        var config = await AgentRunner.BuildSessionConfig(
+            null,
+            null,
+            "gpt-4.1",
+            AgentRunner.GetEvaluationRoot(),
+            explicitlyAllowedShellCommands: [command]);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = " node   _acceptance/audit-lifecycle.mjs   MyApp   --json ",
+            HasWriteFileRedirection = false,
+            Intention = "Run the authenticated acceptance helper",
+            PossiblePaths = [],
+            PossibleUrls = [],
+            ToolCallId = "allowed-scenario-shell",
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.AreEqual("approve-once", decision.Kind);
+    }
+
+    [TestMethod]
+    public async Task ScenarioShellCommandAllowlistRequiresExactNormalizedCommand()
+    {
+        var config = await AgentRunner.BuildSessionConfig(
+            null,
+            null,
+            "gpt-4.1",
+            AgentRunner.GetEvaluationRoot(),
+            explicitlyAllowedShellCommands:
+            [
+                "node _acceptance/audit-lifecycle.mjs MyApp --json",
+            ]);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = "node _acceptance/audit-lifecycle.mjs /etc --json",
+            HasWriteFileRedirection = false,
+            Intention = "Alter the trusted command target",
+            PossiblePaths = [],
+            PossibleUrls = [],
+            ToolCallId = "changed-scenario-shell",
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.AreEqual("reject", decision.Kind);
+    }
+
+    [TestMethod]
+    public async Task ShellDenialOverridesScenarioCommandAllowlist()
+    {
+        const string command = "node _acceptance/audit-lifecycle.mjs MyApp --json";
+        var config = await AgentRunner.BuildSessionConfig(
+            null,
+            null,
+            "gpt-4.1",
+            AgentRunner.GetEvaluationRoot(),
+            denyShell: true,
+            explicitlyAllowedShellCommands: [command]);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = command,
+            HasWriteFileRedirection = false,
+            Intention = "Run the authenticated acceptance helper",
+            PossiblePaths = [],
+            PossibleUrls = [],
+            ToolCallId = "denied-scenario-shell",
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.AreEqual("reject", decision.Kind);
+    }
+
+    [TestMethod]
+    [DataRow("curl https://example.com")]
+    [DataRow("ln -s source target")]
+    public async Task ScenarioCommandAllowlistDoesNotOverrideSafetyDenials(string command)
+    {
+        var config = await AgentRunner.BuildSessionConfig(
+            null,
+            null,
+            "gpt-4.1",
+            AgentRunner.GetEvaluationRoot(),
+            explicitlyAllowedShellCommands: [command]);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = command,
+            HasWriteFileRedirection = false,
+            Intention = "Attempt to bypass a safety denial",
+            PossiblePaths = [],
+            PossibleUrls = [],
+            ToolCallId = "unsafe-scenario-shell",
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.AreEqual("reject", decision.Kind);
+    }
+
+    [TestMethod]
     public async Task ApprovedTypedShellPermissionPreservesRequestMetadataBeforeExecution()
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));

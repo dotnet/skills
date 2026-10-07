@@ -137,7 +137,8 @@ public static class EvalSchema
                 ExpectActivation: stimulus.ExpectActivation ?? true,
                 DenyShell: stimulus.DenyShell,
                 RejectAgents: stimulus.Constraints?.RejectAgents,
-                RejectShellRetries: stimulus.Constraints?.RejectShellRetries ?? false));
+                RejectShellRetries: stimulus.Constraints?.RejectShellRetries ?? false,
+                AllowShellCommands: stimulus.AllowShellCommands));
         }
 
         return scenarios.Count > 0 ? new EvalConfig(scenarios) : null;
@@ -266,7 +267,8 @@ public static class EvalSchema
             ExpectActivation: raw.ExpectActivation ?? true,
             DenyShell: raw.DenyShell,
             RejectAgents: raw.RejectAgents,
-            RejectShellRetries: raw.RejectShellRetries);
+            RejectShellRetries: raw.RejectShellRetries,
+            AllowShellCommands: raw.AllowShellCommands);
     }
 
     private static Assertion ParseAssertion(RawAssertion raw)
@@ -368,6 +370,7 @@ public static class EvalSchema
         public bool DenyShell { get; set; }
         public List<string>? RejectAgents { get; set; }
         public bool RejectShellRetries { get; set; }
+        public List<string>? AllowShellCommands { get; set; }
     }
 
     internal sealed class RawSetup
@@ -429,6 +432,7 @@ public static class EvalSchema
         public RawVallyConstraints? Constraints { get; set; }
         public bool? ExpectActivation { get; set; }
         public bool DenyShell { get; set; }
+        public List<string>? AllowShellCommands { get; set; }
     }
 
     internal sealed class RawVallyEnvironment

@@ -343,6 +343,25 @@ public class ParseEvalConfigTests
     }
 
     [TestMethod]
+    [DataRow("stimuli")]
+    [DataRow("scenarios")]
+    public void ParsesExactScenarioShellCommandAllowlist(string scenarioKey)
+    {
+        var config = EvalSchema.ParseEvalConfigFlexible($$"""
+            {{scenarioKey}}:
+              - name: Run trusted helper
+                prompt: Run the acceptance helper.
+                allow_shell_commands:
+                  - node _acceptance/audit-lifecycle.mjs MyApp --json
+            """);
+
+        Assert.IsNotNull(config);
+        Assert.AreSequenceEqual(
+            ["node _acceptance/audit-lifecycle.mjs MyApp --json"],
+            config.Scenarios[0].AllowShellCommands!);
+    }
+
+    [TestMethod]
     public async Task VallyRunCommandPreservesNestedQuotes()
     {
         var shellCommand = OperatingSystem.IsWindows()

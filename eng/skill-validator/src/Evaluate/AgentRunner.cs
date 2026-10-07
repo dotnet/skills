@@ -322,11 +322,26 @@ public static class AgentRunner
         if (string.IsNullOrWhiteSpace(command))
             return false;
 
-        var normalized = string.Join(
-            ' ',
-            command.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        var normalized = NormalizeShellCommand(command);
         return AllowedPathlessShellCommands.Contains(normalized);
     }
+
+    internal static bool IsExplicitlyAllowedShellCommand(
+        string? command,
+        IReadOnlyList<string>? allowedCommands)
+    {
+        if (string.IsNullOrWhiteSpace(command) || allowedCommands is not { Count: > 0 })
+            return false;
+
+        var normalized = NormalizeShellCommand(command);
+        return allowedCommands.Any(allowed =>
+            normalized.Equals(NormalizeShellCommand(allowed), StringComparison.Ordinal));
+    }
+
+    private static string NormalizeShellCommand(string command) =>
+        string.Join(
+            ' ',
+            command.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     internal static bool CheckPermissions(IEnumerable<string>? reqPaths, string workDir, string? skillPath, Action<string>? log, string? runLabel = null, string? pluginRoot = null, IReadOnlyList<string>? additionalAllowedDirs = null)
     {
@@ -341,7 +356,8 @@ public static class AgentRunner
         Action<string>? log,
         string? runLabel = null,
         string? pluginRoot = null,
-        IReadOnlyList<string>? additionalAllowedDirs = null)
+        IReadOnlyList<string>? additionalAllowedDirs = null,
+        IReadOnlyList<string>? explicitlyAllowedCommands = null)
     {
         var hasUrl = request.PossibleUrls is { Length: > 0 }
             || request.FullCommandText?.Contains("://", StringComparison.OrdinalIgnoreCase) == true;
@@ -360,7 +376,10 @@ public static class AgentRunner
         }
 
         if (request.PossiblePaths is not { Length: > 0 }
-            && !IsAllowedPathlessShellCommand(request.FullCommandText))
+            && !IsAllowedPathlessShellCommand(request.FullCommandText)
+            && !IsExplicitlyAllowedShellCommand(
+                request.FullCommandText,
+                explicitlyAllowedCommands))
         {
             var labelSuffix = runLabel is not null ? $" ({runLabel})" : "";
             log?.Invoke($"      ❌ Denying unclassified shell permission request{labelSuffix}");
@@ -502,7 +521,8 @@ public static class AgentRunner
         bool denyShell = false,
         Action<string?>? onShellDenied = null,
         bool selectAgentAsPrimary = false,
-        Func<PermissionRequest, Task>? beforePermissionDecision = null)
+        Func<PermissionRequest, Task>? beforePermissionDecision = null,
+        IReadOnlyList<string>? explicitlyAllowedShellCommands = null)
     {
         // Runtime guard: Skill and Agent are mutually exclusive targets.
         // (additionalSkills/additionalAgents are cross-dependencies and may co-exist with either target.)
@@ -741,7 +761,8 @@ public static class AgentRunner
                     runLabel,
                     additionalAllowedDirs,
                     sdkMcp,
-                    denyShell);
+                    denyShell,
+                    explicitlyAllowedShellCommands);
             },
             Hooks = new SessionHooks
             {
@@ -824,7 +845,8 @@ public static class AgentRunner
         string runLabel,
         IReadOnlyList<string> additionalAllowedDirs,
         IDictionary<string, McpServerConfig>? allowedMcpServers,
-        bool denyShell = false)
+        bool denyShell = false,
+        IReadOnlyList<string>? explicitlyAllowedShellCommands = null)
     {
         GitHub.Copilot.Rpc.PermissionDecision CheckPath(string? path)
         {
@@ -857,7 +879,8 @@ public static class AgentRunner
                 log,
                 runLabel,
                 pluginRoot: null,
-                additionalAllowedDirs)
+                additionalAllowedDirs,
+                explicitlyAllowedShellCommands)
                     ? GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce()
                     : GitHub.Copilot.Rpc.PermissionDecision.Reject(
                         "Path outside allowed directories, network access requested, or command not allowlisted"),
@@ -1020,7 +1043,8 @@ public static class AgentRunner
                             agentEvent.Data["sessionId"] = JsonValue.Create(requestingSessionId);
                         }),
                     selectAgentAsPrimary: options.SelectAgentAsPrimary,
-                    beforePermissionDecision: beforePermissionDecision));
+                    beforePermissionDecision: beforePermissionDecision,
+                    explicitlyAllowedShellCommands: options.Scenario.AllowShellCommands));
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;
