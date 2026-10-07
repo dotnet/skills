@@ -19,6 +19,8 @@ stimuli:
       recommend installing anything.
     environment:
       files:
+        - src: global.json
+          dest: global.json
         - src: fixtures/blazor-components
           dest: .
     graders:
@@ -119,6 +121,8 @@ stimuli:
       changing the returned shape.
     environment:
       files:
+        - src: global.json
+          dest: global.json
         - src: fixtures/ef-orders
           dest: .
     graders:
@@ -283,6 +287,8 @@ stimuli:
       rather than buffering the whole file.
     environment:
       files:
+        - src: global.json
+          dest: global.json
         - src: fixtures/aspnet-minimal
           dest: .
     graders:
