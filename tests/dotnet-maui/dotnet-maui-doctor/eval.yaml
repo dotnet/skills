@@ -84,7 +84,7 @@ stimuli:
       - type: prompt
     rubric:
       - Identifies the stale build-selected JDK path rather than declaring the shell JDK vendor the cause.
-      - Checks the intended directory contains compatible java and javac before recommending a scoped override.
+      - Proposes a compatible, usable JDK for the build rather than merely changing the interactive shell's Java selection.
       - Does not change global environment settings or claim a successful build.
     golden_trajectory:
       inline:
@@ -114,8 +114,8 @@ stimuli:
       - type: prompt
     rubric:
       - States that vendor and shell version alone cannot identify the cause or guarantee a fix.
-      - Requests the actionable error and actual build-selected JDK and workload requirements.
-      - Describes Microsoft OpenJDK as recommended and tested without asserting universal support or failure of other vendors.
+      - Identifies the missing evidence that prevents establishing the failing build's cause.
+      - Does not infer universal support, incompatibility or guaranteed remediation from a JDK vendor name.
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6
@@ -135,6 +135,7 @@ stimuli:
   - name: Working Android configuration stays unchanged
     prompt: |
       Please review the supplied MAUI Android configuration and evidence.
+      The files are in this workspace; inspect them before drawing conclusions.
       This is only a read-only consistency check: leave every supplied file and
       the machine alone. Do we need any changes before another Android build?
       The evidence is supplied text; don't try to recreate a toolchain here.
@@ -153,7 +154,7 @@ stimuli:
           expected_exit_code: 0
           stdout_contains: Complete input state preserved
       - type: output-matches
-        config: {pattern: '(?i)(no|not).*(change|remediat|install)|unchanged'}
+        config: {pattern: '(?i)(no|not).*(change|remediat|install)|unchanged|none\s+(is\s+)?(required|needed)|no\s+mismatch'}
       - type: prompt
     rubric:
       - Finds no indicated change needed for the requested Android configuration.
@@ -317,7 +318,7 @@ stimuli:
     rubric:
       - Accounts for API 36 from the project rather than treating the manifest baseline as the complete package list.
       - Offers a project-aware installation target or an equivalent correct explicit package plan under the selected workload.
-      - Uses absolute quoted paths and the project Android TFM when supplying commands, and does not accept licenses without approval.
+      - Supplies a plan applicable to the existing project and preserves the user's license-acceptance decision.
       - Does not require optional emulators for build-only provisioning or treat installation as a read-only query.
     golden_trajectory:
       inline:
@@ -365,7 +366,7 @@ stimuli:
           stdout_contains: 'Offline discovery passed: exact band, required packages, variants and missing metadata'
       - type: prompt
         config:
-          evidence: [trajectory, diff, golden_patch]
+          evidence: [trajectory, diff]
     rubric:
       - Resolves both manifest version and band from the workload entry, never substituting the SDK feature band.
       - Reads real dependency-object shapes and excludes optional emulator/system-image packages for build-only discovery.
@@ -454,7 +455,7 @@ stimuli:
       - type: prompt
     rubric:
       - Recognizes this as an application logic exception rather than an environment setup problem.
-      - Recommends inspecting the stack trace and null state in the Save path.
+      - Helps isolate the failing application state without redirecting to unrelated toolchain remediation.
       - Does not perform a toolchain inventory, reinstall workloads or change JDKs.
     golden_trajectory:
       inline:

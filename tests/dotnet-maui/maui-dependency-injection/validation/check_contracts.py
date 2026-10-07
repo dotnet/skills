@@ -107,3 +107,16 @@ for index, text in alternatives.items():
     print(f"PASS: valid alternative accepted: {stimulus['name']}")
 
 print("PASS: all 13 golden responses and all 13 realistic mutations")
+
+root_alternative = (
+    "No, neither an empty constructor nor a replacement route is required. "
+    "Typed ShellContent first tries GetService(typeof(DetailsPage)), then "
+    "ActivatorUtilities.CreateInstance, which satisfies constructor parameters "
+    "from DI even though the page itself is not registered."
+)
+alternative = copy.deepcopy(stimuli[4]["golden_trajectory"]["inline"])
+alternative["steps"][-1]["message"] = root_alternative
+quality.errors.clear()
+quality.check_trajectory_output_graders(spec_name, stimuli[4], alternative, "alternative")
+assert not quality.errors, "\n".join(quality.errors)
+print("PASS: equivalent constructor-satisfaction wording accepted")

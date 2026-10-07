@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Maui;
 using Microsoft.Maui.Controls;
 
@@ -11,6 +12,7 @@ ProbeFactoryTemplate();
 ProbeDirectTemplate();
 ProbeExistingContent();
 ProbeLifetimes();
+await ProbeDbContextFactory();
 Console.WriteLine("PASS: real MAUI Controls template, route, cache, failure and DI lifetime probes");
 
 static ServiceProvider Services(bool registerPage)
@@ -135,6 +137,51 @@ static void ProbeLifetimes()
         () => validating.GetRequiredService<DisposableWork>(), "validated root resolution");
 }
 
+static async Task ProbeDbContextFactory()
+{
+    var registrations = new ServiceCollection();
+    registrations.AddDbContextFactory<ProbeContext>();
+    Require(registrations.Single(s => s.ServiceType == typeof(ProbeContext)).Lifetime
+        == ServiceLifetime.Scoped, "factory also registers context as scoped");
+    ProbeContext first;
+    ProbeContext second;
+    using (var services = registrations.BuildServiceProvider(
+        new ServiceProviderOptions { ValidateScopes = true }))
+    {
+        RequireThrows<InvalidOperationException>(
+            () => services.GetRequiredService<ProbeContext>(), "factory direct root context validation");
+        var factory = services.GetRequiredService<IDbContextFactory<ProbeContext>>();
+        first = await factory.CreateDbContextAsync();
+        second = await factory.CreateDbContextAsync();
+        Require(!ReferenceEquals(first, second), "factory creates independent operation contexts");
+        ProbeContext direct;
+        using (var scope = services.CreateScope())
+        {
+            direct = scope.ServiceProvider.GetRequiredService<ProbeContext>();
+            Require(ReferenceEquals(direct, scope.ServiceProvider.GetRequiredService<ProbeContext>()),
+                "direct context resolution remains scoped");
+        }
+        Require(direct.Disposed, "scope owns direct context disposal");
+    }
+    Require(!first.Disposed && !second.Disposed, "provider does not own factory context disposal");
+    await first.DisposeAsync();
+    await second.DisposeAsync();
+    Require(first.Disposed && second.Disposed, "caller disposes factory contexts");
+
+    var captive = new ServiceCollection();
+    captive.AddDbContextFactory<ProbeContext>();
+    captive.AddSingleton<CapturingWorker>();
+    using var validating = captive.BuildServiceProvider(
+        new ServiceProviderOptions { ValidateScopes = true });
+    RequireThrows<InvalidOperationException>(
+        () => validating.GetRequiredService<CapturingWorker>(), "factory does not repair direct singleton capture");
+
+    var existing = new ServiceCollection().AddTransient<ProbeContext>();
+    existing.AddDbContextFactory<ProbeContext>();
+    Require(existing.Single(s => s.ServiceType == typeof(ProbeContext)).Lifetime
+        == ServiceLifetime.Transient, "factory preserves existing context registration");
+}
+
 static void Require(bool condition, string name)
 {
     if (!condition)
@@ -150,6 +197,24 @@ static void RequireThrows<T>(Action action, string name) where T : Exception
 }
 
 public sealed class DataService;
+public sealed class CapturingWorker(ProbeContext context)
+{
+    public ProbeContext Context { get; } = context;
+}
+public sealed class ProbeContext(DbContextOptions<ProbeContext> options) : DbContext(options)
+{
+    public bool Disposed { get; private set; }
+    public override void Dispose()
+    {
+        Disposed = true;
+        base.Dispose();
+    }
+    public override ValueTask DisposeAsync()
+    {
+        Disposed = true;
+        return base.DisposeAsync();
+    }
+}
 public sealed class InjectedPage(DataService data) : ContentPage
 {
     public DataService Data { get; } = data;

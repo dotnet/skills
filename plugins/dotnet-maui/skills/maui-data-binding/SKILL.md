@@ -7,9 +7,10 @@ description: >-
   USE FOR: setting up compiled bindings with x:DataType, implementing
   INotifyPropertyChanged or CommunityToolkit ObservableObject, creating
   IValueConverter / IMultiValueConverter, choosing binding modes, configuring
-  BindingContext, relative bindings, binding fallbacks, StringFormat,
+  BindingContext, DataTemplate x:DataType mismatches (including CollectionView),
+  relative bindings, binding fallbacks, StringFormat,
   code-behind SetBinding with lambdas, and enforcing XC0022/XC0025 warnings.
-  DO NOT USE FOR: CollectionView item templates and layouts (use
+  DO NOT USE FOR: CollectionView layout, selection, or paging features (use
   maui-collectionview), Shell navigation data passing (use
   maui-shell-navigation), dependency injection (use maui-dependency-injection),
   or animations triggered by property changes (use .NET MAUI animation APIs).
@@ -35,7 +36,7 @@ and treat binding warnings as build errors.
 
 ## When Not to Use
 
-- **CollectionView layouts / templates** — use the `maui-collectionview` skill
+- **CollectionView layout, selection, paging or template design** — use the `maui-collectionview` skill. Binding-path / `x:DataType` defects inside templates still belong here.
 - **Shell navigation parameters** — use the `maui-shell-navigation` skill
 - **Service registration / DI** — use the `maui-dependency-injection` skill
 - **Property-change-triggered animations** — use built-in [.NET MAUI animation APIs](https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic)
@@ -56,6 +57,7 @@ and "it actually updates the UI".
 | Deciding where `x:DataType` goes | Put it wherever a binding scope starts — the page/view root, and **each** `DataTemplate` | Scattering it on arbitrary children that share the parent's `BindingContext` |
 | A binding falls back to reflection (XC0022 / XC0023) | Add the right `x:DataType` for that binding scope; for XC0023 remove the explicit `x:DataType="{x:Null}"` | `x:DataType="x:Object"` to silence it — this disables compile-time checking |
 | A `DataTemplate` inherits `x:DataType` from an outer scope (XC0024) | Give the `DataTemplate` its **own** `x:DataType` | Leaving it to resolve against the wrong type |
+| A child changes `BindingContext` | Redeclare `x:DataType` for the new runtime context; include its namespace | Claiming `BindingContext` reassignment resets the inherited `x:DataType` automatically |
 | ViewModel change notification | `ObservableObject` + `[ObservableProperty]`, or implement `INotifyPropertyChanged` | A plain POCO base class — bindings will never update |
 | Bindings show blank | Check `BindingContext` is actually set | Assuming the binding path is wrong |
 | Enforcing compiled bindings | Set `MauiEnableXamlCBindingWithSourceCompilation` to `true`, **then** `<WarningsAsErrors>XC0022;XC0025</WarningsAsErrors>` | Promoting `XC0025` without the switch if the project uses `Source=` / `RelativeSource` bindings |
@@ -63,6 +65,10 @@ and "it actually updates the UI".
 **Do not** restructure a ViewModel or add a converter that the user did not ask for
 and that fixes no real defect. Adding `x:DataType` is different: when you are
 already editing a page's bindings, recommending compiled bindings is in scope.
+
+For supplied-code reviews, preserve an already-passing implementation and report
+what the checks actually cover. A platform-neutral build/contract does not prove
+XAML compilation, native rendering or device behavior.
 
 ---
 
@@ -183,6 +189,15 @@ already have the correct default:
 
 Every `BindableObject` inherits `BindingContext` from its parent unless
 explicitly set. Property paths support dot notation and indexers:
+
+`x:DataType` is inherited XAML compilation metadata, independent of the runtime
+`BindingContext`. It remains inherited even when a child explicitly changes its
+context. Redeclare it on that child for the new type and on every `DataTemplate`.
+On current MAUI, a child's `BindingContext="{Binding SelectedAddress}"` can be
+compiled against the parent's type while its other bindings use the child's
+declared type; older versions may need an explicit binding-level `x:DataType`.
+Changing `BindingContext` normally rebinds descendants; it does not leave them
+permanently attached to the previous ViewModel.
 
 ```xml
 <Label Text="{Binding Address.City}" />
@@ -390,16 +405,20 @@ entry.SetBinding(Entry.TextProperty,
 
 ## Threading
 
-MAUI automatically marshals `PropertyChanged` to the UI thread — you can raise
-it from any thread. **However**, direct `ObservableCollection` mutations
-(Add / Remove) from background threads may crash:
+MAUI's binding pipeline can dispatch property-change updates, but this is not a
+promise that the setter or every `PropertyChanged` subscriber executes on the UI
+thread. Keep background work separate from UI-bound state publication. Direct
+control access and bound `ObservableCollection` mutations must use the UI thread.
+Keep a typed ViewModel reference rather than recovering ownership by casting a
+page's `BindingContext`:
 
 ```csharp
-// ✅ Safe — PropertyChanged is auto-marshalled
-await Task.Run(() => Title = "Loaded");
-
-// ⚠️ ObservableCollection.Add — dispatch to UI thread
-MainThread.BeginInvokeOnMainThread(() => Items.Add(newItem));
+var result = await service.LoadAsync().ConfigureAwait(false);
+await MainThread.InvokeOnMainThreadAsync(() =>
+{
+    viewModel.Title = result.Title; // Setter raises PropertyChanged.
+    viewModel.Items.Add(result.Item);
+});
 ```
 
 ---

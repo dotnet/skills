@@ -1,12 +1,17 @@
 ---
 name: dotnet-maui-doctor
 description: >-
-  Diagnose .NET MAUI toolchain setup and build failures: missing SDK/workloads,
+  Use ONLY for .NET MAUI toolchain provisioning, build-tool failures or scoped
+  environment verification. Do not load for an app that builds and launches but
+  throws in a button handler or ViewModel; debug that application code instead.
+  Diagnose missing SDK/workloads,
   Android SDK not found, Java/JDK version or path errors, Xcode not found, and
-  environment verification after updates. Use for MAUI setup plans and scoped
-  environment health checks on macOS, Windows, or Linux. Respect project SDK
+  "A compatible .NET SDK was not found" with a MAUI global.json pin. Use for
+  MAUI setup plans, offline workload dependency/manifest discovery, supplied
+  environment evidence review and scoped health checks after updates on
+  macOS, Windows, or Linux. Respect project SDK
   pins, target frameworks, and diagnosis-only requests. Not for non-MAUI projects,
-  Xamarin.Forms, runtime app crashes, UI code, or app-store signing/publishing.
+  Xamarin.Forms, UI implementation, or app-store signing/publishing.
 license: MIT
 ---
 
@@ -18,6 +23,8 @@ Diagnose the requested host and target, not every possible MAUI dependency.
 
 - Advice-only or supplied-log questions: answer from the evidence; do not run a
   machine inventory, download packages, or create a sample project.
+- Supplied files are evidence too: inspect relevant workspace files before asking
+  the user to paste them. Reading a supplied report is not a toolchain inventory.
 - With shell access, use read-only inspection first. SDK/workload/JDK installs,
   license acceptance, Xcode selection, persistent environment changes, restore,
   builds, and deployment are separate actions requiring the user's authorization.
@@ -36,7 +43,10 @@ Diagnose the requested host and target, not every possible MAUI dependency.
    `dotnet workload list` when relevant. Check SDK `version`, `rollForward`,
    `allowPrerelease`, and `workloadVersion`; installed SDKs alone do not establish
    which SDK the project resolves. A missing pinned SDK is a selection problem,
-   not evidence that the pin should be removed.
+   not evidence that the pin should be removed. With `rollForward: disable`,
+   propose provisioning that exact SDK in CI; changing `version`, `rollForward`
+   or `allowPrerelease` changes repository policy and needs an explicit upgrade
+   decision. A newer installed feature band does not satisfy an exact pin.
 3. Select only relevant checks:
 
    | Target on host | Checks |
@@ -55,7 +65,9 @@ Diagnose the requested host and target, not every possible MAUI dependency.
    exact versions/package discovery is needed. Resolve manifest version **and its
    feature band**, which can differ from the selected SDK's band. Missing metadata
    is an uncertainty, not a license to query an unrelated latest release.
-5. For Java errors, read `references/microsoft-openjdk.md`. Microsoft OpenJDK is
+5. For Java errors, use the supplied error and build-selected path first. Read
+   `references/microsoft-openjdk.md` only for unresolved version/vendor questions.
+   Microsoft OpenJDK is
    recommended and tested; a different vendor is not by itself a proven failure
    or a blanket compatibility guarantee. Compare the actual build-selected
    `JavaSdkDirectory`, JDK executables/version/architecture, `JAVA_HOME`, and PATH.
@@ -87,6 +99,10 @@ Keep small requests concise. Report:
 - **Validation:** what actually ran and its result; distinguish supplied evidence,
   static inspection, successful target build, and unverified plan. Never claim a
   healthy environment or working app from version strings or simulated fixtures.
+
+Keep the decisive evidence in the answer: name the conflicting selected path or
+pin, rather than only listing places to search. If supplied configuration already
+satisfies the requested target, explicitly state that no change is indicated.
 
 Official guidance: [.NET MAUI installation](https://learn.microsoft.com/dotnet/maui/get-started/installation),
 [Android dependencies](https://learn.microsoft.com/dotnet/android/getting-started/installation/dependencies),

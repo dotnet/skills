@@ -49,7 +49,7 @@ whenever they are relevant to what the user asked.
 |---|---|---|
 | Declaring pages in `AppShell.xaml` | With `xmlns:views="clr-namespace:MyApp.Views"` declared: `<ShellContent ContentTemplate="{DataTemplate views:MyPage}" />` — the page is created on first navigation | `<ShellContent><views:MyPage /></ShellContent>`, which constructs **every** page at startup |
 | Navigating to a page not in the visual hierarchy | `Routing.RegisterRoute("details", typeof(DetailsPage))` first | Calling `GoToAsync("details")` unregistered — it throws at runtime |
-| Receiving navigation parameters | Implement `IQueryAttributable` on the **ViewModel** | Implementing it on the Page, which splits state from the BindingContext |
+| Receiving navigation parameters | Prefer `IQueryAttributable` on the **ViewModel**; Page is also valid when it owns the state | Reflection-based `[QueryProperty]` in a full-trim / NativeAOT build |
 | Passing a whole object | `ShellNavigationQueryParameters` | Serialising the object into the query string |
 | Any `GoToAsync` call | `await` it | Fire-and-forget — exceptions are swallowed and navigation races |
 | Confirming before back navigation | `ShellNavigatingEventArgs.GetDeferral()` … `deferral.Complete()` | Blocking synchronously on the dialog task |
@@ -57,6 +57,10 @@ whenever they are relevant to what the user asked.
 
 **Do not** propose `NavigationPage` / `PushAsync` solutions for a Shell app, and do
 not restructure a working `AppShell` hierarchy unless the user asked.
+
+For supplied-code checks, leave a passing source set unchanged and report the
+validation limits explicitly: package/object-model checks do not execute native
+navigation, XAML rendering or device handlers.
 
 **Answer narrowly, but completely.** Staying on topic does not mean being terse. When
 you show a navigation change, include the pieces needed to run it: the `AppShell.xaml`
@@ -94,6 +98,13 @@ You can omit intermediate wrappers. Shell auto-wraps:
 | `Tab` only                   | `FlyoutItem > Tab`                    |
 | `ShellContent` in `TabBar`   | `TabBar > Tab > ShellContent`         |
 
+Explicit and implicit wrappers are both valid. A single explicit `Tab` around a
+single `ShellContent` does not by itself force a visible tab bar. In MAUI 10,
+the controller normally hides the bar for one section unless visibility is
+overridden; Windows also considers nested contents. `FlyoutDisplayOptions`
+controls flyout presentation, not tab-bar visibility. Do not remove a working
+wrapper based only on a claimed extra native UI level.
+
 ## Workflow: Set Up AppShell
 
 1. Define `AppShell.xaml` inheriting from `Shell`
@@ -105,7 +116,8 @@ You can omit intermediate wrappers. Shell auto-wraps:
 
 Match the requested visible levels before adding wrappers. For one flyout entry
 with two **top** subtabs, use one `FlyoutItem`, one `Tab`, and two sibling
-`ShellContent` elements titled for the subtabs. For two **bottom** tabs, use two
+`ShellContent` elements titled for the subtabs. Leave that grouping `Tab` untitled;
+do not repeat the flyout title as another visible navigation label. For two **bottom** tabs, use two
 sibling `Tab` elements, each containing its page. Do not add a visible intermediate
 tab named after the flyout section unless the user requests that extra level.
 
@@ -217,6 +229,10 @@ Apply on the **ViewModel** class (or the page, if it genuinely owns the state).
 Prefer `IQueryAttributable` on the ViewModel — it keeps navigation state with the
 `BindingContext` and handles multiple parameters in one call:
 
+`QueryPropertyAttribute` is reflection-based and is **not** trim-safe for full
+trimming or NativeAOT. Use `IQueryAttributable` for those deployments; do not claim
+the attribute gets a generated reflection-free setter.
+
 ```csharp
 [QueryProperty(nameof(AnimalId), "id")]
 public partial class AnimalDetailsViewModel : ObservableObject
@@ -250,6 +266,17 @@ public void ApplyQueryAttributes(IDictionary<string, object> query)
     Animal = query["animal"] as Animal;
 }
 ```
+
+`ShellNavigationQueryParameters` is a single-use transfer: Shell clears it after
+navigation. In contrast, an ordinary `IDictionary<string, object>` can retain
+values for the lifetime of the destination page and resend them on back
+navigation; clear consumed values when that retention is unwanted.
+
+Clearing either dictionary does **not** release references you saved elsewhere.
+If the object must not remain on the destination's back-stack entry, copy only
+the needed scalar values (with notifying setters), or retain an ID and reload;
+do not assign the entire object to a long-lived ViewModel field. Avoid clearing
+all query keys when another receiver still needs them.
 
 ## Workflow: Guard Navigation
 
@@ -383,7 +410,7 @@ protected override void OnNavigated(ShellNavigatedEventArgs args)
 - **Duplicate route names**: `Routing.RegisterRoute` throws `ArgumentException` if a route name matches an existing route or a visual hierarchy route. Every route must be unique across the app.
 - **Relative routes without registration**: You cannot `GoToAsync("somepage")` unless `somepage` was registered with `Routing.RegisterRoute`. Visual hierarchy pages use absolute `//` routes.
 - **Fire-and-forget GoToAsync**: Not awaiting `GoToAsync` causes race conditions and silent failures. Always `await` the call.
-- **Wrong absolute route path**: Absolute routes must match the full path through the visual hierarchy (`//FlyoutItem/Tab/ShellContent`). Wrong paths produce silent no-ops, not exceptions.
+- **Wrong absolute route path**: Absolute routes select the visual hierarchy; global/detail routes registered with `Routing.RegisterRoute` are pushed relatively. A non-existent route can throw `ArgumentException`, and `//globalRoute` is unsupported on MAUI 10. Do not describe either as a guaranteed silent no-op.
 - **Manipulating Tab.Stack directly**: The navigation stack is read-only. Use `GoToAsync` for all navigation changes.
 - **Forgetting `GetDeferral()` for async guards**: Synchronous cancellation in `OnNavigating` works, but async checks require `GetDeferral()` / `deferral.Complete()` to avoid race conditions.
 

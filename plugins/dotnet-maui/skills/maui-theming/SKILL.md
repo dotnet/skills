@@ -48,7 +48,7 @@ Apply light/dark mode support, custom branded themes, and runtime theme switchin
 5. Add system theme detection via `Application.Current.RequestedTheme` and the `RequestedThemeChanged` event.
 6. Implement user preference persistence with `Preferences.Set` / `Preferences.Get` and apply on startup.
 7. Verify Android `ConfigChanges.UiMode` is set on `MainActivity` to avoid activity restarts on theme change.
-8. Test both light and dark themes on at least one target platform, confirming all UI elements respond correctly.
+8. Run available checks and distinguish their scope. Only claim native light/dark rendering or device validation when actually exercised; package/object-model checks do not certify it.
 
 ## Rules That Change the Answer
 
@@ -73,6 +73,12 @@ didn't raise.
 **Do not** replace a working `AppThemeBinding` setup with ResourceDictionary
 swapping (or vice versa) unless the user needs what the other approach provides —
 more than two themes, or a user-selectable theme.
+
+Keep the theme tracker at application lifetime, not on a disposable settings
+page: reopening that page must still remove the theme added by the previous
+instance. Expose a shared instance method callable both at startup and by
+settings. For stored choices, use a switch with a System fallback (or validated
+`Enum.TryParse`); `Enum.Parse` can throw on stale/malformed preferences.
 
 ## Choosing an Approach
 
@@ -220,28 +226,45 @@ Use `DynamicResource` so values update when the dictionary is swapped at runtime
 
 Remove only the theme you added, and leave everything else alone:
 
-Keep the tracking field and switching method on the same owner with consistent
-instance/static scope. Prefer an instance-owned service for an application;
-a static method cannot access an instance field. Provide the containing class
-when the user needs copy-pasteable code, not just disconnected members.
+Keep the tracking field and switching method on the same application-lifetime
+owner with consistent instance/static scope. A static method cannot access an
+instance field. Create this service once during startup, using the same instance
+from Settings; do not create a new tracker on each page or switch.
 
 ```csharp
-ResourceDictionary? _currentTheme;
-
-void ApplyTheme(ResourceDictionary theme)
+public sealed class ThemeManager
 {
-    var merged = Application.Current!.Resources.MergedDictionaries;
+    private readonly ResourceDictionary _resources;
+    private ResourceDictionary? _currentTheme;
 
-    // ✅ Remove ONLY the previous theme — Colors.xaml / Styles.xaml survive
-    if (_currentTheme is not null)
-        merged.Remove(_currentTheme);
+    public ThemeManager(ResourceDictionary resources) => _resources = resources;
 
-    merged.Add(theme);
-    _currentTheme = theme;
+    public void ApplyTheme(ResourceDictionary theme)
+    {
+        var merged = _resources.MergedDictionaries;
+        if (_currentTheme is not null)
+            merged.Remove(_currentTheme);
+        merged.Add(theme);
+        _currentTheme = theme;
+    }
 }
 
-// Usage
-ApplyTheme(new DarkTheme());
+public partial class App : Application
+{
+    public ThemeManager Themes { get; }
+
+    public App()
+    {
+        InitializeComponent();
+        Themes = new ThemeManager(Resources);
+        var saved = Preferences.Get("CustomTheme", "Light");
+        Themes.ApplyTheme(saved == "Dark" ? new DarkTheme() : new LightTheme());
+    }
+}
+
+// Settings uses the same tracker, including after the page is recreated.
+((App)Application.Current!).Themes.ApplyTheme(new DarkTheme());
+Preferences.Set("CustomTheme", "Dark");
 ```
 
 ```csharp
@@ -306,6 +329,9 @@ Application.Current!.RequestedThemeChanged += (s, e) =>
 ## Saving and Restoring User Preference
 
 Store the user's choice with `Preferences` and apply it on startup:
+
+Persist the three-way choice, not the resolved `RequestedTheme`. Unknown stored
+values should return to following the system, not crash startup.
 
 ```csharp
 // Save choice

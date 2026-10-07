@@ -214,7 +214,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: '(?i)(inject|service provider|registered.*depend)'
+          pattern: '(?i)(inject|service provider|registered.*depend|satisf\w*[\s\S]{0,80}constructor)'
       - type: output-not-matches
         config:
           pattern: '(?im)^\s*(ContentTemplate pages bypass DI entirely|typed Shell templates never use (DI|the service provider))'

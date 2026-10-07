@@ -53,6 +53,112 @@ def command(args, cwd):
     return subprocess.run(args, cwd=cwd, text=True, capture_output=True)
 
 
+def api_probe():
+    """Probe load-bearing snippets against the same real package as the fixtures."""
+    suite = ROOT / "tests/dotnet-maui/maui-collectionview"
+    workspace = suite / ".api-probe-workspace"
+    if workspace.exists():
+        raise RuntimeError(f"Refusing to overwrite {workspace}")
+    theme_skill = ROOT / "plugins/dotnet-maui/skills/maui-theming/SKILL.md"
+    theme_manager = theme_skill.read_text().split(
+        "```csharp\npublic sealed class ThemeManager\n", 1)[1].split(
+        "\npublic partial class App", 1)[0]
+    source = """using System.ComponentModel;
+using Microsoft.Maui;
+using Microsoft.Maui.Controls;
+using Microsoft.Maui.Controls.PlatformConfiguration;
+using Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;
+public static class Checks
+{
+    static void Require(bool condition, string message)
+    {
+        if (!condition) throw new InvalidOperationException(message);
+    }
+    public static void Main()
+    {
+        Require(new CollectionView().ItemSizingStrategy == ItemSizingStrategy.MeasureAllItems,
+            "MAUI sizing default changed");
+        Require(typeof(LinearItemsLayout).GetProperty("ItemSizingStrategy") is null,
+            "sizing property owner changed");
+        var parent = new Grid();
+        var child = new Label();
+        parent.Children.Add(child);
+        var first = new object();
+        var second = new object();
+        parent.BindingContext = first;
+        Require(ReferenceEquals(child.BindingContext, first), "context not inherited");
+        parent.BindingContext = second;
+        Require(ReferenceEquals(child.BindingContext, second), "context replacement not propagated");
+        var converter = TypeDescriptor.GetConverter(typeof(SafeAreaEdges));
+        var perEdge = (SafeAreaEdges)converter.ConvertFromInvariantString(
+            "Container,Container,Container,SoftInput")!;
+        Require(perEdge.Left == SafeAreaRegions.Container &&
+            perEdge.Top == SafeAreaRegions.Container &&
+            perEdge.Right == SafeAreaRegions.Container &&
+            perEdge.Bottom == SafeAreaRegions.SoftInput, "valid per-edge syntax rejected");
+        var axes = (SafeAreaEdges)converter.ConvertFromInvariantString("Container,SoftInput")!;
+        Require(axes.Left == SafeAreaRegions.Container && axes.Right == SafeAreaRegions.Container &&
+            axes.Top == SafeAreaRegions.SoftInput && axes.Bottom == SafeAreaRegions.SoftInput,
+            "two-value form confused with region combination");
+        Require(typeof(Image).GetProperty("SafeAreaEdges") is null,
+            "unsupported Image property assumption changed");
+        var legacyPage = new ContentPage();
+        legacyPage.On<iOS>().SetUseSafeArea(true);
+        Require(legacyPage.On<iOS>().UsingSafeArea(), "legacy C# safe-area setup failed");
+        foreach (bool explicitWrapper in new[] { false, true })
+        {
+            var shell = new Shell();
+            var item = new FlyoutItem { Route = "dashboard" };
+            var content = new ShellContent {
+                Route = "home", ContentTemplate = new DataTemplate(() => new ContentPage()) };
+            if (explicitWrapper)
+            {
+                var tab = new Tab();
+                tab.Items.Add(content);
+                item.Items.Add(tab);
+            }
+            else
+                item.Items.Add(content);
+            shell.Items.Add(item);
+            Require(item.Items.Count == 1 && item.Items[0].Items.Count == 1,
+                "explicit/implicit wrappers differ in hierarchy");
+            Require(!((IShellItemController)item).ShowTabs,
+                "single-page wrapper unexpectedly forces a tab bar");
+            item.FlyoutDisplayOptions = FlyoutDisplayOptions.AsMultipleItems;
+            Require(!((IShellItemController)item).ShowTabs,
+                "flyout display options confused with tab-bar visibility");
+        }
+        var resources = new ResourceDictionary();
+        var styles = new ResourceDictionary { ["Brand"] = "retained" };
+        var light = new ResourceDictionary { ["Text"] = "black" };
+        var dark = new ResourceDictionary { ["Text"] = "white" };
+        resources.MergedDictionaries.Add(styles);
+        var manager = new ThemeManager(resources);
+        manager.ApplyTheme(light);
+        manager.ApplyTheme(dark);
+        manager.ApplyTheme(light);
+        Require(resources.MergedDictionaries.Count == 2 &&
+            resources.MergedDictionaries.Contains(styles) &&
+            resources.MergedDictionaries.Contains(light) &&
+            !resources.MergedDictionaries.Contains(dark), "theme ownership/preservation failed");
+        Console.WriteLine("PASS: package-api-probe (no XAML/native/device execution)");
+    }
+}
+public sealed class ThemeManager
+""" + theme_manager
+    try:
+        workspace.mkdir()
+        for filename in ("Fixture.csproj", "Directory.Build.props", "Directory.Build.targets"):
+            shutil.copy2(suite / "fixtures/working" / filename, workspace / filename)
+        (workspace / "Program.cs").write_text(source)
+        result = command(["dotnet", "run", "--project", "Fixture.csproj", "--verbosity", "quiet"], workspace)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "PASS: package-api-probe" in result.stdout, result.stdout
+        print(result.stdout.strip())
+    finally:
+        shutil.rmtree(workspace)
+
+
 def production_replay(suite, spec):
     """Use the shipping parser/oracle with only deterministic graders selected."""
     path = suite / ".oracle-eval.yaml"
@@ -96,7 +202,8 @@ def main():
     loader.loader.exec_module(gate)
     totals = {"references": 0, "output_mutations": 0, "golden_workspaces": 0,
               "defect_rejections": 0, "preservation_rejections": 0,
-              "routing_output_rejections": 0, "semantic_advice_not_proven": 0}
+              "routing_output_rejections": 0, "semantic_advice_not_proven": 0,
+              "setup_rejections": 0}
     for name in NAMES:
         suite = ROOT / "tests/dotnet-maui" / name
         spec = yaml.safe_load((suite / "eval.yaml").read_text())
@@ -105,6 +212,9 @@ def main():
             gate._validate_atif_trajectory(reference)
             response = reference["steps"][-1]["message"]
             for grader in stimulus["graders"]:
+                if grader["type"] == "prompt":
+                    assert "golden_patch" not in grader.get("config", {}).get("evidence", []), (
+                        name, stimulus["name"], "Vally eval does not resolve golden_patch evidence")
                 if grader["type"] == "output-matches":
                     pattern = grader["config"]["pattern"]
                     assert gate.vally_regex_found(pattern, response), (name, stimulus["name"], pattern)
@@ -135,9 +245,26 @@ def main():
                 initialized = command(["git", "init", "--quiet"], workspace)
                 assert initialized.returncode == 0, initialized.stderr
                 fixture = suite / stimulus["environment"]["files"][0]["src"]
-                for source in fixture.iterdir():
+                for source in fixture.rglob("*"):
                     if source.is_file():
-                        shutil.copy2(source, workspace / source.name)
+                        target = workspace / source.relative_to(fixture)
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(source, target)
+                for setup in stimulus["environment"].get("commands", []):
+                    result = command(["bash", "-c", setup], workspace)
+                    assert result.returncode == 0, result.stdout + result.stderr
+                # A prior arm's repair must fail setup rather than look like a
+                # no-op success in the next arm.
+                if stimulus["environment"].get("commands"):
+                    target = workspace / "Program.cs"
+                    original = target.read_bytes()
+                    try:
+                        target.write_bytes(original + b"\n")
+                        assert any(command(["bash", "-c", setup], workspace).returncode != 0
+                                   for setup in stimulus["environment"]["commands"])
+                    finally:
+                        target.write_bytes(original)
+                    totals["setup_rejections"] += 1
                 if "golden_patch" in stimulus:
                     patch = (suite / stimulus["golden_patch"]["path"]).resolve()
                     checked = command(["git", "apply", "--check", str(patch)], workspace)
@@ -165,9 +292,10 @@ def main():
                 else:
                     # Corrupt every supplied file in turn: no representative-only check.
                     preservation = stimulus["graders"][0]["config"]["command"]
-                    for filename in ("Program.cs", "Checks.cs", "Fixture.csproj",
-                                     "Directory.Build.props", "Directory.Build.targets"):
-                        target = workspace / filename
+                    for source in fixture.rglob("*"):
+                        if not source.is_file():
+                            continue
+                        target = workspace / source.relative_to(fixture)
                         original = target.read_bytes()
                         try:
                             target.write_bytes(original + b"\n")
@@ -178,6 +306,7 @@ def main():
                     for filename, content in (
                         ("Unrequested.cs", "public class Unrequested {}\n"),
                         ("Unrequested.xaml", "<ContentPage />\n"),
+                        ("Unrequested.resx", "<root />\n"),
                     ):
                         extra = workspace / "nested" / filename
                         extra.parent.mkdir(exist_ok=True)
@@ -191,6 +320,7 @@ def main():
             production_replay(suite, spec)
         print(f"{name}: references, repaired/working execution and mutation rejection pass")
     assert not gate.errors, "\n".join(gate.errors)
+    api_probe()
     print(json.dumps(totals, sort_keys=True))
 
 

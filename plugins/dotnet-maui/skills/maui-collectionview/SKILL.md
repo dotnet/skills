@@ -12,8 +12,8 @@ description: >
   StackLayout), map pin lists (use Microsoft.Maui.Controls.Maps), table-based
   data entry forms, non-MAUI list controls, CarouselView or BindableLayout
   questions, platform-specific handler or renderer customization, diagnosing
-  CollectionView bugs in the MAUI framework itself, or general MVVM/binding
-  questions that merely happen to mention a list (use maui-data-binding).
+  CollectionView bugs in the MAUI framework itself, or binding-path/x:DataType
+  defects and general MVVM questions, even inside item templates (use maui-data-binding).
 license: MIT
 ---
 
@@ -122,6 +122,38 @@ collection, plus code-behind calling `InitializeComponent()`. Declaring
 `x:DataType` checks binding paths; it does not create a `BindingContext`. If those
 types already exist in the user's input, reuse them rather than inventing replacements.
 
+```csharp
+using System.Collections.ObjectModel;
+using Microsoft.Maui.Controls;
+using MyApp.Models;
+
+namespace MyApp.Models
+{
+    public sealed record Item(string Name, string Icon);
+}
+
+namespace MyApp.ViewModels
+{
+    public sealed class ItemsViewModel
+    {
+        public ObservableCollection<Item> Items { get; } =
+            new() { new Item("First item", "dotnet_bot.png") };
+    }
+}
+
+namespace MyApp
+{
+    public partial class ItemsPage : ContentPage
+    {
+        public ItemsPage() => InitializeComponent();
+    }
+}
+```
+
+The namespaces match the XAML prefixes; the page constructor uses its generated
+`InitializeComponent`. These declarations are
+part of a new-page answer, not optional notes that the reader must implement.
+
 **Key rules:**
 
 - Bind `ItemsSource` to an `ObservableCollection<T>` so the UI updates on add/remove.
@@ -193,70 +225,35 @@ For `Multiple` selection, bind `SelectedItems` (type `IList<object>`):
                 SelectedItems="{Binding ChosenItems, Mode=OneWay}" />
 ```
 
-### Selected Visual State
-
-Highlight selected items using `VisualStateManager`:
-
-```xml
-<CollectionView.ItemTemplate>
-    <DataTemplate x:DataType="models:Item">
-        <Grid Padding="8">
-            <VisualStateManager.VisualStateGroups>
-                <VisualStateGroup Name="CommonStates">
-                    <VisualState Name="Normal">
-                        <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="Transparent" />
-                        </VisualState.Setters>
-                    </VisualState>
-                    <VisualState Name="Selected">
-                        <VisualState.Setters>
-                            <Setter Property="BackgroundColor"
-                                    Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
-                        </VisualState.Setters>
-                    </VisualState>
-                </VisualStateGroup>
-            </VisualStateManager.VisualStateGroups>
-            <Label Text="{Binding Name}" />
-        </Grid>
-    </DataTemplate>
-</CollectionView.ItemTemplate>
-```
-
-## Grouping
-
-1. Create a group class inheriting from `List<T>`:
+For navigation on single selection, reset `SelectedItem` so the same item can be
+selected again after returning. Resetting also raises `SelectionChanged`: ignore
+empty `e.CurrentSelection`, and guard navigation already in flight.
 
 ```csharp
-public class AnimalGroup : List<Animal>
+bool _openingDetails;
+
+async void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
 {
-    public string Name { get; }
-    public AnimalGroup(string name, List<Animal> animals) : base(animals)
+    if (_openingDetails || e.CurrentSelection.FirstOrDefault() is not Item item)
+        return;
+    _openingDetails = true;
+    try
     {
-        Name = name;
+        ((CollectionView)sender).SelectedItem = null;
+        await Shell.Current.GoToAsync("details",
+            new ShellNavigationQueryParameters { ["item"] = item });
     }
+    finally { _openingDetails = false; }
 }
 ```
 
-2. Bind to `ObservableCollection<AnimalGroup>` and set `IsGrouped="True"`:
+Keep `SelectionMode="Single"` when selected visuals are required. A tap gesture
+is also valid when the requested action is tapping rather than selection.
 
-```xml
-<CollectionView ItemsSource="{Binding AnimalGroups}"
-                IsGrouped="True">
-    <CollectionView.GroupHeaderTemplate>
-        <DataTemplate x:DataType="models:AnimalGroup">
-            <Label Text="{Binding Name}"
-                   FontAttributes="Bold"
-                   BackgroundColor="{StaticResource Gray100}"
-                   Padding="8" />
-        </DataTemplate>
-    </CollectionView.GroupHeaderTemplate>
-    <CollectionView.ItemTemplate>
-        <DataTemplate x:DataType="models:Animal">
-            <Label Text="{Binding Name}" Padding="16,4" />
-        </DataTemplate>
-    </CollectionView.ItemTemplate>
-</CollectionView>
-```
+Read [optional templates](references/optional-templates.md) only when the request
+needs selected visuals, grouping, swipe commands, custom empty views, headers,
+footers, or scrolling/snap points. These examples are not part of a basic-page,
+selection-reset, sizing, or paging answer.
 
 ## Pull-to-Refresh
 
@@ -277,104 +274,34 @@ Wrap `CollectionView` in a `RefreshView`. Set `IsRefreshing` back to `false` whe
                 RemainingItemsThresholdReachedCommand="{Binding LoadMoreCommand}" />
 ```
 
-> ⚠️ **Do NOT use with non-virtualizing layouts.** `LinearItemsLayout` and `GridItemsLayout` support virtualization. Using `BindableLayout` on a `StackLayout` as an alternative to `CollectionView` has no virtualization, which triggers infinite threshold-reached events.
-
-## SwipeView — Binding from Inside DataTemplate
-
-Commands inside a `DataTemplate` can't directly reach your ViewModel. Use `RelativeSource AncestorType`:
-
-```xml
-<CollectionView.ItemTemplate>
-    <DataTemplate x:DataType="models:Item">
-        <SwipeView>
-            <SwipeView.RightItems>
-                <SwipeItems>
-                    <SwipeItem Text="Delete"
-                               BackgroundColor="Red"
-                               Command="{Binding BindingContext.DeleteCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
-                               CommandParameter="{Binding}" />
-                </SwipeItems>
-            </SwipeView.RightItems>
-            <Grid Padding="8">
-                <Label Text="{Binding Name}" />
-            </Grid>
-        </SwipeView>
-    </DataTemplate>
-</CollectionView.ItemTemplate>
-```
-
-## EmptyView
-
-Shown when `ItemsSource` is empty or null.
-
-```xml
-<CollectionView ItemsSource="{Binding SearchResults}"
-                EmptyView="No items found." />
-```
-
-For a custom empty view, wrap in `ContentView`:
-
-```xml
-<CollectionView ItemsSource="{Binding SearchResults}">
-    <CollectionView.EmptyView>
-        <ContentView>
-            <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center">
-                <Image Source="empty_state.png" WidthRequest="120" />
-                <Label Text="Nothing here yet" HorizontalTextAlignment="Center" />
-            </VerticalStackLayout>
-        </ContentView>
-    </CollectionView.EmptyView>
-</CollectionView>
-```
-
-## Headers and Footers
-
-```xml
-<CollectionView ItemsSource="{Binding Items}">
-    <CollectionView.Header>
-        <Label Text="Header" FontAttributes="Bold" Padding="8" />
-    </CollectionView.Header>
-    <CollectionView.Footer>
-        <Label Text="Footer" FontAttributes="Italic" Padding="8" />
-    </CollectionView.Footer>
-</CollectionView>
-```
-
-Use `HeaderTemplate` / `FooterTemplate` when headers or footers are data-bound.
-
-## Scrolling
-
-### ScrollTo
-
-Programmatically scroll by index or item:
+Threshold callbacks can overlap. Set a busy guard **before** awaiting a fetch,
+release it in `finally`, and stop once the API reports exhaustion. Prefer its
+`HasMore`/next-cursor signal; for a fixed-page-size API that guarantees all
+non-final pages are full, a short non-empty page is already the last page.
+Do not infer exhaustion from page length when that is not the server's contract.
 
 ```csharp
-// Scroll to index
-collectionView.ScrollTo(index: 10, position: ScrollToPosition.Center, animate: true);
-
-// Scroll to item
-collectionView.ScrollTo(item: myItem, position: ScrollToPosition.MakeVisible, animate: true);
+if (_loading || !_hasMore)
+    return;
+_loading = true;
+try
+{
+    var page = await api.GetPageAsync(_nextPage, PageSize);
+    await MainThread.InvokeOnMainThreadAsync(() =>
+    {
+        foreach (var item in page)
+            Items.Add(item);
+    });
+    _nextPage++; // Advance only after a successful fetch/publication.
+    _hasMore = page.Count == PageSize; // Fixed-size API contract assumed here.
+}
+finally { _loading = false; }
 ```
 
-| ScrollToPosition | Behavior |
-|---|---|
-| `MakeVisible` | Scrolls just enough to make the item visible |
-| `Start` | Scrolls item to the start of the viewport |
-| `Center` | Scrolls item to the center of the viewport |
-| `End` | Scrolls item to the end of the viewport |
-
-### Snap Points
-
-```xml
-<CollectionView.ItemsLayout>
-    <LinearItemsLayout Orientation="Horizontal"
-                       SnapPointsType="MandatorySingle"
-                       SnapPointsAlignment="Center" />
-</CollectionView.ItemsLayout>
-```
-
-- `SnapPointsType`: `None`, `Mandatory`, `MandatorySingle`
-- `SnapPointsAlignment`: `Start`, `Center`, `End`
+This UI-thread command guard is not a cross-thread lock. If callers can enter
+concurrently from worker threads, serialize them too. Keep the CollectionView in
+a height-constrained container (usually a Grid star row), not inside a
+ScrollView or unbounded stacking layout; a BindableLayout has no virtualization.
 
 ## Migrating from ListView
 
@@ -394,7 +321,7 @@ you to touch.
 | `ItemTapped` event | A `TapGestureRecognizer` in the item template — `SelectionChanged` only fires when the selection *changes*, so it will not re-fire on tapping the already-selected item |
 | `IsPullToRefreshEnabled` + `Refreshing` | Wrap the `CollectionView` in a `RefreshView` |
 | `IsGroupingEnabled` | `IsGrouped` |
-| `HasUnevenRows="True"` | Default `ItemSizingStrategy="MeasureAllItems"` |
+| `HasUnevenRows="True"` | Explicit `CollectionView.ItemSizingStrategy="MeasureAllItems"`; preserve variable-height templates rather than applying fixed-height requests or `MeasureFirstItem` |
 | `RowHeight` (fixed height) | Set the height in the item template. `MeasureFirstItem` only reuses the first item's measured size — it is not an explicit row height |
 | `SeparatorVisibility` / `SeparatorColor` | **No equivalent** — draw a `BoxView`/`Border` in the item template |
 
@@ -427,6 +354,9 @@ about performance — they are not a default checklist.
   row has the same measured size at the current width and font scale, including
   later-loaded rows. A fixed-height avatar plus one non-wrapping line can satisfy
   that condition; a fixed avatar alone does not constrain wrapping text.
+  Explain explicitly that a supported font-scale or width change can invalidate
+  that condition if it introduces wrapping or changes measured heights; do not
+  treat package/object-model checks as proof at every accessibility text size.
 
   **When `MeasureFirstItem` is the wrong choice** — keep the default `MeasureAllItems` if:
   - Items vary in height (wrapping text, optional rows, images of differing aspect) — the
@@ -450,7 +380,7 @@ about performance — they are not a default checklist.
 | UI doesn't update when items change | Use `ObservableCollection<T>`, not `List<T>`. |
 | App crashes or blank items | **Never use `ViewCell`** — use `Grid`, `StackLayout`, or any `View` as template root. |
 | Items disappear or layout breaks | Always update `ItemsSource` and the collection on the **UI thread** (`MainThread.BeginInvokeOnMainThread`). |
-| Incremental loading fires endlessly | Don't use `StackLayout` as layout; use `LinearItemsLayout` or `GridItemsLayout`. |
+| Incremental loading fires endlessly | Constrain the control's height and guard overlap/exhaustion in the loading command; changing `ItemsLayout` alone is not a paging fix. |
 | EmptyView doesn't render correctly | Wrap custom empty views in `ContentView`. |
 | Poor scroll performance | Use `MeasureFirstItem` sizing strategy for uniform item sizes. |
 | `ItemSizingStrategy` doesn't compile | It is declared on `StructuredItemsView` — set it on `<CollectionView>`, not on `<LinearItemsLayout>` / `<GridItemsLayout>`. |
@@ -469,6 +399,7 @@ Before returning CollectionView markup you wrote or edited, confirm:
 - [ ] `Multiple` selection binds `SelectedItems`; `Single` binds `SelectedItem` (`TwoWay`).
 - [ ] `RefreshView.IsRefreshing` is set back to `false` when the refresh completes.
 - [ ] The answer covers **only** what the user asked — no unrequested sections.
+- [ ] Report actual checks and preserve passing supplied files; package/object-model checks do not prove XAML compilation, native layout, scrolling or device behavior.
 
 ## References
 

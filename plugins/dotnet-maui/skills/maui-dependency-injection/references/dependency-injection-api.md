@@ -194,6 +194,11 @@ MAUI can clear the cache when content disconnects/unloads; avoid promising it is
 kept forever. Refresh data on an appropriate activation event or explicitly reset
 state if that is the user's requirement.
 
+An intentional Singleton root Page for one window is valid. Its registration
+is app-wide, not per-window: don't resolve that same visual instance for another
+window or parent. Use separate Page instances if that requirement changes.
+A shared ViewModel can remain Singleton only if sharing its state is intentional.
+
 ### Evidence and reproduction
 
 The repository-only reproduction commands below run against the **real Microsoft.Maui.Controls
@@ -210,6 +215,9 @@ The probe executes real `IShellContentController.GetOrCreateContent`,
 Shell, templates, or DI behavior. It checks registered/unregistered page
 activation, dependency failures, factory/direct-template/existing-content creation, repeated content caching,
 root-context sharing, explicit scope disposal, and scope validation failures.
+It also probes real EF Core 10 `AddDbContextFactory` registrations, context
+identity, captive dependency validation, and caller-owned factory disposal;
+it does not connect to a database or test database queries.
 This is **not** a device/UI-navigation or window-lifecycle test. The lack of an
 automatic per-window DI scope is grounded in the official scope contract below,
 not inferred from simulating windows.
@@ -241,6 +249,28 @@ Choose the operation boundary, not just a registration label:
 - **Transient context:** can fit a short-lived owner that disposes it, but a
   Singleton or cached root ViewModel capturing a transient context still retains
   that same context. Changing `AddScoped` to `AddTransient` alone may not fix it.
+
+**Registration is not a consumer rewrite.** With the default Singleton factory,
+`AddDbContextFactory<TContext>` also registers `TContext` as Scoped for convenient
+direct resolution. It does not remove existing registrations or make direct
+context injection impossible. Change long-lived consumers to accept the factory,
+not `TContext`. Factory-created contexts are not tracked for disposal by the
+service provider; their caller owns them. Preserve existing database options and
+provider configuration when changing registration.
+
+```csharp
+public sealed class UploadService(IDbContextFactory<MyDbContext> factory)
+{
+    public async Task UploadAsync(CancellationToken cancellationToken)
+    {
+        await using var db = await factory.CreateDbContextAsync(cancellationToken);
+        // Perform this operation's database work using only this context.
+        await db.SaveChangesAsync(cancellationToken);
+    }
+}
+```
+
+See the [official EF Core factory registration contract](https://learn.microsoft.com/dotnet/api/microsoft.extensions.dependencyinjection.entityframeworkservicecollectionextensions.adddbcontextfactory?view=efcore-10.0).
 
 ```csharp
 public sealed class SyncService(IServiceScopeFactory scopeFactory)

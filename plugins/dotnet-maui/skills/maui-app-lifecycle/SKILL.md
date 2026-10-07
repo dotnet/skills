@@ -113,31 +113,44 @@ protected override Window CreateWindow(IActivationState? activationState)
 ## Workflow: Save and Restore State on Background
 
 1. **Identify transient state** — draft text, scroll position, form inputs, timer values.
-2. **Save in `OnStopped`** — use `Preferences` for small values or file serialization for larger state.
-3. **Restore in `OnResumed`** — read back saved values and apply to your view model.
-4. **Also save in `OnDestroying`** on Android — the back button can skip `Stopped` entirely.
-5. **Keep handlers fast** — complete within 1–2 seconds to avoid ANR on Android or watchdog kills on iOS.
+2. **Persist as state changes** — use `Preferences` for small values or file serialization for larger state. Debounce frequent edits if needed; lifecycle callbacks are supplemental flush points, not the only durable save.
+3. **Load on cold start** before showing the draft. `Resumed` does not fire after process death or on first launch. Guard initialization so normal foreground entry does not overwrite newer in-memory edits.
+4. **Flush opportunistically in `OnStopped` / `OnDestroying`** — neither event is guaranteed before process termination. A back action can bypass `Stopped`; adding `Destroying` still does not guarantee a final save.
+5. **Keep handlers fast** — the OS can suspend or terminate the app; do not depend on a fixed time allowance or on an `async void` handler finishing.
 
 ```csharp
+bool _draftLoaded;
+
+protected override void OnActivated()
+{
+    base.OnActivated();
+    if (_draftLoaded)
+        return;
+    _viewModel.DraftText = Preferences.Get("draft_text", string.Empty);
+    _viewModel.ScrollY = Preferences.Get("scroll_y", 0.0);
+    _draftLoaded = true;
+}
+
+// Call from the draft-change path too, not only from lifecycle callbacks.
+void SaveDraft() => Preferences.Set("draft_text", _viewModel.DraftText);
+
 protected override void OnStopped()
 {
     base.OnStopped();
-    Preferences.Set("draft_text", _viewModel.DraftText);
+    SaveDraft();
     Preferences.Set("scroll_y", _viewModel.ScrollY);
 }
 
 protected override void OnResumed()
 {
     base.OnResumed();
-    _viewModel.DraftText = Preferences.Get("draft_text", string.Empty);
-    _viewModel.ScrollY = Preferences.Get("scroll_y", 0.0);
+    // Resume surviving work; do not replace live edits with an older snapshot.
 }
 
 protected override void OnDestroying()
 {
     base.OnDestroying();
-    // Android back-button can skip Stopped
-    Preferences.Set("draft_text", _viewModel.DraftText);
+    SaveDraft(); // Best-effort flush, not a guaranteed termination notification.
 }
 ```
 
@@ -215,7 +228,7 @@ builder.ConfigureLifecycleEvents(events =>
 
 2. **Deactivated ≠ Stopped.** A dialog, split-screen, or notification pull-down triggers `Deactivated` without `Stopped`. Do not perform heavy saves in `OnDeactivated` — the app may never actually background.
 
-3. **Android back button skips Stopped.** On Android, pressing back may call `Destroying` directly without `Stopped`. Place critical save logic in both `OnStopped` and `OnDestroying`.
+3. **No guaranteed final callback.** Back navigation can bypass `Stopped`, and process death can bypass both `Stopped` and `Destroying`. Save critical state during ordinary changes and reload it on cold start; lifecycle saves only supplement that policy.
 
 4. **Multi-window apps fire events independently.** On iPad, Mac Catalyst, and desktop Windows each `Window` instance fires its own lifecycle events. Do not assume a single global lifecycle.
 

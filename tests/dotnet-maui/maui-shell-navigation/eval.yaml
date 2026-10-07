@@ -24,6 +24,8 @@ stimuli:
   - Uses lazy page creation and registers the detail route.
   - Provides explicit routes and valid hierarchy; accepts equivalent implicit wrappers or an explicitly
     chosen top/bottom tab arrangement.
+  - Does not infer an extra visible tab bar from a single explicit grouping wrapper alone or confuse
+    flyout display options with tab-bar visibility.
   tags:
     capability: set-up-shell-navigation-with-tabs-and-flyout
     risk: incorrect-guidance
@@ -318,7 +320,8 @@ stimuli:
   prompt: The supplied Products flyout entry has Active and Archived top subtabs, but their route identifiers
     collide. Fix only Program.cs without adding another visible tab level or eager page construction.
     Run the object-model checks and give the absolute path to Archived. Do not claim that navigation was
-    exercised on a device. Keep the existing products/status parent routes.
+    exercised on a device. Keep the existing products/status parent routes. The supplied files
+    are in your working directory; inspect and edit only that copy, not fixture originals elsewhere.
   tags:
     capability: executable-repair
     risk: broken-code
@@ -327,6 +330,8 @@ stimuli:
     files:
     - src: fixtures/repair
       dest: .
+    commands:
+    - python3 -c "import hashlib,pathlib; assert hashlib.sha256(pathlib.Path('Program.cs').read_bytes()).hexdigest() == '5c1fdfbe2721d8246f04977e3899d363e51b77f0096e30331eae03c74c6619f7', 'Fixture changed before trial setup'"
   graders:
   - type: run-command
     config:
@@ -354,7 +359,6 @@ stimuli:
       evidence:
       - trajectory
       - diff
-      - golden_patch
   rubric:
   - Repairs the stated defect without changing protected files or weakening checks.
   - Reports only validation actually performed and distinguishes object-model checks from native/device
@@ -381,6 +385,7 @@ stimuli:
   prompt: Review the supplied implementation for the behavior checked by Checks.cs. Run the checks; if
     it already satisfies that contract, do not edit, delete, rename, or add any source/project files.
     Explain any platform-specific validation limitations rather than rewriting working code.
+    The supplied files are in your working directory; inspect only that copy, not fixture originals elsewhere.
   tags:
     capability: working-code-preservation
     risk: unnecessary-rewrite
@@ -389,6 +394,8 @@ stimuli:
     files:
     - src: fixtures/working
       dest: .
+    commands:
+    - python3 -c "import hashlib,pathlib; assert hashlib.sha256(pathlib.Path('Program.cs').read_bytes()).hexdigest() == 'a662111d0c3fbd89b33e57a4e637beccceaba976015f660ee84437f9fa772009', 'Fixture changed before trial setup'"
   graders:
   - type: run-command
     config:
