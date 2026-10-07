@@ -213,7 +213,8 @@ stimuli:
       journey: create
     prompt: |
       Create StatusTool.cs as a one-file C# utility. Read the HTTP endpoint from the first command
-      line argument and print the response's name and status JSON fields. Do not create a project.
+      line argument and print the response's name and status JSON fields. With no argument, print
+      `Usage: StatusTool <url>` and exit successfully. Do not create a project.
     graders:
       - type: file-contains
         config:
@@ -233,8 +234,9 @@ stimuli:
           expected_exit_code: 0
       - type: run-command
         config:
-          command: dotnet build StatusTool.cs
+          command: dotnet StatusTool.cs
           expected_exit_code: 0
+          stdout_matches: '(?i)Usage:\s*StatusTool\s+<url>'
           timeout: 3m
       - type: exit-success
       - type: prompt
