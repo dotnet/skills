@@ -26,6 +26,11 @@ Diagnose the requested host and target, not every possible MAUI dependency.
   machine inventory, download packages, or create a sample project.
 - Supplied files are evidence too: inspect relevant workspace files before asking
   the user to paste them. Reading a supplied report is not a toolchain inventory.
+- Reference paths are relative to the loaded skill's directory, not the app.
+  If a reference cannot be opened, use its reported location or a bounded
+  workspace search; never search the filesystem root or home directory.
+  For incomplete advice-only evidence, disclose the gap and answer without
+  launching background searches or turning their completion into the answer.
 - With shell access, use read-only inspection first. SDK/workload/JDK installs,
   license acceptance, Xcode selection, persistent environment changes, restore,
   builds, and deployment are separate actions requiring the user's authorization.

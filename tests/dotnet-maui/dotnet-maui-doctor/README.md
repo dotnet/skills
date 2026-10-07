@@ -68,6 +68,13 @@ Repair judging is grounded in the tagged .NET 10 implementation and CLI help:
 repair uses current resolved manifests and has no `--skip-manifest-update` option.
 Missing that unsupported flag is not a legitimate grading failure. Repair can
 run workload garbage collection, so selective-mutation guarantees are not valid.
+The repair rubric tests that distinction, not whether an otherwise correct answer
+recites the absence of a particular CLI flag.
+The fifth Sonnet incomplete-Java trajectory opened an unavailable reference,
+started a filesystem-root search, then replaced its useful answer with an
+irrelevant background-completion message. Reference lookup is now explicitly
+bounded to the skill/workspace; unavailable guidance must remain an evidence gap,
+not permission to inventory the machine.
 The incomplete-Java case uses semantic judging rather than requiring a particular
 adjective before "error"; an actual correct request for the first actionable Java
 error failed that vocabulary proxy. Its judge still checks evidence limits,

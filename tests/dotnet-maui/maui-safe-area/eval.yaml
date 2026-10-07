@@ -186,6 +186,10 @@ stimuli:
   rubric:
   - Allows the decorative image behind system bars while keeping text and input usable, without stacking
     duplicate insets.
+  - SafeAreaEdges is available on the supported containers, not on Label or Editor in MAUI 10.
+    Do not require or accept SafeAreaEdges assignments on those leaf controls; use the owning
+    page/layout/Border. An omitted opt-out on a layout that defaults to Container is not
+    automatically equivalent to an explicit None policy.
   - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
   golden_trajectory:
     inline:

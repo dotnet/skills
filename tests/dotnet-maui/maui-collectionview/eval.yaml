@@ -12,7 +12,7 @@ stimuli:
   - type: exit-success
   - type: output-matches
     config:
-      pattern: BindingContext
+      pattern: '(?i)\bbinding\s*context\b|\bItemsSource\s*=\s*(?:\w+\.)*\w+\b'
   - type: prompt
     config:
       evidence:
@@ -20,9 +20,11 @@ stimuli:
   rubric:
   - Uses CollectionView with ItemsSource bound to the collection
   - Defines a DataTemplate with x:DataType for compiled bindings
-  - Declares the namespace prefixes used by both page and template types and supplies
-    or identifies the runtime context exposing the collection; x:DataType alone
-    does not establish BindingContext.
+  - Declares the namespace prefixes used by both page and template types. Supplies runtime
+    wiring through an assigned BindingContext, an explicitly established existing context,
+    or a direct ItemsSource assignment. Declaring a ViewModel and x:DataType alone does not
+    assign any runtime context; do not mistake type metadata for page initialization.
+    Equivalent "binding context" wording is valid; the literal token BindingContext is not required.
   - Binds both Name and Price properties inside the template
   - Does NOT use ViewCell as the template root
   - Uses ObservableCollection<T> rather than List<T>

@@ -29,11 +29,15 @@ alone do not prove cost neutrality. Follow the repository's
 [quality bar](../../CONTRIBUTING.md#quality-bar), including preference significance
 and dormancy requirements.
 
-Lifecycle and version-appropriate safe-area guidance are candidates for a small
-project-default set, not certified defaults. Binding guidance is a candidate for
-binding-heavy workflows. Environment repair should remain on-demand; the other
-skills should match the actual development task. No default installer policy is
-changed by this plugin documentation.
+No project-default set is currently supported by the measured quality and cost
+evidence. In [evaluation 37652729093](https://github.com/dotnet/skills/actions/runs/37652729093),
+Shell navigation and theming passed preference gates on both model families, but
+every suite's matched plugin-context SDK execution counters increased: 24.1% to
+86.7% for Claude Sonnet 5 and 7.7% to 44.0% for GPT-5.6 Luna. These counters include
+dormancy tasks and exclude judges; they are not invoices or a task-weighted
+cost-neutrality proof. Aggregate completion passes also do not guarantee every
+generated sample is correct. Keep guidance task-specific and on-demand pending
+fresh evidence; no default installer policy is changed by this documentation.
 
 When models or supported SDKs change, repeat the comparison before retaining a
 default. Classify fixture, harness, power, routing and content failures separately.

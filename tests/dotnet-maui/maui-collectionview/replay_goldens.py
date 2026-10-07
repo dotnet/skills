@@ -232,6 +232,13 @@ public sealed class MainViewModel { public int Count { get; set; } }""")
         assert broken.returncode != 0 and "Value" in broken.stdout, broken.stdout + broken.stderr
         print("PASS: XamlC rejects a binding-local source type without the requested property")
         (workspace / "LiteralSourcePage.xaml").write_text(source_markup)
+        for control in ("Label", "Editor"):
+            (workspace / "LiteralSourcePage.xaml").write_text(source_markup.replace(
+                "<Label Text=", f'<{control} SafeAreaEdges="None" Text='))
+            broken = command(["dotnet", "build", "Probe.csproj", "--no-restore", "--verbosity", "quiet"], workspace)
+            assert broken.returncode != 0 and "SafeAreaEdges" in broken.stdout, broken.stdout + broken.stderr
+            print(f"PASS: XamlC rejects unsupported SafeAreaEdges on {control}")
+        (workspace / "LiteralSourcePage.xaml").write_text(source_markup)
         (workspace / "ConverterPage.xaml").write_text(converter_markup.replace(
             'x:DataType="vm:MainViewModel"',
             'x:Class="MyApp.ConverterPage" x:DataType="vm:MainViewModel"').replace(
@@ -268,12 +275,17 @@ def api_probe():
     event_reference = ROOT / "plugins/dotnet-maui/skills/maui-theming/references/event-ownership.md"
     event_page = event_reference.read_text().split("```csharp\n", 1)[1].split("\n```", 1)[0]
     event_page = "\n".join(line for line in event_page.splitlines() if not line.startswith("using "))
+    lifecycle_skill = (ROOT / "plugins/dotnet-maui/skills/maui-app-lifecycle/SKILL.md").read_text()
+    draft_window = lifecycle_skill.split("```csharp\npublic sealed class DraftWindow", 1)[1].split(
+        "\n```", 1)[0]
     source = """using System.ComponentModel;
 using Microsoft.Maui;
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Storage;
 using Microsoft.Maui.Controls.PlatformConfiguration;
 using Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;
 using Application = Microsoft.Maui.Controls.Application;
+using Page = Microsoft.Maui.Controls.Page;
 public sealed class ProbeBindingBehavior : Behavior<Label> { }
 public static class Checks
 {
@@ -289,6 +301,18 @@ public static class Checks
             "sizing property owner changed");
         Require(typeof(ContentPage).GetProperty("Content")!.PropertyType == typeof(View),
             "page content is not a single View");
+        var products = new System.Collections.ObjectModel.ObservableCollection<string>();
+        var directList = new CollectionView { ItemsSource = products };
+        Require(directList.BindingContext is null && ReferenceEquals(directList.ItemsSource, products),
+            "direct ItemsSource assignment incorrectly requires BindingContext");
+        var draft = new NoteViewModel();
+        var editor = new ContentPage { BindingContext = draft };
+        var ownedWindow = new DraftWindow(editor, draft, "draft:one");
+        ownedWindow.BindingContext = new NoteViewModel();
+        Require(ReferenceEquals(editor.BindingContext, draft) &&
+            ReferenceEquals(typeof(DraftWindow).GetField("_viewModel",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .GetValue(ownedWindow), draft), "draft owner disconnected from editor ViewModel");
         var parent = new Grid();
         var child = new Label();
         parent.Children.Add(child);
@@ -423,6 +447,12 @@ public sealed class ProbeThemeAwarePage(Application publisher) : ThemeAwarePage(
     protected override void OnThemeChanged(object? sender, AppThemeChangedEventArgs e)
         => Callbacks++;
 }
+""" + "\npublic sealed class DraftWindow" + draft_window + """
+public sealed class NoteViewModel
+{
+    public string DraftText { get; set; } = "";
+    public double ScrollY { get; set; }
+}
 """
     try:
         workspace.mkdir()
@@ -514,6 +544,12 @@ def wording_regressions(production=False):
          "if (_isLoading || !_hasMore) return; _isLoading = true; "
          "try { await FetchAsync(); } finally { _isLoading = false; }",
          "private bool _isLoading; await FetchAsync();"),
+        ("maui-collectionview", "Basic CollectionView with data binding and DataTemplate",
+         "Assign the page's binding context to the ProductsViewModel instance.",
+         'x:DataType="vm:ProductsViewModel"; ItemsSource="{Binding Products}"'),
+        ("maui-collectionview", "Basic CollectionView with data binding and DataTemplate",
+         "productsView.ItemsSource = viewModel.Products;",
+         'ItemsSource="{Binding Products}" without a runtime source'),
         ("maui-theming", "Swap theme dictionaries without destroying app styles",
          "if (_activeTheme is not null) dictionaries.Remove(_activeTheme); "
          "_activeTheme = new DarkTheme(); dictionaries.Add(_activeTheme);",

@@ -119,40 +119,59 @@ protected override Window CreateWindow(IActivationState? activationState)
 5. **Keep handlers fast** — the OS can suspend or terminate the app; do not depend on a fixed time allowance or on an `async void` handler finishing.
 
 ```csharp
-bool _draftLoaded;
-
-protected override void OnActivated()
+public sealed class DraftWindow : Window
 {
-    base.OnActivated();
-    if (_draftLoaded)
-        return;
-    _viewModel.DraftText = Preferences.Get("draft_text", string.Empty);
-    _viewModel.ScrollY = Preferences.Get("scroll_y", 0.0);
-    _draftLoaded = true;
-}
+    readonly NoteViewModel _viewModel;
+    readonly string _draftKey;
+    bool _draftLoaded;
 
-// Call from the draft-change path too, not only from lifecycle callbacks.
-void SaveDraft() => Preferences.Set("draft_text", _viewModel.DraftText);
+    public DraftWindow(Page page, NoteViewModel viewModel, string draftKey) : base(page)
+    {
+        _viewModel = viewModel;
+        _draftKey = draftKey;
+    }
 
-protected override void OnStopped()
-{
-    base.OnStopped();
-    SaveDraft();
-    Preferences.Set("scroll_y", _viewModel.ScrollY);
-}
+    protected override void OnActivated()
+    {
+        base.OnActivated();
+        if (_draftLoaded)
+            return;
+        _viewModel.DraftText = Preferences.Get(_draftKey, string.Empty);
+        _viewModel.ScrollY = Preferences.Get($"{_draftKey}:scroll", 0.0);
+        _draftLoaded = true;
+    }
 
-protected override void OnResumed()
-{
-    base.OnResumed();
-    // Resume surviving work; do not replace live edits with an older snapshot.
-}
+    // Call from the draft-change path too, not only from lifecycle callbacks.
+    public void SaveDraft() => Preferences.Set(_draftKey, _viewModel.DraftText);
 
-protected override void OnDestroying()
-{
-    base.OnDestroying();
-    SaveDraft(); // Best-effort flush, not a guaranteed termination notification.
+    protected override void OnStopped()
+    {
+        base.OnStopped();
+        SaveDraft();
+        Preferences.Set($"{_draftKey}:scroll", _viewModel.ScrollY);
+    }
+
+    protected override void OnResumed()
+    {
+        base.OnResumed();
+        // Resume surviving work; do not replace live edits with an older snapshot.
+    }
+
+    protected override void OnDestroying()
+    {
+        base.OnDestroying();
+        SaveDraft(); // Best-effort flush, not a guaranteed termination notification.
+    }
 }
 ```
+
+Pass the **same** ViewModel used by the editor page, not an assumed
+`Window.BindingContext` or `AppShell.BindingContext`. For example, a
+`NotePage(NoteViewModel vm)` constructor sets `BindingContext = vm` after
+`InitializeComponent()`, and `CreateWindow` returns
+`new DraftWindow(new NotePage(vm), vm, documentDraftKey)`.
+For Shell, retain the Shell root but pass the actual editor's ViewModel explicitly.
+Use a stable, document-specific key when windows edit different documents.
 
 ## Platform Lifecycle Mapping
 

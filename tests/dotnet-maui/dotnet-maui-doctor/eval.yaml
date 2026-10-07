@@ -116,6 +116,7 @@ stimuli:
       - Identifies the missing evidence that prevents establishing the failing build's cause.
       - Does not infer universal support, incompatibility or guaranteed remediation from a JDK vendor name.
       - Respects advice-only scope by not executing machine inventories, builds or installations; proposing checks or reading guidance is not executing them.
+      - Keeps any reference lookup within the loaded skill or supplied workspace; an unavailable reference does not justify filesystem-wide searches or replacing the requested diagnosis with unrelated command-completion messages.
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6
@@ -287,7 +288,7 @@ stimuli:
     rubric:
       - Recognizes workload repair as legitimate for evidenced installed-pack corruption.
       - Explains that repair reinstalls installed packs and is not a general version upgrade or JDK fix.
-      - Uses the selected SDK's current resolved manifests for repair; .NET 10 repair does not update manifests or support --skip-manifest-update, so that unsupported option is not a required pin safeguard.
+      - Correctly distinguishes repair under current resolved manifests from an intentional version update; does not falsely require an extra manifest-update-prevention flag or guarantee mutation of only one damaged pack.
       - Preserves effective pins, notes mutation scope and proposes revalidation without claiming execution.
     golden_trajectory:
       inline:
