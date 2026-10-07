@@ -131,8 +131,11 @@ stimuli:
           command: >-
             node -e "const fs=require('fs'); const source=fs.readFileSync('OrderQueries.cs','utf8');
             const code=source.replace(/\/\*[\s\S]*?\*\//g,'').replace(/\/\/.*$/gm,'');
-            const eager=/context\s*\.\s*Orders(?:(?!;)[\s\S])*?\.Include\s*\(\s*(\w+)\s*=>\s*\1\s*\.\s*Lines\s*\)(?:(?!;)[\s\S])*?\.ToListAsync\s*\(\s*cancellationToken\s*\)/;
-            if(!eager.test(code)) throw new Error('Expected executable eager-loading query for Order.Lines');"
+            const direct=/return\s+await\s+context\s*\.\s*Orders(?:(?!;)[\s\S])*?\.Include\s*\(\s*(\w+)\s*=>\s*\1\s*\.\s*Lines\s*\)(?:(?!;)[\s\S])*?\.ToListAsync\s*\(\s*cancellationToken\s*\)\s*;/;
+            const result=/\b(?:var|IReadOnlyList<Order>|List<Order>)\s+(\w+)\s*=\s*await\s+context\s*\.\s*Orders(?:(?!;)[\s\S])*?\.Include\s*\(\s*(\w+)\s*=>\s*\2\s*\.\s*Lines\s*\)(?:(?!;)[\s\S])*?\.ToListAsync\s*\(\s*cancellationToken\s*\)\s*;[\s\S]{0,400}\breturn\s+\1\s*;/;
+            const query=/\b(?:var|IQueryable<Order>)\s+(\w+)\s*=\s*context\s*\.\s*Orders(?:(?!;)[\s\S])*?\.Include\s*\(\s*(\w+)\s*=>\s*\2\s*\.\s*Lines\s*\)(?:(?!;)[\s\S])*?;[\s\S]{0,400}\breturn\s+await\s+\1\s*\.\s*ToListAsync\s*\(\s*cancellationToken\s*\)\s*;/;
+            if(!direct.test(code) && !result.test(code) && !query.test(code))
+            throw new Error('Returned orders must come from the eager-loading query');"
           expected_exit_code: 0
       - type: file-not-contains
         config:
@@ -162,7 +165,33 @@ stimuli:
       files:
         - src: fixtures/nunit-migration
           dest: .
+      commands:
+        - >-
+          node -e "const fs=require('fs'); fs.mkdirSync('.eval-baseline',{recursive:true});
+          fs.copyFileSync('TestProject.csproj','.eval-baseline/TestProject.csproj.snapshot');
+          fs.copyFileSync('global.json','.eval-baseline/global.json.snapshot');"
     graders:
+      - type: file-exists
+        config:
+          path: CalculatorTests.cs
+      - type: file-exists
+        config:
+          path: TestProject.csproj
+      - type: file-exists
+        config:
+          path: global.json
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs');
+            const normalize=s=>s.replace(/\r\n/g,'\n').split('\n').filter(line=>!line.includes('<PackageReference')).join('\n').trim();
+            const before=normalize(fs.readFileSync('.eval-baseline/TestProject.csproj.snapshot','utf8'));
+            const after=normalize(fs.readFileSync('TestProject.csproj','utf8'));
+            if(before!==after) throw new Error('Non-package project settings changed');
+            const globalBefore=fs.readFileSync('.eval-baseline/global.json.snapshot','utf8').replace(/\r\n/g,'\n');
+            const globalAfter=fs.readFileSync('global.json','utf8').replace(/\r\n/g,'\n');
+            if(globalBefore!==globalAfter) throw new Error('global.json changed');"
+          expected_exit_code: 0
       - type: file-not-contains
         config:
           path: "**/*.cs"

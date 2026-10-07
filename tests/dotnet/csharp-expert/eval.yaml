@@ -215,6 +215,11 @@ stimuli:
       files:
         - src: fixtures/nunit-migration
           dest: .
+      commands:
+        - >-
+          node -e "const fs=require('fs'); fs.mkdirSync('.eval-baseline',{recursive:true});
+          for(const file of ['CalculatorTests.cs','TestProject.csproj','global.json'])
+          fs.copyFileSync(file,'.eval-baseline/'+file+'.snapshot');"
     constraints:
       reject_tools: [bash, edit, create]
     graders:
@@ -230,38 +235,15 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?=[\s\S]*TestCase)(?=[\s\S]*DataRow)(?=[\s\S]*SetUp)(?=[\s\S]*TestInitialize)(?=[\s\S]*TearDown)(?=[\s\S]*TestCleanup)
-      - type: file-contains
+      - type: run-command
         config:
-          path: "**/*.cs"
-          value: NUnit.Framework
-      - type: file-contains
-        config:
-          path: CalculatorTests.cs
-          value: '[SetUp]'
-      - type: file-contains
-        config:
-          path: CalculatorTests.cs
-          value: '[TearDown]'
-      - type: file-contains
-        config:
-          path: CalculatorTests.cs
-          value: '[TestCase(2, 3, 6)]'
-      - type: file-contains
-        config:
-          path: CalculatorTests.cs
-          value: '[TestCase(-1, 1, 1)]'
-      - type: file-contains
-        config:
-          path: TestProject.csproj
-          value: '<PackageReference Include="NUnit" Version="4.6.1" />'
-      - type: file-contains
-        config:
-          path: TestProject.csproj
-          value: '<PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />'
-      - type: file-contains
-        config:
-          path: global.json
-          value: '"version": "8.0.100"'
+          command: >-
+            node -e "const fs=require('fs');
+            for(const file of ['CalculatorTests.cs','TestProject.csproj','global.json'])
+            if(!fs.readFileSync(file).equals(fs.readFileSync('.eval-baseline/'+file+'.snapshot')))
+            throw new Error(file+' changed');"
+          expected_exit_code: 0
+          timeout: 1m
       - type: exit-success
       - type: prompt
     rubric:
@@ -285,6 +267,11 @@ stimuli:
       files:
         - src: fixtures/dotnet8-upgrade
           dest: .
+      commands:
+        - >-
+          node -e "const fs=require('fs'); fs.mkdirSync('.eval-baseline',{recursive:true});
+          for(const file of ['App.csproj','Program.cs'])
+          fs.copyFileSync(file,'.eval-baseline/'+file+'.snapshot');"
     constraints:
       reject_tools: [edit, create]
     graders:
@@ -300,10 +287,14 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?=[\s\S]*net8\.0)(?=[\s\S]*net9\.0)(?=[\s\S]*(compatib|breaking))
-      - type: file-contains
+      - type: run-command
         config:
-          path: App.csproj
-          value: <TargetFramework>net8.0</TargetFramework>
+          command: >-
+            node -e "const fs=require('fs'); for(const file of ['App.csproj','Program.cs'])
+            if(!fs.readFileSync(file).equals(fs.readFileSync('.eval-baseline/'+file+'.snapshot')))
+            throw new Error(file+' changed');"
+          expected_exit_code: 0
+          timeout: 1m
       - type: exit-success
       - type: prompt
     rubric:
@@ -482,6 +473,11 @@ stimuli:
       files:
         - src: fixtures/nunit-migration
           dest: .
+      commands:
+        - >-
+          node -e "const fs=require('fs'); fs.mkdirSync('.eval-baseline',{recursive:true});
+          for(const file of ['CalculatorTests.cs','TestProject.csproj','global.json'])
+          fs.copyFileSync(file,'.eval-baseline/'+file+'.snapshot');"
     constraints:
       reject_tools: [bash, edit, create]
     graders:
@@ -500,38 +496,15 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: /plugin install dotnet-test-migration@dotnet-agent-skills
-      - type: file-contains
+      - type: run-command
         config:
-          path: "**/*.cs"
-          value: NUnit.Framework
-      - type: file-contains
-        config:
-          path: CalculatorTests.cs
-          value: '[SetUp]'
-      - type: file-contains
-        config:
-          path: CalculatorTests.cs
-          value: '[TearDown]'
-      - type: file-contains
-        config:
-          path: CalculatorTests.cs
-          value: '[TestCase(2, 3, 6)]'
-      - type: file-contains
-        config:
-          path: CalculatorTests.cs
-          value: '[TestCase(-1, 1, 1)]'
-      - type: file-contains
-        config:
-          path: TestProject.csproj
-          value: '<PackageReference Include="NUnit" Version="4.6.1" />'
-      - type: file-contains
-        config:
-          path: TestProject.csproj
-          value: '<PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />'
-      - type: file-contains
-        config:
-          path: global.json
-          value: '"version": "8.0.100"'
+          command: >-
+            node -e "const fs=require('fs');
+            for(const file of ['CalculatorTests.cs','TestProject.csproj','global.json'])
+            if(!fs.readFileSync(file).equals(fs.readFileSync('.eval-baseline/'+file+'.snapshot')))
+            throw new Error(file+' changed');"
+          expected_exit_code: 0
+          timeout: 1m
       - type: exit-success
       - type: prompt
     rubric:
