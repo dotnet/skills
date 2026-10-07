@@ -518,11 +518,11 @@ stimuli:
           pattern: (maui-data-binding|MAUI data.binding)
       - type: output-not-matches
         config:
-          pattern: (/plugin (marketplace add|install|update)|copilot plugin|/skills reload|reinstall|update (the )?plugin|plugin update)
+          pattern: (/plugin\s+(marketplace\s+add|install|update)\b|copilot\s+plugin\s+(install|update)\b|/skills\s+reload\b|(?:first|immediately|right away|now|start by|begin by)[^\r\n.!?]{0,40}(?:reinstall|update)\b|(?:reinstall|update)[^\r\n.!?]{0,40}(?:first|immediately|right away|now)\b)
       - type: exit-success
       - type: prompt
     rubric:
       - Explicitly acknowledged that installation had already succeeded and discovery was stale
       - Gave restart or reload followed by the skill listing as the complete first recovery step
       - Told the user what binding capability to look for after refresh
-      - Did not invent commands or recommend reinstalling or updating before discovery was refreshed
+      - Did not invent commands or recommend reinstalling or updating before discovery was refreshed; conditional later diagnostics are acceptable
