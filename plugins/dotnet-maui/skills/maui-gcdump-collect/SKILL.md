@@ -85,8 +85,13 @@ dotnet-gcdump report "$PWD/after-navigation.gcdump"
 On Windows use a unique named pipe, not a Unix socket path. The file is written
 **on the host**: no `adb pull` or iOS sandbox extraction is needed for this workflow.
 Choose a new output name if it already exists: the collector can delete/overwrite
-an existing file. In tool version 9.0.621003 explicit diagnostic-port collection
-supports **connect only**; the `,connect` suffix is required.
+an existing file. The existence check and the `collect` invocation must run as
+**one executable unit whose exit/failure propagates** (for example chained with
+`&&`, or an `if`/`then`, or a guard that `exit`s before a `;`-joined invocation)
+— never as separate commands or separate steps, since nothing then stops the
+invocation from running after a failed or skipped check. In tool version
+9.0.621003 explicit diagnostic-port collection supports **connect only**; the
+`,connect` suffix is required.
 Require successful collector exit, a new nonempty file, and a successful report
 with plausible type statistics (or a supported local viewer reading it). A renamed
 `.nettrace`/`.dmp`, extension alone, or a partial file does not meet the format
