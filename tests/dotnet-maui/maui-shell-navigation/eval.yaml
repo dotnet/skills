@@ -1,133 +1,461 @@
 name: maui-shell-navigation
 description: Evaluates the dotnet-maui/maui-shell-navigation skill
 type: capability
-config:
-  timeout: 2m
 stimuli:
-  - name: Set up Shell navigation with tabs and flyout
-    prompt: |
-      I'm starting a new .NET MAUI app that needs a flyout menu with two sections:
-      "Dashboard" (single page) and "Products" (with two sub-tabs: "Active" and
-      "Archived"). I also need a Settings page accessible from the flyout.
-      Show me how to set up AppShell.xaml with this structure, including route
-      registration for a ProductDetailsPage that I'll navigate to from the list.
-    graders:
-      - type: output-contains
-        config:
-          substring: FlyoutItem
-      - type: output-contains
-        config:
-          substring: ContentTemplate
-      - type: output-matches
-        config:
-          pattern: Routing\.RegisterRoute
-      - type: output-matches
-        config:
-          pattern: (?i)ShellContent
-      - type: prompt
-    rubric:
-      - Uses ContentTemplate with DataTemplate for lazy page creation, not eager Content
-      - Correctly nests ShellContent inside Tab to produce top tabs for Active/Archived
-      - Registers ProductDetailsPage route in AppShell constructor
-      - Sets FlyoutBehavior on Shell element
-  - name: Navigate with parameters using GoToAsync
-    prompt: |
-      I have a ProductListPage that shows products in a CollectionView. When the
-      user taps a product, I need to navigate to ProductDetailsPage and pass the
-      product ID as a string parameter AND sometimes the full Product object.
-      Show me both approaches and how to receive the data on the target page
-      using IQueryAttributable on my ViewModel.
-    graders:
-      - type: output-contains
-        config:
-          substring: GoToAsync
-      - type: output-contains
-        config:
-          substring: IQueryAttributable
-      - type: output-matches
-        config:
-          pattern: ShellNavigationQueryParameters
-      - type: output-matches
-        config:
-          pattern: ApplyQueryAttributes
-      - type: prompt
-    rubric:
-      - Shows query string approach for the string ID parameter
-      - Shows ShellNavigationQueryParameters for passing the full object
-      - Implements IQueryAttributable on the ViewModel, not the page
-      - Always awaits GoToAsync calls
-  - name: Handle back navigation and unsaved changes guard
-    prompt: |
-      My EditProductPage has a form with unsaved changes. I need to:
-      1. Show a confirmation dialog when the user tries to navigate back
-      2. Cancel navigation if they choose to stay
-      3. Also provide a custom back button that says "Cancel" instead of the
-         default back arrow.
-      How do I implement this in .NET MAUI Shell?
-    graders:
-      - type: output-matches
-        config:
-          pattern: (?i)OnNavigating|ShellNavigatingEventArgs
-      - type: output-matches
-        config:
-          pattern: GetDeferral
-      - type: output-contains
-        config:
-          substring: BackButtonBehavior
-      - type: output-matches
-        config:
-          pattern: (?i)args\.Cancel|Cancel\(\)
-      - type: prompt
-    rubric:
-      - Uses GetDeferral/Complete pattern for async confirmation dialog
-      - Checks ShellNavigationSource.Pop to detect back navigation
-      - Shows BackButtonBehavior XAML with TextOverride for custom label
-      - Does not use synchronous blocking for the async dialog check
-  - name: Diagnose common Shell navigation mistakes
-    prompt: |
-      My .NET MAUI Shell app has these problems:
-      1. GoToAsync("productdetails") throws an exception
-      2. GoToAsync("//products/active") navigates but nothing visible changes
-      3. My app takes 3 seconds to start and I have 12 pages in Shell
-      What's likely wrong in each case and how do I fix them?
-    graders:
-      - type: output-matches
-        config:
-          pattern: (?i)RegisterRoute|register.*route
-      - type: output-matches
-        config:
-          pattern: (?i)hierarchy|absolute.*route|path
-      - type: output-contains
-        config:
-          substring: ContentTemplate
-      - type: prompt
-    rubric:
-      - Identifies missing Routing.RegisterRoute for the relative route case
-      - Explains that the absolute route path must match the full visual hierarchy
-      - Recommends ContentTemplate with DataTemplate to fix eager page creation at startup
-      - Does not suggest NavigationPage-based solutions for Shell navigation issues
-  - name: "Stable routes for deep linking into tabs"
-    prompt: |
-      I need to deep link straight to the Archived tab of my Shell app from a
-      push notification, using an absolute route. My AppShell.xaml declares the
-      FlyoutItem, Tab and ShellContent elements but I never set any Route
-      attributes. Show me the AppShell.xaml I should have and the GoToAsync
-      call, and explain why my current markup makes this unreliable.
-    graders:
-      - type: output-contains
-        config:
-          substring: Route
-      # Regression guard: without an explicit Route, Routing.cs generates
-      # "D_FAULT_{TypeName}{++s_routeCount}" from a counter shared across all
-      # Shell element types. Verified at runtime: three ShellContent elements
-      # produced D_FAULT_ShellContent2 and D_FAULT_ShellContent5 — non-sequential
-      # and order-dependent, so no absolute route can target them reliably.
-      - type: output-matches
-        config:
-          pattern: <ShellContent[^>]*Route\s*=|Route\s*=\s*"[a-zA-Z]
-      - type: prompt
-    rubric:
-      - Sets an explicit Route on the ShellContent elements in AppShell.xaml
-      - Explains that without Route, MAUI auto-generates an unstable name (D_FAULT_ prefixed) that shifts when pages are reordered or added
-      - Shows an absolute GoToAsync route (leading //) built from the explicit route names
-      - Does NOT rely on auto-generated route names for deep linking
+- name: Set up Shell navigation with tabs and flyout
+  prompt: |
+    I'm starting a new .NET MAUI app that needs a flyout menu with two sections:
+    "Dashboard" (single page) and "Products" (with two sub-tabs: "Active" and
+    "Archived"). I also need a Settings page accessible from the flyout.
+    Show me how to set up AppShell.xaml with this structure, including route
+    registration for a ProductDetailsPage that I'll navigate to from the list.
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: ContentTemplate
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Models Dashboard, Products with Active/Archived subtabs, and Settings without inventing an additional
+    visible navigation level.
+  - Uses lazy page creation and registers the detail route.
+  - Provides explicit routes and valid hierarchy; accepts equivalent implicit wrappers or an explicitly
+    chosen top/bottom tab arrangement.
+  tags:
+    capability: set-up-shell-navigation-with-tabs-and-flyout
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: <Shell FlyoutBehavior="Flyout" xmlns:views="clr-namespace:MyApp.Views"><FlyoutItem Title="Dashboard"
+          Route="dashboard"><ShellContent Route="home" ContentTemplate="{DataTemplate views:DashboardPage}"
+          /></FlyoutItem><FlyoutItem Title="Products" Route="products"><Tab Route="status"><ShellContent
+          Title="Active" Route="active" ContentTemplate="{DataTemplate views:ActivePage}" /><ShellContent
+          Title="Archived" Route="archived" ContentTemplate="{DataTemplate views:ArchivedPage}" /></Tab></FlyoutItem><FlyoutItem
+          Title="Settings" Route="settings"><ShellContent Route="preferences" ContentTemplate="{DataTemplate
+          views:SettingsPage}" /></FlyoutItem></Shell>. Add normal MAUI/XAML namespace declarations and
+          x:Class. One Tab groups the two top subtabs; there is no extra visible Products tab. After InitializeComponent
+          in AppShell, Routing.RegisterRoute(nameof(ProductDetailsPage), typeof(ProductDetailsPage)).
+- name: Navigate with parameters using GoToAsync
+  prompt: |
+    I have a ProductListPage that shows products in a CollectionView. When the
+    user taps a product, I need to navigate to ProductDetailsPage and pass the
+    product ID as a string parameter AND sometimes the full Product object.
+    Show me both approaches and how to receive the data on the target page
+    using IQueryAttributable on my ViewModel.
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: IQueryAttributable
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Shows query string approach for the string ID parameter
+  - Shows ShellNavigationQueryParameters for passing the full object
+  - Implements IQueryAttributable on the ViewModel, not the page
+  - Always awaits GoToAsync calls
+  tags:
+    capability: navigate-with-parameters-using-gotoasync
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Register the detail route, then await Shell.Current.GoToAsync($"ProductDetailsPage?id={Uri.EscapeDataString(id)}").
+          For an object, await GoToAsync("ProductDetailsPage", new ShellNavigationQueryParameters { ["product"]
+          = product }). Implement IQueryAttributable.ApplyQueryAttributes on the target ViewModel and
+          assign its BindingContext; decode string values explicitly when using IQueryAttributable, and
+          type-check object values. Single-use parameters avoid retaining the object for the page lifetime.
+- name: Handle back navigation and unsaved changes guard
+  prompt: |
+    My EditProductPage has a form with unsaved changes. I need to:
+    1. Show a confirmation dialog when the user tries to navigate back
+    2. Cancel navigation if they choose to stay
+    3. Also provide a custom back button that says "Cancel" instead of the
+       default back arrow.
+    How do I implement this in .NET MAUI Shell?
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)(deferral|finally)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Uses GetDeferral/Complete pattern for async confirmation dialog
+  - Checks ShellNavigationSource.Pop to detect back navigation
+  - Shows BackButtonBehavior XAML with TextOverride for custom label
+  - Does not use synchronous blocking for the async dialog check
+  tags:
+    capability: handle-back-navigation-and-unsaved-changes-guard
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Handle Shell.Navigating for a cancelable ShellNavigationSource.Pop. GetDeferral before
+          awaiting the confirmation dialog, call args.Cancel when staying, and always deferral.Complete
+          in finally, including errors. Do not synchronously block the dialog or start another navigation
+          while the deferral is pending. Set Shell.BackButtonBehavior with BackButtonBehavior TextOverride="Cancel"
+          on the edit page; a command should use the same guarded navigation.
+- name: Diagnose common Shell navigation mistakes
+  prompt: |
+    My .NET MAUI Shell app has these problems:
+    1. GoToAsync("productdetails") throws an exception
+    2. GoToAsync("//products/active") navigates but nothing visible changes
+    3. My app takes 3 seconds to start and I have 12 pages in Shell
+    What's likely wrong in each case and how do I fix them?
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)(route|hierarchy)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Identifies missing Routing.RegisterRoute for the relative route case
+  - Explains that the absolute route path must match the full visual hierarchy
+  - Recommends ContentTemplate with DataTemplate to fix eager page creation at startup
+  - Does not suggest NavigationPage-based solutions for Shell navigation issues
+  tags:
+    capability: diagnose-common-shell-navigation-mistakes
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: A relative productdetails route needs Routing.RegisterRoute or an existing matching visual
+          route; inspect the exact exception and registered spelling. An absolute //products/active path
+          must match the full declared visual hierarchy and target; it may need a Tab segment and may
+          already be current. Use ContentTemplate="{DataTemplate ...}" instead of eager page Content for
+          lazy startup. Keep the Shell container, not a nested NavigationPage.
+- name: Stable routes for deep linking into tabs
+  prompt: |
+    I need to deep link straight to the Archived tab of my Shell app from a
+    push notification, using an absolute route. My AppShell.xaml declares the
+    FlyoutItem, Tab and ShellContent elements but I never set any Route
+    attributes. Show me the AppShell.xaml I should have and the GoToAsync
+    call, and explain why my current markup makes this unreliable.
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: //products
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Sets an explicit Route on the ShellContent elements in AppShell.xaml
+  - Explains that without Route, MAUI auto-generates an unstable name (D_FAULT_ prefixed) that shifts
+    when pages are reordered or added
+  - Shows an absolute GoToAsync route (leading //) built from the explicit route names
+  - Does NOT rely on auto-generated route names for deep linking
+  tags:
+    capability: stable-routes-for-deep-linking-into-tabs
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: <FlyoutItem Route="products"><Tab Route="status"><ShellContent Route="active" ContentTemplate="{DataTemplate
+          views:ActivePage}" /><ShellContent Route="archived" ContentTemplate="{DataTemplate views:ArchivedPage}"
+          /></Tab></FlyoutItem> provides stable segments. Await Shell.Current.GoToAsync("//products/status/archived")
+          after the shell exists. Automatic D_FAULT names depend on construction/reordering and are not
+          a durable deep-link contract.
+- name: Object parameter retention
+  prompt: In my MAUI Shell app I pass a large Product object to details in a navigation dictionary. It
+    stays alive longer than expected and I only need to consume it once. Show a suitable one-shot transfer
+    and how the target receives it safely for a trimmed build.
+  tags:
+    capability: parameter-lifetime
+    risk: retained-object
+    journey: open-details
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (ShellNavigationQueryParameters|IQueryAttributable)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Transfers detail data without unnecessary lifetime retention and supports receiving it in a trimmed
+    application.
+  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Use a single-use ShellNavigationQueryParameters or ID lookup; receive with IQueryAttributable
+          without reflection-dependent QueryProperty in a trimmed build.
+- name: Global route versus visual route
+  prompt: I registered ProductDetailsPage in MAUI Shell and tried //productdetails to make it the app
+    root. It fails. Why, and how do I navigate without inventing a second app navigation container?
+  tags:
+    capability: route-kind
+    risk: invalid-absolute-route
+    journey: open-detail
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)(relative|visual)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Distinguishes a registered detail destination from a visual root and supplies a supported navigation
+    path.
+  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Distinguish registered detail routes from visual-hierarchy absolute routes; navigate
+          relatively to a global detail or declare a real visual root if required.
+- name: Confirmation pending during navigation
+  prompt: While my MAUI unsaved-changes dialog is open, a second navigation request throws because there
+    is a pending deferral. Show how to complete or cancel the original navigation safely even if the dialog
+    fails.
+  tags:
+    capability: deferral-cleanup
+    risk: stuck-navigation
+    journey: leave-editor
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)(finally|Complete)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Releases pending navigation reliably whether the confirmation succeeds, is declined, or throws.
+  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Complete the deferral in finally, cancel when staying or on failure, and avoid starting
+          GoToAsync until the pending navigation is completed.
+- name: Repair supplied executable contract
+  prompt: The supplied Products flyout entry has Active and Archived top subtabs, but their route identifiers
+    collide. Fix only Program.cs without adding another visible tab level or eager page construction.
+    Run the object-model checks and give the absolute path to Archived. Do not claim that navigation was
+    exercised on a device. Keep the existing products/status parent routes.
+  tags:
+    capability: executable-repair
+    risk: broken-code
+    journey: repair-feature
+  environment:
+    files:
+    - src: fixtures/repair
+      dest: .
+  graders:
+  - type: run-command
+    config:
+      command: 'python3 -c ''import hashlib,pathlib; expected={''"''"''Fixture.csproj''"''"'': ''"''"''daaa2155aa040b8c8e421ae545be8d52233f1ed82cac1a46cb39949fb371962c''"''"'',
+        ''"''"''Checks.cs''"''"'': ''"''"''ec323529537a97bbd3bc965760026d91e91f0aa9e6dacbb5e316cbf67e3cc928''"''"'',
+        ''"''"''Directory.Build.props''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
+        ''"''"''Directory.Build.targets''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"''};
+        assert all(pathlib.Path(p).is_file() and hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()==h
+        for p,h in expected.items()); assert {p.as_posix() for p in pathlib.Path(''"''"''.''"''"'').rglob(''"''"''*''"''"'')
+        if p.is_file() and p.suffix in (''"''"''.cs''"''"'',''"''"''.csproj''"''"'',''"''"''.props''"''"'',''"''"''.targets''"''"'',''"''"''.xaml''"''"'',''"''"''.resx''"''"'')
+        and not any(part in (''"''"''bin''"''"'',''"''"''obj''"''"'',''"''"''.git''"''"'',''"''"''.scratch''"''"'')
+        for part in p.parts)} == (set(expected) | {''"''"''Program.cs''"''"''})'''
+  - &id001
+    type: run-command
+    config:
+      command: dotnet run --project Fixture.csproj --verbosity quiet
+      expected_exit_code: 0
+      timeout: 120s
+      stdout_matches: 'PASS: behavior-contract'
+  - type: output-matches
+    config:
+      pattern: //products/status/archived
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+      - diff
+      - golden_patch
+  rubric:
+  - Repairs the stated defect without changing protected files or weakening checks.
+  - Reports only validation actually performed and distinguishes object-model checks from native/device
+    behavior.
+  - Preserves the parent routes and reports //products/status/archived as the absolute path.
+  golden_patch:
+    path: goldens/repair.patch
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: 'Expected result: the supplied defect is corrected in Program.cs without changing the
+          public contract. The executable checks verify platform-neutral code against real MAUI 10.0.0
+          assemblies; they are not device, native layout, navigation or lifecycle execution evidence.
+          The retained parent routes give //products/status/archived as the absolute path to Archived.'
+- name: Preserve working supplied implementation
+  prompt: Review the supplied implementation for the behavior checked by Checks.cs. Run the checks; if
+    it already satisfies that contract, do not edit, delete, rename, or add any source/project files.
+    Explain any platform-specific validation limitations rather than rewriting working code.
+  tags:
+    capability: working-code-preservation
+    risk: unnecessary-rewrite
+    journey: review-working-code
+  environment:
+    files:
+    - src: fixtures/working
+      dest: .
+  graders:
+  - type: run-command
+    config:
+      command: 'python3 -c ''import hashlib,pathlib; expected={''"''"''Fixture.csproj''"''"'': ''"''"''daaa2155aa040b8c8e421ae545be8d52233f1ed82cac1a46cb39949fb371962c''"''"'',
+        ''"''"''Checks.cs''"''"'': ''"''"''ec323529537a97bbd3bc965760026d91e91f0aa9e6dacbb5e316cbf67e3cc928''"''"'',
+        ''"''"''Directory.Build.props''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
+        ''"''"''Directory.Build.targets''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
+        ''"''"''Program.cs''"''"'': ''"''"''a662111d0c3fbd89b33e57a4e637beccceaba976015f660ee84437f9fa772009''"''"''};
+        assert all(pathlib.Path(p).is_file() and hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()==h
+        for p,h in expected.items()); assert {p.as_posix() for p in pathlib.Path(''"''"''.''"''"'').rglob(''"''"''*''"''"'')
+        if p.is_file() and p.suffix in (''"''"''.cs''"''"'',''"''"''.csproj''"''"'',''"''"''.props''"''"'',''"''"''.targets''"''"'',''"''"''.xaml''"''"'',''"''"''.resx''"''"'')
+        and not any(part in (''"''"''bin''"''"'',''"''"''obj''"''"'',''"''"''.git''"''"'',''"''"''.scratch''"''"'')
+        for part in p.parts)} == (set(expected) | {''"''"''Program.cs''"''"''})'''
+  - *id001
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Leaves the complete supplied source/project file set byte-identical when the checks already pass.
+  - Separates platform-neutral evidence from unperformed native/device validation.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: The supplied implementation satisfies the requested object-model contract; leave every
+          supplied file unchanged. Platform-neutral checks do not establish behavior on a device.
+- name: Blazor route parameters
+  prompt: My Blazor web app needs a /products/{id} route and a link to it. Show the Razor page and navigation.
+    There is no native mobile host.
+  expect_activation: false
+  tags:
+    capability: routing-boundary
+    risk: off-target-activation
+    journey: use-other-platform
+  graders:
+  - type: exit-success
+  - type: output-not-matches
+    config:
+      pattern: Shell\.Current\.GoToAsync\s*\(
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Recognizes the requested platform/control boundary and gives appropriate guidance.
+  - Treats the native app workflow as out of scope; does not apply its APIs, edit unrelated files, or
+    install tools.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Use Blazor @page and NavigationManager or links, not MAUI Shell routes or AppShell.
+defaults:
+  timeout: 6m
+  runs: 1

@@ -103,6 +103,12 @@ You can omit intermediate wrappers. Shell auto-wraps:
 5. **Give every `ShellContent` an explicit `Route`** (see below)
 6. Register detail-page routes in the `AppShell` constructor
 
+Match the requested visible levels before adding wrappers. For one flyout entry
+with two **top** subtabs, use one `FlyoutItem`, one `Tab`, and two sibling
+`ShellContent` elements titled for the subtabs. For two **bottom** tabs, use two
+sibling `Tab` elements, each containing its page. Do not add a visible intermediate
+tab named after the flyout section unless the user requests that extra level.
+
 > **Set `Route=` on every `ShellContent`.** If you omit it, MAUI auto-generates a
 > name from a shared counter — `Routing.cs` produces `D_FAULT_{TypeName}{n}`. A real
 > shell with three unnamed `ShellContent` elements yields routes like

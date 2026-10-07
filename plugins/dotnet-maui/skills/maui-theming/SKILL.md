@@ -220,8 +220,13 @@ Use `DynamicResource` so values update when the dictionary is swapped at runtime
 
 Remove only the theme you added, and leave everything else alone:
 
+Keep the tracking field and switching method on the same owner with consistent
+instance/static scope. Prefer an instance-owned service for an application;
+a static method cannot access an instance field. Provide the containing class
+when the user needs copy-pasteable code, not just disconnected members.
+
 ```csharp
-static ResourceDictionary? _currentTheme;
+ResourceDictionary? _currentTheme;
 
 void ApplyTheme(ResourceDictionary theme)
 {
@@ -353,7 +358,7 @@ diagnose this, always show the swap and the system-theme hook alongside the fix 
 otherwise the user has a corrected binding that still never updates:
 
 ```csharp
-static ResourceDictionary? _currentTheme;
+ResourceDictionary? _currentTheme;
 
 void ApplyTheme(bool useDark)
 {

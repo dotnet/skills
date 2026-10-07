@@ -130,12 +130,20 @@ anti-pattern — it disables compile-time checking and reintroduces reflection.
 Add to the `.csproj`:
 
 ```xml
+<!-- Emit the opt-in binding diagnostics in ordinary non-AOT builds too. -->
+<MauiStrictXamlCompilation>true</MauiStrictXamlCompilation>
 <!-- Compile bindings that use Source= as well; otherwise XC0025 fires on every
      Source= / RelativeSource binding. As of .NET 10/11 this is on by default
      only for AOT / full-trim builds. -->
 <MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
-<WarningsAsErrors>XC0022;XC0025</WarningsAsErrors>
+<WarningsAsErrors>$(WarningsAsErrors);XC0022;XC0025</WarningsAsErrors>
 ```
+
+`MauiEnableXamlCBindingWithSourceCompilation` is a real MAUI build property,
+not an alias for a general XAML compilation switch. `MauiStrictXamlCompilation`
+enables binding diagnostics that are otherwise suppressed in ordinary builds.
+Verify these against the project's installed MAUI targets if SDK versions differ;
+do not replace them with an invented `MauiEnableXamlCompilation` property.
 
 If you promote `XC0025` without enabling that switch, make sure the project has no
 `Source=` / `RelativeSource` bindings — otherwise they will be reported.

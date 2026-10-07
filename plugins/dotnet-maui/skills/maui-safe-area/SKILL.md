@@ -168,7 +168,7 @@ Set `None` on **both** page and layout — layouts default to `Container`:
             </VerticalStackLayout>
         </ScrollView>
         <Border Grid.Row="1" BackgroundColor="LightGray" Padding="20">
-            <Grid ColumnDefinitions="*,Auto" Spacing="10">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                 <Entry Placeholder="Type a message..." />
                 <Button Grid.Column="1" Text="Send" />
             </Grid>

@@ -117,6 +117,11 @@ an app that uses dependency injection, register the ViewModel instead and assign
 through constructor injection (`BindingContext = vm;`) — see the
 **maui-dependency-injection** skill.
 
+For a new-page request, also supply the item model and the ViewModel exposing the
+collection, plus code-behind calling `InitializeComponent()`. Declaring
+`x:DataType` checks binding paths; it does not create a `BindingContext`. If those
+types already exist in the user's input, reuse them rather than inventing replacements.
+
 **Key rules:**
 
 - Bind `ItemsSource` to an `ObservableCollection<T>` so the UI updates on add/remove.
@@ -418,6 +423,11 @@ about performance — they are not a default checklist.
       </CollectionView.ItemTemplate>
   </CollectionView>
   ```
+  State the positive condition as well as the exceptions: it is safe when every
+  row has the same measured size at the current width and font scale, including
+  later-loaded rows. A fixed-height avatar plus one non-wrapping line can satisfy
+  that condition; a fixed avatar alone does not constrain wrapping text.
+
   **When `MeasureFirstItem` is the wrong choice** — keep the default `MeasureAllItems` if:
   - Items vary in height (wrapping text, optional rows, images of differing aspect) — the
     first item's size is applied to all, so the rest are clipped or stretched.
