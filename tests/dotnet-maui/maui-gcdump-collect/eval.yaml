@@ -38,8 +38,8 @@ stimuli:
             assert p["status"]=="planned" and p["device_id"]=="R58M123" and p["physical_capture_verified"] is False;
             c=p["commands"]; assert all(isinstance(c[k],list) and c[k] and all(isinstance(s,str) for s in c[k]) for k in ("route","collect","validate","cleanup"));
             r="\n".join(c["route"]); q="\n".join(c["collect"]); v="\n".join(c["validate"]); x="\n".join(c["cleanup"]);
-            q1=chr(39); q2=chr(34); m=re.search("(\\w+)=["+q1+q2+"]?R58M123["+q1+q2+"]?", r); sid=m.group(1) if m else None;
-            has=lambda text,lit: (lit in text) or (sid is not None and (lit.replace("R58M123", q2+"$"+sid+q2) in text or lit.replace("R58M123", "$"+sid) in text));
+            q1=chr(39); q2=chr(34); bal="(?:R58M123|"+q1+"R58M123"+q1+"|"+q2+"R58M123"+q2+")"; m=re.search("(\\w+)="+bal, r); sid=m.group(1) if m else None;
+            has=lambda text,lit: (re.search(re.escape(lit).replace(re.escape("R58M123"), bal), text) is not None) or (sid is not None and (lit.replace("R58M123", q2+"$"+sid+q2) in text or lit.replace("R58M123", "$"+sid) in text));
             assert "server-server" in r and "127.0.0.1:9001" in r and "capture-diag.sock" in r;
             assert has(r, "adb -s R58M123 reverse tcp:9000 tcp:9001") and "127.0.0.1:9000,nosuspend,connect" in r;
             assert "dotnet-gcdump collect" in q and "--diagnostic-port" in q and "capture-diag.sock,connect" in q and "after-navigation.gcdump" in q;
