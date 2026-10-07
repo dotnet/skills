@@ -1,6 +1,12 @@
-# Render Modes Reference
+﻿# Render Modes Reference
 
 Blazor supports multiple render modes. Toolkit components need an interactive mode whenever they handle clicks, binding, or other live updates.
+
+> **Framework support.** The Toolkit targets `net8.0`, `net9.0`, and `net10.0`. If `<TargetFramework>` is older, recommend upgrading first: restore succeeds on `net7.0` and earlier but supplies no assemblies, so the build fails with `CS0246`.
+
+> **Namespaces.** `SfButton` lives in `Syncfusion.Blazor.Toolkit.Buttons`, so each sample below includes `@using Syncfusion.Blazor.Toolkit.Buttons`. If it is already in `_Imports.razor`, the per-page line can be dropped.
+
+Toolkit itself only needs `AddSyncfusionBlazorToolkit()`. Keep every `AddInteractive*` and `AddAdditionalAssemblies(...)` call exactly as the project template generated it; do not add or remove them for Toolkit.
 
 ## Static SSR (Server-Side Rendering)
 
@@ -8,19 +14,14 @@ Blazor supports multiple render modes. Toolkit components need an interactive mo
 
 **Characteristic**: Components are rendered on the server and sent as HTML; no .NET code runs on the client.
 
-**Toolkit limitation**: **Static SSR is not sufficient for interactive Toolkit components** (buttons, forms, dropdowns, etc.). Event handlers and state changes will not work.
+**Toolkit limitation**: Static SSR is not sufficient for interactive Toolkit components (buttons, forms, inputs, etc.). Event handlers and state changes will not work. Toolkit services are still required: a static page that renders `SfButton` returns HTTP 500 without `AddSyncfusionBlazorToolkit()`.
 
 **Example (read-only only)**:
 ```razor
-@page "/counter"
+@page "/status"
+@using Syncfusion.Blazor.Toolkit.Buttons
 
-<p>This counter is stuck at: @count</p>
-<SfButton Disabled="true">Click doesn't work in SSR</SfButton>
-
-@code {
-    private int count = 0;
-    // @onclick handlers don't fire in static SSR
-}
+<SfButton Disabled="true">Read-only button</SfButton>
 ```
 
 ## Interactive Server Rendering
@@ -35,9 +36,10 @@ Blazor supports multiple render modes. Toolkit components need an interactive mo
 ```razor
 @page "/counter"
 @rendermode InteractiveServer
+@using Syncfusion.Blazor.Toolkit.Buttons
 
 <p>Count: @count</p>
-<SfButton @onclick="IncrementCount">Increment</SfButton>
+<SfButton OnClick="IncrementCount">Increment</SfButton>
 
 @code {
     private int count = 0;
@@ -45,23 +47,7 @@ Blazor supports multiple render modes. Toolkit components need an interactive mo
 }
 ```
 
-**Server-only template setup**. Do not add WebAssembly services here; a server-only project may not reference `Microsoft.AspNetCore.Components.WebAssembly.Server`.
-
-```csharp
-using Syncfusion.Blazor.Toolkit;
-
-var builder = WebApplication.CreateBuilder(args);
-
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
-
-builder.Services.AddSyncfusionBlazorToolkit();
-
-var app = builder.Build();
-
-app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
-```
+**Server `Program.cs`** (`dotnet new blazor -int Server`): leave the template's `AddInteractiveServerComponents()` and `AddInteractiveServerRenderMode()` as generated, and add only `using Syncfusion.Blazor.Toolkit;` plus `builder.Services.AddSyncfusionBlazorToolkit();` before `builder.Build()`. Do not add WebAssembly services to this template.
 
 ## Interactive WebAssembly Rendering
 
@@ -75,9 +61,10 @@ app.MapRazorComponents<App>()
 ```razor
 @page "/counter"
 @rendermode InteractiveWebAssembly
+@using Syncfusion.Blazor.Toolkit.Buttons
 
 <p>Count: @count</p>
-<SfButton @onclick="IncrementCount">Increment</SfButton>
+<SfButton OnClick="IncrementCount">Increment</SfButton>
 
 @code {
     private int count = 0;
@@ -85,46 +72,26 @@ app.MapRazorComponents<App>()
 }
 ```
 
-**`.Client/Program.cs`** (not a standalone app; no root component):
-```csharp
-using Syncfusion.Blazor.Toolkit;
+**Server and `.Client` `Program.cs`** (`dotnet new blazor -int WebAssembly`): the template registers WebAssembly endpoints only. Keep them, and keep `AddAdditionalAssemblies(...)` on `MapRazorComponents<App>()`. Add `using Syncfusion.Blazor.Toolkit;` and `builder.Services.AddSyncfusionBlazorToolkit();` to **both** the server and `.Client/Program.cs` (prerendering runs the component on the server). Do not add `RootComponents.Add<App>("#app")` to `.Client`. See [Split Blazor Web App registration](./split-webapp-registration.md).
 
-var builder = WebAssemblyHostBuilder.CreateDefault(args);
-
-builder.Services.AddSyncfusionBlazorToolkit();
-
-await builder.Build().RunAsync();
-```
-
-**Standalone WebAssembly `Program.cs`**:
-```csharp
-using Syncfusion.Blazor.Toolkit;
-
-var builder = WebAssemblyHostBuilder.CreateDefault(args);
-
-builder.RootComponents.Add<App>("#app");
-builder.RootComponents.Add<HeadOutlet>("head::after");
-
-builder.Services.AddSyncfusionBlazorToolkit();
-
-await builder.Build().RunAsync();
-```
+**Standalone WebAssembly `Program.cs`** (no Web App, no `.Client` project): the template already has `RootComponents.Add<App>("#app")` and `RootComponents.Add<HeadOutlet>("head::after")`. Add only `using Syncfusion.Blazor.Toolkit;` and `builder.Services.AddSyncfusionBlazorToolkit();` before `Build()`.
 
 ## Interactive Auto Rendering
 
 **When to use**: A Blazor Web App that should use server interactivity on the first visit, then WebAssembly on later visits once the runtime bundle is downloaded and cached.
 
-**Characteristic**: Auto chooses the runtime per visit. A component that is already running does not switch from server to WebAssembly mid-circuit. See the render-mode documentation: https://learn.microsoft.com/aspnet/core/blazor/components/render-modes
+**Characteristic**: Auto chooses the runtime per visit. A component that is already running does not switch from server to WebAssembly mid-circuit. See https://learn.microsoft.com/aspnet/core/blazor/components/render-modes
 
 **Toolkit requirement**: Fully supported. Register Toolkit in both the server and `.Client` projects, because the first visit renders on the server and later visits render in WebAssembly.
 
-**Example**:
+**Example** (page-level `@rendermode InteractiveAuto`):
 ```razor
 @page "/counter"
 @rendermode InteractiveAuto
+@using Syncfusion.Blazor.Toolkit.Buttons
 
 <p>Count: @count</p>
-<SfButton @onclick="IncrementCount">Increment</SfButton>
+<SfButton OnClick="IncrementCount">Increment</SfButton>
 
 @code {
     private int count = 0;
@@ -132,26 +99,7 @@ await builder.Build().RunAsync();
 }
 ```
 
-**Server setup** (keep both interactive endpoints; this is the combined hosting case, not the server-only case):
-```csharp
-using Syncfusion.Blazor.Toolkit;
-
-var builder = WebApplication.CreateBuilder(args);
-
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents()
-    .AddInteractiveWebAssemblyComponents();
-
-builder.Services.AddSyncfusionBlazorToolkit();
-
-var app = builder.Build();
-
-app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode()
-    .AddInteractiveWebAssemblyRenderMode();
-```
-
-Also call `AddSyncfusionBlazorToolkit()` in `.Client/Program.cs`. Do not add `RootComponents.Add<App>("#app")` there.
+**Server and `.Client` `Program.cs`** (`dotnet new blazor -int Auto`): the template registers both Interactive Server and Interactive WebAssembly, and `AddAdditionalAssemblies(...)` on `MapRazorComponents<App>()`. Keep all of it. Add `using Syncfusion.Blazor.Toolkit;` and `builder.Services.AddSyncfusionBlazorToolkit();` to **both** the server and `.Client/Program.cs`. Do not add `RootComponents.Add<App>("#app")` to `.Client`.
 
 ## Decision Tree
 
@@ -175,5 +123,8 @@ Also call `AddSyncfusionBlazorToolkit()` in `.Client/Program.cs`. Do not add `Ro
 1. **Adding `@rendermode` under an inherited mode**: If `Routes` already has an interactive mode, a child that names a different one fails. Match the parent or move the component.
 2. **Treating standalone WebAssembly as static SSR**: It has no static SSR and no render-mode directive.
 3. **Adding WebAssembly endpoints to a server-only project**: That project may not reference the WebAssembly server package.
-4. **Describing Auto as a live runtime switch**: The first visit uses the server; later visits use the cached WebAssembly bundle. A running component does not migrate.
-5. **Assuming a missing directive means the component is static**: Check the inherited mode first.
+4. **Mixing the WebAssembly and Auto templates**: `-int WebAssembly` registers WebAssembly endpoints only; `-int Auto` registers both Server and WebAssembly. Keep the shape the template generated.
+5. **Editing endpoints to "fit" Toolkit**: Toolkit needs only `AddSyncfusionBlazorToolkit()`. Do not add or remove `AddInteractive*` or `AddAdditionalAssemblies(...)` calls for it.
+6. **Describing Auto as a live runtime switch**: The first visit uses the server; later visits use the cached WebAssembly bundle. A running component does not migrate.
+7. **Assuming a missing directive means the component is static**: Check the inherited mode first.
+

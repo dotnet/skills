@@ -1,15 +1,14 @@
-# Install Syncfusion Blazor Toolkit
+# Package Identity Reference
 
-## Package Identity Reference
+## Syncfusion.Blazor.Toolkit vs. commercial Syncfusion.Blazor*
 
-### Syncfusion.Blazor.Toolkit vs. Commercial Syncfusion.Blazor*
+### The open-source Toolkit: Syncfusion.Blazor.Toolkit
 
-### The Open-Source Toolkit: Syncfusion.Blazor.Toolkit
-
-- **NuGet package name**: `Syncfusion.Blazor.Toolkit`
+- **NuGet package name**: `Syncfusion.Blazor.Toolkit` (verified at version 1.0.2)
 - **License**: MIT
+- **Target frameworks**: `net8.0`, `net9.0`, `net10.0`
 - **Scope**: Open-source Blazor toolkit for the current published component set
-- **Repository**: Official Syncfusion GitHub repository
+- **Repository**: https://github.com/syncfusion/blazor-toolkit
 - **Components included**: Refer to the official Syncfusion Blazor Toolkit documentation for the authoritative and current component list. This skill is not a component reference.
 - **No license key required**: Toolkit is free to use without registration
 

@@ -1,82 +1,80 @@
-# Split Blazor Web App Service Registration
+﻿# Split Blazor Web App Service Registration
+
+`Syncfusion.Blazor.Toolkit` 1.0.2 targets `net8.0`, `net9.0`, and `net10.0`. Check `<TargetFramework>` in **both** projects first; if either is older, upgrade before installing.
 
 A generated `.Client` project is not a standalone WebAssembly app. The server owns `App.razor`, and the host markup has no `#app` element. Never call `RootComponents.Add<App>("#app")` in `.Client/Program.cs`.
 
-Default prerendering renders Interactive WebAssembly and Interactive Auto components on the server first. If the server does not have Toolkit services, that first render fails even when `.Client` is registered correctly. Disable prerendering only when the user explicitly asks; otherwise register Toolkit on both hosts.
+## Both hosts must register Toolkit
 
-`dotnet new blazor -int Auto` and `dotnet new blazor -int WebAssembly` already add interactive server and WebAssembly endpoints on the server. Keep those endpoints. A server-only Interactive Server app should not gain WebAssembly endpoints just to host Toolkit.
+Default prerendering runs WebAssembly and Auto components on the server first. Verified: with `-int WebAssembly`, registering Toolkit **only** in `.Client` makes a `.Client` page return HTTP 500; adding the server registration returns 200.
 
-## Scenario 1: Interactive Server only
-
-The server does not host Client components, so leave WebAssembly endpoints off. Do not add a `.Client` registration for components that project never renders, and do not add `RootComponents.Add<App>("#app")`.
-
-**Server/Program.cs**:
-```csharp
-using Syncfusion.Blazor.Toolkit;
-
-var builder = WebApplication.CreateBuilder(args);
-
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
-
-builder.Services.AddSyncfusionBlazorToolkit();
-
-var app = builder.Build();
-
-app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+```text
+System.InvalidOperationException: Cannot provide a value for property 'SyncfusionService' on type
+'Syncfusion.Blazor.Toolkit.Buttons.SfButton'. There is no registered service of type
+'Syncfusion.Blazor.Toolkit.SyncfusionBlazorToolkitService'.
 ```
 
-## Scenario 2: Client components use Toolkit
+The error is the same for any host that renders a Toolkit component without the registration, including static SSR pages. Disable prerendering only if the user asks; otherwise register on both hosts.
 
-This is not "Client only" while prerendering is on. Keep the generated WebAssembly endpoints, and register Toolkit on the server as well.
+## Make only the additions; keep the template
 
-**Server/Program.cs**:
+Each template generates its own endpoint calls. **Do not retype `Program.cs`.** A trimmed copy drops `using <App>.Components;` (`CS0246` on `App`) and loses `UseExceptionHandler`, `UseHsts`, `UseHttpsRedirection`, the static-asset mapping (`MapStaticAssets` on .NET 9+, `UseStaticFiles` on .NET 8) and `app.Run()`.
+
+| Template | Already generated on the server (leave alone) |
+| --- | --- |
+| `-int Server` (no `.Client` project) | `AddRazorComponents().AddInteractiveServerComponents()`; `MapRazorComponents<App>().AddInteractiveServerRenderMode()` |
+| `-int WebAssembly` | `AddRazorComponents().AddInteractiveWebAssemblyComponents()`; `MapRazorComponents<App>().AddInteractiveWebAssemblyRenderMode().AddAdditionalAssemblies(typeof(<App>.Client._Imports).Assembly)` |
+| `-int Auto` | `AddRazorComponents().AddInteractiveServerComponents().AddInteractiveWebAssemblyComponents()`; `MapRazorComponents<App>().AddInteractiveServerRenderMode().AddInteractiveWebAssemblyRenderMode().AddAdditionalAssemblies(typeof(<App>.Client._Imports).Assembly)` |
+
+`AddAdditionalAssemblies(...)` sits on `MapRazorComponents<App>()`, not on `AddRazorComponents()`, and it is not a Toolkit setting. Never add, remove, or move it for Toolkit. The three setups are different templates; do not mix them. Adding `AddInteractiveServerComponents()` to a WebAssembly template, or removing it from an Auto template, changes the app's render-mode support and is not needed for Toolkit.
+
+## Server `Program.cs` (all three templates)
+
+Two additions:
+
 ```csharp
-using Syncfusion.Blazor.Toolkit;
+using Syncfusion.Blazor.Toolkit;                       // add at the top
 
-var builder = WebApplication.CreateBuilder(args);
+// ...template code unchanged...
 
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents()
-    .AddInteractiveWebAssemblyComponents();
-
-builder.Services.AddSyncfusionBlazorToolkit();
+builder.Services.AddSyncfusionBlazorToolkit();         // add before builder.Build()
 
 var app = builder.Build();
-
-app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode()
-    .AddInteractiveWebAssemblyRenderMode();
 ```
 
-**.Client/Program.cs**:
+## `.Client/Program.cs` (`-int WebAssembly` and `-int Auto` only)
+
+The template already has `using Microsoft.AspNetCore.Components.WebAssembly.Hosting;`. Two additions:
+
 ```csharp
-using Syncfusion.Blazor.Toolkit;
+using Microsoft.AspNetCore.Components.WebAssembly.Hosting;   // already generated
+using Syncfusion.Blazor.Toolkit;                              // add
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
-builder.Services.AddSyncfusionBlazorToolkit();
+builder.Services.AddSyncfusionBlazorToolkit();                // add
 
 await builder.Build().RunAsync();
 ```
 
-## Scenario 3: Interactive Auto
+## Interactive Auto behavior
 
-Use the same server and client registration as Scenario 2. Interactive Auto needs both, because the first visit renders on the server and later cached visits render in WebAssembly. Do not add `RootComponents.Add<App>("#app")` to `.Client`.
+The first visit runs on the server; later visits use the cached WebAssembly bundle. A running component does not switch runtimes. Both hosts therefore need the registration.
 
 ## Common Mistake: Registering only one host
 
-Calling `AddSyncfusionBlazorToolkit()` only in the server `Program.cs` does not register it for `.Client`. The reverse is also wrong while prerendering is on.
+**Symptom**: HTTP 500 with the `SyncfusionBlazorToolkitService` error above, either on first load (server missing) or when a `.Client` component runs in the browser (client missing).
 
-**Symptom**: Server-hosted components work, but Client components fail on first load or after the WASM runtime takes over.
+**Fix**: Register on every host that renders it, keep the template's endpoints, and never add `RootComponents.Add<App>("#app")` to `.Client`.
 
-**Fix**: Register Toolkit in every host that renders it, keep the template's WebAssembly endpoints, and never add `RootComponents.Add<App>("#app")` to `.Client`.
+## Component namespaces in both projects
+
+Add the child namespace (for example `@using Syncfusion.Blazor.Toolkit.Buttons`) to the `_Imports.razor` of every project that renders that component. A missing namespace only warns (`RZ10012`) and renders an unstyled unknown element.
 
 ## Theme CSS in a Split Web App
 
-Link the stylesheet in `Components/App.razor` so both Server and Client components can use it. Fluent is the default; `highcontrast.min.css` is also valid.
+Add the stylesheet link to the existing `<head>` in `Components/App.razor`; do not replace the file. Both Server and Client components use it. Fluent is the default; `highcontrast.min.css` is also valid.
 
-```razor
+```html
 <link href="_content/Syncfusion.Blazor.Toolkit/styles/fluent.min.css" rel="stylesheet" />
 ```

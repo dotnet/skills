@@ -32,10 +32,10 @@ stimuli:
           pattern: (?i)_content/Syncfusion\.Blazor\.Toolkit/styles/fluent\.min\.css
       - type: output-not-matches
         config:
-          pattern: (?i)(dotnet add package|PackageReference Include=\"?)\s*Syncfusion\.Blazor(?!\.Toolkit)\b
+          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|avoid|without|instead of|rather than|no need|unlike|wrong|mistake|incorrect)\b|\w+n[''’]t\b|\bcannot\b))[^\n]*(?:dotnet add package|PackageReference Include=)\s*"?Syncfusion\.Blazor(?!\.Toolkit)\b'
       - type: output-not-matches
         config:
-          pattern: (?i)\b(enter|provide|paste|add|register) (your|a) (syncfusion )?license key
+          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|no|without|free|nothing|avoid|unlike)\b|\w+n[''’]t\b|\bcannot\b))[^\n]*\b(?:enter|provide|paste|add|register) (?:your|a) (?:syncfusion )?license key'
       - type: prompt
     rubric:
       - Installs the open-source Toolkit package and registers its extension method with the namespace in scope.
@@ -59,7 +59,7 @@ stimuli:
           pattern: (?i)AddSyncfusionBlazorToolkit
       - type: output-matches
         config:
-          pattern: (?i)(wwwroot/)?index\.html
+          pattern: '(?i)wwwroot[/\\]index\.html|index\.html[^\n]{0,60}(?:<link|stylesheet|head)|(?:<link|stylesheet|head)[^\n]{0,60}index\.html'
       - type: output-matches
         config:
           pattern: (?i)RootComponents\.Add<App>\("#app"\)
@@ -92,7 +92,7 @@ stimuli:
           pattern: (?i)prerender
       - type: output-not-matches
         config:
-          pattern: (?i)(only (in|on) (the )?server|client inherits|register only in server)
+          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|avoid|wrong|mistake|incorrect|instead of|rather than|without)\b|\w+n[''’]t\b|\bcannot\b))[^\n]*(?:register (?:it )?only (?:in|on) (?:the )?server|only (?:in|on) the server is (?:enough|sufficient)|client inherits (?:the )?(?:server(?:''s)? )?(?:registration|services))'
       - type: prompt
     rubric:
       - Registers Toolkit in both the server and Client hosts when both render Toolkit components.
@@ -117,7 +117,10 @@ stimuli:
           pattern: _content/Syncfusion\.Blazor\.Toolkit/styles/(fluent|highcontrast)\.min\.css
       - type: output-matches
         config:
-          pattern: (?i)Components/App\.razor|_Host\.cshtml|index\.html
+          pattern: '(?i)<head|<link[^>]*styles/(?:fluent|highcontrast)\.min\.css'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|avoid|instead of|rather than|wrong)\b|\w+n[''’]t\b))[^\n]*(?:(?:\.csproj|appsettings|Program\.cs)[^\n]{0,80}(?:<link|fluent\.min\.css)|(?:<link|fluent\.min\.css)[^\n]{0,80}(?:in|to) (?:the |your )?(?:\.csproj|appsettings|Program\.cs))'
       - type: prompt
     rubric:
       - Diagnoses a missing or misplaced stylesheet rather than a package problem.
@@ -138,7 +141,10 @@ stimuli:
           pattern: (?i)Interactive(Server|WebAssembly|Auto)
       - type: output-matches
         config:
-          pattern: (?i)(static|inherited|Routes)
+          pattern: (?i)(static|inherit|Routes)
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|avoid|unless|without|if)\b|\w+n[''’]t\b))[^\n]*(?:\bInteractive(?:Server|WebAssembly|Auto)\b[^\n]{0,40}\b(?:on|for|to) (?:everything|every page|all pages)\b|\b(?:everything|every page|all pages)\b[^\n]{0,40}\bInteractive(?:Server|WebAssembly|Auto)\b)'
       - type: prompt
     rubric:
       - Checks whether the page already inherits an interactive mode before treating it as static.
@@ -168,7 +174,7 @@ stimuli:
           pattern: (?i)AddSyncfusionBlazorToolkit
       - type: output-not-matches
         config:
-          pattern: (?i)\b(does|will|can|would)\s+(switch|transition)\b[\s\S]{0,60}(mid-|while running|same component)
+          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|only|without|cannot)\b|\w+n[''’]t\b))[^\n]*\b(?:will|does|would)\s+(?:switch|transition)\b[^\n]{0,60}(?:mid-|while running|same component|without reload)'
       - type: prompt
     rubric:
       - Describes Auto as server interactivity on the first visit and WebAssembly on later cached visits.
@@ -190,10 +196,13 @@ stimuli:
           pattern: (?i)Syncfusion\.Blazor\.Toolkit
       - type: output-matches
         config:
-          pattern: (?i)SyncfusionLicenseProvider\.RegisterLicense|RegisterLicense
+          pattern: (?i)SyncfusionLicenseProvider\.RegisterLicense
       - type: output-matches
         config:
-          pattern: (?i)(no|not|does not|doesn't)[\s\S]{0,40}license key
+          pattern: (?i)\b(no|not|n['’]t|without|free)\b[^\n]{0,40}\blicense key
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|no|nonexistent|doesn|wrong|fake)\b|\w+n[''’]t\b))[^\n]*\b(?:call|use|add)\b[^\n]{0,30}AddSyncfusionLicense\s*\('
       - type: prompt
     rubric:
       - Identifies the installed package as the commercial package and replaces it for this Toolkit-only app.
@@ -218,7 +227,7 @@ stimuli:
           pattern: (?i)AddSyncfusionBlazorToolkit
       - type: output-not-matches
         config:
-          pattern: (?i)only (the )?server needs
+          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|wrong|mistake|incorrect|false)\b|\w+n[''’]t\b|\bcannot\b))[^\n]*only (?:the )?server needs'
       - type: prompt
     rubric:
       - Adds the missing Client registration without removing the server registration.
@@ -305,7 +314,7 @@ stimuli:
           pattern: (?i)(AddSyncfusionBlazorToolkit|rebuild|clean)
       - type: output-not-matches
         config:
-          pattern: (?i)(fluent theme only|only the fluent theme)
+          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|wrong|rather than|instead of)\b|\w+n[''’]t\b|\bcannot\b))[^\n]*(?:fluent theme only|only the fluent theme)'
       - type: prompt
     rubric:
       - Treats the 404s as missing package assets or registration, not as a theme-choice problem.
@@ -323,7 +332,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(remove|delete)[\s\S]{0,80}(script|cdn)
+          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|nothing|keep)\b|\w+n[''’]t\b))[^\n]*\b(?:remove|delete|drop)\b[^\n]{0,80}(?:script|cdn)'
       - type: output-matches
         config:
           pattern: (?i)(embedded|bundled|included in the (nuget )?package|ships with the package)
@@ -331,6 +340,89 @@ stimuli:
     rubric:
       - Removes the external script tag and explains that the package loads its own JavaScript.
       - Does not accept leaving the CDN script in place.
+
+  - name: unsupported-framework-net7
+    tags:
+      capability: framework-support
+      risk: install-on-unsupported-tfm
+      journey: check-target-framework
+    prompt: |
+      My Blazor Server app targets net7.0 and I want to add the open-source Syncfusion Blazor
+      Toolkit. What should I do?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(net8\.0|\.NET 8)
+      - type: output-matches
+        config:
+          pattern: (?i)(upgrade|migrat)
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|before|after|once|cannot|fail|until|yet)\b|\w+n[''’]t\b))[^\n]*dotnet add package Syncfusion\.Blazor\.Toolkit'
+      - type: prompt
+    rubric:
+      - Identifies that the Toolkit does not support net7.0 (it targets net8.0, net9.0, and net10.0) and that restore would fail.
+      - Recommends upgrading the app to .NET 8 or later before installing, rather than installing immediately.
+      - Does not suggest editing only the TargetFramework as a workaround without an upgrade.
+
+  - name: component-namespace-resolution
+    tags:
+      capability: namespaces
+      risk: missing-component-namespace
+      journey: fix-sfbutton-not-found
+    prompt: |
+      I installed Syncfusion.Blazor.Toolkit and added `@using Syncfusion.Blazor.Toolkit` to
+      _Imports.razor, but `<SfButton>` says the type or namespace could not be found. Why?
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|avoid|wrong)\b|\w+n[''’]t\b))[^\n]*@using\s+Syncfusion\.Blazor\.Toolkit\.Buttons'
+      - type: prompt
+    rubric:
+      - Explains that SfButton is in the child namespace Syncfusion.Blazor.Toolkit.Buttons, not the root namespace.
+      - Adds the child namespace using to _Imports.razor rather than changing the package.
+
+  - name: missing-registration-http-500
+    tags:
+      capability: service-registration
+      risk: unregistered-service
+      journey: diagnose-500
+    prompt: |
+      My Blazor Web App page with an SfButton from Syncfusion.Blazor.Toolkit returns HTTP 500.
+      The log says "There is no registered service of type SyncfusionBlazorToolkitService".
+      I referenced the package and added the stylesheet. What is wrong?
+    graders:
+      - type: output-matches
+        config:
+          pattern: AddSyncfusionBlazorToolkit
+      - type: output-matches
+        config:
+          pattern: (?i)using\s+Syncfusion\.Blazor\.Toolkit
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|avoid|wrong)\b|\w+n[''’]t\b))[^\n]*\b(?:remove|uninstall|downgrade|roll back)\b[^\n]{0,40}(?:package|Syncfusion)'
+      - type: prompt
+    rubric:
+      - Diagnoses a missing AddSyncfusionBlazorToolkit() registration, not a package or stylesheet problem.
+      - Says to add the registration to every host that renders Toolkit components, including the server when prerendering.
+      - Adds only the using and the registration line to the existing Program.cs rather than retyping it.
+
+  - name: numeric-textbox-unstyled
+    tags:
+      capability: theme-linking
+      risk: bundle-gap
+      journey: link-component-stylesheet
+    prompt: |
+      I linked fluent.min.css from Syncfusion.Blazor.Toolkit and my SfButton and SfTextBox look fine,
+      but SfNumericTextBox renders unstyled. What should I add?
+    graders:
+      - type: output-matches
+        config:
+          pattern: _content/Syncfusion\.Blazor\.Toolkit/styles/numerictextbox\.min\.css
+      - type: prompt
+    rubric:
+      - Adds numerictextbox.min.css alongside fluent.min.css, because the Fluent bundle does not contain the numeric textbox selectors.
+      - Keeps the fluent.min.css link rather than replacing it.
 
   - name: out-of-scope-component-api
     tags:
@@ -344,7 +436,7 @@ stimuli:
     graders:
       - type: output-not-matches
         config:
-          pattern: (?i)(first|before answering|instead)[\s\S]{0,80}(install the package|AddSyncfusionBlazorToolkit|follow these installation steps)
+          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|no need|without|already)\b|\w+n[''’]t\b|\bcannot\b))[^\n]*\b(?:first|before (?:answering|anything)|start by)\b[^\n]{0,80}(?:install the package|AddSyncfusionBlazorToolkit|installation steps)'
       - type: prompt
     rubric:
       - The install skill stayed dormant: answer the chart API question or point to component documentation.
@@ -363,7 +455,7 @@ stimuli:
     graders:
       - type: output-not-matches
         config:
-          pattern: (?i)(dotnet add package|PackageReference)[\s\S]{0,40}Syncfusion
+          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|no need|without|later|avoid|instead of)\b|\w+n[''’]t\b|\bcannot\b))[^\n]*(?:dotnet add package|PackageReference)[^\n]{0,40}Syncfusion'
       - type: prompt
     rubric:
       - The install skill stayed dormant: the request is about creating a project, not installing a UI package.
@@ -381,11 +473,22 @@ stimuli:
       and how do I wire it up?
     expect_activation: false
     graders:
+      # Directional guards. They fire only on a line that INSTRUCTS the user to edit a
+      # Web App / legacy Server host file, or on a code line that is a Web App /
+      # standalone WASM registration. Any line containing a negator (not, never,
+      # avoid, unlike, instead of, ... or any n't contraction) is skipped, so a
+      # correct boundary explanation may name Components/App.razor, _Host.cshtml,
+      # @rendermode or RootComponents.Add<App> freely. AddSyncfusionBlazorToolkit
+      # and `dotnet add package` are NOT banned: Hybrid apps may legitimately use them.
       - type: output-not-matches
         config:
-          pattern: (?i)(Components/App\.razor|_Host\.cshtml|@rendermode|RootComponents\.Add<App>\("#app"\)|AddInteractive(Server|WebAssembly)|AddSyncfusionBlazorToolkit)
+          pattern: '(?im)^(?![^\n]*(?:\b(?:not|never|avoid|without|instead of|rather than|no need|unlike|wrong|mistake|incorrect)\b|\w+n[''’]t\b|\bcannot\b))[^\n]*(?:^|[.:;]\s*)\s*(?:open|edit|add|put|place|update|modify|link)\b[^\n]{0,60}(?:Components/App\.razor|_Host\.cshtml)'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^\s*(?:builder\.RootComponents\.Add<App>\(|\.?AddInteractive(?:Server|WebAssembly)(?:Components|RenderMode)\()'
       - type: prompt
     rubric:
       - The install skill stayed dormant: the app is a MAUI Blazor Hybrid app, which is outside this skill's scope.
-      - Recognizes the Hybrid boundary and does not apply the Web App, legacy Server, or standalone WebAssembly host-file steps.
+      - Recognizes the Hybrid boundary and does not tell the user to apply the Web App, legacy Server, or standalone WebAssembly host-file or render-mode steps.
+      - Judged on intent, not keywords. It may name Components/App.razor, _Host.cshtml, @rendermode, RootComponents.Add<App>, or AddSyncfusionBlazorToolkit when explaining why they do not apply to a BlazorWebView host, and it may mention the package or its registration for Hybrid.
       - Redirects to the Hybrid or MAUI host page (such as wwwroot/index.html in the BlazorWebView) or to Hybrid-specific documentation.
