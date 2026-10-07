@@ -617,7 +617,11 @@ stimuli:
           pattern: (?i)(stop|do\W{0,4}not\W{0,4}retry|don['’]?t\W{0,4}retry|pause.*retry)
       - type: output-matches
         config:
-          pattern: (?i)(full GC|full garbage|GC.*pause|garbage.*pause)
+          # Accepts the literal "full GC"/"pause" phrasing as well as the
+          # equally-correct "induces/induction" phrasing in either word order
+          # (e.g. "GC induction" or "induces a full GC"), since a response can
+          # correctly name the induced-collection risk without those exact words.
+          pattern: (?i)(full GC|full garbage|GC.*pause|garbage.*pause|induc\w*.*(?:GC|garbage)|(?:GC|garbage).*induc\w*)
       - *false-verification
       - type: output-not-matches
         config:
