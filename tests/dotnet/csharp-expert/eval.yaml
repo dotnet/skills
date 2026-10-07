@@ -25,6 +25,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-aspnetcore@dotnet-agent-skills
+      - type: output-matches
+        config:
+          pattern: \bdotnet-webapi\b
       - type: exit-success
       - type: prompt
     rubric:
@@ -53,6 +56,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-blazor@dotnet-agent-skills
+      - type: output-matches
+        config:
+          pattern: \bauthor-component\b
       - type: exit-success
       - type: prompt
     rubric:
@@ -80,6 +86,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-maui@dotnet-agent-skills
+      - type: output-matches
+        config:
+          pattern: \bmaui-data-binding\b
       - type: exit-success
       - type: prompt
     rubric:
@@ -111,6 +120,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-data@dotnet-agent-skills
+      - type: output-matches
+        config:
+          pattern: \boptimizing-ef-core-queries\b
       - type: exit-success
       - type: prompt
     rubric:
@@ -185,6 +197,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-test-migration@dotnet-agent-skills
+      - type: output-matches
+        config:
+          pattern: \bmigrate-nunit-to-mstest\b
       - type: file-contains
         config:
           path: "**/*.cs"
@@ -246,6 +261,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-upgrade@dotnet-agent-skills
+      - type: output-matches
+        config:
+          pattern: \bmigrate-dotnet8-to-dotnet9\b
       - type: file-contains
         config:
           path: App.csproj
@@ -275,6 +293,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-diag@dotnet-agent-skills
+      - type: output-matches
+        config:
+          pattern: \bdotnet-trace-collect\b
       - type: exit-success
       - type: prompt
     rubric:
@@ -300,6 +321,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-advanced@dotnet-agent-skills
+      - type: output-matches
+        config:
+          pattern: \bcsharp-scripts\b
       - type: exit-success
       - type: prompt
     rubric:
@@ -351,6 +375,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*dotnet-template-engine@dotnet-agent-skills[\s\S]*dotnet-blazor@dotnet-agent-skills
+      - type: output-matches
+        config:
+          pattern: \btemplate-instantiation\b[\s\S]*\bcollect-user-input\b
       - type: exit-success
       - type: prompt
     rubric:
@@ -407,6 +434,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: codex plugin marketplace add\s+dotnet/skills[\s\S]*dotnet-test-migration
+      - type: output-matches
+        config:
+          pattern: \bmigrate-nunit-to-mstest\b
       - type: output-not-matches
         config:
           pattern: /plugin install dotnet-test-migration@dotnet-agent-skills

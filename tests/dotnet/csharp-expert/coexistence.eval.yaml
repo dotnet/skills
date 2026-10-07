@@ -70,6 +70,14 @@ stimuli:
         config:
           command: grep -Eq 'PropertyChanged|ObservableProperty|SetProperty' StatusViewModel.cs
           expected_exit_code: 0
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs'); const s=fs.readFileSync('StatusViewModel.cs','utf8');
+            const generated=/\[\s*ObservableProperty(?:Attribute)?\s*\][\s\S]{0,200}\b(?:string|string\?)\s+_?status\b/i.test(s);
+            const manual=/\bStatus\s*\{[\s\S]{0,800}\bset\s*\{[\s\S]{0,400}(SetProperty\s*\(\s*ref\s+\w*status\w*\s*,\s*value|PropertyChanged\s*\?\s*\.Invoke\s*\([\s\S]{0,160}(nameof\s*\(\s*Status\s*\)|[\"']Status[\"'])|OnPropertyChanged\s*\(\s*(nameof\s*\(\s*Status\s*\)|[\"']Status[\"']|)\s*\))/i.test(s);
+            if (!generated && !manual) throw new Error('Status assignment must raise PropertyChanged');"
+          expected_exit_code: 0
       - type: file-not-contains
         config:
           path: StatusViewModel.cs
@@ -237,6 +245,22 @@ stimuli:
           command: dotnet StatusTool.cs
           expected_exit_code: 0
           stdout_matches: '(?i)Usage:\s*StatusTool\s+<url>'
+          timeout: 3m
+      - type: run-command
+        config:
+          command: >-
+            node -e "const http=require('http'); const {spawn}=require('child_process');
+            const server=http.createServer((req,res)=>{res.setHeader('Content-Type','application/json');
+            res.end(JSON.stringify({name:'router-probe',status:'healthy'}));});
+            const fail=e=>server.close(()=>{console.error(e);process.exit(1);});
+            server.listen(0,'127.0.0.1',()=>{const url='http://127.0.0.1:'+server.address().port+'/status';
+            const child=spawn('dotnet',['StatusTool.cs',url]); let out=''; let err='';
+            child.stdout.on('data',d=>out+=d); child.stderr.on('data',d=>err+=d);
+            const timer=setTimeout(()=>{child.kill();fail('StatusTool timed out');},30000);
+            child.on('error',fail); child.on('close',code=>{clearTimeout(timer);
+            if(code!==0||!out.includes('router-probe')||!out.includes('healthy')) return fail('Unexpected result: '+code+' '+out+' '+err);
+            server.close(()=>process.exit(0));});});"
+          expected_exit_code: 0
           timeout: 3m
       - type: exit-success
       - type: prompt
