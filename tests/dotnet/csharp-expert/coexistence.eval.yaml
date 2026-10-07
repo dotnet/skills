@@ -122,10 +122,14 @@ stimuli:
         - src: fixtures/ef-orders
           dest: .
     graders:
-      - type: file-contains
+      - type: run-command
         config:
-          path: OrderQueries.cs
-          value: Include(
+          command: >-
+            node -e "const fs=require('fs'); const source=fs.readFileSync('OrderQueries.cs','utf8');
+            const code=source.replace(/\/\*[\s\S]*?\*\//g,'').replace(/\/\/.*$/gm,'');
+            const eager=/context\s*\.\s*Orders(?:(?!;)[\s\S])*?\.Include\s*\(\s*(\w+)\s*=>\s*\1\s*\.\s*Lines\s*\)(?:(?!;)[\s\S])*?\.ToListAsync\s*\(\s*cancellationToken\s*\)/;
+            if(!eager.test(code)) throw new Error('Expected executable eager-loading query for Order.Lines');"
+          expected_exit_code: 0
       - type: file-not-contains
         config:
           path: OrderQueries.cs
