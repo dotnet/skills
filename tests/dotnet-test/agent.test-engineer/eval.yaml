@@ -328,6 +328,8 @@ stimuli:
       files:
         - src: ../code-testing/fixtures/python-single-function
           dest: slug-project
+      commands:
+        - python3 -m pip install --quiet pytest==8.3.5
       skills:
         - ../../plugins/dotnet-test/skills/code-testing
         - ../../plugins/dotnet-test/skills/code-testing-extensions
@@ -336,7 +338,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: sh -c "cd slug-project && python3 -m pip install --quiet pytest==8.3.5 && python3 -m pytest -q"
+          command: sh -c "cd slug-project && python3 -m pytest -q"
           expected_exit_code: 0
           timeout: 5m
       - type: run-command
