@@ -11,9 +11,11 @@ stimuli:
       collect a managed heap after navigating back from CatalogDetail on the
       selected phone. Do not run device commands, install tools, modify inputs,
       or collect anything. The JSON must have status "planned", device_id,
-      physical_capture_verified (boolean), and commands with route, collect,
-      validate, cleanup arrays of shell command strings. Use the reserved
-      ports and artifact name. Include selected-device routing, a host collector,
+      physical_capture_verified (boolean), and a nested "commands" object
+      containing route, collect, validate, cleanup arrays of shell command
+      strings. Use the reserved ports and artifact name. The host collector
+      (dsrouter) belongs in the route array, started before the device-side
+      reverse/setprop steps. Include selected-device routing, a host collector,
       an executable no-overwrite check before invoking the collector, file-format
       validation, and restoration of only our temporary settings.
       Explain the approval/relaunch checkpoint and any remaining verification.
@@ -263,9 +265,9 @@ stimuli:
       lose current state. No installation, relaunch, tool installation, capture
       or device commands are authorized here. Preserve inputs. The JSON must
       have status "planned", device_id, physical_capture_verified (boolean), and
-      commands with route, collect, validate, cleanup arrays of shell strings.
-      Use the reserved IPC path and output name, with an executable no-overwrite
-      check before collection. Explain how the host reaches
+      a nested "commands" object containing route, collect, validate, cleanup
+      arrays of shell strings. Use the reserved IPC path and output name, with
+      an executable no-overwrite check before collection. Explain how the host reaches
       this device rather than a simulator, and what still needs verification.
     tags:
       capability: ios-live-usb-route
