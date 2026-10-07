@@ -28,6 +28,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: \bdotnet-webapi\b
+      - type: output-matches
+        config:
+          pattern: (restart|reload)[\s\S]{0,500}/skills
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*(multipart|file upload))(?=[\s\S]*(stream|buffer))(?=[\s\S]*(size|limit))
       - type: exit-success
       - type: prompt
     rubric:
@@ -59,6 +65,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: \bauthor-component\b
+      - type: output-matches
+        config:
+          pattern: (restart|reload)[\s\S]{0,500}/skills
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*(parameter|RenderFragment))(?=[\s\S]*(content|RenderFragment))(?=[\s\S]*(callback|EventCallback))
       - type: exit-success
       - type: prompt
     rubric:
@@ -89,6 +101,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: \bmaui-data-binding\b
+      - type: output-matches
+        config:
+          pattern: (restart|reload)[\s\S]{0,500}/skills
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*(XAML|binding))(?=[\s\S]*(notification|property change|INotifyPropertyChanged))
       - type: exit-success
       - type: prompt
     rubric:
@@ -123,6 +141,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: \boptimizing-ef-core-queries\b
+      - type: output-matches
+        config:
+          pattern: (restart|reload)[\s\S]{0,500}/skills
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*(repeated|round trip|N\+1))(?=[\s\S]*(related|order|line))
       - type: exit-success
       - type: prompt
     rubric:
@@ -200,6 +224,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: \bmigrate-nunit-to-mstest\b
+      - type: output-matches
+        config:
+          pattern: (restart|reload)[\s\S]{0,500}/skills
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*TestCase)(?=[\s\S]*DataRow)(?=[\s\S]*SetUp)(?=[\s\S]*TestInitialize)(?=[\s\S]*TearDown)(?=[\s\S]*TestCleanup)
       - type: file-contains
         config:
           path: "**/*.cs"
@@ -264,6 +294,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: \bmigrate-dotnet8-to-dotnet9\b
+      - type: output-matches
+        config:
+          pattern: (restart|reload)[\s\S]{0,500}/skills
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*net8\.0)(?=[\s\S]*net9\.0)(?=[\s\S]*(compatib|breaking))
       - type: file-contains
         config:
           path: App.csproj
@@ -296,6 +332,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: \bdotnet-trace-collect\b
+      - type: output-matches
+        config:
+          pattern: (restart|reload)[\s\S]{0,500}/skills
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*(deployed|process))(?=[\s\S]*CPU)(?=[\s\S]*allocation)(?=[\s\S]*(before|unknown|hot method))
       - type: exit-success
       - type: prompt
     rubric:
@@ -324,6 +366,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: \bcsharp-scripts\b
+      - type: output-matches
+        config:
+          pattern: (restart|reload)[\s\S]{0,500}/skills
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*(one-file|file-based))(?=[\s\S]*(without (a )?project|no project))(?=[\s\S]*HTTP)(?=[\s\S]*JSON)
       - type: exit-success
       - type: prompt
     rubric:
@@ -378,6 +426,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: \btemplate-instantiation\b[\s\S]*\bcollect-user-input\b
+      - type: output-matches
+        config:
+          pattern: (restart|reload)[\s\S]{0,500}/skills
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*(short name|template))(?=[\s\S]*(form|validation))
       - type: exit-success
       - type: prompt
     rubric:
@@ -437,6 +491,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: \bmigrate-nunit-to-mstest\b
+      - type: output-matches
+        config:
+          pattern: (/plugins[\s\S]{0,300}(confirm|verify|check|listed|available)|(confirm|verify|check)[\s\S]{0,300}/plugins)
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*TestCase)(?=[\s\S]*DataRow)(?=[\s\S]*SetUp)(?=[\s\S]*TestInitialize)(?=[\s\S]*TearDown)(?=[\s\S]*TestCleanup)
       - type: output-not-matches
         config:
           pattern: /plugin install dotnet-test-migration@dotnet-agent-skills
