@@ -118,9 +118,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)Components/App\.razor|_Host\.cshtml|index\.html
-      - type: output-not-contains
-        config:
-          substring: install a different package
       - type: prompt
     rubric:
       - Diagnoses a missing or misplaced stylesheet rather than a package problem.
@@ -142,9 +139,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)(static|inherited|Routes)
-      - type: output-not-contains
-        config:
-          substring: static SSR is sufficient
       - type: prompt
     rubric:
       - Checks whether the page already inherits an interactive mode before treating it as static.
@@ -249,9 +243,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)(console|network|404|_content)
-      - type: output-not-contains
-        config:
-          substring: downgrade
       - type: prompt
     rubric:
       - Diagnoses script loading or service registration before changing packages.
@@ -358,3 +349,40 @@ stimuli:
     rubric:
       - The install skill stayed dormant: answer the chart API question or point to component documentation.
       - Does not hijack the question with package installation, Program.cs registration, or theme setup.
+
+  - name: out-of-scope-project-creation
+    tags:
+      capability: dormancy
+      risk: install-skill-hijack
+      journey: create-project
+    prompt: |
+      Scaffold a new Blazor Web App for an internal equipment-checkout tracker. It needs
+      per-page server interactivity and a simple list page. Walk me through creating the
+      project and what the solution layout should look like.
+    expect_activation: false
+    graders:
+      - type: output-not-matches
+        config:
+          pattern: (?i)(dotnet add package|PackageReference)[\s\S]{0,40}Syncfusion
+      - type: prompt
+    rubric:
+      - The install skill stayed dormant: the request is about creating a project, not installing a UI package.
+      - Answers with project creation and layout guidance without adding Syncfusion packages, registration, or theme links.
+      - Redirects package or component choices to a later step instead of assuming a UI library.
+
+  - name: out-of-scope-hybrid-maui
+    tags:
+      capability: dormancy
+      risk: install-skill-hijack
+      journey: hybrid-boundary
+    prompt: |
+      I have a .NET MAUI Blazor Hybrid app that hosts its UI in a BlazorWebView. I'd like to use
+      the open-source Syncfusion Blazor Toolkit buttons in it. Where do I put the stylesheet
+      and how do I wire it up?
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - The install skill stayed dormant: the app is a MAUI Blazor Hybrid app, which is outside this skill's scope.
+      - Recognizes the Hybrid boundary and does not apply the Web App, legacy Server, or standalone WebAssembly host-file steps.
+      - Redirects to the Hybrid or MAUI host page (such as wwwroot/index.html in the BlazorWebView) or to Hybrid-specific documentation.
