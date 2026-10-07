@@ -62,6 +62,33 @@ Both evaluation and comparison commands use this launcher through `PATH`.
 When updating the SDK, reassess the guard and run
 `node --test eng/evaluation-tools/*.test.mjs` before removing it.
 
+### Existing workspace files reported missing
+
+With Vally 0.14 and Copilot runtime 1.0.80, native `view` can report
+`Path does not exist` for a file that a shell reader opens at the exact same
+absolute path. This is not necessarily a missing fixture/reference. Instrumented
+provider calls reproduce the cause: native `view` calls the session-fs provider's
+`stat` with the workspace path, but Vally's `LocalSessionFsHandler` confines paths
+to the separate session-log root and rejects the request as a root escape.
+
+The launcher also installs a Vally-version-checked workspace-read adapter for
+that local provider. Absolute reads inside the trial's actual workspace use the
+host filesystem; canonical-path checks reject symlinks escaping that workspace.
+Relative session paths, log-root paths, writes and other providers retain their
+original behavior. Missing files still fail; this is not a successful-empty
+fallback or permission bypass. Tests cover the reader boundary, unchanged log
+writes and the SDK's synchronous provider-factory contract:
+
+```bash
+node --test eng/evaluation-tools/*.test.mjs
+```
+
+Reassess this compatibility layer on a Vally/SDK upgrade. A local launcher fix
+does not retroactively repair earlier trajectories, and CI uses its trusted
+harness revision; verify that revision before attributing the fix to an official
+run. Read actual `session.start.data.copilotVersion`, not just the installed
+package manifest or a shell CLI's version, when comparing runtime provenance.
+
 ### Investigation steps
 
 1. **Download the results artifacts:** `gh run download <run-id> --repo dotnet/skills --pattern "vally-results-*" --dir ./eval-results`

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CopilotClient } from '@github/copilot-sdk';
+import { LocalSessionFsHandler } from './node_modules/@microsoft/vally/dist/executor/local-session-fs-handler.js';
 import './sdk-startup.mjs';
 
 function deferred() {
@@ -129,4 +130,28 @@ test('ready clients still create sessions concurrently', async () => {
   finish.resolve();
   await Promise.all(sessions);
   assert.equal(calls.filter(c => c === 'spawn').length, 1);
+});
+
+test('workspace reader wrapping preserves the synchronous provider factory and session argument', async () => {
+  const { client, entered, release } = clientFixture();
+  const starting = client.start();
+  await entered.promise;
+  release.resolve();
+  await starting;
+  const provider = new LocalSessionFsHandler(process.cwd());
+  let suppliedSession;
+  const config = {
+    workingDirectory: process.cwd(),
+    createSessionFsProvider: session => { suppliedSession = session; return provider; },
+  };
+  client.setupSessionFs = (session, options) => {
+    const result = options.createSessionFsProvider(session);
+    assert.equal(suppliedSession, session);
+    assert.equal(typeof result.mkdir, 'function');
+    assert.equal(typeof result.stat, 'function');
+    assert.equal(result.then, undefined);
+  };
+  const originalFactory = config.createSessionFsProvider;
+  await client.createSession(config);
+  assert.equal(config.createSessionFsProvider, originalFactory);
 });
