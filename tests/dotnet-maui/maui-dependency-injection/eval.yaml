@@ -1,125 +1,577 @@
 name: maui-dependency-injection
-description: Evaluates the dotnet-maui/maui-dependency-injection skill
+description: Evaluates MAUI service ownership and actual Shell construction paths
 type: capability
-config:
+defaults:
   timeout: 2m
+  runs: 1
 stimuli:
-  - name: Register services with correct lifetimes in MauiProgram.cs
+  - name: Register a shared service and independently created detail graphs
     prompt: |
-      I'm building a .NET MAUI app with a data service, two ViewModels
-      (MainViewModel and DetailViewModel), and two pages (MainPage and DetailPage).
-      The data service talks to a REST API and should be shared across the app.
-      Show me how to register everything in MauiProgram.cs with the right
-      lifetimes and explain why you chose each lifetime.
+      My .NET MAUI app has an IDataService used by MainViewModel and
+      DetailViewModel, with MainPage and DetailPage accepting their respective
+      ViewModels. The service shares one app-wide cache, but newly opened
+      detail screens must not share their editable state. Show the
+      MauiProgram.cs registrations and the page constructor wiring.
+    tags:
+      capability: graph-registration
+      risk: unintended-state-sharing
+      journey: app-setup
     graders:
-      - type: output-contains
-        config:
-          substring: AddSingleton
-      - type: output-contains
-        config:
-          substring: AddTransient
       - type: output-matches
         config:
-          pattern: (?i)MauiProgram|CreateMauiApp
+          pattern: 'AddSingleton\s*<\s*IDataService'
       - type: output-matches
         config:
-          pattern: (?i)builder\.Services
+          pattern: 'AddTransient\s*<\s*DetailViewModel'
+      - type: output-matches
+        config:
+          pattern: 'BindingContext\s*='
       - type: prompt
     rubric:
-      - Registers the data service as Singleton because it holds shared state or is expensive to create
-      - Registers ViewModels as Transient so each navigation gets a fresh instance
-      - Registers Pages as Transient so constructor injection runs each time
-      - Shows the registrations inside CreateMauiApp on builder.Services
-  - name: Shell navigation auto-resolves DI-registered pages
+      - Shares the requested cache while isolating independently created detail screen state.
+      - Places registration in the MAUI startup service collection.
+      - Connects the page constructor to its ViewModel without hidden service lookup.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: di-registration
+        agent: &reference_agent
+          name: reviewed-reference
+          version: "1"
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              In CreateMauiApp before builder.Build():
+              builder.Services.AddSingleton<IDataService, DataService>();
+              builder.Services.AddTransient<MainViewModel>();
+              builder.Services.AddTransient<DetailViewModel>();
+              builder.Services.AddTransient<MainPage>();
+              builder.Services.AddTransient<DetailPage>();
+              DetailPage(DetailViewModel vm) { InitializeComponent(); BindingContext = vm; }
+              Use the equivalent MainPage constructor. The cache is app-wide;
+              each new detail graph receives its own ViewModel when resolved.
+              Shell may retain a root page; transient does not force tab recreation.
+
+  - name: Resolve a routed page without registering its concrete type
     prompt: |
-      I have a DetailPage and DetailViewModel registered in DI. I'm using
-      Shell navigation. How does Shell resolve my page and its ViewModel
-      automatically? Show me the full wiring from MauiProgram.cs through
-      route registration to the GoToAsync call.
-    graders:
-      - type: output-contains
-        config:
-          substring: AddTransient
-      - type: output-matches
-        config:
-          pattern: (?i)RegisterRoute|Routing
-      - type: output-matches
-        config:
-          pattern: GoToAsync
-      - type: prompt
-    rubric:
-      - Shows registering both DetailPage and DetailViewModel as Transient in MauiProgram.cs
-      - Shows Routing.RegisterRoute for the DetailPage
-      - Explains that Shell.Current.GoToAsync triggers DI resolution of the page and its constructor dependencies
-      - Shows the Page constructor accepting the ViewModel and assigning BindingContext
-  - name: Platform-specific service registration with fallback
-    prompt: |
-      I need to register an INotificationService with different implementations
-      for Android, iOS, and Windows. How do I set this up in MauiProgram.cs so
-      it doesn't break on any platform?
-    graders:
-      - type: output-matches
-        config:
-          pattern: "#if ANDROID"
-      - type: output-matches
-        config:
-          pattern: (?i)IOS|MACCATALYST
-      - type: output-matches
-        config:
-          pattern: (?i)WINDOWS
-      - type: output-matches
-        config:
-          pattern: (?i)fallback|#else|all platform
-      - type: prompt
-    rubric:
-      - "Uses #if / #elif preprocessor directives for each platform"
-      - Covers Android, iOS/Mac Catalyst, and Windows
-      - Warns about the risk of missing a platform causing a null service at runtime
-      - "Recommends an #else fallback or no-op stub for uncovered platforms"
-  - name: Avoid AddScoped pitfall in MAUI
-    prompt: |
-      I'm coming from ASP.NET Core and I registered my DbContext with
-      AddScoped in my MAUI app. My data seems to persist across page
-      navigations when it shouldn't. What's going on?
+      In MAUI 10, DetailsPage has only DetailsPage(DetailsViewModel vm).
+      DetailsViewModel and its IProductService are registered, but the page
+      itself isn't. I registered a "details" route for typeof(DetailsPage).
+      Will Shell.Current.GoToAsync("details") work, and what happens if I
+      forget the IProductService registration?
+    tags:
+      capability: route-activation
+      risk: incorrect-registration-diagnosis
+      journey: detail-navigation
     graders:
       - type: output-matches
         config:
-          pattern: (?i)scoped?
-      - type: output-matches
-        config:
-          pattern: (?i)singleton|single.?instance
-      - type: output-matches
-        config:
-          pattern: (?i)(no|not|doesn.t|lacks|without).*(built.?in|request|http).*(scope|pipeline)
-      - type: prompt
-    rubric:
-      - Explains that MAUI has no built-in request scope like ASP.NET Core's HTTP pipeline
-      - States that AddScoped without a manually created IServiceScope behaves like Singleton
-      - Recommends switching to AddTransient for per-navigation freshness or AddSingleton if sharing is intended
-      - Mentions IServiceScope as the mechanism needed if Scoped lifetime is truly required
-  - name: "Diagnose a page whose injected dependencies are missing"
-    prompt: |
-      My DetailPage takes an IDataService in its constructor. I reach it two
-      ways: it's declared in AppShell.xaml as
-      <ShellContent ContentTemplate="{DataTemplate views:DetailPage}" />, and
-      I also navigate to it with Shell.Current.GoToAsync after calling
-      Routing.RegisterRoute. One path works and the other doesn't. Explain what
-      MAUI actually does in each case and how to fix it.
-    graders:
-      - type: output-contains
-        config:
-          substring: ContentTemplate
-      # Regression guard: the old skill claimed unregistered pages get "silently
-      # null" dependencies with no exception. Verified false — routed pages use
-      # ActivatorUtilities.GetServiceOrCreateInstance (Routing.cs) and THROW when
-      # a dependency cannot be resolved; ContentTemplate pages use
-      # Activator.CreateInstance (ElementTemplate.cs) with no DI at all.
+          pattern: '(?i)(ActivatorUtilities|constructor|inject)'
       - type: output-not-matches
         config:
-          pattern: (?i)silently\s+null|dependencies\s+are\s+silently|no\s+exception\s+is\s+thrown
+          pattern: '(?i)(page registration is (mandatory|required)|unregistered pages cannot receive)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(throw|exception|fail)'
       - type: prompt
     rubric:
-      - Explains that ContentTemplate pages are created with Activator.CreateInstance and bypass DI entirely
-      - Explains that routes resolved via GoToAsync go through the service provider and inject constructor dependencies
-      - Does NOT claim that dependencies are silently set to null without an exception
-      - Recommends navigating by route, or giving the page a parameterless constructor, for the ContentTemplate case
+      - Correctly predicts activation of the unregistered page using registered constructor dependencies on the normal initialized Shell path.
+      - Identifies missing required dependencies as resolution failures rather than silently null arguments.
+      - Treats explicit page registration as lifetime control rather than an absolute prerequisite for constructor injection.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: di-route
+        agent: *reference_agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Yes, with the initialized Shell's service provider. The type route
+              factory uses ActivatorUtilities.GetServiceOrCreateInstance. It
+              constructs the unregistered DetailsPage and resolves its
+              DetailsViewModel constructor argument from DI. Registering the
+              page explicitly is useful for choosing its lifetime, not required
+              for this fallback. If DetailsViewModel requires IProductService
+              and that service is missing, activation throws an
+              InvalidOperationException; DI does not supply null.
+
+  - name: Cover every supported platform implementation
+    prompt: |
+      Our MAUI app targets Android, iOS, Mac Catalyst and Windows.
+      AndroidNotificationService, AppleNotificationService and
+      WindowsNotificationService implement INotificationService.
+      Show a startup registration that works on all four targets and say
+      how an unsupported target should behave.
+    tags:
+      capability: platform-registration
+      risk: missing-target-service
+      journey: cross-platform-release
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)ANDROID'
+      - type: output-matches
+        config:
+          pattern: '(?i)MACCATALYST'
+      - type: output-matches
+        config:
+          pattern: '(?i)WINDOWS'
+      - type: prompt
+    rubric:
+      - Covers all four declared targets with compatible service implementations.
+      - Makes unsupported-target behavior explicit instead of letting required service resolution fail unexpectedly.
+      - Accepts conditional registration or an equivalent correct platform selection mechanism.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: di-platform
+        agent: *reference_agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              In MauiProgram.CreateMauiApp:
+              #if ANDROID
+              builder.Services.AddSingleton<INotificationService, AndroidNotificationService>();
+              #elif IOS || MACCATALYST
+              builder.Services.AddSingleton<INotificationService, AppleNotificationService>();
+              #elif WINDOWS
+              builder.Services.AddSingleton<INotificationService, WindowsNotificationService>();
+              #else
+              throw new PlatformNotSupportedException("Notifications are not supported on this target.");
+              #endif
+              If notifications are optional, an explicit no-op implementation
+              is another valid policy; don't silently omit a required service.
+
+  - name: Explain a retained DbContext across navigation and windows
+    prompt: |
+      I'm coming from ASP.NET Core. In my ordinary, non-Blazor MAUI app I
+      use AddDbContext<OrdersContext>() and inject it into ViewModels.
+      Tracked entities linger after navigation, and opening a second window
+      doesn't isolate them. Why? Suggest practical fixes with ownership
+      and disposal, not just a lifetime label.
+    tags:
+      capability: scope-boundaries
+      risk: root-context-contamination
+      journey: database-debugging
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(no|not|doesn.t|does not|without)[\s\S]{0,140}(automatic|built.in|natural|create)[\s\S]{0,100}scope'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^\s*(MAUI (does )?creates? (one |an? )?(IServiceScope|DI scope) per window|each window automatically gets (its own |a )?scope)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(root|app.lifetime|application.lifetime)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(CreateAsyncScope|CreateScope|DbContextFactory|new\s+OrdersContext|AddTransient)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(dispos|await using|using var)'
+      - type: prompt
+    rubric:
+      - Explains the absence of automatic window or navigation DI scopes in ordinary MAUI.
+      - Explains root-provider reuse, with scope-validation failure as a possible alternative to silent reuse.
+      - Offers short-lived contexts through a factory or explicitly owned scope, with correct disposal.
+      - Does not promise that changing to transient fixes a context retained by a long-lived consumer.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: di-dbcontext
+        agent: *reference_agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              AddDbContext defaults to scoped. Ordinary MAUI has no automatic
+              DI scope per navigation or window. Root resolution reuses the
+              context until app teardown, or throws if ValidateScopes is enabled.
+              Prefer AddDbContextFactory<OrdersContext>(options => ...) and
+              inject IDbContextFactory<OrdersContext>; create and dispose one
+              context for each operation with await using. Alternatively retain scoped
+              registration and use CreateAsyncScope, resolving the operation
+              graph from that provider and disposing it after awaiting the work.
+              Transient can fit a short-lived owner, but a retained ViewModel
+              still holds its injected context. Never share a context between
+              concurrent operations.
+
+  - name: Keep typed root content constructor injection
+    prompt: |
+      This is MAUI 10.0.0, after the Shell has a handler/context.
+      AppShell.xaml has
+      <ShellContent ContentTemplate="{DataTemplate views:DetailsPage}" />.
+      DetailsPage only has DetailsPage(IProductService products).
+      IProductService is registered, but DetailsPage isn't. Do I need to add
+      an empty constructor or replace my root tab with a pushed route?
+    tags:
+      capability: typed-template-activation
+      risk: unnecessary-service-locator
+      journey: root-tab-setup
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(inject|service provider|registered.*depend)'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^\s*(ContentTemplate pages bypass DI entirely|typed Shell templates never use (DI|the service provider))'
+      - type: output-matches
+        config:
+          pattern: '(?i)(no|not|needn.t|don.t|do not)[^\n.]{0,130}(empty|parameterless|replace|route)'
+      - type: prompt
+    rubric:
+      - Correctly explains that typed ShellContent creation can inject registered dependencies in MAUI 10.
+      - Keeps the root tab and its dependency-taking constructor rather than introducing a service locator.
+      - Distinguishes registration of constructor services from optional registration of the page type.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: di-root-template
+        agent: *reference_agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              No empty constructor or replacement route is needed. MAUI 10
+              ShellContent handles this typed ContentTemplate by obtaining
+              the parent context's services, trying GetService for DetailsPage,
+              and falling back to ActivatorUtilities.CreateInstance. That
+              fallback injects the registered IProductService. Keep the
+              dependency-taking constructor. Registering DetailsPage explicitly
+              is useful if you want a chosen lifetime, not required for this
+              activation. This differs from direct DataTemplate.CreateContent
+              outside Shell or a caller-supplied factory.
+
+  - name: Explain transient root page reuse
+    prompt: |
+      I registered HomePage and HomeViewModel with AddTransient in MAUI 10.
+      HomePage is the ContentTemplate of a root Shell tab. Selecting another
+      tab and then Home does not call its constructor again, and my filter
+      remains selected. Is DI broken? I want the results refreshed on return,
+      not an app-wide container redesign.
+    tags:
+      capability: content-caching
+      risk: destructive-lifetime-change
+      journey: tab-return-refresh
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(cache|retain|reus)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(OnAppearing|Appearing|activation|refresh)'
+      - type: prompt
+    rubric:
+      - Connects observed reuse to Shell content retention rather than a broken transient registration.
+      - Separates fresh DI resolution from navigation events.
+      - Proposes a focused refresh on return without promising that every tab selection reconstructs the page.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: di-cache
+        agent: *reference_agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              DI is behaving normally. Transient creates a new instance when
+              resolved; ShellContent caches its root page, so tab return can
+              reuse the same HomePage and HomeViewModel without resolving again.
+              Keep the lifetimes. Refresh through OnAppearing or an appropriate
+              activation callback, with cancellation and overlapping-load
+              protection as needed. Reset the filter there only if desired.
+              Cache invalidation can happen on disconnect/unload; neither
+              perpetual retention nor recreation on every selection is guaranteed.
+
+  - name: Prevent a singleton worker from retaining a transient context
+    prompt: |
+      My MAUI app registers SyncService as singleton and OrdersContext as
+      transient. SyncService receives OrdersContext in its constructor and
+      uses it for overlapping uploads. I thought transient gave each upload
+      a separate context. Fix the design while keeping SyncService shared.
+    tags:
+      capability: captive-context-ownership
+      risk: concurrent-context-use
+      journey: background-sync
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(captur|retain|same|one context)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(factory|CreateAsyncScope|CreateScope)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(dispos|await using|using var)'
+      - type: prompt
+    rubric:
+      - Identifies that the singleton keeps the one injected transient context.
+      - Keeps the shared worker but gives each upload its own awaited and disposed database work graph.
+      - Avoids sharing a DbContext across concurrent operations or letting a scope end before work completes.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: di-sync
+        agent: *reference_agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              The singleton captures its constructor-injected context once.
+              Transient does not re-inject it for each upload. Keep SyncService
+              singleton, replace its context argument with
+              IDbContextFactory<OrdersContext>, and register
+              AddDbContextFactory<OrdersContext>(options => ...). Each upload:
+              await using var db = await factory.CreateDbContextAsync(token);
+              await UploadWithContextAsync(db, token);
+              Overlapping uploads use different contexts. An explicit async
+              scope per awaited upload is also valid if the entire upload
+              graph is resolved from that scope and disposed after it finishes.
+
+  - name: Preserve custom window scope ownership
+    prompt: |
+      In our non-Blazor MAUI desktop app each editor window must have its
+      own IEditorSession. We already create a DI scope explicitly when
+      opening a window and dispose it when that window closes. Is AddScoped
+      appropriate? What must we check so pages really use that session?
+      Please don't remove our intentional window ownership.
+    tags:
+      capability: explicit-window-scope
+      risk: unused-scope-provider
+      journey: multi-window-editing
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(scope.{0,70}(provider|ServiceProvider)|provider.{0,70}scope)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(dispos|teardown|close)'
+      - type: prompt
+    rubric:
+      - Accepts AddScoped with the stated explicit scope owner.
+      - Requires the window dependency graph to be resolved from its own provider, including subsequent page construction.
+      - Does not imply that ordinary Shell automatically adopts a separately created scope.
+      - Keeps each scope alive through its window lifetime and disposes it only on teardown.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: di-window-scope
+        agent: *reference_agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              AddScoped<IEditorSession, EditorSession>() is appropriate for
+              your deliberately owned scope. Resolve the window's root graph
+              from scope.ServiceProvider, and check that later pages also use
+              that provider rather than the app root. Creating a scope alone
+              does not switch Shell's context/provider automatically. Keep
+              the scope while its window and operations are alive; await any
+              pending work before disposal on close. Test same-window sharing,
+              cross-window isolation and teardown. Do not change it to a
+              singleton or transient merely because this is MAUI.
+
+  - name: Fix manual construction inside a template factory
+    prompt: |
+      In MAUI 10 my page has a DetailsPage(DetailsViewModel vm) constructor.
+      I registered DetailsPage, DetailsViewModel and IProductService in
+      MauiProgram, but this tab still uses:
+      new DataTemplate(() => new DetailsPage(
+          new DetailsViewModel(new ProductService())));
+      The test fake IProductService is never used. Why, and what is the
+      smallest correction? AppShell receives IServiceProvider services.
+    tags:
+      capability: factory-template-ownership
+      risk: bypassed-service-substitution
+      journey: service-testability
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(manual|factory|new.*bypass)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(GetRequiredService|typeof\s*\(\s*DetailsPage|DataTemplate.*DetailsPage)'
+      - type: prompt
+    rubric:
+      - Identifies that the supplied factory creates its own graph rather than resolving the registered one.
+      - Uses a provider-backed factory or a typed Shell template, preserving constructor injection and service substitution.
+      - Does not generalize the factory's behavior to all Shell templates.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: di-factory-template
+        agent: *reference_agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Your factory manually constructs every object, so registrations
+              cannot substitute IProductService in that graph. Use
+              new DataTemplate(() => services.GetRequiredService<DetailsPage>())
+              with the injected provider. Alternatively, on initialized MAUI
+              10 ShellContent, new DataTemplate(typeof(DetailsPage)) lets Shell
+              resolve/activate the page. Keep the dependency-taking
+              constructors and ensure the fake registration is the effective
+              one in tests. A factory is different from the typed Shell path.
+
+  - name: Separate startup container readiness from handler readiness
+    prompt: |
+      App(IServiceProvider services) in my MAUI 10 app calls
+      InitializeComponent(). An App.xaml resource factory tries to use
+      Application.Current.Handler.MauiContext.Services and fails at startup.
+      Someone said the whole DI container is not built until CreateWindow.
+      Is that right? How can I construct AppShell safely?
+    tags:
+      capability: startup-resolution
+      risk: premature-global-access
+      journey: startup-crash-repair
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(inject|services\.GetRequiredService|provider)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(handler|Application.Current|context)'
+      - type: prompt
+    rubric:
+      - Explains that the injected provider exists when the container constructs App.
+      - Locates the timing defect in global or handler/context readiness rather than container construction.
+      - Offers injected Shell construction or provider-based resolution with suitable startup timing.
+      - Does not introduce another container or mandatory service-location through Application.Current.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: di-startup
+        agent: *reference_agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              No: the provider already exists when it injects services into App.
+              Application.Current and its Handler/MauiContext may not be ready
+              while App.xaml is parsed. Remove that resource's global lookup;
+              use injected dependencies or defer the service-dependent work.
+              Register AppShell, retain the injected provider, and resolve
+              services.GetRequiredService<AppShell>() in CreateWindow, returning
+              new Window(shell). Injecting AppShell directly is also valid when
+              its constructor does not depend on not-yet-ready app globals.
+
+  - name: Leave intentional shared root state unchanged
+    prompt: |
+      Review this MAUI 10 setup; don't edit files or redesign it.
+      Preferences is shared app-wide. HomeViewModel intentionally keeps root
+      tab state, and HomePage is used only by that one window's Home tab.
+      Details screens are independent.
+      builder.Services.AddSingleton<Preferences>();
+      builder.Services.AddSingleton<HomeViewModel>();
+      builder.Services.AddSingleton<HomePage>();
+      builder.Services.AddTransient<DetailsViewModel>();
+      builder.Services.AddTransient<DetailsPage>();
+      HomePage/HomeViewModel and DetailsPage/DetailsViewModel use constructor
+      injection. Details has a registered Shell route. Any necessary change?
+    tags:
+      capability: lifetime-restraint
+      risk: unnecessary-root-rewrite
+      journey: healthy-setup-review
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(no (necessary|required|change)|leave|keep|already.*correct)'
+      - type: output-not-matches
+        config:
+          pattern: '(?i)(must|should|need to)\s+(change|switch|replace)[^\n.]{0,100}Home'
+      - type: prompt
+    rubric:
+      - Accepts the intentionally shared root registrations without mechanically changing every page to transient.
+      - Leaves the already working constructor injection and detail lifetimes alone.
+      - Respects the read-only request and only notes relevant future risks such as sharing the same page across windows.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: di-noop
+        agent: *reference_agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              No necessary change. Keep the intentional shared Preferences and
+              root Home graph; the transient Details graph fits independent
+              detail screens. Constructor injection and the detail route are
+              already appropriate. If you later add windows, avoid attaching
+              the same singleton HomePage instance to more than one parent.
+              No files need editing for the stated setup.
+
+  - name: Keep ASP.NET request scopes outside MAUI guidance
+    prompt: |
+      This is an ASP.NET Core minimal API, not a mobile or desktop UI.
+      My AddScoped<OrderRepository>() is injected into an endpoint.
+      Do I need to manually create a scope for each HTTP request?
+    expect_activation: false
+    tags:
+      capability: framework-boundary
+      risk: inappropriate-manual-request-scope
+      journey: web-api-review
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(request|HTTP)'
+      - type: prompt
+    rubric:
+      - Recognizes the ASP.NET hosting model and its existing request scope.
+      - Does not apply MAUI startup, window, or navigation guidance or change files.
+      - Explains that explicit scopes are relevant outside the request pipeline, not normally required per endpoint request.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: di-web-boundary
+        agent: *reference_agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              No. ASP.NET Core creates and disposes a scope for each HTTP
+              request; an endpoint's scoped OrderRepository comes from that
+              request scope. Keep the registration. A background worker outside
+              the request pipeline needs its own owned scope, but that is a
+              different case. No MAUI-specific changes or file edits are needed.
+
+  - name: Keep a binding-name defect outside service registration
+    prompt: |
+      In my MAUI page, constructor injection already sets BindingContext
+      to the correct ViewModel. This label is blank:
+      <Label Text="{Binding DisplayNmae}" />
+      The ViewModel has public string DisplayName { get; } = "Ada".
+      What is the smallest fix? Don't change service registrations.
+    expect_activation: false
+    tags:
+      capability: binding-boundary
+      risk: unnecessary-di-redesign
+      journey: display-bug-repair
+    graders:
+      - type: output-contains
+        config:
+          substring: DisplayName
+      - type: output-not-matches
+        config:
+          pattern: 'Add(Singleton|Transient|Scoped)\s*<'
+      - type: prompt
+    rubric:
+      - Finds the misspelled binding path and corrects only that name.
+      - Keeps the existing BindingContext and registrations intact without a DI investigation or installations.
+      - Treats further troubleshooting, if needed, as a binding issue.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: di-binding-boundary
+        agent: *reference_agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Correct the typo: <Label Text="{Binding DisplayName}" />.
+              DisplayNmae does not name the ViewModel property. Keep the
+              existing BindingContext and service registrations; this is a
+              binding-path issue, not an injection failure.
