@@ -6,6 +6,21 @@ For the end-to-end architecture, decision policy, metric definitions, and
 historical examples, start with the
 [Skill evaluation infrastructure overview](./README.md).
 
+Workflow packages under `agentic-workflows/` use the native SDK adapter too.
+Their specs live at `tests/agentic-workflows/<package>/eval.yaml`; result identity
+is the package name with `skillKind: workflow` and
+`evaluationLane: workflow-prompt-sdk`. The baseline omits workflow guidance,
+the isolated arm uses the real imported workflow prompt and installed resources,
+and the package arm adds registered bundled agents. These are offline
+fixture-based decision/proposal evaluations, not live Actions jobs or published
+safe outputs. Compile/helper checks and consumer runtime evidence are separate.
+Missing context/import/resource errors invalidate the measurement; no-op
+scenarios still require primary `workflow.<package>` activation.
+The native runner enforces shell denial for all offline workflow model arms;
+this is not merely an instruction in the prompt. Published dashboard JSON keeps
+`skillKind: workflow`, its offline execution lane, exact persona activation, and
+package-manifest/eval source links.
+
 Every target runs in up to three variants — **baseline** (no target), **isolated** (only the target plus declared dependencies), and **plugin** (the production plugin surface). Skill evals run through Vally (`@microsoft/vally-cli`). Agent evals run through `skill-validator evaluate`, which registers `CustomAgents` directly and retains target activation, nested delegation, invoked skills, tool calls, completion, tokens, and wall time. Both adapters write one `results.json` per expected target, including an explicit invalid result when required evidence is missing.
 
 Native agent stimuli may opt in to `deny_shell: true`. Unlike the post-run

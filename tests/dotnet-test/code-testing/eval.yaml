@@ -1,0 +1,836 @@
+name: code-testing
+description: Evaluates the dotnet-test/code-testing skill
+type: capability
+tags:
+  executionShard: generation
+# `defaults:` replaces the deprecated `config:` — vally's loader throws on a
+# spec declaring both (eng/eval-quality check 10).
+#
+# Run 31180075357 measured 2W/10T/0L. The two focused tasks never activated and
+# added four baseline-equivalent ties. Seven broad tasks below exercise the
+# skill's distinctive Research -> Plan -> Implement contract across Python,
+# TypeScript, Go, SDK/classic .NET, existing-suite extension, and a sparse
+# workspace. Three focused tasks protect proportional routing in different
+# ecosystems. Ten independent stimuli improve power without changing runs.
+#
+# Broad-scope state under the git testagent directory is intentionally
+# non-stageable and is verified by dedicated run-command graders. These
+# scenarios therefore use trajectory and rubric oracles rather than incomplete
+# golden patches that cannot represent the required state.
+defaults:
+  timeout: 60m
+  runs: 2
+environment:
+  files:
+    - src: ../graders/authenticated_artifacts.py
+      dest: .eval/authenticated_artifacts.py
+stimuli:
+  - name: Generate a project-wide pytest suite across multiple modules
+    prompt: |
+      Generate a comprehensive pytest suite for the entire project under
+      fixtures/python-multimodule/. It has no tests yet and contains:
+
+      - analytics.stats.mean and percentile
+      - analytics.window.RateWindow
+      - textkit.slug.slugify
+
+      Cover every public behavior across the modules, including empty-input and
+      percentile-range errors, percentile ordering and 0/100 boundaries,
+      RateWindow constructor validation, empty-window errors, capacity rollover,
+      average and peak after rollover, slug separator collapsing/trimming,
+      max-length truncation, and invalid max_length. Keep this project-wide:
+      tests should live under fixtures/python-multimodule/tests/ and pass with
+      pytest from fixtures/python-multimodule/.
+    tags:
+      capability: project-wide-python-orchestration
+      risk: incomplete-boundary-coverage
+      journey: orchestrate-multimodule-pytest
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "code-testing-agent-pytest-multimodule"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The project-wide pytest suite covers the three public modules under fixtures/python-multimodule/ — analytics.stats (mean, percentile), analytics.window.RateWindow, and textkit.slug.slugify. The non-stageable git testagent state directory contains research.md, plan.md, and status.md; tests live under tests/ and assert concrete values (means, percentiles, averages, peaks, slugs), not existence-only.
+
+              | Requirement | Evidence |
+              | --- | --- |
+              | mean average + empty-input error | tests/test_stats.py::test_mean_returns_average, ::test_mean_empty_raises |
+              | percentile empty + range errors | tests/test_stats.py::test_percentile_empty_raises, ::test_percentile_out_of_range_raises |
+              | percentile 0/100 boundaries | tests/test_stats.py::test_percentile_zero_and_hundred_boundaries |
+              | percentile ordering | tests/test_stats.py::test_percentile_orders_unsorted_input |
+              | RateWindow constructor validation | tests/test_window.py::test_constructor_rejects_non_positive_capacity |
+              | empty-window errors | tests/test_window.py::test_average_on_empty_window_raises, ::test_peak_on_empty_window_raises |
+              | capacity rollover + average/peak | tests/test_window.py::test_capacity_rollover_drops_oldest, ::test_average_and_peak_before_rollover |
+              | slug separator collapse/trim | tests/test_slug.py::test_collapses_and_trims_separators |
+              | max-length truncation | tests/test_slug.py::test_truncates_and_strips_trailing_hyphen |
+              | invalid max_length | tests/test_slug.py::test_invalid_max_length_raises |
+    environment:
+      files:
+        - src: fixtures/python-multimodule
+          dest: fixtures/python-multimodule
+        - src: graders/check_python_tests.py
+          dest: .eval/check_python_tests.py
+        - src: graders/check_production.py
+          dest: .eval/check_production.py
+      commands:
+        - git init -q
+        - python3 -m pip install --quiet pytest==8.3.5
+        - python3 .eval/check_production.py snapshot fixtures/python-multimodule/analytics fixtures/python-multimodule/textkit
+        - python3 .eval/check_python_tests.py snapshot fixtures/python-multimodule
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py --expect 1f16f9c6aac20e0068ba01ad2bb48f3e3fe3e0f7741e967d376d315141a15927:.eval/production.json -- python .eval/check_production.py verify fixtures/python-multimodule/analytics fixtures/python-multimodule/textkit
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 56399ea321dee7520e42ff3de3459125bfa2fdc2527d8d57c368e3209a679034:.eval/check_python_tests.py --expect fefd5e3da2f7c21aeeb1529d1ef16ae153cc7e3d47c5af9cafb8969419c0d987:.eval/python-inputs.json -- python .eval/check_python_tests.py verify fixtures/python-multimodule
+          expected_exit_code: 0
+          timeout: 5m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: run-command
+        config:
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Generated passing tests under the configured tests directory for all three modules
+      - Covered every named validation and boundary behavior, including RateWindow rollover and percentile 0/100 boundaries
+      - Asserted concrete averages, peaks, percentiles, and slugs rather than existence-only results
+      - Kept the work project-wide but bounded to the three supplied modules
+      - Mapped each requested behavior to named test evidence
+      - Kept broad-scope intermediate state files non-stageable so only requested deliverables remain commit candidates
+
+  - name: Generate project-wide tests for a classic MSTest library
+    prompt: |
+      Add the missing project-wide unit tests for the classic net472 library
+      under fixtures/classic-mstest/. The production project contains
+      DiscountService and TieredDiscountPolicy; the existing test project uses
+      MSTest 3.5.2, Moq 4.2, NBuilder, FixtureBase<TSut>, packages.config, and
+      explicit compile items.
+
+      Preserve that stack and the existing DiscountServiceTests.cs byte-for-byte.
+      Create DiscountServiceBoundaryTests.cs and TieredDiscountPolicyTests.cs.
+      Cover DiscountService's 0/100 boundaries, invalid percentages, missing
+      product, and exact discounted value. Cover TieredDiscountPolicy constructor
+      validation, negative subtotal, below-threshold behavior, exact-threshold
+      activation, and a concrete discounted value. Do not modernize the project
+      or dependencies.
+    tags:
+      capability: legacy-mstest-orchestration
+      risk: legacy-stack-drift
+      journey: orchestrate-classic-dotnet-tests
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "code-testing-agent-mstest-classic-library"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The classic net472 suite preserves its existing stack: the non-stageable git testagent state directory records that MSTest 3.5.2 has Assert.ThrowsException<T> but neither Assert.Throws<T> nor Assert.ThrowsExactly<T>, so exception paths use Assert.ThrowsException<T>. DiscountServiceTests.cs and packages.config stay byte-for-byte unchanged; each new file is registered once via <Compile Include>. DiscountServiceBoundaryTests.cs and TieredDiscountPolicyTests.cs use concrete expected values.
+
+              | Requirement | Evidence |
+              | --- | --- |
+              | DiscountService 0/100 boundaries | DiscountServiceBoundaryTests::Apply_HundredPercent_ReturnsZero (with preserved Apply_ZeroPercent_ReturnsOriginalPrice) |
+              | DiscountService invalid percentages | ::Apply_NegativePercentage_Throws, ::Apply_PercentageAboveHundred_Throws |
+              | DiscountService missing product | ::Apply_MissingProduct_Throws |
+              | DiscountService exact discounted value | ::Apply_QuarterOff_ReturnsExactDiscountedValue |
+              | TieredDiscountPolicy constructor validation | TieredDiscountPolicyTests::Constructor_NonPositiveThreshold_Throws, ::Constructor_RateOutOfRange_Throws |
+              | negative subtotal | ::Apply_NegativeSubtotal_Throws |
+              | below-threshold behavior | ::Apply_BelowThreshold_ReturnsSubtotalUnchanged |
+              | exact-threshold activation | ::Apply_ExactThreshold_AppliesDiscount |
+              | concrete discounted value | ::Apply_AboveThreshold_ReturnsExactDiscountedValue |
+              | registered once, classic stack preserved | Discounts.Tests.csproj Compile items; DiscountServiceTests.cs and packages.config unchanged |
+    environment:
+      files:
+        - src: fixtures/classic-mstest
+          dest: fixtures/classic-mstest
+        - src: graders/check_production.py
+          dest: .eval/check_production.py
+        - src: ../agent.test-engineer/graders/check_classic_preservation.py
+          dest: .eval/check_classic_preservation.py
+        - src: ../agent.test-engineer/graders/check_classic_behavior.py
+          dest: .eval/check_classic_behavior.py
+      commands:
+        - rm -f fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs && cp fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine fixtures/classic-mstest/tests/Discounts.Tests.csproj && rm fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine && mkdir -p .eval-baseline && cp fixtures/classic-mstest/tests/DiscountServiceTests.cs .eval-baseline/DiscountServiceTests.cs && cp fixtures/classic-mstest/tests/packages.config .eval-baseline/packages.config
+        - git init -q
+        - python3 .eval/check_production.py snapshot fixtures/classic-mstest/src
+        - python3 .eval/check_classic_preservation.py snapshot fixtures/classic-mstest
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py --expect f928dc1fae1c54deac21f8e5cf1010ce17d1ddab3643e32af6164054c4e3f335:.eval/production.json -- python .eval/check_production.py verify fixtures/classic-mstest/src
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 320bc198285f61c60decdfa558da696d1778644cfee7b97a1b085c13c3188e4c:.eval/check_classic_preservation.py --expect 1caa319ee11037343f5d71682ca78c4e85db08898b8ec7bb2fc528e27f2e5860:.eval/classic-preservation.json -- python .eval/check_classic_preservation.py verify fixtures/classic-mstest
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-exists
+        config:
+          path: fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs
+      - type: file-exists
+        config:
+          path: fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs
+      - type: run-command
+        config:
+          command: >-
+            sh -c 'diff -u .eval-baseline/DiscountServiceTests.cs
+            fixtures/classic-mstest/tests/DiscountServiceTests.cs
+            && diff -u .eval-baseline/packages.config
+            fixtures/classic-mstest/tests/packages.config
+            && test $(grep -c "Compile Include=\"DiscountServiceBoundaryTests.cs\""
+            fixtures/classic-mstest/tests/Discounts.Tests.csproj) -eq 1
+            && test $(grep -c "Compile Include=\"TieredDiscountPolicyTests.cs\""
+            fixtures/classic-mstest/tests/Discounts.Tests.csproj) -eq 1
+            && for file in
+            fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs
+            fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs;
+            do grep -Eq "Assert[[:space:]]*\.[[:space:]]*ThrowsException[[:space:]]*<" "$file"
+            && ! grep -Eq "Assert[[:space:]]*\.[[:space:]]*Throws(Exactly)?[[:space:]]*<" "$file"
+            && ! grep -Eq "\[[[:space:]]*ExpectedException" "$file"
+            || exit 1;
+            done'
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-not-contains
+        config:
+          path: fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs
+          value: ThrowsExactly
+      - type: file-not-contains
+        config:
+          path: fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs
+          value: Assert.Throws<
+      - type: file-contains
+        config:
+          path: fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs
+          value: Assert.ThrowsException<
+      - type: file-not-contains
+        config:
+          path: fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs
+          value: ThrowsExactly
+      - type: file-not-contains
+        config:
+          path: fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs
+          value: Assert.Throws<
+      - type: file-contains
+        config:
+          path: fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs
+          value: Assert.ThrowsException<
+      - type: file-not-contains
+        config:
+          path: fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs
+          value: ExpectedException
+      - type: file-not-contains
+        config:
+          path: fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs
+          value: ExpectedException
+      # Compile against the pinned legacy APIs first. Moq 4.2's proxy emitter
+      # cannot run on .NET 8; only the temporary execution harness uses newer Moq.
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import base64,pathlib;
+            p=pathlib.Path('fixtures/classic-mstest/.eval-validation/GeneratedTests.csproj');
+            p.parent.mkdir(parents=True,exist_ok=True);
+            p.write_bytes(base64.b64decode('PFByb2plY3QgU2RrPSJNaWNyb3NvZnQuTkVULlNkayI+CiAgPFByb3BlcnR5R3JvdXA+CiAgICA8VGFyZ2V0RnJhbWV3b3JrPm5ldDguMDwvVGFyZ2V0RnJhbWV3b3JrPgogICAgPEVuYWJsZURlZmF1bHRDb21waWxlSXRlbXM+ZmFsc2U8L0VuYWJsZURlZmF1bHRDb21waWxlSXRlbXM+CiAgICA8SW1wbGljaXRVc2luZ3M+ZGlzYWJsZTwvSW1wbGljaXRVc2luZ3M+CiAgICA8TnVsbGFibGU+ZGlzYWJsZTwvTnVsbGFibGU+CiAgICA8SXNUZXN0UHJvamVjdD50cnVlPC9Jc1Rlc3RQcm9qZWN0PgogICAgPE5vV2Fybj4kKE5vV2Fybik7TlUxNzAxPC9Ob1dhcm4+CiAgPC9Qcm9wZXJ0eUdyb3VwPgogIDxJdGVtR3JvdXA+CiAgICA8UGFja2FnZVJlZmVyZW5jZSBJbmNsdWRlPSJNaWNyb3NvZnQuTkVULlRlc3QuU2RrIiBWZXJzaW9uPSIxNy4xMy4wIiAvPgogICAgPFBhY2thZ2VSZWZlcmVuY2UgSW5jbHVkZT0iTVNUZXN0LlRlc3RBZGFwdGVyIiBWZXJzaW9uPSIzLjUuMiIgLz4KICAgIDxQYWNrYWdlUmVmZXJlbmNlIEluY2x1ZGU9Ik1TVGVzdC5UZXN0RnJhbWV3b3JrIiBWZXJzaW9uPSIzLjUuMiIgLz4KICAgIDxQYWNrYWdlUmVmZXJlbmNlIEluY2x1ZGU9Ik1vcSIgVmVyc2lvbj0iNC4yLjE1MTAuMjIwNSIgLz4KICAgIDxQYWNrYWdlUmVmZXJlbmNlIEluY2x1ZGU9Ik5CdWlsZGVyIiBWZXJzaW9uPSI2LjEuMCIgLz4KICAgIDxQYWNrYWdlUmVmZXJlbmNlIEluY2x1ZGU9IlN5c3RlbS5Db2RlRG9tIiBWZXJzaW9uPSI4LjAuMCIgLz4KICAgIDxQYWNrYWdlUmVmZXJlbmNlIEluY2x1ZGU9IlN5c3RlbS5TZWN1cml0eS5QZXJtaXNzaW9ucyIgVmVyc2lvbj0iOC4wLjAiIC8+CiAgPC9JdGVtR3JvdXA+CiAgPEl0ZW1Hcm91cD4KICAgIDxDb21waWxlIEluY2x1ZGU9Ii4uL3NyYy9EaXNjb3VudFNlcnZpY2UuY3MiIC8+CiAgICA8Q29tcGlsZSBJbmNsdWRlPSIuLi9zcmMvVGllcmVkRGlzY291bnRQb2xpY3kuY3MiIC8+CiAgICA8Q29tcGlsZSBJbmNsdWRlPSIuLi90ZXN0cy9GaXh0dXJlQmFzZS5jcyIgLz4KICAgIDxDb21waWxlIEluY2x1ZGU9Ii4uL3Rlc3RzL0Rpc2NvdW50U2VydmljZVRlc3RzLmNzIiAvPgogICAgPENvbXBpbGUgSW5jbHVkZT0iLi4vdGVzdHMvRGlzY291bnRTZXJ2aWNlQm91bmRhcnlUZXN0cy5jcyIgLz4KICAgIDxDb21waWxlIEluY2x1ZGU9Ii4uL3Rlc3RzL1RpZXJlZERpc2NvdW50UG9saWN5VGVzdHMuY3MiIC8+CiAgPC9JdGVtR3JvdXA+CjwvUHJvamVjdD4K'))"
+            && dotnet build
+            fixtures/classic-mstest/.eval-validation/GeneratedTests.csproj
+            --verbosity minimal
+            && python3 -c "import pathlib;
+            p=pathlib.Path('fixtures/classic-mstest/.eval-validation/GeneratedTests.csproj');
+            p.write_text(p.read_text().replace('4.2.1510.2205','4.20.72'))"
+            && dotnet test
+            fixtures/classic-mstest/.eval-validation/GeneratedTests.csproj
+            --verbosity minimal
+            && dotnet test
+            fixtures/classic-mstest/.eval-validation/GeneratedTests.csproj
+            --list-tests --no-build --verbosity minimal
+          expected_exit_code: 0
+          stdout_matches: '(?is)Passed:\s+[1-9][0-9]*.*Apply_HundredPercent_ReturnsZero.*Apply_AboveThreshold_ReturnsExactDiscountedValue'
+          timeout: 10m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 81b12989b807d4452eeda18d47e30df0d2aad8f0887d26ce26ca805d3a8ad903:.eval/check_classic_behavior.py -- python .eval/check_classic_behavior.py fixtures/classic-mstest
+          expected_exit_code: 0
+          timeout: 10m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: run-command
+        config:
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Added both requested test files and registered each exactly once in the classic project
+      - Preserved the existing test file, packages.config, project format, and pinned dependency versions
+      - Used Assert.ThrowsException<T> for exception paths, avoiding both Assert.Throws<T> and Assert.ThrowsExactly<T>, which are unavailable in MSTest 3.5.2
+      - Covered every named DiscountService and TieredDiscountPolicy boundary with concrete expected values
+      - Detected bounded regressions in both production types
+      - Mapped each requested behavior and build-registration requirement to evidence
+      - Kept broad-scope intermediate state files non-stageable without modernizing the classic project
+
+  - name: Generate a project-wide Go suite across collaborating packages
+    prompt: |
+      Generate comprehensive Go tests for the whole module under
+      fixtures/go-multipackage/. Cover money.Discount, shipping.Rate, and
+      order.Total.
+
+      Use table-driven tests for validation and numeric boundaries. Verify
+      discount 0/100 boundaries, invalid subtotal and percent, shipping bracket
+      equality (a weight equal to UpToGrams belongs to that bracket), overflow
+      behavior, negative weight, and empty brackets. For order.Total, use fakes
+      for both interfaces and prove the composition `subtotal - discount +
+      shipping` with exact cents. Also cover error propagation from each
+      collaborator and verify the second collaborator is not called when the
+      first fails. Keep tests inside the corresponding Go packages and make
+      `go test ./...` pass from fixtures/go-multipackage/.
+    tags:
+      capability: multi-package-go-orchestration
+      risk: collaborator-short-circuit-gaps
+      journey: orchestrate-go-module-tests
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "code-testing-agent-go-multipackage"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The project-wide Go suite covers module example.com/checkout across money.Discount, shipping.Rate, and order.Total. The non-stageable git testagent state directory contains research.md, plan.md, and status.md for the package inventory and table-driven plan; leaf packages get table-driven boundary tests, and order uses hand-written fakes that record call counts to prove the subtotal - discount + shipping composition and that the second collaborator is skipped when the first fails.
+
+              | Requirement | Evidence |
+              | --- | --- |
+              | discount 0/100 boundaries | money/discount_test.go::TestDiscount (zero percent, hundred percent cases) |
+              | invalid subtotal and percent | money/discount_test.go::TestDiscount (negative subtotal, percent below 0, percent above 100 cases) |
+              | shipping bracket equality | shipping/rate_test.go::TestRate (weight equal to UpToGrams cases) |
+              | shipping overflow + negative + empty | shipping/rate_test.go::TestRate (overflow, negative weight, empty brackets cases) |
+              | exact order composition | order/total_test.go::TestTotalComposesSubtotalDiscountAndShipping |
+              | error propagation each collaborator | order/total_test.go::TestTotalShortCircuitsWhenDiscountFails, ::TestTotalPropagatesShippingError |
+              | short-circuit second collaborator | order/total_test.go::TestTotalShortCircuitsWhenDiscountFails, ::TestTotalRejectsNegativeSubtotalWithoutCallingCollaborators |
+    environment:
+      files:
+        - src: fixtures/go-multipackage
+          dest: fixtures/go-multipackage
+        - src: graders/check_production.py
+          dest: .eval/check_production.py
+      commands:
+        - git init -q
+        - python3 .eval/check_production.py snapshot fixtures/go-multipackage/money fixtures/go-multipackage/shipping fixtures/go-multipackage/order
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py --expect 5850a0210af59a60314166d31644c134ffb07f29472f7b571d74071c004e2cfe:.eval/production.json -- python .eval/check_production.py verify fixtures/go-multipackage/money fixtures/go-multipackage/shipping fixtures/go-multipackage/order
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "cd fixtures/go-multipackage && go test ./..."
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: sh -c "test -f fixtures/go-multipackage/money/discount_test.go && test -f fixtures/go-multipackage/shipping/rate_test.go && test -f fixtures/go-multipackage/order/total_test.go && grep -q 'UpToGrams' fixtures/go-multipackage/shipping/rate_test.go"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: run-command
+        config:
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Generated passing tests in all three packages
+      - Used table-driven tests for validation and boundary cases
+      - Proved the exact order total composition with collaborator fakes and concrete cents
+      - Covered each collaborator error and verified short-circuit behavior when discount calculation fails
+      - Covered shipping equality and overflow boundaries
+      - Mapped every requested behavior to named test evidence
+      - Kept broad-scope intermediate state files non-stageable
+
+  # The fixture is intentionally committed with a larger project and then
+  # stripped down in setup. The agent must test the remaining source without
+  # restoring deleted files from git.
+  - name: Does not revert a gutted-looking workspace (workspace integrity)
+    prompt: |
+      I have a Python project under fixtures/python-workspace-integrity/ — the
+      metricsd metrics-aggregation daemon. I'd like a comprehensive pytest test
+      suite for it. Please scaffold the tests under
+      fixtures/python-workspace-integrity/tests/ and write thorough unit tests
+      for the module that currently has source code but no tests yet. The
+      project is configured with pythonpath = ["."] and testpaths = ["tests"]
+      in pyproject.toml, so the generated tests should pass with pytest.
+    tags:
+      capability: sparse-workspace-integrity
+      risk: unintended-source-restoration
+      journey: test-authoritative-workspace
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "code-testing-agent-workspace-integrity"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Research (non-stageable git testagent state): the workspace under fixtures/python-workspace-integrity/ is sparse on purpose. synthstr/stringy.py is marked "synthetic test target" and the former metricsd core/ and io/ trees were removed deliberately. I treated the code on disk as authoritative and did NOT run git checkout/restore, revert, or otherwise reconstruct any deleted source — the module that has code but no tests is synthstr.stringy.
+
+              Plan (non-stageable git testagent state): one test module, tests/test_stringy.py, covering every synthstr.stringy behavior with concrete expected values. The state directory also contains status.md.
+
+              Implementation summary (tests/test_stringy.py):
+              - reverse("abc")=="cba" and reverse("") == "".
+              - is_palindrome true for "A man, a plan, a canal: Panama" (case/punctuation-insensitive) and false for "hello".
+              - word_count("a b  c")==3 and whitespace-only == 0.
+              - truncate unchanged within limit; ellipsis truncation "hello world"/8 -> "hello w\u2026" (length 8); limit 0 -> ""; negative limit raises ValueError.
+
+              Verification: `cd fixtures/python-workspace-integrity && python3 -m pytest -q` passes (7 tests). core/aggregator.py and io/reader.py remain absent; the sparse workspace was accepted, not "repaired".
+
+              | Requirement | Evidence |
+              | --- | --- |
+              | reverse behavior | tests/test_stringy.py::test_reverse_reverses_characters |
+              | is_palindrome punctuation/case | tests/test_stringy.py::test_is_palindrome_ignores_case_and_punctuation |
+              | word_count | tests/test_stringy.py::test_word_count_counts_whitespace_delimited_words |
+              | truncate within limit | tests/test_stringy.py::test_truncate_returns_input_when_within_limit |
+              | ellipsis truncation | tests/test_stringy.py::test_truncate_adds_ellipsis_when_shortened |
+              | zero-limit empty | tests/test_stringy.py::test_truncate_zero_limit_is_empty |
+              | negative-limit ValueError | tests/test_stringy.py::test_truncate_negative_limit_raises |
+              | did not restore deleted source | no git restore/checkout; core/ and io/ remain absent |
+    environment:
+      files:
+        - src: fixtures/python-workspace-integrity
+          dest: fixtures/python-workspace-integrity
+        - src: graders/check_production.py
+          dest: .eval/check_production.py
+      commands:
+        - git init -q && git config maintenance.auto false && git config gc.auto 0 && git -c user.email=eval@example.com -c user.name=eval add fixtures/python-workspace-integrity && git -c user.email=eval@example.com -c user.name=eval commit -qm baseline && rm -rf fixtures/python-workspace-integrity/core fixtures/python-workspace-integrity/io fixtures/python-workspace-integrity/tests_real
+        - python3 -m pip install --quiet pytest==8.3.5
+        - python3 .eval/check_production.py snapshot fixtures/python-workspace-integrity/synthstr
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py --expect 947cb612b934e7a93bcda6c67df9f27a3d900585882591b3e6b74dd5c9669d1f:.eval/production.json -- python .eval/check_production.py verify fixtures/python-workspace-integrity/synthstr
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "cd fixtures/python-workspace-integrity && python3 -m pytest -q"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: sh -c "test ! -f fixtures/python-workspace-integrity/core/aggregator.py && test ! -f fixtures/python-workspace-integrity/io/reader.py"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "grep -q 'synthetic test target' fixtures/python-workspace-integrity/synthstr/stringy.py"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: run-command
+        config:
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Generated passing pytest tests for the synthstr module under fixtures/python-workspace-integrity/tests/,
+        treating the module on disk as the unit under test
+      - Did not use git or file operations to restore or reconstruct deleted source files
+      - Accepted the sparse workspace as authoritative instead of treating it as corruption
+      - Tests assert concrete behavior of reverse, is_palindrome, word_count, and truncate, including negative-limit
+        ValueError and ellipsis truncation
+      - Each required synthstr behaviour and validation result is individually traceable to a named test or a cited
+        command, rather than being covered by a broad list of tested areas
+      - Once every requested behavior is covered, evaluates suite quality by meaningful, nonredundant cases rather than
+        rewarding a higher raw test count
+      - Kept internal intermediate state files non-stageable
+
+  - name: Generate a layered Vitest suite for an async shopping cart
+    prompt: |
+      Generate a comprehensive Vitest suite for the TypeScript shopping-cart
+      library under fixtures/typescript-vitest-cart/. Cover the pricing, tax,
+      shipping, inventory, and Cart modules, including both composite-discount
+      modes, discounted-subtotal tax and shipping composition, snapshot
+      isolation, async price refresh, partial-stock denial, collaborator failure
+      propagation, and the InventoryError fields.
+
+      Keep all tests under fixtures/typescript-vitest-cart/tests/. Use injected
+      collaborators and Vitest fakes; do not use real network or filesystem I/O.
+      Both `npm test` and the configured coverage thresholds must pass.
+    tags:
+      capability: layered-typescript-orchestration
+      risk: async-composition-gaps
+      journey: orchestrate-vitest-cart-tests
+    environment:
+      files:
+        - src: fixtures/typescript-vitest-cart
+          dest: fixtures/typescript-vitest-cart
+        - src: graders/check_cart_tests.py
+          dest: .eval/check_cart_tests.py
+        - src: graders/check_production.py
+          dest: .eval/check_production.py
+      commands:
+        - git init -q
+        - python3 .eval/check_production.py snapshot fixtures/typescript-vitest-cart/src
+        - python3 .eval/check_cart_tests.py snapshot fixtures/typescript-vitest-cart .eval/cart-baseline.json
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py --expect f4a4fddac767f934a23990683499087896fec172289012f3b57f7bfeb4178169:.eval/production.json -- python .eval/check_production.py verify fixtures/typescript-vitest-cart/src
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 772c6a273ad1ee22419137b3847b0a1bdd5e9ef3d3b6250d86a4601d6273d5ca:.eval/check_cart_tests.py --expect d08dd524f6eddb799f8e2f9cc6524b63f9db5cdfeb22e7563c24e2341680cd75:.eval/cart-baseline.json -- python .eval/check_cart_tests.py verify fixtures/typescript-vitest-cart .eval/cart-baseline.json
+          expected_exit_code: 0
+          timeout: 10m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: run-command
+        config:
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Generated passing Vitest tests for every production module without real I/O
+      - Covered sum and chain discount behavior plus discounted-subtotal tax and shipping composition
+      - Proved snapshot isolation, refreshed prices, partial-stock denial, collaborator failures, and InventoryError fields
+      - Cleared the configured line, statement, function, and branch coverage thresholds
+      - Mapped each requested behavior to exact test evidence after the broad-scope research, plan, and quality review while keeping intermediate state files non-stageable
+
+  - name: Expand a healthy existing pytest suite to every ledger boundary
+    prompt: |
+      Expand the existing pytest suite under fixtures/failing-suite/ into
+      comprehensive project coverage for the ledger package. Preserve the four
+      existing tests and add cases for empty entries, multiple credits/debits,
+      exact overdraft-limit equality, one cent inside and outside the limit,
+      positive balances, a negative overdraft limit, and unknown entry kinds.
+      Use exact Decimal assertions and make pytest pass from the fixture root.
+    tags:
+      capability: existing-pytest-suite-expansion
+      risk: boundary-regression-gaps
+      journey: extend-ledger-test-suite
+    environment:
+      files:
+        - src: fixtures/failing-suite
+          dest: fixtures/failing-suite
+        - src: graders/check_production.py
+          dest: .eval/check_production.py
+      commands:
+        - git init -q
+        - python3 -m pip install --quiet pytest==8.3.5
+        - python3 .eval/check_production.py snapshot fixtures/failing-suite/ledger
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py --expect afa521e5def55421ce82f4d550979c3286a29e88ebc729ec01ecdc284a5a4ee7:.eval/production.json -- python .eval/check_production.py verify fixtures/failing-suite/ledger
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "cd fixtures/failing-suite && python3 -m pytest -q"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: sh -c "test $(grep -Rh '^def test_' fixtures/failing-suite/tests --include='*.py' | wc -l) -ge 10 && grep -R -q 'Decimal' fixtures/failing-suite/tests"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: run-command
+        config:
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Preserved the existing tests and added passing tests for every requested ledger boundary
+      - Used exact Decimal values around the overdraft limit rather than float approximations
+      - Covered empty and multi-entry running balances plus invalid entry kinds
+      - Treated the project-wide existing-suite extension as broad scope, completed its research, plan, and final review, and kept intermediate state files non-stageable
+      - Mapped each requested behavior and the successful pytest command to concrete evidence
+      - Once empty, multi-entry, exact/inside/outside limit, positive-balance, negative-limit, and unknown-kind states all
+        have direct assertions, evaluates completeness by those independent state transitions rather than raw test count
+
+  - name: Generate project-wide tests for an SDK-style xUnit library
+    prompt: |
+      Generate the complete xUnit v3 suite for the SDK-style .NET 10 library under
+      fixtures/sdk-xunit-orders/. Cover OrderPricing.Total and
+      ReservationWindow: all argument validation, 0 and 100 percent discounts,
+      exact decimal totals, the instant before reservation, the exact start,
+      the instant before expiry, and the exact expiry boundary. Keep production
+      code and project/build configuration unchanged and make the existing test
+      project pass.
+    tags:
+      capability: sdk-xunit-orchestration
+      risk: temporal-boundary-gaps
+      journey: orchestrate-sdk-dotnet-tests
+    environment:
+      files:
+        - src: fixtures/sdk-xunit-orders
+          dest: fixtures/sdk-xunit-orders
+        - src: graders/check_xunit_tests.py
+          dest: .eval/check_xunit_tests.py
+      commands:
+        - find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -delete
+        - git init -q
+        - python3 .eval/check_xunit_tests.py snapshot fixtures/sdk-xunit-orders .eval/xunit-baseline.json
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 244c9bd8be8f65e2d7289b393f57a6331ca24bb537e4171ca032e48e348714a3:.eval/check_xunit_tests.py --expect 46c6aefd4dfbd3075111ddfa7f70b5a0cfb4110f3472b04a143ba39850847c9c:.eval/xunit-baseline.json -- python .eval/check_xunit_tests.py verify fixtures/sdk-xunit-orders .eval/xunit-baseline.json
+          expected_exit_code: 0
+          timeout: 10m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: run-command
+        config:
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Generated passing xUnit v3 tests for both production types without modifying production code
+      - Covered every validation and exact decimal pricing boundary
+      - Distinguished reservation start and expiry boundary semantics with concrete instants
+      - Followed the SDK-style project conventions and kept the work bounded to this library
+      - Completed the broad research, plan, quality review, and requirement-to-test evidence mapping while keeping intermediate state files non-stageable
+
+  - name: Add focused xUnit tests for one reservation class
+    prompt: |
+      Add xUnit v3 tests only for ReservationWindow in
+      fixtures/sdk-xunit-orders/. Cover invalid non-positive hold durations and
+      IsActive immediately before reservation, exactly at reservation, immediately
+      before expiry, and exactly at expiry. Do not add OrderPricing tests or change
+      production code or project/build configuration. Run the existing test project.
+    tags:
+      capability: focused-xunit-generation
+      risk: scope-overexpansion
+      journey: add-reservation-tests
+    environment:
+      files:
+        - src: fixtures/sdk-xunit-orders
+          dest: fixtures/sdk-xunit-orders
+        - src: graders/check_xunit_tests.py
+          dest: .eval/check_xunit_tests.py
+      commands:
+        - find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -delete
+        - git init -q
+        - python3 .eval/check_xunit_tests.py snapshot fixtures/sdk-xunit-orders .eval/xunit-baseline.json
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 244c9bd8be8f65e2d7289b393f57a6331ca24bb537e4171ca032e48e348714a3:.eval/check_xunit_tests.py --expect 46c6aefd4dfbd3075111ddfa7f70b5a0cfb4110f3472b04a143ba39850847c9c:.eval/xunit-baseline.json -- python .eval/check_xunit_tests.py verify fixtures/sdk-xunit-orders .eval/xunit-baseline.json --focused
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test ! -e "$state_dir/research.md" && test ! -L "$state_dir/research.md" && test ! -e "$state_dir/plan.md" && test ! -L "$state_dir/plan.md" && test ! -e "$state_dir/status.md" && test ! -L "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: (?:(?:^|\r?\n)[ \t]*\|[ \t]*Requirement[ \t]*\|[ \t]*Evidence[ \t]*\|[ \t]*(?=\r?\n|$)|(?:^|\r?\n)[ \t]*(?:#{1,6}[ \t]*)?(?:\*\*)?Requirement[ \t]+coverage(?:\*\*)?[ \t]*:?[ \t]*(?=\r?\n|$))
+      - type: prompt
+    rubric:
+      - Added passing xUnit v3 tests only for ReservationWindow
+      - Covered invalid zero/negative durations and all four before/at boundary instants
+      - Left OrderPricing and production code unchanged
+      - Kept the one-class request proportional without broad planning artifacts or unrelated tests
+      - Mapped each requested state to an exact test name and cited the successful targeted command under a Requirement coverage label
+
+  # Keep one cheap focused task so the eval protects scope sizing without
+  # letting baseline-equivalent focused work dominate the broad comparison.
+  - name: Keep a single-function request proportional
+    prompt: |
+      fixtures/python-single-function/ has one helper, `slugify` in
+      textkit/slugify.py, and no tests yet. Please add unit tests for that one
+      function under fixtures/python-single-function/tests/. Nothing else in the
+      package needs tests. The suite should pass with pytest from
+      fixtures/python-single-function/.
+    tags:
+      capability: proportional-single-function-testing
+      risk: workflow-overhead
+      journey: test-one-python-function
+    golden_patch:
+      path: ./references/single-function-proportional.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "code-testing-agent-single-function-proportional"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a single helper (textkit.slugify.slugify), so I kept the work proportional: one test module under fixtures/python-single-function/tests/, no .testagent research/plan/status artifacts, and nothing added for the rest of the package.
+
+              tests/test_slugify.py asserts concrete slugs: separator runs collapse and trim to "hello-world"; with no limit the full slug is returned; an over-length cut backs up to the last hyphen ("hello"); with no hyphen to back up to the hard cut is kept; max_length of 0 or -1 raises ValueError; and an all-separator input slugs to "".
+
+              Verification: `cd fixtures/python-single-function && python3 -m pytest -q` passes (7 tests, 0 failures).
+
+              | Requirement | Evidence |
+              | --- | --- |
+              | separator collapse/trim | tests/test_slugify.py::test_collapses_and_trims_separators |
+              | no-limit full slug | tests/test_slugify.py::test_no_limit_returns_full_slug |
+              | truncate at hyphen boundary | tests/test_slugify.py::test_truncates_at_hyphen_boundary |
+              | truncate without boundary | tests/test_slugify.py::test_truncates_without_hyphen_boundary |
+              | non-positive max_length error | tests/test_slugify.py::test_non_positive_max_length_raises |
+              | empty output | tests/test_slugify.py::test_empty_output_for_all_separators |
+    environment:
+      files:
+        - src: fixtures/python-single-function
+          dest: fixtures/python-single-function
+        - src: graders/check_production.py
+          dest: .eval/check_production.py
+      commands:
+        - git init -q
+        - python3 -m pip install --quiet pytest==8.3.5
+        - python3 .eval/check_production.py snapshot fixtures/python-single-function/textkit
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py --expect d330cb9ebb42eed6c6b6d6523e477b481cfd6cc2a457c3a2ebf035dced10f340:.eval/production.json -- python .eval/check_production.py verify fixtures/python-single-function/textkit
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "cd fixtures/python-single-function && python3 -m pytest -q"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: sh -c "find fixtures/python-single-function/tests -type f -name 'test_*.py' -print -quit | grep -q test"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test ! -e "$state_dir/research.md" && test ! -L "$state_dir/research.md" && test ! -e "$state_dir/plan.md" && test ! -L "$state_dir/plan.md" && test ! -e "$state_dir/status.md" && test ! -L "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: (?:(?:^|\r?\n)[ \t]*\|[ \t]*Requirement[ \t]*\|[ \t]*Evidence[ \t]*\|[ \t]*(?=\r?\n|$)|(?:^|\r?\n)[ \t]*(?:#{1,6}[ \t]*)?(?:\*\*)?Requirement[ \t]+coverage(?:\*\*)?[ \t]*:?[ \t]*(?=\r?\n|$))
+      - type: prompt
+    rubric:
+      - Generated passing pytest tests for slugify under fixtures/python-single-function/tests/
+      - Covered separator collapsing/trimming, both truncation paths, non-positive max_length, and empty output
+      - Asserted concrete expected slugs rather than only checking that a string came back
+      - Kept work proportional to one function with no intermediate state files, multi-phase ceremony, or unrelated tests
+      - Produced a Requirement coverage section with each behavior traced to a named test
+
+  - name: Extend one function's tests without starting the broad workflow
+    tags:
+      capability: focused-suite-extension
+      risk: broad-workflow-run-for-focused-request
+      journey: add-missing-boundary-tests
+    prompt: |
+      The pytest suite under fixtures/partial-suite/ is green, but is_overdrawn
+      in ledger/balance.py is only exercised for balances that sit inside the
+      overdraft limit.
+
+      Add coverage for the two cases it is missing: a balance sitting exactly on
+      the overdraft limit, and a positive balance with no limit supplied. Limit
+      the work to is_overdrawn — leave every other test and all of ledger/ alone.
+    golden_patch:
+      path: ./references/extend-partial-suite.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "code-testing-agent-extend-partial-suite"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a focused request — one function, two named cases — so I added the two tests directly and did not stand up the research/plan pipeline for it.
+
+              `is_overdrawn` compares the balance against the negated limit, so the boundary is exclusive: a balance of exactly -100 against a 100 limit is not overdrawn, and a positive balance with the default limit of 0 is not either.
+
+              | Requirement | Evidence |
+              | --- | --- |
+              | Balance exactly on the overdraft limit is not overdrawn | `test_is_overdrawn_at_exact_limit_is_false` |
+              | Positive balance with no limit is not overdrawn | `test_is_overdrawn_positive_balance_is_false` |
+              | Existing tests and `ledger/` untouched | `python3 -m pytest -q` reports 6 passed |
+    environment:
+      files:
+        - src: fixtures/partial-suite
+          dest: fixtures/partial-suite
+        - src: graders/check_production.py
+          dest: .eval/check_production.py
+      commands:
+        - git init -q
+        - python3 -m pip install --quiet pytest==8.3.5
+        - python3 .eval/check_production.py snapshot fixtures/partial-suite/ledger
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py --expect 8dd6dfd8cc988acf64db006d49f97d9eb9084121031546fd73a015a012148f20:.eval/production.json -- python .eval/check_production.py verify fixtures/partial-suite/ledger
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "cd fixtures/partial-suite && python3 -m pytest -q"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: sh -c "test $(grep -c '^def test_' fixtures/partial-suite/tests/test_balance.py) -ge 6"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "grep -q 'return balance < -overdraft_limit' fixtures/partial-suite/ledger/balance.py"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test ! -e "$state_dir/research.md" && test ! -L "$state_dir/research.md" && test ! -e "$state_dir/plan.md" && test ! -L "$state_dir/plan.md" && test ! -e "$state_dir/status.md" && test ! -L "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Classified the request as focused and did not create research, plan, or status artifacts in the git testagent state directory
+      - Added a test for a balance sitting exactly on the overdraft limit, expecting it is not overdrawn
+      - Added a test for a positive balance with no explicit limit, expecting it is not overdrawn
+      - Left the four existing tests and every file under ledger/ unmodified
+      - Ran the suite to a clean exit and reported the added coverage against the two requested cases

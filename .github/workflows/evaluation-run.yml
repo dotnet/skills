@@ -244,7 +244,43 @@ jobs:
             }
           }
 
-          if ($s) {
+          if ($p -eq "agentic-workflows") {
+            # Do not execute discovery helpers from the evaluated checkout.
+            $root = [IO.Path]::GetFullPath("agentic-workflows")
+            if (Test-PathHasReparsePoint -allowedRoot $PWD -path $root) {
+              throw "Workflow collection is missing or contains a reparse point"
+            }
+            $packages = @(Get-ChildItem -LiteralPath $root -Directory | Sort-Object Name)
+            if ($s) {
+              if ($s -notin $packages.Name) { throw "Unknown workflow package '$s'" }
+              $packages = @($packages | Where-Object { $_.Name -eq $s })
+            }
+            $entries = @($packages | ForEach-Object {
+              $name = $_.Name
+              if ($name -notmatch '\A[A-Za-z0-9_-]+\z') {
+                throw "Invalid workflow package name '$name'"
+              }
+              $manifest = "agentic-workflows/$name/aw.yml"
+              $eval = "tests/agentic-workflows/$name/eval.yaml"
+              foreach ($path in @($manifest, $eval)) {
+                if (-not (Test-Path $path -PathType Leaf)) { throw "Workflow package '$name' has no $path" }
+                if (Test-PathHasReparsePoint -allowedRoot $PWD -path $path) {
+                  throw "Workflow evaluation path contains a reparse point: $path"
+                }
+              }
+              @{
+                name = "agentic-workflows--$name"
+                plugin = "agentic-workflows"
+                target_kind = "workflow"
+                skills_path = ""
+                agents_path = ""
+                package_path = $manifest
+                eval_path = $eval
+              }
+            })
+            if ($entries.Count -eq 0) { throw "No workflow packages found" }
+            $json = $entries | ConvertTo-Json -Compress -AsArray
+          } elseif ($s) {
             if ($s.StartsWith("agent.")) {
               $agent = $s.Substring("agent.".Length)
               if (-not $agent) { throw "Invalid agent target '$s'" }
@@ -378,6 +414,7 @@ jobs:
           ENTRY_SKILLS_PATH: ${{ matrix.entry.skills_path }}
           ENTRY_AGENTS_PATH: ${{ matrix.entry.agents_path }}
           ENTRY_EVAL_PATH: ${{ matrix.entry.eval_path }}
+          ENTRY_PACKAGE_PATH: ${{ matrix.entry.package_path }}
           ENTRY_MODEL: ${{ matrix.entry.model }}
           ENTRY_JUDGE: ${{ matrix.entry.judge }}
         run: |
@@ -399,8 +436,8 @@ jobs:
               echo "::error::Invalid matrix value '$val' (must match $name_re, not be '.', and not contain '..')"; exit 1
             fi
           done
-          if [ "$ENTRY_TARGET_KIND" != "skill" ] && [ "$ENTRY_TARGET_KIND" != "agent" ]; then
-            echo "::error::Invalid target_kind '$ENTRY_TARGET_KIND' (must be skill or agent)"; exit 1
+          if [ "$ENTRY_TARGET_KIND" != "skill" ] && [ "$ENTRY_TARGET_KIND" != "agent" ] && [ "$ENTRY_TARGET_KIND" != "workflow" ]; then
+            echo "::error::Invalid target_kind '$ENTRY_TARGET_KIND' (must be skill, agent, or workflow)"; exit 1
           fi
           # Cross-family executor/judge fields (IMPACT-ANALYSIS.md §10) are
           # populated when the discover job expands the selected profile.
@@ -466,6 +503,20 @@ jobs:
           if [ "$ENTRY_TARGET_KIND" = "agent" ] && [ -z "$ENTRY_EVAL_PATH" ]; then
             echo "::error::Agent matrix entry has an empty eval_path"; exit 1
           fi
+          if [ "$ENTRY_TARGET_KIND" = "workflow" ]; then
+            package_re='^agentic-workflows/([A-Za-z0-9_-]+)/aw\.yml$'
+            if [ "$ENTRY_PLUGIN" != "agentic-workflows" ] || ! [[ "$ENTRY_PACKAGE_PATH" =~ $package_re ]]; then
+              echo "::error::Invalid workflow package path '$ENTRY_PACKAGE_PATH'"; exit 1
+            fi
+            package_name="${BASH_REMATCH[1]}"
+            expected_name="agentic-workflows--$package_name"
+            if [ -n "$ENTRY_MODEL" ]; then expected_name="$expected_name--$ENTRY_MODEL"; fi
+            if [ "$ENTRY_EVAL_PATH" != "tests/agentic-workflows/$package_name/eval.yaml" ] ||
+               [ "$ENTRY_NAME" != "$expected_name" ] ||
+               [ ${#segs[@]} -ne 0 ] || [ ${#agent_segs[@]} -ne 0 ]; then
+              echo "::error::Workflow matrix identity does not match package '$package_name'"; exit 1
+            fi
+          fi
 
       - name: Checkout skills content
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -488,7 +539,7 @@ jobs:
           # eval. Otherwise derive the specs from this entry's skills_path so a
           # subset leg (per-skill PR entry or shard) reports has_evals accurately
           # instead of installing tools or probing a PAT only to exit empty.
-          if [ "$TARGET_KIND" = "agent" ]; then
+          if [ "$TARGET_KIND" = "agent" ] || [ "$TARGET_KIND" = "workflow" ]; then
             if [ ! -f "$EVAL_PATH" ]; then
               echo "::error::Agent eval spec does not exist at '$EVAL_PATH'"
               exit 1
@@ -819,6 +870,7 @@ jobs:
           TARGET_KIND: ${{ matrix.entry.target_kind }}
           SKILLS_PATH: ${{ matrix.entry.skills_path }}
           AGENTS_PATH: ${{ matrix.entry.agents_path }}
+          PACKAGE_PATH: ${{ matrix.entry.package_path }}
           DISPATCH_SKILL: ${{ inputs.skill }}
           MODEL: ${{ steps.eval-models.outputs.model }}
           JUDGE_MODEL: ${{ steps.eval-models.outputs.judge-model }}
@@ -836,14 +888,18 @@ jobs:
           rm -f "$RUNNER_TEMP/evaluation-copilot-token"
           export GITHUB_TOKEN
 
-          if [ "$TARGET_KIND" = "agent" ]; then
+          if [ "$TARGET_KIND" = "agent" ] || [ "$TARGET_KIND" = "workflow" ]; then
             # Vally 0.14 has no custom-agent registration field: its public
             # EnvironmentConfig exposes skills/files/commands/MCP only, and its
             # Copilot executor passes skillDirectories but no customAgents.
             # Run the repository's native SDK agent evaluator instead, then
             # adapt its evidence into the same schema/result tree as Vally.
             AGENT_ARGS=()
-            for token in $AGENTS_PATH; do AGENT_ARGS+=("$token"); done
+            if [ "$TARGET_KIND" = "workflow" ]; then
+              AGENT_ARGS=("$PACKAGE_PATH")
+            else
+              for token in $AGENTS_PATH; do AGENT_ARGS+=("$token"); done
+            fi
             if [ ${#AGENT_ARGS[@]} -eq 0 ]; then
               echo "::error::No custom-agent paths were supplied for $PLUGIN"
               exit 1
@@ -1198,7 +1254,7 @@ jobs:
         run: |
           echo "## 🔬 Evaluation Results: $ENTRY_NAME" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Isolated target vs baseline, judged head-to-head. Skill targets use \`vally compare\`; custom-agent targets use the native SDK evaluator. Each distinct stimulus gives one gate vote; repeated runs report reliability only. A pass needs a complete comparison, an exact one-sided sign test at p ≤ 0.05, and at least a 20% net win. ⚠️ marks an invalid or inconclusive result. 📉 marks a report-only LLM preference loss, not an objective completion regression." >> $GITHUB_STEP_SUMMARY
+          echo "Isolated target vs baseline, judged head-to-head. Skill targets use \`vally compare\`; custom-agent and workflow-package targets use the native SDK evaluator. Workflow-package results evaluate imported prompts against offline fixtures, not live Actions bootstrap or publication. Each distinct stimulus gives one gate vote; repeated runs report reliability only. A pass needs a complete comparison, an exact one-sided sign test at p ≤ 0.05, and at least a 20% net win. ⚠️ marks an invalid or inconclusive result. 📉 marks a report-only LLM preference loss, not an objective completion regression." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           RESULTS_DIR="artifacts/TestResults/vally/$ENTRY_NAME"

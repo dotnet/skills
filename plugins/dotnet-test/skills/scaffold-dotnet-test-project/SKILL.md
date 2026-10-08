@@ -7,7 +7,7 @@ description: >-
   include, or repair a test project. Handles "tests pass directly but CI
   discovers zero", exact solution wiring, xUnit/NUnit/MSTest, and central
   packages. DO NOT USE to only author tests in an already-wired project
-  (code-testing-agent), run tests, migrate, or correct MSTest syntax/configuration
+  (code-testing), run tests, migrate, or correct MSTest syntax/configuration
   without changing project or CI files (writing-mstest-tests).
 license: MIT
 metadata:
@@ -52,7 +52,7 @@ Inspect the repository before editing, then choose exactly one path:
 | No suitable test project | Create one bounded project, reference the production project, and register it | Create a project per source project |
 | Test project exists but lacks the required `ProjectReference` | Add only that reference and verify direct plus entry-point execution | Scaffold another project or rewrite tests |
 | Test project passes directly but is absent from `.sln`, `.slnx`, or `.slnf` | Register the existing project in the exact entry point CI uses | Recreate the project or switch solution formats |
-| Suitable project, reference, and requested entry point are already correct | Leave the workspace unchanged; use `code-testing-agent` if test methods are requested | Normalize or replace working files |
+| Suitable project, reference, and requested entry point are already correct | Leave the workspace unchanged; use `code-testing` if test methods are requested | Normalize or replace working files |
 
 An existing project is suitable when its target framework can reference the
 production project and its purpose matches the requested layer. A different

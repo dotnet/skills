@@ -63,6 +63,71 @@
 
 This guide is intended primarily for AI agents investigating skill evaluation failures, though humans will find it useful too. It documents the `results.json` schema, common failure patterns, and recommended fixes.
 
+## Workflow-package evaluation
+
+Individual gh-aw package manifests are accepted by `skill-validator evaluate`.
+Their raw results use `skillKind: workflow`; CI adaptation sets
+`evaluationLane: workflow-prompt-sdk`. The baseline has no workflow instructions
+or package resources. The isolated arm loads the real workflow and imported
+Markdown bodies with installed resources; the package arm additionally registers
+the bundled agents. The synthetic primary persona is `workflow.<package>` so it
+does not collide with a bundled agent with the package's name.
+
+This lane measures offline decisions and proposed outputs, **not** live Actions
+bootstrap jobs, collector execution, authentication, or GitHub publication.
+Keep compiled-package and trusted-helper checks separate from prompt-quality
+results. Do not interpret an agent's publication claim as execution evidence.
+Shell execution is denied by runtime permission and pre-tool hooks in every
+baseline, isolated, package, and nested model session. File tools remain
+available for evidence inspection and proposal creation; only `result.json` is
+writable in an offline model workspace. Permission hooks and filesystem-provider
+callbacks prevent writes, appends, renames, removals, and new directories from
+altering evidence or installed package resources, including resources outside
+`.github/`. Evaluator-owned session-state I/O, setup,
+and deterministic grader commands are separate from model tool permissions.
+SDK pre-tool events may omit argument paths; the filesystem provider still
+validates every resolved mutation rather than treating missing metadata as a
+write authorization.
+Workflow scenarios record an internal offline-policy marker in baseline criteria
+so cached baselines from a shell-enabled policy are not reused. This is separate
+from an explicit `deny_shell` stimulus constraint, which deliberately requires a
+denial attempt to prove that its negative path was exercised. Ordinary offline
+scenarios need not request a forbidden tool to complete successfully.
+The proposal-only write scope also participates in baseline identity so
+shell-denied but resource-writable baselines cannot be reused.
+
+A missing import/resource or an unresolved prompt expression is a setup failure.
+Provide expression values as strings in the fixture `workflow-context.json`,
+keyed by the exact trimmed expression, for example
+`{"github.event.pull_request.base.sha":"0123456789abcdef"}`. Never substitute
+empty defaults for missing context. A justified workflow noop is an active
+decision scenario, not an `expect_activation: false` routing scenario.
+
+All required arms, structured-output graders, pairwise evidence, expected-result
+accounting, and existing completion/activation gates still apply. Saved session
+hashes include the manifest and every installed resource, not just the main
+workflow. Rejudge retains workflow identity. Runtime gh-aw `graders:` metrics
+remain in the actual workflow run's artifacts and are not these A/B verdicts.
+
+Each raw run retains the proposed `result.json` text as
+`metrics.workflowProposalJson` and appends it to `metrics.agentOutput` before
+judging. This prevents a short "done" response from hiding the actual proposal
+from comparison or later investigation. Missing or malformed proposals are
+completion evidence for deterministic graders, not successful defaults. Linked
+files and proposals larger than 1 MiB fail evidence capture explicitly.
+
+Shared `tests/agentic-workflows/` root contracts and grader changes require
+evaluation and select every workflow package; package-local edits remain scoped
+to their owning package. Both same-repository and fork PR status gates recognize
+shared inputs. Fixture integrity uses POSIX relative-path ordering and LF-normalized
+content so Windows and Linux authenticate the same inputs; a digest mismatch is
+not a model-quality failure and must not be bypassed.
+
+The dashboard data generator preserves workflow kind and execution-lane metadata,
+uses exact workflow-persona activation in both benchmark and value aggregates,
+and links to the evaluated package manifest and eval spec. Missing persona
+activation stays unknown rather than borrowing sibling-skill activity.
+
 ## Using this guide with an AI agent
 
 This document is designed to be read by AI coding agents. When a skill evaluation has failures, the PR comment includes a ready-to-use prompt — just copy and paste it to your AI agent. The agent will download the artifacts, read this guide, analyze the results, and suggest fixes.
@@ -122,7 +187,7 @@ Each verdict contains:
 | Field | Description |
 |-------|-------------|
 | `schemaOwner` / `schemaVersion` | The same legacy schema identity, repeated so standalone `verdict.json` files are self-describing |
-| `skillKind` | `skill` or `agent`; native custom-agent runs set `agent` before CI adaptation |
+| `skillKind` | `skill`, `agent`, or `workflow`; workflow packages use the offline native prompt lane |
 | `skillName` | Compatibility field containing the skill or custom-agent name |
 | `passed` | Overall pass/fail |
 | `scenarios[]` | Array of per-scenario comparisons |

@@ -23,6 +23,8 @@ on:
       - "eng/evaluation/test_pr_triage_retry.py"
       - "eng/evaluation/find-targets.ps1"
       - "eng/evaluation/path-safety.ps1"
+      - "eng/evaluation/workflow-targets.ps1"
+      - "eng/evaluation/test_workflow_targets.py"
       - "eng/dashboard/**"
       - "eng/vally-adapter/**"
       - "eng/skill-validator/src/**"
@@ -49,6 +51,8 @@ on:
       - "eng/evaluation/test_pr_triage_retry.py"
       - "eng/evaluation/find-targets.ps1"
       - "eng/evaluation/path-safety.ps1"
+      - "eng/evaluation/workflow-targets.ps1"
+      - "eng/evaluation/test_workflow_targets.py"
       - "eng/dashboard/**"
       - "eng/vally-adapter/**"
       - "eng/skill-validator/src/**"
@@ -127,4 +131,5 @@ jobs:
       - name: Test evaluation workflow behavior
         run: |
           python eng/evaluation/test_token_failover.py
+          python eng/evaluation/test_workflow_targets.py
           python eng/evaluation/test_pr_triage_retry.py

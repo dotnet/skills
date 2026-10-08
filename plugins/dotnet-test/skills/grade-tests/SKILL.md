@@ -6,8 +6,8 @@ description: >
   every resolved test; Uncertain and Not applicable omit the grade. USE FOR new
   or modified tests supplied as methods, bodies, file spans, or a bounded PR
   diff. Polyglot: .NET, Python, TS/JS, Java, Go, Ruby, Rust, Swift, Kotlin,
-  PowerShell, C++. DO NOT USE FOR: suite-wide audits (use test-quality-auditor
-  or test-anti-patterns), writing or fixing tests, or measuring coverage.
+  PowerShell, C++. DO NOT USE FOR: suite-wide audits (use test-engineer or
+  test-anti-patterns), writing or fixing tests, or measuring coverage.
 license: MIT
 ---
 
@@ -48,8 +48,8 @@ quality and severity.
 
 - The caller wants a full suite audit or comparative metrics — use
   `test-anti-patterns` (pragmatic) or `test-smell-detection` (formal) and
-  let the `test-quality-auditor` agent orchestrate.
-- The caller wants to *write* new tests — use `code-testing-generator`
+  let the `test-engineer` agent orchestrate its internal quality specialist.
+- The caller wants to *write* new tests — use `test-engineer`
   (any language) or `writing-mstest-tests` (MSTest specifically).
 - The caller wants to measure code coverage or CRAP scores — use
   `coverage-analysis` or `crap-score` (.NET only).
@@ -80,7 +80,7 @@ If the request is ambiguous (e.g., *"Grade my tests"*, *"Are these tests
 any good?"* with no scope, *"Review the test suite"*), **do not load
 extensions, do not read files, and do not grade anything**. Reply with a
 short message asking the caller to provide an explicit list / file(s) /
-diff, and optionally point them at `test-quality-auditor` agent or
+diff, and optionally point them at the `test-engineer` agent or
 `test-anti-patterns` skill for full-suite analysis. Stop there.
 
 If a valid bounded scope resolves to zero eligible tests, return

@@ -58,7 +58,7 @@ on:
   workflow_dispatch:
     inputs:
       plugin:
-        description: "Specific plugin to evaluate (leave blank for all)"
+        description: "Plugin or agentic-workflows collection to evaluate (leave blank for all)"
         type: string
         required: false
       pr_number:
@@ -186,7 +186,7 @@ jobs:
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
           $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/)' } |
+            Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
             Select-Object -First 1
 
           # Evaluation pipeline changes need a re-eval. The native custom-agent
@@ -195,7 +195,7 @@ jobs:
           $hasInfraChanges = $changedFiles |
             Where-Object {
               ($_ -match '^eng/vally-adapter/') -or
-              ($_ -match '^eng/evaluation/(?:find-targets|path-safety)\.ps1$') -or
+              ($_ -match '^eng/evaluation/(?:find-targets|path-safety|workflow-targets)\.ps1$') -or
               ($_ -match '^eng/skill-validator/src/') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
@@ -258,13 +258,13 @@ jobs:
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
           $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/)' } |
+            Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
             Select-Object -First 1
 
           $hasInfraChanges = $changedFiles |
             Where-Object {
               ($_ -match '^eng/vally-adapter/') -or
-              ($_ -match '^eng/evaluation/(?:find-targets|path-safety)\.ps1$') -or
+              ($_ -match '^eng/evaluation/(?:find-targets|path-safety|workflow-targets)\.ps1$') -or
               ($_ -match '^eng/skill-validator/src/') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'

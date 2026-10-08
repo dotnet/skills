@@ -78,7 +78,7 @@ Use the repo's lint script first. Otherwise detect from `devDependencies` and co
 
 ## Parameterized Test Display Names
 
-Apply [Report-safe test names and result validation](../../code-testing-agent/unit-test-generation.prompt.md#report-safe-test-names-and-result-validation).
+Apply [Report-safe test names and result validation](../../code-testing/unit-test-generation.prompt.md#report-safe-test-names-and-result-validation).
 For Jest `it.each`/`test.each`, interpolate only a safe label (`$Name` for object
 rows), or use a short behavior label with `%#` for the case index. Do not use
 `%p`, `%s`, or `$Input`/`$Expected` to render arbitrary data in the title.

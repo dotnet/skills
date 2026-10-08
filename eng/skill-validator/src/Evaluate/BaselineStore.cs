@@ -324,6 +324,9 @@ internal sealed class BaselineStore
         // Preserve existing identities when the opt-in policy is absent.
         if (scenario.DenyShell)
             sb.Append("deny-shell=true").Append('\0');
+        if (scenario.OfflineWorkflow)
+            sb.Append("offline-workflow-shell-denied=true").Append('\0')
+                .Append("offline-workflow-proposal-only-writes=true").Append('\0');
         if (scenario.RejectShellRetries)
             sb.Append("reject-shell-retries=true").Append('\0');
         if (scenario.RejectAgents is { } rejectAgents)

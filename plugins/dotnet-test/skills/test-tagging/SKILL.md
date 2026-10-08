@@ -8,7 +8,7 @@ description: >
   by test type, or tag then verify the project builds. Read bodies when names
   mislead. Apply canonical attributes; otherwise report only. DO NOT USE FOR:
   requests owned by test-anti-patterns, coverage-analysis, crap-score,
-  test-gap-analysis, code-testing-agent, or migration skills.
+  test-gap-analysis, code-testing, or migration skills.
 license: MIT
 ---
 
@@ -29,7 +29,7 @@ Analyze an existing test suite in any supported language and apply a standardize
 
 ## When Not to Use
 
-- Writing new tests from scratch (use `code-testing-agent` for any language, or `writing-mstest-tests` for MSTest)
+- Writing new tests from scratch (use `code-testing` for any language, or `writing-mstest-tests` for MSTest)
 - Running or filtering tests (use `run-tests` for .NET; equivalent native runners elsewhere)
 - Migrating between test frameworks
 - General quality, smell, flakiness, or assertion audits (use `test-anti-patterns` or the matching analysis skill)

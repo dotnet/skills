@@ -22,13 +22,13 @@ public class GeneratorDeniedScenarioTests
         var yaml = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "generator.eval.yaml"));
         var scenarios = EvalSchema.ParseEvalConfigFlexible(yaml)!.Scenarios;
 
-        Assert.AreEqual(6, scenarios.Count);
+        Assert.AreEqual(9, scenarios.Count);
         foreach (var scenario in scenarios)
         {
             var helper = Assert.ContainsSingle(scenario.Setup!.Files!.Where(
                 file => file.Path == ".eval/authenticated_artifacts.py"));
             Assert.AreEqual("../graders/authenticated_artifacts.py", helper.Source);
-            Assert.AreSequenceEqual(["code-testing-generator"], scenario.RejectAgents!);
+            Assert.AreSequenceEqual(["test-engineer"], scenario.RejectAgents!);
         }
         Assert.IsTrue(Assert.ContainsSingle(scenarios.Where(scenario => scenario.DenyShell)).RejectShellRetries);
     }
@@ -41,10 +41,10 @@ public class GeneratorDeniedScenarioTests
     {
         var metrics = new RunMetrics();
         metrics.Events.Add(new AgentEvent(eventType, 0,
-            new() { ["agentName"] = JsonValue.Create("demo:code-testing-generator") }));
+            new() { ["agentName"] = JsonValue.Create("demo:test-engineer") }));
 
         var result = Assert.ContainsSingle(AssertionEvaluator.EvaluateConstraints(
-            new EvalScenario("routing", "Generate tests.", RejectAgents: ["code-testing-generator"]), metrics));
+            new EvalScenario("routing", "Generate tests.", RejectAgents: ["test-engineer"]), metrics));
 
         Assert.AreEqual(expectedPass, result.Passed);
     }
@@ -83,13 +83,13 @@ public class GeneratorDeniedScenarioTests
             var path = Path.Combine(directory, "sessions.db");
             var scenario = new EvalScenario("denial", "Generate tests.",
                 Assertions: [new Assertion(AssertionType.OutputContains, Value: "PARTIAL")],
-                DenyShell: true, RejectAgents: ["code-testing-generator"], RejectShellRetries: true);
+                DenyShell: true, RejectAgents: ["test-engineer"], RejectShellRetries: true);
             var metrics = new RunMetrics { AgentOutput = "PARTIAL: tests written; execution denied.", WorkDir = directory };
             metrics.Events.Add(new AgentEvent("evaluator.shell_denied", 0,
                 new() { ["sessionId"] = JsonValue.Create("root") }));
             using (var database = new SessionDatabase(path))
             {
-                database.RegisterSession("run", "code-testing-generator", "/generator.agent.md",
+                database.RegisterSession("run", "test-engineer", "/test-engineer.agent.md",
                     "denial", 0, "with-agent-isolated", "model", null, directory);
                 database.CompleteSession("run", EvaluateCommand.GetPreAssertionSessionStatus(metrics),
                     JsonSerializer.Serialize(metrics, SkillValidatorJsonContext.Default.RunMetrics));

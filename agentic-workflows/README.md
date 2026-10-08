@@ -34,3 +34,30 @@ gh aw update
 The installer copies each workflow source and its dependencies into the consumer
 repository, then generates the executable `.lock.yml` file there. Generated lock files
 are therefore not stored in this distribution directory.
+
+## Scenario evaluation
+
+Every package has a Vally-format spec at
+`tests/agentic-workflows/<package>/eval.yaml`. The normal `/evaluate` discovery
+includes package sources, resources, shared graders, and these scenarios.
+Scheduled evaluations include the collection; manual evaluation dispatch with
+`plugin: agentic-workflows` selects only these packages.
+
+For a local run:
+
+```powershell
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate `
+  agentic-workflows/msbuild-quality-review/aw.yml `
+  --tests-dir tests/agentic-workflows --runs 1 --verdict-warn-only
+```
+
+The native SDK lane loads real local imports and installed package resources,
+compares them with a no-workflow baseline, and retains a package-agent arm.
+Results are published through the normal pipeline with `skillKind: workflow`
+and `evaluationLane: workflow-prompt-sdk`.
+
+These are **offline prompt/decision evaluations**: fixture evidence replaces
+collectors and external services, and `result.json` contains proposed actions.
+They do not execute Actions bootstrap jobs or publish safe outputs. Compilation,
+trusted-helper tests, runtime trace graders, and consumer-repository integration
+runs cover different contracts and remain separate evidence.

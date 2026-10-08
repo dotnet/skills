@@ -6,7 +6,7 @@ description: >
   assertions, swallowed/broad exceptions, flaky/order-dependent tests,
   duplication, or magic values. Polyglot. DO NOT USE for direct edits:
   writing-mstest-tests owns supplied MSTest assertions/attributes/lifecycle;
-  code-testing-agent owns new tests. Exclude running tests, migration, assertion
+  code-testing owns new tests. Exclude running tests, migration, assertion
   metrics (assertion-quality), raw .NET coverage collection (run-tests),
   non-.NET coverage collection/analysis (native tooling), project-wide .NET coverage/CRAP
   (coverage-analysis), named-target .NET CRAP
@@ -34,7 +34,7 @@ Quick, pragmatic analysis of test code in any supported language for anti-patter
 
 ## When Not to Use
 
-- User wants to write new tests from scratch (use `code-testing-agent`)
+- User wants to write new tests from scratch (use `code-testing`)
 - User wants direct implementation fixes rather than a diagnostic review (use the relevant write/edit skill)
 - User asks to fix swapped `Assert.AreEqual` argument order in MSTest (use `writing-mstest-tests`)
 - User asks to convert MSTest `DynamicData` from `IEnumerable<object[]>` to `ValueTuple` (use `writing-mstest-tests`)

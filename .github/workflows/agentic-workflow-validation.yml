@@ -9,6 +9,7 @@ on:
       - ".github/workflows/**"
       - "agentic-workflows/**"
       - "eng/agentic-workflows/**"
+      - "tests/agentic-workflows/**"
   push:
     branches: [main]
     paths:
@@ -18,6 +19,7 @@ on:
       - ".github/workflows/**"
       - "agentic-workflows/**"
       - "eng/agentic-workflows/**"
+      - "tests/agentic-workflows/**"
   workflow_dispatch:
 
 permissions:
@@ -62,3 +64,6 @@ jobs:
 
       - name: Test build-failure operational-value grader
         run: python eng/agentic-workflows/test_build_failure_analysis_operational_value.py
+
+      - name: Test offline workflow scenario graders
+        run: python tests/agentic-workflows/test_graders.py

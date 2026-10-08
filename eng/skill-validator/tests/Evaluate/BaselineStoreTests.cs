@@ -30,6 +30,21 @@ public class BaselineStoreTests
         Path.Combine(Path.GetTempPath(), $"sv-baseline-test-{Guid.NewGuid():N}.json");
 
     [TestMethod]
+    public void OfflineWorkflowPolicyChangesIdentityWithoutRequiringADenialProbe()
+    {
+        var ordinary = Scenario("inspect", "Inspect evidence and propose an action.");
+        var offline = ordinary with { OfflineWorkflow = true };
+        Assert.AreNotEqual(
+            BaselineStore.ComputeScenarioKey(ordinary, null),
+            BaselineStore.ComputeScenarioKey(offline, null));
+        Assert.IsFalse(offline.DenyShell);
+        Assert.IsFalse(AssertionEvaluator.EvaluateConstraints(offline, new RunMetrics())
+            .Any(result => result.Assertion.Type == AssertionType.ShellDenied));
+        Assert.IsFalse(Assert.ContainsSingle(AssertionEvaluator.EvaluateConstraints(
+            offline with { DenyShell = true }, new RunMetrics())).Passed);
+    }
+
+    [TestMethod]
     public void ComputePromptSha_IsDeterministicAndPromptSensitive()
     {
         var a = BaselineStore.ComputePromptSha("do the thing");

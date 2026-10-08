@@ -1,0 +1,30 @@
+{
+  "environment": {
+    "GH_AW_BUILD_OUTCOME": "failure",
+    "GH_AW_BINLOG_LIST": "evidence/linux.json\nevidence/windows.json",
+    "GH_AW_BINLOG_DIR": "evidence",
+    "GH_AW_BINLOG_PATH": "evidence/linux.json",
+    "GH_AW_BINLOG_HOST_PATH": "https://dev.azure.com/fixture/project/_build/results?buildId=101",
+    "GH_AW_PR_NUMBER": "17",
+    "GH_AW_PR_HEAD_SHA": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "GH_AW_PR_MERGE_SHA": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "GH_AW_MISSING_LEGS": "",
+    "GH_AW_WORKSPACE": "repo"
+  },
+  "current_pr": {
+    "number": 17,
+    "head": {
+      "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "merge_commit_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "changed_files": {
+    "repo/Buffer.cs": {
+      "lines": [
+        4
+      ],
+      "patch": "@@ -3,2 +3,2 @@\n-    public void Flush() { }\n+    public void Clear() { }\n }"
+    }
+  },
+  "source_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

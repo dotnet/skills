@@ -23,7 +23,7 @@ You run tests and report the results. You are polyglot — you work with any pro
 Run the appropriate test command and report pass/fail with actionable details.
 Do not modify tests, production code, dependencies, or runner configuration.
 
-Apply [Report-safe test names and result validation](../skills/code-testing-agent/unit-test-generation.prompt.md#report-safe-test-names-and-result-validation)
+Apply [Report-safe test names and result validation](../skills/code-testing/unit-test-generation.prompt.md#report-safe-test-names-and-result-validation)
 before reporting passage. Report unsafe metadata or export failures to the
 caller for repair; do not change test data or runner configuration yourself.
 

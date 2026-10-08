@@ -1,17 +1,17 @@
 ---
 name: create-skill-test
-description: Scaffolds eval.yaml evaluation specs for agent skills in the dotnet/skills repository. Use when creating skill tests, writing evaluation stimuli, defining graders and rubrics, sizing an eval for statistical power, or setting up test fixture files. Handles the Vally eval.yaml schema, fixture organization, and overfitting avoidance. Do not use for running or debugging existing evals (use improve-skill-quality) nor for skills authoring (use create-skill).
+description: Scaffolds eval.yaml evaluation specs for skills, custom agents, and redistributable gh-aw workflow packages in the dotnet/skills repository. Use when creating skill or workflow-package tests, writing evaluation stimuli, defining graders and rubrics, sizing an eval for statistical power, or setting up test fixture files. Handles the Vally eval.yaml schema, fixture organization, and overfitting avoidance. Do not use for running or debugging existing evals (use improve-skill-quality) nor for skills authoring (use create-skill).
 ---
 
 # Create Skill Test
 
-Scaffold an evaluation spec (`eval.yaml`) for a skill or agent so it conforms to the Vally schema,
+Scaffold an evaluation spec (`eval.yaml`) for a skill, agent, or workflow package so it conforms to the Vally schema,
 passes `skill-validator check` and `check_eval_quality.py`, is powerful enough to return a verdict,
 and does not overfit to the skill's own wording.
 
 ## When to Use
 
-- Creating a new `eval.yaml` for a skill or agent
+- Creating a new `eval.yaml` for a skill, agent, or workflow package
 - Adding stimuli to an existing eval
 - Sizing an eval so the pass gate can actually be reached
 - Setting up or repairing fixture files alongside an eval
@@ -61,6 +61,7 @@ Then locate the target and test directory:
 ```text
 tests/<plugin>/<skill-name>/eval.yaml          # skills
 tests/<plugin>/agent.<agent-name>/eval.yaml    # agents (the agent. prefix disambiguates)
+tests/agentic-workflows/<package>/eval.yaml   # redistributable gh-aw packages
 ```
 
 Verify the target exists at `plugins/<plugin>/skills/<skill-name>/SKILL.md` or
@@ -327,6 +328,32 @@ incompatible project type, wrong framework version, prerequisite absent.
 > request. The comparison remains visible as report-only evidence but does not vote in preference;
 > unexpected isolated activation blocks a pass. `expect_activation: false` **alone** is the repo
 > convention.
+
+### Workflow-package scenarios
+
+For a package target, verify `agentic-workflows/<package>/aw.yml`, then read its
+entry workflow, local imports, and bundled agents. The native SDK lane evaluates
+their real prompt bodies and installed resources against offline fixtures.
+Specify collector outputs, revision/tracking evidence, and service responses as
+fixture inputs; propose terminal actions in `result.json` rather than pretending
+to publish through live GitHub or safe-output tools. Assert the structured result
+with deterministic graders. Do not place expected answers in agent-readable
+fixtures or staged grader scripts; pass expected values through grader argv.
+
+Prompt expressions are rendered from a flat `workflow-context.json` fixture,
+whose keys are exact trimmed expressions and values are strings. Missing context
+fails setup. A workflow that correctly chooses noop is still expected-active
+decision evidence, not `expect_activation: false` routing evidence. Include
+normal, partial, stale, incompatible, missing-evidence, and multi-module cases
+where applicable. Keep compilation, helper execution, and actual consumer
+publication tests separate: this lane is labeled `workflow-prompt-sdk`, not
+end-to-end Actions execution.
+
+```powershell
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate `
+  agentic-workflows/<package>/aw.yml `
+  --tests-dir tests/agentic-workflows --runs 1 --verdict-warn-only
+```
 
 Guard rubrics verify three things: **recognition** (why it does not apply), **restraint** (no
 workflow, no file changes, no installs), **redirection** (the correct next step).

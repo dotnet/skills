@@ -11,10 +11,10 @@ import unittest
 ROOT = Path(__file__).parents[3]
 RUNNER = Path(__file__).with_name("authenticated_artifacts.py")
 EVALS = (
-    ROOT / "tests/dotnet-test/agent.code-testing-generator/eval.yaml",
+    ROOT / "tests/dotnet-test/agent.test-engineer/eval.yaml",
     ROOT / "tests/dotnet-test/agent.test-quality-auditor/eval.yaml",
     ROOT / "tests/dotnet-test/agent.testability-migration/eval.yaml",
-    ROOT / "tests/dotnet-test/code-testing-agent/eval.yaml",
+    ROOT / "tests/dotnet-test/code-testing/eval.yaml",
 )
 PATTERN = re.compile(
     r"hexdigest\(\)==['\"]([0-9a-f]{64})['\"]"
@@ -23,12 +23,12 @@ CLASSIC_BASELINE_PATTERN = re.compile(
     r"--expect ([0-9a-f]{64}):\.eval/classic-preservation\.json"
 )
 CLASSIC_EVALS = (
-    ROOT / "tests/dotnet-test/agent.code-testing-generator/eval.yaml",
-    ROOT / "tests/dotnet-test/code-testing-agent/eval.yaml",
+    ROOT / "tests/dotnet-test/agent.test-engineer/eval.yaml",
+    ROOT / "tests/dotnet-test/code-testing/eval.yaml",
 )
 CLASSIC_CHECKER = (
     ROOT
-    / "tests/dotnet-test/agent.code-testing-generator/graders/check_classic_preservation.py"
+    / "tests/dotnet-test/agent.test-engineer/graders/check_classic_preservation.py"
 )
 
 
