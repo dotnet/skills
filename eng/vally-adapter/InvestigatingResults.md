@@ -78,30 +78,36 @@ shell edits. Inspect `tool.execution_complete.data.error`, not just the shorter
 normalized tool result. This can affect one executor family more than another
 and inflate its turns/cost even when the final answer and comparison complete.
 
-The launcher installs a Vally-version-checked workspace adapter for that local
-provider. Absolute reads and mutations inside the trial's actual workspace use
-the host filesystem. For paths that remain stable during an operation,
-canonical-path checks reject accesses through parents escaping the workspace
-and writes through unresolved symlinks; new output paths
-are checked against their existing ancestors. Rename and removal operate on a
-final symlink entry rather than its target. Removing or renaming the workspace
-root is prohibited. Relative session paths, log-root paths and other providers
-retain their original behavior. Missing inputs still fail; this is not a
-successful-empty fallback or a bypass of tool authorization. Tests cover native
-create/edit/delete operations, boundary and symlink semantics, unchanged log
-writes and the SDK's synchronous provider-factory contract:
+The launcher installs a Vally-version-checked fail-closed guard for that local
+provider. Absolute workspace requests outside the provider's existing log root
+are rejected with `ERR_EVALUATION_WORKSPACE_ISOLATION_REQUIRED` and an actionable
+message, without canonicalizing or opening workspace paths. Both endpoints of
+rename are checked, including mixed relative/absolute requests. Relative session
+paths and absolute log-root paths (including a log root nested in the workspace)
+retain the original provider's behavior. Paths outside the workspace likewise
+go to the original provider; other provider implementations are not wrapped.
+This guard does not make the original log provider a security sandbox.
+
+**Integration effect:** native workspace reads and patches remain unavailable.
+Provider-level `exists` rejects, but SDK 1.0.11's adapter catches all `exists`
+errors and returns `{ exists: false }` without an error field. That upstream
+protocol limitation is not corrected here. Read/stat/mutation failures retain
+the actionable message with SDK error code `UNKNOWN`; inspect tool events rather
+than relying on existence probes alone. Shell fallback may still complete a task, but that is not evidence
+of repaired native functionality or successful harness/default certification.
+Tests cover explicit rejection, intermediate-parent swaps, unchanged session-log
+operations, and the SDK's synchronous factory/session/configuration contract:
 
 ```bash
 node --test eng/evaluation-tools/*.test.mjs
 ```
 
-**Concurrency/security limitation:** this adapter is path-routing compatibility
-logic, not an atomic filesystem-confinement boundary or a security sandbox.
-Canonicalization and the subsequent pathname-based operation are separate:
-a concurrent process can replace a checked parent directory with a symlink
-before the read or mutation opens it, redirecting the operation outside the
-workspace. The tests above cover stable-path behavior, not swap-race resistance.
-Vally 0.14's executor uses `approveAll`; tool permissions do not establish an
+The previous host-filesystem workspace overlay has been removed. Its separate
+canonicalization and pathname-based operation permitted an intermediate-parent
+symlink swap to redirect reads and mutations outside the workspace. Rejecting
+workspace extensions eliminates that overlay's check/reopen window; it does not
+claim atomic confinement of the existing log provider or shell tools. Vally
+0.14's executor uses `approveAll`; tool permissions do not establish an
 independent adversarial boundary for this host-side provider.
 
 The existing Node filesystem APIs and SDK provider interface do not supply
@@ -109,12 +115,13 @@ descriptor-relative traversal for the full read/create/mkdir/rename/remove
 contract. `O_NOFOLLOW` on a final file open does not protect intermediate
 parents. Rechecking paths or serializing provider calls cannot prevent another
 process from swapping them. If adversarial confinement is required, an
-engineering decision is needed: use a provider with platform-native atomic
-traversal, or enforce an equivalent OS isolation boundary around the Node
-provider and every workspace writer. A sandbox around only the CLI is not
-evidence that provider I/O is isolated. Until such a boundary is implemented
-and validated, do not rely on this adapter to confine untrusted concurrent
-workspace processes.
+upstream integration is needed before restoring native workspace I/O: use a
+provider with platform-native atomic traversal, or enforce and verify an
+equivalent OS isolation boundary around the Node provider and every workspace
+writer. A sandbox around only the CLI is not evidence that provider I/O is
+isolated. There is no trust flag, opt-in path, or environment override that
+re-enables the unsafe overlay. A verified alternative must be implemented and
+validated with swap-race coverage before the guard can be replaced.
 
 Reassess this compatibility layer on a Vally/SDK upgrade. A local launcher fix
 does not retroactively repair earlier trajectories, and CI uses its trusted

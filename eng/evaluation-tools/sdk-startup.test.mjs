@@ -134,7 +134,7 @@ test('ready clients still create sessions concurrently', async () => {
   assert.equal(calls.filter(c => c === 'spawn').length, 1);
 });
 
-test('createSession installs workspace access and preserves the synchronous provider factory and session argument', async () => {
+test('createSession installs workspace rejection and preserves the synchronous provider factory and session argument', async () => {
   const { client, entered, release } = clientFixture();
   const starting = client.start();
   await entered.promise;
@@ -164,8 +164,11 @@ test('createSession installs workspace access and preserves the synchronous prov
     const originalFactory = config.createSessionFsProvider;
     await client.createSession(config);
     assert.equal(config.createSessionFsProvider, originalFactory);
-    assert.equal((await installedProvider.stat(file)).isFile, true);
-    assert.equal(await installedProvider.readFile(file), 'actual reference\n');
+    const rejection = { code: 'ERR_EVALUATION_WORKSPACE_ISOLATION_REQUIRED' };
+    await assert.rejects(installedProvider.stat(file), rejection);
+    await assert.rejects(installedProvider.readFile(file), rejection);
+    await installedProvider.writeFile('events.jsonl', 'session log\n');
+    assert.equal(await installedProvider.readFile('events.jsonl'), 'session log\n');
   } finally {
     await rm(root, { recursive: true });
   }
