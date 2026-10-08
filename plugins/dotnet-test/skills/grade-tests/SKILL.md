@@ -24,9 +24,11 @@ specific list) provides the tests or a bounded diff to assess.
 
 After Step 0 admits a bounded scope, enforce these grading invariants:
 
-- With production context, compose `test-gap-analysis` in
-  `per-test-read-only` caller context before scoring; do not run its standalone
-  workflow. If unavailable, explicitly report N/A / unverified.
+- With production context, **load `test-gap-analysis` by name once before
+  scoring**, in `per-test-read-only` caller context. Read its owned composition
+  reference; do not compute mutation evidence from this grading rubric or run
+  its standalone workflow. Report N/A / unverified only when the dependency,
+  reference, or required context is actually unavailable.
 - Any reported mutation inference must use **Likely killed (inferred)** or
   **Candidate survivor (unverified)**, even when explained in prose.
 - Apply only the rubric below, not extra heuristics such as a duplicate-test
@@ -34,7 +36,8 @@ After Step 0 admits a bounded scope, enforce these grading invariants:
 - A **B** quality grade does not require a Failed result; a complete focused
   test may have no actionable change.
 
-> **Language-specific guidance**: Call the `test-analysis-extensions` skill
+> **Language-specific guidance**: If the caller supplies the matching bundled
+> extension file path, read it directly. Otherwise call `test-analysis-extensions`
 > to discover available extension files, then read the file matching the
 > target codebase's language and framework (e.g., `extensions/dotnet.md`,
 > `extensions/python.md`, `extensions/typescript.md`, `extensions/go.md`).
@@ -79,6 +82,7 @@ quality and severity.
 | Test methods | Yes | A scope to grade. Provide one of: (a) an explicit list of test method names (fully-qualified, e.g. `Namespace.ClassName.TestMethodName`); (b) one or more file paths plus an explicit instruction to grade every test declared in those files; or (c) a diff hunk / PR identifier whose changed tests should be graded. File paths are recommended but optional when method names are unambiguous in the workspace. Ambiguous requests like *"grade my tests"* with no scope are rejected up-front (see Step 0); this skill is for curated input and does not auto-grade an entire workspace. |
 | Test bodies / spans | Recommended | The exact source lines for each test method. If omitted, read them from the listed files. |
 | Production code | No | The code under test, for judging whether assertions cover the claimed behavior. When unavailable, mark the mutation assessment N/A / unverified rather than guessing or deducting. |
+| Language reference | No | A host-supplied path to the matching bundled `test-analysis-extensions` file. Read it directly instead of invoking its reference-only loader; do not substitute unverified framework guidance. |
 | Diff context | No | When grading PR changes, the unified diff for each test method helps focus on what actually changed. |
 
 ### Step 0: Validate the input
@@ -106,7 +110,8 @@ If a valid bounded scope resolves to zero eligible tests, return
 
 Identify the target codebase's language and test framework from the file
 extensions and the test method markers in the provided list. Call the
-`test-analysis-extensions` skill and read the matching extension file (e.g.,
+`test-analysis-extensions` skill unless the caller already supplied the matching
+bundled extension file path. In either case, read that extension file (e.g.,
 `extensions/dotnet.md` for MSTest/xUnit/NUnit/TUnit, `extensions/python.md`
 for pytest, `extensions/typescript.md` for Jest/Vitest, `extensions/go.md`
 for the standard `testing` package). If the input contains tests from
@@ -126,6 +131,12 @@ For each entry in the input list:
    invent a body to grade. A missing requested method requires human review;
    it is not the same as a valid scope containing no tests.
 
+**Composition checkpoint:** for resolved tests with available production
+context, load `test-gap-analysis` now, once for the batch, with
+`per-test-read-only` assessment context. Complete its owned reference assessment
+before Step 3. Do not skip this load just because a body-level weakness already
+seems obvious; a locally invented mutation explanation is not composition.
+
 ### Step 3: Assess the claimed behavior and score each resolved test
 
 Keep grading read-only: no build/test runs, mutation execution, file edits,
@@ -133,8 +144,8 @@ tool installation, broad suite discovery, or agent delegation. Resolve only
 the supplied tests, their relevant fixtures/helpers, and the production call
 chain needed for their claims.
 
-When production context is available, invoke `test-gap-analysis` once inline
-for the resolved batch with **`mode: per-test-read-only`**. Supply each test's
+Use the inline `test-gap-analysis` assessment from Step 2's checkpoint;
+do not load it a second time. Supply each test's
 identifier/body, relevant setup/helpers, claimed behavior, assertion semantics,
 and available source. Its composition dispatch loads the owned read-only
 reference rather than its standalone baseline/verification workflow. Consume

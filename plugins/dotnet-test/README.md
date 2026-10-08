@@ -65,6 +65,22 @@ not a deduction. The existing result and quality fields remain independent:
 a focused B can Pass without improvements, and an A can Fail for actionable
 debug output.
 
+Focused grading checks can run without an evaluation matrix:
+
+```powershell
+python -B tests\dotnet-test\grade-tests\test_regressions.py -v
+python -B tests\dotnet-test\grade-tests\test_composition.py --cli <copilot-executable> --model <model-id> --results-dir <scratch-results>
+```
+
+The first command replays goldens and rejects malformed actions, extra test
+rows, and misleading mutation evidence. The second uses the shipping Copilot
+CLI, a copy of the production plugin, isolated configuration, and a
+host-supplied path to the actual bundled Python assertion reference. It requires
+successful grading and gap-analysis loads plus the owned read-only reference
+read, rejects standalone execution/delegation and N/A fallbacks, and verifies
+that every fixture and plugin file is unchanged. It needs Copilot access via
+an existing token or authenticated GitHub CLI; it does not change user settings.
+
 ### Coverage & risk *(.NET only)*
 
 | Skill | Description |

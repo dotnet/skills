@@ -3,7 +3,8 @@ tags:
   executionShard: c
 description: Evaluates the dotnet-test/grade-tests skill
 type: capability
-# Fourteen distinct stimuli preserve enough evidence after one tie to survive one
+# Fourteen preference stimuli and four off-target dormancy contracts.
+# Preference stimuli preserve enough evidence after one tie to survive one
 # losing stimulus vote when eight remain discordant (7W/1L, p = 0.035).
 #
 # Repeated runs collapse to one majority-direction vote per stimulus, so they do
@@ -321,8 +322,20 @@ stimuli:
               | `Payments.Tests.PaymentGatewayTests.Charge_NegativeAmount_ThrowsArgumentOutOfRange` | Pass | A (90–100) | Complete specific-exception claim. | None |
     graders:
       - type: output-matches
+        config: &full_report_header
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|\s*How to improve\s*\|
+      - type: output-matches
         config:
-          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
+          pattern: '(?m)^\|[^|\r\n]*Settle_PendingBatch_Runs[^|\r\n]*\|\s*Failed\s*\|\s*F\s*\(0.?59\)\s*\|[^|\r\n]*\|[^|\r\n]*(?:assert|verify)[^|\r\n]*(?:contract|outcome|settle)[^|\r\n]*\|'
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|[^|\r\n]*Refund_ExistingCharge_ReturnsReceipt[^|\r\n]*\|\s*Failed\s*\|\s*C\s*\(70.?79\)\s*\|[^|\r\n]*\|[^|\r\n]*(?:assert|verify)[^|\r\n]*(?:receipt|content|contract)[^|\r\n]*\|'
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|[^|\r\n]*Charge_ValidCard_ReturnsApprovedResult[^|\r\n]*\|\s*Pass\s*\|[^|\r\n]*\|[^|\r\n]*\|\s*None\s*\|'
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|[^|\r\n]*Charge_NegativeAmount_ThrowsArgumentOutOfRange[^|\r\n]*\|\s*Pass\s*\|[^|\r\n]*\|[^|\r\n]*\|\s*None\s*\|'
       - type: output-matches
         config:
           pattern: (N/A|unverified)
@@ -404,8 +417,22 @@ stimuli:
               Pseudo-mutation evidence: Candidate survivor (unverified). Omitting Balance -= amount makes Withdraw(40m) from 100m leave 100m instead of 60m; the self-comparison still passes. The existing D rubric already accounts for the tautology in its prescribed dimensions; mutation evidence adds no deduction.
     graders:
       - type: output-matches
+        config: *full_report_header
+      - type: output-matches
         config:
-          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
+          pattern: '(?m)^\|[^|\r\n]*Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself[^|\r\n]*\|\s*Failed\s*\|[^|\r\n]*\|[^|\r\n]*\|[^|\r\n]*(?:60[^|\r\n]*Balance|Balance[^|\r\n]*60)[^|\r\n]*\|'
+      - type: output-matches
+        config:
+          pattern: '(?im)^\|[^|\r\n]*Deposit_PositiveAmount_UpdatesBalance[^|\r\n]*\|\s*Failed\s*\|[^|\r\n]*\|[^|\r\n]*\|[^|\r\n]*(?:remov|delet)[^|\r\n]*Console\.WriteLine[^|\r\n]*\|'
+      - type: output-matches
+        config:
+          pattern: '(?im)^\|[^|\r\n]*Deposit_NonPositiveAmount_HandledGracefully[^|\r\n]*\|\s*Failed\s*\|[^|\r\n]*\|[^|\r\n]*\|[^|\r\n]*(?:assert|verify)[^|\r\n]*ArgumentOutOfRangeException[^|\r\n]*\|'
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|[^|\r\n]*ApplyInterest_RateDependsOnTier_UpdatesBalance[^|\r\n]*\|\s*Failed\s*\|[^|\r\n]*\|[^|\r\n]*\|[^|\r\n]*(?:assert|verify)[^|\r\n]*1010[^|\r\n]*\|'
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|[^|\r\n]*Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds[^|\r\n]*\|\s*Pass\s*\|[^|\r\n]*\|[^|\r\n]*\|\s*None\s*\|'
       - type: output-matches
         config:
           pattern: (?i)Deposit_PositiveAmount_UpdatesBalance.*Failed.*A\s*\(90.?100\)
@@ -478,7 +505,7 @@ stimuli:
           pattern: (Candidate survivor.*unverified|Pseudo.mutation[^\r\n]*N/A[^\r\n]*unverified)
       - type: output-not-matches
         config:
-          pattern: (?m)^\|[^\r\n|]*(test_standard_quote_cost_is_ten|test_empty_quantity_raises_value_error)[^\r\n|]*\|\s*(Pass|Failed|Uncertain)\s*\|
+          pattern: '(?m)^\|(?!(?:[^|\r\n]*\btest_standard_quote_calculates_cost\b))[^|\r\n]+\|\s*(?:\*\*)?(?:Pass|Failed|Uncertain)\b'
       - type: file-not-exists
         config:
           path: .test-executed
@@ -535,6 +562,8 @@ stimuli:
               | `ShippingTests.test_standard_quote_cost_is_ten` | Pass | A (90–100) | One complete exact-value assertion. | None |
     graders:
       - type: output-matches
+        config: *full_report_header
+      - type: output-matches
         config:
           pattern: test_standard_quote_cost_is_ten[^\r\n]*Pass[^\r\n]*(?:A\s*\(90.?100\)|B\s*\(80.?89\))
       - type: output-matches
@@ -543,6 +572,9 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: \|\s*(Failed|Uncertain)\s*\|
+      - type: output-not-matches
+        config:
+          pattern: '(?m)^\|(?!(?:[^|\r\n]*\btest_standard_quote_cost_is_ten\b))[^|\r\n]+\|\s*(?:\*\*)?(?:Pass|Failed|Uncertain)\b'
       - type: file-not-exists
         config:
           path: .test-executed
@@ -589,6 +621,8 @@ stimuli:
               Pseudo-mutation evidence: Likely killed (inferred). For subtotal 100 and express=False, changing subtotal < 100 to subtotal <= 100 changes the cost from 0 to 10. This test's assertEqual(0, result.cost) would fail. No mutation or test was executed; this is not an empirical kill count.
     graders:
       - type: output-matches
+        config: *full_report_header
+      - type: output-matches
         config:
           pattern: test_free_shipping_starts_at_threshold[^\r\n]*Pass[^\r\n]*(?:A\s*\(90.?100\)|B\s*\(80.?89\))
       - type: output-matches
@@ -597,9 +631,15 @@ stimuli:
       - type: output-matches
         config:
           pattern: (100[\s\S]*(0[\s\S]*10|10[\s\S]*0))
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|[^|\r\n]*test_free_shipping_starts_at_threshold[^|\r\n]*\|\s*Pass\s*\|[^|\r\n]*\|[^|\r\n]*\|\s*None\s*\|'
       - type: output-not-matches
         config:
           pattern: (?i)(\b\d+\s*/\s*\d+\s*(mutations?|kill)|mutation score\s*[:=]\s*\d|(?:empirically|executed|verified)\s+killed)
+      - type: output-not-matches
+        config:
+          pattern: '(?m)^\|(?!(?:[^|\r\n]*\btest_free_shipping_starts_at_threshold\b))[^|\r\n]+\|\s*(?:\*\*)?(?:Pass|Failed|Uncertain)\b'
       - type: file-not-exists
         config:
           path: .test-executed
@@ -646,6 +686,8 @@ stimuli:
               Removing the explicit empty-input guard is equivalent for the claimed contract: parse_quantity("") raises ValueError both originally and through int("") after removal. No message contract or side effect is established. Exclude this edit from survivor findings; no new assertion is warranted.
     graders:
       - type: output-matches
+        config: *full_report_header
+      - type: output-matches
         config:
           pattern: test_empty_quantity_raises_value_error[^\r\n]*Pass[^\r\n]*A\s*\(90.?100\)
       - type: output-matches
@@ -654,6 +696,12 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: \|\s*(Failed|Uncertain)\s*\|
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|[^|\r\n]*test_empty_quantity_raises_value_error[^|\r\n]*\|\s*Pass\s*\|[^|\r\n]*\|[^|\r\n]*\|\s*None\s*\|'
+      - type: output-not-matches
+        config:
+          pattern: '(?m)^\|(?!(?:[^|\r\n]*\btest_empty_quantity_raises_value_error\b))[^|\r\n]+\|\s*(?:\*\*)?(?:Pass|Failed|Uncertain)\b'
       - type: file-not-exists
         config:
           path: .test-executed
@@ -700,6 +748,8 @@ stimuli:
               | `ShippingTests.test_standard_quote_cost_is_positive` | Pass | B (80–89) | A meaningful positivity assertion. | None |
     graders:
       - type: output-matches
+        config: *full_report_header
+      - type: output-matches
         config:
           pattern: test_standard_quote_cost_is_positive[^\r\n]*Pass[^\r\n]*B\s*\(80.?89\)
       - type: output-matches
@@ -708,6 +758,9 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: \|\s*(Failed|Uncertain)\s*\|
+      - type: output-not-matches
+        config:
+          pattern: '(?m)^\|(?!(?:[^|\r\n]*\btest_standard_quote_cost_is_positive\b))[^|\r\n]+\|\s*(?:\*\*)?(?:Pass|Failed|Uncertain)\b'
       - type: file-not-exists
         config:
           path: .test-executed
@@ -721,6 +774,134 @@ stimuli:
       - The test is neither credited with the sibling exact-cost assertions nor penalized for not owning their different claim
       - No files are modified and no tests, commands, mutations, or delegated audits are executed
     constraints: *readonly_constraints
+
+  - name: Keep suite-wide health reviews outside per-test decisions
+    prompt: |
+      Audit the shipping test suite as a whole for maintainability and common
+      test anti-patterns. I want a severity-ranked suite health assessment,
+      not a readiness decision or letter grade for individual tests.
+      Use shipping.py and test_shipping.py; leave the files unchanged.
+    expect_activation: false
+    tags:
+      capability: suite-audit-routing-boundary
+      risk: per-test-grading-hijacks-suite-audit
+      journey: review-suite-health
+    environment: *focused_environment
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: grading-suite-dormancy
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a suite-wide health audit, not a curated per-test grading request. Use an anti-pattern assessment for severity-ranked maintainability findings; do not assign per-test readiness results or letter grades.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (suite|anti.pattern|severity|maintainab)
+      - type: output-not-matches
+        config: &no_grading_table
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Treats the request as a suite-wide severity-ranked health assessment, not a curated grading report
+      - Stayed dormant for individual-test grading and did not emit per-test readiness or letter grades
+      - Uses or identifies the appropriate anti-pattern or suite-audit workflow and preserves the supplied files
+    constraints:
+      reject_tools: [edit, create]
+
+  - name: Keep test generation outside grading
+    prompt: |
+      Write a new unittest case for quote(50, express=True) in test_shipping.py
+      using shipping.py. It should verify the express shipping cost and flag.
+      I want the test implemented, not a review of the existing tests.
+    expect_activation: false
+    tags:
+      capability: test-generation-routing-boundary
+      risk: grading-substitutes-for-requested-implementation
+      journey: add-a-new-test
+    environment: *focused_environment
+    graders:
+      - type: file-contains
+        config:
+          path: test_shipping.py
+          value: express=True
+      - type: file-contains
+        config:
+          path: test_shipping.py
+          value: "15"
+      - type: output-not-matches
+        config: *no_grading_table
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Stayed dormant for grading and implements an express quote test or routes to the test-writing workflow
+      - Verifies the cost of 15 and the express flag rather than assigning grades to existing tests
+      - Does not replace the requested implementation with readiness feedback
+
+  - name: Keep direct assertion repair outside grading
+    prompt: |
+      Fix test_standard_quote_calculates_cost in test_shipping.py so it asserts
+      the actual standard shipping cost for its existing input. Edit the test
+      in place and keep shipping.py unchanged; I do not need a quality report.
+    expect_activation: false
+    tags:
+      capability: test-repair-routing-boundary
+      risk: grading-substitutes-for-direct-repair
+      journey: repair-an-existing-test
+    environment: *focused_environment
+    graders:
+      - type: file-not-contains
+        config:
+          path: shipping.py
+          value: "base_cost = 12"
+      - type: output-not-matches
+        config: *no_grading_table
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Stayed dormant for grading and repairs the targeted assertion or routes to the direct test-editing workflow
+      - Asserts the expected standard cost of 10 for subtotal 50 while preserving production code
+      - Does not substitute a per-test readiness or letter-grade report for the edit
+
+  - name: Keep measured coverage requests outside grading
+    prompt: |
+      How can I measure line and branch coverage for shipping.py when running
+      this unittest suite? Give me a coverage collection command and explain
+      the report it produces. Do not assess test quality or edit files.
+    expect_activation: false
+    tags:
+      capability: coverage-routing-boundary
+      risk: grading-hijacks-coverage-measurement
+      journey: collect-test-coverage
+    environment: *focused_environment
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: grading-coverage-dormancy
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use native Python coverage tooling, not per-test grading: python -m coverage run --branch --source=shipping -m unittest test_shipping, then python -m coverage report -m. The report shows executed lines, missing lines, and branch coverage. This is a command recommendation, not a measured result.
+    graders:
+      - type: output-matches
+        config:
+          pattern: coverage[\s\S]*(--branch|branch)
+      - type: output-not-matches
+        config: *no_grading_table
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Stayed dormant for per-test grading and uses or identifies native Python coverage tooling
+      - Gives a usable line-and-branch collection command and distinguishes a command recommendation from measured results
+      - Does not edit files or emit test readiness decisions
+    constraints:
+      reject_tools: [edit, create]
 
   - name: Return not applicable when a bounded diff contains no tests
     prompt: |

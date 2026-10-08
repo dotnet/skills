@@ -2,6 +2,7 @@
 
 import importlib.util
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -17,7 +18,8 @@ FIXTURE = SUITE / "fixtures" / "focused-mutations"
 SPEC = yaml.safe_load((SUITE / "eval.yaml").read_text(encoding="utf-8"))
 FOCUSED = [
     stimulus for stimulus in SPEC["stimuli"]
-    if any("focused-mutations" in item["src"]
+    if stimulus.get("expect_activation", True)
+    and any("focused-mutations" in item["src"]
            for item in stimulus.get("environment", {}).get("files", []))
 ]
 checker_spec = importlib.util.spec_from_file_location(
@@ -25,6 +27,11 @@ checker_spec = importlib.util.spec_from_file_location(
 )
 checker = importlib.util.module_from_spec(checker_spec)
 checker_spec.loader.exec_module(checker)
+composition_spec = importlib.util.spec_from_file_location(
+    "grading_composition", SUITE / "test_composition.py"
+)
+composition = importlib.util.module_from_spec(composition_spec)
+composition_spec.loader.exec_module(composition)
 
 
 class GradingRegressions(unittest.TestCase):
@@ -125,6 +132,103 @@ class GradingRegressions(unittest.TestCase):
                         capture_output=True, text=True, timeout=30,
                     )
                     self.assertNotEqual(0, result.returncode)
+
+    def test_improvement_column_and_row_actions_are_required(self):
+        for stimulus in SPEC["stimuli"]:
+            if "golden_trajectory" not in stimulus or not stimulus.get("expect_activation", True):
+                continue
+            response = stimulus["golden_trajectory"]["inline"]["steps"][-1]["message"]
+            if "| How to improve |" not in response:
+                continue
+            with self.subTest(stimulus=stimulus["name"], defect="missing column"):
+                stripped = []
+                for line in response.splitlines():
+                    if line.startswith("|") and len(line.split("|")) == 7:
+                        line = "|".join(line.split("|")[:-2] + [""])
+                    stripped.append(line)
+                self.assertTrue(self.check_response(stimulus, "\n".join(stripped)))
+            for line in response.splitlines():
+                if not line.startswith("|") or len(line.split("|")) != 7:
+                    continue
+                cells = line.split("|")
+                if cells[2].strip() not in {"Pass", "Failed"}:
+                    continue
+                with self.subTest(stimulus=stimulus["name"], test=cells[1], defect="empty action"):
+                    cells[-2] = " "
+                    self.assertTrue(self.check_response(
+                        stimulus, response.replace(line, "|".join(cells))
+                    ))
+
+    def test_each_focused_report_rejects_every_unrequested_row(self):
+        names = {
+            re.search(r"ShippingTests\.(test_\w+)", stimulus["prompt"]).group(1)
+            for stimulus in FOCUSED
+        }
+        for stimulus in FOCUSED:
+            own = re.search(r"ShippingTests\.(test_\w+)", stimulus["prompt"]).group(1)
+            response = stimulus["golden_trajectory"]["inline"]["steps"][-1]["message"]
+            for sibling in sorted(names - {own}) + ["test_unrequested_case"]:
+                with self.subTest(stimulus=stimulus["name"], extra=sibling):
+                    self.assertEqual([], self.check_response(
+                        stimulus, response + f"\nShippingTests.{sibling} is not credited."
+                    ))
+                    self.assertTrue(self.check_response(
+                        stimulus, response +
+                        f"\n| `ShippingTests.{sibling}` | Pass | A (90–100) | Protected. | None |"
+                    ))
+
+    def test_composition_requires_successful_loads_and_owned_reference_reads(self):
+        calls = [
+            ("skill", {"skill": "grade-tests"}),
+            ("view", {"path": "/plugin/test-analysis-extensions/extensions/python.md"}),
+            ("skill", {"skill": "test-gap-analysis"}),
+            ("view", {"path": "/plugin/test-gap-analysis/references/per-test-read-only.md"}),
+        ]
+        events = []
+        for index, (tool, arguments) in enumerate(calls):
+            events.extend([
+                {"type": "tool.execution_start", "data": {
+                    "toolCallId": str(index), "toolName": tool, "arguments": arguments,
+                }},
+                {"type": "tool.execution_complete", "data": {
+                    "toolCallId": str(index), "success": True,
+                }},
+            ])
+        output = FOCUSED[0]["golden_trajectory"]["inline"]["steps"][-1]["message"]
+        events.append({"type": "assistant.message", "data": {"content": output}})
+        self.assertEqual(
+            ["grade-tests", "test-gap-analysis"], composition.verify_events(events)["skills"]
+        )
+        for index in range(len(calls)):
+            with self.subTest(defect="missing dependency or reference", call=index):
+                missing = [
+                    event for event in events
+                    if event["data"].get("toolCallId") != str(index)
+                ]
+                with self.assertRaises(AssertionError):
+                    composition.verify_events(missing)
+            with self.subTest(defect="failed tool", call=index):
+                failed = list(events)
+                failed[index * 2 + 1] = {
+                    "type": "tool.execution_complete",
+                    "data": {"toolCallId": str(index), "success": False},
+                }
+                with self.assertRaises(AssertionError):
+                    composition.verify_events(failed)
+        shell = [
+            {"type": "tool.execution_start", "data": {
+                "toolCallId": "shell", "toolName": "powershell", "arguments": {},
+            }},
+            {"type": "tool.execution_complete", "data": {
+                "toolCallId": "shell", "success": True,
+            }},
+        ]
+        with self.assertRaises(AssertionError):
+            composition.verify_events(events[:-1] + shell + events[-1:])
+        with self.assertRaises(AssertionError):
+            composition.verify_events(events[:-1] + [{
+                "type": "assistant.message", "data": {"content": output + "\n**Weak** suite."},
+            }])
 
     def test_missing_context_and_actionable_a_grade_remain_independent(self):
         cases = {
