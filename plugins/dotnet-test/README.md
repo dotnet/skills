@@ -77,8 +77,12 @@ rows, and misleading mutation evidence. The second uses the shipping Copilot
 CLI, a copy of the production plugin, isolated configuration, and a
 host-supplied path to the actual bundled Python assertion reference. It requires
 successful grading and gap-analysis loads plus the owned read-only reference
-read, rejects standalone execution/delegation and N/A fallbacks, and verifies
-that every fixture and plugin file is unchanged. It needs Copilot access via
+read and their completions before the final grading report. It verifies the
+target row's concrete improvement, rejects standalone execution/delegation and
+N/A fallbacks, and checks that every fixture and plugin file is unchanged.
+Generation/repair dormancy cases replay golden patches and prove that the
+requested assertions reject wrong costs/flags while production stays
+byte-for-byte unchanged. The CLI integration needs Copilot access via
 an existing token or authenticated GitHub CLI; it does not change user settings.
 
 ### Coverage & risk *(.NET only)*

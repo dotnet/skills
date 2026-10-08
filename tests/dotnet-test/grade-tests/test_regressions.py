@@ -229,6 +229,88 @@ class GradingRegressions(unittest.TestCase):
             composition.verify_events(events[:-1] + [{
                 "type": "assistant.message", "data": {"content": output + "\n**Weak** suite."},
             }])
+        for reordered in (
+            events[-1:] + events[:-1],
+            events[:-2] + events[-1:] + events[-2:-1],
+            events[4:6] + events[:4] + events[6:],
+        ):
+            with self.subTest(defect="report or dependency out of order"):
+                with self.assertRaises(AssertionError):
+                    composition.verify_events(reordered)
+        for action in ("", "None", "Improve assertions"):
+            lines = output.splitlines()
+            for index, line in enumerate(lines):
+                if line.startswith("| `ShippingTests.test_standard_quote_calculates_cost`"):
+                    cells = line.split("|")
+                    cells[-2] = f" {action} "
+                    lines[index] = "|".join(cells)
+            with self.subTest(defect="missing target action", action=action):
+                with self.assertRaises(AssertionError):
+                    composition.verify_events(events[:-1] + [{
+                        "type": "assistant.message", "data": {"content": "\n".join(lines)},
+                    }])
+
+    def test_writing_goldens_and_broken_workspace_mutations(self):
+        for stimulus in SPEC["stimuli"]:
+            if "golden_patch" not in stimulus:
+                continue
+            root = self.materialize()
+            grader = root / ".eval" / "check_test_change.py"
+            grader.parent.mkdir()
+            shutil.copyfile(SUITE / "graders" / "check_test_change.py", grader)
+            shutil.copyfile(root / "shipping.py", root / ".eval" / "shipping.before")
+            source = root / "test_shipping.py"
+            source.write_text(source.read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
+            applied = subprocess.run(
+                ["git", "apply", "--whitespace=nowarn", "-"],
+                cwd=root, input=stimulus["golden_patch"]["inline"].encode("utf-8"),
+                capture_output=True, timeout=30,
+            )
+            self.assertEqual(0, applied.returncode, applied.stderr)
+            golden = source.read_text(encoding="utf-8")
+            command = next(
+                grader["config"]["command"] for grader in stimulus["graders"]
+                if grader["type"] == "run-command"
+            )
+
+            def verify():
+                return subprocess.run(
+                    command, cwd=root, shell=True, capture_output=True, text=True, timeout=30,
+                )
+
+            with self.subTest(stimulus=stimulus["name"], state="golden"):
+                result = verify()
+                self.assertEqual(0, result.returncode, result.stderr)
+            removals = (
+                ["        self.assertEqual(15, result.cost)\n",
+                 "        self.assertTrue(result.express)\n"]
+                if "generation" in stimulus["name"] else
+                ["        self.assertEqual(10, result.cost)\n"]
+            )
+            for removed in removals:
+                with self.subTest(stimulus=stimulus["name"], missing=removed.strip()):
+                    self.assertIn(removed, golden)
+                    source.write_text(golden.replace(removed, ""), encoding="utf-8")
+                    self.assertNotEqual(0, verify().returncode)
+            with self.subTest(stimulus=stimulus["name"], state="untouched fixture"):
+                shutil.copyfile(FIXTURE / "test_shipping.py", source)
+                self.assertNotEqual(0, verify().returncode)
+            source.write_text(golden, encoding="utf-8")
+            production = root / "shipping.py"
+            original = production.read_bytes()
+            for changed in (
+                original + b"\n# unrelated production edit\n",
+                original.replace(b"else 0", b"else 1"),
+                original.replace(b"\r\n", b"\n") if b"\r\n" in original
+                else original.replace(b"\n", b"\r\n"),
+            ):
+                with self.subTest(stimulus=stimulus["name"], state="production edit"):
+                    production.write_bytes(changed)
+                    self.assertNotEqual(0, verify().returncode)
+            production.write_bytes(original)
+            with self.subTest(stimulus=stimulus["name"], state="grader tampering"):
+                grader.write_text("print('passed')\n", encoding="utf-8")
+                self.assertNotEqual(0, verify().returncode)
 
     def test_missing_context_and_actionable_a_grade_remain_independent(self):
         cases = {

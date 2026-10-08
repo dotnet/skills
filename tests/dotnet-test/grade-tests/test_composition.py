@@ -33,28 +33,38 @@ def digest_tree(root):
 
 
 def verify_events(events):
+    report_index, report = next(
+        (index, event["data"]["content"])
+        for index, event in reversed(list(enumerate(events)))
+        if event["type"] == "assistant.message" and event["data"].get("content")
+    )
     starts = [
-        event["data"] for event in events if event["type"] == "tool.execution_start"
+        (index, event["data"]) for index, event in enumerate(events)
+        if event["type"] == "tool.execution_start"
     ]
     completions = {
-        event["data"]["toolCallId"]: event["data"]
-        for event in events if event["type"] == "tool.execution_complete"
+        event["data"]["toolCallId"]: (index, event["data"])
+        for index, event in enumerate(events) if event["type"] == "tool.execution_complete"
     }
     skills = [
         call["arguments"].get("skill")
-        for call in starts if call["toolName"] == "skill"
+        for _, call in starts if call["toolName"] == "skill"
     ]
     for name in ("grade-tests", "test-gap-analysis"):
         assert skills.count(name) == 1, f"Expected exactly one successful load of {name}: {skills}"
     assert set(skills) == {"grade-tests", "test-gap-analysis"}, f"Unexpected nested workflow: {skills}"
-    for call in starts:
+    for index, call in starts:
         assert call["toolName"] in READ_TOOLS, f"Unexpected execution or delegation: {call}"
-        assert completions.get(call["toolCallId"], {}).get("success") is True, (
+        completion_index, completion = completions.get(call["toolCallId"], (-1, {}))
+        assert completion.get("success") is True, (
             f"Failed or incomplete tool call: {call}"
+        )
+        assert index < completion_index < report_index, (
+            f"Tool must finish before the final report: {call}"
         )
     paths = [
         call["arguments"].get("path", "").replace("\\", "/")
-        for call in starts if call["toolName"] == "view"
+        for _, call in starts if call["toolName"] == "view"
     ]
     assert any(path.endswith(
         "/test-gap-analysis/references/per-test-read-only.md"
@@ -62,21 +72,22 @@ def verify_events(events):
     assert any(path.endswith(
         "/test-analysis-extensions/extensions/python.md"
     ) for path in paths), "Python assertion semantics were not loaded"
-    gap_index = next(
-        index for index, call in enumerate(starts)
-        if call["toolName"] == "skill" and call["arguments"].get("skill") == "test-gap-analysis"
-    )
+    grade_call = next(call for _, call in starts
+                      if call["toolName"] == "skill" and call["arguments"].get("skill") == "grade-tests")
+    gap_index, gap_call = next(
+        (index, call) for index, call in starts
+        if call["toolName"] == "skill" and call["arguments"].get("skill") == "test-gap-analysis")
     reference_index = next(
-        index for index, call in enumerate(starts)
-        if call["toolName"] == "view" and call["arguments"].get("path", "").replace("\\", "/")
-        .endswith("/test-gap-analysis/references/per-test-read-only.md")
+        index for index, call in starts if call["toolName"] == "view"
+        and call["arguments"].get("path", "").replace("\\", "/")
+        .endswith("/test-gap-analysis/references/per-test-read-only.md"))
+    assert completions[grade_call["toolCallId"]][0] < gap_index, (
+        "Gap analysis loaded before grading was loaded successfully"
     )
-    assert gap_index < reference_index, "Reference read did not follow the composition dispatch"
-    output = next(
-        event["data"]["content"]
-        for event in reversed(events)
-        if event["type"] == "assistant.message" and event["data"].get("content")
+    assert completions[gap_call["toolCallId"]][0] < reference_index, (
+        "Reference read did not follow successful composition dispatch"
     )
+    output = report
     assert re.search(
         r"\|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|\s*How to improve\s*\|",
         output,
@@ -86,13 +97,24 @@ def verify_events(events):
         output,
     ), "Incorrect individual readiness or quality result"
     assert re.search(r"Candidate survivor[\s\S]*unverified", output, re.I)
-    assert re.search(r"cost[^\r\n]*10|10[^\r\n]*cost", output, re.I)
+    target_rows = [
+        line.split("|")[1:-1] for line in output.splitlines()
+        if line.lstrip().startswith("|")
+        and re.search(r"\btest_standard_quote_calculates_cost\b", line.split("|")[1])
+    ]
+    assert len(target_rows) == 1 and len(target_rows[0]) == 5, (
+        "Expected exactly one complete target grading row"
+    )
+    action = target_rows[0][-1]
+    assert re.search(r"cost[^\r\n]*\b10\b|\b10\b[^\r\n]*cost", action, re.I), (
+        "The target How to improve cell must specify the concrete cost-10 assertion"
+    )
     assert not re.search(
         r"Pseudo.mutation[^\r\n]*N/A|^\s*(?:\*\*)?(?:Result:\s*)?(Strong|Mixed|Weak)\b",
         output, re.I | re.M,
     ), "Composition returned a fallback or a standalone suite verdict"
     assert not re.search(r"\b\d+\s*/\s*\d+\s*(mutations?|kill)|mutation score\s*[:=]\s*\d", output, re.I)
-    return {"skills": skills, "tools": [call["toolName"] for call in starts], "output": output}
+    return {"skills": skills, "tools": [call["toolName"] for _, call in starts], "output": output}
 
 
 def main():

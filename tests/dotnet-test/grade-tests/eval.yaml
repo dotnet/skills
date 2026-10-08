@@ -823,16 +823,52 @@ stimuli:
       capability: test-generation-routing-boundary
       risk: grading-substitutes-for-requested-implementation
       journey: add-a-new-test
-    environment: *focused_environment
+    environment: &editing_environment
+      files:
+        - src: fixtures/focused-mutations/shipping.py
+          dest: shipping.py
+        - src: fixtures/focused-mutations/test_shipping.py
+          dest: test_shipping.py
+        - src: graders/check_test_change.py
+          dest: .eval/check_test_change.py
+      commands:
+        - python -c "import shutil;shutil.copyfile('shipping.py','.eval/shipping.before')"
+    golden_patch:
+      inline: |
+        diff --git a/test_shipping.py b/test_shipping.py
+        --- a/test_shipping.py
+        +++ b/test_shipping.py
+        @@ -9,7 +9,13 @@
+
+
+         class ShippingTests(unittest.TestCase):
+        +    def test_express_quote_returns_cost_and_flag(self):
+        +        result = quote(50, express=True)
+        +
+        +        self.assertEqual(15, result.cost)
+        +        self.assertTrue(result.express)
+        +
+             def test_standard_quote_cost_is_positive(self):
+                 ordinary_subtotal = 50
+
+                 result = quote(ordinary_subtotal)
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: grading-generation-dormancy
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Added test_express_quote_returns_cost_and_flag to test_shipping.py. It checks cost 15 and express=True for quote(50, express=True); shipping.py is unchanged. This is test implementation, not per-test grading.
     graders:
-      - type: file-contains
+      - type: run-command
         config:
-          path: test_shipping.py
-          value: express=True
-      - type: file-contains
-        config:
-          path: test_shipping.py
-          value: "15"
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/check_test_change.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='f3224aa3598bd9fe4215479ed77df46336bf2108f2e25a0344299d863646cb5c';subprocess.run([sys.executable,'-B',str(p),*sys.argv[1:]],check=True)" generation test_standard_quote_cost_is_positive,test_standard_quote_calculates_cost,test_standard_quote_cost_is_ten,test_free_shipping_starts_at_threshold,test_empty_quantity_raises_value_error 50 15 1 f12f529a6dcd8c24dadb33900eca290be14509b5d432fcac7397c9a2135cbc7b
+          expected_exit_code: 0
+          timeout: 1m
       - type: output-not-matches
         config: *no_grading_table
       - type: exit-success
@@ -852,12 +888,39 @@ stimuli:
       capability: test-repair-routing-boundary
       risk: grading-substitutes-for-direct-repair
       journey: repair-an-existing-test
-    environment: *focused_environment
+    environment: *editing_environment
+    golden_patch:
+      inline: |
+        diff --git a/test_shipping.py b/test_shipping.py
+        --- a/test_shipping.py
+        +++ b/test_shipping.py
+        @@ -19,8 +19,8 @@
+             def test_standard_quote_calculates_cost(self):
+                 ordinary_subtotal = 50
+
+                 result = quote(ordinary_subtotal)
+
+        -        self.assertGreater(result.cost, 0)
+        +        self.assertEqual(10, result.cost)
+
+             def test_standard_quote_cost_is_ten(self):
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: grading-repair-dormancy
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Replaced the positivity assertion in test_standard_quote_calculates_cost with assertEqual(10, result.cost). The existing input stays at subtotal 50 and shipping.py is unchanged; no quality report was substituted for the edit.
     graders:
-      - type: file-not-contains
+      - type: run-command
         config:
-          path: shipping.py
-          value: "base_cost = 12"
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/check_test_change.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='f3224aa3598bd9fe4215479ed77df46336bf2108f2e25a0344299d863646cb5c';subprocess.run([sys.executable,'-B',str(p),*sys.argv[1:]],check=True)" repair test_standard_quote_calculates_cost 50 10 0 f12f529a6dcd8c24dadb33900eca290be14509b5d432fcac7397c9a2135cbc7b
+          expected_exit_code: 0
+          timeout: 1m
       - type: output-not-matches
         config: *no_grading_table
       - type: exit-success
