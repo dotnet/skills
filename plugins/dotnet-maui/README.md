@@ -112,6 +112,52 @@ default. Classify fixture, harness, power, routing and content failures separate
 An underpowered result is not evidence to retire a skill. Conversely, keep neither
 a default nor a support claim solely because an older dashboard run passed.
 
+### Eleventh changed-suite comparison
+
+The four changed suites were measured at `d5d90a06`, with unchanged declared
+budgets and five workers. An error in the temporary experiment configuration
+registered the plugin parent directory rather than its skill directories:
+all 45 plugin tasks per family failed at setup. The valid baseline/isolated
+results were retained; only the failed plugin arms were retried using the
+repository generator and all eight concrete skill directories. Original failed
+artifacts remain preserved. The plugin retry is a separate execution, not a
+single-run or newer official full-plugin certification.
+
+| Skill | Sonnet 5 W/T/L | GPT-5.6 Luna W/T/L |
+|---|---|---|
+| Doctor | 8/0/3, unproven | 5/6/0, pass |
+| Binding | 5/5/0, pass | 4/3/3, mixed |
+| Shell | 7/1/2, unproven | 8/2/0, pass |
+| Theming | 7/2/1, pass | 4/6/0, tie-limited |
+
+All eight isolated comparisons were conclusive with zero errored/unmatched
+trials; all four dormancy cases per family stayed dormant in both isolated and
+retried plugin contexts. Positive activation requirements still have misses.
+None of these four suites passed preference gates on both families.
+
+Luna's plugin aggregates and rubric leaves all passed. Sonnet's plugin had one
+aggregate failure and four failed-leaf trials: the activated Doctor deleted
+pre-existing validation state during cleanup, despite reading its reference.
+The preservation check correctly failed; it was not a nested-package parser
+failure. Other missed criteria include truthful inspection and native-validation
+limitations. A generated theme answer omitted dictionary class wiring that the
+source already supplies. Aggregate passes are not full app or device proof.
+
+Matched shutdown accounting covers 135 sessions per family, 45 per role, with
+no missing, duplicate or unpaired records. Retried plugin counters increased
+46.8% to 86.0% for Sonnet and 16.2% to 36.4% for Luna versus their preserved
+baselines. Separate execution timing and the usual counter limitations remain.
+All 15 Luna native patches succeeded without observed root-escape errors;
+eight baseline reads targeted missing paths, and native ripgrep output-file
+failures remain separately unclassified.
+
+Subsequent repairs make validation-state ownership unconditional during cleanup
+and clarify that either manual or generated notification satisfies the binding
+task. The original judge wrongly treated a conditional Toolkit criterion as
+mandatory. Its terse golden also needed a concrete implementation, not narrated
+intent. These contract repairs do not rewrite the recorded votes, and the
+eleventh comparison does not measure later content.
+
 ## Local validation
 
 Run from the repository root with a current Python and PyYAML available:

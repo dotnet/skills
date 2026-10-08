@@ -55,6 +55,13 @@ def command(args, cwd):
     return subprocess.run(args, cwd=cwd, text=True, capture_output=True)
 
 
+def golden_reference(suite, stimulus):
+    reference = stimulus["golden_trajectory"]
+    if "inline" in reference:
+        return reference["inline"]
+    return json.loads((suite / reference["path"]).read_text())
+
+
 def compiler_probe():
     """Compile both child-context forms with shipping XamlC, without a native host."""
     workspace = ROOT / "tests/dotnet-maui/maui-collectionview/.compiler-probe-workspace"
@@ -71,6 +78,7 @@ def compiler_probe():
     <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.0" />
     <PackageReference Include="Microsoft.Maui.Controls.Build.Tasks" Version="10.0.0"
                       GeneratePathProperty="true" PrivateAssets="all" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
   </ItemGroup>
   TASK
 </Project>"""
@@ -104,6 +112,11 @@ public partial class LiteralSourcePage : ContentPage
 public partial class ParameterPage : ContentPage
 {
     public ParameterPage() => InitializeComponent();
+}
+public sealed class ProbeProductService : MyApp.ViewModels.IProductService
+{
+    public Task<MyApp.ViewModels.Product> GetProductAsync() =>
+        Task.FromResult(new MyApp.ViewModels.Product("Observed", 12.5m, true));
 }
 public static class Checks
 {
@@ -153,6 +166,14 @@ public static class Checks
                 $"text={sourceLabel.Text}, value={((Slider)((StackLayout)sourcePage.Content!).Children[0]).Value}");
         if (((Button)new ParameterPage().Content!).CommandParameter is not int value || value != 123)
             throw new InvalidOperationException("documented command parameter is not an integer");
+        var product = new MyApp.ViewModels.ProductDetailViewModel(new ProbeProductService());
+        var productChanges = new List<string?>();
+        product.PropertyChanged += (_, args) => productChanges.Add(args.PropertyName);
+        product.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+        if (product.Name != "Observed" || product.Price != 12.5m || !product.IsAvailable ||
+            !productChanges.SequenceEqual(new[] { "Name", "Price", "IsAvailable" }))
+            throw new InvalidOperationException("Toolkit golden notification contract failed");
+        Console.WriteLine("PASS: shipping Toolkit golden generates and notifies the requested members");
         Console.WriteLine("PASS: x:Int32 command parameter compiles and preserves its runtime type");
         Console.WriteLine("PASS: inferred and explicit child scopes use typed bindings");
         Console.WriteLine("PASS: documented converter namespace/resource wiring compiles and binds");
@@ -229,6 +250,15 @@ public sealed class MainViewModel { public int Count { get; set; } }""")
  </Button>
 </ContentPage>"""
         (workspace / "ParameterPage.xaml").write_text(parameter_markup)
+        binding_spec = yaml.safe_load(
+            (ROOT / "tests/dotnet-maui/maui-data-binding/eval.yaml").read_text())
+        product_case = next(s for s in binding_spec["stimuli"]
+                            if s["name"] == "Implement MVVM ViewModel with ObservableObject")
+        product_response = golden_reference(
+            ROOT / "tests/dotnet-maui/maui-data-binding", product_case)["steps"][-1]["message"]
+        product_code = "\n".join(re.findall(r"```csharp\n(.*?)\n```", product_response, re.S))
+        assert product_code, "ViewModel golden must supply the requested implementation"
+        (workspace / "ProductDetailViewModel.cs").write_text(product_code)
         restored = command(["dotnet", "restore", "Probe.csproj", "--verbosity", "quiet"], workspace)
         assert restored.returncode == 0, restored.stdout + restored.stderr
         location = command(["dotnet", "msbuild", "Probe.csproj",
@@ -250,6 +280,15 @@ public sealed class MainViewModel { public int Count { get; set; } }""")
         run = command(["dotnet", "run", "--project", "Probe.csproj", "--no-build"], workspace)
         assert run.returncode == 0, run.stdout + run.stderr
         print(run.stdout.strip())
+        assert "Name = product.Name;" in product_code
+        (workspace / "ProductDetailViewModel.cs").write_text(
+            product_code.replace("Name = product.Name;", ""))
+        broken = command(["dotnet", "run", "--project", "Probe.csproj",
+                          "--verbosity", "quiet"], workspace)
+        assert broken.returncode != 0 and "Toolkit golden notification contract failed" in broken.stderr, (
+            broken.stdout + broken.stderr)
+        print("PASS: Toolkit golden rejects an omitted public-property update")
+        (workspace / "ProductDetailViewModel.cs").write_text(product_code)
         (workspace / "ParameterPage.xaml").write_text(parameter_markup.replace(
             '<Button Text="Load">', '<Button Text="Load" CommandParameter="123">').replace(
                 "<Button.CommandParameter><x:Int32>123</x:Int32></Button.CommandParameter>", ""))
@@ -721,7 +760,7 @@ def main():
         suite = ROOT / "tests/dotnet-maui" / name
         spec = yaml.safe_load((suite / "eval.yaml").read_text())
         for stimulus in spec["stimuli"]:
-            reference = stimulus["golden_trajectory"]["inline"]
+            reference = golden_reference(suite, stimulus)
             gate._validate_atif_trajectory(reference)
             response = reference["steps"][-1]["message"]
             for grader in stimulus["graders"]:

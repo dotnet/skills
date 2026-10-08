@@ -117,8 +117,10 @@ Repair covers all installed workloads for the selected SDK/workload installation
 not only MAUI or the current project; explain that mutation scope when proposing it.
 
 For offline automation, distinguish supplied inputs and validation state from
-outputs you create. Clean up only your own outputs; do not delete or recapture
-an existing validation baseline to make a check pass. Report a failed check
+outputs you create. Existing validation state is supplied input, even when it
+looks like a hidden or temporary test artifact. Do not delete or recapture it,
+including during cleanup after a successful check. Clean up only explicitly
+owned, expendable outputs; retain requested deliverables. Report a failed check
 without changing its evidence or claiming input preservation afterward.
 
 If a build is authorized, use the existing project with its exact target:

@@ -71,29 +71,16 @@ stimuli:
   - Uses CommunityToolkit.Mvvm ObservableObject with [ObservableProperty] or implements INotifyPropertyChanged
     manually
   - 'Includes all four members: Name, Price, IsAvailable, and a load command'
-  - Shows how the generated properties raise PropertyChanged automatically when using the toolkit
+  - Demonstrates that changes to the exposed properties raise PropertyChanged for the
+    correct public property names, whether through valid source generation or a manual
+    notifying implementation. Neither approach is required over the other.
   - Does not use a base class that doesn't implement INotifyPropertyChanged
   tags:
     capability: implement-mvvm-viewmodel-with-observableobject
     risk: incorrect-guidance
     journey: implement-feature
   golden_trajectory:
-    inline:
-      schema_version: ATIF-v1.2
-      session_id: expected-response
-      agent:
-        name: reference
-        version: '1'
-        model_name: curated
-      steps:
-      - step_id: 1
-        source: agent
-        message: A partial ProductDetailViewModel can derive from ObservableObject with [ObservableProperty]
-          fields name, price, and isAvailable. An injected product service plus [RelayCommand] private
-          async Task LoadAsync() produces LoadCommand; assign Name, Price, and IsAvailable from the result,
-          with cancellation/error handling suited to the service. Add CommunityToolkit.Mvvm and necessary
-          usings. A complete INotifyPropertyChanged plus IAsyncRelayCommand implementation is also valid;
-          properties must notify rather than silently assign fields.
+    path: ./references/product-detail-viewmodel.json
 - name: Create and use an IValueConverter
   prompt: |
     In my .NET MAUI app I have a status field that is an enum:
