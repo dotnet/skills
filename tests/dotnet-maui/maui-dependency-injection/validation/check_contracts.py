@@ -31,9 +31,9 @@ quality.check_fixtures(spec_name, document, set())
 quality.check_references(spec_name, document, set())
 assert not quality.errors, "\n".join(quality.errors)
 eligible, dormancy, _, _ = quality.eval_evidence_counts(document)
-assert eligible == 11 and dormancy == 2, (eligible, dormancy)
+assert eligible == 12 and dormancy == 2, (eligible, dormancy)
 if not any(arg.startswith("--export") for arg in sys.argv):
-    print("PASS: scoped eval structure; 10 preference tasks, 1 no-op, 2 dormancy guards")
+    print("PASS: scoped eval structure; 11 preference tasks, 1 no-op, 2 dormancy guards")
 
 # Each answer represents a plausible defect, not random text or an empty result.
 mutations = [
@@ -68,6 +68,9 @@ mutations = [
     "closes. Mobile navigation owns repository teardown.",
     "Use AddTransient<HomeViewModel>() to recreate BindingContext; "
     "there is no problem with the label path.",
+    "AddHttpClient<IProductCatalog, ProductCatalog>() always registers one "
+    "shared typed client. Remove the other registration; its cache will "
+    "automatically be shared across every page.",
 ]
 
 stimuli = document["stimuli"]
@@ -130,7 +133,7 @@ for index, text in alternatives.items():
     assert not quality.errors, "\n".join(quality.errors)
     print(f"PASS: valid alternative accepted: {stimulus['name']}")
 
-print("PASS: all 13 golden responses and all 13 realistic mutations")
+print("PASS: all 14 golden responses and all 14 realistic mutations")
 
 root_alternative = (
     "No, neither an empty constructor nor a replacement route is required. "

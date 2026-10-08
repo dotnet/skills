@@ -158,6 +158,23 @@ mandatory. Its terse golden also needed a concrete implementation, not narrated
 intent. These contract repairs do not rewrite the recorded votes, and the
 eleventh comparison does not measure later content.
 
+## Overlapping proposal integration
+
+The integration basis is [#1273](https://github.com/dotnet/skills/pull/1273),
+not a mechanical merge with [#1255](https://github.com/dotnet/skills/pull/1255).
+At heads `2544abff` and `846f80a8`, a merge simulation reports 13 content
+conflicts: five skill files and all eight eval specs. Keep one coherent
+fixture/grader/golden contract per suite; do not combine partially merged evals
+or attribute either branch's measurements to an integrated payload.
+
+The useful additional shared-cache/HTTP ownership case is carried forward in
+the DI guidance and its executable replay. Existing runtime-verified Shell
+activation, explicit scope ownership, lifecycle durability, bindings, restraint
+and powered suites remain the integration basis. In particular, do not restore
+universal claims that typed Shell templates bypass DI or that ordinary MAUI
+automatically creates a DI scope per window. Neither PR is merged or closed
+by this decision; maintainers still need to select the final proposal.
+
 ## Local validation
 
 Run from the repository root with a current Python and PyYAML available:

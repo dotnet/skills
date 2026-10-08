@@ -38,6 +38,54 @@ Root-provider resolution shares a scoped instance until the root is disposed,
 unless `ValidateScopes` is enabled, in which case it throws. Neither `AddScoped`
 nor creating a new MAUI context provides an operation boundary on its own.
 
+## Shared Cache and HTTP Client Ownership
+
+`AddHttpClient<TService, TImplementation>()` registers a transient typed client.
+Adding that registration after a singleton registration for the same service
+changes what a single resolution returns; it does not combine both lifetimes.
+Intentional keyed or `IEnumerable<T>` registrations are a different design.
+
+Keep the cache-owning service Singleton and create named clients per operation.
+This requires `Microsoft.Extensions.Http`:
+
+```csharp
+builder.Services.AddHttpClient("products", client =>
+    client.BaseAddress = new Uri("https://api.example.com/"));
+builder.Services.AddSingleton<ProductCatalog>();
+```
+
+```csharp
+using System.Collections.Concurrent;
+using System.Net.Http;
+
+public sealed class ProductCatalog(IHttpClientFactory clients)
+{
+    private readonly ConcurrentDictionary<int, string> _names = new();
+
+    public async Task<string> GetNameAsync(int id, CancellationToken token = default)
+    {
+        if (_names.TryGetValue(id, out var cached))
+            return cached;
+
+        using var client = clients.CreateClient("products");
+        var name = await client.GetStringAsync($"products/{id}/name", token);
+        _names.TryAdd(id, name);
+        return name;
+    }
+}
+```
+
+The cache policy is illustrative; choose invalidation for the application.
+Concurrent misses can perform multiple requests. Factory-created clients are
+short-lived; disposing them does not dispose the factory's pooled handler.
+Alternatively, keep a typed consumer transient and inject a separate Singleton
+cache. Do not lose app-wide state by simply changing the cache owner to Transient.
+
+Retaining a typed client in a Singleton requires a verified connection-recycling
+policy, such as an appropriate `SocketsHttpHandler.PooledConnectionLifetime`;
+do not categorically reject a supplied configuration that already provides it.
+See [HTTP client lifetime management and Singleton guidance](https://learn.microsoft.com/dotnet/core/extensions/httpclient-factory#avoid-typed-clients-in-singleton-services).
+
 ## Constructor Injection
 
 Inject dependencies through the constructor. The DI container resolves them automatically

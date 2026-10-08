@@ -562,3 +562,50 @@ stimuli:
               DisplayNmae does not name the ViewModel property. Keep the
               existing BindingContext and service registrations; this is a
               binding-path issue, not an injection failure.
+
+  - name: Preserve a shared cache while fixing HTTP registration
+    prompt: |
+      In my MAUI app ProductCatalog implements IProductCatalog and takes an
+      HttpClient. It also owns a cache that must be shared across all pages.
+      I registered AddSingleton<IProductCatalog, ProductCatalog>(), then
+      AddHttpClient<IProductCatalog, ProductCatalog>() with the API base URL.
+      Now navigating to another page seems to create a different cache.
+      What's wrong, and how can I keep the shared cache and safe HTTP ownership?
+      Advice only; do not run network requests or change files.
+    tags:
+      capability: shared-cache-http-ownership
+      risk: conflicting-service-lifetimes
+      journey: fix-cache-reset
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(IHttpClientFactory|AddSingleton|PooledConnectionLifetime)'
+      - type: prompt
+    rubric:
+      - Explains that the later typed-client registration changes the single-service resolution rather than retaining the requested singleton cache owner.
+      - Preserves app-wide cache ownership with unambiguous registrations rather than making all state transient.
+      - Provides usable registration and ownership changes, accepting a named-client factory, a transient typed consumer with a separate singleton cache, or a verified connection-recycling policy for a retained client.
+      - Does not perform or claim network, device, or build validation for this advice-only request.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: di-shared-http-cache
+        agent: *reference_agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              AddHttpClient<IProductCatalog, ProductCatalog>() registers a transient
+              typed client after your singleton registration. A single resolution
+              uses the later registration, so it does not retain one shared cache.
+              Keep AddSingleton<IProductCatalog, ProductCatalog>(), replace the
+              typed registration with AddHttpClient("products", c =>
+              c.BaseAddress = new Uri("https://api.example.com/")), and change
+              ProductCatalog to inject IHttpClientFactory. In each cache-miss
+              operation use using var client = clients.CreateClient("products");
+              await the HTTP request before disposal. The factory owns its pooled
+              handlers; your catalog owns the cache. Alternatively move the cache
+              to a separately registered singleton and keep the typed consumer
+              transient. A retained client with an appropriate verified
+              PooledConnectionLifetime is another valid design. No commands,
+              network requests, file edits or validation were performed.

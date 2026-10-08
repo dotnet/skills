@@ -1,7 +1,7 @@
 // Paid judges are intentionally excluded; use the production parser and static oracle graders.
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { rm } from "node:fs/promises";
+import { execFileSync, spawnSync } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -119,4 +119,88 @@ for (const [index, original] of spec.stimuli.entries()) {
   }
   console.log(`PASS: production oracle golden acceptance / mutation rejection: ${original.name}`);
 }
-console.log("PASS: 13 goldens, 18 mutations and 10 alternatives; no agent execution or paid prompt grader");
+console.log("PASS: 14 goldens, 19 mutations and 10 alternatives; no agent execution or paid prompt grader");
+
+const reference = await readFile(resolve(root,
+  "plugins/dotnet-maui/skills/maui-dependency-injection/references/dependency-injection-api.md"), "utf8");
+const httpSection = reference.split("## Shared Cache and HTTP Client Ownership\n")[1]
+  .split("## Constructor Injection\n")[0];
+const examples = [...httpSection.matchAll(/```csharp\n([\s\S]*?)\n```/g)].map(m => m[1]);
+assert.equal(examples.length, 2, "Compile the exact shipping HTTP registration and service");
+await mkdir(resolve(here, ".local"), { recursive: true });
+const httpWorkspace = await mkdtemp(resolve(here, ".local/http-"));
+try {
+  await writeFile(resolve(httpWorkspace, "Probe.csproj"),
+    await readFile(resolve(here, "MauiDiProbe/MauiDiProbe.csproj")));
+  await writeFile(resolve(httpWorkspace, "ProductCatalog.cs"), examples[1]);
+  const program = `using Microsoft.Extensions.DependencyInjection;
+using System.Net;
+
+var services = new ServiceCollection();
+${examples[0].replaceAll("builder.Services", "services")}
+var handler = new LocalHandler();
+services.AddHttpClient("products").ConfigurePrimaryHttpMessageHandler(() => handler);
+using var provider = services.BuildServiceProvider();
+var first = provider.GetRequiredService<ProductCatalog>();
+var second = provider.GetRequiredService<ProductCatalog>();
+if (!ReferenceEquals(first, second))
+    throw new InvalidOperationException("Documented cache owner must remain shared");
+if (await first.GetNameAsync(1) != "Product" ||
+    await second.GetNameAsync(1) != "Product" ||
+    await second.GetNameAsync(2) != "Product" || handler.Requests != 2)
+    throw new InvalidOperationException("Documented HTTP cache contract failed");
+handler.Fail = true;
+try
+{
+    await first.GetNameAsync(3);
+    throw new InvalidOperationException("HTTP failure was concealed");
+}
+catch (HttpRequestException) { }
+var conflicting = new ServiceCollection();
+conflicting.AddSingleton<TypedCatalog>();
+conflicting.AddHttpClient<TypedCatalog>(client =>
+    client.BaseAddress = new Uri("https://api.example.com/"));
+using var conflictingProvider = conflicting.BuildServiceProvider();
+var typedFirst = conflictingProvider.GetRequiredService<TypedCatalog>();
+var typedSecond = conflictingProvider.GetRequiredService<TypedCatalog>();
+if (ReferenceEquals(typedFirst, typedSecond) ||
+    typedFirst.Client.BaseAddress != new Uri("https://api.example.com/"))
+    throw new InvalidOperationException("Typed registration overwrite was not reproduced");
+Console.WriteLine("PASS: shipping named-client example preserves cache and propagates HTTP failure");
+Console.WriteLine("PASS: later typed-client registration overrides singleton resolution");
+
+public sealed class TypedCatalog(HttpClient client)
+{
+    public HttpClient Client { get; } = client;
+}
+
+sealed class LocalHandler : HttpMessageHandler
+{
+    public int Requests { get; private set; }
+    public bool Fail { get; set; }
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request, CancellationToken token)
+    {
+        if (request.RequestUri?.Host != "api.example.com")
+            throw new InvalidOperationException("Named-client configuration was lost");
+        Requests++;
+        return Task.FromResult(new HttpResponseMessage(
+            Fail ? HttpStatusCode.InternalServerError : HttpStatusCode.OK)
+            { Content = new StringContent("Product") });
+    }
+}`;
+  await writeFile(resolve(httpWorkspace, "Program.cs"), program);
+  console.log(execFileSync("dotnet", ["run", "--project", "Probe.csproj", "--verbosity", "quiet"],
+    { cwd: httpWorkspace, encoding: "utf8" }).trim());
+  assert.ok(program.includes("AddSingleton<ProductCatalog>"));
+  await writeFile(resolve(httpWorkspace, "Program.cs"),
+    program.replace("AddSingleton<ProductCatalog>", "AddTransient<ProductCatalog>"));
+  const broken = spawnSync("dotnet", ["run", "--project", "Probe.csproj", "--no-restore",
+    "--verbosity", "quiet"], { cwd: httpWorkspace, encoding: "utf8" });
+  assert.equal(broken.error, undefined);
+  assert.notEqual(broken.status, 0);
+  assert.match(broken.stdout + broken.stderr, /Documented cache owner must remain shared/);
+  console.log("PASS: transient cache-owner mutation rejected; no real network requests");
+} finally {
+  await rm(httpWorkspace, { recursive: true, force: true });
+}
