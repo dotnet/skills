@@ -80,8 +80,9 @@ and inflate its turns/cost even when the final answer and comparison complete.
 
 The launcher installs a Vally-version-checked workspace adapter for that local
 provider. Absolute reads and mutations inside the trial's actual workspace use
-the host filesystem. Canonical-path checks reject accesses through parents
-escaping the workspace and writes through unresolved symlinks; new output paths
+the host filesystem. For paths that remain stable during an operation,
+canonical-path checks reject accesses through parents escaping the workspace
+and writes through unresolved symlinks; new output paths
 are checked against their existing ancestors. Rename and removal operate on a
 final symlink entry rather than its target. Removing or renaming the workspace
 root is prohibited. Relative session paths, log-root paths and other providers
@@ -93,6 +94,27 @@ writes and the SDK's synchronous provider-factory contract:
 ```bash
 node --test eng/evaluation-tools/*.test.mjs
 ```
+
+**Concurrency/security limitation:** this adapter is path-routing compatibility
+logic, not an atomic filesystem-confinement boundary or a security sandbox.
+Canonicalization and the subsequent pathname-based operation are separate:
+a concurrent process can replace a checked parent directory with a symlink
+before the read or mutation opens it, redirecting the operation outside the
+workspace. The tests above cover stable-path behavior, not swap-race resistance.
+Vally 0.14's executor uses `approveAll`; tool permissions do not establish an
+independent adversarial boundary for this host-side provider.
+
+The existing Node filesystem APIs and SDK provider interface do not supply
+descriptor-relative traversal for the full read/create/mkdir/rename/remove
+contract. `O_NOFOLLOW` on a final file open does not protect intermediate
+parents. Rechecking paths or serializing provider calls cannot prevent another
+process from swapping them. If adversarial confinement is required, an
+engineering decision is needed: use a provider with platform-native atomic
+traversal, or enforce an equivalent OS isolation boundary around the Node
+provider and every workspace writer. A sandbox around only the CLI is not
+evidence that provider I/O is isolated. Until such a boundary is implemented
+and validated, do not rely on this adapter to confine untrusted concurrent
+workspace processes.
 
 Reassess this compatibility layer on a Vally/SDK upgrade. A local launcher fix
 does not retroactively repair earlier trajectories, and CI uses its trusted
