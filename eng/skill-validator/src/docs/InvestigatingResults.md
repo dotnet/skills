@@ -211,6 +211,24 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > are limited to a small exact local-command allowlist, and MCP access is
 > limited to registered, sanitized servers and their explicitly declared
 > tools; an omitted tool list permits none, while an explicit `*` permits all.
+> Normal shell pre-tool hooks defer to the SDK's typed shell permission request,
+> where path and URL metadata is available for those checks. Generic hook
+> permission requests remain unsupported and are rejected.
+> When the SDK cannot classify a required, repository-owned acceptance helper,
+> a scenario may declare `allow_shell_commands`; entries are trusted evaluator
+> configuration and authorize only an exact command after whitespace
+> normalization. Every exact command also requires `trusted_shell_files` entries
+> with workspace-relative paths and SHA-256 digests. The evaluator verifies each
+> declared file immediately before approval, rejects missing, linked, escaped,
+> or modified files, and therefore cannot execute a writable helper merely
+> because its command text is allowlisted. Include every repository-owned script
+> or module the command executes. URL and filesystem-link denials still take
+> precedence, and `deny_shell` overrides the allowlist.
+> The authenticated SDK routing regression test is opt-in because it invokes
+> a real model. Run it with
+> `SKILL_VALIDATOR_PERMISSION_E2E_MODEL=<model> dotnet test eng/skill-validator/tests/SkillValidator.Tests.csproj --filter "FullyQualifiedName~ShellPermissionRuntimeIntegrationTests"`.
+> It gates the real permission callback before approving an allowed shell call
+> and verifies that an outside-workspace request is rejected without execution.
 > The native evaluator currently accepts only the repository's shipped
 > `dotnet dnx Microsoft.AITools.BinlogMcp --yes --prerelease` stdio launch
 > shape as input, then rewrites it to package version 3.0.2 with a

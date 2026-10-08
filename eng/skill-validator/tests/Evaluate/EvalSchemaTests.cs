@@ -343,6 +343,33 @@ public class ParseEvalConfigTests
     }
 
     [TestMethod]
+    [DataRow("stimuli")]
+    [DataRow("scenarios")]
+    public void ParsesExactScenarioShellCommandAllowlist(string scenarioKey)
+    {
+        var config = EvalSchema.ParseEvalConfigFlexible($$"""
+            {{scenarioKey}}:
+              - name: Run trusted helper
+                prompt: Run the acceptance helper.
+                allow_shell_commands:
+                  - node _acceptance/audit-lifecycle.mjs MyApp --json
+                trusted_shell_files:
+                  - path: _acceptance/audit-lifecycle.mjs
+                    sha256: a08ed6509d365725d5926ddd73cbd2d833afc0cfcc9dec40111ebc7e37c23308
+            """);
+
+        Assert.IsNotNull(config);
+        Assert.AreSequenceEqual(
+            ["node _acceptance/audit-lifecycle.mjs MyApp --json"],
+            config.Scenarios[0].AllowShellCommands!);
+        Assert.AreEqual(
+            new TrustedShellFile(
+                "_acceptance/audit-lifecycle.mjs",
+                "a08ed6509d365725d5926ddd73cbd2d833afc0cfcc9dec40111ebc7e37c23308"),
+            config.Scenarios[0].TrustedShellFiles!.Single());
+    }
+
+    [TestMethod]
     public async Task VallyRunCommandPreservesNestedQuotes()
     {
         var shellCommand = OperatingSystem.IsWindows()

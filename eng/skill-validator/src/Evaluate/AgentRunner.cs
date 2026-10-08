@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Security.AccessControl;
+using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
@@ -322,10 +323,116 @@ public static class AgentRunner
         if (string.IsNullOrWhiteSpace(command))
             return false;
 
-        var normalized = string.Join(
+        var normalized = NormalizeShellCommand(command);
+        return AllowedPathlessShellCommands.Contains(normalized);
+    }
+
+    internal static bool IsExplicitlyAllowedShellCommand(
+        string? command,
+        IReadOnlyList<string>? allowedCommands)
+    {
+        if (string.IsNullOrWhiteSpace(command) || allowedCommands is not { Count: > 0 })
+            return false;
+
+        var normalized = NormalizeShellCommand(command);
+        return allowedCommands.Any(allowed =>
+            normalized.Equals(NormalizeShellCommand(allowed), StringComparison.Ordinal));
+    }
+
+    private static string NormalizeShellCommand(string command) =>
+        string.Join(
             ' ',
             command.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-        return AllowedPathlessShellCommands.Contains(normalized);
+
+    internal static bool ValidateTrustedShellFiles(
+        string workDir,
+        IReadOnlyList<TrustedShellFile>? trustedFiles,
+        Action<string>? log,
+        string? runLabel = null)
+    {
+        var labelSuffix = runLabel is not null ? $" ({runLabel})" : "";
+        if (trustedFiles is not { Count: > 0 })
+        {
+            log?.Invoke($"      ❌ Denying explicitly allowed shell command without trusted file digests{labelSuffix}");
+            return false;
+        }
+
+        var canonicalWorkDir = Path.TrimEndingDirectorySeparator(Path.GetFullPath(workDir));
+        var comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+        foreach (var trustedFile in trustedFiles)
+        {
+            if (string.IsNullOrWhiteSpace(trustedFile.Path)
+                || Path.IsPathRooted(trustedFile.Path)
+                || !Regex.IsMatch(trustedFile.Sha256, "^[0-9a-fA-F]{64}$",
+                    RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
+            {
+                log?.Invoke($"      ❌ Invalid trusted shell file declaration{labelSuffix}: {trustedFile.Path}");
+                return false;
+            }
+
+            string fullPath;
+            try
+            {
+                fullPath = Path.GetFullPath(Path.Combine(canonicalWorkDir, trustedFile.Path));
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                log?.Invoke($"      ❌ Invalid trusted shell file path{labelSuffix}: {trustedFile.Path}");
+                return false;
+            }
+            if (!fullPath.StartsWith(canonicalWorkDir + Path.DirectorySeparatorChar, comparison))
+            {
+                log?.Invoke($"      ❌ Trusted shell file escapes the work directory{labelSuffix}: {trustedFile.Path}");
+                return false;
+            }
+            if (PathSafety.ContainsReparsePoint(
+                canonicalWorkDir,
+                fullPath,
+                missingPathIsUnsafe: true))
+            {
+                log?.Invoke($"      ❌ Trusted shell file path contains a link{labelSuffix}: {trustedFile.Path}");
+                return false;
+            }
+
+            FileInfo file;
+            try
+            {
+                file = new FileInfo(fullPath);
+                if (!file.Exists || (file.Attributes & FileAttributes.ReparsePoint) != 0)
+                {
+                    log?.Invoke($"      ❌ Trusted shell file is missing or linked{labelSuffix}: {trustedFile.Path}");
+                    return false;
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                log?.Invoke($"      ❌ Unable to inspect trusted shell file{labelSuffix}: {trustedFile.Path}");
+                return false;
+            }
+
+            string actualHash;
+            try
+            {
+                using var stream = file.OpenRead();
+                actualHash = Convert.ToHexString(SHA256.HashData(stream));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                log?.Invoke($"      ❌ Unable to hash trusted shell file{labelSuffix}: {trustedFile.Path}");
+                return false;
+            }
+
+            if (!actualHash.Equals(trustedFile.Sha256, StringComparison.OrdinalIgnoreCase))
+            {
+                log?.Invoke($"      ❌ Trusted shell file digest mismatch{labelSuffix}: {trustedFile.Path}");
+                return false;
+            }
+        }
+
+        return true;
     }
 
     internal static bool CheckPermissions(IEnumerable<string>? reqPaths, string workDir, string? skillPath, Action<string>? log, string? runLabel = null, string? pluginRoot = null, IReadOnlyList<string>? additionalAllowedDirs = null)
@@ -341,7 +448,9 @@ public static class AgentRunner
         Action<string>? log,
         string? runLabel = null,
         string? pluginRoot = null,
-        IReadOnlyList<string>? additionalAllowedDirs = null)
+        IReadOnlyList<string>? additionalAllowedDirs = null,
+        IReadOnlyList<string>? explicitlyAllowedCommands = null,
+        IReadOnlyList<TrustedShellFile>? trustedShellFiles = null)
     {
         var hasUrl = request.PossibleUrls is { Length: > 0 }
             || request.FullCommandText?.Contains("://", StringComparison.OrdinalIgnoreCase) == true;
@@ -359,11 +468,21 @@ public static class AgentRunner
             return false;
         }
 
+        var explicitlyAllowed = IsExplicitlyAllowedShellCommand(
+            request.FullCommandText,
+            explicitlyAllowedCommands);
         if (request.PossiblePaths is not { Length: > 0 }
-            && !IsAllowedPathlessShellCommand(request.FullCommandText))
+            && !IsAllowedPathlessShellCommand(request.FullCommandText)
+            && !explicitlyAllowed)
         {
             var labelSuffix = runLabel is not null ? $" ({runLabel})" : "";
             log?.Invoke($"      ❌ Denying unclassified shell permission request{labelSuffix}");
+            return false;
+        }
+
+        if (explicitlyAllowed
+            && !ValidateTrustedShellFiles(workDir, trustedShellFiles, log, runLabel))
+        {
             return false;
         }
 
@@ -501,7 +620,10 @@ public static class AgentRunner
         IReadOnlyList<AgentInfo>? additionalAgents = null,
         bool denyShell = false,
         Action<string?>? onShellDenied = null,
-        bool selectAgentAsPrimary = false)
+        bool selectAgentAsPrimary = false,
+        Func<PermissionRequest, Task>? beforePermissionDecision = null,
+        IReadOnlyList<string>? explicitlyAllowedShellCommands = null,
+        IReadOnlyList<TrustedShellFile>? trustedShellFiles = null)
     {
         // Runtime guard: Skill and Agent are mutually exclusive targets.
         // (additionalSkills/additionalAgents are cross-dependencies and may co-exist with either target.)
@@ -727,18 +849,22 @@ public static class AgentRunner
                 configDir,
                 workDir,
                 new[] { workDir }.Concat(additionalAllowedDirs)),
-            OnPermissionRequest = (request, invocation) =>
+            OnPermissionRequest = async (request, invocation) =>
             {
+                if (beforePermissionDecision is not null)
+                    await beforePermissionDecision(request);
                 if (denyShell && request is PermissionRequestShell)
                     RecordShellDenial(invocation?.SessionId);
-                return Task.FromResult(DecidePermissionRequest(
+                return DecidePermissionRequest(
                     request,
                     workDir,
                     verbose ? log : null,
                     runLabel,
                     additionalAllowedDirs,
                     sdkMcp,
-                    denyShell));
+                    denyShell,
+                    explicitlyAllowedShellCommands,
+                    trustedShellFiles);
             },
             Hooks = new SessionHooks
             {
@@ -771,14 +897,20 @@ public static class AgentRunner
                     if (IsShellTool(input.ToolName))
                     {
                         if (denyShell)
-                            RecordShellDenial(input.SessionId ?? invocation?.SessionId);
-                        return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
                         {
-                            PermissionDecision = denyShell ? "deny" : "ask",
-                            PermissionDecisionReason = denyShell
-                                ? "All shell execution is denied by evaluation policy; file tools retain their existing permissions"
-                                : "Validate shell command paths",
-                        });
+                            RecordShellDenial(input.SessionId ?? invocation?.SessionId);
+                            return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
+                            {
+                                PermissionDecision = "deny",
+                                PermissionDecisionReason =
+                                    "All shell execution is denied by evaluation policy; file tools retain their existing permissions",
+                            });
+                        }
+
+                        // Shell calls are authorized by the typed permission request below.
+                        // Returning "ask" here creates a PermissionRequestHook instead, which
+                        // has no path or URL metadata and is intentionally rejected.
+                        return Task.FromResult<PreToolUseHookOutput?>(null);
                     }
 
                     var reqPaths = ExtractPathsFromToolArgs(input);
@@ -815,7 +947,9 @@ public static class AgentRunner
         string runLabel,
         IReadOnlyList<string> additionalAllowedDirs,
         IDictionary<string, McpServerConfig>? allowedMcpServers,
-        bool denyShell = false)
+        bool denyShell = false,
+        IReadOnlyList<string>? explicitlyAllowedShellCommands = null,
+        IReadOnlyList<TrustedShellFile>? trustedShellFiles = null)
     {
         GitHub.Copilot.Rpc.PermissionDecision CheckPath(string? path)
         {
@@ -848,7 +982,9 @@ public static class AgentRunner
                 log,
                 runLabel,
                 pluginRoot: null,
-                additionalAllowedDirs)
+                additionalAllowedDirs,
+                explicitlyAllowedShellCommands,
+                trustedShellFiles)
                     ? GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce()
                     : GitHub.Copilot.Rpc.PermissionDecision.Reject(
                         "Path outside allowed directories, network access requested, or command not allowlisted"),
@@ -964,7 +1100,7 @@ public static class AgentRunner
             : options.Agent is not null ? "agent-isolated"
             : "skilled-isolated";
         return await RetryHelper.ExecuteWithRetry(
-            async ct => await RunAgentCore(options, ct),
+            async ct => await RunAgentCore(options, ct, null),
             label: $"RunAgent({options.Scenario.Name}, {runType})",
             maxRetries: 2,
             baseDelayMs: 5_000,
@@ -972,7 +1108,16 @@ public static class AgentRunner
             cancellationToken: cancellationToken);
     }
 
-    private static async Task<RunMetrics> RunAgentCore(RunOptions options, CancellationToken cancellationToken)
+    internal static Task<RunMetrics> RunAgentWithPermissionObserver(
+        RunOptions options,
+        Func<PermissionRequest, Task> beforePermissionDecision,
+        CancellationToken cancellationToken = default)
+        => RunAgentCore(options, cancellationToken, beforePermissionDecision);
+
+    private static async Task<RunMetrics> RunAgentCore(
+        RunOptions options,
+        CancellationToken cancellationToken,
+        Func<PermissionRequest, Task>? beforePermissionDecision)
     {
         var workDir = await SetupWorkDir(options.Scenario, options.Skill?.Path, options.EvalPath);
         if (options.Verbose)
@@ -1001,7 +1146,10 @@ public static class AgentRunner
                         {
                             agentEvent.Data["sessionId"] = JsonValue.Create(requestingSessionId);
                         }),
-                    selectAgentAsPrimary: options.SelectAgentAsPrimary));
+                    selectAgentAsPrimary: options.SelectAgentAsPrimary,
+                    beforePermissionDecision: beforePermissionDecision,
+                    explicitlyAllowedShellCommands: options.Scenario.AllowShellCommands,
+                    trustedShellFiles: options.Scenario.TrustedShellFiles));
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;
@@ -1043,6 +1191,24 @@ public static class AgentRunner
                         case ToolExecutionCompleteEvent toolComplete:
                             agentEvent.Data["success"] = JsonValue.Create(toolComplete.Data.Success);
                             agentEvent.Data["result"] = JsonValue.Create(toolComplete.Data.Result?.Content ?? toolComplete.Data.Error?.Message ?? "");
+                            agentEvent.Data["toolCallId"] = JsonValue.Create(toolComplete.Data.ToolCallId);
+                            break;
+                        case PermissionRequestedEvent permissionRequested:
+                            agentEvent.Data["requestId"] = JsonValue.Create(permissionRequested.Data.RequestId);
+                            agentEvent.Data["permissionKind"] =
+                                JsonValue.Create(permissionRequested.Data.PermissionRequest.Kind);
+                            if (permissionRequested.Data.PermissionRequest is PermissionRequestShell shellRequest)
+                            {
+                                agentEvent.Data["fullCommandText"] =
+                                    JsonValue.Create(shellRequest.FullCommandText);
+                                agentEvent.Data["toolCallId"] = JsonValue.Create(shellRequest.ToolCallId);
+                            }
+                            break;
+                        case PermissionCompletedEvent permissionCompleted:
+                            agentEvent.Data["requestId"] = JsonValue.Create(permissionCompleted.Data.RequestId);
+                            agentEvent.Data["toolCallId"] = JsonValue.Create(permissionCompleted.Data.ToolCallId);
+                            agentEvent.Data["resultKind"] =
+                                JsonValue.Create(permissionCompleted.Data.Result.Kind);
                             break;
                         case SkillInvokedEvent skillInvoked:
                             agentEvent.Data["name"] = JsonValue.Create(skillInvoked.Data.Name);

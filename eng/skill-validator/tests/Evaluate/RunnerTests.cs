@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Security.AccessControl;
+using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
@@ -9,6 +10,8 @@ using SkillValidator.Evaluate;
 using SkillValidator.Shared;
 
 namespace SkillValidator.Tests;
+
+#pragma warning disable GHCP001 // Tests intentionally exercise the SDK's evaluation permission contract.
 
 [TestClass]
 [DoNotParallelize]
@@ -20,6 +23,35 @@ public class BuildSessionConfigTests
         Path: Path.Combine("C:", "home", "user", "skills", "test-skill"),
         SkillMdPath: Path.Combine("C:", "home", "user", "skills", "test-skill", "SKILL.md"),
         SkillMdContent: "# Test");
+
+    private static async Task<bool> RunShellPermissionPipelineAsync(
+        SessionConfig config,
+        PermissionRequestShell request,
+        Func<PermissionRequest, PermissionInvocation, Task<GitHub.Copilot.Rpc.PermissionDecision>>? permissionHandler = null,
+        Action? execute = null)
+    {
+        var args = JsonDocument.Parse(
+            JsonSerializer.Serialize(new { command = request.FullCommandText })).RootElement;
+        var preToolResult = await config.Hooks!.OnPreToolUse!(
+            new PreToolUseHookInput
+            {
+                ToolName = "bash",
+                ToolArgs = args,
+                SessionId = "test-session",
+            },
+            new HookInvocation { SessionId = "test-session" });
+        if (preToolResult is not null)
+            return false;
+
+        var decision = await (permissionHandler ?? config.OnPermissionRequest!)(
+            request,
+            new PermissionInvocation { SessionId = "test-session" });
+        if (decision.Kind != "approve-once")
+            return false;
+
+        execute?.Invoke();
+        return true;
+    }
 
     private static MCPServerDef SafeMcpServer(
         string[]? tools = null,
@@ -417,7 +449,326 @@ public class BuildSessionConfigTests
             new PreToolUseHookInput { ToolName = toolName, ToolArgs = args },
             null!);
 
-        Assert.AreEqual("ask", result!.PermissionDecision);
+        Assert.IsNull(result);
+        Assert.IsNotNull(config.OnPermissionRequest);
+    }
+
+    [TestMethod]
+    public async Task UnexpectedShellHookPermissionRequestIsDenied()
+    {
+        var config = await AgentRunner.BuildSessionConfig(
+            MockSkill, null, "gpt-4.1", AgentRunner.GetEvaluationRoot());
+        var decision = await config.OnPermissionRequest!(
+            new PermissionRequestHook
+            {
+                Kind = "hook",
+                ToolName = "bash",
+                ToolArgs = JsonDocument.Parse("""{"command":"git status --short"}""").RootElement,
+                HookMessage = "Run a shell command",
+                ToolCallId = "unexpected-shell-hook",
+            },
+            null!);
+
+        Assert.AreEqual("reject", decision.Kind);
+    }
+
+    [TestMethod]
+    public async Task ShellExecutionWaitsForTypedPermissionApproval()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var allowedPath = Path.Combine(workDir, "src", "Program.cs");
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = $"cat \"{allowedPath}\"",
+            HasWriteFileRedirection = false,
+            Intention = "Read a source file",
+            PossiblePaths = [allowedPath],
+            PossibleUrls = [],
+            ToolCallId = "pending-shell",
+        };
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var executed = false;
+
+        async Task<GitHub.Copilot.Rpc.PermissionDecision> GatedPermission(
+            PermissionRequest permission,
+            PermissionInvocation invocation)
+        {
+            entered.SetResult();
+            await release.Task;
+            return await config.OnPermissionRequest!(permission, invocation);
+        }
+
+        var pipeline = RunShellPermissionPipelineAsync(
+            config, request, GatedPermission, () => executed = true);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.IsFalse(pipeline.IsCompleted);
+        Assert.IsFalse(executed);
+
+        release.SetResult();
+        Assert.IsTrue(await pipeline);
+        Assert.IsTrue(executed);
+    }
+
+    [TestMethod]
+    public async Task RejectedTypedShellPermissionNeverExecutes()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var executed = false;
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = "cat /etc/passwd",
+            HasWriteFileRedirection = false,
+            Intention = "Read outside the workspace",
+            PossiblePaths = ["/etc/passwd"],
+            PossibleUrls = [],
+            ToolCallId = "rejected-shell",
+        };
+
+        Assert.IsFalse(await RunShellPermissionPipelineAsync(
+            config, request, execute: () => executed = true));
+        Assert.IsFalse(executed);
+    }
+
+    [TestMethod]
+    public async Task ExactScenarioShellCommandAllowsUnclassifiedRequest()
+    {
+        const string command = "node _acceptance/audit-lifecycle.mjs MyApp --json";
+        var workDir = Directory.CreateTempSubdirectory("trusted-shell-");
+        try
+        {
+            var helperDirectory = Directory.CreateDirectory(Path.Combine(workDir.FullName, "_acceptance"));
+            var helperPath = Path.Combine(helperDirectory.FullName, "audit-lifecycle.mjs");
+            await File.WriteAllTextAsync(helperPath, "console.log('ok');");
+            var trustedFile = new TrustedShellFile(
+                "_acceptance/audit-lifecycle.mjs",
+                Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(helperPath))));
+            var config = await AgentRunner.BuildSessionConfig(
+                null,
+                null,
+                "gpt-4.1",
+                workDir.FullName,
+                explicitlyAllowedShellCommands: [command],
+                trustedShellFiles: [trustedFile]);
+            var request = new PermissionRequestShell
+            {
+                CanOfferSessionApproval = false,
+                Commands = [],
+                FullCommandText = " node   _acceptance/audit-lifecycle.mjs   MyApp   --json ",
+                HasWriteFileRedirection = false,
+                Intention = "Run the authenticated acceptance helper",
+                PossiblePaths = [],
+                PossibleUrls = [],
+                ToolCallId = "allowed-scenario-shell",
+            };
+
+            var decision = await config.OnPermissionRequest!(request, null!);
+
+            Assert.AreEqual("approve-once", decision.Kind);
+        }
+        finally
+        {
+            workDir.Delete(recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public async Task ScenarioShellCommandWithoutTrustedFileDigestsIsRejected()
+    {
+        const string command = "node _acceptance/audit-lifecycle.mjs MyApp --json";
+        var config = await AgentRunner.BuildSessionConfig(
+            null,
+            null,
+            "gpt-4.1",
+            AgentRunner.GetEvaluationRoot(),
+            explicitlyAllowedShellCommands: [command]);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = command,
+            HasWriteFileRedirection = false,
+            Intention = "Run an unauthenticated acceptance helper",
+            PossiblePaths = [],
+            PossibleUrls = [],
+            ToolCallId = "missing-trusted-file",
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.AreEqual("reject", decision.Kind);
+    }
+
+    [TestMethod]
+    public async Task ModifiedTrustedShellHelperIsRejectedBeforeExecution()
+    {
+        const string command = "node _acceptance/audit-lifecycle.mjs MyApp --json";
+        var workDir = Directory.CreateTempSubdirectory("trusted-shell-");
+        try
+        {
+            var helperDirectory = Directory.CreateDirectory(Path.Combine(workDir.FullName, "_acceptance"));
+            var helperPath = Path.Combine(helperDirectory.FullName, "audit-lifecycle.mjs");
+            await File.WriteAllTextAsync(helperPath, "console.log('reviewed');");
+            var trustedFile = new TrustedShellFile(
+                "_acceptance/audit-lifecycle.mjs",
+                Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(helperPath))));
+            await File.WriteAllTextAsync(helperPath, "console.log('modified');");
+            var config = await AgentRunner.BuildSessionConfig(
+                null,
+                null,
+                "gpt-4.1",
+                workDir.FullName,
+                explicitlyAllowedShellCommands: [command],
+                trustedShellFiles: [trustedFile]);
+            var executed = false;
+            var request = new PermissionRequestShell
+            {
+                CanOfferSessionApproval = false,
+                Commands = [],
+                FullCommandText = command,
+                HasWriteFileRedirection = false,
+                Intention = "Run a modified acceptance helper",
+                PossiblePaths = [],
+                PossibleUrls = [],
+                ToolCallId = "modified-trusted-file",
+            };
+
+            Assert.IsFalse(await RunShellPermissionPipelineAsync(
+                config, request, execute: () => executed = true));
+            Assert.IsFalse(executed);
+        }
+        finally
+        {
+            workDir.Delete(recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public async Task ScenarioShellCommandAllowlistRequiresExactNormalizedCommand()
+    {
+        var config = await AgentRunner.BuildSessionConfig(
+            null,
+            null,
+            "gpt-4.1",
+            AgentRunner.GetEvaluationRoot(),
+            explicitlyAllowedShellCommands:
+            [
+                "node _acceptance/audit-lifecycle.mjs MyApp --json",
+            ]);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = "node _acceptance/audit-lifecycle.mjs /etc --json",
+            HasWriteFileRedirection = false,
+            Intention = "Alter the trusted command target",
+            PossiblePaths = [],
+            PossibleUrls = [],
+            ToolCallId = "changed-scenario-shell",
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.AreEqual("reject", decision.Kind);
+    }
+
+    [TestMethod]
+    public async Task ShellDenialOverridesScenarioCommandAllowlist()
+    {
+        const string command = "node _acceptance/audit-lifecycle.mjs MyApp --json";
+        var config = await AgentRunner.BuildSessionConfig(
+            null,
+            null,
+            "gpt-4.1",
+            AgentRunner.GetEvaluationRoot(),
+            denyShell: true,
+            explicitlyAllowedShellCommands: [command]);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = command,
+            HasWriteFileRedirection = false,
+            Intention = "Run the authenticated acceptance helper",
+            PossiblePaths = [],
+            PossibleUrls = [],
+            ToolCallId = "denied-scenario-shell",
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.AreEqual("reject", decision.Kind);
+    }
+
+    [TestMethod]
+    [DataRow("curl https://example.com")]
+    [DataRow("ln -s source target")]
+    public async Task ScenarioCommandAllowlistDoesNotOverrideSafetyDenials(string command)
+    {
+        var config = await AgentRunner.BuildSessionConfig(
+            null,
+            null,
+            "gpt-4.1",
+            AgentRunner.GetEvaluationRoot(),
+            explicitlyAllowedShellCommands: [command]);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = command,
+            HasWriteFileRedirection = false,
+            Intention = "Attempt to bypass a safety denial",
+            PossiblePaths = [],
+            PossibleUrls = [],
+            ToolCallId = "unsafe-scenario-shell",
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.AreEqual("reject", decision.Kind);
+    }
+
+    [TestMethod]
+    public async Task ApprovedTypedShellPermissionPreservesRequestMetadataBeforeExecution()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var allowedPath = Path.Combine(workDir, "src", "Program.cs");
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var executed = false;
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = $"cat \"{allowedPath}\"",
+            HasWriteFileRedirection = false,
+            Intention = "Read a source file",
+            PossiblePaths = [allowedPath],
+            PossibleUrls = [],
+            ToolCallId = "allowed-shell",
+        };
+
+        async Task<GitHub.Copilot.Rpc.PermissionDecision> InspectPermission(
+            PermissionRequest permission,
+            PermissionInvocation invocation)
+        {
+            var shell = permission as PermissionRequestShell;
+            Assert.IsNotNull(shell);
+            Assert.AreEqual(request.FullCommandText, shell.FullCommandText);
+            Assert.AreEqual(request.ToolCallId, shell.ToolCallId);
+            Assert.AreSequenceEqual(request.PossiblePaths!, shell.PossiblePaths!);
+            Assert.IsFalse(executed);
+            return await config.OnPermissionRequest!(permission, invocation);
+        }
+
+        Assert.IsTrue(await RunShellPermissionPipelineAsync(
+            config, request, InspectPermission, () => executed = true));
+        Assert.IsTrue(executed);
     }
 
     [TestMethod]
@@ -1693,6 +2044,150 @@ public class BuildSessionConfigTests
         finally
         {
             Directory.Delete(pluginRoot, true);
+        }
+    }
+}
+
+#pragma warning restore GHCP001
+
+[TestClass]
+[DoNotParallelize]
+public class ShellPermissionRuntimeIntegrationTests
+{
+    [TestMethod]
+    [TestCategory("Integration")]
+    public async Task AllowedNativeShellCallUsesTypedPermissionAndExecutes()
+    {
+        var model = RequireModel();
+        var entered = new TaskCompletionSource<PermissionRequestShell>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var run = RunProbe(
+            model,
+            "Run `pwd` with the shell and report its exact output.",
+            async request =>
+            {
+                if (request is PermissionRequestShell shell)
+                    entered.TrySetResult(shell);
+                await release.Task;
+            });
+
+        try
+        {
+            var request = await entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            Assert.AreEqual("pwd", request.FullCommandText);
+            Assert.IsFalse(run.IsCompleted, "The agent run must wait for the real permission callback.");
+        }
+        finally
+        {
+            release.TrySetResult();
+        }
+        var allowed = await run;
+        AssertTypedShellResult(allowed, "pwd", approved: true);
+    }
+
+    [TestMethod]
+    [TestCategory("Integration")]
+    public async Task RejectedNativeShellCallUsesTypedPermissionAndDoesNotExecute()
+    {
+        var model = RequireModel();
+        var rejected = await RunProbe(
+            model,
+            "Run `cat /etc/passwd` with the shell and report whether it is permitted.");
+        AssertTypedShellResult(rejected, "cat /etc/passwd", approved: false);
+    }
+
+    private static string RequireModel()
+    {
+        var model = Environment.GetEnvironmentVariable("SKILL_VALIDATOR_PERMISSION_E2E_MODEL");
+        if (string.IsNullOrWhiteSpace(model))
+            Assert.Inconclusive(
+                "Set SKILL_VALIDATOR_PERMISSION_E2E_MODEL to run the authenticated native permission test.");
+        return model;
+    }
+
+    private static async Task<RunMetrics> RunProbe(
+        string model,
+        string instruction,
+        Func<PermissionRequest, Task>? beforePermissionDecision = null)
+    {
+        var root = Path.Combine(
+            AgentRunner.GetEvaluationRoot(),
+            $"shell-permission-e2e-{Guid.NewGuid():N}");
+        var skillDirectory = Path.Combine(root, "permission-probe");
+        Directory.CreateDirectory(skillDirectory);
+        try
+        {
+            var skillPath = Path.Combine(skillDirectory, "SKILL.md");
+            var skillContent = $"""
+                ---
+                name: permission-probe
+                description: Use only for the explicit evaluator permission probe.
+                ---
+
+                {instruction}
+                """;
+            File.WriteAllText(skillPath, skillContent);
+            var skill = new SkillInfo(
+                "permission-probe",
+                "Use only for the explicit evaluator permission probe.",
+                skillDirectory,
+                skillPath,
+                skillContent);
+            var scenario = new EvalScenario(
+                "Native shell permission probe",
+                "Use the relevant installed skill if available and complete its exact instruction.",
+                Timeout: 120);
+
+            var options = new RunOptions(scenario, skill, null, model, Verbose: false);
+            return beforePermissionDecision is null
+                ? await AgentRunner.RunAgent(options)
+                : await AgentRunner.RunAgentWithPermissionObserver(options, beforePermissionDecision);
+        }
+        finally
+        {
+            await AgentRunner.CleanupWorkDirs();
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static void AssertTypedShellResult(
+        RunMetrics metrics,
+        string expectedCommand,
+        bool approved)
+    {
+        var requested = Assert.ContainsSingle(metrics.Events.Where(agentEvent =>
+            agentEvent.Type == "permission.requested"
+            && agentEvent.Data.GetValueOrDefault("permissionKind")?.GetValue<string>() == "shell"));
+        Assert.IsTrue(
+            requested.Data["fullCommandText"]?.GetValue<string>()?.StartsWith(
+                expectedCommand,
+                StringComparison.Ordinal) == true);
+        var toolCallId = requested.Data["toolCallId"]?.GetValue<string>();
+        Assert.IsFalse(string.IsNullOrWhiteSpace(toolCallId));
+
+        var completed = Assert.ContainsSingle(metrics.Events.Where(agentEvent =>
+            agentEvent.Type == "permission.completed"
+            && agentEvent.Data.GetValueOrDefault("toolCallId")?.GetValue<string>() == toolCallId));
+        Assert.AreEqual(
+            approved ? "approved" : "denied-interactively-by-user",
+            completed.Data["resultKind"]?.GetValue<string>());
+
+        var execution = Assert.ContainsSingle(metrics.Events.Where(agentEvent =>
+            agentEvent.Type == "tool.execution_complete"
+            && agentEvent.Data.GetValueOrDefault("toolCallId")?.GetValue<string>() == toolCallId));
+        Assert.AreEqual(approved, execution.Data["success"]?.GetValue<bool>());
+        if (approved)
+        {
+            Assert.Contains("sv-", execution.Data["result"]?.GetValue<string>() ?? "");
+        }
+        else
+        {
+            Assert.Contains("rejected", execution.Data["result"]?.GetValue<string>() ?? "",
+                StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("root:", metrics.AgentOutput);
         }
     }
 }
