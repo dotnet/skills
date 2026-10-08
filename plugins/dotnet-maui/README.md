@@ -29,7 +29,48 @@ alone do not prove cost neutrality. Follow the repository's
 [quality bar](../../CONTRIBUTING.md#quality-bar), including preference significance
 and dormancy requirements.
 
-### Latest complete local comparison
+### Latest corrected safe-area comparison
+
+The prospective safe-area-only comparison measured
+`ead0f5011cc05e9340dbac0f6e3adc8794b91d6f` after the platform-aware guidance,
+keyboard graders/goldens and DI-reference correction. Original stimulus
+names/prompts/counts, activation expectations, one run and six-minute budget
+are unchanged. Each family ran baseline, isolated and eight-skill plugin roles
+with the default pinned native launcher and five workers: 11 tasks per role,
+33 per family. Both comparisons were conclusive, with zero errored/unmatched
+trials and exactly one matched raw shutdown in all 66 sessions.
+
+| Safe area | Reported W/T/L (p) | Isolated / plugin SDK delta | Positive activation isolated / plugin |
+|---|---|---|---|
+| Sonnet 5 / Terra | 9/1/0, pass (.001953125) | -13.6% / -10.6% | 9/10 / 8/10 |
+| Luna / Haiku | 7/3/0, pass (.0078125) | -3.4% / +0.035% | 9/10 / 9/10 |
+
+Both dormancy contracts passed. Working-input activation still misses in both
+families/roles; Sonnet plugin also misses repair. Aggregate failures
+baseline/isolated/plugin are 2/0/0 for Sonnet and 0/0/0 for Luna; failed-leaf
+trials are 5/0/0 and 1/1/0. Completion transitions
+(both/baseline-only/treatment-only/neither) are 9/0/2/0 and 11/0/0/0.
+All sessions record Copilot 1.0.80. Baseline failures include three Sonnet and
+14 Luna web fetches and one Luna missing-path view; no treatment tool failure
+was observed. Missing-path failure alone is not evidence of a root escape.
+
+SDK deltas are matched raw `totalNanoAiu` ratio-of-means, including dormancy and
+excluding judges, not invoices or cost-neutrality confidence intervals.
+Luna's paired isolated wall-clock interval excludes zero (-13,227 to -621 ms);
+Sonnet's includes zero (-19,678 to +1,685 ms). Both token intervals include zero.
+Neither these figures nor earlier runs prove a cost-neutral plugin default.
+
+One Luna form-comparison rationale explicitly credits skill activation, which
+is not a valid quality criterion. The actual answer covers sibling controls
+with a bounded layout, but the impact of that improper credit on the vote is
+unknown. The reported vote is retained, not rescored; do not present it as clean
+independent adoption certification. Human review, target-device acceptance,
+confirmed support and trusted-base official evidence remain outstanding.
+[Engineering CI 37749270876](https://github.com/dotnet/skills/actions/runs/37749270876)
+passed at the measured head on all four Linux/macOS x64/arm64 combinations.
+The other seven suites were not rerun; their prior records remain scoped below.
+
+### Previous complete local comparison
 
 The fifteenth full-eight comparison measured
 `a52530963deb5f3380c5a15574a2149aebc56821` using the default pinned native
@@ -102,10 +143,10 @@ Other generated failures include Sonnet's offline resolver failing to select
 the nested Android dependency key and a theme answer omitting the documented dictionary
 code-behind prerequisite. These are not invented source-content fixes.
 
-**Recommendation:** keep all eight task-specific and opt-in; add no automatic
+**Recommendation for the full-eight record:** keep all eight task-specific and opt-in; add no automatic
 project-default set on this evidence. Do not remove a skill solely for a
-positive-but-unproven comparison. Safe-area needs fresh corrected-contract
-measurement before further adoption review. Confirm actual support owners, land the reviewed
+positive-but-unproven comparison. At that revision, safe-area required fresh
+corrected-contract measurement before further adoption review. Confirm actual support owners, land the reviewed
 native harness in the trusted base, and obtain current official quality,
 activation and cost evidence before changing default distribution.
 
