@@ -4,9 +4,9 @@ description: >-
   Pseudo-mutation analysis ONLY: answer whether tests would catch a bug if
   production code changed, which meaningful changes would still pass, or which
   caller-visible mutations existing assertions would miss; verify candidates
-  when requested, then optionally close verified gaps. Activate for behavioral
-  blind spots or missing edge cases tied to production behavior. Polyglot. DO
-  NOT USE FOR: suite organization, taxonomy,
+  when requested, then optionally close verified gaps. Includes explicit
+  read-only per-test composition for grading. Activate for behavioral blind
+  spots tied to production behavior. Polyglot. DO NOT USE FOR: suite taxonomy,
   metadata, or distribution reports (test-tagging); .NET line-vs-branch or
   Cobertura interpretation, arithmetic, plateaus, project-wide coverage gaps,
   or coverage-backed test/CRAP priorities (coverage-analysis; use native
@@ -20,6 +20,22 @@ license: MIT
 Answer one question: **which caller-visible production behaviors could change
 without an existing test failing?** Mutation reasoning is a probe, not the goal.
 Inventory public outcomes first, then verify only credible gaps.
+
+## Composition dispatch
+
+Before entering the decision flow, check the caller's mode. An explicit
+`per-test-read-only` request (including composition from `grade-tests`) uses
+only [references/per-test-read-only.md](references/per-test-read-only.md).
+This mode is assessment context conveyed through the host's supported caller
+instructions, not a new skill-loader parameter or a mode-specific skill name.
+Read that reference and return its per-test assessment inline; **do not enter
+the standalone workflow below**. Loading this mode does not authorize a
+baseline run, mutation execution, file edits, suite discovery, or delegation.
+If the bundled reference is unavailable, allow at most one listing of the known
+`references/` directory, then return **N/A / unverified** with the reason.
+
+Requests without this mode retain the standalone analysis, verification, and
+test-addition paths below.
 
 ## Decision flow
 
@@ -204,6 +220,7 @@ calculate a score.
 |---|---|
 | **Likely killed** | An existing assertion observes the changed outcome |
 | **Candidate survivor (unverified)** | Observable change appears unasserted; not executed |
+| **Killed** | Exact observable mutation executed and a relevant assertion failed |
 | **Survived** | Exact observable mutation executed and tests stayed green |
 | **No coverage** | No test reaches the public outcome; report the missing branch without inventing a survivor |
 | **Equivalent** | No public observation changes; omit from findings |
@@ -222,8 +239,10 @@ requested test addition.
 
 1. Apply one candidate and confirm the diff changes exactly one intended
    expression.
-2. Run the narrowest covering test: green means **Survived**, red means
-   **Killed**, for that edit only.
+2. Run the narrowest covering test and confirm tests executed: green means
+   **Survived**; a failure at a relevant assertion means **Killed**, for that
+   edit only. Build, discovery, infrastructure, or unrelated failures leave
+   the candidate **unverified**, not Killed.
 3. Revert immediately and confirm the clean source/test baseline.
 4. After a green run, re-check the public counterfactual. Execution proves the
    suite missed the edit, not that the edit changes behavior; drop inert or
@@ -291,9 +310,10 @@ For focused or small analysis, return:
 Do not repeat the table in prose or report discarded mutants, tool chronology,
 or in-flight reasoning.
 
-For an exhaustive audit, add counts for Killed / Survived / No coverage /
-Equivalent and group findings by risk. Count only executed or definitively
-classified candidates.
+For an exhaustive audit, separate executed **Killed / Survived** counts from
+static **Likely killed / Candidate survivor (unverified)** classifications and
+**No coverage / Equivalent** inventory counts. Never include static reasoning
+in an empirical killed/total ratio. Group findings by risk.
 
 For test additions, name the tests added, the verified mutations they kill, and
 the successful final command.

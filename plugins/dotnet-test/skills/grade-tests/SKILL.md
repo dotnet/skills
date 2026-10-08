@@ -1,12 +1,14 @@
 ---
 name: grade-tests
 description: >
-  Assess a curated list of tests and produce a PR-ready table with a primary
-  Pass, Failed, Uncertain, or Not applicable result plus A-F quality detail for
-  every resolved test; Uncertain and Not applicable omit the grade. USE FOR new
-  or modified tests supplied as methods, bodies, file spans, or a bounded PR
-  diff. Polyglot: .NET, Python, TS/JS, Java, Go, Ruby, Rust, Swift, Kotlin,
-  PowerShell, C++. DO NOT USE FOR: suite-wide audits (use test-engineer or
+  Grade a curated list of individual tests for readiness, A-F quality, and
+  concrete improvements. ALWAYS USE FOR: grade tests, review only a named test,
+  per-test readiness decisions, or quality bands for supplied methods, bodies,
+  file spans, or bounded PR diffs, including existing tests. Produce a PR-ready
+  Pass, Failed, Uncertain, or Not applicable table; unresolved or empty scopes
+  omit the grade. Compose read-only per-test mutation evidence when available.
+  Polyglot: .NET, Python, TS/JS, Java, Go, Ruby, Rust, Swift, Kotlin,
+  PowerShell, C++. DO NOT USE FOR: suite-wide audits (test-engineer or
   test-anti-patterns), writing or fixing tests, or measuring coverage.
 license: MIT
 ---
@@ -19,6 +21,18 @@ PR-comment-friendly report. The primary result is one of **Pass**, **Failed**,
 diagnostic information. The skill **does not discover tests on its own** — the
 caller (typically a PR automation workflow or a human reviewer holding a
 specific list) provides the tests or a bounded diff to assess.
+
+After Step 0 admits a bounded scope, enforce these grading invariants:
+
+- With production context, compose `test-gap-analysis` in
+  `per-test-read-only` caller context before scoring; do not run its standalone
+  workflow. If unavailable, explicitly report N/A / unverified.
+- Any reported mutation inference must use **Likely killed (inferred)** or
+  **Candidate survivor (unverified)**, even when explained in prose.
+- Apply only the rubric below, not extra heuristics such as a duplicate-test
+  penalty. Do not use sibling tests to alter the individual assessment.
+- A **B** quality grade does not require a Failed result; a complete focused
+  test may have no actionable change.
 
 > **Language-specific guidance**: Call the `test-analysis-extensions` skill
 > to discover available extension files, then read the file matching the
@@ -64,7 +78,7 @@ quality and severity.
 |-------|----------|-------------|
 | Test methods | Yes | A scope to grade. Provide one of: (a) an explicit list of test method names (fully-qualified, e.g. `Namespace.ClassName.TestMethodName`); (b) one or more file paths plus an explicit instruction to grade every test declared in those files; or (c) a diff hunk / PR identifier whose changed tests should be graded. File paths are recommended but optional when method names are unambiguous in the workspace. Ambiguous requests like *"grade my tests"* with no scope are rejected up-front (see Step 0); this skill is for curated input and does not auto-grade an entire workspace. |
 | Test bodies / spans | Recommended | The exact source lines for each test method. If omitted, read them from the listed files. |
-| Production code | No | The code under test, for judging whether assertions cover the meaningful behaviors. When unavailable, mark relevant findings as "Unverified" rather than guessing. |
+| Production code | No | The code under test, for judging whether assertions cover the claimed behavior. When unavailable, mark the mutation assessment N/A / unverified rather than guessing or deducting. |
 | Diff context | No | When grading PR changes, the unified diff for each test method helps focus on what actually changed. |
 
 ### Step 0: Validate the input
@@ -112,7 +126,36 @@ For each entry in the input list:
    invent a body to grade. A missing requested method requires human review;
    it is not the same as a valid scope containing no tests.
 
-### Step 3: Score each resolved test
+### Step 3: Assess the claimed behavior and score each resolved test
+
+Keep grading read-only: no build/test runs, mutation execution, file edits,
+tool installation, broad suite discovery, or agent delegation. Resolve only
+the supplied tests, their relevant fixtures/helpers, and the production call
+chain needed for their claims.
+
+When production context is available, invoke `test-gap-analysis` once inline
+for the resolved batch with **`mode: per-test-read-only`**. Supply each test's
+identifier/body, relevant setup/helpers, claimed behavior, assertion semantics,
+and available source. Its composition dispatch loads the owned read-only
+reference rather than its standalone baseline/verification workflow. Consume
+its per-test evidence; do not duplicate its mutation catalog here or invoke an
+audit/generation agent.
+Convey mode and inputs as assessment context using the host's supported caller
+instructions. If the loader accepts only a skill name, load `test-gap-analysis`
+by name only; do not invent tool arguments or a mode-specific skill name.
+
+If the skill/reference or production context is unavailable, record
+`Pseudo-mutation: N/A / unverified — <reason>` and continue normal body-level
+grading. This is not a grade deduction or, by itself, an Uncertain result.
+Do not search installation directories or substitute a mutation runner.
+
+Assess only what each test claims: do not borrow another test's assertions,
+or demand unrelated branches, outputs, or scenarios. An observable survivor
+can support an existing Assertion strength category when it proves that the
+test does not verify its claimed outcome; do not introduce mutation points,
+weights, ceilings, or an automatic survivor penalty. Apply the existing rubric
+normally, including weaknesses it classifies in both Assertion and Anti-pattern
+dimensions; do not add another deduction for the same mutation evidence.
 
 Start every test at grade **A (score band 90–100)**, then apply deductions
 strictly for **observable issues** in the captured body. Do **not** deduct
@@ -138,7 +181,7 @@ assertion in the test body. Score from highest to lowest:
 |-----------|---------|
 | **A** | At least one meaningful value assertion (equality / structural / exception / state) plus, where appropriate, additional checks (negative, type, collection contents). Mock-call verifications (`Verify`, `toHaveBeenCalledWith`, `Should -Invoke`) and bare assertion forms (pytest `assert`, Go `if got != want { t.Errorf(...) }`, Rust `assert!()`) count as real assertions. |
 | **B** | One clear meaningful assertion that verifies the behavior under test. |
-| **C** | Only trivial assertions (single `IsNotNull` / `toBeDefined` / `assert x is not None`), or assertions that check a single field while the operation produces a richer result. |
+| **C** | Only trivial assertions (single `IsNotNull` / `toBeDefined` / `assert x is not None`), or assertions that leave a meaningful part of the test's claimed result unchecked. A focused single-field claim does not require unrelated fields. |
 | **D** | One self-referential / tautological assertion (`Assert.AreEqual(x, x)`, `assert dto.name == dto.name`, round-trip identity without a non-trivial input), or broad exception assertions (`Assert.ThrowsException<Exception>`). |
 | **F** | No assertions at all; **all** assertions are always-true literals (`Assert.IsTrue(true)`, `assert True`, `expect(true).toBe(true)`) — these verify nothing and are equivalent to having no assertions; or all assertions are silently un-awaited (e.g., `expect(promise).resolves.toBe(x)` without `await`/`return`, async TUnit/xUnit `Assert.ThrowsAsync` without `await`, pytest-asyncio with un-awaited coroutine). |
 
@@ -284,9 +327,26 @@ uncertainty.
 ### Step 5: Build the note
 
 Use one sentence (target ≤ 120 characters) for the most important reason:
-`No issues found.`, `Only checks IsNotNull; add value verification.`, or
+`No issues found.`, `Only checks IsNotNull; receipt contents are unverified.`, or
 `Method body could not be resolved; human review is required.` Do not invent a
 weakness to justify a grade or Failed result.
+
+Keep the action in a separate **How to improve** field. For each Failed test,
+name the smallest useful input, assertion, or fixture change and its expected
+outcome, grounded in the body, source, or an explicit contract. For example,
+`Replace self-comparison with Assert.AreEqual(60m, account.Balance).`, not
+`Improve assertions`; `Remove Console.WriteLine after Deposit(25m).`, not
+`Clean up`. Prioritize the highest-impact distinct finding, and include other
+actionable findings only when they require a different change.
+
+For a behavioral gap, use the distinguishing witness and original/mutant
+observations from the shared assessment; check the expected result against
+the unmodified source. If essential context is missing, name the evidence
+needed instead of inventing an expected value. Pass gets `None`; Uncertain
+gets a concrete evidence-resolution step, not a speculative test rewrite.
+A rubric-only deduction is not proof of a behavioral gap or an actionable
+improvement: a focused **B / Pass** may need no change. **A / Failed** still
+needs its concrete action, such as removing debug output.
 
 ### Step 6: Report
 
@@ -302,12 +362,21 @@ empty scope and omit the table.
 #### 2. Per-test table
 
 ```markdown
-| Test | Result | Quality | Notes |
-|------|--------|---------|-------|
-| `Namespace.ClassName.Test_Method_Condition_Expected` | Pass | A (90–100) | No issues found. |
-| `Namespace.ClassName.Test_Other` | Failed | C (70–79) | Only `IsNotNull`; add value verification. |
-| `Namespace.ClassName.Test_Missing` | Uncertain | — | Method body could not be resolved; human review is required. |
+| Test | Result | Quality | Notes | How to improve |
+|------|--------|---------|-------|----------------|
+| `Namespace.ClassName.Test_Method_Condition_Expected` | Pass | B (80–89) | One complete value assertion. | None |
+| `Namespace.ClassName.Withdraw_SufficientFunds` | Failed | D (60–69) | Balance is compared with itself. | Replace self-comparison with `Assert.AreEqual(60m, account.Balance)` after withdrawing 40m from 100m. |
+| `Namespace.ClassName.Test_Missing` | Uncertain | — | Method body could not be resolved; human review is required. | Supply the method body and its referenced fixture. |
 ```
+
+Keep these two report sections and the original Test/Result/Quality/Notes
+fields. When mutation evidence explains a finding or the caller requests
+detail, append a compact per-test **Pseudo-mutation evidence** block inside
+the per-test section: change, witness, original/mutant observations, relevant
+assertion, and classification. Static results are **Likely killed (inferred)**
+or **Candidate survivor (unverified)**, never executed Killed/Survived or
+empirical killed/total counts. State missing-context N/A / unverified once
+per shared limitation. Do not repeat the improvement table in prose.
 
 **Caps and ordering**:
 - If the table would exceed **50 rows**, show Failed tests first, then
@@ -329,6 +398,13 @@ prefix each section with the language name and framework.
 - [ ] Uncertain is an evidence gap; Not applicable is a valid empty scope.
 - [ ] Every grade is justified by at least one observable signal in the
       captured body — no speculative deductions.
+- [ ] Every Failed row has a concrete, evidence-backed How to improve action;
+      Pass rows have no invented weakness, even when the quality grade is B.
+- [ ] Mutation assessment stayed read-only and per-test; unavailable context
+      was not penalized, equivalents were excluded, and static labels/counts
+      were not presented as executed evidence.
+- [ ] Verified observable findings inform existing categories without a
+      duplicate deduction or any change to scoring weights and ceilings.
 - [ ] Trivial-assertion tests are flagged only when the **only** assertion
       is trivial (a null check before a meaningful assertion is not trivial).
 - [ ] Exception-only tests are not penalized for low assertion count.
@@ -362,6 +438,8 @@ prefix each section with the language name and framework.
 | Using a fake-precise score (e.g., 87/100) | Use the score band only — 90–100, 80–89, 70–79, 60–69, 0–59. |
 | Spilling a 500-row table into a PR comment | Apply the row cap from Step 6; collapse extras into `<details>`. |
 | Re-reporting an existing finding three times under different categories | Pick the most fitting category and report once. |
+| Giving a weak test credit for a sibling's assertions | Use only the current test and helpers/fixtures it executes. |
+| Turning pseudo-mutation composition into a suite audit | Pass explicit per-test-read-only mode; no runs, edits, broad discovery, or agent recursion. |
 | Inventing weaknesses for A-grade tests to make the note "balanced" | If a test is clean, the note may simply read `No issues found.` |
 | Mapping status from grade or comments | Fail only for actionable improvements; a B can Pass and an A can Fail. |
 | Confusing Uncertain and Not applicable | Evidence gaps are Uncertain; a valid empty scope is Not applicable. |
