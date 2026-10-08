@@ -32,8 +32,9 @@ stimuli:
             const editor=strip(fs.readFileSync('Components/Editor.razor','utf8'));
             const codeBehind=fs.existsSync('Components/Editor.razor.cs')?strip(fs.readFileSync('Components/Editor.razor.cs','utf8')):'';
             const declarations=editor+'\n'+codeBehind; const params=[];
-            const parameter=/\[\s*Parameter(?:Attribute)?\s*\]\s*public\s+([^\r\n{=]+?)\s+(\w+)\s*\{\s*get\s*;\s*set\s*;\s*\}/g;
-            for(let match;(match=parameter.exec(declarations));) params.push({type:match[1],name:match[2]});
+            const property=/((?:\[[^\]\r\n]+\]\s*)+)public\s+([^\r\n{=]+?)\s+(\w+)\s*\{\s*get\s*;\s*set\s*;\s*\}/g;
+            for(let match;(match=property.exec(declarations));)
+            if(/\bParameter(?:Attribute)?\b/.test(match[1])) params.push({type:match[2],name:match[3]});
             const fragment=params.find(p=>/RenderFragment/.test(p.type));
             const callback=params.find(p=>/EventCallback/.test(p.type));
             const value=params.find(p=>!/RenderFragment|EventCallback/.test(p.type));
@@ -76,6 +77,8 @@ stimuli:
       notification behavior.
     environment:
       files:
+        - src: global.json
+          dest: global.json
         - src: fixtures/maui-binding
           dest: .
     graders:
@@ -90,11 +93,21 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            node -e "const fs=require('fs'); const s=fs.readFileSync('StatusViewModel.cs','utf8');
-            const generated=/\[\s*ObservableProperty(?:Attribute)?\s*\][\s\S]{0,200}\b(?:string|string\?)\s+_?status\b/i.test(s);
-            const manual=/\bStatus\s*\{[\s\S]{0,800}\bset\s*\{[\s\S]{0,400}(SetProperty\s*\(\s*ref\s+\w*status\w*\s*,\s*value|PropertyChanged\s*\?\s*\.Invoke\s*\([\s\S]{0,160}(nameof\s*\(\s*Status\s*\)|[\"']Status[\"'])|OnPropertyChanged\s*\(\s*(nameof\s*\(\s*Status\s*\)|[\"']Status[\"']|)\s*\))/i.test(s);
-            if (!generated && !manual) throw new Error('Status assignment must raise PropertyChanged');"
+            node -e "const fs=require('fs'); const source=fs.readFileSync('StatusViewModel.cs','utf8');
+            const app=fs.readFileSync('App.csproj','utf8'); const usesToolkit=/CommunityToolkit\.Mvvm/.test(source);
+            const packageElement=app.match(/<PackageReference\s+Include=[\"']CommunityToolkit\.Mvvm[\"'][^>]*(?:\/>|>[\s\S]*?<\/PackageReference>)/i);
+            const packageVersion=packageElement&&(packageElement[0].match(/\bVersion=[\"']([^\"']+)[\"']/i)||packageElement[0].match(/<Version>([^<]+)<\/Version>/i));
+            if(usesToolkit&&!packageVersion) throw new Error('CommunityToolkit implementation requires a versioned package reference');
+            fs.mkdirSync('.eval-check',{recursive:true});
+            const packageRef=usesToolkit?'<PackageReference Include=\"CommunityToolkit.Mvvm\" Version=\"'+packageVersion[1]+'\" />':'';
+            fs.writeFileSync('.eval-check/Behavior.csproj','<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup><ItemGroup><Compile Include=\"Program.cs\" /><Compile Include=\"../StatusViewModel.cs\" Link=\"StatusViewModel.cs\" />'+packageRef+'</ItemGroup></Project>');
+            fs.writeFileSync('.eval-check/Program.cs','using System.ComponentModel; using System.Reflection; var type=Assembly.GetExecutingAssembly().GetTypes().Single(t=>t.GetProperty(\"Status\")?.CanWrite==true && typeof(INotifyPropertyChanged).IsAssignableFrom(t)); var vm=Activator.CreateInstance(type)!; var changed=false; ((INotifyPropertyChanged)vm).PropertyChanged+=(s,e)=>changed|=e.PropertyName==\"Status\"; type.GetProperty(\"Status\")!.SetValue(vm,\"Ready\"); if(!changed) throw new Exception(\"Status assignment did not raise PropertyChanged\");');"
           expected_exit_code: 0
+      - type: run-command
+        config:
+          command: dotnet run --project .eval-check/Behavior.csproj
+          expected_exit_code: 0
+          timeout: 3m
       - type: file-not-contains
         config:
           path: StatusViewModel.cs
@@ -388,8 +401,13 @@ stimuli:
       files:
         - src: fixtures/dotnet8-upgrade
           dest: .
+      commands:
+        - >-
+          node -e "const fs=require('fs'); fs.mkdirSync('.eval-baseline',{recursive:true});
+          for(const file of ['App.csproj','Program.cs'])
+          fs.copyFileSync(file,'.eval-baseline/'+file+'.snapshot');"
     constraints:
-      reject_tools: [edit, create]
+      reject_tools: [bash, edit, create]
     graders:
       - type: output-matches
         config:
@@ -400,6 +418,14 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: /plugin (marketplace add|install)
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs'); for(const file of ['App.csproj','Program.cs'])
+            if(!fs.readFileSync(file).equals(fs.readFileSync('.eval-baseline/'+file+'.snapshot')))
+            throw new Error(file+' changed');"
+          expected_exit_code: 0
+          timeout: 1m
       - type: exit-success
       - type: prompt
     rubric:

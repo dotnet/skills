@@ -26,8 +26,10 @@ language guidance as the fallback, not the default.
 1. Classify the requested outcome from the prompt.
 2. Inspect the smallest set of repository files needed to identify the solution type.
 3. Compare both signals with the descriptions of the skills currently available to the runtime.
-4. If the best skill is available, invoke it with the `skill` tool as the first external action; do
-   not emit a routing explanation before the invocation and do not merely recommend the skill.
+4. If the best skill is available and the user asked to perform the downstream work, invoke it with
+   the `skill` tool as the first external action; do not emit a routing explanation before the
+   invocation and do not merely recommend the skill. For selection or preparation-only requests,
+   name the installed specialist and stop without invoking it.
 5. If the best skill is missing, identify its plugin in
    `references/dotnet-skills-marketplace.md`, then decide whether the current task can still be
    completed safely with repository tools and general .NET knowledge.
@@ -54,7 +56,7 @@ Choose the operating mode from the user's requested outcome:
 | User asks for | Required behavior |
 |---|---|
 | Implement, fix, diagnose, migrate, or create | Invoke the installed specialist, or complete a safe local fallback. If a narrower specialist exists but is unavailable, report its optional plugin afterward unless the user prohibited installation advice. |
-| Identify, choose, install, prepare, or load the right marketplace capability | Inspect enough solution evidence to choose the owner, give the exact acquisition steps, and stop without editing or generating the requested application artifact. |
+| Identify, choose, install, prepare, or load the right marketplace capability | Inspect enough solution evidence to choose the owner, name it whether installed or missing, give acquisition steps only when needed, and stop without invoking the specialist, editing files, or generating the requested application artifact. |
 | Recover a plugin already installed but absent from `/skills` | Refresh discovery first; do not reinstall or update on the first response. |
 
 Choose one owner per phase. Do not expose internal routing ceremony or turn the answer into a menu.
@@ -157,7 +159,9 @@ If two candidates remain plausible, gather one more decisive artifact rather tha
 
 After selecting the capability:
 
-1. If its skill appears in the runtime's available-skill catalog, invoke it immediately.
+1. If its skill appears in the runtime's available-skill catalog, invoke it immediately only when
+   the operating mode requires downstream implementation. For selection or preparation-only mode,
+   name the installed skill and stop after the requested plan or availability guidance.
 2. If it does not appear, open `references/dotnet-skills-marketplace.md` and map the capability or
    skill name to the owning marketplace plugin.
 3. Recommend the smallest plugin that contains the needed skill. Do not install every .NET plugin.

@@ -57,7 +57,7 @@ stimuli:
         - src: fixtures/blazor-components
           dest: .
     constraints:
-      reject_tools: [edit, create]
+      reject_tools: [bash, edit, create]
     graders:
       - type: output-matches
         config:
@@ -93,7 +93,7 @@ stimuli:
         - src: fixtures/maui-binding
           dest: .
     constraints:
-      reject_tools: [edit, create]
+      reject_tools: [bash, edit, create]
     graders:
       - type: output-matches
         config:
@@ -133,7 +133,7 @@ stimuli:
         - src: fixtures/ef-orders
           dest: .
     constraints:
-      reject_tools: [edit, create]
+      reject_tools: [bash, edit, create]
     graders:
       - type: output-matches
         config:
@@ -273,7 +273,7 @@ stimuli:
           for(const file of ['App.csproj','Program.cs'])
           fs.copyFileSync(file,'.eval-baseline/'+file+'.snapshot');"
     constraints:
-      reject_tools: [edit, create]
+      reject_tools: [bash, edit, create]
     graders:
       - type: output-matches
         config:
@@ -315,7 +315,7 @@ stimuli:
       when no hot method is known. Explain how to make it available, but do not start collection or
       claim a cause yet.
     constraints:
-      reject_tools: [edit, create]
+      reject_tools: [bash, edit, create]
     graders:
       - type: output-matches
         config:
@@ -349,7 +349,7 @@ stimuli:
       fields without a project. Which specialist owns that workflow, and how do I make it available
       in Copilot CLI? Do not write the utility yet.
     constraints:
-      reject_tools: [edit, create]
+      reject_tools: [bash, edit, create]
     graders:
       - type: output-matches
         config:
@@ -409,7 +409,7 @@ stimuli:
       validation. Present them in order and explain how to make them available in Copilot CLI. Do
       not create the project yet.
     constraints:
-      reject_tools: [edit, create]
+      reject_tools: [bash, edit, create]
     graders:
       - type: output-matches
         config:
