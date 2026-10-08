@@ -30,6 +30,21 @@ public class BaselineStoreTests
         Path.Combine(Path.GetTempPath(), $"sv-baseline-test-{Guid.NewGuid():N}.json");
 
     [TestMethod]
+    public void OfflineWorkflowPolicyChangesIdentityWithoutRequiringADenialProbe()
+    {
+        var ordinary = Scenario("inspect", "Inspect evidence and propose an action.");
+        var offline = ordinary with { OfflineWorkflow = true };
+        Assert.AreNotEqual(
+            BaselineStore.ComputeScenarioKey(ordinary, null),
+            BaselineStore.ComputeScenarioKey(offline, null));
+        Assert.IsFalse(offline.DenyShell);
+        Assert.IsFalse(AssertionEvaluator.EvaluateConstraints(offline, new RunMetrics())
+            .Any(result => result.Assertion.Type == AssertionType.ShellDenied));
+        Assert.IsFalse(Assert.ContainsSingle(AssertionEvaluator.EvaluateConstraints(
+            offline with { DenyShell = true }, new RunMetrics())).Passed);
+    }
+
+    [TestMethod]
     public void ComputePromptSha_IsDeterministicAndPromptSensitive()
     {
         var a = BaselineStore.ComputePromptSha("do the thing");
@@ -255,6 +270,9 @@ public class BaselineStoreTests
         var withAssertion = baseScenario with { Assertions = [new Assertion(AssertionType.OutputContains, Value: "error")] };
         var withTurns = baseScenario with { MaxTurns = 5 };
         var withExpectTools = baseScenario with { ExpectTools = ["bash"] };
+        var withShellDenial = baseScenario with { DenyShell = true };
+        var withRejectedAgent = baseScenario with { RejectAgents = ["owner"] };
+        var withRejectedRetry = baseScenario with { RejectShellRetries = true };
 
         var shaBase = BaselineStore.ComputeTargetSha(baseScenario, null);
 
@@ -263,6 +281,10 @@ public class BaselineStoreTests
         Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withAssertion, null));
         Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withTurns, null));
         Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withExpectTools, null));
+        Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withShellDenial, null));
+        Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withRejectedAgent, null));
+        Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withRejectedRetry, null));
+        Assert.AreEqual(shaBase, BaselineStore.ComputeTargetSha(baseScenario with { DenyShell = false }, null));
 
         // Same criteria → stable identity.
         Assert.AreEqual(

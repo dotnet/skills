@@ -1,0 +1,620 @@
+name: agent.test-engineer
+description: Evaluates the dotnet-test/test-engineer public orchestrator agent
+type: capability
+tags:
+  executionShard: generation
+defaults:
+  timeout: 60m
+  runs: 1
+environment:
+  files:
+    - src: ../graders/authenticated_artifacts.py
+      dest: .eval/authenticated_artifacts.py
+stimuli:
+  - name: Generate a project-wide pytest suite across modules
+    prompt: |
+      Generate a comprehensive pytest suite for the project under
+      fixtures/python-multimodule/. Cover the public behavior of analytics.stats,
+      analytics.window.RateWindow, and textkit.slug, including validation,
+      boundaries, rollover, and truncation. Run pytest and map every requested
+      behavior to named test evidence.
+    tags:
+      capability: project-wide-pytest-generation
+      risk: missed-boundary-coverage
+      journey: generate-multimodule-python-suite
+    constraints:
+      reject_agents: [test-engineer]
+    environment:
+      files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+        - src: fixtures/python-multimodule
+          dest: fixtures/python-multimodule
+        - src: ../code-testing/graders/check_python_tests.py
+          dest: .eval/check_python_tests.py
+        - src: ../code-testing/graders/check_production.py
+          dest: .eval/check_production.py
+      commands:
+        - git init -q
+        - python3 -m pip install --quiet pytest==8.3.5
+        - python3 .eval/check_production.py snapshot fixtures/python-multimodule/analytics fixtures/python-multimodule/textkit
+        - python3 .eval/check_python_tests.py snapshot fixtures/python-multimodule
+      skills:
+        - ../../plugins/dotnet-test/skills/code-testing
+        - ../../plugins/dotnet-test/skills/code-testing-extensions
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+        - ../../plugins/dotnet-test/skills/assertion-quality
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py --expect 1f16f9c6aac20e0068ba01ad2bb48f3e3fe3e0f7741e967d376d315141a15927:.eval/production.json -- python .eval/check_production.py verify fixtures/python-multimodule/analytics fixtures/python-multimodule/textkit
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 56399ea321dee7520e42ff3de3459125bfa2fdc2527d8d57c368e3209a679034:.eval/check_python_tests.py --expect fefd5e3da2f7c21aeeb1529d1ef16ae153cc7e3d47c5af9cafb8969419c0d987:.eval/python-inputs.json -- python .eval/check_python_tests.py verify fixtures/python-multimodule
+          expected_exit_code: 0
+          timeout: 5m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: run-command
+        config:
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Generated passing tests for all three modules and their distinct boundaries
+      - Preserved production behavior and used concrete assertions for distinct validation and boundary cases
+      - Mapped every requested behavior to concrete test evidence
+      - Accurately distinguished generated tests, successful or failed execution, and validation left unrun because of environment limitations
+
+  - name: Preserve a classic MSTest project while adding broad coverage
+    prompt: |
+      Add the missing project-wide unit tests for the classic net472 library
+      under fixtures/classic-mstest/. Preserve MSTest 3.5.2, Moq 4.2,
+      packages.config, explicit compile items, and the existing test file.
+      Cover DiscountService and TieredDiscountPolicy validation and boundaries,
+      then report exact evidence for each requirement.
+    tags:
+      capability: classic-mstest-suite-extension
+      risk: legacy-project-drift
+      journey: extend-classic-dotnet-suite
+    constraints:
+      reject_agents: [test-engineer]
+    environment:
+      files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+        - src: fixtures/classic-mstest
+          dest: fixtures/classic-mstest
+        - src: ../code-testing/graders/check_production.py
+          dest: .eval/check_production.py
+        - src: graders/check_classic_preservation.py
+          dest: .eval/check_classic_preservation.py
+        - src: graders/check_classic_behavior.py
+          dest: .eval/check_classic_behavior.py
+      commands:
+        - rm -f fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs && cp fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine fixtures/classic-mstest/tests/Discounts.Tests.csproj && rm fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine
+        - git init -q
+        - python3 .eval/check_production.py snapshot fixtures/classic-mstest/src
+        - python3 .eval/check_classic_preservation.py snapshot fixtures/classic-mstest
+      skills:
+        - ../../plugins/dotnet-test/skills/code-testing
+        - ../../plugins/dotnet-test/skills/code-testing-extensions
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+        - ../../plugins/dotnet-test/skills/assertion-quality
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py --expect f928dc1fae1c54deac21f8e5cf1010ce17d1ddab3643e32af6164054c4e3f335:.eval/production.json -- python .eval/check_production.py verify fixtures/classic-mstest/src
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 320bc198285f61c60decdfa558da696d1778644cfee7b97a1b085c13c3188e4c:.eval/check_classic_preservation.py --expect 1caa319ee11037343f5d71682ca78c4e85db08898b8ec7bb2fc528e27f2e5860:.eval/classic-preservation.json -- python .eval/check_classic_preservation.py verify fixtures/classic-mstest
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-exists
+        config:
+          path: fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs
+      - type: file-exists
+        config:
+          path: fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs
+      - type: run-command
+        config:
+          command: sh -c "grep -q 'Compile Include=\"DiscountServiceBoundaryTests.cs\"' fixtures/classic-mstest/tests/Discounts.Tests.csproj && grep -q 'Compile Include=\"TieredDiscountPolicyTests.cs\"' fixtures/classic-mstest/tests/Discounts.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 1m
+      # Compile against the pinned legacy APIs first. Moq 4.2's proxy emitter
+      # cannot run on .NET 8; only the temporary execution harness uses newer Moq.
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import base64,pathlib;
+            p=pathlib.Path('fixtures/classic-mstest/.eval-validation/GeneratedTests.csproj');
+            p.parent.mkdir(parents=True,exist_ok=True);
+            p.write_bytes(base64.b64decode('PFByb2plY3QgU2RrPSJNaWNyb3NvZnQuTkVULlNkayI+CiAgPFByb3BlcnR5R3JvdXA+CiAgICA8VGFyZ2V0RnJhbWV3b3JrPm5ldDguMDwvVGFyZ2V0RnJhbWV3b3JrPgogICAgPEVuYWJsZURlZmF1bHRDb21waWxlSXRlbXM+ZmFsc2U8L0VuYWJsZURlZmF1bHRDb21waWxlSXRlbXM+CiAgICA8SW1wbGljaXRVc2luZ3M+ZGlzYWJsZTwvSW1wbGljaXRVc2luZ3M+CiAgICA8TnVsbGFibGU+ZGlzYWJsZTwvTnVsbGFibGU+CiAgICA8SXNUZXN0UHJvamVjdD50cnVlPC9Jc1Rlc3RQcm9qZWN0PgogICAgPE5vV2Fybj4kKE5vV2Fybik7TlUxNzAxPC9Ob1dhcm4+CiAgPC9Qcm9wZXJ0eUdyb3VwPgogIDxJdGVtR3JvdXA+CiAgICA8UGFja2FnZVJlZmVyZW5jZSBJbmNsdWRlPSJNaWNyb3NvZnQuTkVULlRlc3QuU2RrIiBWZXJzaW9uPSIxNy4xMy4wIiAvPgogICAgPFBhY2thZ2VSZWZlcmVuY2UgSW5jbHVkZT0iTVNUZXN0LlRlc3RBZGFwdGVyIiBWZXJzaW9uPSIzLjUuMiIgLz4KICAgIDxQYWNrYWdlUmVmZXJlbmNlIEluY2x1ZGU9Ik1TVGVzdC5UZXN0RnJhbWV3b3JrIiBWZXJzaW9uPSIzLjUuMiIgLz4KICAgIDxQYWNrYWdlUmVmZXJlbmNlIEluY2x1ZGU9Ik1vcSIgVmVyc2lvbj0iNC4yLjE1MTAuMjIwNSIgLz4KICAgIDxQYWNrYWdlUmVmZXJlbmNlIEluY2x1ZGU9Ik5CdWlsZGVyIiBWZXJzaW9uPSI2LjEuMCIgLz4KICAgIDxQYWNrYWdlUmVmZXJlbmNlIEluY2x1ZGU9IlN5c3RlbS5Db2RlRG9tIiBWZXJzaW9uPSI4LjAuMCIgLz4KICAgIDxQYWNrYWdlUmVmZXJlbmNlIEluY2x1ZGU9IlN5c3RlbS5TZWN1cml0eS5QZXJtaXNzaW9ucyIgVmVyc2lvbj0iOC4wLjAiIC8+CiAgPC9JdGVtR3JvdXA+CiAgPEl0ZW1Hcm91cD4KICAgIDxDb21waWxlIEluY2x1ZGU9Ii4uL3NyYy9EaXNjb3VudFNlcnZpY2UuY3MiIC8+CiAgICA8Q29tcGlsZSBJbmNsdWRlPSIuLi9zcmMvVGllcmVkRGlzY291bnRQb2xpY3kuY3MiIC8+CiAgICA8Q29tcGlsZSBJbmNsdWRlPSIuLi90ZXN0cy9GaXh0dXJlQmFzZS5jcyIgLz4KICAgIDxDb21waWxlIEluY2x1ZGU9Ii4uL3Rlc3RzL0Rpc2NvdW50U2VydmljZVRlc3RzLmNzIiAvPgogICAgPENvbXBpbGUgSW5jbHVkZT0iLi4vdGVzdHMvRGlzY291bnRTZXJ2aWNlQm91bmRhcnlUZXN0cy5jcyIgLz4KICAgIDxDb21waWxlIEluY2x1ZGU9Ii4uL3Rlc3RzL1RpZXJlZERpc2NvdW50UG9saWN5VGVzdHMuY3MiIC8+CiAgPC9JdGVtR3JvdXA+CjwvUHJvamVjdD4K'))"
+            && dotnet build
+            fixtures/classic-mstest/.eval-validation/GeneratedTests.csproj
+            --verbosity minimal
+            && python3 -c "import pathlib;
+            p=pathlib.Path('fixtures/classic-mstest/.eval-validation/GeneratedTests.csproj');
+            p.write_text(p.read_text().replace('4.2.1510.2205','4.20.72'))"
+            && dotnet test
+            fixtures/classic-mstest/.eval-validation/GeneratedTests.csproj
+            --verbosity minimal
+            && dotnet test
+            fixtures/classic-mstest/.eval-validation/GeneratedTests.csproj
+            --list-tests --no-build --verbosity minimal
+          expected_exit_code: 0
+          stdout_matches: '(?is)Passed:\s+[1-9][0-9]*.*Apply_HundredPercent_ReturnsZero.*Apply_AboveThreshold_ReturnsExactDiscountedValue'
+          timeout: 10m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 81b12989b807d4452eeda18d47e30df0d2aad8f0887d26ce26ca805d3a8ad903:.eval/check_classic_behavior.py -- python .eval/check_classic_behavior.py fixtures/classic-mstest
+          expected_exit_code: 0
+          timeout: 10m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: prompt
+    rubric:
+      - Added and registered tests for both requested production types
+      - Preserved the classic project format and pinned dependency stack
+      - Used MSTest APIs compatible with version 3.5.2
+      - Detected bounded regressions in DiscountService and TieredDiscountPolicy behavior
+      - Added the requested tests and accurately distinguished validation results from checks left unrun because of environment limitations
+
+  - name: Generate collaborating Go package tests
+    prompt: |
+      Generate comprehensive Go tests for the module under
+      fixtures/go-multipackage/. Cover money.Discount, shipping.Rate, and
+      order.Total, including validation, exact boundaries, collaborator errors,
+      and short-circuit behavior. Use fakes where appropriate and make
+      `go test ./...` pass.
+    tags:
+      capability: cross-package-go-test-generation
+      risk: collaborator-path-omission
+      journey: generate-go-module-suite
+    constraints:
+      reject_agents: [test-engineer]
+    environment:
+      files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+        - src: fixtures/go-multipackage
+          dest: fixtures/go-multipackage
+        - src: ../code-testing/graders/check_production.py
+          dest: .eval/check_production.py
+      commands:
+        - git init -q
+        - python3 .eval/check_production.py snapshot fixtures/go-multipackage/money fixtures/go-multipackage/shipping fixtures/go-multipackage/order
+      skills:
+        - ../../plugins/dotnet-test/skills/code-testing
+        - ../../plugins/dotnet-test/skills/code-testing-extensions
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+        - ../../plugins/dotnet-test/skills/assertion-quality
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py --expect 5850a0210af59a60314166d31644c134ffb07f29472f7b571d74071c004e2cfe:.eval/production.json -- python .eval/check_production.py verify fixtures/go-multipackage/money fixtures/go-multipackage/shipping fixtures/go-multipackage/order
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: >-
+            sh -c "cd fixtures/go-multipackage
+            && go test -json ./... > .eval-go-tests.json
+            && python3 -c 'import json,sys;
+            events=[json.loads(line) for line in open(sys.argv[1], encoding=\"utf-8\")];
+            expected={\"example.com/checkout/money\",\"example.com/checkout/shipping\",\"example.com/checkout/order\"};
+            executed={e[\"Package\"] for e in events if e.get(\"Action\")==\"pass\" and e.get(\"Test\")};
+            missing=expected-executed;
+            assert not missing, f\"packages without passing tests: {sorted(missing)}\"'
+            .eval-go-tests.json
+            && rm .eval-go-tests.json"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: sh -c "test -f fixtures/go-multipackage/money/discount_test.go && test -f fixtures/go-multipackage/shipping/rate_test.go && test -f fixtures/go-multipackage/order/total_test.go"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: prompt
+    rubric:
+      - Generated passing tests in all three packages
+      - Proved exact boundaries and collaborator error propagation
+      - Used concrete assertions and mapped each requirement to evidence
+      - Accurately reported successful, failed, and unrun validation without attributing a permission denial to a test failure
+
+  - name: Generate layered Vitest coverage for an async cart
+    prompt: |
+      Generate a comprehensive Vitest suite for the TypeScript shopping-cart
+      library under fixtures/typescript-vitest-cart/. Cover pricing, tax,
+      shipping, inventory, and Cart behavior, including async refresh,
+      collaborator failures, snapshot isolation, and configured coverage
+      thresholds. Use fakes instead of real I/O.
+    tags:
+      capability: layered-vitest-suite-generation
+      risk: async-integration-gaps
+      journey: generate-typescript-cart-suite
+    constraints:
+      reject_agents: [test-engineer]
+    environment:
+      files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+        - src: fixtures/typescript-vitest-cart
+          dest: fixtures/typescript-vitest-cart
+        - src: ../code-testing/graders/check_cart_tests.py
+          dest: .eval/check_cart_tests.py
+        - src: ../code-testing/graders/check_production.py
+          dest: .eval/check_production.py
+      commands:
+        - git init -q
+        - python3 .eval/check_production.py snapshot fixtures/typescript-vitest-cart/src
+        - python3 .eval/check_cart_tests.py snapshot fixtures/typescript-vitest-cart .eval/cart-baseline.json
+      skills:
+        - ../../plugins/dotnet-test/skills/code-testing
+        - ../../plugins/dotnet-test/skills/code-testing-extensions
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+        - ../../plugins/dotnet-test/skills/assertion-quality
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py --expect e024ba699142906ace6239e9180018d04c02fa0ee11e90a1b876c414bfe33160:.eval/production.json -- python .eval/check_production.py verify fixtures/typescript-vitest-cart/src
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 772c6a273ad1ee22419137b3847b0a1bdd5e9ef3d3b6250d86a4601d6273d5ca:.eval/check_cart_tests.py --expect c4c50ad6467a80cae123666a9e7d949d01c5e45a3ce66868e6aade6391b8fcb0:.eval/cart-baseline.json -- python .eval/check_cart_tests.py verify fixtures/typescript-vitest-cart .eval/cart-baseline.json
+          expected_exit_code: 0
+          timeout: 10m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: prompt
+    rubric:
+      - Generated passing tests for every production module without real I/O
+      - Covered the requested async, composition, failure, and isolation behaviors
+      - Cleared the configured coverage thresholds and mapped requirements to evidence
+      - Distinguished configured thresholds from measured coverage and accurately reported any unrun validation
+
+  - name: Generate project-wide xUnit tests for a .NET library
+    prompt: |
+      Generate the complete xUnit v3 suite for the .NET 10 library under
+      fixtures/sdk-xunit-orders/. Cover OrderPricing.Total and ReservationWindow,
+      including validation, exact decimal values, and every before/at boundary.
+      Keep production code and project/build configuration unchanged and run
+      the existing test project.
+    tags:
+      capability: project-wide-xunit-generation
+      risk: time-boundary-gaps
+      journey: generate-dotnet-order-suite
+    constraints:
+      reject_agents: [test-engineer]
+    environment:
+      files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+        - src: fixtures/sdk-xunit-orders
+          dest: fixtures/sdk-xunit-orders
+        - src: ../code-testing/graders/check_xunit_tests.py
+          dest: .eval/check_xunit_tests.py
+      commands:
+        - find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -delete
+        - git init -q
+        - python3 .eval/check_xunit_tests.py snapshot fixtures/sdk-xunit-orders .eval/xunit-baseline.json
+      skills:
+        - ../../plugins/dotnet-test/skills/code-testing
+        - ../../plugins/dotnet-test/skills/code-testing-extensions
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+        - ../../plugins/dotnet-test/skills/assertion-quality
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 244c9bd8be8f65e2d7289b393f57a6331ca24bb537e4171ca032e48e348714a3:.eval/check_xunit_tests.py --expect 46c6aefd4dfbd3075111ddfa7f70b5a0cfb4110f3472b04a143ba39850847c9c:.eval/xunit-baseline.json -- python .eval/check_xunit_tests.py verify fixtures/sdk-xunit-orders .eval/xunit-baseline.json
+          expected_exit_code: 0
+          timeout: 10m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: prompt
+    rubric:
+      - Generated passing xUnit v3 tests for both production types
+      - Covered every requested validation, pricing, and time boundary
+      - Preserved production code and mapped each behavior to exact test evidence
+      - Accurately reported successful, failed, and unrun validation without attributing a permission denial to a test failure
+
+  - name: Generate tests with validation execution unavailable
+    prompt: |
+      Generate a comprehensive pytest suite for the project under
+      fixtures/python-multimodule/. Cover analytics.stats, analytics.window,
+      and textkit.slug, including validation, boundaries, rollover, and
+      truncation. Keep production code and pytest configuration unchanged.
+      Run the tests and report the implementation and validation evidence
+      for each requested behavior.
+    deny_shell: true
+    constraints:
+      reject_agents: [test-engineer]
+      reject_shell_retries: true
+    tags:
+      capability: test-generation-with-unrun-validation
+      risk: false-validation-success
+      journey: generate-tests-under-permission-denial
+    environment:
+      files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+        - src: fixtures/python-multimodule
+          dest: fixtures/python-multimodule
+        - src: ../code-testing/graders/check_python_tests.py
+          dest: .eval/check_python_tests.py
+        - src: ../code-testing/graders/check_production.py
+          dest: .eval/check_production.py
+      commands:
+        - git init -q
+        - python -m pip install --quiet --no-compile --target .eval/pytest pytest==8.3.5
+        - python .eval/check_production.py snapshot fixtures/python-multimodule/analytics fixtures/python-multimodule/textkit
+        - python .eval/check_python_tests.py snapshot fixtures/python-multimodule
+      skills:
+        - ../../plugins/dotnet-test/skills/code-testing
+        - ../../plugins/dotnet-test/skills/code-testing-extensions
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+        - ../../plugins/dotnet-test/skills/assertion-quality
+    graders:
+      - type: file-exists
+        config:
+          path: fixtures/python-multimodule/tests/test_*.py
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -c
+            - >-
+              import hashlib,pathlib,subprocess,sys;
+              p=pathlib.Path('.eval/authenticated_artifacts.py');
+              assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';
+              subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)
+            - --expect
+            - 4b701ddafe83560b66c2f9296747bd41deaf45159c18f25351a4f82f7fe9dac1:.eval/check_production.py
+            - --expect
+            - 1f16f9c6aac20e0068ba01ad2bb48f3e3fe3e0f7741e967d376d315141a15927:.eval/production.json
+            - --
+            - python
+            - .eval/check_production.py
+            - verify
+            - fixtures/python-multimodule/analytics
+            - fixtures/python-multimodule/textkit
+          expected_exit_code: 0
+          timeout: 1m
+      # Check artifact validity under denial; exhaustive mutation coverage stays
+      # in the normal-execution stimuli. This is not agent execution evidence.
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -c
+            - >-
+              import hashlib,pathlib,subprocess,sys;
+              p=pathlib.Path('.eval/authenticated_artifacts.py');
+              assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';
+              subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)
+            - --expect
+            - 56399ea321dee7520e42ff3de3459125bfa2fdc2527d8d57c368e3209a679034:.eval/check_python_tests.py
+            - --expect
+            - fefd5e3da2f7c21aeeb1529d1ef16ae153cc7e3d47c5af9cafb8969419c0d987:.eval/python-inputs.json
+            - --
+            - python
+            - -c
+            - >-
+              import importlib.util,json,os,pathlib,subprocess,sys,xml.etree.ElementTree as ET;
+              spec=importlib.util.spec_from_file_location('checked_tests','.eval/check_python_tests.py');
+              checks=importlib.util.module_from_spec(spec);
+              spec.loader.exec_module(checks);
+              project=pathlib.Path('fixtures/python-multimodule').resolve();
+              assert checks.inputs(project)==json.loads(checks.BASELINE.read_text(encoding='utf-8'));
+              environment=dict(os.environ,PYTHONPATH=os.pathsep.join([str(pathlib.Path('.eval/pytest').resolve()),str(project)]),
+              PYTEST_DISABLE_PLUGIN_AUTOLOAD='1',PYTHONDONTWRITEBYTECODE='1');
+              environment.pop('PYTEST_ADDOPTS',None); environment.pop('PYTEST_PLUGINS',None);
+              subprocess.run([sys.executable,'-m','pytest','-q','-c','pyproject.toml','-o','addopts=','tests','--junitxml=results.xml'],
+              cwd=project,env=environment,check=True,timeout=30);
+              cases=ET.parse(project/'results.xml').getroot().findall('.//testcase');
+              assert cases and all(not any(case.find(tag) is not None for tag in ('failure','error','skipped')) for case in cases),
+              'Generated tests must execute without failures or skips';
+              print('Validated generated pytest suite; input files unchanged')
+          expected_exit_code: 0
+          stdout_matches: 'Validated generated pytest suite; input files unchanged'
+          timeout: 5m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: output-matches
+        config:
+          pattern: \bPARTIAL\b
+      - type: output-matches
+        config:
+          pattern: '(?i)(shell|execution|commands?).{0,100}(denied|blocked|not permitted)|(denied|blocked).{0,100}(shell|execution|commands?)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(unrun|unverified|not (run|executed|validated|verified|measured)|(cannot|can''t|could not)( be)? (run|execute|validate|verify|measure)|(execution|validation|coverage) (is |was |remains )?(blocked|denied|unavailable|unmeasured))'
+      - type: output-not-matches
+        config:
+          pattern: >-
+            (?ixm)
+            ^[ \t]*(?:[-*][ \t]*)?(?:\*\*)?(?:pytest|tests?|validation|(?:measured[ \t]+|actual[ \t]+)?coverage)(?:\*\*)?
+            [ \t]*[:=][ \t]*(?:\*\*)?[ \t]*
+            (?:pass(?:ed)?|success(?:ful)?|complete|[0-9]+(?:\.[0-9]+)?%)(?!\w)
+            |
+            (?<!not[ ])(?<!not[ ]all[ ])(?<!whether[ ])\b
+            (?:all[ \t]+)?(?:pytest|tests?|test[ \t]+suite|test[ \t]+execution|validation)\b
+            [ \t*`]+(?:(?:has|have|is|are|was|were)[ \t]+)?
+            (?:passed(?![ \t]+(?:static[ \t]+review|source[ \t]+inspection|manual[ \t]+review))|succeeded|successful|
+            (?:ran|run|executed|completed)[ \t]+(?:successfully|without[ \t]+(?:any[ \t]+)?(?:failures|errors)))\b
+            |
+            \bcoverage\b[ \t*`]+
+            (?:(?:has|had)[ \t]+)?(?:reached|achieved|measured|attained|exceeded|is|was|was[ \t]+measured)[ \t]+
+            (?:at[ \t]+)?[0-9]+(?:\.[0-9]+)?%(?!\w)
+      - type: prompt
+    rubric:
+      - Host-denied shell execution is expected and must not itself reduce the score; evaluator-owned artifact checks are not agent execution evidence
+      - Produced tests covering the requested public behaviors while preserving production code and pytest configuration
+      - Identified test execution as unavailable because shell permission was denied, rather than reporting a failing test suite
+      - Reported a partial result that distinguishes written tests from unrun validation and unmeasured coverage
+      - Mapped requested behaviors to named test artifacts without claiming successful test execution or measured coverage
+
+  - name: Generate focused tests directly
+    prompt: |
+      Add focused pytest coverage for slugify. Cover separator collapsing,
+      trimming, max-length truncation at a word boundary, truncation without a
+      boundary, and invalid non-positive max_length values. Run the tests.
+    tags:
+      capability: focused-pytest-generation
+      risk: unnecessary-pipeline-fanout
+      journey: extend-one-python-function
+    constraints:
+      reject_agents: [test-engineer]
+    environment:
+      files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+        - src: ../code-testing/fixtures/python-single-function
+          dest: slug-project
+      commands:
+        - python3 -m pip install --quiet pytest==8.3.5
+      skills:
+        - ../../plugins/dotnet-test/skills/code-testing
+        - ../../plugins/dotnet-test/skills/code-testing-extensions
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+        - ../../plugins/dotnet-test/skills/assertion-quality
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "cd slug-project && python3 -m pytest -q"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: sh -c "grep -Rqi 'max_length' slug-project/tests && grep -Rqi 'separator\\|collapse' slug-project/tests"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: (Requirement coverage|\|\s*Requirement\s*\|\s*Evidence\s*\|)
+      - type: prompt
+    rubric:
+      - Added passing tests for every requested slug behavior
+      - Used concrete expected slug values and exception assertions
+      - Kept the work focused on slugify and its tests
+      - Reported exact test evidence and the successful validation command
+
+  - name: Repair weak tests and close named gaps
+    prompt: |
+      Improve ShoppingCartTests so the suite no longer gives false confidence.
+      Replace the assertion-free, tautological, catch-and-swallow, and
+      Thread.Sleep patterns with meaningful tests. Add coverage for RemoveItem,
+      duplicate product quantities, and the 0% and 100% discount boundaries.
+      Run the test project after the changes.
+    tags:
+      capability: test-repair
+      risk: weakened-assertions
+      journey: repair-mstest-suite
+    constraints:
+      reject_agents: [test-engineer]
+    environment:
+      files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+        - src: ../agent.test-quality-auditor/fixtures/weak-tests
+          dest: WeakTests
+      skills:
+        - ../../plugins/dotnet-test/skills/code-testing
+        - ../../plugins/dotnet-test/skills/test-anti-patterns
+        - ../../plugins/dotnet-test/skills/assertion-quality
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+        - ../../plugins/dotnet-test/skills/writing-mstest-tests
+    graders:
+      - type: run-command
+        config:
+          command: dotnet test WeakTests/WeakTests.csproj
+          expected_exit_code: 0
+          stdout_matches: '(?i)(Passed!|Passed:\s*[1-9]|Test Run Successful)'
+          timeout: 10m
+      - type: file-not-contains
+        config:
+          path: WeakTests/ShoppingCartTests.cs
+          value: Assert.AreEqual(total, total)
+      - type: file-not-contains
+        config:
+          path: WeakTests/ShoppingCartTests.cs
+          value: Thread.Sleep
+      - type: run-command
+        config:
+          command: sh -c "grep -qi 'RemoveItem' WeakTests/ShoppingCartTests.cs && grep -qi 'duplicate\\|merge' WeakTests/ShoppingCartTests.cs && grep -q '100' WeakTests/ShoppingCartTests.cs"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Replaced each named weak pattern with behavior-pinning assertions
+      - Added direct tests for removal, duplicate quantities, and both discount boundaries
+      - Preserved the production implementation and existing MSTest project
+      - Ran the test project successfully
+
+  - name: Audit a suite without editing it
+    prompt: |
+      Audit the WeakTests project for the most important test-quality problems.
+      Prioritize false-confidence risks and coverage gaps, but do not change any
+      files.
+    tags:
+      capability: read-only-test-audit
+      risk: unintended-test-edits
+      journey: audit-weak-mstest-suite
+    constraints:
+      reject_agents: [test-engineer]
+    environment:
+      files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+        - src: ../agent.test-quality-auditor/fixtures/weak-tests
+          dest: WeakTests
+      commands:
+        - mkdir -p .eval-baseline && cp -R WeakTests .eval-baseline/WeakTests
+      skills:
+        - ../../plugins/dotnet-test/skills/test-anti-patterns
+        - ../../plugins/dotnet-test/skills/assertion-quality
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+    graders:
+      - type: output-matches
+        config:
+          pattern: (assertion.free|no.*assert|missing.*assert)
+      - type: output-matches
+        config:
+          pattern: (tautolog|self.compar|same.*value)
+      - type: output-matches
+        config:
+          pattern: (RemoveItem|GetTotalWithDiscount|coverage gap|untested)
+      - type: run-command
+        config:
+          command: diff -ru .eval-baseline/WeakTests WeakTests
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Identified the most severe false-confidence patterns
+      - Identified meaningful untested ShoppingCart behavior
+      - Prioritized findings and suggested concrete corrections
+      - Respected the analysis-only request and left the supplied test file unchanged

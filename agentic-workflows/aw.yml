@@ -1,5 +1,5 @@
 manifest-version: "1"
-min-version: v0.89.15
+min-version: v0.89.22
 name: .NET Agentic Workflows
 description: Reusable agentic workflows maintained by the .NET team.
 license: MIT
@@ -7,6 +7,7 @@ includes:
   - build-failure-analysis/aw.yml
   - msbuild-quality-review/aw.yml
   - test-failure-analysis/aw.yml
+  - unskip-closed-tests/aw.yml
 config:
   - type: copilot-auth
     strategy: prompt-if-actions-auth-unavailable

@@ -39,7 +39,7 @@ function timedOutRun() {
   return { metrics: { timedOut: true, taskCompleted: false } };
 }
 
-function activated(agentName = "code-testing-generator") {
+function activated(agentName = "test-engineer") {
   return { invokedAgents: [agentName] };
 }
 
@@ -88,8 +88,8 @@ function resultsWith(scenarios, verdictOverrides = {}) {
     judgeModel: "gpt-5.6-luna",
     verdicts: [
       {
-        skillName: "code-testing-generator",
-        skillPath: "plugins/dotnet-test/agents/code-testing-generator.agent.md",
+        skillName: "test-engineer",
+        skillPath: "plugins/dotnet-test/agents/test-engineer.agent.md",
         failureKind: null,
         scenarios,
         ...verdictOverrides,
@@ -98,11 +98,24 @@ function resultsWith(scenarios, verdictOverrides = {}) {
   };
 }
 
+test("workflow aggregate recovery uses the synthetic workflow persona", () => {
+  const result = recomputeNativeAggregate({
+    skillName: "demo",
+    skillKind: "workflow",
+    scenarios: [scenario("review", {
+      subagentActivationIsolated: activated("workflow.demo"),
+      subagentActivationPlugin: activated("workflow.demo"),
+    })],
+  });
+  assert.equal(result.skillNotActivated, false);
+  assert.notEqual(result.failureKind, "skill_not_activated");
+});
+
 function writeAgentEval(
   root,
   scenarioCount = 5,
   timeout = "5m",
-  agentDir = "agent.code-testing-generator",
+  agentDir = "agent.test-engineer",
   scenarioMaxDurations = {},
 ) {
   const evalDir = join(root, "tests", "dotnet-test", agentDir);
@@ -117,12 +130,12 @@ ${maxDuration ? `    constraints:\n      max_duration: ${maxDuration}\n` : ""}
     rubric:
       - Completed the task`;
   });
-  writeFileSync(join(evalDir, "eval.yaml"), `name: agent.code-testing-generator
+  writeFileSync(join(evalDir, "eval.yaml"), `name: agent.test-engineer
 defaults:
   timeout: ${timeout}
 stimuli:${stimuli.join("")}
 `);
-  return "tests/dotnet-test/agent.code-testing-generator/eval.yaml";
+  return "tests/dotnet-test/agent.test-engineer/eval.yaml";
 }
 
 function workspace(results) {
@@ -155,7 +168,7 @@ function stubRun(scenarioByName) {
       JSON.stringify({
         verdicts: [
           {
-            skillName: "code-testing-generator",
+            skillName: "test-engineer",
             scenarios: produced ? [produced] : [],
           },
         ],
@@ -172,7 +185,7 @@ function baseConfig(paths, run) {
     retryAuditDir: paths.retryAuditDir,
     summary: paths.summary,
     validator: "skill-validator",
-    agents: ["plugins/dotnet-test/agents/code-testing-generator.agent.md"],
+    agents: ["plugins/dotnet-test/agents/test-engineer.agent.md"],
     testsDir: join(repoRoot, "tests", "dotnet-test"),
     model: "gpt-5.6-luna",
     judgeModel: "gpt-5.6-luna",
@@ -339,7 +352,7 @@ test("a completed isolated activation failure is not rerolled for a plugin timeo
     subagentActivationIsolated: { invokedAgents: [] },
   });
   assert.equal(
-    isRetryableTimeout(pluginTimeout, "code-testing-generator"),
+    isRetryableTimeout(pluginTimeout, "test-engineer"),
     false,
   );
 });
@@ -350,7 +363,7 @@ test("a completed unexpected activation is not rerolled for a plugin timeout", (
     subagentActivationIsolated: activated(),
   });
   assert.equal(
-    isRetryableTimeout(pluginTimeout, "code-testing-generator"),
+    isRetryableTimeout(pluginTimeout, "test-engineer"),
     false,
   );
 });
@@ -380,7 +393,7 @@ test("findTimedOutScenarios records the owning verdict and position", () => {
     {
       verdictIndex: 0,
       scenarioIndex: 1,
-      skillName: "code-testing-generator",
+      skillName: "test-engineer",
       scenarioName: "second",
     },
   ]);
@@ -446,7 +459,7 @@ test("a required-arm timeout is recovered by a targeted scenario retry", () => {
   ]);
   assert.deepEqual(calls[0].slice(calls[0].indexOf("--target"), calls[0].indexOf("--target") + 2), [
     "--target",
-    "code-testing-generator",
+    "test-engineer",
   ]);
 
   const merged = JSON.parse(readFileSync(paths.resultsFile, "utf8"));
@@ -525,7 +538,7 @@ test("a retry with extra verdict or scenario evidence is unresolved", () => {
       JSON.stringify({
         verdicts: [
           {
-            skillName: "code-testing-generator",
+            skillName: "test-engineer",
             scenarios: [scenario("flaky"), scenario("extra")],
           },
           {
@@ -588,7 +601,7 @@ test("a retry with multiple results files is unresolved", () => {
     const content = JSON.stringify({
       verdicts: [
         {
-          skillName: "code-testing-generator",
+          skillName: "test-engineer",
           scenarios: [scenario("flaky")],
         },
       ],
@@ -622,7 +635,7 @@ test("a retry with the wrong scenario name reports the mismatch", () => {
       JSON.stringify({
         verdicts: [
           {
-            skillName: "code-testing-generator",
+            skillName: "test-engineer",
             scenarios: [scenario("wrong-scenario")],
           },
         ],
@@ -643,7 +656,7 @@ test("a re-entered retry never reuses stale results from an older attempt", () =
   const paths = workspace(resultsWith([timedOutScenario("flaky")]));
   const staleRun = join(
     paths.retryResultsDir,
-    "1-code-testing-generator",
+    "1-test-engineer",
     "attempt-stale",
     "20260101-000000",
   );
@@ -653,7 +666,7 @@ test("a re-entered retry never reuses stale results from an older attempt", () =
     JSON.stringify({
       verdicts: [
         {
-          skillName: "code-testing-generator",
+          skillName: "test-engineer",
           scenarios: [scenario("flaky")],
         },
       ],
@@ -709,7 +722,7 @@ test("systemic guard runs before scenario budget filtering", () => {
     paths.root,
     3,
     "5m",
-    "agent.code-testing-generator",
+    "agent.test-engineer",
     { "Scenario 1": "60m" },
   );
   const { run, calls } = stubRun({});
@@ -760,7 +773,7 @@ test("scenario max_duration controls retry eligibility", () => {
     paths.root,
     1,
     "1m",
-    "agent.code-testing-generator",
+    "agent.test-engineer",
     { "Scenario 1": '"10m"' },
   );
   const { run, calls } = stubRun({ "Scenario 1": scenario("Scenario 1") });
@@ -786,7 +799,7 @@ test("millisecond max_duration uses evaluator-compatible rounding", () => {
     paths.root,
     1,
     "1m",
-    "agent.code-testing-generator",
+    "agent.test-engineer",
     { "Scenario 1": "500ms" },
   );
   const { run, calls } = stubRun({ "Scenario 1": scenario("Scenario 1") });
@@ -812,7 +825,7 @@ test("a bare agent name resolves a nested agent-prefixed eval directory", () => 
     paths.root,
     1,
     "5m",
-    join("nested", "agent.code-testing-generator"),
+    join("nested", "agent.test-engineer"),
   );
   const { run, calls } = stubRun({ "Scenario 1": scenario("Scenario 1") });
   const config = {
@@ -832,7 +845,7 @@ test("a bare agent name resolves a nested agent-prefixed eval directory", () => 
       calls[0].indexOf("--target"),
       calls[0].indexOf("--target") + 2,
     ),
-    ["--target", "code-testing-generator"],
+    ["--target", "test-engineer"],
   );
 });
 
@@ -1030,7 +1043,7 @@ test("a dormant scenario can regress completion but not activation", () => {
   });
 
   assert.equal(scenarioRegressedOnIsolatedCompletion(dormant), true);
-  assert.equal(scenarioMissedActivation(dormant, "code-testing-generator"), false);
+  assert.equal(scenarioMissedActivation(dormant, "test-engineer"), false);
 });
 
 test("a scenario with no activation probe is not read as activation evidence", () => {
@@ -1039,7 +1052,7 @@ test("a scenario with no activation probe is not read as activation evidence", (
     subagentActivationPlugin: null,
   });
 
-  assert.equal(scenarioMissedActivation(noProbe, "code-testing-generator"), false);
+  assert.equal(scenarioMissedActivation(noProbe, "test-engineer"), false);
 });
 
 test("plugin-only missed activation does not override isolated completion evidence", () => {
@@ -1068,7 +1081,7 @@ test("the retry tree is kept for audit but never collectable as a results.json",
 
   // Downstream jobs gather every results.json they can find in the uploaded
   // artifact, so the retry's own native aggregate must not carry that name.
-  const names = readdirSync(join(paths.retryResultsDir, "1-code-testing-generator"), {
+  const names = readdirSync(join(paths.retryResultsDir, "1-test-engineer"), {
     recursive: true,
   }).map(String);
   assert.ok(names.some((name) => name.endsWith("results.retry.json")), "evidence is kept");
@@ -1082,7 +1095,7 @@ test("an unresolved retry also leaves no collectable results.json behind", () =>
   const summary = retryAgentTimeouts(baseConfig(paths, run));
 
   assert.equal(summary.unresolvedScenarioCount, 1);
-  const names = readdirSync(join(paths.retryResultsDir, "1-code-testing-generator"), {
+  const names = readdirSync(join(paths.retryResultsDir, "1-test-engineer"), {
     recursive: true,
   }).map(String);
   assert.ok(!names.some((name) => name.endsWith("results.json")));
@@ -1093,7 +1106,7 @@ test("clearing an activation failure restores the completion regression it maske
   // overwrites it, so a real isolated completion regression can hide behind
   // skill_not_activated. Clearing activation must not erase it.
   const verdict = {
-    skillName: "agent.code-testing-generator",
+    skillName: "agent.test-engineer",
     failureKind: "skill_not_activated",
     skillNotActivated: true,
     scenarios: [
@@ -1113,7 +1126,7 @@ test("clearing an activation failure restores the completion regression it maske
 
 test("clearing an activation failure yields null when no scenario regressed", () => {
   const verdict = {
-    skillName: "agent.code-testing-generator",
+    skillName: "agent.test-engineer",
     failureKind: "skill_not_activated",
     skillNotActivated: true,
     scenarios: [scenario("recovered"), scenario("clean")],
@@ -1206,7 +1219,7 @@ test("a masked regression survives a real end-to-end recovery", () => {
 
 test("refreshVerdictAggregates reports exactly the fields it cleared", () => {
   const verdict = {
-    skillName: "agent.code-testing-generator",
+    skillName: "agent.test-engineer",
     failureKind: "completion_regression",
     skillNotActivated: true,
     confidenceInterval: { low: 0, high: 1, level: 0.95 },

@@ -1,13 +1,12 @@
 ---
 name: test-quality-auditor
 description: >-
-  MUST USE for test-suite quality audits, from focused assertion, anti-pattern,
-  smell, gap, coverage, mock, or tagging reviews through broad multi-dimensional
-  health checks across a project/workspace. For a focused request, invoke only
-  the matching specialist skill; reserve the combined audit pipeline for broad
-  requests. Supports .NET and common non-.NET test frameworks. DO NOT USE to
-  write, generate, or fix tests; use the public code-testing-agent skill instead.
-user-invokable: true
+  Internal quality specialist for the test-engineer agent. Handles focused
+  assertion, anti-pattern, smell, gap, coverage, mock, or tagging reviews and
+  broad multi-dimensional health checks. For focused requests, invoke only the
+  matching specialist skill; reserve the combined audit pipeline for broad
+  requests. Supports .NET and common non-.NET test frameworks.
+user-invocable: false
 disable-model-invocation: false
 license: MIT
 ---
@@ -33,10 +32,14 @@ broad health check:
 | Project-wide coverage, plateaus, or risk hotspots | `coverage-analysis` for .NET; native tooling otherwise |
 | CRAP or coverage-and-complexity risk for one named method, class, or file | `crap-score` |
 | Tags, traits, or test-type distribution | `test-tagging` |
-| Generate or repair tests | `code-testing-agent`; it uses its direct workflow for focused work and delegates broad work to `code-testing-generator` |
+| Curated tests needing a PR-ready Pass / Failed / Uncertain decision | `grade-tests` |
+| Generate or repair tests | Return the findings to the invoking `test-engineer`; generation and repair are outside this diagnostic specialist |
 
 For a focused request, invoke the matching skill once and stop. A request to
-generate tests is not an audit; leave this agent dormant.
+grade a curated list is a focused decision report, not an audit dimension: route
+to `grade-tests` once and do not add it to the broad pipeline unless the user
+explicitly requested per-test decisions. A request to generate tests is not an
+audit; leave this agent dormant.
 
 ## Workflow
 
@@ -84,6 +87,10 @@ not rescan the same files. Invoke each applicable skill at most once:
 If coverage is unavailable, say it was not measured; do not launch collection
 just because this is a broad audit.
 
+Do not run `grade-tests` as part of a general audit. Its zero-finding
+Pass / Failed / Uncertain / Not applicable decision is designed for a bounded
+test list or changed-test diff, not suite-wide health synthesis.
+
 Run optional dimensions only when the user requested them or core findings make
 them necessary:
 
@@ -115,8 +122,9 @@ number of tools/skills used.
 3. One inventory, one execution probe, one invocation per selected skill.
 4. No automatic coverage collection, mutation run, tagging, or experimental
    analysis without evidence or explicit user intent.
-5. Skip inapplicable dimensions explicitly rather than simulating them.
-6. Mention testability migration only for an explicit permitted .NET production
+5. No automatic per-test grading during a broad audit.
+6. Skip inapplicable dimensions explicitly rather than simulating them.
+7. Mention testability migration only for an explicit permitted .NET production
    refactor request.
 
 ## Completion Condition

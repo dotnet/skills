@@ -4,7 +4,8 @@
  * Convert the native SDK custom-agent evaluator output into the current
  * Vally-adapter result schema. Vally 0.14 cannot register custom agents, so
  * agent evals use skill-validator's Copilot SDK runner for execution and this
- * adapter keeps them in the same statistical/reporting pipeline as skills.
+ * adapter keeps them and offline workflow-package runs in the same reporting
+ * pipeline as skills, with distinct target and execution-lane identities.
  */
 
 import {
@@ -48,7 +49,7 @@ if (isMain && (opts.help || !opts["results-file"])) {
   node adapt-agent-results.mjs --results-file <legacy-results.json> [options]
 
 Options:
-  --output-root <dir>       Output root for per-agent results.json files.
+  --output-root <dir>       Output root for per-agent/workflow results.json files.
   --expected-evals <file>   Newline-delimited or JSON-array expected eval manifest.
   --repo-root <dir>         Repository root used to read eval specs.
   --model <model>           Override the recorded executor model.
@@ -65,6 +66,19 @@ function agentIdentity(evalFile) {
   }
   const plugin = parts[1];
   const evalName = parts.at(-2);
+  if (plugin === "agentic-workflows") {
+    if (parts.length !== 4 || !/^[A-Za-z0-9_-]+$/.test(evalName)) {
+      throw new Error(`Invalid workflow eval identity: ${evalFile}`);
+    }
+    return {
+      plugin,
+      agentName: `workflow.${evalName}`,
+      skill: evalName,
+      skillPath: `agentic-workflows/${evalName}/aw.yml`,
+      kind: "workflow",
+      evaluationLane: "workflow-prompt-sdk",
+    };
+  }
   const agentName = evalName.startsWith("agent.")
     ? evalName.slice("agent.".length)
     : evalName;
@@ -77,6 +91,8 @@ function agentIdentity(evalFile) {
     agentName,
     skill,
     skillPath: `plugins/${plugin}/agents/${agentName}.agent.md`,
+    kind: "agent",
+    evaluationLane: "native-agent-sdk",
   };
 }
 
@@ -104,6 +120,13 @@ function findAgentEvalFile(repoRoot, plugin, agentName) {
 
 function evalFileFromLegacyVerdict(verdict, repoRoot) {
   const normalized = normalizeEvalFile(verdict.skillPath);
+  if (verdict.skillKind === "workflow") {
+    const match = /(?:^|\/)agentic-workflows\/([A-Za-z0-9_-]+)\/aw\.yml$/.exec(normalized);
+    if (!match || verdict.skillName !== match[1]) {
+      throw new Error(`Workflow result has an invalid package identity: ${verdict.skillPath}`);
+    }
+    return `tests/agentic-workflows/${match[1]}/eval.yaml`;
+  }
   const match = /(?:^|\/)plugins\/([^/]+)\/.+\.agent\.md$/.exec(normalized);
   if (!match) {
     throw new Error(`Agent result has an invalid skillPath: ${verdict.skillPath}`);
@@ -284,7 +307,7 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
       `native_${failureKind}`,
       message,
     );
-    verdict.evaluationLane = "native-agent-sdk";
+    verdict.evaluationLane = identity.evaluationLane;
     return verdict;
   }
   const baselineByStim = new Map();
@@ -397,7 +420,8 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
     nonActivation,
     "agent",
   );
-  verdict.evaluationLane = "native-agent-sdk";
+  verdict.skillKind = identity.kind;
+  verdict.evaluationLane = identity.evaluationLane;
   verdict.overfittingResult = legacyVerdict.overfittingResult ?? null;
   // The generic comparison layer uses `regressed` for reverse preference.
   // Native-agent results reserve it for objective completion regression; keep
@@ -483,8 +507,8 @@ function invalidAgentVerdict(identity, code, message) {
   return {
     skillName: identity.skill,
     skillPath: identity.skillPath,
-    skillKind: "agent",
-    evaluationLane: "native-agent-sdk",
+    skillKind: identity.kind,
+    evaluationLane: identity.evaluationLane,
     state: VERDICT_STATES.INVALID_INCONCLUSIVE,
     stateReason: { code, phase: "agent_adapter" },
     conclusive: false,
@@ -526,7 +550,7 @@ function writeResult(outputRoot, evalFile, identity, verdict, model, judgeModel,
       judgeModel,
       timestamp: new Date().toISOString(),
       expectedEval,
-      evaluationLane: "native-agent-sdk",
+      evaluationLane: identity.evaluationLane,
       verdicts: [verdict],
     }, null, 2),
   );
@@ -568,7 +592,7 @@ function main() {
   for (const evalFile of targetEvals) {
     const identity = agentIdentity(evalFile);
     const expectedEval = !expectedManifestProvided || expectedSet.has(evalFile);
-    const legacy = legacyVerdicts.get(identity.agentName);
+    const legacy = legacyVerdicts.get(identity.kind === "workflow" ? identity.skill : identity.agentName);
     let verdict;
     if (!legacy) {
       const message = `Native agent evaluator produced no verdict for ${identity.agentName}`;
@@ -626,7 +650,8 @@ function main() {
     join(outputRoot, "adapter-summary.json"),
     JSON.stringify({
       schemaVersion: 1,
-      evaluationLane: "native-agent-sdk",
+      evaluationLane: targetEvals.every((evalFile) => agentIdentity(evalFile).kind === "workflow")
+        ? "workflow-prompt-sdk" : "native-agent-sdk",
       expectedManifestProvided,
       expectedEvalCount: expectedEvals.length,
       observedEvalCount: observedEvals.length,

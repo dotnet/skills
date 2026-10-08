@@ -1,5 +1,5 @@
 name: agent.testability-migration
-description: Evaluates the dotnet-test/agent.testability-migration orchestrator agent
+description: Evaluates the dotnet-test/agent.testability-migration internal specialist
 type: capability
 defaults:
   timeout: 20m
@@ -156,7 +156,7 @@ stimuli:
         - python .eval/check_readonly.py snapshot FullPipeline
       skills:
         - ../../plugins/dotnet-test/skills/migrate-static-to-wrapper
-        - ../../plugins/dotnet-test/skills/code-testing-agent
+        - ../../plugins/dotnet-test/skills/code-testing
     graders:
       - type: file-contains
         config:
@@ -214,6 +214,10 @@ stimuli:
       injectable filesystem abstraction. Wire the production implementation and
       keep DateTime, Environment, and Console usage unchanged. Build the project
       after the migration.
+    tags:
+      capability: focused-filesystem-migration
+      risk: unrelated-dependency-drift
+      journey: replace-filesystem-statics
     environment:
       files:
         - src: ./fixtures/full-pipeline
@@ -250,6 +254,10 @@ stimuli:
       testing difficult. Group the findings by dependency category, identify the
       affected members, and rank the migration order. This is analysis only; do
       not edit any files.
+    tags:
+      capability: static-dependency-inventory
+      risk: unintended-production-edits
+      journey: analyze-testability-blockers
     environment:
       files:
         - src: ./fixtures/full-pipeline

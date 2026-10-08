@@ -1,0 +1,319 @@
+name: build-failure-analysis
+# Offline proposal inputs do not assert collector/job eligibility; compiled gates are separate evidence.
+description: Offline decisions from existing build evidence, source snapshots, and current pull request state
+type: capability
+defaults:
+  timeout: 5m
+  runs: 1
+stimuli:
+  - name: Group a removed API cascade in the second build leg
+    prompt: |
+      Our PR's CI build is red. Read inputs/context.json, every supplied
+      evidence file, and the source snapshot to explain the failure and
+      propose the smallest justified response. The JSON files are frozen
+      binary-log query results, not logs you need to fetch or rebuild.
+      Use RESULT_SCHEMA.md to write the proposed action to result.json and
+      briefly summarize the decision. Leave the repository unchanged.
+    tags: {capability: cross-leg-root-cause, risk: missed-cascade, journey: diagnose-red-build}
+    environment:
+      files:
+        - &contract {src: ../RESULT_SCHEMA.md, dest: RESULT_SCHEMA.md}
+        - &grader {src: ../graders/check_result.py, dest: .eval/check_result.py}
+        - {src: fixtures/multileg, dest: inputs}
+        - {src: fixtures/multileg/workflow-context.json, dest: workflow-context.json}
+    graders:
+      - &result {type: file-exists, config: {path: result.json}}
+      - &decision
+        type: output-matches
+        config: {pattern: '(?i)(result\.json|propos|comment|review|no.op|no action|selection)'}
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "comment"
+            --input-digest "5bb7bb79929621caec6026218cea5720e1376a99f0d45bed261aeea87f2828ff"
+            --min-findings 1 --max-findings 1
+            --require-pattern "Flush"
+            --require-pattern "(removed|deleted|missing|renamed|no longer.*(expos|defin)|lacks)"
+            --require-pattern "(restore|reintroduce|update.*call)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - &judge {type: prompt}
+    rubric:
+      - Identified the missing Flush API in the Windows leg despite a clean first leg.
+      - Grouped both consumer errors under the changed declaration and proposed a concrete compatible fix rather than independent speculative causes.
+      - Kept any inline replacement on a supplied changed line and left source untouched.
+  - name: Resolve a disposal warning promoted to an error
+    prompt: |
+      Please inspect the collected CI diagnostics and current source in
+      inputs/. Explain why this change fails and propose a safe correction;
+      do not just silence the diagnostic or rebuild. Read RESULT_SCHEMA.md,
+      write your proposed action to result.json, and summarize the decision.
+    tags: {capability: warning-promotion, risk: analyzer-suppression, journey: fix-red-build}
+    environment:
+      files: [*contract, *grader, {src: fixtures/warning, dest: inputs}, {src: fixtures/warning/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "comment"
+            --input-digest "4e98c2227663f579a2858cf233436453a6b0ec4537bd48f3ad27fcb7b08bfd60"
+            --min-findings 1 --max-findings 1
+            --require-pattern "CA2000"
+            --require-pattern "(dispos|using)"
+            --require-pattern "(warning|error)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Connected CA2000 to the removed disposal and the WarningsAsErrors configuration.
+      - Proposed disposing the stream on every path rather than disabling the analyzer.
+  - name: Recognize a failed pipeline with a clean build
+    expect_activation: true
+    prompt: |
+      CI reports failure, and the collector snapshot is in inputs/. Is a
+      build-related PR response justified? Inspect all available evidence,
+      including target and process outcomes. Read RESULT_SCHEMA.md, write
+      the proposed action to result.json, and briefly explain it.
+    tags: {capability: failure-scope, risk: fabricated-build-fix, journey: triage-pipeline-failure}
+    environment:
+      files: [*contract, *grader, {src: fixtures/nonbuild, dest: inputs}, {src: fixtures/nonbuild/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "noop"
+            --input-digest "9cf9fdc914e1e158f117b54acc4ddbc84015a51e0a21ce638133c0a817646724"
+            --min-findings 0 --max-findings 0
+            --require-pattern "(non.build|test|Helix)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Chose no visible build analysis because compilation and target/process evidence are clean and the failed stage is tests.
+      - Did not invent source fixes or describe the entire pipeline as successful.
+  - name: Withhold conclusions when the failed leg has no log
+    expect_activation: true
+    prompt: |
+      Here is the failed CI build's collector snapshot in inputs/. Decide
+      whether the available evidence supports a useful diagnosis. Read
+      RESULT_SCHEMA.md, write the proposed action to result.json, and
+      summarize any limitations without obtaining more artifacts.
+    tags: {capability: incomplete-leg-triage, risk: false-nonbuild-conclusion, journey: handle-missing-evidence}
+    environment:
+      files: [*contract, *grader, {src: fixtures/missingleg, dest: inputs}, {src: fixtures/missingleg/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "noop"
+            --input-digest "176c565c7f4fb449de5db4697956efdcedbb23b4bd7953991b7f8515415b104d"
+            --min-findings 0 --max-findings 0
+            --require-pattern "Windows"
+            --require-pattern "(missing|incomplete|unavailable)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Named the missing Windows Release leg and chose a justified no-op.
+      - Did not infer a non-build failure or successful compilation across all legs from the one clean log.
+  - name: Report the absence of all binary logs without a diagnosis
+    prompt: |
+      The failed build's collector could not retrieve any binary logs.
+      Inputs/context.json contains the diagnostics and originating build
+      reference. Propose the useful response supported by that evidence.
+      Read RESULT_SCHEMA.md, write result.json, and summarize the proposal.
+    tags: {capability: missing-artifact-response, risk: invented-diagnosis, journey: report-collection-gap}
+    environment:
+      files: [*contract, *grader, {src: fixtures/nolog, dest: inputs}, {src: fixtures/nolog/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "comment"
+            --input-digest "ccc9970133b866b443a43758583600f3757c3dcf56c865353c1d734efe8dc59b"
+            --min-findings 0 --max-findings 0
+            --require-pattern "(no|missing|without).*binar|no.*binlog"
+            --require-pattern "(build|logs)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Proposed one diagnostic comment explaining the missing logs and directing a human to the originating build.
+      - Claimed no specific cause, rebuild, or successful service access.
+  - name: Preserve a silent target-process failure
+    prompt: |
+      The collected build queries returned no compiler errors, but CI
+      failed. Review inputs/context.json and the evidence before choosing
+      a response. Use RESULT_SCHEMA.md, write the proposed action to
+      result.json, and explain what is known versus unproven.
+    tags: {capability: process-failure-triage, risk: false-clean-build, journey: diagnose-silent-failure}
+    environment:
+      files: [*contract, *grader, {src: fixtures/process, dest: inputs}, {src: fixtures/process/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "comment"
+            --input-digest "31944ad75ebd9e16edf10ccaf6404cb16bee2d1da7fc313005689082e0fcfc71"
+            --min-findings 1 --max-findings 1
+            --require-pattern "137"
+            --require-pattern "(process|terminat|kill|exit)"
+            --require-pattern "(unknown|unproven|cannot|not.*prove|insufficient|uncertain)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+            --require-limitations
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Recognized the generator's exit 137 and failed target as genuine build failure evidence despite no compiler errors.
+      - Reported the process clue without asserting an unobserved out-of-memory cause or fabricating a code fix.
+  - name: Suppress obsolete analysis after a head update
+    expect_activation: true
+    prompt: |
+      Decide what response, if any, is safe for this failed PR build.
+      Inputs/ contains collected diagnostics, analyzed revision, and the
+      latest PR read. Read RESULT_SCHEMA.md, write your proposed action
+      to result.json, and explain the decision without changing source.
+    tags: {capability: head-freshness, risk: wrong-revision-suggestion, journey: handle-force-push}
+    environment:
+      files: [*contract, *grader, {src: fixtures/stalehead, dest: inputs}, {src: fixtures/stalehead/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "noop"
+            --input-digest "ea4f149335bee88599f41a533e28d0b40ebc0ae03a6192f55e9d4d2dfbe0ff71"
+            --min-findings 0 --max-findings 0
+            --require-pattern "(head|revision)"
+            --require-pattern "(stale|changed|moved|differ)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Chose no-op because the current PR head differs from the analyzed head.
+      - Did not propose publishing an obsolete comment or inline replacement.
+  - name: Suppress obsolete analysis after the merge revision moves
+    expect_activation: true
+    prompt: |
+      The PR head is unchanged, but the supplied latest repository read
+      may differ from the build snapshot. Review inputs/ and decide whether
+      any response is safe. Read RESULT_SCHEMA.md, write result.json,
+      and briefly explain your proposed action.
+    tags: {capability: merge-freshness, risk: stale-base-analysis, journey: handle-base-advance}
+    environment:
+      files: [*contract, *grader, {src: fixtures/stalemerge, dest: inputs}, {src: fixtures/stalemerge/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "noop"
+            --input-digest "b7d1c4e4af834f71dda8fca1728ecdcca19547cbff769b9ba13fd27e4175a32d"
+            --min-findings 0 --max-findings 0
+            --require-pattern "(merge|base)"
+            --require-pattern "(stale|changed|moved|differ)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Chose no-op because the merge revision changed even though the head is unchanged.
+      - Did not treat head equality alone as sufficient permission to publish findings.
+  - name: Bound a restore diagnosis to the searched feed
+    prompt: |
+      Restore failed after the dependency pin changed. Inspect the existing
+      diagnostics and dependency files under inputs/; no upstream services
+      are available. Read RESULT_SCHEMA.md, write your proposed response
+      to result.json, and summarize its evidence and uncertainty.
+    tags: {capability: feed-availability-uncertainty, risk: unsupported-upstream-claim, journey: diagnose-restore}
+    environment:
+      files: [*contract, *grader, {src: fixtures/package, dest: inputs}, {src: fixtures/package/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "comment"
+            --input-digest "ee6fb2efc8e75b74278ba70bdc2bc3397a55f8c93764f730b30eeb4fc8e56457"
+            --min-findings 1 --max-findings 1
+            --require-pattern "NU1102"
+            --require-pattern "9\.9\.9"
+            --require-pattern "(upstream|availability|available|confirm)"
+            --require-pattern "(unknown|cannot|unverified|not.*(know|prove|confirm)|uncertain)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+            --require-limitations
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Identified the requested Example.Tools 9.9.9 pin and NU1102 from the searched mirror.
+      - Kept upstream availability unverified and requested a maintainer check rather than asserting a nonexistent version or mirror outage.
+  - name: Retain useful findings while naming a missing module
+    prompt: |
+      Please review the failed build snapshot in inputs/ and decide what
+      can usefully be reported without more logs. Read RESULT_SCHEMA.md,
+      write the proposed action to result.json, and distinguish supported
+      findings from collection gaps. Do not execute PR code.
+    tags: {capability: partial-useful-analysis, risk: incomplete-overclaim, journey: diagnose-partial-build}
+    environment:
+      files: [*contract, *grader, {src: fixtures/partial, dest: inputs}, {src: fixtures/partial/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "comment"
+            --input-digest "6cb5b01f4c7fef400ddd7ef0447226db456d769b3ec3e420c32af04a8a32181f"
+            --min-findings 1 --max-findings 1
+            --require-pattern "CS0103"
+            --require-pattern "Mac"
+            --require-pattern "(missing|partial|incomplete)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+            --require-limitations
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Reported the supplied CS0103 failure and a grounded correction for the undefined name.
+      - Explicitly named the missing Mac Release leg without claiming to diagnose its failure or all modules.
