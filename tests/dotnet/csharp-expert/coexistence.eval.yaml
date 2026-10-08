@@ -415,18 +415,14 @@ stimuli:
           value: Length
       - type: run-command
         config:
-          command: grep -Eq 'OpenReadStream|CopyToAsync' Program.cs
-          expected_exit_code: 0
-      - type: run-command
-        config:
           command: >-
             node -e "const fs=require('fs'); const source=fs.readFileSync('Program.cs','utf8');
             const guard=source.search(/\.Length[\s\S]{0,80}>\s*/);
             const reject=source.search(/(?:Results|TypedResults)\.(?:BadRequest|StatusCode|Problem|ValidationProblem)\s*\(/);
-            const stream=source.search(/(?:OpenReadStream|CopyToAsync)\s*\(/);
-            const success=stream < 0 ? -1 : source.slice(stream).search(/(?:Results|TypedResults)\.(?:Ok|Created|NoContent)\s*\(/);
-            if (guard < 0 || reject < guard || stream < reject || success < 0)
-            throw new Error('Expected oversized rejection before streaming and success after streaming');"
+            const copy=source.search(/\bawait\s+(?:[\w.]+\s*\.\s*)?(?:CopyToAsync|WriteAsync|WriteAllBytesAsync)\s*\(\s*(?!Stream\.Null\b)/);
+            const success=copy < 0 ? -1 : source.slice(copy).search(/(?:Results|TypedResults)\.(?:Ok|Created|NoContent)\s*\(/);
+            if (guard < 0 || reject < guard || copy < reject || success < 0)
+            throw new Error('Expected oversized rejection before an awaited copy/write to a destination and success afterward');"
           expected_exit_code: 0
       - type: run-command
         config:
