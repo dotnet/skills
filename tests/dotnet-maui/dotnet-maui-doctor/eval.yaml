@@ -149,6 +149,9 @@ stimuli:
       commands:
         - python3 capture_state.py
     graders:
+      - type: diff-not-contains
+        config:
+          pattern: '(?m)^(?:diff --git (?!a/__pycache__/[^\r\n]+ b/__pycache__/[^\r\n]+$|"a/__pycache__/(?:[^"\\\r\n]|\\.)+" "b/__pycache__/(?:[^"\\\r\n]|\\.)+"$)|rename (?:from|to) (?!__pycache__/|"__pycache__/))'
       - type: run-command
         config:
           command: python3 check_state.py
@@ -363,6 +366,9 @@ stimuli:
       commands:
         - python3 capture_state.py
     graders:
+      - type: diff-not-contains
+        config:
+          pattern: '(?m)^(?:diff --git (?!a/resolve_requirements\.py b/resolve_requirements\.py$|a/requirements\.json b/requirements\.json$|a/__pycache__/[^\r\n]+ b/__pycache__/[^\r\n]+$|"a/__pycache__/(?:[^"\\\r\n]|\\.)+" "b/__pycache__/(?:[^"\\\r\n]|\\.)+"$)|rename (?:from|to) (?!__pycache__/|"__pycache__/))'
       - type: run-command
         config:
           command: python3 check_discovery.py

@@ -16,17 +16,69 @@ SUITE = Path(__file__).resolve().parent
 WORK = SUITE / ".validation-work"
 
 
-def run(args, cwd=ROOT, success=True):
+def run(args, cwd=ROOT, success=True, input=None):
     env = dict(
         os.environ, VALLY_TELEMETRY_OPTOUT="1", PYTHONDONTWRITEBYTECODE="1",
         TMPDIR=str(WORK / "oracle-temp"),
         GIT_CEILING_DIRECTORIES=str(WORK),
     )
-    result = subprocess.run(args, cwd=cwd, env=env, text=True, capture_output=True)
+    result = subprocess.run(args, cwd=cwd, env=env, text=True, capture_output=True, input=input)
     if (result.returncode == 0) != success:
         raise AssertionError(f"Unexpected exit {result.returncode}: {args}\n"
                              f"{result.stdout}\n{result.stderr}")
     return result
+
+
+def check_immutable_scope(workspace, stimulus):
+    config = next(g["config"] for g in stimulus["graders"] if g["type"] == "diff-not-contains")
+    skill_root = ROOT / "plugins/dotnet-maui/skills"
+    for role, skills in (
+        ("baseline", []), ("isolated", [skill_root / "dotnet-maui-doctor"]),
+        ("plugin", sorted(skill_root.iterdir())),
+    ):
+        trial = WORK / f"scope-{workspace.name}-{role}"
+        baseline = WORK / f"scope-baseline-{workspace.name}-{role}"
+        shutil.copytree(workspace, trial)
+        for skill in skills:
+            shutil.copytree(skill, trial / skill.name)
+        run([sys.executable, "capture_state.py"], cwd=trial)
+        baseline.mkdir()
+        payload = {"workDir": str(trial), "baselineGitDir": str(baseline)}
+        result = run(["node", "tests/dotnet-maui/replay_scope.mjs"],
+                     input=json.dumps(dict(payload, action="capture")))
+        payload["baselineRef"] = json.loads(result.stdout)["baselineRef"]
+
+        def scope_passes():
+            result = run(["node", "tests/dotnet-maui/replay_scope.mjs"],
+                         input=json.dumps(dict(payload, action="grade", config=config)))
+            return json.loads(result.stdout)["passed"]
+
+        checker = ["check_discovery.py"] if (trial / "check_discovery.py").exists() else ["check_state.py"]
+        run([sys.executable, *checker], cwd=trial)
+        assert scope_passes(), (stimulus["name"], role)
+        pin = trial / "global.json"
+        state = trial / ".scope-snapshot.json"
+        check = trial / "check_state.py"
+        originals = {path: path.read_bytes() for path in (pin, state, check)}
+        try:
+            for mutation in ("recapture", "deleted-recapture", "checker"):
+                pin.write_text(json.dumps({"sdk": {"version": "99.0.100"}}))
+                if mutation == "deleted-recapture":
+                    pin.unlink()
+                if mutation == "checker":
+                    check.write_text(originals[check].decode().replace(
+                        "def check(allowed=()):", "def check(allowed=()):\n    return"))
+                else:
+                    run([sys.executable, "capture_state.py"], cwd=trial)
+                run([sys.executable, *checker], cwd=trial)
+                assert not scope_passes(), (stimulus["name"], role, mutation)
+                for path, content in originals.items():
+                    path.write_bytes(content)
+        finally:
+            shutil.rmtree(trial)
+            shutil.rmtree(baseline)
+    print(f"PASS: {stimulus['name']} accepts all three staged roles and rejects "
+          "recaptured, deleted/recaptured and checker-bypass inputs")
 
 
 def assert_bad_discovery(workspace, mutation):
@@ -202,6 +254,7 @@ def main():
                 finally:
                     project.write_bytes(original)
                 print("Rejected no-op mutations: modified and deleted input")
+                check_immutable_scope(workspace, stimulus)
             if stimulus["name"] == "Offline CI discovery follows each manifest entry":
                 assert_bad_discovery(workspace, lambda text: text.replace(
                     'version, band = parts', 'version, band = parts\n    band = "10.0.200"'))
@@ -216,6 +269,7 @@ def main():
                 finally:
                     pin.write_text(original)
                 print("Rejected discovery mutations: wrong band, optional packages and pin rewrite")
+                check_immutable_scope(workspace, stimulus)
         check_output_variants(document)
         print(f"PASS: {count} deterministic golden trajectories and 5 behavioral mutations")
     finally:

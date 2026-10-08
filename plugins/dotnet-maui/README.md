@@ -381,6 +381,16 @@ accepts 36 cases and rejects 36 script-addition mutations, with declared budgets
 retained. Neither replay executes an agent or uses a paid judge; the concurrent
 diagnostic is not a fresh cross-family preference measurement.
 
+Doctor's healthy/discovery contracts independently protect their inputs with
+the same trusted pre-agent diff mechanism. The in-workspace state checker is
+diagnostic, not the preservation authority: recapturing its manifest or
+rewriting the checker cannot erase the external baseline. Discovery permits
+only the requested resolver/output and root Python cache changes. Replay
+accepts both cases in all three staged roles and rejects 18 changed-and-recaptured,
+deleted-and-recaptured, and checker-bypass mutations even though the old
+in-workspace checks accept them. Its 12 deterministic goldens, five existing
+behavior mutations and eight wording contrasts continue to pass.
+
 The harness integration test now uses different log and workspace roots. The
 unwrapped provider rejects the workspace file; the provider installed through
 the real SDK session setup must read it successfully. The standalone harness
@@ -389,6 +399,24 @@ isolated wrapper-removal mutation fails, unlike the old same-root test.
 Production harness behavior is unchanged and trusted-base integration remains
 pending. The earlier README/PR measurement inconsistency is resolved by pinning
 executor evidence to `28595929` and reporting later grading checks separately.
+
+### Unresolved filesystem race
+
+The harness owner confirmed an intermediate-parent symlink swap after path
+canonicalization can make the adapter read or overwrite an outside owned
+fixture. Canonical checks are not an atomic or adversarial confinement boundary.
+The nine functional tests do not prove that security property; this diagnostic
+reproduces a failure, not a successful security regression check.
+
+The existing Node/SDK pathname interfaces do not provide a portable atomic
+all-operation fix. Final-component no-follow flags, repeated checks and
+JavaScript locks do not stop an external writer. Engineering must choose
+whether to limit the adapter to stable trusted workspaces, without claiming
+security confinement, or require an upstream/platform-native descriptor-relative
+provider or equivalent verified isolation encompassing the Node provider and
+all writers. The review thread remains open. Documentation is corrected in
+the standalone harness PR; no race fix, sandbox acceptance or merge readiness
+is claimed.
 
 ## Overlapping proposal integration
 
