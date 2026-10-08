@@ -34,9 +34,10 @@ for (const method of ['createSession', 'resumeSession']) {
   const original = CopilotClient.prototype[method];
   CopilotClient.prototype[method] = async function (...args) {
     await this.start();
-    if (method === 'createSession' && args[0]?.createSessionFsProvider && args[0].workingDirectory) {
-      const config = args[0];
-      args[0] = {
+    const configIndex = method === 'createSession' ? 0 : 1;
+    const config = args[configIndex];
+    if (config?.createSessionFsProvider && config.workingDirectory) {
+      args[configIndex] = {
         ...config,
         createSessionFsProvider: (...factoryArgs) => {
           const provider = config.createSessionFsProvider(...factoryArgs);

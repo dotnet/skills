@@ -79,7 +79,8 @@ normalized tool result. This can affect one executor family more than another
 and inflate its turns/cost even when the final answer and comparison complete.
 
 The launcher installs a Vally-version-checked fail-closed guard for that local
-provider. Absolute workspace requests outside the provider's existing log root
+provider during both session creation and resumption. Absolute workspace requests
+outside the provider's existing log root
 are rejected with `ERR_EVALUATION_WORKSPACE_ISOLATION_REQUIRED` and an actionable
 message, without canonicalizing or opening workspace paths. Both endpoints of
 rename are checked, including mixed relative/absolute requests. Relative session
