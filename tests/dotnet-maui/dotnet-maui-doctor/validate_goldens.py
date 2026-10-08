@@ -124,6 +124,42 @@ def check_package_example():
             and "id" in entry and not entry.get("optional")] != expected
     print("PASS: actual package helper handles nested IDs and rejects unavailable metadata")
 
+def check_flat_container_urls():
+    reference = ROOT / (
+        "plugins/dotnet-maui/skills/dotnet-maui-doctor/references/"
+        "workload-dependencies-discovery.md")
+    source = reference.read_text()
+    selected = WORK / "selected-workload-set.json"
+    selected.write_text(json.dumps({"Microsoft.NET.Sdk.Android": "36.1.0-PREVIEW.2/10.0.100"}))
+    expected = (
+        "36.1.0-PREVIEW.2\n"
+        "https://api.nuget.org/v3-flatcontainer/microsoft.net.sdk.android.manifest-10.0.100/"
+        "36.1.0-preview.2/microsoft.net.sdk.android.manifest-10.0.100.36.1.0-preview.2.nupkg"
+    )
+    bash = source.split("```bash\n", 1)[1].split("\n```", 1)[0].split("curl --", 1)[0]
+    result = run(["bash", "-c", 'WORKLOAD_SET_JSON="$1"\n' + bash +
+                  '\nprintf "%s\\n%s\\n" "$manifest_version" "$url"', "probe", str(selected)])
+    assert result.stdout.strip() == expected, result.stdout
+    wrong = bash.replace('$package_version/', '$manifest_version/').replace(
+        '$package_id.$package_version.nupkg', '$package_id.$manifest_version.nupkg')
+    result = run(["bash", "-c", 'WORKLOAD_SET_JSON="$1"\n' + wrong +
+                  '\nprintf "%s\\n%s\\n" "$manifest_version" "$url"', "probe", str(selected)])
+    assert result.stdout.strip() != expected and "/36.1.0-PREVIEW.2/" in result.stdout
+    powershell = source.split("```powershell\n", 1)[1].split("\n```", 1)[0].split(
+        "Invoke-WebRequest", 1)[0]
+    result = run(["pwsh", "-NoProfile", "-Command",
+                  "$WorkloadSetJson = '" + str(selected).replace("'", "''") + "'\n" +
+                  powershell + '\nWrite-Output $manifestVersion; Write-Output $url'])
+    assert result.stdout.strip() == expected, result.stdout
+    wrong = powershell.replace(
+        "$packageVersion = $manifestVersion.ToLowerInvariant()",
+        "$packageVersion = $manifestVersion")
+    result = run(["pwsh", "-NoProfile", "-Command",
+                  "$WorkloadSetJson = '" + str(selected).replace("'", "''") + "'\n" +
+                  wrong + '\nWrite-Output $manifestVersion; Write-Output $url'])
+    assert result.stdout.strip() != expected and "/36.1.0-PREVIEW.2/" in result.stdout
+    print("PASS: actual Bash/PowerShell URL samples lowercase prerelease paths and retain reporting identity")
+
 
 def check_output_variants(document):
     cases = [
@@ -232,6 +268,7 @@ def main():
     WORK.mkdir(exist_ok=True)
     (WORK / "oracle-temp").mkdir(exist_ok=True)
     try:
+        check_flat_container_urls()
         spec.write_text(yaml.safe_dump(document, sort_keys=False))
         count = 0
         for index, stimulus in enumerate(document["stimuli"]):

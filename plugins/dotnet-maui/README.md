@@ -473,6 +473,14 @@ New fixture files must be tracked in Git for the quality gate. Use its documente
 The pinned Vally dependencies live in `eng/evaluation-tools/`.
 
 Each repaired suite includes golden evidence and deterministic replay helpers.
+Lifecycle replay calls `Attach` and dispatches actual MAUI `IWindow` lifecycle
+events, rejecting missing attachment/subscriptions and incorrect resume routing.
+The source-example probe checks initialization, ordinary draft/scroll changes
+and teardown with a notifying ViewModel and an in-memory preference store; this
+does not exercise native preference storage or OS event delivery. The theme probe
+checks explicit Light/Dark choices and System/unknown fallbacks against both
+system-theme values. Doctor executes both URL-building examples offline with
+uppercase prerelease metadata and rejects unnormalized URL components.
 Doctor's test README documents its offline replay. DI includes executable probes
 against real MAUI Controls packages. The six UI/lifecycle suites share
 `tests/dotnet-maui/maui-collectionview/replay_goldens.py`; `--production` replays

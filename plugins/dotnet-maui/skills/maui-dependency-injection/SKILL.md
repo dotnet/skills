@@ -43,7 +43,7 @@ paths for facts already covered here; disclose any uncertainty that matters.
 | Situation | Do this | Why |
 |---|---|---|
 | Registering a Page or ViewModel | Prefer `AddTransient` for independently created detail pages | Transient means fresh **per resolution**, not per tab selection. Shell can cache a root page. A Singleton is defensible for intentionally shared root state; do not attach the same Page instance to multiple parents/windows |
-| Registering shared/expensive state | `AddSingleton` | One instance app-wide (settings, DB connection, `HttpClient` handler) |
+| Registering thread-safe app-wide state | `AddSingleton` | Shared settings/cache ownership; database connections and `DbContext` instances are operation-owned, not generic singleton examples |
 | Shared cache also needs HTTP | Keep cache ownership separate from short-lived client creation | Do not register the same intended service as both Singleton and a typed HTTP client; see the named-client example in the API reference |
 | Tempted to use `AddScoped` | Decide who creates, resolves from, and disposes the scope | Ordinary non-Blazor MAUI has **no automatic DI scope per window or navigation**. Scoped instances resolved from the root are shared until root disposal (or resolution throws when scope validation is enabled) |
 | App already owns explicit per-window scopes | Preserve the graph; audit root/template/route resolution and teardown | Shell uses its MAUI context's provider, not an arbitrary new scope. Avoid root/static resolvers; cancel and await outstanding work before disposing the window scope |

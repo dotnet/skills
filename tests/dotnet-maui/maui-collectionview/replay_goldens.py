@@ -393,6 +393,9 @@ def api_probe():
         "```csharp\npublic sealed class ThemeManager\n", 1)[1].split(
         "\npublic partial class App", 1)[0]
     theme_choice = theme_skill.read_text().split("Themes.ApplyTheme(", 1)[1].split(");", 1)[0]
+    theme_choice = theme_choice.replace("_choice", "saved").replace("RequestedTheme", "AppTheme.Dark")
+    theme_app = theme_skill.read_text().split("\npublic partial class App : Application\n", 1)[1].split(
+        "\n// Settings uses", 1)[0]
     shell_spec = yaml.safe_load(
         (ROOT / "tests/dotnet-maui/maui-shell-navigation/eval.yaml").read_text())
     deferral = next(s for s in shell_spec["stimuli"]
@@ -449,6 +452,29 @@ public static class Checks
             ReferenceEquals(typeof(DraftWindow).GetField("_viewModel",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
                 .GetValue(ownedWindow), draft), "draft owner disconnected from editor ViewModel");
+        Preferences.Set("draft:one", "persisted");
+        Preferences.Set("draft:one:scroll", 12.0);
+        var lifecycle = (IWindow)ownedWindow;
+        lifecycle.Stopped();
+        Require(Preferences.Get("draft:one", "") == "persisted",
+            "stop before initialization overwrote the saved draft");
+        lifecycle.Activated();
+        Require(draft.DraftText == "persisted" && draft.ScrollY == 12.0,
+            "cold start did not restore both state fields");
+        draft.DraftText = "ordinary edit";
+        draft.ScrollY = 24.0;
+        Require(Preferences.Get("draft:one", "") == "ordinary edit" &&
+            Preferences.Get("draft:one:scroll", 0.0) == 24.0,
+            "ordinary change did not persist both state fields");
+        lifecycle.Destroying();
+        draft.DraftText = "detached";
+        Require(Preferences.Get("draft:one", "") == "ordinary edit",
+            "destroyed window retained its change subscription");
+        Preferences.Set("draft:unloaded", "keep");
+        var unloaded = new DraftWindow(new ContentPage(), new NoteViewModel(), "draft:unloaded");
+        ((IWindow)unloaded).Destroying();
+        Require(Preferences.Get("draft:unloaded", "") == "keep",
+            "teardown before initialization overwrote the saved draft");
         var parent = new Grid();
         var child = new Label();
         parent.Children.Add(child);
@@ -572,13 +598,43 @@ public static class Checks
             !resources.MergedDictionaries.Contains(dark), "theme ownership/preservation failed");
         var saved = "Dark";
         manager.ApplyTheme(__THEME_STARTUP_CHOICE__);
+        foreach (var choice in new[] { "System", "stale", "", "Light", "Dark" })
+        {
+            foreach (var system in new[] { AppTheme.Light, AppTheme.Dark })
+            {
+                var selected = ThemeManager.ResolveTheme(choice, system);
+                var darkSelected = choice == "Dark" || (choice != "Light" && system == AppTheme.Dark);
+                Require(darkSelected ? selected is DarkTheme : selected is LightTheme,
+                    "stored theme selection ignored explicit choice or System fallback");
+            }
+            Preferences.Set("CustomTheme", "stale");
+            var themeApp = new App();
+            themeApp.UserAppTheme = AppTheme.Dark;
+            Require(themeApp.Resources.MergedDictionaries.Single() is DarkTheme,
+                "System fallback did not react to requested-theme changes");
+            themeApp.SelectTheme("Light");
+            themeApp.UserAppTheme = AppTheme.Light;
+            themeApp.UserAppTheme = AppTheme.Dark;
+            Require(themeApp.Resources.MergedDictionaries.Single() is LightTheme,
+                "requested-theme change replaced an explicit stored theme");
+            themeApp.SelectTheme("System");
+            themeApp.UserAppTheme = AppTheme.Light;
+            Require(themeApp.Resources.MergedDictionaries.Single() is LightTheme &&
+                Preferences.Get("CustomTheme", "") == "System",
+                "System selection did not persist and resume theme observation");
+        }
         Require(!new DeferralCore().SkipPending().GetAwaiter().GetResult(),
             "the actual source caller did not reject a pending request");
         Console.WriteLine("PASS: package-api-probe (no XAML/native/device execution)");
     }
 }
 public sealed class ThemeManager
-""" + theme_manager + "\n" + event_page + """
+""" + theme_manager + "\npublic partial class App : Application\n" + theme_app + """
+public partial class App
+{
+    private void InitializeComponent() { }
+}
+""" + "\n" + event_page + """
 public sealed class ProbeThemeAwarePage(Application publisher) : ThemeAwarePage(publisher)
 {
     public int Callbacks { get; private set; }
@@ -588,10 +644,28 @@ public sealed class ProbeThemeAwarePage(Application publisher) : ThemeAwarePage(
         => Callbacks++;
 }
 """ + "\npublic sealed class DraftWindow" + draft_window + """
-public sealed class NoteViewModel
+public sealed class NoteViewModel : INotifyPropertyChanged
 {
-    public string DraftText { get; set; } = "";
-    public double ScrollY { get; set; }
+    private string _text = "";
+    private double _scroll;
+    public event PropertyChangedEventHandler? PropertyChanged;
+    public string DraftText
+    {
+        get => _text;
+        set { _text = value; PropertyChanged?.Invoke(this, new(nameof(DraftText))); }
+    }
+    public double ScrollY
+    {
+        get => _scroll;
+        set { _scroll = value; PropertyChanged?.Invoke(this, new(nameof(ScrollY))); }
+    }
+}
+public static class Preferences
+{
+    private static readonly Dictionary<string, object> Values = new();
+    public static T Get<T>(string key, T fallback) =>
+        Values.TryGetValue(key, out var value) ? (T)value : fallback;
+    public static void Set<T>(string key, T value) where T : notnull => Values[key] = value;
 }
 public sealed class LightTheme : ResourceDictionary { }
 public sealed class DarkTheme : ResourceDictionary { }
@@ -621,6 +695,25 @@ public sealed class DeferralCore : Shell
         assert result.returncode == 0, result.stdout + result.stderr
         assert "PASS: package-api-probe" in result.stdout, result.stdout
         print(result.stdout.strip())
+        runtime_mutations = (
+            ("stop before initialization overwrote", "if (!_draftLoaded)\n            return;", ""),
+            ("ordinary change did not persist", 'Preferences.Set($"{_draftKey}:scroll", _viewModel.ScrollY);', ""),
+            ("ordinary change did not persist", "_viewModel.PropertyChanged += OnStateChanged;", ""),
+            ("destroyed window retained", "_viewModel.PropertyChanged -= OnStateChanged;", ""),
+            ("stored theme selection ignored",
+             "_ => systemTheme == AppTheme.Dark ? new DarkTheme() : new LightTheme()",
+             "_ => new LightTheme()"),
+            ("System fallback did not react", 'if (_choice is not ("Light" or "Dark"))',
+             'if (false)'),
+        )
+        for diagnostic, before, after in runtime_mutations:
+            assert source.count(before) == 1, before
+            (workspace / "Program.cs").write_text(source.replace(before, after))
+            failed = command(["dotnet", "run", "--project", "Fixture.csproj", "--no-restore",
+                              "--verbosity", "quiet"], workspace)
+            assert failed.returncode != 0 and diagnostic in failed.stdout + failed.stderr, (
+                diagnostic, failed.stdout, failed.stderr)
+        print("PASS: lifecycle initialization/ordinary-save/detachment and stored-theme fallback mutations")
         mutations = (
             ("CS0173", """
 public static class InvalidThemeChoice
@@ -901,6 +994,27 @@ def main():
                         assert re.search(cfg["stdout_matches"], result.stdout), result.stdout
                 totals["golden_workspaces"] += 1
                 assert scope_passes(), (name, stimulus["name"])
+                if name == "maui-app-lifecycle" and "golden_patch" in stimulus:
+                    program = workspace / "Program.cs"
+                    original_program = program.read_text()
+                    event_mutations = (
+                        ("Stopped subscription", "window.Stopped += (_, _) => Save();", ""),
+                        ("Destroying subscription", "window.Destroying += (_, _) => Save();", ""),
+                        ("resume overwrote", "window.Resumed += (_, _) => Restore();",
+                         "window.Resumed += (_, _) => Save();"),
+                        ("CS1061", "public void Attach(Window window)", "public void MissingAttach(Window window)"),
+                    )
+                    try:
+                        for diagnostic, before, after in event_mutations:
+                            assert original_program.count(before) == 1, before
+                            program.write_text(original_program.replace(before, after))
+                            result = command(["dotnet", "run", "--project", "Fixture.csproj",
+                                              "--no-restore", "--verbosity", "quiet"], workspace)
+                            assert result.returncode != 0 and diagnostic in result.stdout + result.stderr, (
+                                diagnostic, result.stdout, result.stderr)
+                            totals["defect_rejections"] += 1
+                    finally:
+                        program.write_text(original_program)
                 for supplied in supplied_skills:
                     if not supplied.is_file():
                         continue

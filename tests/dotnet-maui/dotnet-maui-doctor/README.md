@@ -53,11 +53,12 @@ Its process-local scratch directory stays inside the suite; a Git discovery
 ceiling prevents nested replay workspaces from resolving against the parent
 repository and silently skipping golden patches.
 It checks all golden responses, executes the offline resolver including changed
-and malformed inputs, compares the entire protected file set, and rejects five
+and malformed inputs, compares the entire protected file set, and rejects six
 mutations (modified/deleted no-op inputs, wrong band, optional package inclusion,
-and pin rewrite). It never installs SDKs, workloads or JDKs and does not build MAUI.
-It also replays five equivalent answers through shipping Vally, reproduces their
-prior lexical false negatives, and rejects five missing-evidence mutations.
+pin rewrite, and a hardcoded primary JDK range). It never installs SDKs, workloads
+or JDKs and does not build MAUI.
+It also replays eight equivalent answers through shipping Vally, reproduces their
+prior lexical false negatives, and rejects eight missing-evidence mutations.
 These checks protect equivalent wording, not semantic correctness of every answer.
 One retained plugin answer proposed checks "inside the repo" with Markdown
 `` `cd` ``; the former directory-wording proxy incorrectly rejected it.
@@ -103,5 +104,9 @@ same deterministic contract. Prompt rubrics cover semantic restraint where a
 substring or command ban would wrongly reject valid advice.
 
 No fresh model execution or cross-family comparison is implied by these checks.
+The actual Bash and PowerShell URL-building samples also run offline against an
+uppercase prerelease entry. They must lowercase both flat-container version
+components while retaining the original version for reporting; unnormalized
+mutations fail. No package download is performed.
 Interpret separately collected official quality, activation and usage results
 before claiming improvement or token/time/cost neutrality.

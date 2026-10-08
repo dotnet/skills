@@ -129,6 +129,7 @@ public sealed class DraftWindow : Window
     {
         _viewModel = viewModel;
         _draftKey = draftKey;
+        _viewModel.PropertyChanged += OnStateChanged;
     }
 
     protected override void OnActivated()
@@ -141,14 +142,25 @@ public sealed class DraftWindow : Window
         _draftLoaded = true;
     }
 
-    // Call from the draft-change path too, not only from lifecycle callbacks.
-    public void SaveDraft() => Preferences.Set(_draftKey, _viewModel.DraftText);
+    void OnStateChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(e.PropertyName) ||
+            e.PropertyName is nameof(NoteViewModel.DraftText) or nameof(NoteViewModel.ScrollY))
+            SaveState();
+    }
+
+    public void SaveState()
+    {
+        if (!_draftLoaded)
+            return;
+        Preferences.Set(_draftKey, _viewModel.DraftText);
+        Preferences.Set($"{_draftKey}:scroll", _viewModel.ScrollY);
+    }
 
     protected override void OnStopped()
     {
         base.OnStopped();
-        SaveDraft();
-        Preferences.Set($"{_draftKey}:scroll", _viewModel.ScrollY);
+        SaveState();
     }
 
     protected override void OnResumed()
@@ -160,7 +172,8 @@ public sealed class DraftWindow : Window
     protected override void OnDestroying()
     {
         base.OnDestroying();
-        SaveDraft(); // Best-effort flush, not a guaranteed termination notification.
+        _viewModel.PropertyChanged -= OnStateChanged;
+        SaveState(); // Best-effort flush, not a guaranteed termination notification.
     }
 }
 ```
@@ -172,6 +185,11 @@ Pass the **same** ViewModel used by the editor page, not an assumed
 `new DraftWindow(new NotePage(vm), vm, documentDraftKey)`.
 For Shell, retain the Shell root but pass the actual editor's ViewModel explicitly.
 Use a stable, document-specific key when windows edit different documents.
+`NoteViewModel` implements `INotifyPropertyChanged` and raises notifications after
+both draft-text and scroll-position changes. The page updates those same
+properties from its edit/scroll handlers. Initialization notifications and teardown
+before first activation cannot overwrite an unloaded draft. Debounce frequent
+changes if necessary, but preserve both fields in each durable snapshot.
 
 ## Platform Lifecycle Mapping
 

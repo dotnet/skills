@@ -1,8 +1,9 @@
 # actionlint configuration. See: https://github.com/rhysd/actionlint/blob/main/docs/config.md
-# Declares custom/self-hosted runner labels used by this repository so actionlint
-# does not flag them as unknown. Keep in sync with the labels referenced by
+# Declares runner labels newer than the pinned actionlint catalog (and custom
+# labels) so actionlint does not flag them as unknown. Keep in sync with
 # `runs-on:` across .github/workflows/.
 self-hosted-runner:
   labels:
     - ubuntu-slim
     - windows-11-arm
+    - macos-15-intel

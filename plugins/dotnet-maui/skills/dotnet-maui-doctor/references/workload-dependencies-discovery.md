@@ -66,7 +66,9 @@ if [ -z "$manifest_version" ] || [ -z "$manifest_band" ] || [[ "$entry" == */*/*
   exit 1
 fi
 package_id="microsoft.net.sdk.android.manifest-$manifest_band"
-url="https://api.nuget.org/v3-flatcontainer/$package_id/$manifest_version/$package_id.$manifest_version.nupkg"
+package_id=$(printf '%s' "$package_id" | tr '[:upper:]' '[:lower:]')
+package_version=$(printf '%s' "$manifest_version" | tr '[:upper:]' '[:lower:]')
+url="https://api.nuget.org/v3-flatcontainer/$package_id/$package_version/$package_id.$package_version.nupkg"
 curl --fail --show-error --location "$url" -o "$MANIFEST_ARCHIVE" || exit 1
 unzip -p "$MANIFEST_ARCHIVE" data/WorkloadDependencies.json |
   jq -e '."microsoft.net.sdk.android" // error("Android dependency key missing")' || exit 1
@@ -82,7 +84,8 @@ if ($parts.Count -ne 2 -or !$parts[0] -or !$parts[1]) {
 }
 $manifestVersion, $manifestBand = $parts
 $packageId = "microsoft.net.sdk.android.manifest-$manifestBand".ToLowerInvariant()
-$url = "https://api.nuget.org/v3-flatcontainer/$packageId/$manifestVersion/$packageId.$manifestVersion.nupkg"
+$packageVersion = $manifestVersion.ToLowerInvariant()
+$url = "https://api.nuget.org/v3-flatcontainer/$packageId/$packageVersion/$packageId.$packageVersion.nupkg"
 Invoke-WebRequest $url -OutFile $ManifestArchive -ErrorAction Stop
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = [System.IO.Compression.ZipFile]::OpenRead($ManifestArchive)

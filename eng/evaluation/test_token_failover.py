@@ -2205,7 +2205,14 @@ esac
             self.assertEqual(triggers[event]["paths"].count(tool_path), 1)
 
         job = workflow["jobs"]["evaluation-tools"]
-        self.assertEqual(job["runs-on"], "ubuntu-latest")
+        self.assertEqual(job["runs-on"], "${{ matrix.runner }}")
+        self.assertFalse(job["strategy"]["fail-fast"])
+        self.assertEqual(job["strategy"]["matrix"]["include"], [
+            {"runner": "ubuntu-latest", "platform": "linux", "arch": "x64"},
+            {"runner": "ubuntu-24.04-arm", "platform": "linux", "arch": "arm64"},
+            {"runner": "macos-15-intel", "platform": "darwin", "arch": "x64"},
+            {"runner": "macos-15", "platform": "darwin", "arch": "arm64"},
+        ])
         steps = {step.get("name"): step for step in job["steps"]}
         self.assertEqual(steps["Setup Go for rooted workspace filesystem"]["with"]["go-version"], "1.27.1")
         install_script = steps["Install evaluation tools"]["run"]
@@ -2215,6 +2222,12 @@ esac
         self.assertIn("--registry https://registry.npmjs.org/", install_script)
 
         smoke_script = steps["Smoke test evaluation tools"]["run"]
+        self.assertEqual(steps["Smoke test evaluation tools"]["env"], {
+            "EXPECTED_PLATFORM": "${{ matrix.platform }}",
+            "EXPECTED_ARCH": "${{ matrix.arch }}",
+        })
+        self.assertIn("assert.equal(process.platform, process.env.EXPECTED_PLATFORM)", smoke_script)
+        self.assertIn("assert.equal(process.arch, process.env.EXPECTED_ARCH)", smoke_script)
         self.assertIn("node_modules/.bin/vally --version", smoke_script)
         self.assertIn("node vally.mjs --version", smoke_script)
         regression_script = steps["Test SDK startup ordering without model calls"]["run"]
@@ -2223,7 +2236,7 @@ esac
         self.assertIn("GOTOOLCHAIN=go1.27.1 go build -o ../workspace-root-helper .", regression_script)
         self.assertIn("node_modules/.bin/copilot --version", smoke_script)
         self.assertIn(
-            "import.meta.resolve('@github/copilot-linux-x64/sdk')",
+            "import.meta.resolve('@github/copilot-' + process.platform + '-' + process.arch + '/sdk')",
             smoke_script,
         )
 

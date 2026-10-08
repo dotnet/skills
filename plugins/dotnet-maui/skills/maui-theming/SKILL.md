@@ -241,6 +241,14 @@ public sealed class ThemeManager
 
     public ThemeManager(ResourceDictionary resources) => _resources = resources;
 
+    public static ResourceDictionary ResolveTheme(string choice, AppTheme systemTheme)
+        => choice switch
+        {
+            "Dark" => new DarkTheme(),
+            "Light" => new LightTheme(),
+            _ => systemTheme == AppTheme.Dark ? new DarkTheme() : new LightTheme()
+        };
+
     public void ApplyTheme(ResourceDictionary theme)
     {
         var merged = _resources.MergedDictionaries;
@@ -254,36 +262,40 @@ public sealed class ThemeManager
 public partial class App : Application
 {
     public ThemeManager Themes { get; }
+    private string _choice;
 
     public App()
     {
         InitializeComponent();
         Themes = new ThemeManager(Resources);
-        var saved = Preferences.Get("CustomTheme", "Light");
-        Themes.ApplyTheme(saved == "Dark" ? new DarkTheme() : new LightTheme());
+        _choice = Preferences.Get("CustomTheme", "System");
+        ApplySelectedTheme();
+        RequestedThemeChanged += (_, _) =>
+        {
+            if (_choice is not ("Light" or "Dark"))
+                ApplySelectedTheme();
+        };
+    }
+
+    private void ApplySelectedTheme()
+        => Themes.ApplyTheme(ThemeManager.ResolveTheme(_choice, RequestedTheme));
+
+    public void SelectTheme(string choice)
+    {
+        _choice = choice is "Light" or "Dark" ? choice : "System";
+        Preferences.Set("CustomTheme", _choice);
+        ApplySelectedTheme();
     }
 }
 
 // Settings uses the same tracker, including after the page is recreated.
-((App)Application.Current!).Themes.ApplyTheme(new DarkTheme());
-Preferences.Set("CustomTheme", "Dark");
-```
-
-```csharp
-// ❌ Destroys the app's Colors.xaml and Styles.xaml along with the old theme
-var merged = Application.Current!.Resources.MergedDictionaries;
-merged.Clear();
-merged.Add(theme);
+((App)Application.Current!).SelectTheme("Dark"); // Or "Light" / "System".
 ```
 
 ## System Theme Detection
 
-### Read the Current Theme
-
-```csharp
-AppTheme currentTheme = Application.Current!.RequestedTheme;
-// Returns AppTheme.Light, AppTheme.Dark, or AppTheme.Unspecified
-```
+Read `Application.Current!.RequestedTheme`: `AppTheme.Light`, `AppTheme.Dark`,
+or `AppTheme.Unspecified`.
 
 ### Override the System Theme
 
