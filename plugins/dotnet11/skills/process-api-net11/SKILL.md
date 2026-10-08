@@ -4,14 +4,14 @@ description: >
   Provides guidance on the new System.Diagnostics.Process APIs introduced in .NET 11:
   Process.Run, Process.RunAndCaptureText, Process.StartAndForget, Process.ReadAllText/Bytes/Lines,
   KillOnParentExit, InheritedHandles, and StartDetached.
-  USE FOR: starting, orchestrating, or capturing output from external processes in .NET 11 applications (net11.0).
+  USE FOR: starting, orchestrating, or capturing output from external processes in applications targeting net11.0 or later.
   DO NOT USE FOR: applications targeting .NET 10 or earlier, or basic pre-.NET 11 Process.Start usage without new APIs.
 license: MIT
 ---
 
 # Process API Improvements — .NET 11
 
-New APIs added to `System.Diagnostics.Process` in .NET 11 simplify process management, eliminate boilerplate, and prevent common deadlock patterns when capturing output.
+New APIs added to `System.Diagnostics.Process` in .NET 11 simplify process management, eliminate boilerplate, and prevent common deadlock patterns when capturing output in .NET 11 or later applications.
 
 ## When to Use
 
@@ -106,12 +106,17 @@ Ensures that the spawned child process is terminated when the current (parent) p
 public bool KillOnParentExit { get; set; }
 ```
 
+In cross-platform code, guard the property assignment with a supported-platform check, not only the assigned value. If automatic teardown is required, fail explicitly on an unsupported platform instead of starting an unprotected child process.
+
 #### `InheritedHandles`
 Provides precise control over which handles (file descriptors) are inherited by the child process, preventing accidental resource leaks.
 - Standard handles (`stdin`, `stdout`, `stderr`) are always included (no need to add them to the list).
 - Setting the list to an empty list means only standard handles get inherited.
 - Only `SafeFileHandle` and `SafePipeHandle` instances are allowed as of today.
 - No global lock is used when spawning new processes on Windows (important for tuning projects that spawn multiple processes in parallel).
+- Concurrent process starts must not pass the same handle in `InheritedHandles`: the runtime temporarily changes its inheritance flags. Serialize starts that share a handle, or use separate handles for each concurrent start.
+- Do not enable inheritance on the handles before passing them; other process-start APIs could then inherit them unintentionally.
+- On Unix systems without native handle-inheritance control, setting this property can severely reduce process-start performance.
 ```csharp
 public IList<SafeHandle>? InheritedHandles { get; set; }
 ```
@@ -150,16 +155,22 @@ else
 
 ### 2. Auto-Killing Child Processes on Parent Exit
 
-On Windows and Linux, ensure a long-running background worker process is killed when the main application terminates. This example does not enable automatic teardown on other platforms:
+On Windows and Linux, ensure a long-running background worker process is killed when the main application terminates. On other platforms, this example stops before starting the child process:
 
 ```csharp
 using System;
 using System.Diagnostics;
 
-ProcessStartInfo startInfo = new("dotnet", ["run", "--project", "BackgroundWorker.csproj"])
+ProcessStartInfo startInfo = new("dotnet", ["run", "--project", "BackgroundWorker.csproj"]);
+
+if (OperatingSystem.IsWindows() || OperatingSystem.IsLinux())
 {
-    KillOnParentExit = OperatingSystem.IsWindows() || OperatingSystem.IsLinux() // Auto-teardown when this parent process exits
-};
+    startInfo.KillOnParentExit = true;
+}
+else
+{
+    throw new PlatformNotSupportedException("This example requires Windows or Linux.");
+}
 
 using Process process = Process.Start(startInfo)!;
 // The background worker is now tied to this process's lifecycle

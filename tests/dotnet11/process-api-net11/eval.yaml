@@ -54,13 +54,14 @@ stimuli:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: 'KillOnParentExit\s*=\s*(true\b|OperatingSystem\.Is(Windows|Linux|Android)\s*\(\)(\s*\|\|\s*OperatingSystem\.Is(Windows|Linux|Android)\s*\(\))*)\s*(?=[,;}]|//|\r?\n)'
+          pattern: 'KillOnParentExit\s*=\s*true\b\s*(?=[,;}]|//|\r?\n|$)'
       - type: output-matches
         config:
           pattern: net11\.0
       - type: prompt
     rubric:
-      - Enables KillOnParentExit on ProcessStartInfo on a supported platform, either directly or with a platform check
+      - Enables KillOnParentExit on ProcessStartInfo on a supported platform
+      - Guards the property assignment in cross-platform code and does not start an unprotected child on an unsupported platform when automatic teardown is required
       - Targets net11.0
 
   # --- Stimulus 3: deadlock-free full read via instance ReadAllText (tuple return) ---
@@ -177,9 +178,13 @@ stimuli:
       - type: output-matches
         config:
           pattern: InheritedHandles\s*=
+      - type: output-not-matches
+        config:
+          pattern: InheritedHandles\s*=\s*(null\b|default\b)
       - type: prompt
     rubric:
-      - Configures the InheritedHandles property on ProcessStartInfo
+      - Restricts InheritedHandles on ProcessStartInfo to an explicit non-null collection instead of null or default
+      - Does not use the same inherited handle in concurrent process starts
       - Targets net11.0
 
   # --- Stimulus 7: Negative — skill should NOT activate on .NET 8 ---
@@ -202,7 +207,7 @@ stimuli:
           pattern: Process\.Start\(
       - type: output-not-matches
         config:
-          pattern: RunAndCaptureText|ReadAll(Text|Bytes|Lines)(Async)?|KillOnParentExit|StartAndForget
+          pattern: \bProcess\.Run(Async)?\s*\(|\bRunAndCaptureText(Async)?\s*\(|\bReadAll(Text|Bytes|Lines)(Async)?\s*\(|\bStartAndForget\s*\(|\b(KillOnParentExit|InheritedHandles|StartDetached)\s*=
       - type: prompt
     rubric:
       - Solves the task using standard pre-.NET 11 APIs (Process.Start)
@@ -227,10 +232,13 @@ stimuli:
           pattern: net10\.0
       - type: output-not-matches
         config:
-          pattern: RunAndCaptureText|ReadAll(Text|Bytes|Lines)(Async)?|KillOnParentExit|StartAndForget
+          pattern: \bProcess\.Run(Async)?\s*\(|\bRunAndCaptureText(Async)?\s*\(|\bReadAll(Text|Bytes|Lines)(Async)?\s*\(|\bStartAndForget\s*\(|\b(KillOnParentExit|InheritedHandles|StartDetached)\s*=
       - type: output-matches
         config:
-          pattern: RedirectStandardOutput|ReadToEnd
+          pattern: RedirectStandardOutput\s*=\s*true\b
+      - type: output-matches
+        config:
+          pattern: ReadToEnd(Async)?\s*\(
       - type: prompt
     rubric:
       - Solves the task with pre-.NET 11 APIs (RedirectStandardOutput + ReadToEnd/ReadToEndAsync)
