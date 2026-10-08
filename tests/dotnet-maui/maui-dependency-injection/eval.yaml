@@ -581,6 +581,22 @@ stimuli:
         config:
           pattern: '(IHttpClientFactory|AddSingleton|PooledConnectionLifetime)'
       - type: prompt
+        config:
+          scoring: binary
+          prompt: |
+            This is an ownership-correctness contract. Return overall_score=0
+            if the advice loses shared cache ownership, says the two
+            registrations combine their lifetimes, or assures that handler
+            pooling alone makes indefinite client retention safe.
+            Accept a named factory per operation, a transient typed consumer
+            with a separate singleton cache, and retained clients with a
+            verified connection-recycling policy. On .NET 9+ supporting
+            platforms the default SocketsHttpHandler obtains its
+            PooledConnectionLifetime from HandlerLifetime; that verified
+            default is valid without an explicit property assignment. Do not
+            assume it for unspecified versions/platforms or custom handlers.
+            This is advice, not a request for an entire application. Correct
+            registration and ownership fragments may omit unchanged members.
     rubric:
       - Explains that the later typed-client registration changes the single-service resolution rather than retaining the requested singleton cache owner.
       - Preserves app-wide cache ownership with unambiguous registrations rather than making all state transient.

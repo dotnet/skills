@@ -272,6 +272,39 @@ identical, pool families, rescore historical votes or repeat an unchanged matrix
 to obtain a pass. These results support engineering review of the correctness
 repairs, not a quality/cost-neutral default certification.
 
+### Post-thirteenth critical grading contracts
+
+Three advisory/no-op contracts now use Vally's supported binary prompt scoring
+and explicit correctness conditions. The explicit-source case rejects wrong
+binding types and invalid complete pages while accepting minimal fragments.
+The preservation case requires the requested final validation limitation, not
+an implicit inference from a passing managed check. The HTTP case rejects
+combined-lifetime and unconditional handler-pooling assurances while accepting
+separate cache ownership and verified connection recycling, including supported
+.NET 9+ defaults. The new instructions also enter pairwise judging; historical
+votes are not rescored or transferred to this eval revision.
+
+Production oracle replay accepted ten golden/equivalent answers and rejected
+seven semantic mutations separately with GPT-5.6 Terra and Claude Haiku 4.5.
+These are seventeen variants of three existing contracts per judge, not
+seventeen independent stimulus votes or fresh executor/plugin comparisons.
+The deterministic graders still pass for each semantic negative; the prompt
+grader is the rejection mechanism. Binary LLM scoring remains probabilistic,
+not deterministic correctness enforcement.
+
+Initial replay exposed a prose-only preservation reference without tool
+evidence and a judge accepting omitted disclosure. Its curated ATIF reference
+now includes inspection and the managed execution; the helper reruns each
+recorded command against the actual materialized fixture and compares its
+output, rather than trusting hand-authored observations. An overly detailed
+draft grading instruction was also rejected: concise limitations remain valid,
+without requiring an inventory of assertions or platform tests.
+
+No skill guidance, stimulus count, agent budget or installer behavior changed.
+The latest executor evidence remains the thirteenth comparison at `28595929`;
+these oracle checks do not establish new activation, preference, cost neutrality
+or native/device acceptance.
+
 ### Adoption decision
 
 Keep the eight skills task-specific and opt-in. The corrected SDK, compiler and
@@ -334,6 +367,16 @@ The Shell core's actual guard/caller example is compiled and its pending-request
 skip path exercised. Real-package probes also check back-button property
 ownership and reject sibling-theme `var` conditionals and undeclared dictionary
 `RemoveWhere` calls. Native `MainThread` dispatch is not exercised.
+
+The opt-in semantic replay below **uses paid LLM judges**, requires authenticated
+Vally access and executes no agent. An optional exact stimulus-name argument
+selects one of its three contracts. It uses the production oracle CLI and also
+replays curated tool observations against the real fixture:
+
+```bash
+VALLY_TELEMETRY_OPTOUT=1 node tests/dotnet-maui/replay_correctness.mjs gpt-5.6-terra
+VALLY_TELEMETRY_OPTOUT=1 node tests/dotnet-maui/replay_correctness.mjs claude-haiku-4.5
+```
 
 These checks validate contracts, fixture behavior and reference answers, not fresh
 model improvement or native UI/OS delivery. Run normal cross-family evaluations

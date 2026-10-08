@@ -221,6 +221,13 @@ stimuli:
       pattern: (?i)(source|Slider)
   - type: prompt
     config:
+      scoring: binary
+      prompt: |
+        This is a correctness contract. Return overall_score=0 if the proposed
+        binding uses the wrong source type, changes the unrelated invoice
+        context, or presents structurally invalid complete page markup.
+        Otherwise accept a correct minimal fragment; do not require a complete
+        page, new namespaces already supplied by the page, or extra features.
       evidence:
       - trajectory
   rubric:
@@ -243,8 +250,14 @@ stimuli:
       steps:
       - step_id: 1
         source: agent
-        message: Use the source-compilation setting where needed and a binding-local Slider data type;
-          do not change the entire page's ViewModel type.
+        message: |
+          Keep the invoice ViewModel type on the page. On the one label use:
+          <Label Text="{Binding Value, Source={x:Reference amount}, x:DataType=Slider}" />
+          The named amount control is the existing Slider. The fragment uses
+          the page's existing XAML namespace declarations. If source compilation
+          is not enabled, set MauiEnableXamlCBindingWithSourceCompilation=true
+          in the project. This types only that source binding, not the invoice
+          bindings elsewhere. No build or device validation was performed.
 - name: Background result notification
   prompt: My MAUI details page loads a value from a service after the page appears. The first value displays,
     but changing the field later does not update the label. I set BindingContext already. Show a minimal
@@ -406,11 +419,23 @@ stimuli:
   - *id001
   - type: prompt
     config:
+      scoring: binary
+      prompt: |
+        This is a preservation and truthful-validation contract. Return
+        overall_score=0 if supplied input was changed or the final answer omits
+        the explicitly requested explanation of validation limitations.
+        Reporting a passing managed check, or merely not claiming device
+        success, is not that explanation. The final answer must explicitly
+        acknowledge the limitation: managed-check success does not establish
+        native/platform/device behavior. Do not infer this disclosure from tool
+        observations alone. A concise statement of that limitation is sufficient;
+        do not require an inventory of managed assertions or platform tests,
+        additional builds, device tests, or unrelated explanations.
       evidence:
       - trajectory
   rubric:
   - Leaves the complete supplied source/project file set byte-identical when the checks already pass.
-  - Separates platform-neutral evidence from unperformed native/device validation.
+  - Explicitly distinguishes managed-check evidence from unperformed or unestablished native/device validation in the final answer.
   golden_trajectory:
     inline:
       schema_version: ATIF-v1.2
@@ -422,8 +447,67 @@ stimuli:
       steps:
       - step_id: 1
         source: agent
-        message: The supplied implementation satisfies the requested object-model contract; leave every
-          supplied file unchanged. Platform-neutral checks do not establish behavior on a device.
+        message: Inspect the supplied implementation and its behavior check.
+        tool_calls:
+        - tool_call_id: inspect-working
+          function_name: bash
+          arguments:
+            command: cat Program.cs Checks.cs
+        observation:
+          results:
+          - source_call_id: inspect-working
+            content: |
+              using System.ComponentModel;
+              public sealed class SettingsViewModel : INotifyPropertyChanged
+              {
+                  private string _theme = "Light";
+                  public event PropertyChangedEventHandler? PropertyChanged;
+                  public string Theme
+                  {
+                      get => _theme;
+                      set
+                      {
+                          if (_theme == value) return;
+                          _theme = value;
+                          PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Theme)));
+                      }
+                  }
+              }
+              public static class Checks
+              {
+                  public static void Require(bool condition, string message)
+                  {
+                      if (!condition) throw new InvalidOperationException(message);
+                  }
+                  public static void Main()
+                  {
+                      var vm = new SettingsViewModel();
+                      var names = new List<string?>();
+                      vm.PropertyChanged += (_, e) => names.Add(e.PropertyName);
+                      vm.Theme = "Dark"; vm.Theme = "Dark"; vm.Theme = "Light";
+                      Require(vm.Theme == "Light" && names.SequenceEqual(new[] { "Theme", "Theme" }),
+                          "bindings require the public property name and no notification on unchanged values");
+                      Console.WriteLine("PASS: behavior-contract");
+                  }
+              }
+      - step_id: 2
+        source: agent
+        message: Run the supplied managed behavior check without modifying source.
+        tool_calls:
+        - tool_call_id: check-working
+          function_name: bash
+          arguments:
+            command: dotnet run --project Fixture.csproj --verbosity quiet
+        observation:
+          results:
+          - source_call_id: check-working
+            content: |
+              PASS: behavior-contract
+      - step_id: 3
+        source: agent
+        message: The supplied managed behavior check passed and every supplied file is unchanged.
+          This verifies the object-model contract, not native rendering or device behavior;
+          no native/device validation was performed.
 - name: WPF binding diagnostics
   prompt: My Windows WPF TextBlock binding shows no text. How can I inspect the DataContext and binding
     diagnostics? The project is WPF, not MAUI.
