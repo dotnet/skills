@@ -458,6 +458,32 @@ stimuli:
       - Did not mention, install, or apply any .NET capability
       - Did not change files
 
+  - name: Stay dormant for an explicitly requested installed specialist
+    tags:
+      capability: dormancy
+      solution: dotnet
+      risk: low
+      journey: setup
+    prompt: |
+      The setup-local-sdk specialist is already installed. Use that specialist to show me how to
+      pin this repository to SDK 10.0.100 with latestFeature roll-forward. Do not install or route
+      through another skill.
+    expect_activation: false
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*10\.0\.100)(?=[\s\S]*latestFeature)(?=[\s\S]*(global\.json|dotnet new globaljson))
+      - type: output-not-matches
+        config:
+          pattern: (/plugin\s+(marketplace\s+add|install)|dotnet-agent-skills|\bcsharp-expert\b|routing contract)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Stayed on the explicitly requested installed setup-local-sdk specialist's task
+      - Gave correct SDK pinning guidance for 10.0.100 with latestFeature roll-forward
+      - Did not front-door reroute the request or recommend marketplace installation
+      - The C#/.NET routing skill stayed dormant
+
   - name: Use the Codex marketplace flow
     tags:
       capability: host-routing
@@ -531,6 +557,11 @@ stimuli:
           dest: global.json
         - src: fixtures/lsp-diagnostics
           dest: .
+      commands:
+        - >-
+          node -e "const fs=require('fs'); fs.mkdirSync('.eval-baseline',{recursive:true});
+          for(const file of ['global.json','Program.cs','DiagnosticsApp.csproj'])
+          fs.copyFileSync(file,'.eval-baseline/'+file+'.snapshot');"
     constraints:
       reject_tools: [bash, edit, create]
     graders:
@@ -555,6 +586,15 @@ stimuli:
         config:
           path: DiagnosticsApp.csproj
           value: <TargetFramework>net10.0</TargetFramework>
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs');
+            for(const file of ['global.json','Program.cs','DiagnosticsApp.csproj'])
+            if(!fs.readFileSync(file).equals(fs.readFileSync('.eval-baseline/'+file+'.snapshot')))
+            throw new Error(file+' changed');"
+          expected_exit_code: 0
+          timeout: 1m
       - type: exit-success
       - type: prompt
     rubric:

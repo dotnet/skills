@@ -256,6 +256,58 @@ stimuli:
       - Completed the NUnit-to-MSTest migration without making specialist installation a prerequisite
       - Preserved the requested test semantics and ran the migrated tests successfully
 
+  - name: Keep an already MSTest project unchanged
+    tags:
+      capability: installed-routing
+      solution: test
+      risk: high
+      journey: migrate
+    prompt: |
+      Convert this NUnit test project to MSTest while preserving its existing tests. Run the tests
+      after the migration.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: ../../dotnet-test-migration/migrate-nunit-to-mstest/fixtures/already-mstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ../../dotnet-test-migration/migrate-nunit-to-mstest/fixtures/already-mstest/ExistingTests.cs
+          dest: ExistingTests.cs
+      commands:
+        - >-
+          node -e "const fs=require('fs'); fs.mkdirSync('.eval-baseline',{recursive:true});
+          for(const file of ['global.json','TestProject.csproj','ExistingTests.cs'])
+          fs.copyFileSync(file,'.eval-baseline/'+file+'.snapshot');"
+    graders:
+      - type: output-matches
+        config:
+          pattern: (already|no.{0,30}migration|not.{0,20}need|already.{0,20}MSTest)
+      - type: output-not-matches
+        config:
+          pattern: /plugin (marketplace add|install)
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs');
+            for(const file of ['global.json','TestProject.csproj','ExistingTests.cs'])
+            if(!fs.readFileSync(file).equals(fs.readFileSync('.eval-baseline/'+file+'.snapshot')))
+            throw new Error(file+' changed');"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 3m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recognized that the project already uses MSTest and needs no NUnit-to-MSTest migration
+      - Left every staged project and test file unchanged
+      - Ran the existing MSTest suite successfully
+      - Did not recommend installing a specialist that is already available
+
   - name: Invoke installed runtime diagnostics guidance
     tags:
       capability: installed-routing
