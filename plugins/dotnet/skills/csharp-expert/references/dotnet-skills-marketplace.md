@@ -68,6 +68,7 @@ or installing a marketplace route.
 
 | Request | Skill | Plugin |
 |---|---|---|
+| Add or repair an ASP.NET Core endpoint, including streaming multipart uploads | `dotnet-webapi` | `dotnet-aspnetcore` |
 | Author a reusable Blazor component with parameters, content, and callbacks | `author-component` | `dotnet-blazor` |
 | Collect and validate user input in a Blazor form | `collect-user-input` | `dotnet-blazor` |
 | Create a Blazor project with framework-specific defaults | `create-blazor-project` | `dotnet-blazor` |
@@ -75,6 +76,7 @@ or installing a marketplace route.
 | Repair MAUI XAML binding and change notification | `maui-data-binding` | `dotnet-maui` |
 | Create, modify, or debug a Windows Forms application | `winforms-expert` | `dotnet-winforms` |
 | Convert NUnit tests to MSTest | `migrate-nunit-to-mstest` | `dotnet-test-migration` |
+| Upgrade a project from .NET 8 to .NET 9 | `migrate-dotnet8-to-dotnet9` | `dotnet-upgrade` |
 | Create or run a file-based C# app without a project | `csharp-scripts` | `dotnet-advanced` |
 | Optimize repeated EF Core query work | `optimizing-ef-core-queries` | `dotnet-data` |
 | Collect a runtime trace before a hot method is known | `dotnet-trace-collect` | `dotnet-diag` |
@@ -83,7 +85,8 @@ Use the discriminator that makes each route valuable:
 
 - `migrate-nunit-to-mstest` preserves parameterized and lifecycle behavior by mapping NUnit
   `[TestCase]` to MSTest `[DataRow]`, `[SetUp]` to `[TestInitialize]`, and `[TearDown]` to
-  `[TestCleanup]`.
+  `[TestCleanup]`. Call out fixture isolation/shared-state differences and verify that the migrated
+  suite retains the same intended parameterized cases.
 - `dotnet-trace-collect` gathers vendor-neutral CPU, allocation, GC, and related deployed-process
   evidence before a hot method is known. Do not substitute `optimizing-dotnet-performance`, which
   starts from source or known hot-code analysis rather than collecting the initial runtime evidence.

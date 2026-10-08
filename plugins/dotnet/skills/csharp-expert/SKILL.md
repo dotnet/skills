@@ -1,14 +1,13 @@
 ---
 name: csharp-expert
 description: >-
-  Route ambiguous C# and .NET requests to the most specific available skill or the
-  smallest marketplace plugin. USE FOR: selecting a specialist for an unclear C#/.NET
-  request, identifying the solution owner, C# language or compiler defects with no narrower
-  specialist, using editor or LSP diagnostics to locate a C# defect, one-file C# apps with no
-  project, analyzing a surviving MSBuild `.binlog` directly after its checkout is gone, selecting
-  vendor-neutral CPU or allocation evidence for a deployed .NET process, and recovering an
-  installed plugin missing from `/skills`. DO NOT USE FOR: a request that already names the exact
-  installed specialist to invoke, or work clearly unrelated to C# or .NET.
+  Route C# and .NET requests to the exact installed specialist or smallest dotnet/skills
+  marketplace plugin. USE FOR: "which specialist should own this" or "how do I add the skill"
+  requests involving ASP.NET Core endpoints, Blazor, MAUI binding, EF Core queries, test or
+  framework migration, runtime CPU/allocation evidence, file-based C#, editor/compiler defects,
+  a surviving MSBuild `.binlog`, or a plugin missing from `/skills`; also use for C# semantics
+  when no narrower specialist exists. DO NOT USE FOR: requests that already name the exact
+  installed specialist to invoke, or work unrelated to C# or .NET.
 license: MIT
 ---
 
@@ -191,10 +190,18 @@ or fixture merely to prove that a named capability exists.
 
 Answer in four compact parts:
 
-1. Capability and plugin.
-2. One sentence matching the request's decisive behaviors or artifact evidence.
+1. Exact skill name and plugin; never substitute a generic capability label when the bundled
+   reference contains an exact route.
+2. One sentence matching the decisive behavior or artifact evidence. Use the user's concrete
+   mechanism: N+1/database round trips for repeated EF related-data queries; deployed-process
+   CPU/allocation collection before a known hot path for runtime tracing; source and target TFM
+   plus compatibility work for upgrades.
 3. Host-correct install steps.
 4. Restart/discovery verification, when the host requires it.
+
+For a selection answer, completeness beats extra exploration. Read the bundled reference once,
+then answer. Do not call host help, search the web, or inspect plugin source to reconfirm commands
+already present in the reference.
 
 Do not add a `Route:` header in marketplace-planning mode; lead with the capability and plugin.
 Do not mention this skill's step numbers, fallback labels, routing contract, or internal selection

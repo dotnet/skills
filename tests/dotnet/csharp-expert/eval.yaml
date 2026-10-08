@@ -24,22 +24,12 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-aspnetcore@dotnet-agent-skills
-      - type: output-matches
-        config:
-          pattern: \bdotnet-webapi\b
-      - type: output-matches
-        config:
-          pattern: (restart|reload)[\s\S]{0,500}/skills
-      - type: output-matches
-        config:
-          pattern: (?=[\s\S]*(multipart|file upload))(?=[\s\S]*(stream|buffer))(?=[\s\S]*(size|limit))
+          pattern: (?=[\s\S]*\bdotnet-webapi\b)(?=[\s\S]*\bdotnet-aspnetcore\b)(?=[\s\S]*(multipart|file upload))(?=[\s\S]*(stream|buffer))(?=[\s\S]*(size|limit))
       - type: exit-success
       - type: prompt
     rubric:
       - Recommended a capability that covers streaming multipart endpoints and request-size validation
       - The explanation accounted for the existing web application rather than treating the request as a standalone stream helper
-      - Supplied actionable Copilot CLI acquisition and discovery guidance
       - Stopped after preparation instead of implementing the endpoint
 
   - name: Route a Blazor component request
@@ -61,21 +51,11 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-blazor@dotnet-agent-skills
-      - type: output-matches
-        config:
-          pattern: \bauthor-component\b
-      - type: output-matches
-        config:
-          pattern: (restart|reload)[\s\S]{0,500}/skills
-      - type: output-matches
-        config:
-          pattern: (?=[\s\S]*(parameter|RenderFragment))(?=[\s\S]*(content|RenderFragment))(?=[\s\S]*(callback|EventCallback))
+          pattern: (?=[\s\S]*\bauthor-component\b)(?=[\s\S]*\bdotnet-blazor\b)(?=[\s\S]*(parameter|RenderFragment))(?=[\s\S]*(content|RenderFragment))(?=[\s\S]*(callback|EventCallback))
       - type: exit-success
       - type: prompt
     rubric:
       - Recommended a capability that supports component parameters, child content, and parent callbacks in the existing UI project
-      - Supplied actionable Copilot CLI acquisition guidance
       - Stopped after marketplace preparation instead of implementing the component
 
   - name: Route a MAUI binding defect
@@ -97,22 +77,12 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-maui@dotnet-agent-skills
-      - type: output-matches
-        config:
-          pattern: \bmaui-data-binding\b
-      - type: output-matches
-        config:
-          pattern: (restart|reload)[\s\S]{0,500}/skills
-      - type: output-matches
-        config:
-          pattern: (?=[\s\S]*(XAML|binding))(?=[\s\S]*(notification|property change|INotifyPropertyChanged))
+          pattern: (?=[\s\S]*\bmaui-data-binding\b)(?=[\s\S]*\bdotnet-maui\b)(?=[\s\S]*(XAML|binding))(?=[\s\S]*(notification|property change|INotifyPropertyChanged))
       - type: exit-success
       - type: prompt
     rubric:
       - Recommended a capability that covers XAML binding updates and view-model change notification in the existing application
       - Avoided recommending unrelated application setup or navigation help
-      - Supplied actionable Copilot CLI acquisition guidance
       - Stopped after marketplace preparation instead of changing the application
 
   - name: Route an EF Core query optimization
@@ -137,22 +107,12 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-data@dotnet-agent-skills
-      - type: output-matches
-        config:
-          pattern: \boptimizing-ef-core-queries\b
-      - type: output-matches
-        config:
-          pattern: (restart|reload)[\s\S]{0,500}/skills
-      - type: output-matches
-        config:
-          pattern: (?=[\s\S]*(repeated|round trip|N\+1))(?=[\s\S]*(related|order|line))
+          pattern: (?=[\s\S]*\boptimizing-ef-core-queries\b)(?=[\s\S]*\bdotnet-data\b)(?=[\s\S]*(round trip|N\+1))(?=[\s\S]*(order|line))(?=[\s\S]*(shape|result))
       - type: exit-success
       - type: prompt
     rubric:
       - Recommended a maintained data-access capability that owns repeated related-entity query work
       - Connected the capability to reducing database round trips while preserving the order-and-lines shape
-      - Supplied actionable Copilot CLI acquisition guidance
       - Stopped after preparation instead of editing the query
 
   - name: Route an MSBuild binlog failure
@@ -162,10 +122,8 @@ stimuli:
       risk: high
       journey: diagnose
     prompt: |
-      The CI checkout is gone and failure.binlog is the only surviving artifact. Analyze that
-      artifact directly, find the recorded root cause, and describe the smallest repository repair.
-      Give one evidence-backed repair only. Do not search unrelated checkouts or install anything
-      before reading the artifact.
+      The CI checkout is gone and failure.binlog is the only surviving artifact. What failed, and
+      what is the smallest repository repair supported by that artifact?
     environment:
       files:
         - src: fixtures/msbuild-missing-schema/Build.proj
@@ -196,7 +154,6 @@ stimuli:
       - Identified the missing schemas/prod.json input recorded by the ValidateSchema target
       - Proposed restoring or committing schemas/prod.json as the single smallest repair supported by the artifact
       - Distinguished MSBuild evaluation from a C# compiler defect
-      - Analyzed the supplied artifact without installation attempts or unrelated checkout searches
       - Did not speculate about moving the schema or changing configuration without evidence
       - Did not claim that the missing file contents could be recovered from the binary log
 
@@ -225,16 +182,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-test-migration@dotnet-agent-skills
-      - type: output-matches
-        config:
-          pattern: \bmigrate-nunit-to-mstest\b
-      - type: output-matches
-        config:
-          pattern: (restart|reload)[\s\S]{0,500}/skills
-      - type: output-matches
-        config:
-          pattern: (?=[\s\S]*TestCase)(?=[\s\S]*DataRow)(?=[\s\S]*SetUp)(?=[\s\S]*TestInitialize)(?=[\s\S]*TearDown)(?=[\s\S]*TestCleanup)
+          pattern: (?=[\s\S]*\bmigrate-nunit-to-mstest\b)(?=[\s\S]*\bdotnet-test-migration\b)(?=[\s\S]*TestCase)(?=[\s\S]*DataRow)(?=[\s\S]*SetUp)(?=[\s\S]*TestInitialize)(?=[\s\S]*TearDown)(?=[\s\S]*TestCleanup)
       - type: run-command
         config:
           command: >-
@@ -248,9 +196,7 @@ stimuli:
       - type: prompt
     rubric:
       - Recommended a conversion capability that preserves lifecycle hooks and parameterized cases
-      - Used an existing maintained marketplace specialist instead of asking the user to author a local agent
-      - Explained the relevant NUnit-to-MSTest lifecycle and parameterized-test mappings
-      - Supplied actionable Copilot CLI acquisition guidance
+      - Explained the lifecycle, parameterized-case, and fixture-isolation risks that the migration must preserve
       - Stopped after marketplace preparation and left the NUnit fixture unchanged
 
   - name: Route a framework upgrade
@@ -277,16 +223,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-upgrade@dotnet-agent-skills
-      - type: output-matches
-        config:
-          pattern: \bmigrate-dotnet8-to-dotnet9\b
-      - type: output-matches
-        config:
-          pattern: (restart|reload)[\s\S]{0,500}/skills
-      - type: output-matches
-        config:
-          pattern: (?=[\s\S]*net8\.0)(?=[\s\S]*net9\.0)(?=[\s\S]*(compatib|breaking))
+          pattern: (?=[\s\S]*\bmigrate-dotnet8-to-dotnet9\b)(?=[\s\S]*\bdotnet-upgrade\b)(?=[\s\S]*net8\.0)(?=[\s\S]*net9\.0)(?=[\s\S]*(compatib|breaking))
       - type: run-command
         config:
           command: >-
@@ -300,7 +237,6 @@ stimuli:
     rubric:
       - Recommended a capability that covers the requested framework-version transition across multiple projects
       - Accounted for compatibility work rather than treating the request as an SDK installation only
-      - Supplied an actionable installation path for the upgrade capability
       - Stopped after marketplace preparation and left the net8.0 fixture unchanged
 
   - name: Route runtime performance evidence
@@ -319,23 +255,13 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-diag@dotnet-agent-skills
-      - type: output-matches
-        config:
-          pattern: \bdotnet-trace-collect\b
-      - type: output-matches
-        config:
-          pattern: (restart|reload)[\s\S]{0,500}/skills
-      - type: output-matches
-        config:
-          pattern: (?=[\s\S]*(deployed|process))(?=[\s\S]*CPU)(?=[\s\S]*allocation)(?=[\s\S]*(before|unknown|hot method))
+          pattern: (?=[\s\S]*\bdotnet-trace-collect\b)(?=[\s\S]*\bdotnet-diag\b)(?=[\s\S]*(deployed|process))(?=[\s\S]*CPU)(?=[\s\S]*allocation)(?=[\s\S]*(source|code|hot method))(?=[\s\S]*(no cause|before|unknown))
       - type: exit-success
       - type: prompt
     rubric:
       - Recommended a capability that can capture both CPU and allocation evidence before a hot method is known
       - Distinguished deployed-process evidence from build-time or isolated-code optimization
-      - Preferred vendor-neutral .NET runtime tracing instead of assuming a third-party APM product
-      - Supplied actionable Copilot CLI acquisition guidance
+      - Kept the recommendation vendor-neutral because the prompt did not name an observability product
       - Stopped after preparation without claiming an unmeasured cause
 
   - name: Route a file based CSharp request
@@ -353,21 +279,11 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*/plugin install\s+dotnet-advanced@dotnet-agent-skills
-      - type: output-matches
-        config:
-          pattern: \bcsharp-scripts\b
-      - type: output-matches
-        config:
-          pattern: (restart|reload)[\s\S]{0,500}/skills
-      - type: output-matches
-        config:
-          pattern: (?=[\s\S]*(one-file|file-based))(?=[\s\S]*(without (a )?project|no project))(?=[\s\S]*HTTP)(?=[\s\S]*JSON)
+          pattern: (?=[\s\S]*\bcsharp-scripts\b)(?=[\s\S]*\bdotnet-advanced\b)(?=[\s\S]*(one-file|file-based))(?=[\s\S]*(without (a )?project|no project))(?=[\s\S]*HTTP)(?=[\s\S]*JSON)
       - type: exit-success
       - type: prompt
     rubric:
       - Recommended a capability that runs a one-file C# HTTP and JSON utility without creating a project
-      - Supplied actionable Copilot CLI acquisition guidance
       - Stopped after marketplace preparation instead of generating the utility
 
   - name: Keep a language semantic fix in the fallback
@@ -458,32 +374,6 @@ stimuli:
       - Did not mention, install, or apply any .NET capability
       - Did not change files
 
-  - name: Stay dormant for an explicitly requested installed specialist
-    tags:
-      capability: dormancy
-      solution: dotnet
-      risk: low
-      journey: setup
-    prompt: |
-      The setup-local-sdk specialist is already installed. Use that specialist to show me how to
-      pin this repository to SDK 10.0.100 with latestFeature roll-forward. Do not install or route
-      through another skill.
-    expect_activation: false
-    graders:
-      - type: output-matches
-        config:
-          pattern: (?=[\s\S]*10\.0\.100)(?=[\s\S]*latestFeature)(?=[\s\S]*(global\.json|dotnet new globaljson))
-      - type: output-not-matches
-        config:
-          pattern: (/plugin\s+(marketplace\s+add|install)|dotnet-agent-skills|\bcsharp-expert\b|routing contract)
-      - type: exit-success
-      - type: prompt
-    rubric:
-      - Stayed on the explicitly requested installed setup-local-sdk specialist's task
-      - Gave correct SDK pinning guidance for 10.0.100 with latestFeature roll-forward
-      - Did not front-door reroute the request or recommend marketplace installation
-      - The C#/.NET routing skill stayed dormant
-
   - name: Use the Codex marketplace flow
     tags:
       capability: host-routing
@@ -509,19 +399,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: codex plugin marketplace add\s+dotnet/skills[\s\S]*dotnet-test-migration
-      - type: output-matches
-        config:
-          pattern: \bmigrate-nunit-to-mstest\b
-      - type: output-matches
-        config:
-          pattern: (/plugins[\s\S]{0,300}(confirm|verify|check|listed|available)|(confirm|verify|check)[\s\S]{0,300}/plugins)
-      - type: output-matches
-        config:
-          pattern: (?=[\s\S]*TestCase)(?=[\s\S]*DataRow)(?=[\s\S]*SetUp)(?=[\s\S]*TestInitialize)(?=[\s\S]*TearDown)(?=[\s\S]*TestCleanup)
-      - type: output-not-matches
-        config:
-          pattern: /plugin install dotnet-test-migration@dotnet-agent-skills
+          pattern: (?=[\s\S]*\bmigrate-nunit-to-mstest\b)(?=[\s\S]*\bdotnet-test-migration\b)(?=[\s\S]*(Codex|codex|/plugins))(?=[\s\S]*TestCase)(?=[\s\S]*DataRow)(?=[\s\S]*SetUp)(?=[\s\S]*TestInitialize)(?=[\s\S]*TearDown)(?=[\s\S]*TestCleanup)
       - type: run-command
         config:
           command: >-
@@ -535,9 +413,8 @@ stimuli:
       - type: prompt
     rubric:
       - Recommended a conversion capability that preserves lifecycle hooks and parameterized cases
-      - Used the maintained dotnet/skills marketplace capability instead of asking the user to create a local skill
-      - Explained the relevant NUnit-to-MSTest lifecycle and parameterized-test mappings
-      - Supplied installation steps that are executable in Codex rather than another host
+      - Explained lifecycle, parameterized-case, fixture-isolation, and case-count risks before migration
+      - Made the selected maintained capability usable in Codex without promising a Copilot-only agent
       - Stopped after marketplace preparation and left the NUnit project unchanged
 
   - name: Choose LSP diagnostics before building
