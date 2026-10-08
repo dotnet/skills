@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { CopilotClient } from '@github/copilot-sdk';
 import { LocalSessionFsHandler } from './node_modules/@microsoft/vally/dist/executor/local-session-fs-handler.js';
-import { withWorkspaceAccess } from './workspace-session-fs.mjs';
+import { withWorkspaceIsolationGuard } from './workspace-session-fs.mjs';
 
 const sdkPackage = new URL('../package.json', import.meta.resolve('@github/copilot-sdk'));
 const { version } = JSON.parse(readFileSync(sdkPackage, 'utf8'));
@@ -41,7 +41,7 @@ for (const method of ['createSession', 'resumeSession']) {
         createSessionFsProvider: (...factoryArgs) => {
           const provider = config.createSessionFsProvider(...factoryArgs);
           return provider instanceof LocalSessionFsHandler
-            ? withWorkspaceAccess(provider, config.workingDirectory)
+            ? withWorkspaceIsolationGuard(provider, config.workingDirectory)
             : provider;
         },
       };

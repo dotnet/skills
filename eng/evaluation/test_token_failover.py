@@ -2117,16 +2117,62 @@ esac
             "import.meta.resolve('@github/copilot-linux-x64/sdk')",
             install_script,
         )
-        for filename in ("sdk-startup.mjs", "vally.mjs"):
+        for filename in ("sdk-startup.mjs", "workspace-session-fs.mjs", "vally.mjs"):
             self.assertIn(
                 f'"$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/{filename}"',
                 install_script,
             )
         self.assertIn('ln -s ../vally.mjs "$RUNNER_TEMP/evaluation-tools/bin/vally"', install_script)
+        self.assertIn("node vally.mjs --version", install_script)
         self.assertGreater(
             install_script.index('echo "$RUNNER_TEMP/evaluation-tools/bin"'),
             install_script.index('echo "$RUNNER_TEMP/evaluation-tools/node_modules/.bin"'),
         )
+
+    def test_trusted_tool_staging_copies_launcher_dependency_closure(self) -> None:
+        workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        steps = workflow["jobs"]["vally-evaluate"]["steps"]
+        install = next(step for step in steps if step.get("name") == "Install vally and Copilot CLI")
+        staging_script = install["run"].split("npm ci", 1)[0]
+        source = REPO_ROOT / "eng" / "evaluation-tools"
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            trusted = root / "trusted-validator-src" / "eng" / "evaluation-tools"
+            trusted.mkdir(parents=True)
+            for path in (*source.glob("*.mjs"), source / "package.json", source / "package-lock.json"):
+                shutil.copyfile(path, trusted / path.name)
+            environment = os.environ.copy()
+            environment["RUNNER_TEMP"] = str(root)
+            result = subprocess.run(
+                [BASH, "-e", "-c", staging_script],
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            staged = root / "evaluation-tools"
+            pending = [staged / "vally.mjs"]
+            visited = set()
+            while pending:
+                module = pending.pop()
+                if module in visited:
+                    continue
+                visited.add(module)
+                self.assertTrue(module.is_file(), f"Missing staged launcher dependency: {module.name}")
+                self.assertEqual(module.read_bytes(), (source / module.name).read_bytes())
+                imports = re.findall(
+                    r"""(?:\bfrom\s+|\bimport\s*(?:\(\s*)?)["'](\.[^"']+)["']""",
+                    module.read_text(encoding="utf-8"),
+                )
+                pending.extend(
+                    (module.parent / path).resolve()
+                    for path in imports
+                    if not path.startswith("./node_modules/")
+                )
+            for filename in ("package.json", "package-lock.json"):
+                self.assertEqual((staged / filename).read_bytes(), (source / filename).read_bytes())
 
     def test_evaluation_tool_manifest_has_secretless_smoke_test(self) -> None:
         workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))

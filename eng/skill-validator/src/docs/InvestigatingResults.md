@@ -38,6 +38,16 @@
 > filesystem-provider setup before sessions start and shares concurrent startup
 > calls. Session-provider errors are harness failures, not skill-quality verdicts.
 > This does not change the historical result schema documented below.
+> The trusted toolchain stages the launcher, startup guard and filesystem guard,
+> then checks `node vally.mjs --version` before selecting a token. The filesystem
+> guard rejects native workspace extensions outside the original session-log
+> root with `ERR_EVALUATION_WORKSPACE_ISOLATION_REQUIRED`; native workspace I/O
+> is unavailable until an atomic provider or equivalent provider-host isolation
+> is implemented and verified. SDK 1.0.11 suppresses errors from `exists`, so
+> inspect read/stat/mutation events for the actionable message. Shell recovery
+> does not establish repaired native I/O or transfer historical measurements
+> to the rejection policy. The original log provider and shell are not certified
+> confinement boundaries. See the current Vally guide for the full limitation.
 
 > **Vally schema:** Vally adapter results use an independently owned and
 > versioned schema. Consult the current Vally investigation guide for its

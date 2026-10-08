@@ -394,31 +394,42 @@ the JDK range as well as its recommendation; a resolver hardcoding the primary
 range is rejected rather than passing both fixtures.
 
 The harness integration test now uses different log and workspace roots. The
-unwrapped provider rejects the workspace file; the provider installed through
-the real SDK session setup must read it successfully. The standalone harness
-PR carries the same test correction at `787dc85b`; all nine tests pass. Its
-isolated wrapper-removal mutation fails, unlike the old same-root test.
-Production harness behavior is unchanged and trusted-base integration remains
-pending. The earlier README/PR measurement inconsistency is resolved by pinning
+unwrapped provider rejects the workspace file. The historical test correction
+at `787dc85b` required the workspace overlay to read it successfully; that unsafe
+overlay has since been removed. The current provider installed through real SDK
+session setup must reject workspace extensions explicitly while preserving log
+operations. The standalone harness PR carries this safety correction at
+`e4cd05f0`; all nine tests pass. Bypassing the guard fails the exact-rejection
+test. Trusted-base integration remains pending. The earlier README/PR
+measurement inconsistency is resolved by pinning
 executor evidence to `28595929` and reporting later grading checks separately.
 
-### Unresolved filesystem race
+### Fail-closed filesystem policy and native-I/O blocker
 
 The harness owner confirmed an intermediate-parent symlink swap after path
 canonicalization can make the adapter read or overwrite an outside owned
 fixture. Canonical checks are not an atomic or adversarial confinement boundary.
-The nine functional tests do not prove that security property; this diagnostic
-reproduces a failure, not a successful security regression check.
+The unsafe canonicalize/reopen overlay is now removed. All ten absolute workspace
+operation extensions outside the original log root reject before resolution or
+opening with `ERR_EVALUATION_WORKSPACE_ISOLATION_REQUIRED`. Rename checks both
+endpoints, including mixed relative/absolute requests. Original relative/log-root
+operations and other provider types retain their behavior. Swap tests verify
+rejection and unchanged inside/outside sentinels, not restored functionality.
 
 The existing Node/SDK pathname interfaces do not provide a portable atomic
 all-operation fix. Final-component no-follow flags, repeated checks and
-JavaScript locks do not stop an external writer. Engineering must choose
-whether to limit the adapter to stable trusted workspaces, without claiming
-security confinement, or require an upstream/platform-native descriptor-relative
-provider or equivalent verified isolation encompassing the Node provider and
-all writers. The review thread remains open. Documentation is corrected in
-the standalone harness PR; no race fix, sandbox acceptance or merge readiness
-is claimed.
+JavaScript locks do not stop an external writer. Native workspace reads/patches
+remain unavailable until an upstream/platform-native atomic provider or equivalent
+verified isolation encompasses the Node provider and all writers. No trust flag
+or unsafe opt-in restores the overlay. The original log provider and shell tools
+are not certified confinement boundaries.
+
+SDK 1.0.11 converts all `exists` errors to `false`; read/stat/mutation errors
+retain the actionable message with SDK code `UNKNOWN`. Shell fallback is not a
+native-I/O repair. CI staging now includes the filesystem guard dependency and
+smoke-tests the staged launcher before token selection. Neither that smoke test
+nor historical MAUI matrices certify the changed policy, trusted integration,
+hardware behavior or default adoption.
 
 ## Overlapping proposal integration
 

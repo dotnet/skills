@@ -613,6 +613,7 @@ jobs:
             "$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/package-lock.json" \
             "$RUNNER_TEMP/evaluation-tools/"
           cp "$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/sdk-startup.mjs" \
+            "$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/workspace-session-fs.mjs" \
             "$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/vally.mjs" \
             "$RUNNER_TEMP/evaluation-tools/"
           npm ci \
@@ -622,6 +623,7 @@ jobs:
           (
             cd "$RUNNER_TEMP/evaluation-tools"
             node --input-type=module -e "import.meta.resolve('@github/copilot-linux-x64/sdk')"
+            node vally.mjs --version
           )
           echo "$RUNNER_TEMP/evaluation-tools/node_modules/.bin" >> "$GITHUB_PATH"
           mkdir -p "$RUNNER_TEMP/evaluation-tools/bin"
