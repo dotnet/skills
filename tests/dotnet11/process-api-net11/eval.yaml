@@ -10,6 +10,10 @@ stimuli:
       I'm writing a .NET 11 command-line tool that needs to run an external CLI (e.g. 'git status') and capture both stdout and stderr.
       I want to make sure I don't run into any OS pipe deadlock issues, and I want to write it in the cleanest way possible using new .NET 11 features.
       Show me the C# program and the `.csproj` XML targeting `net11.0` for this tool. Print both in your response.
+    tags:
+      capability: capture-process-output
+      risk: redirected-stream-deadlock
+      journey: run-external-cli
     graders:
       - type: exit-success
       - type: output-matches
@@ -42,17 +46,21 @@ stimuli:
       In a .NET 11 application, I need to spawn a background daemon process.
       To prevent orphan processes, I want to ensure that this daemon process is automatically killed by the operating system if my main parent process crashes or exits.
       How do I configure this in .NET 11 using ProcessStartInfo? Show me a minimal example, and show the `.csproj` XML targeting `net11.0` in your response.
+    tags:
+      capability: child-process-lifetime
+      risk: orphaned-child-process
+      journey: supervise-background-daemon
     graders:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: KillOnParentExit\s*=\s*true
+          pattern: 'KillOnParentExit\s*=\s*(true\b|OperatingSystem\.Is(Windows|Linux|Android)\s*\(\)(\s*\|\|\s*OperatingSystem\.Is(Windows|Linux|Android)\s*\(\))*)\s*(?=[,;}]|//|\r?\n)'
       - type: output-matches
         config:
           pattern: net11\.0
       - type: prompt
     rubric:
-      - Uses the new KillOnParentExit property on ProcessStartInfo set to true
+      - Enables KillOnParentExit on ProcessStartInfo on a supported platform, either directly or with a platform check
       - Targets net11.0
 
   # --- Stimulus 3: deadlock-free full read via instance ReadAllText (tuple return) ---
@@ -63,6 +71,10 @@ stimuli:
       standard output AND standard error to completion, without the classic deadlock where
       one buffer fills while I'm draining the other. Give me the simplest first-party .NET 11
       way to get both back at once. Show a minimal program and the `net11.0` `.csproj`.
+    tags:
+      capability: read-complete-process-output
+      risk: incorrect-tuple-return
+      journey: capture-custom-process-streams
     graders:
       - type: exit-success
       - type: output-matches
@@ -92,6 +104,10 @@ stimuli:
       line I need to know whether it came from stdout or stderr. I want the cleanest first-party
       .NET 11 approach, with no event-callback plumbing and no deadlock risk. Show a minimal
       program and the `net11.0` `.csproj`.
+    tags:
+      capability: stream-tagged-process-output
+      risk: lost-stream-identity
+      journey: monitor-running-process
     graders:
       - type: exit-success
       - type: output-matches
@@ -125,6 +141,10 @@ stimuli:
       and immediately move on without holding onto process handles or having to manage its disposal.
       I just want to launch it without keeping process handle structures alive and obtain its process ID.
       Show me a minimal C# program and the `.csproj` XML targeting `net11.0` for this.
+    tags:
+      capability: fire-and-forget-process
+      risk: retained-process-handle
+      journey: launch-independent-helper
     graders:
       - type: exit-success
       - type: output-matches
@@ -145,6 +165,10 @@ stimuli:
       To avoid leaking file descriptors to the child, I need to explicitly specify which handles get inherited
       by the child process using the new ProcessStartInfo handle inheritance features in .NET 11.
       Show me a minimal example configuring handle inheritance and the `.csproj` XML targeting `net11.0`.
+    tags:
+      capability: control-handle-inheritance
+      risk: leaked-file-descriptor
+      journey: spawn-processes-under-load
     graders:
       - type: exit-success
       - type: output-matches
@@ -164,6 +188,10 @@ stimuli:
       I have a .NET 8 console app and I need to start a process 'notepad.exe'.
       Show me a minimal C# program and the `.csproj` XML targeting `net8.0` that starts this process using the traditional Process.Start. Print both in your response.
     expect_activation: false
+    tags:
+      capability: framework-version-boundary
+      risk: unsupported-net8-api
+      journey: launch-legacy-framework-process
     graders:
       - type: exit-success
       - type: output-matches
@@ -188,6 +216,10 @@ stimuli:
       and capture its standard output into a string. Show a minimal C# program and the
       `.csproj` XML targeting `net10.0`, and print both.
     expect_activation: false
+    tags:
+      capability: framework-version-boundary
+      risk: unsupported-net10-api
+      journey: capture-legacy-framework-output
     graders:
       - type: exit-success
       - type: output-matches

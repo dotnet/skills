@@ -36,7 +36,7 @@ New APIs added to `System.Diagnostics.Process` in .NET 11 simplify process manag
 
 ### Types
 
-Before using the new convenience methods, note the following return structures:
+Before using the new convenience methods, note the following structures:
 
 - **`ProcessExitStatus`**: Represents the outcome of a completed process.
   ```csharp
@@ -159,7 +159,7 @@ else
 
 ### 2. Auto-Killing Child Processes on Parent Exit
 
-Ensure a long-running background worker process is killed when the main application terminates:
+On Windows and Linux, ensure a long-running background worker process is killed when the main application terminates. This example does not enable automatic teardown on other platforms:
 
 ```csharp
 using System;
@@ -167,7 +167,7 @@ using System.Diagnostics;
 
 ProcessStartInfo startInfo = new("dotnet", ["run", "--project", "BackgroundWorker.csproj"])
 {
-    KillOnParentExit = true // Auto-teardown when this parent process exits
+    KillOnParentExit = OperatingSystem.IsWindows() || OperatingSystem.IsLinux() // Auto-teardown when this parent process exits
 };
 
 using Process process = Process.Start(startInfo)!;
