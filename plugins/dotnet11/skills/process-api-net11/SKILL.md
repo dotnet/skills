@@ -36,24 +36,15 @@ New APIs added to `System.Diagnostics.Process` in .NET 11 simplify process manag
 
 ### Types
 
-Before using the new convenience methods, note the following structures:
+Before using the new convenience methods, note the following types. Use the framework types directly:
 
-- **`ProcessExitStatus`**: Represents the outcome of a completed process.
-  ```csharp
-  public readonly record struct ProcessExitStatus(int ExitCode, bool Canceled, PosixSignal? Signal = null);
-  ```
-- **`ProcessTextOutput`**: Contains the exit status along with all captured standard output, standard error text, and the process ID.
-  ```csharp
-  public readonly record struct ProcessTextOutput(ProcessExitStatus ExitStatus, string StandardOutput, string StandardError, int ProcessId);
-  ```
-- **`ProcessOutputLine`**: Represents a single output line tagged with its stream source.
-  ```csharp
-  public readonly struct ProcessOutputLine
-  {
-      public string Content { get; }
-      public bool StandardError { get; }
-  }
-  ```
+| Type | Kind | Read-only properties |
+|------|------|----------------------|
+| `ProcessExitStatus` | Sealed class | `int ExitCode`, `bool Canceled`, `PosixSignal? Signal` |
+| `ProcessTextOutput` | Sealed class | `ProcessExitStatus ExitStatus`, `string StandardOutput`, `string StandardError`, `int ProcessId` |
+| `ProcessOutputLine` | Readonly struct | `string Content`, `bool StandardError` |
+
+`ProcessExitStatus` describes the outcome of a completed process. Interpret `ExitCode` using the external command's contract; there is no universal `Success` property. `ProcessTextOutput` contains the exit status, captured output and error text, and process ID. `ProcessOutputLine` identifies one output line and whether it came from standard error.
 
 ### High-Level Convenience APIs
 
