@@ -224,6 +224,65 @@ requested, but remains unmerged. The physical-device heap-capture proposal
 neither review status establishes trusted-base integration, hardware acceptance
 or default readiness.
 
+### Thirteenth corrected-content comparison
+
+Only binding and DI were remeasured at `28595929`: these contain the new
+selective-diagnostic and HTTP-reference corrections. Doctor's source/routing
+was not rerun for a better dormancy outcome. Generated configurations again
+registered all eight concrete skill directories, with five workers and unchanged
+declared counts/timeouts. Both families completed 75 trials, 25 per role, with
+complete shutdown accounting and zero errored or unmatched comparisons.
+
+| Skill | Sonnet 5 W/T/L (p) | GPT-5.6 Luna W/T/L (p) |
+|---|---|---|
+| Binding | 5/3/2, unproven (0.2266) | 6/3/1, unproven (0.0625) |
+| DI | 6/4/2, unproven (0.1445) | 4/6/2, unproven (0.3438) |
+
+All three dormancy tasks passed in both contexts. Positive routing still misses:
+Sonnet binding healthy/repair did not activate in either role, and its template
+case missed plugin activation; Luna's healthy case missed plugin activation.
+No wins from dormant boundary tasks are counted as preference improvement.
+
+Sonnet's baseline/isolated/plugin aggregate failures were 3/0/0, with
+failed-leaf trial counts 5/3/1. Luna's counts were 1/0/0 and 3/0/0. Both
+treatment families now demonstrate correct XC0045 promotion on the compiled-page
+task, but this observed task success is not proof of sole causation or an overall
+preference pass. Sonnet still generated a two-child ContentPage despite the
+source's correct one-root rule/example, omitted native-validation limitations
+on an unactivated healthy task, and captured a typed HTTP client with an
+unverified universal pooling assurance. Luna's HTTP answer uses the valid
+per-operation factory design; its method sketch is not executable implementation
+proof. Namespace-detail and architecture preferences also contributed losses.
+
+The inspected HTTP and explicit-source tasks activated the target skill, but
+neither family/role read an additional reference on those tasks. Do not attribute
+their answers to consultation of the new HTTP reference. Source correctness,
+reference consultation, generated correctness and aggregate grades are distinct.
+All observed native reads/edits succeeded. Three Luna baseline web fetches
+returned 404; treatment tools had no observed errors.
+
+| Skill | Sonnet isolated/plugin SDK counter change | Luna isolated/plugin SDK counter change |
+|---|---|---|
+| Binding | -9.7% / +2.5% | +17.6% / +23.5% |
+| DI | +42.0% / +69.1% | +0.7% / +21.1% |
+
+The same matched-total, dormancy-included, judge-excluded limitations apply.
+Do not compare absolute counters across runs as if task/model execution were
+identical, pool families, rescore historical votes or repeat an unchanged matrix
+to obtain a pass. These results support engineering review of the correctness
+repairs, not a quality/cost-neutral default certification.
+
+### Adoption decision
+
+Keep the eight skills task-specific and opt-in. The corrected SDK, compiler and
+runtime decisions have executable evidence, but current cross-family preference,
+positive routing and cost requirements do not establish a project-default set.
+Do not remove a useful skill solely because a tie-limited comparison is unproven;
+equally, do not retain a default solely because an older comparison passed.
+This proposal changes no installer behavior. Maintainers still need to confirm
+support ownership and the integration basis; the standalone harness needs
+trusted-base integration, and native/device acceptance remains separate.
+
 ## Overlapping proposal integration
 
 The integration basis is [#1273](https://github.com/dotnet/skills/pull/1273),
