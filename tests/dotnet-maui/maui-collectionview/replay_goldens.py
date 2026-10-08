@@ -9,6 +9,7 @@ object-model probes do not test device layout, navigation, or OS lifecycle deliv
 """
 from pathlib import Path
 import importlib.util
+import difflib
 import json
 import os
 import re
@@ -53,6 +54,15 @@ ROOT = Path(__file__).resolve().parents[3]
 
 def command(args, cwd):
     return subprocess.run(args, cwd=cwd, text=True, capture_output=True)
+
+
+def scope_call(workspace, baseline, **payload):
+    result = subprocess.run(
+        ["node", "tests/dotnet-maui/replay_scope.mjs"], cwd=ROOT,
+        input=json.dumps(dict(payload, workDir=str(workspace), baselineGitDir=str(baseline))),
+        text=True, capture_output=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    return json.loads(result.stdout)
 
 
 def golden_reference(suite, stimulus):
@@ -641,7 +651,8 @@ public static class InvalidThemeRemoval
         shutil.rmtree(workspace)
 
 
-def production_replay(suite, spec, expected_pass=True, expected_failure_type="output-matches"):
+def production_replay(suite, spec, expected_pass=True, expected_failure_type="output-matches",
+                      skills=None):
     """Use the shipping parser/oracle with only deterministic graders selected."""
     path = suite / ".oracle-eval.yaml"
     workspace = suite / ".oracle-workspace"
@@ -650,6 +661,8 @@ def production_replay(suite, spec, expected_pass=True, expected_failure_type="ou
         raise RuntimeError(f"Refusing to overwrite oracle scratch files in {suite}")
     deterministic = json.loads(json.dumps(spec))
     for stimulus in deterministic["stimuli"]:
+        if skills is not None:
+            stimulus["environment"]["skills"] = [str(path) for path in skills]
         stimulus["graders"] = [g for g in stimulus["graders"] if g["type"] != "prompt"]
         stimulus.pop("rubric", None)
     try:
@@ -671,15 +684,21 @@ def production_replay(suite, spec, expected_pass=True, expected_failure_type="ou
             assert len(records) == 1, result.stdout + result.stderr
             assert records[0].get("status") != "error", result.stdout
             assert records[0]["gradeResult"].get("status") != "error", result.stdout
+            assert all(g.get("status") != "error"
+                       for g in records[0]["gradeResult"]["details"]), result.stdout
             assert records[0]["gradeResult"]["passed"] is expected_pass, result.stdout
             if expected_pass:
                 assert result.returncode == 0 and records[0]["status"] == "success", result.stdout
             else:
                 assert any(g.get("graderType") == expected_failure_type and not g["passed"]
                            for g in records[0]["gradeResult"]["details"]), result.stdout
-                if expected_failure_type == "run-command":
+                if expected_failure_type == "diff-not-contains":
                     details = records[0]["gradeResult"]["details"]
-                    assert not details[0]["passed"] and details[1]["passed"], result.stdout
+                    assert all("found in workspace diff" in g["evidence"]
+                               for g in details if g.get("graderType") == "diff-not-contains"
+                               and not g["passed"]), result.stdout
+                    assert all(g["passed"] for g in details
+                               if g.get("graderType") != "diff-not-contains"), result.stdout
             shutil.rmtree(workspace)
     finally:
         path.unlink(missing_ok=True)
@@ -785,7 +804,8 @@ def main():
     totals = {"references": 0, "output_mutations": 0, "golden_workspaces": 0,
               "defect_rejections": 0, "preservation_rejections": 0,
               "routing_output_rejections": 0, "semantic_advice_not_proven": 0,
-              "setup_rejections": 0}
+              "setup_rejections": 0, "production_scope_acceptances": 0,
+              "production_scope_rejections": 0}
     for name in NAMES:
         suite = ROOT / "tests/dotnet-maui" / name
         spec = yaml.safe_load((suite / "eval.yaml").read_text())
@@ -820,7 +840,8 @@ def main():
             print(f"{name}: realistic incorrect advice passes presence regex; semantic judging remains pending")
         for stimulus in spec["stimuli"][-3:-1]:
             workspace = suite / ".replay-workspace"
-            if workspace.exists():
+            baseline = suite / ".scope-baseline"
+            if workspace.exists() or baseline.exists():
                 raise RuntimeError(f"Refusing to overwrite {workspace}")
             try:
                 workspace.mkdir()
@@ -847,6 +868,23 @@ def main():
                     finally:
                         target.write_bytes(original)
                     totals["setup_rejections"] += 1
+                supplied_skills = []
+                for skill in sorted((ROOT / "plugins/dotnet-maui/skills").iterdir()):
+                    assert skill.is_dir(), skill
+                    shutil.copytree(skill, workspace / skill.name)
+                    supplied_skills.extend((workspace / skill.name).rglob("*"))
+                rename_seed = workspace / "bin" / "rename seed.txt"
+                rename_seed.parent.mkdir()
+                rename_seed.write_text("generated before the agent\n")
+                baseline.mkdir()
+                baseline_ref = scope_call(workspace, baseline, action="capture")["baselineRef"]
+                scope_config = next(g["config"] for g in stimulus["graders"]
+                                    if g["type"] == "diff-not-contains")
+
+                def scope_passes():
+                    return scope_call(workspace, baseline, action="grade",
+                                      config=scope_config, baselineRef=baseline_ref)["passed"]
+
                 if "golden_patch" in stimulus:
                     patch = (suite / stimulus["golden_patch"]["path"]).resolve()
                     checked = command(["git", "apply", "--check", str(patch)], workspace)
@@ -862,6 +900,33 @@ def main():
                     if "stdout_matches" in cfg:
                         assert re.search(cfg["stdout_matches"], result.stdout), result.stdout
                 totals["golden_workspaces"] += 1
+                assert scope_passes(), (name, stimulus["name"])
+                for supplied in supplied_skills:
+                    if not supplied.is_file():
+                        continue
+                    original = supplied.read_bytes()
+                    try:
+                        supplied.write_bytes(original + b"\nunrequested\n")
+                        assert not scope_passes(), supplied
+                        supplied.unlink()
+                        assert not scope_passes(), supplied
+                    finally:
+                        supplied.write_bytes(original)
+                    totals["preservation_rejections"] += 2
+                for filename, expected in (
+                    ("bin/renamed seed.txt", True),
+                    ("unrequested seed.txt", False),
+                    ('unrequested "seed".txt', False),
+                    ("unrequested\nseed.txt", False),
+                    ("unrequested b/bin/seed.txt", False),
+                ):
+                    renamed = workspace / filename
+                    renamed.parent.mkdir(parents=True, exist_ok=True)
+                    try:
+                        rename_seed.rename(renamed)
+                        assert scope_passes() is expected, filename
+                    finally:
+                        renamed.rename(rename_seed)
                 preservation = stimulus["graders"][0]["config"]["command"]
                 for source in fixture.rglob("*"):
                     if not source.is_file() or ("golden_patch" in stimulus and source.name == "Program.cs"):
@@ -884,12 +949,15 @@ def main():
                     (".state.json", "{}\n"),
                     (".scratch/notes.txt", "unrequested\n"),
                     ("nested/bin/unrequested.txt", "unrequested\n"),
+                    ('nested/quoted "note".txt', "unrequested\n"),
+                    ("nested/line\nbreak.txt", "unrequested\n"),
+                    ("nested/space note.txt", "unrequested\n"),
                 ):
                     extra = workspace / filename
                     extra.parent.mkdir(parents=True, exist_ok=True)
                     try:
                         extra.write_text(content)
-                        assert command(["bash", "-c", preservation], workspace).returncode != 0
+                        assert not scope_passes(), filename
                     finally:
                         extra.unlink()
                     totals["preservation_rejections"] += 1
@@ -897,10 +965,19 @@ def main():
                 for destination in ("Checks.cs", "missing-file"):
                     try:
                         extra.symlink_to(destination)
-                        assert command(["bash", "-c", preservation], workspace).returncode != 0
+                        assert not scope_passes(), destination
                     finally:
                         extra.unlink()
                     totals["preservation_rejections"] += 1
+                for filename in ("bin/space note.txt", 'obj/quoted "note".txt',
+                                 "bin/line\nbreak.txt"):
+                    extra = workspace / filename
+                    extra.parent.mkdir(parents=True, exist_ok=True)
+                    try:
+                        extra.write_text("generated\n")
+                        assert scope_passes(), filename
+                    finally:
+                        extra.unlink()
                 # Undo the actual repair: the production executable must reject it.
                 if "golden_patch" in stimulus:
                     shutil.copy2(fixture / "Program.cs", workspace / "Program.cs")
@@ -912,14 +989,40 @@ def main():
                     totals["defect_rejections"] += 1
             finally:
                 shutil.rmtree(workspace)
+                if baseline.exists():
+                    shutil.rmtree(baseline)
         if "--production" in sys.argv:
             production_replay(suite, spec)
             for stimulus in spec["stimuli"][-3:-1]:
-                mutation = json.loads(json.dumps(stimulus))
-                mutation["environment"].setdefault("commands", []).append(
-                    "python3 -c \"from pathlib import Path; Path('unrequested.sh').write_text('echo unrequested\\n')\"")
-                production_replay(suite, {"name": spec["name"], "stimuli": [mutation]},
-                                  expected_pass=False, expected_failure_type="run-command")
+                target_skill = ROOT / "plugins/dotnet-maui/skills" / name
+                all_skills = sorted((ROOT / "plugins/dotnet-maui/skills").iterdir())
+                for skills in ([], [target_skill], all_skills):
+                    production_replay(suite, {"name": spec["name"], "stimuli": [stimulus]},
+                                      skills=skills)
+                    totals["production_scope_acceptances"] += 1
+                    original_patch = ((suite / stimulus["golden_patch"]["path"]).read_text()
+                                      if "golden_patch" in stimulus else "")
+                    mutations = [("unrequested.sh", "", "echo unrequested\n")]
+                    if skills:
+                        for source in target_skill.rglob("*"):
+                            if source.is_file() and (source.name == "SKILL.md"
+                                                     or source.parent.name == "references"):
+                                text = source.read_text()
+                                path = f"{target_skill.name}/{source.relative_to(target_skill)}"
+                                mutations.append((path, text, text + "\nunrequested\n"))
+                        assert len(mutations) > 1, name
+                    for path, before, after in mutations:
+                        mutation = json.loads(json.dumps(stimulus))
+                        patch = (f"diff --git a/{path} b/{path}\n"
+                                 + ("new file mode 100644\n" if not before else "")
+                                 + "".join(difflib.unified_diff(
+                            before.splitlines(keepends=True), after.splitlines(keepends=True),
+                            fromfile=f"a/{path}" if before else "/dev/null", tofile=f"b/{path}")))
+                        mutation["golden_patch"] = {"inline": original_patch + patch}
+                        production_replay(suite, {"name": spec["name"], "stimuli": [mutation]},
+                                          skills=skills, expected_pass=False,
+                                          expected_failure_type="diff-not-contains")
+                        totals["production_scope_rejections"] += 1
         print(f"{name}: references, repaired/working execution and mutation rejection pass")
     assert not gate.errors, "\n".join(gate.errors)
     api_probe()

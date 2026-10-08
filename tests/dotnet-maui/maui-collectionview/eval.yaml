@@ -329,9 +329,10 @@ stimuli:
         ''"''"''Directory.Build.props''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
         ''"''"''Directory.Build.targets''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"''};
         assert all(pathlib.Path(p).is_file() and hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()==h
-        for p,h in expected.items()); assert {p.as_posix() for p in pathlib.Path(''"''"''.''"''"'').rglob(''"''"''*''"''"'')
-        if (p.is_file() or p.is_symlink()) and p.parts[0] not in
-        (''"''"''bin''"''"'',''"''"''obj''"''"'',''"''"''.git''"''"'')} == (set(expected) | {''"''"''Program.cs''"''"''})'''
+        for p,h in expected.items())'''
+  - type: diff-not-contains
+    config:
+      pattern: '(?m)^(?:diff --git (?!a/Program\.cs b/Program\.cs$|a/(?:bin|obj)/[^\r\n]+ b/(?:bin|obj)/[^\r\n]+$|"a/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+" "b/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+"$)|rename (?:from|to) (?!(?:bin|obj)/|"(?:bin|obj)/))'
   - &id001
     type: run-command
     config:
@@ -395,9 +396,10 @@ stimuli:
         ''"''"''Directory.Build.targets''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
         ''"''"''Program.cs''"''"'': ''"''"''a9f93f7ab73abe8e68cf566c30b3cb830dc4ccdfadd705de31384a1daaea768a''"''"''};
         assert all(pathlib.Path(p).is_file() and hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()==h
-        for p,h in expected.items()); assert {p.as_posix() for p in pathlib.Path(''"''"''.''"''"'').rglob(''"''"''*''"''"'')
-        if (p.is_file() or p.is_symlink()) and p.parts[0] not in
-        (''"''"''bin''"''"'',''"''"''obj''"''"'',''"''"''.git''"''"'')} == (set(expected) | {''"''"''Program.cs''"''"''})'''
+        for p,h in expected.items())'''
+  - type: diff-not-contains
+    config:
+      pattern: '(?m)^(?:diff --git (?!a/(?:bin|obj)/[^\r\n]+ b/(?:bin|obj)/[^\r\n]+$|"a/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+" "b/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+"$)|rename (?:from|to) (?!(?:bin|obj)/|"(?:bin|obj)/))'
   - *id001
   - type: prompt
     config:

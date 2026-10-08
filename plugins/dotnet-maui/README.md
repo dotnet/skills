@@ -301,9 +301,50 @@ draft grading instruction was also rejected: concise limitations remain valid,
 without requiring an inventory of assertions or platform tests.
 
 No skill guidance, stimulus count, agent budget or installer behavior changed.
-The latest executor evidence remains the thirteenth comparison at `28595929`;
-these oracle checks do not establish new activation, preference, cost neutrality
-or native/device acceptance.
+These oracle checks do not establish new activation, preference, cost neutrality
+or native/device acceptance. The subsequent executor matrix is reported below
+with its newly discovered grading confound.
+
+### Fourteenth: staged-input grading confound
+
+Seven suites ran at `eb90dead`, with all eight concrete skill directories,
+five workers and unchanged declared budgets. Sonnet 5 and GPT-5.6 Luna each
+completed 240 trials: 80 per baseline/isolated/plugin role. All comparisons
+matched without trial errors; all 480 SDK shutdowns matched their trial
+identities. This establishes execution/accounting completeness, not valid scope
+grading or readiness.
+
+The expanded inventory grader incorrectly treated supplied skill/reference files
+as unauthorized additions. Vally copies these directories into the workspace
+before setup and agent execution. All twelve UI repair/no-op cases failed that
+grader in both treatment roles, for both families. This is a grader defect,
+not evidence that those agents modified supplied skills or failed the repair.
+The six UI suites' raw preference records remain historical diagnostics, not
+certification; no votes or grades are retroactively rewritten.
+
+| Skill | Sonnet raw W/T/L (p) | Luna raw W/T/L (p) | Sonnet / Luna plugin SDK counter change |
+|---|---|---|---|
+| Lifecycle | 5/2/3 (.363281) | 5/3/2 (.226563) | +6.9% / +10.3% |
+| CollectionView | 6/2/2 (.144531) | 7/3/0 (.007813) | +77.3% / +45.9% |
+| Binding | 6/4/0 (.015625) | 7/1/2 (.089844) | +49.1% / +18.2% |
+| DI | 7/3/2 (.089844) | 6/4/2 (.144531) | +72.4% / +16.4% |
+| Safe area | 9/1/0 (.001953) | 7/1/2 (.089844) | +37.2% / -17.5% |
+| Shell | 6/2/2 (.144531) | 7/2/1 (.035156) | +69.9% / +32.3% |
+| Theming | 6/3/1 (.0625) | 6/4/0 (.015625) | +67.7% / +36.6% |
+
+DI does not use the faulty inventory guard; its preference remains unproven in
+both families. No project-default conclusion follows from the raw UI pass
+labels. Cost columns are ratios of matched role totals, including dormancy and
+excluding judges, not paired confidence intervals, invoices or wall-clock
+claims. They describe these executions, not a cost-neutral default set.
+
+The prospective correction uses Vally's built-in initial-to-final workspace
+diff, captured after supplied inputs/setup and before the agent. Only repair
+`Program.cs` and root generated `bin`/`obj` changes are permitted; no-op allows
+only generated changes. Known protected fixture hashes remain independently
+checked. Supplied skill/reference directories are not excluded: modifying or
+deleting their files fails the same diff guard. This revision has deterministic
+replay coverage, not a new executor matrix or transferred historical votes.
 
 ### Adoption decision
 
@@ -318,15 +359,27 @@ trusted-base integration, and native/device acceptance remains separate.
 
 ### Engineering review corrections
 
-The six UI repair/no-op scope graders now enumerate every non-generated file,
-not only selected source extensions. Root `bin`, `obj` and `.git` output is
-excluded; nested directories with those names, scratch notes, hidden files and
+The six UI repair/no-op scope graders now protect all non-generated file paths
+using a trusted pre-agent snapshot, not selected source extensions or a mutable
+workspace manifest. Nested `bin`/`obj` names, scratch notes, hidden files and
 symlinks do not bypass the contract. The no-op prompts explicitly preserve
-non-generated workspace files. Replay rejects changes to every protected input
-and extra configuration, script, documentation and alternate-extension files
-for both repaired and working implementations: 186 preservation mutations.
-Twelve additional production-oracle scope negatives fail the inventory grader
-while the actual behavior grader still passes.
+non-generated workspace files. Replay stages the complete plugin before
+capturing the baseline, accepts unchanged inputs, and rejects additions,
+protected-input changes, and changes/deletions of every staged skill file.
+Generated paths with spaces, quotes and newlines remain accepted; equivalent
+out-of-scope paths and generated-to-unprotected renames are rejected.
+
+Production oracle checks cover both executable cases in baseline, isolated and
+full-plugin environments. Scope mutations are applied in the golden patch
+after setup, not introduced as supplied inputs. The scope guard must fail while
+every other deterministic grader still passes. Oracle uses the supplied golden
+patch as its diff; the separate snapshot replay exercises actual cumulative Git
+diffs. Full replay passes 66 references and 12 golden workspaces, rejects 918
+preservation mutations, and accepts 36 staged-environment goldens while rejecting
+96 scope negatives. A final five-worker curated oracle diagnostic separately
+accepts 36 cases and rejects 36 script-addition mutations, with declared budgets
+retained. Neither replay executes an agent or uses a paid judge; the concurrent
+diagnostic is not a fresh cross-family preference measurement.
 
 The harness integration test now uses different log and workspace roots. The
 unwrapped provider rejects the workspace file; the provider installed through
