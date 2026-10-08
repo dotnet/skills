@@ -261,6 +261,9 @@ def main():
                 assert_bad_discovery(workspace, lambda text: text.replace(
                     'if str(optional).lower() == "true":',
                     'if False:'))
+                assert_bad_discovery(workspace, lambda text: text.replace(
+                    '"jdkRange": deps["jdk"]["version"]',
+                    '"jdkRange": "[17.0,22.0)"'))
                 pin = workspace / "global.json"
                 original = pin.read_text()
                 try:
@@ -268,10 +271,11 @@ def main():
                     run([sys.executable, "check_discovery.py"], cwd=workspace, success=False)
                 finally:
                     pin.write_text(original)
-                print("Rejected discovery mutations: wrong band, optional packages and pin rewrite")
+                print("Rejected discovery mutations: wrong band, optional packages, "
+                      "hardcoded JDK range and pin rewrite")
                 check_immutable_scope(workspace, stimulus)
         check_output_variants(document)
-        print(f"PASS: {count} deterministic golden trajectories and 5 behavioral mutations")
+        print(f"PASS: {count} deterministic golden trajectories and 6 behavioral mutations")
     finally:
         spec.unlink(missing_ok=True)
         shutil.rmtree(WORK)

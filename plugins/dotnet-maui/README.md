@@ -388,8 +388,10 @@ rewriting the checker cannot erase the external baseline. Discovery permits
 only the requested resolver/output and root Python cache changes. Replay
 accepts both cases in all three staged roles and rejects 18 changed-and-recaptured,
 deleted-and-recaptured, and checker-bypass mutations even though the old
-in-workspace checks accept them. Its 12 deterministic goldens, five existing
-behavior mutations and eight wording contrasts continue to pass.
+in-workspace checks accept them. Its 12 deterministic goldens, six behavior
+mutations and eight wording contrasts pass. Discovery's variant now changes
+the JDK range as well as its recommendation; a resolver hardcoding the primary
+range is rejected rather than passing both fixtures.
 
 The harness integration test now uses different log and workspace roots. The
 unwrapped provider rejects the workspace file; the provider installed through
