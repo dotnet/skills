@@ -29,6 +29,76 @@ alone do not prove cost neutrality. Follow the repository's
 [quality bar](../../CONTRIBUTING.md#quality-bar), including preference significance
 and dormancy requirements.
 
+### Latest complete local comparison
+
+The fifteenth full-eight comparison measured
+`a52530963deb5f3380c5a15574a2149aebc56821` using the default pinned native
+launcher, five workers and each suite's declared timeout and one run per
+stimulus. Sonnet 5/Terra and GPT-5.6 Luna/Haiku ran separately: 92 tasks in each
+of baseline, isolated and eight-skill plugin contexts per family. All 16
+comparisons were conclusive, with zero errored or unmatched trials. All nine
+dormancy contracts per family passed; positive-task activation still has
+preservation/repair misses, plus two Sonnet DI plugin misses. Registration and
+clean dormancy do not establish complete activation.
+
+| Skill | Sonnet 5 W/T/L (p) | Luna W/T/L (p) | Sonnet isolated / plugin SDK delta | Luna isolated / plugin SDK delta |
+|---|---|---|---|---|
+| Doctor | 8/2/1, pass (.01953) | 7/3/1, pass (.03516) | +7.4% / +21.4% | +21.9% / +31.7% |
+| Lifecycle | 8/2/0, pass (.00391) | 5/4/1, unproven (.10938) | +25.0% / +52.3% | +15.0% / +15.3% |
+| CollectionView | 5/3/2, unproven (.22656) | 8/2/0, pass (.00391) | +45.9% / +70.1% | +29.1% / +45.4% |
+| Binding | 8/2/0, pass (.00391) | 5/4/1, unproven (.10938) | +25.2% / +51.8% | +17.9% / +34.6% |
+| DI | 7/2/3, unproven (.17188) | 6/4/2, unproven (.14453) | +30.1% / +60.5% | +7.1% / +26.7% |
+| Safe area | 8/1/1, pass (.01953) | 5/5/0, pass (.03125) | -6.5% / +4.2% | -6.7% / -4.1% |
+| Shell | 8/2/0, pass (.00391) | 6/3/1, unproven (.06250) | +45.2% / +71.8% | +15.2% / +26.0% |
+| Theming | 5/4/1, unproven (.10938) | 7/1/2, unproven (.08984) | +43.3% / +62.7% | +24.0% / +35.2% |
+
+SDK deltas are matched ratio-of-means from raw `session.shutdown.totalNanoAiu`,
+including dormancy and excluding judges. All 552 trial directories have exactly
+one shutdown and matched role keys. These are execution counters, not invoices,
+paired confidence intervals, or proof that the skill alone caused the delta.
+Safe-area's isolated wall-clock paired intervals exclude zero in both families
+(-29,224 to -5,583 ms Sonnet; -8,977 to -1,603 ms Luna), but its token intervals
+include zero. No SDK-cost confidence interval establishes non-increase.
+Only Doctor and safe-area pass preference on both families; neither establishes
+a cost-neutral, fully activated plugin default.
+
+Aggregate failures in baseline/isolated/plugin were 14/3/4 for Sonnet and 4/2/0
+for Luna; failed-leaf trial counts were 27/8/8 and 11/5/1. Completion transitions
+(both/baseline-only/treatment-only/neither) were 77/1/12/2 and 87/1/3/1, each
+totalling 92. Passing preference or an aggregate grade is not universal sample
+correctness. Actual SDK telemetry records Copilot 1.0.80 in all sessions.
+One Sonnet baseline invoked the SDK's unrelated built-in `customize-cloud-agent`;
+no baseline invoked a MAUI target. The baseline is free of declared MAUI skills,
+not guaranteed free of SDK built-ins.
+
+Native view/write operations succeeded without observed root-escape errors.
+Other tool failures remain: Sonnet baseline web fetches, and Luna baseline web
+fetches, one out-of-bounds view request and three ripgrep output-file failures
+in treatment contexts. The rooted provider and swap regressions separately pass
+[four-platform CI 37733291839](https://github.com/dotnet/skills/actions/runs/37733291839).
+This branch-local measurement is not a trusted-base official evaluation;
+latest official evidence remains run 37663692784.
+
+The audit also found prospective grading corrections: Luna's invented `Themes`
+binding lost pairwise but still passed a non-binary correctness grade, while a
+correct explicit "only notification behavior checked; platform UI validation
+not performed" disclosure was rejected for its grammatical form. The typed-page
+grader now makes broken supplied-member bindings fatal, and the disclosure
+grader accepts equivalent negation. Curated cross-family contrasts cover these
+changes; the historical run is not rescored or transferred to the changed grader.
+Other generated failures include Sonnet's offline resolver failing to select
+the nested Android dependency key and a theme answer omitting the documented dictionary
+code-behind prerequisite. These are not invented source-content fixes.
+
+**Recommendation:** keep all eight task-specific and opt-in; add no automatic
+project-default set on this evidence. Do not remove a skill solely for a
+positive-but-unproven comparison. Safe-area is a candidate for further adoption
+review, not certification. Confirm actual support owners, land the reviewed
+native harness in the trusted base, and obtain current official quality,
+activation and cost evidence before changing default distribution.
+
+### Historical comparisons
+
 No project-default set is currently supported by the measured quality and cost
 evidence. In [evaluation 37663692784](https://github.com/dotnet/skills/actions/runs/37663692784),
 lifecycle and safe-area passed preference gates on both model families. Every

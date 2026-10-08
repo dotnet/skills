@@ -28,7 +28,32 @@ const fullPage = `<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/m
  </VerticalStackLayout>
 </ContentPage>
 Keep the existing invoice context and enable source compilation if needed.`;
+const settingsAnswer = `<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+ xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ xmlns:vm="clr-namespace:App.ViewModels" x:DataType="vm:SettingsViewModel">
+ <VerticalStackLayout>
+  <Label Text="{Binding Theme}" />
+  <Switch IsToggled="{Binding NotificationsEnabled}" />
+  <Stepper Value="{Binding FontSize}" />
+ </VerticalStackLayout>
+</ContentPage>
+Keep the existing SettingsViewModel BindingContext. x:DataType is type metadata,
+not a context assignment. Enable MauiStrictXamlCompilation and append XC0045 to
+WarningsAsErrors while preserving existing warnings. XC0045 diagnoses invalid
+typed members; missing-type fallback diagnostics are different.`;
 const cases = [
+  [binding, "maui-data-binding", "Set up compiled bindings with x:DataType on a page",
+    "golden", null, true],
+  [binding, "maui-data-binding", "Set up compiled bindings with x:DataType on a page",
+    "existing-context", settingsAnswer, true],
+  [binding, "maui-data-binding", "Set up compiled bindings with x:DataType on a page",
+    "invented-collection",
+    settingsAnswer.replace('<Label Text="{Binding Theme}" />', '<Picker ItemsSource="{Binding Themes}" />'),
+    false],
+  [binding, "maui-data-binding", "Set up compiled bindings with x:DataType on a page",
+    "scalar-items-source",
+    settingsAnswer.replace('<Label Text="{Binding Theme}" />', '<Picker ItemsSource="{Binding Theme}" />'),
+    false],
   [binding, "maui-data-binding", "Explicit source compilation", "golden", null, true],
   [binding, "maui-data-binding", "Explicit source compilation", "fragment",
     sourceAnswer, true],
@@ -46,6 +71,9 @@ const cases = [
   [binding, "maui-data-binding", "Preserve working supplied implementation", "equivalent-limitation",
     "Checks.cs passed and the supplied files are unchanged. Only property-change logic was "
       + "checked here; this says nothing about rendering or execution on a phone.", true],
+  [binding, "maui-data-binding", "Preserve working supplied implementation", "negated-limitation",
+    "Checks.cs passed and the supplied files are unchanged. The check only validates "
+      + "view-model notification behavior. Platform-specific MAUI UI validation was not performed.", true],
   [binding, "maui-data-binding", "Preserve working supplied implementation", "missing-limitation",
     "The checks pass. All supplied files are unchanged.", false],
   [binding, "maui-data-binding", "Preserve working supplied implementation", "implicit-evidence-only",

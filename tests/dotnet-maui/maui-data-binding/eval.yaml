@@ -16,6 +16,15 @@ stimuli:
       pattern: x:DataType
   - type: prompt
     config:
+      scoring: binary
+      prompt: |
+        This is a typed-binding correctness contract. Return overall_score=0
+        if recommended bindings reference properties absent from the supplied
+        ViewModel, use a scalar string as a collection ItemsSource, or do not
+        enable the requested build-time detection of invalid typed members.
+        Diagnostic documentation cannot compensate for broken binding code.
+        Accept minimal markup using the existing page/context; do not require
+        a new ViewModel, constructor, DI registration, or a complete app.
       evidence:
       - trajectory
   rubric:
@@ -428,7 +437,11 @@ stimuli:
         success, is not that explanation. The final answer must explicitly
         acknowledge the limitation: managed-check success does not establish
         native/platform/device behavior. Do not infer this disclosure from tool
-        observations alone. A concise statement of that limitation is sufficient;
+        observations alone. Judge semantic meaning, not a required phrase or
+        grammatical form. Saying that only property-change logic was checked
+        and platform-specific UI validation was not performed explicitly
+        communicates this limitation; negation is not a reason to reject it.
+        A concise statement of that limitation is sufficient;
         do not require an inventory of managed assertions or platform tests,
         additional builds, device tests, or unrelated explanations.
       evidence:
