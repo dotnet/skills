@@ -169,6 +169,36 @@ if (ReferenceEquals(typedFirst, typedSecond) ||
 Console.WriteLine("PASS: shipping named-client example preserves cache and propagates HTTP failure");
 Console.WriteLine("PASS: later typed-client registration overrides singleton resolution");
 
+if (SocketsHttpHandler.IsSupported)
+{
+    var defaults = new ServiceCollection();
+    var lifetime = TimeSpan.FromMinutes(3);
+    defaults.AddHttpClient("default").SetHandlerLifetime(lifetime);
+    defaults.AddHttpClient("custom").SetHandlerLifetime(lifetime)
+        .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler());
+    using var defaultsProvider = defaults.BuildServiceProvider();
+    var handlers = defaultsProvider.GetRequiredService<IHttpMessageHandlerFactory>();
+    if (PrimaryHandler(handlers.CreateHandler("default")) is not SocketsHttpHandler primary ||
+        primary.PooledConnectionLifetime != lifetime)
+        throw new InvalidOperationException("Default handler connection-recycling policy changed");
+    if (PrimaryHandler(handlers.CreateHandler("custom")) is not SocketsHttpHandler custom ||
+        custom.PooledConnectionLifetime != Timeout.InfiniteTimeSpan)
+        throw new InvalidOperationException("Custom handler unexpectedly inherited the default policy");
+    Console.WriteLine("PASS: .NET 10 default handler recycles connections; custom handler needs its own policy");
+}
+else
+{
+    Console.WriteLine("SKIP: default SocketsHttpHandler policy unavailable on this host");
+}
+
+static HttpMessageHandler PrimaryHandler(HttpMessageHandler handler)
+{
+    while (handler is DelegatingHandler wrapper)
+        handler = wrapper.InnerHandler
+            ?? throw new InvalidOperationException("Handler chain has no primary handler");
+    return handler;
+}
+
 public sealed class TypedCatalog(HttpClient client)
 {
     public HttpClient Client { get; } = client;

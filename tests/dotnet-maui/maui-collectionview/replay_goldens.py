@@ -200,6 +200,11 @@ public static class Checks
         (workspace / "Probe.csproj").write_text(project.replace("TASK", ""))
         (workspace / "Program.cs").write_text(source)
         binding_skill = (ROOT / "plugins/dotnet-maui/skills/maui-data-binding/SKILL.md").read_text()
+        warning_policy = re.search(r"<WarningsAsErrors>([^<]+)</WarningsAsErrors>", binding_skill)
+        assert warning_policy, "binding core must document its selective warning policy"
+        warning_codes = ";".join(
+            code for code in warning_policy.group(1).split(";") if code.startswith("XC"))
+        assert warning_codes, "binding core must name the promoted XamlC diagnostics"
         notification_section = binding_skill.split("## Publish changes without unnecessary dependencies", 1)[1]
         notification_source = notification_section.split("```csharp\n", 1)[1].split("\n```", 1)[0]
         (workspace / "DetailsViewModel.cs").write_text(notification_source)
@@ -272,7 +277,7 @@ public sealed class MainViewModel { public int Count { get; set; } }""")
  <Target Name="ProbeCompileXaml" AfterTargets="Build">
   <XamlCTask Assembly="$(TargetPath)" ReferencePath="@(ReferencePath)"
    DefaultCompile="true" ForceCompile="true" CompileBindingsWithSource="true"
-   TreatWarningsAsErrors="true" />
+   TreatWarningsAsErrors="false" WarningsAsErrors="{warning_codes}" />
  </Target>"""
         (workspace / "Probe.csproj").write_text(project.replace("TASK", target))
         built = command(["dotnet", "build", "Probe.csproj", "--no-restore", "--verbosity", "quiet"], workspace)
@@ -307,9 +312,27 @@ public sealed class MainViewModel { public int Count { get; set; } }""")
         (workspace / "DetailsViewModel.cs").write_text(notification_source)
         (workspace / "ExplicitPage.xaml").write_text(
             markup("ExplicitPage", True).replace("{Binding City}", "{Binding MissingCity}"))
+        unpromoted_target = target.replace(f'WarningsAsErrors="{warning_codes}"', 'WarningsAsErrors=""')
+        (workspace / "Probe.csproj").write_text(project.replace("TASK", unpromoted_target))
+        unpromoted = command(
+            ["dotnet", "build", "Probe.csproj", "--no-restore", "--verbosity", "quiet"], workspace)
+        assert unpromoted.returncode == 0 and "XC0045" in unpromoted.stdout and "MissingCity" in unpromoted.stdout, (
+            unpromoted.stdout + unpromoted.stderr)
+        print("PASS: unpromoted missing-member XC0045 is a warning, not a failed build")
+        fallback_codes = ";".join(code for code in warning_codes.split(";") if code != "XC0045")
+        fallback_target = target.replace(
+            f'WarningsAsErrors="{warning_codes}"', f'WarningsAsErrors="{fallback_codes}"')
+        (workspace / "Probe.csproj").write_text(project.replace("TASK", fallback_target))
+        fallback = command(
+            ["dotnet", "build", "Probe.csproj", "--no-restore", "--verbosity", "quiet"], workspace)
+        assert fallback.returncode == 0 and "XC0045" in fallback.stdout, (
+            fallback.stdout + fallback.stderr)
+        print("PASS: removing XC0045 from the selective policy reproduces the false-success build")
+        (workspace / "Probe.csproj").write_text(project.replace("TASK", target))
         broken = command(["dotnet", "build", "Probe.csproj", "--no-restore", "--verbosity", "quiet"], workspace)
-        assert broken.returncode != 0 and "MissingCity" in broken.stdout, broken.stdout + broken.stderr
-        print("PASS: XamlC rejects the missing child property (no native/device execution)")
+        assert broken.returncode != 0 and "XC0045" in broken.stdout and "MissingCity" in broken.stdout, (
+            broken.stdout + broken.stderr)
+        print(f"PASS: shipping selective policy ({warning_codes}) rejects the missing child property")
         (workspace / "ExplicitPage.xaml").write_text(markup("ExplicitPage", True))
         source_markup = (workspace / "LiteralSourcePage.xaml").read_text()
         (workspace / "LiteralSourcePage.xaml").write_text(

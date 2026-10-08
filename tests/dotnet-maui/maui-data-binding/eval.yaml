@@ -24,7 +24,8 @@ stimuli:
     valid; repeating context assignment or adding constructor/DI wiring is not required.
   - Uses valid MAUI diagnostic properties, including strict diagnostics where needed, and preserves other
     warning settings. MauiStrictXamlCompilation and MauiEnableXamlCBindingWithSourceCompilation
-    are documented MAUI properties; XC0022-XC0025 are real binding diagnostics, not invented flags/codes.
+    are documented MAUI properties; XC0022-XC0025 are real fallback diagnostics and XC0045 reports a
+    missing binding property. Promote the relevant warning to reject a misspelled typed member.
     Do not invent properties absent from the supplied ViewModel or bind a scalar string to Picker.ItemsSource.
   - Explains that typed binding paths are checked at build time, distinguishing invalid members
     from missing-type/reflection-fallback warnings, without disabling binding compilation.
@@ -49,8 +50,9 @@ stimuli:
           Text="{Binding Theme}" /><Switch IsToggled="{Binding NotificationsEnabled}" /><Stepper Value="{Binding
           FontSize}" /></VerticalStackLayout></ContentPage>. Set BindingContext to the real SettingsViewModel
           in the constructor after InitializeComponent. For build diagnostics set MauiStrictXamlCompilation=true,
-          MauiEnableXamlCBindingWithSourceCompilation=true where source bindings need it, and append XC0022;XC0025
-          to WarningsAsErrors. Compiled bindings avoid reflection, improve performance, and support NativeAOT/full
+          MauiEnableXamlCBindingWithSourceCompilation=true where source bindings need it, and append XC0022;XC0025;XC0045
+          to WarningsAsErrors. XC0045 reports an invalid typed member; XC0022/XC0025 alone do not reject it.
+          Compiled bindings avoid reflection, improve performance, and support NativeAOT/full
           trimming.
 - name: Implement MVVM ViewModel with ObservableObject
   prompt: |

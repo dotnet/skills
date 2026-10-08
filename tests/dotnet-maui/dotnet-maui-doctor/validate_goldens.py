@@ -123,6 +123,17 @@ def check_output_variants(document):
             "Check the selected SDK and Java; nothing else is required.",
         ),
         (
+            "Windows-only health check does not require Java", 0,
+            r"(?i)Windows(?:\s+\d+)?\s+SDK",
+            "Java and Android tooling are irrelevant for net10.0-windows10.0.19041.0. "
+            "Check project-selected .NET and MAUI Windows workloads. Inspect "
+            "Test-Path (Join-Path ([Environment]::GetEnvironmentVariable('ProgramFiles(x86)')) "
+            "'Windows Kits\\10\\Include\\10.0.19041.0').",
+            "Check the selected .NET SDK and MAUI Windows workload. Inspect "
+            "Test-Path (Join-Path ([Environment]::GetEnvironmentVariable('ProgramFiles(x86)')) "
+            "'Windows Kits\\10\\Include\\10.0.18362.0').",
+        ),
+        (
             "Runtime UI crash stays outside toolchain diagnosis", 0,
             r"(?i)stack\s+trace|breakpoint|debugger",
             "Enable Exception Settings for thrown NullReferenceException and "

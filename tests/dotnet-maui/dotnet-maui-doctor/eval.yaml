@@ -253,7 +253,7 @@ stimuli:
     tags: {capability: windows-target-scope, risk: unrelated-dependency-demand, journey: verify-windows-build}
     graders:
       - type: output-matches
-        config: {pattern: '(?i)Windows(?:\s+\d+)?\s+SDK'}
+        config: {pattern: '(?i)Windows(?:\s+\d+)?\s+SDK|Windows\s+Kits[\\/]10[\\/]Include[\\/]10\.0\.19041\.0\b'}
       - type: prompt
     rubric:
       - Explains that missing Java/Android tooling is not a blocker for the Windows-only target.

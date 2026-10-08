@@ -9,7 +9,7 @@ description: >-
   IValueConverter / IMultiValueConverter, choosing binding modes, configuring
   BindingContext, DataTemplate x:DataType mismatches (including CollectionView),
   relative bindings, binding fallbacks, StringFormat,
-  code-behind SetBinding with lambdas, and enforcing XC0022/XC0025 warnings.
+  code-behind SetBinding with lambdas, and enforcing XC0022/XC0025/XC0045 warnings.
   DO NOT USE FOR: CollectionView layout, selection, or paging features (use
   maui-collectionview), Shell navigation data passing (use
   maui-shell-navigation), dependency injection (use maui-dependency-injection),
@@ -52,8 +52,8 @@ frameworks.
 `x:DataType` is inherited compilation metadata, not a ViewModel instance. Put it
 at a page/view root with its actual context, on every `DataTemplate`, and at a
 child that changes context. Do not scatter it on children sharing the same type.
-Typed missing-member paths are compiler errors; missing metadata can instead
-leave a reflection binding.
+Typed missing-member paths emit XC0045; promote it to fail the build.
+Missing metadata can instead leave a reflection binding.
 
 Smallest row-type correction, with `model` declared on the surrounding page:
 
@@ -114,6 +114,7 @@ valid when the ViewModel's constructor permits it.
 | XC0023 | Explicit null type | Remove the opt-out and supply the correct type |
 | XC0024 | Template inherits an outer type | Type the template against its row |
 | XC0025 | Explicit source binding not compiled | Enable source compilation and type its source |
+| XC0045 | Binding property not found on the declared type | Correct the path/type; promote the warning to reject invalid members |
 
 These codes/properties are verified against MAUI 10/11. Check installed targets
 for other SDK bands rather than guessing diagnostic meanings.
@@ -121,13 +122,14 @@ for other SDK bands rather than guessing diagnostic meanings.
 ```xml
 <MauiStrictXamlCompilation>true</MauiStrictXamlCompilation>
 <MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
-<WarningsAsErrors>$(WarningsAsErrors);XC0022;XC0025</WarningsAsErrors>
+<WarningsAsErrors>$(WarningsAsErrors);XC0022;XC0025;XC0045</WarningsAsErrors>
 ```
 
 Strict compilation emits the opt-in warnings in ordinary builds. Source
 compilation is otherwise on by default only for AOT/full-trim builds on MAUI
 10/11. Promoting XC0025 without enabling source compilation reports source
 bindings rather than making them compile.
+XC0022/XC0025 promotion alone does not reject a misspelled typed property.
 
 ## Publish changes without unnecessary dependencies
 

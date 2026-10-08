@@ -99,6 +99,10 @@ duplicate or unpaired records. Every suite's plugin counters increased:
 preference gate on both families, and it is still not a cost-neutral default.
 DI content was unchanged between ninth and tenth; its vote shift is not evidence
 that a new DI content edit caused a regression.
+The isolated safe-area counters also increased 26.2% for Sonnet and 7.8% for
+Luna. The absence of a cost-neutral default is therefore not inferred solely
+from the larger plugin menu. These are the same historical run's SDK counters,
+not a fresh or statistically established cost-neutrality measurement.
 
 Historical records are not rewritten or attributed to later fixes. Correct
 phrase-regex failures, contradictory rubric/golden contracts and factual judge
@@ -158,6 +162,68 @@ mandatory. Its terse golden also needed a concrete implementation, not narrated
 intent. These contract repairs do not rewrite the recorded votes, and the
 eleventh comparison does not measure later content.
 
+### Twelfth changed-suite comparison
+
+Doctor, binding and DI were measured at `e5f40050`, using the repository
+generator, all eight concrete plugin skill directories, five workers and
+unchanged declared trial/time budgets. Both families completed 111 trials,
+37 per role, with matched SDK shutdown accounting and no trial errors or
+unmatched comparisons. This is local evidence, not an official full-eight
+certification.
+
+| Skill | Sonnet 5 W/T/L | GPT-5.6 Luna W/T/L |
+|---|---|---|
+| Doctor | 9/1/1, pass (p=0.0107) | 7/4/0, activation-blocked (p=0.0078) |
+| Binding | 3/7/0, tie-limited (p=0.125) | 7/2/1, pass (p=0.0352) |
+| DI | 10/2/0, pass (p=0.0010) | 6/4/2, unproven (p=0.1445) |
+
+Luna invoked Doctor on the runtime-crash dormancy task, although its final
+answer correctly redirected to application debugging without toolchain repair.
+The isolated dormancy contract therefore fails; the plugin arm stayed dormant.
+The other three dormancy tasks passed in both contexts. Binding's working-input
+task missed positive activation in both families/roles; Sonnet also missed the
+supplied repair task. None of these suites passes all gates on both families.
+
+Aggregate failures per baseline/isolated/plugin were Sonnet 2/0/0 and Luna
+2/1/0; failed-leaf trial counts were 8/3/1 and 4/1/0 respectively. Luna's
+isolated Windows check failed a phrase regex despite identifying the matching
+Windows Kits path. That wording defect is separate from its generated
+PowerShell variable interpolation error; neither historical result is rescored.
+All native views and patches succeeded. One Luna plugin ripgrep call failed
+to create its output file; its underlying cause remains unclassified.
+
+| Skill | Sonnet isolated/plugin SDK counter change | Luna isolated/plugin SDK counter change |
+|---|---|---|
+| Doctor | -6.1% / +11.3% | +26.4% / +35.3% |
+| Binding | +23.2% / +45.8% | +13.0% / +18.6% |
+| DI | +41.2% / +66.9% | +1.8% / +22.5% |
+
+These ratios use matched role totals, including dormancy and excluding judges.
+They are not paired confidence intervals, invoices or wall-clock comparisons.
+
+The subsequent exact-policy compiler replay confirmed a content defect:
+XC0045 is a missing-member warning on the tested MAUI 10 compiler, and promoting
+only XC0022/XC0025 still permits that build. The binding core/golden now includes
+XC0045; replay accepts correct markup and rejects removing that promotion.
+The earlier blanket warnings-as-errors probe did not establish the selective
+policy's behavior. Doctor's phrase grader now also accepts the matching SDK
+path, with wrong-version path rejection.
+
+The HTTP replay confirms that the .NET 10 factory default on a
+SocketsHttpHandler-supported host sets its connection lifetime from
+HandlerLifetime, whereas a custom SocketsHttpHandler does not inherit that
+setting. Retained clients are not categorically invalid; verify the target
+version/platform/handler before claiming DNS safety. The reference now explains
+that distinction. These later fixes do not rewrite the twelfth votes or prove
+fresh agent improvement.
+
+The standalone harness [#1280](https://github.com/dotnet/skills/pull/1280)
+is ready for engineering review, with its existing engineering CODEOWNERS
+requested, but remains unmerged. The physical-device heap-capture proposal
+[#1274](https://github.com/dotnet/skills/pull/1274) is also ready for review;
+neither review status establishes trusted-base integration, hardware acceptance
+or default readiness.
+
 ## Overlapping proposal integration
 
 The integration basis is [#1273](https://github.com/dotnet/skills/pull/1273),
@@ -200,6 +266,11 @@ It compiles the binding core's actual notifying property, rejects a wrong-name
 notification mutation, and compiles converter/resource examples from the
 on-demand binding reference. XamlC/runtime probes verify an `x:Int32` command
 parameter retains its integer type and reject a literal-string substitute.
+The compiler probe reads the binding core's selective warning list rather than
+enabling blanket warnings-as-errors: an unpromoted missing member builds,
+removing XC0045 reproduces that false success, and the shipping policy rejects
+it. DI's HTTP probe distinguishes default connection recycling from custom
+primary-handler policy without making real network requests.
 The Shell core's actual guard/caller example is compiled and its pending-request
 skip path exercised. Real-package probes also check back-button property
 ownership and reject sibling-theme `var` conditionals and undeclared dictionary

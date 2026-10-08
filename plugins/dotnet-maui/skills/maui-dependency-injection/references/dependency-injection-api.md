@@ -84,6 +84,13 @@ cache. Do not lose app-wide state by simply changing the cache owner to Transien
 Retaining a typed client in a Singleton requires a verified connection-recycling
 policy, such as an appropriate `SocketsHttpHandler.PooledConnectionLifetime`;
 do not categorically reject a supplied configuration that already provides it.
+On .NET 9+ platforms supporting `SocketsHttpHandler`, the factory's default
+primary handler sets `PooledConnectionLifetime` to `HandlerLifetime`.
+Retaining that client can therefore preserve connection recycling without an
+explicit setting. Verify the target version, platform and primary handler:
+custom handlers do not inherit this default, and factory handler expiration
+alone does not replace a handler already retained by a client.
+See [the .NET 9 default-handler change](https://learn.microsoft.com/dotnet/core/compatibility/networking/9.0/default-handler).
 See [HTTP client lifetime management and Singleton guidance](https://learn.microsoft.com/dotnet/core/extensions/httpclient-factory#avoid-typed-clients-in-singleton-services).
 
 ## Constructor Injection
