@@ -15,6 +15,7 @@ const { loadEvalSpec } = await import(pathToFileURL(
 ));
 const binding = await loadEvalSpec(resolve(here, "maui-data-binding/eval.yaml"));
 const di = await loadEvalSpec(resolve(here, "maui-dependency-injection/eval.yaml"));
+const safe = await loadEvalSpec(resolve(here, "maui-safe-area/eval.yaml"));
 const fragment = '<Label Text="{Binding Value, Source={x:Reference amount}, x:DataType=Slider}" />';
 const sourceAnswer = `${fragment} uses the existing page namespaces and Slider named amount. `
   + "Keep the invoice BindingContext and page x:DataType unchanged. "
@@ -42,6 +43,46 @@ not a context assignment. Enable MauiStrictXamlCompilation and append XC0045 to
 WarningsAsErrors while preserving existing warnings. XC0045 diagnoses invalid
 typed members; missing-type fallback diagnostics are different.`;
 const cases = [
+  [safe, "maui-safe-area", "Keyboard avoidance with safe area for chat UI", "golden", null, true],
+  [safe, "maui-safe-area", "Keyboard avoidance with safe area for chat UI", "direct-android",
+    'On Android MAUI 10, use a bounded <ScrollView SafeAreaEdges="All">'
+      + '<VerticalStackLayout><Label Text="Messages"/><Entry Placeholder="Message"/>'
+      + '<Button Text="Send"/></VerticalStackLayout></ScrollView>. '
+      + "All protects bars and the keyboard; keep the composer inside the protected scroller. "
+      + "Resize still exists. Verify the target patch/window IME configuration and real device behavior; "
+      + "iOS content-inset handling differs, so this Android implementation is not iOS keyboard proof.", true],
+  [safe, "maui-safe-area", "Keyboard avoidance with safe area for chat UI", "unprotected-sibling",
+    'Use <Grid RowDefinitions="*,Auto" SafeAreaEdges="None"><ScrollView Grid.Row="0" SafeAreaEdges="All">'
+      + '<VerticalStackLayout/></ScrollView><Grid Grid.Row="1" ColumnDefinitions="*,Auto" SafeAreaEdges="None">'
+      + '<Entry/><Button Grid.Column="1" Text="Send"/></Grid></Grid>. '
+      + "The scroller automatically protects its sibling composer from the keyboard. Resize still exists.", false],
+  [safe, "maui-safe-area", "Keyboard avoidance with safe area for chat UI", "bars-only",
+    'Use <ContentPage SafeAreaEdges="Container"><Grid RowDefinitions="*,Auto">'
+      + '<ScrollView/><Entry Grid.Row="1"/></Grid></ContentPage>. '
+      + "Container alone protects the composer from SoftInput as well as bars. Resize still exists.", false],
+  [safe, "maui-safe-area", "Keyboard avoidance with safe area for chat UI", "blanket-api-denial",
+    'Use a Grid with RowDefinitions="*,Auto" and SafeAreaEdges="All", with the message scroller '
+      + "and sibling composer in its two rows. This is mandatory on every platform because "
+      + "ScrollView does not expose or process SoftInput or All anywhere. Resize still exists.", false],
+  [safe, "maui-safe-area", "ScrollView keyboard wrapper", "golden", null, true],
+  [safe, "maui-safe-area", "ScrollView keyboard wrapper", "direct-android",
+    'On Android MAUI 10, check the exact MAUI patch, window IME configuration and finite viewport '
+      + 'when the direct setup fails. Use <ScrollView SafeAreaEdges="All">'
+      + '<VerticalStackLayout><Entry/><Button Text="Submit"/></VerticalStackLayout></ScrollView> '
+      + "in the available bounded viewport; Submit scrolls with the protected form. "
+      + "Android consumes IME insets here. Verify keyboard show/hide and focused-field scrolling "
+      + "on the target device, not merely property assignment; iOS needs its own validation.", true],
+  [safe, "maui-safe-area", "ScrollView keyboard wrapper", "unprotected-sibling",
+    'Set SoftInput only on the ScrollView and keep Submit outside it on an edge-to-edge surface. '
+      + "The scroller's inset automatically moves all its sibling controls too.", false],
+  [safe, "maui-safe-area", "ScrollView keyboard wrapper", "false-platform-proof",
+    'Use ScrollView.SafeAreaEdges = SafeAreaEdges.All with Submit in the bounded scrolling form. '
+      + "The property accepts All, proving native keyboard delivery succeeds on every iOS and Android "
+      + "version; no target-version, window or device check is needed.", false],
+  [safe, "maui-safe-area", "ScrollView keyboard wrapper", "blanket-api-denial",
+    'Use a page with SafeAreaEdges="All" and a Grid with RowDefinitions="*,Auto" containing '
+      + "the bounded scroller and Submit. A shared inset owner is always mandatory because "
+      + "ScrollView never supports or processes SoftInput on any platform.", false],
   [binding, "maui-data-binding", "Set up compiled bindings with x:DataType on a page",
     "golden", null, true],
   [binding, "maui-data-binding", "Set up compiled bindings with x:DataType on a page",

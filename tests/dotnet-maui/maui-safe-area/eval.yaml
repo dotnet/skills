@@ -94,10 +94,23 @@ stimuli:
     config:
       evidence:
       - trajectory
+      scoring: binary
+      prompt: |
+        Evaluate the proposed chat layout for correctness, not a required layout technique.
+        Score 1 only if the composer stays keyboard-reachable and the requested container edges
+        are protected without duplicate insets or unsupported leaf-control assignments.
+        Accept a shared page/layout policy, separately protected regions, or a supported
+        direct ScrollView policy with the composer inside its protected content. A policy
+        on only the scroller cannot protect a sibling input bar. MAUI 10 ScrollView exposes
+        SoftInput/All and Android consumes IME insets directly; do not reject that API or
+        require a wrapper universally. Do not accept a blanket claim of native keyboard
+        success on every platform based on property assignment. Container alone is not
+        keyboard protection. Resize was not removed. Otherwise score 0.
   rubric:
   - Provides a valid keyboard-aware layout keeping the composer above input while protecting container
     edges.
-  - Places keyboard avoidance on a supported wrapper rather than assuming ScrollView honors SoftInput.
+  - Covers the actual composer with a supported keyboard policy; accepts direct scroller policies or
+    page/layout ownership when appropriate to the target platform and control hierarchy.
   - '.NET 10 SafeAreaRegions.SoftInput is a documented keyboard/soft-input policy;
     All includes it. SafeAreaEdges="Container, Container, Container, SoftInput" is valid
     left/top/right/bottom syntax on a Grid. Do not reject these APIs as nonexistent
@@ -123,7 +136,9 @@ stimuli:
         message: '<ContentPage><Grid RowDefinitions="*,Auto" SafeAreaEdges="Container, Container, Container,
           SoftInput"><ScrollView Grid.Row="0"><VerticalStackLayout /></ScrollView><Grid Grid.Row="1" ColumnDefinitions="*,Auto"
           ColumnSpacing="10"><Entry /><Button Grid.Column="1" Text="Send" /></Grid></Grid></ContentPage>
-          makes the parent handle keyboard avoidance; SoftInput directly on ScrollView is not supported.
+          makes the shared Grid handle keyboard avoidance for both the scroller and its sibling composer.
+          ScrollView also exposes SoftInput/All and Android consumes IME insets directly; that does not
+          protect a sibling composer or prove keyboard behavior on every platform.
           Resize still exists: do not claim removal. Test keyboard and native window configuration on
           the actual platform.'
 - name: Avoid deprecated UseSafeArea in new .NET 10 project
@@ -216,17 +231,37 @@ stimuli:
   - type: exit-success
   - type: output-matches
     config:
-      pattern: (?i)(parent|wrapper|wrapping layout|wrap.{0,80}(?:grid|layout)|outer (?:grid|layout)|(page|window).{0,15}root)
+      pattern: (?i)(SoftInput|SafeAreaEdges[\s="'.]+All|keyboard.{0,40}(inset|aware|avoid))
   - type: prompt
     config:
       evidence:
       - trajectory
+      scoring: binary
+      prompt: |
+        This is an all-or-nothing correctness contract, not a partial-credit layout score.
+        Score 1 only for a concrete keyboard-aware solution keeping the form scrollable
+        and Submit reachable. Accept a page/layout policy or a supported direct
+        ScrollView.SafeAreaEdges policy whose protected content includes Submit.
+        MAUI 10 Android consumes IME insets on ScrollView; SoftInput/All are not
+        categorically unsupported. Check platform/MAUI patch, window configuration and
+        bounded scrolling when a direct setup reportedly fails. A scroller-only policy
+        cannot protect a sibling button. Container/None alone do not avoid the keyboard.
+        Blanket direct-API denial or claims that setting a property proves native keyboard
+        success on every platform are fatal: score the whole answer 0 even if its proposed
+        layout is otherwise valid. Do not average those defects away. One valid design
+        suffices; the response need not enumerate alternatives. Do not demand a custom
+        keyboard service or a wrapper if a valid alternative meets the outcome.
+        Otherwise score 0.
   rubric:
   - Keeps the submit control reachable with a scrollable form using an element that supports keyboard
     insets. On .NET 10, SafeAreaEdges.All includes keyboard protection and SoftInput is the keyboard
-    region on ContentPage/Layout containers such as Grid. A supported wrapper policy does not require
-    a separate custom keyboard event service; ScrollView itself does not handle SoftInput.
-  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+    region. Accept a keyboard-aware page/layout or a supported direct ScrollView policy covering
+    the form and submit control. Diagnose platform/version and bounded scrolling when the reported
+    direct policy does not work; do not categorically claim ScrollView ignores SoftInput.
+  - Does not falsely claim ScrollView SoftInput/All is absent or ignored on every platform,
+    or infer native keyboard success everywhere from a property assignment.
+  - One valid design suffices; equivalent correct solutions need not enumerate alternatives
+    or reproduce a particular sample's syntax.
   golden_trajectory:
     inline:
       schema_version: ATIF-v1.2
@@ -238,8 +273,12 @@ stimuli:
       steps:
       - step_id: 1
         source: agent
-        message: Use a keyboard-aware parent layout because ScrollView directly handles container insets,
-          not SoftInput; maintain a scrollable constrained region.
+        message: Use a ContentPage with SafeAreaEdges="All" and a Grid with RowDefinitions="*,Auto";
+          put the ScrollView in the bounded star row and Submit in the Auto row. The page protects
+          both. Alternatively a supported direct scroller policy can protect a form whose submit
+          control is inside the scroller. Check the target platform/MAUI patch and scrolling constraints
+          when that direct setup fails; Android MAUI 10 consumes IME insets directly. Do not infer
+          native iOS keyboard success merely from assigning the property.
 - name: Maintain a net9 branch
   prompt: Our MAUI release branch still targets .NET 9. A proposed fix uses the new cross-platform per-edge
     safe-area API and no longer builds. How should we handle the iPhone notch on this branch without upgrading

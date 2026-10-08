@@ -61,6 +61,18 @@ Safe-area's isolated wall-clock paired intervals exclude zero in both families
 include zero. No SDK-cost confidence interval establishes non-increase.
 Only Doctor and safe-area pass preference on both families; neither establishes
 a cost-neutral, fully activated plugin default.
+These are the recorded votes under the historical grading contract, not a
+current safe-area qualification: review subsequently found that two keyboard
+rubrics and a wrapper-only regex could reject valid direct Android ScrollView
+policies. The guidance, goldens and grading now accept platform-appropriate
+direct or ancestor ownership while requiring coverage of the actual input/submit
+controls. The original votes and artifacts remain unrescored; they do not
+establish improvement under the corrected contract.
+In the chat comparison, both families' historical judges explicitly rewarded
+the wrapper-only premise (Sonnet: "avoiding an unsupported ScrollView
+assumption"; Luna: "warns against misplacing SoftInput on ScrollView").
+That is demonstrated grading contamination, not proof of what the corrected
+votes would have been.
 
 Aggregate failures in baseline/isolated/plugin were 14/3/4 for Sonnet and 4/2/0
 for Luna; failed-leaf trial counts were 27/8/8 and 11/5/1. Completion transitions
@@ -92,8 +104,8 @@ code-behind prerequisite. These are not invented source-content fixes.
 
 **Recommendation:** keep all eight task-specific and opt-in; add no automatic
 project-default set on this evidence. Do not remove a skill solely for a
-positive-but-unproven comparison. Safe-area is a candidate for further adoption
-review, not certification. Confirm actual support owners, land the reviewed
+positive-but-unproven comparison. Safe-area needs fresh corrected-contract
+measurement before further adoption review. Confirm actual support owners, land the reviewed
 native harness in the trusted base, and obtain current official quality,
 activation and cost evidence before changing default distribution.
 

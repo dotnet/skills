@@ -30,13 +30,15 @@ public static MauiApp CreateMauiApp()
 
 | Lifetime | Use When | Examples |
 |-----------|----------|----------|
-| `AddSingleton<T>` | Shared state, expensive to create, or app-wide config | Database connection, settings service, HttpClient factory |
+| `AddSingleton<T>` | Thread-safe app-wide state or configuration | Thread-safe shared cache, settings service, `IHttpClientFactory` |
 | `AddTransient<T>` | Stateless, lightweight, or per-request usage | ViewModels, pages, API call wrappers |
 | `AddScoped<T>` | Per explicitly owned scope; ordinary MAUI creates no automatic window/navigation DI scope | Scoped unit-of-work in manually created scopes |
 
 Root-provider resolution shares a scoped instance until the root is disposed,
 unless `ValidateScopes` is enabled, in which case it throws. Neither `AddScoped`
 nor creating a new MAUI context provides an operation boundary on its own.
+Database connections and `DbContext` instances need operation-specific ownership;
+being expensive to create does not make them safe generic singletons.
 
 ## Shared Cache and HTTP Client Ownership
 

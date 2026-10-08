@@ -31,7 +31,7 @@ WRONG_ADVICE = {
     "maui-app-lifecycle": ("Save and restore state on background",
         "Save in Window.Stopped and restore only in Window.Resumed. Resumed always fires on first launch, so no cold-start initialization is needed."),
     "maui-safe-area": ("Keyboard avoidance with safe area for chat UI",
-        'Use <ScrollView SafeAreaEdges="SoftInput"><Grid Spacing="10"><Entry /></Grid></ScrollView>; keyboard avoidance works directly on the scroller.'),
+        'Put messages in <ScrollView SafeAreaEdges="All" /> but leave the sibling composer outside every keyboard inset owner; the scroller will move its sibling too.'),
     "maui-data-binding": ("Set up compiled bindings with x:DataType on a page",
         'Set x:DataType="vm:SettingsViewModel"; this creates the BindingContext. Enable <MauiEnableXamlCompilation>true</MauiEnableXamlCompilation> to compile every binding.'),
     "maui-collectionview": ("ItemSizingStrategy placement for uniform items",
@@ -507,6 +507,18 @@ public static class Checks
         var keyboardWrapper = new Grid { SafeAreaEdges = all };
         Require(keyboardWrapper.SafeAreaEdges == SafeAreaEdges.All,
             "Grid cannot own the all-regions policy");
+        var keyboardScroller = new Microsoft.Maui.Controls.ScrollView
+        {
+            SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.SoftInput)
+        };
+        Require(keyboardScroller.SafeAreaEdges.Left == SafeAreaRegions.SoftInput &&
+            keyboardScroller.SafeAreaEdges.Top == SafeAreaRegions.SoftInput &&
+            keyboardScroller.SafeAreaEdges.Right == SafeAreaRegions.SoftInput &&
+            keyboardScroller.SafeAreaEdges.Bottom == SafeAreaRegions.SoftInput,
+            "ScrollView does not expose the direct keyboard-region policy");
+        keyboardScroller.SafeAreaEdges = SafeAreaEdges.All;
+        Require(keyboardScroller.SafeAreaEdges == SafeAreaEdges.All,
+            "ScrollView does not expose the direct all-regions policy");
         var composer = ChatLayout.Create();
         Require(composer.ColumnSpacing == 10 && composer.RowDefinitions.Count == 0 &&
             composer.ColumnDefinitions.Count == 0, "safe-area fixture geometry/column contract changed");
@@ -821,10 +833,14 @@ def wording_regressions(production=False):
          "Hardcode Margin=44 on every rotation."),
         ("maui-safe-area", "ScrollView keyboard wrapper",
          "Wrap the ScrollView in a Grid; that Grid owns the keyboard inset.",
-         "Set SoftInput directly on the ScrollView and nothing else."),
+         "Remove scrolling and place Submit outside the form."),
         ("maui-safe-area", "ScrollView keyboard wrapper",
          "The page/window root owns the keyboard inset; keep the ScrollView in a bounded Grid row.",
-         "Only the ScrollView consumes SoftInput; leave the button outside inset handling."),
+         "Give Submit a fixed bottom margin of 20 pixels and remove scrolling."),
+        ("maui-safe-area", "ScrollView keyboard wrapper",
+         'On Android MAUI 10 use ScrollView SafeAreaEdges="All" in a bounded viewport '
+         'with the form and Submit inside its content. Check window configuration and the MAUI patch.',
+         "Disable all inset handling and remove Submit."),
         ("maui-shell-navigation", "Stable routes for deep linking into tabs",
          'await Shell.Current.GoToAsync("//tasks/archived/archivedlist");',
          'await Shell.Current.GoToAsync("tasks/archived/archivedlist");'),

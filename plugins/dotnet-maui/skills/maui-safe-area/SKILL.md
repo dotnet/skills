@@ -115,7 +115,7 @@ is available on the listed containers, not arbitrary controls such as `Image`.
 |---------|---------|-------|
 | `ContentPage` | `None` | Edge-to-edge. **Breaking change from .NET 9 on Android.** |
 | `Layout` (Grid, StackLayout, etc.) | `Container` | Respects bars/notch, flows under keyboard |
-| `ScrollView` | `Default` | iOS maps to automatic content insets. Only `Container` and `None` take effect. |
+| `ScrollView` | `Default` | iOS maps to automatic content insets. Exposes per-edge policies; keyboard handling depends on platform/version. |
 | `ContentView` | `None` | Inherits parent behavior |
 | `Border` | `None` | Inherits parent behavior |
 
@@ -336,7 +336,7 @@ Transparent navigation bar for content behind the nav bar:
 
 1. **Forgetting to set `None` on the layout too.** `ContentPage SafeAreaEdges="None"` makes the page edge-to-edge, but child layouts default to `Container` and still pad inward. Set `None` on both page and layout for truly immersive content.
 
-2. **Using `SoftInput` directly on ScrollView.** ScrollView manages its own content insets and ignores `SoftInput`. Wrap the ScrollView in a Grid or StackLayout and apply `SoftInput` there.
+2. **Assuming one ScrollView keyboard rule on every platform.** `ScrollView.SafeAreaEdges` accepts `SoftInput` and `All`; MAUI 10's Android scroller passes IME insets through the safe-area calculation. Do not claim that those values are unsupported or always ignored. iOS manages content insets differently, so verify the target MAUI patch and actual keyboard behavior rather than treating property assignment as device proof. For a cross-platform form, a keyboard-aware page or Grid with a bounded scrolling row is a practical starting point. A direct scroller policy can protect inputs inside it, not a sibling composer or submit button: give those controls their own inset owner or use a shared ancestor. Avoid duplicate padding.
 
 3. **Confusing `Default` with `None`.** `Default` means "platform default for this control type" — on ScrollView (iOS) this enables automatic content insets. `None` means "no safe area padding at all."
 
@@ -352,7 +352,7 @@ Transparent navigation bar for content behind the nav bar:
 
 - [ ] Android upgrade: `SafeAreaEdges="Container"` added if content goes under status bar
 - [ ] Edge-to-edge: `None` set on **both** page and layout
-- [ ] ScrollView keyboard avoidance uses wrapper Grid, not ScrollView's own `SafeAreaEdges`
+- [ ] Keyboard policy covers every input/submit control, with bounded scrolling, no duplicate insets, and target-platform verification
 - [ ] Blazor Hybrid: using either XAML or CSS safe areas, not both
 - [ ] `viewport-fit=cover` in Blazor's `index.html` `<meta viewport>` tag
 - [ ] Legacy `UseSafeArea` / `IgnoreSafeArea` migrated to `SafeAreaEdges`
