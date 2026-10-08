@@ -281,6 +281,25 @@ class GradingRegressions(unittest.TestCase):
             with self.subTest(stimulus=stimulus["name"], state="golden"):
                 result = verify()
                 self.assertEqual(0, result.returncode, result.stderr)
+            if "generation" in stimulus["name"]:
+                combined = (
+                    "    def test_express_quote_returns_cost_and_flag(self):\n"
+                    "        result = quote(50, express=True)\n\n"
+                    "        self.assertEqual(15, result.cost)\n"
+                    "        self.assertTrue(result.express)\n"
+                )
+                split = (
+                    "    def test_express_quote_returns_cost(self):\n"
+                    "        result = quote(50, express=True)\n\n"
+                    "        self.assertEqual(15, result.cost)\n\n"
+                    "    def test_express_quote_returns_flag(self):\n"
+                    "        result = quote(50, express=True)\n\n"
+                    "        self.assertTrue(result.express)\n"
+                )
+                with self.subTest(stimulus=stimulus["name"], state="split generated tests"):
+                    self.assertIn(combined, golden)
+                    source.write_text(golden.replace(combined, split), encoding="utf-8")
+                    self.assertNotEqual(0, verify().returncode)
             removals = (
                 ["        self.assertEqual(15, result.cost)\n",
                  "        self.assertTrue(result.express)\n"]

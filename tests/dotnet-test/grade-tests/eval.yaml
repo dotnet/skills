@@ -866,7 +866,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/check_test_change.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='f3224aa3598bd9fe4215479ed77df46336bf2108f2e25a0344299d863646cb5c';subprocess.run([sys.executable,'-B',str(p),*sys.argv[1:]],check=True)" generation test_standard_quote_cost_is_positive,test_standard_quote_calculates_cost,test_standard_quote_cost_is_ten,test_free_shipping_starts_at_threshold,test_empty_quantity_raises_value_error 50 15 1 f12f529a6dcd8c24dadb33900eca290be14509b5d432fcac7397c9a2135cbc7b
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/check_test_change.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='5d1c678375132d6422861632a118982d49b207cfbfcb9d80f47162aa6b7a6f73';subprocess.run([sys.executable,'-B',str(p),*sys.argv[1:]],check=True)" generation test_standard_quote_cost_is_positive,test_standard_quote_calculates_cost,test_standard_quote_cost_is_ten,test_free_shipping_starts_at_threshold,test_empty_quantity_raises_value_error 50 15 1 f12f529a6dcd8c24dadb33900eca290be14509b5d432fcac7397c9a2135cbc7b
           expected_exit_code: 0
           timeout: 1m
       - type: output-not-matches
@@ -918,7 +918,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/check_test_change.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='f3224aa3598bd9fe4215479ed77df46336bf2108f2e25a0344299d863646cb5c';subprocess.run([sys.executable,'-B',str(p),*sys.argv[1:]],check=True)" repair test_standard_quote_calculates_cost 50 10 0 f12f529a6dcd8c24dadb33900eca290be14509b5d432fcac7397c9a2135cbc7b
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/check_test_change.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='5d1c678375132d6422861632a118982d49b207cfbfcb9d80f47162aa6b7a6f73';subprocess.run([sys.executable,'-B',str(p),*sys.argv[1:]],check=True)" repair test_standard_quote_calculates_cost 50 10 0 f12f529a6dcd8c24dadb33900eca290be14509b5d432fcac7397c9a2135cbc7b
           expected_exit_code: 0
           timeout: 1m
       - type: output-not-matches

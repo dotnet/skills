@@ -27,7 +27,7 @@ def check(mode, baseline_names, subtotal, cost, express, production_digest):
         and method.name.startswith("test_")
         and (method.name not in baseline_names if mode == "generation" else method.name in baseline_names)
     ]
-    assert targets, "No requested new or repaired test was found"
+    assert len(targets) == 1, f"Expected exactly one requested new or repaired test: {targets}"
     sys.path.insert(0, str(Path.cwd()))
     shipping = importlib.import_module("shipping")
     tests = importlib.import_module("test_shipping")
