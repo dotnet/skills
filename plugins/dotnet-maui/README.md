@@ -316,6 +316,27 @@ This proposal changes no installer behavior. Maintainers still need to confirm
 support ownership and the integration basis; the standalone harness needs
 trusted-base integration, and native/device acceptance remains separate.
 
+### Engineering review corrections
+
+The six UI repair/no-op scope graders now enumerate every non-generated file,
+not only selected source extensions. Root `bin`, `obj` and `.git` output is
+excluded; nested directories with those names, scratch notes, hidden files and
+symlinks do not bypass the contract. The no-op prompts explicitly preserve
+non-generated workspace files. Replay rejects changes to every protected input
+and extra configuration, script, documentation and alternate-extension files
+for both repaired and working implementations: 186 preservation mutations.
+Twelve additional production-oracle scope negatives fail the inventory grader
+while the actual behavior grader still passes.
+
+The harness integration test now uses different log and workspace roots. The
+unwrapped provider rejects the workspace file; the provider installed through
+the real SDK session setup must read it successfully. The standalone harness
+PR carries the same test correction at `787dc85b`; all nine tests pass. Its
+isolated wrapper-removal mutation fails, unlike the old same-root test.
+Production harness behavior is unchanged and trusted-base integration remains
+pending. The earlier README/PR measurement inconsistency is resolved by pinning
+executor evidence to `28595929` and reporting later grading checks separately.
+
 ## Overlapping proposal integration
 
 The integration basis is [#1273](https://github.com/dotnet/skills/pull/1273),

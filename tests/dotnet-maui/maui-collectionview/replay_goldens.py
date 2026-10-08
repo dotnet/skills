@@ -641,11 +641,12 @@ public static class InvalidThemeRemoval
         shutil.rmtree(workspace)
 
 
-def production_replay(suite, spec, expected_pass=True):
+def production_replay(suite, spec, expected_pass=True, expected_failure_type="output-matches"):
     """Use the shipping parser/oracle with only deterministic graders selected."""
     path = suite / ".oracle-eval.yaml"
     workspace = suite / ".oracle-workspace"
-    if path.exists() or workspace.exists():
+    scratch = suite / ".oracle-scratch"
+    if path.exists() or workspace.exists() or scratch.exists():
         raise RuntimeError(f"Refusing to overwrite oracle scratch files in {suite}")
     deterministic = json.loads(json.dumps(spec))
     for stimulus in deterministic["stimuli"]:
@@ -653,10 +654,9 @@ def production_replay(suite, spec, expected_pass=True):
         stimulus.pop("rubric", None)
     try:
         path.write_text(yaml.safe_dump(deterministic, sort_keys=False))
+        scratch.mkdir()
         for stimulus in deterministic["stimuli"]:
             workspace.mkdir()
-            scratch = workspace / ".scratch"
-            scratch.mkdir()
             # Both explicit and internal oracle scratch stay within this suite.
             env = dict(os.environ, VALLY_TELEMETRY_OPTOUT="1",
                        TMPDIR=str(scratch), GIT_CEILING_DIRECTORIES=str(suite))
@@ -669,17 +669,24 @@ def production_replay(suite, spec, expected_pass=True):
             result = subprocess.run(args, cwd=ROOT, env=env, text=True, capture_output=True)
             records = [json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")]
             assert len(records) == 1, result.stdout + result.stderr
+            assert records[0].get("status") != "error", result.stdout
+            assert records[0]["gradeResult"].get("status") != "error", result.stdout
             assert records[0]["gradeResult"]["passed"] is expected_pass, result.stdout
             if expected_pass:
                 assert result.returncode == 0 and records[0]["status"] == "success", result.stdout
             else:
-                assert any(g.get("graderType") == "output-matches" and not g["passed"]
+                assert any(g.get("graderType") == expected_failure_type and not g["passed"]
                            for g in records[0]["gradeResult"]["details"]), result.stdout
+                if expected_failure_type == "run-command":
+                    details = records[0]["gradeResult"]["details"]
+                    assert not details[0]["passed"] and details[1]["passed"], result.stdout
             shutil.rmtree(workspace)
     finally:
         path.unlink(missing_ok=True)
         if workspace.exists():
             shutil.rmtree(workspace)
+        if scratch.exists():
+            shutil.rmtree(scratch)
 
 
 def wording_regressions(production=False):
@@ -855,6 +862,45 @@ def main():
                     if "stdout_matches" in cfg:
                         assert re.search(cfg["stdout_matches"], result.stdout), result.stdout
                 totals["golden_workspaces"] += 1
+                preservation = stimulus["graders"][0]["config"]["command"]
+                for source in fixture.rglob("*"):
+                    if not source.is_file() or ("golden_patch" in stimulus and source.name == "Program.cs"):
+                        continue
+                    target = workspace / source.relative_to(fixture)
+                    original = target.read_bytes()
+                    try:
+                        target.write_bytes(original + b"\n")
+                        assert command(["bash", "-c", preservation], workspace).returncode != 0
+                    finally:
+                        target.write_bytes(original)
+                    totals["preservation_rejections"] += 1
+                for filename, content in (
+                    ("nested/Unrequested.cs", "public class Unrequested {}\n"),
+                    ("nested/Unrequested.xaml", "<ContentPage />\n"),
+                    ("nested/Unrequested.resx", "<root />\n"),
+                    ("NuGet.Config", "<configuration />\n"),
+                    ("test.sh", "echo unrequested\n"),
+                    ("nested/notes.md", "unrequested\n"),
+                    (".state.json", "{}\n"),
+                    (".scratch/notes.txt", "unrequested\n"),
+                    ("nested/bin/unrequested.txt", "unrequested\n"),
+                ):
+                    extra = workspace / filename
+                    extra.parent.mkdir(parents=True, exist_ok=True)
+                    try:
+                        extra.write_text(content)
+                        assert command(["bash", "-c", preservation], workspace).returncode != 0
+                    finally:
+                        extra.unlink()
+                    totals["preservation_rejections"] += 1
+                extra = workspace / "Unrequested.link"
+                for destination in ("Checks.cs", "missing-file"):
+                    try:
+                        extra.symlink_to(destination)
+                        assert command(["bash", "-c", preservation], workspace).returncode != 0
+                    finally:
+                        extra.unlink()
+                    totals["preservation_rejections"] += 1
                 # Undo the actual repair: the production executable must reject it.
                 if "golden_patch" in stimulus:
                     shutil.copy2(fixture / "Program.cs", workspace / "Program.cs")
@@ -864,35 +910,16 @@ def main():
                     assert result.returncode != 0, f"{name}: seeded defect escaped"
                     assert "PASS: behavior-contract" not in result.stdout
                     totals["defect_rejections"] += 1
-                else:
-                    # Corrupt every supplied file in turn: no representative-only check.
-                    preservation = stimulus["graders"][0]["config"]["command"]
-                    for source in fixture.rglob("*"):
-                        if not source.is_file():
-                            continue
-                        target = workspace / source.relative_to(fixture)
-                        original = target.read_bytes()
-                        try:
-                            target.write_bytes(original + b"\n")
-                            assert command(["bash", "-c", preservation], workspace).returncode != 0
-                        finally:
-                            target.write_bytes(original)
-                        totals["preservation_rejections"] += 1
-                    for filename, content in (
-                        ("Unrequested.cs", "public class Unrequested {}\n"),
-                        ("Unrequested.xaml", "<ContentPage />\n"),
-                        ("Unrequested.resx", "<root />\n"),
-                    ):
-                        extra = workspace / "nested" / filename
-                        extra.parent.mkdir(exist_ok=True)
-                        extra.write_text(content)
-                        assert command(["bash", "-c", preservation], workspace).returncode != 0
-                        extra.unlink()
-                        totals["preservation_rejections"] += 1
             finally:
                 shutil.rmtree(workspace)
         if "--production" in sys.argv:
             production_replay(suite, spec)
+            for stimulus in spec["stimuli"][-3:-1]:
+                mutation = json.loads(json.dumps(stimulus))
+                mutation["environment"].setdefault("commands", []).append(
+                    "python3 -c \"from pathlib import Path; Path('unrequested.sh').write_text('echo unrequested\\n')\"")
+                production_replay(suite, {"name": spec["name"], "stimuli": [mutation]},
+                                  expected_pass=False, expected_failure_type="run-command")
         print(f"{name}: references, repaired/working execution and mutation rejection pass")
     assert not gate.errors, "\n".join(gate.errors)
     api_probe()

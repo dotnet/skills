@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { test } from 'node:test';
 import { CopilotClient } from '@github/copilot-sdk';
 import { LocalSessionFsHandler } from './node_modules/@microsoft/vally/dist/executor/local-session-fs-handler.js';
@@ -132,26 +134,39 @@ test('ready clients still create sessions concurrently', async () => {
   assert.equal(calls.filter(c => c === 'spawn').length, 1);
 });
 
-test('workspace reader wrapping preserves the synchronous provider factory and session argument', async () => {
+test('createSession installs workspace access and preserves the synchronous provider factory and session argument', async () => {
   const { client, entered, release } = clientFixture();
   const starting = client.start();
   await entered.promise;
   release.resolve();
   await starting;
-  const provider = new LocalSessionFsHandler(process.cwd());
-  let suppliedSession;
-  const config = {
-    workingDirectory: process.cwd(),
-    createSessionFsProvider: session => { suppliedSession = session; return provider; },
-  };
-  client.setupSessionFs = (session, options) => {
-    const result = options.createSessionFsProvider(session);
-    assert.equal(suppliedSession, session);
-    assert.equal(typeof result.mkdir, 'function');
-    assert.equal(typeof result.stat, 'function');
-    assert.equal(result.then, undefined);
-  };
-  const originalFactory = config.createSessionFsProvider;
-  await client.createSession(config);
-  assert.equal(config.createSessionFsProvider, originalFactory);
+  const root = await mkdtemp(path.join(process.cwd(), '.workspace-fs-test-'));
+  try {
+    const workspace = path.join(root, 'workspace');
+    const logs = path.join(root, 'logs');
+    await Promise.all([workspace, logs].map(file => mkdir(file)));
+    const file = path.join(workspace, 'reference.md');
+    await writeFile(file, 'actual reference\n');
+    const provider = new LocalSessionFsHandler(logs);
+    await assert.rejects(provider.stat(file), /escapes root/);
+    await assert.rejects(provider.readFile(file), /escapes root/);
+    let suppliedSession;
+    let installedProvider;
+    const config = {
+      workingDirectory: workspace,
+      createSessionFsProvider: session => { suppliedSession = session; return provider; },
+    };
+    client.setupSessionFs = (session, options) => {
+      installedProvider = options.createSessionFsProvider(session);
+      assert.equal(suppliedSession, session);
+      assert.equal(installedProvider.then, undefined);
+    };
+    const originalFactory = config.createSessionFsProvider;
+    await client.createSession(config);
+    assert.equal(config.createSessionFsProvider, originalFactory);
+    assert.equal((await installedProvider.stat(file)).isFile, true);
+    assert.equal(await installedProvider.readFile(file), 'actual reference\n');
+  } finally {
+    await rm(root, { recursive: true });
+  }
 });

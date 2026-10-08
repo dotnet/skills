@@ -408,9 +408,8 @@ stimuli:
         ''"''"''Directory.Build.targets''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"''};
         assert all(pathlib.Path(p).is_file() and hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()==h
         for p,h in expected.items()); assert {p.as_posix() for p in pathlib.Path(''"''"''.''"''"'').rglob(''"''"''*''"''"'')
-        if p.is_file() and p.suffix in (''"''"''.cs''"''"'',''"''"''.csproj''"''"'',''"''"''.props''"''"'',''"''"''.targets''"''"'',''"''"''.xaml''"''"'',''"''"''.resx''"''"'')
-        and not any(part in (''"''"''bin''"''"'',''"''"''obj''"''"'',''"''"''.git''"''"'',''"''"''.scratch''"''"'')
-        for part in p.parts)} == (set(expected) | {''"''"''Program.cs''"''"''})'''
+        if (p.is_file() or p.is_symlink()) and p.parts[0] not in
+        (''"''"''bin''"''"'',''"''"''obj''"''"'',''"''"''.git''"''"'')} == (set(expected) | {''"''"''Program.cs''"''"''})'''
   - &id001
     type: run-command
     config:
@@ -450,7 +449,7 @@ stimuli:
           The retained parent routes give //products/status/archived as the absolute path to Archived.'
 - name: Preserve working supplied implementation
   prompt: Review the supplied implementation for the behavior checked by Checks.cs. Run the checks; if
-    it already satisfies that contract, do not edit, delete, rename, or add any source/project files.
+    it already satisfies that contract, do not edit, delete, rename, or add any non-generated workspace files.
     Explain any platform-specific validation limitations rather than rewriting working code.
     The supplied files are in your working directory; inspect only that copy, not fixture originals elsewhere.
   tags:
@@ -473,9 +472,8 @@ stimuli:
         ''"''"''Program.cs''"''"'': ''"''"''a662111d0c3fbd89b33e57a4e637beccceaba976015f660ee84437f9fa772009''"''"''};
         assert all(pathlib.Path(p).is_file() and hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()==h
         for p,h in expected.items()); assert {p.as_posix() for p in pathlib.Path(''"''"''.''"''"'').rglob(''"''"''*''"''"'')
-        if p.is_file() and p.suffix in (''"''"''.cs''"''"'',''"''"''.csproj''"''"'',''"''"''.props''"''"'',''"''"''.targets''"''"'',''"''"''.xaml''"''"'',''"''"''.resx''"''"'')
-        and not any(part in (''"''"''bin''"''"'',''"''"''obj''"''"'',''"''"''.git''"''"'',''"''"''.scratch''"''"'')
-        for part in p.parts)} == (set(expected) | {''"''"''Program.cs''"''"''})'''
+        if (p.is_file() or p.is_symlink()) and p.parts[0] not in
+        (''"''"''bin''"''"'',''"''"''obj''"''"'',''"''"''.git''"''"'')} == (set(expected) | {''"''"''Program.cs''"''"''})'''
   - *id001
   - type: prompt
     config:
