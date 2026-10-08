@@ -1024,6 +1024,10 @@ def sibling_fixture_source(d):
     replace_fixture_mapping(d, "src: fixtures/sample", "src: ../shared/sample")
 
 
+def missing_fixture_destination(d):
+    replace_fixture_mapping(d, "          dest: sample\n", "")
+
+
 def absolute_fixture_destination(d):
     destination = os.path.abspath(os.path.join(d, "escaped"))
     replace_fixture_mapping(d, "dest: sample", f"dest: {destination}")
@@ -1809,6 +1813,8 @@ results = [
          windows_traversing_fixture_source, expect_fail=True),
     case("sibling fixture source inside repository is allowed", sibling_fixture_source,
          expect_fail=False),
+    case("fixture source requires a destination", missing_fixture_destination,
+         expect_fail=True),
     case("absolute fixture destination cannot escape workspace",
          absolute_fixture_destination, expect_fail=True),
     case("traversing fixture destination cannot escape workspace",

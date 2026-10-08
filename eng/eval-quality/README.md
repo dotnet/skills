@@ -13,7 +13,7 @@ python eng/eval-quality/check_eval_quality.py --all    # audit every eval suite
 python eng/eval-quality/selftest_eval_quality.py       # prove the gate still fires
 ```
 
-The gate has **22 failing checks**. It proves deterministic structure and reference integrity. It
+The gate has **23 failing checks**. It proves deterministic structure and reference integrity. It
 does not decide whether a scenario is necessary, whether it belongs to the target, whether a prompt
 sounds like a real developer request, or whether the scenario portfolio has product value.
 
@@ -503,6 +503,12 @@ claim requires a `run-command` grader so the oracle replays the evidence. Use
 expected-result voice when neither form of evidence exists. These checks inspect
 both string messages and text inside multipart ATIF content. The gate also
 rejects a complete rubric item copied into the response.
+
+### 23. Environment fixture source has no destination
+
+Every `environment.files` entry with `src` must also declare a non-empty `dest`. Vally rejects the
+entire eval before loading any stimuli when a destination is omitted, even if the source exists and
+is tracked.
 
 ## Why the gate scores direction, not magnitude
 
