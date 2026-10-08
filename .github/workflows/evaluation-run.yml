@@ -599,6 +599,13 @@ jobs:
         with:
           node-version: 22
 
+      - name: Setup Go for rooted workspace filesystem
+        if: steps.find-evals.outputs.has_evals == 'true'
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.27.1
+          cache: false
+
       - name: Install vally and Copilot CLI
         if: steps.find-evals.outputs.has_evals == 'true'
         # Install the trusted, pinned toolchain. The direct Copilot CLI invocation
@@ -616,10 +623,16 @@ jobs:
             "$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/workspace-session-fs.mjs" \
             "$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/vally.mjs" \
             "$RUNNER_TEMP/evaluation-tools/"
+          cp -R "$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/workspace-root" \
+            "$RUNNER_TEMP/evaluation-tools/"
           npm ci \
             --prefix "$RUNNER_TEMP/evaluation-tools" \
             --userconfig "$RUNNER_TEMP/evaluation.npmrc" \
             --registry https://registry.npmjs.org/
+          (
+            cd "$RUNNER_TEMP/evaluation-tools/workspace-root"
+            GOTOOLCHAIN=go1.27.1 go build -o ../workspace-root-helper .
+          )
           (
             cd "$RUNNER_TEMP/evaluation-tools"
             node --input-type=module -e "import.meta.resolve('@github/copilot-linux-x64/sdk')"

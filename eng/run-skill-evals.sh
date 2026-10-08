@@ -26,7 +26,7 @@
 # Environment:
 #   WORKERS=8         Max concurrent trials across the whole experiment (default: 8)
 #   EXPERIMENT_FILE   Base experiment file (default: dotnet-skills.experiment.yaml)
-#   VALLY             Eval CLI invocation (default: npx @microsoft/vally-cli)
+#   VALLY             Eval CLI invocation (default: pinned vally.mjs launcher)
 #   RESULTS_DIR       Output root (default: ./eval-results)
 #
 # Model and judge model come from the experiment file's `overrides:` block —
@@ -36,7 +36,8 @@
 # every eval's own value rather than default it.
 #
 # Prerequisites (verified automatically at startup, with actionable errors):
-#   - Node.js 20+ (CI uses 22); the eval CLI is fetched on first use via npx
+#   - Node.js 20+ (CI uses 22), pinned npm dependencies in eng/evaluation-tools
+#   - Go (downloads the pinned 1.27.1 toolchain) for the default native provider
 #   - GITHUB_TOKEN for the Copilot SDK, or an authenticated GitHub CLI
 #     (the script derives the token from `gh auth token` when GITHUB_TOKEN is unset)
 #
@@ -48,7 +49,9 @@ set -euo pipefail
 
 SKILLS_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ADAPTER_DIR="$SKILLS_ROOT/eng/vally-adapter"
-VALLY="${VALLY:-npx @microsoft/vally-cli}"
+CUSTOM_VALLY="${VALLY:-}"
+export PATH="$SKILLS_ROOT/eng/evaluation-tools:$PATH"
+VALLY="${VALLY:-vally.mjs}"
 EXPERIMENT_FILE="${EXPERIMENT_FILE:-$SKILLS_ROOT/dotnet-skills.experiment.yaml}"
 RESULTS_ROOT="${RESULTS_DIR:-$SKILLS_ROOT/eval-results}"
 WORKERS="${WORKERS:-8}"
@@ -78,7 +81,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ---- Preflight: verify prerequisites, fail early with actionable guidance ---
-# Node.js runs the eval CLI (fetched on first use via npx). Require 20+ (CI uses 22).
+# Node.js runs the pinned eval CLI. Require 20+ (CI uses 22).
 if ! command -v node >/dev/null 2>&1; then
   echo -e "${RED}Node.js is not installed.${NC} Install Node.js 20 or newer (CI uses 22):" >&2
   echo "  https://nodejs.org/en/download   (or, with nvm: 'nvm install 20')" >&2
@@ -88,6 +91,22 @@ NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 
 if [ "$NODE_MAJOR" -lt 20 ]; then
   echo -e "${RED}Node.js $(node --version) is too old.${NC} Install Node.js 20 or newer (CI uses 22)." >&2
   exit 1
+fi
+
+if [ -z "$CUSTOM_VALLY" ]; then
+  if ! command -v go >/dev/null 2>&1; then
+    echo "Go is required to build the native workspace provider (pinned toolchain 1.27.1)." >&2
+    echo "Install Go from https://go.dev/dl/ and run npm ci --prefix eng/evaluation-tools." >&2
+    exit 1
+  fi
+  (
+    cd "$SKILLS_ROOT/eng/evaluation-tools/workspace-root"
+    GOTOOLCHAIN=go1.27.1 go build -o ../workspace-root-helper .
+  )
+  if ! "$SKILLS_ROOT/eng/evaluation-tools/vally.mjs" --version; then
+    echo "Pinned evaluation tools failed to start; run npm ci --prefix eng/evaluation-tools." >&2
+    exit 1
+  fi
 fi
 
 # GITHUB_TOKEN for the Copilot SDK. Use an explicit token if set; otherwise derive

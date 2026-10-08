@@ -78,50 +78,61 @@ shell edits. Inspect `tool.execution_complete.data.error`, not just the shorter
 normalized tool result. This can affect one executor family more than another
 and inflate its turns/cost even when the final answer and comparison complete.
 
-The launcher installs a Vally-version-checked fail-closed guard for that local
-provider. Absolute workspace requests outside the provider's existing log root
-are rejected with `ERR_EVALUATION_WORKSPACE_ISOLATION_REQUIRED` and an actionable
-message, without canonicalizing or opening workspace paths. Both endpoints of
-rename are checked, including mixed relative/absolute requests. Relative session
-paths and absolute log-root paths (including a log root nested in the workspace)
-retain the original provider's behavior. Paths outside the workspace likewise
-go to the original provider; other provider implementations are not wrapped.
-This guard does not make the original log provider a security sandbox.
+The version-checked launcher now uses a native, traversal-resistant workspace
+provider on Linux/macOS amd64/arm64. It captures a directory descriptor before
+the agent starts; each operation inherits that descriptor into a pinned Go
+1.27.1 helper using `os.Root`. It never reopens an operation's workspace pathname
+after a JavaScript canonicalization check. Root-path replacement leaves the
+capability anchored to the original directory. Canonical ancestor aliases are
+validated against the captured descriptor at initialization, not before each
+operation. Workspace removal and cross-root rename are explicitly rejected.
 
-**Integration effect:** native workspace reads and patches remain unavailable.
-Provider-level `exists` rejects, but SDK 1.0.11's adapter catches all `exists`
-errors and returns `{ exists: false }` without an error field. That upstream
-protocol limitation is not corrected here. Read/stat/mutation failures retain
-the actionable message with SDK error code `UNKNOWN`; inspect tool events rather
-than relying on existence probes alone. Shell fallback may still complete a task, but that is not evidence
-of repaired native functionality or successful harness/default certification.
-Tests cover explicit rejection, intermediate-parent swaps, unchanged session-log
-operations, and the SDK's synchronous factory/session/configuration contract:
+All ten workspace operations use rooted APIs. Metadata is obtained by passing
+an already-rooted file descriptor to Node's `fstat`, preserving the SDK's size,
+mtime and platform birthtime without pathname reopening. This metadata path
+requires a readable target. Helpers have bounded time/output limits and explicit
+errors; descriptors close on normal or forced SDK client shutdown. Relative
+session paths and absolute log-root paths (including nested log roots), outside
+delegation and other provider implementations retain their original behavior.
+
+Without the built helper, or on unsupported hosts, workspace extensions still
+reject with `ERR_EVALUATION_WORKSPACE_ISOLATION_REQUIRED`; there is no trust flag
+or unsafe fallback. SDK 1.0.11 catches all provider `exists` errors and returns
+`{ exists: false }` without an error field. That upstream limitation remains:
+inspect read/stat/mutation error events rather than treating existence alone as
+permission or reliability evidence. Shell fallback does not prove native success.
+
+Build and test the helper before running the launcher directly:
 
 ```bash
+cd eng/evaluation-tools/workspace-root
+GOTOOLCHAIN=go1.27.1 go test ./...
+GOTOOLCHAIN=go1.27.1 go build -o ../workspace-root-helper .
+cd ../../..
 node --test eng/evaluation-tools/*.test.mjs
 ```
 
+CI builds the helper from the trusted workflow revision before token selection.
+The default local `eng/run-skill-evals.sh` now builds it and uses the pinned
+launcher rather than fetching an unpatched Vally through npx; a custom `VALLY`
+still explicitly selects its own toolchain. Offline lint/oracle need no provider
+and do not prove native functionality. Provider tests cover actual SDK
+read/stat/write, every operation, intermediate-parent swaps, entire-root
+replacement, missing-helper rejection, aliases and shutdown.
+
 The previous host-filesystem workspace overlay has been removed. Its separate
 canonicalization and pathname-based operation permitted an intermediate-parent
-symlink swap to redirect reads and mutations outside the workspace. Rejecting
-workspace extensions eliminates that overlay's check/reopen window; it does not
-claim atomic confinement of the existing log provider or shell tools. Vally
+symlink swap to redirect reads and mutations outside the workspace. Native
+`os.Root` descriptor-relative traversal addresses that class on the supported
+hosts; JavaScript checks alone do not. This is not a whole-host sandbox: Vally
 0.14's executor uses `approveAll`; tool permissions do not establish an
-independent adversarial boundary for this host-side provider.
-
-The existing Node filesystem APIs and SDK provider interface do not supply
-descriptor-relative traversal for the full read/create/mkdir/rename/remove
-contract. `O_NOFOLLOW` on a final file open does not protect intermediate
-parents. Rechecking paths or serializing provider calls cannot prevent another
-process from swapping them. If adversarial confinement is required, an
-upstream integration is needed before restoring native workspace I/O: use a
-provider with platform-native atomic traversal, or enforce and verify an
-equivalent OS isolation boundary around the Node provider and every workspace
-writer. A sandbox around only the CLI is not evidence that provider I/O is
-isolated. There is no trust flag, opt-in path, or environment override that
-re-enables the unsafe overlay. A verified alternative must be implemented and
-validated with swap-race coverage before the guard can be replaced.
+independent adversarial boundary. The original log provider, shell tools and
+grader host are not hardened by this provider. Root authorization assumes trusted
+initial workspace setup. `os.Root` does not isolate privileged mount changes,
+devices, hard-link inode sharing, or compromised runtime binaries. Absolute
+symlinks are rejected; relative symlinks contained in the root work.
+See [Go's traversal-resistant filesystem guidance](https://go.dev/blog/osroot).
+GOOS=js/WASI implementations must not replace the native build.
 
 Reassess this compatibility layer on a Vally/SDK upgrade. A local launcher fix
 does not retroactively repair earlier trajectories, and CI uses its trusted

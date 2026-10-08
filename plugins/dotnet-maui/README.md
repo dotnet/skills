@@ -397,38 +397,46 @@ The harness integration test now uses different log and workspace roots. The
 unwrapped provider rejects the workspace file. The historical test correction
 at `787dc85b` required the workspace overlay to read it successfully; that unsafe
 overlay has since been removed. The current provider installed through real SDK
-session setup must reject workspace extensions explicitly while preserving log
-operations. The standalone harness PR carries this safety correction at
-`e4cd05f0`; all nine tests pass. Bypassing the guard fails the exact-rejection
-test. Trusted-base integration remains pending. The earlier README/PR
+session setup now uses the native rooted helper on supported hosts, while
+preserving log operations and factory/configuration contracts. The standalone
+harness PR's `e4cd05f0` remains the historical fail-closed safety correction;
+the native restoration is a later parent integration, not that child payload.
+Trusted-base integration remains pending. The earlier README/PR
 measurement inconsistency is resolved by pinning
 executor evidence to `28595929` and reporting later grading checks separately.
 
-### Fail-closed filesystem policy and native-I/O blocker
+### Native rooted filesystem provider and fail-closed unsupported hosts
 
 The harness owner confirmed an intermediate-parent symlink swap after path
 canonicalization can make the adapter read or overwrite an outside owned
 fixture. Canonical checks are not an atomic or adversarial confinement boundary.
-The unsafe canonicalize/reopen overlay is now removed. All ten absolute workspace
-operation extensions outside the original log root reject before resolution or
-opening with `ERR_EVALUATION_WORKSPACE_ISOLATION_REQUIRED`. Rename checks both
-endpoints, including mixed relative/absolute requests. Original relative/log-root
-operations and other provider types retain their behavior. Swap tests verify
-rejection and unchanged inside/outside sentinels, not restored functionality.
+The unsafe canonicalize/reopen overlay is removed. A pinned Go1.27.1 `os.Root`
+helper now implements all ten workspace operations on Linux/macOS amd64/arm64.
+Node captures a directory descriptor before agent execution; each helper inherits
+that capability instead of reopening mutable workspace paths. Actual SDK
+read/stat/write works. Metadata comes from Node `fstat` on an already-rooted
+descriptor, including accurate platform birthtime; it requires a readable target.
+Parent-swap and entire-root replacement tests leave outside sentinels unchanged.
 
-The existing Node/SDK pathname interfaces do not provide a portable atomic
-all-operation fix. Final-component no-follow flags, repeated checks and
-JavaScript locks do not stop an external writer. Native workspace reads/patches
-remain unavailable until an upstream/platform-native atomic provider or equivalent
-verified isolation encompasses the Node provider and all writers. No trust flag
-or unsafe opt-in restores the overlay. The original log provider and shell tools
-are not certified confinement boundaries.
+This is a platform-native descriptor-relative implementation, not a JavaScript
+recheck or assumed OS sandbox. Original relative/log-root operations and other
+provider types retain their behavior. Cross-root rename and root removal reject;
+capabilities close on normal/forced shutdown. Missing-helper and unsupported-host
+operations remain fail-closed with `ERR_EVALUATION_WORKSPACE_ISOLATION_REQUIRED`.
+No trust flag or unsafe opt-in exists.
 
-SDK 1.0.11 converts all `exists` errors to `false`; read/stat/mutation errors
-retain the actionable message with SDK code `UNKNOWN`. Shell fallback is not a
-native-I/O repair. CI staging now includes the filesystem guard dependency and
-smoke-tests the staged launcher before token selection. Neither that smoke test
-nor historical MAUI matrices certify the changed policy, trusted integration,
+Scope remains explicit: trusted initial setup is required. Privileged mount
+changes, devices, hard-link inode sharing, original log operations, shell tools
+and grader-host I/O are not isolated by this provider. Absolute symlinks reject;
+contained relative symlinks work. No whole-host sandbox is claimed.
+
+SDK 1.0.11 converts all `exists` errors to `false`; rooted-policy errors
+retain the actionable message with SDK code `UNKNOWN`, while missing files retain
+`ENOENT`. Shell fallback is not a
+native-I/O repair. CI stages and builds the helper from the trusted revision,
+then smoke-tests the launcher before token selection. The default local runner
+also builds the pinned helper and uses the guarded launcher. Native tests do not
+transfer historical MAUI matrices or certify trusted integration, model outcomes,
 hardware behavior or default adoption.
 
 ## Overlapping proposal integration

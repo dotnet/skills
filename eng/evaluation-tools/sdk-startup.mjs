@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { CopilotClient } from '@github/copilot-sdk';
 import { LocalSessionFsHandler } from './node_modules/@microsoft/vally/dist/executor/local-session-fs-handler.js';
-import { withWorkspaceIsolationGuard } from './workspace-session-fs.mjs';
+import { closeWorkspace, withWorkspaceAccess } from './workspace-session-fs.mjs';
 
 const sdkPackage = new URL('../package.json', import.meta.resolve('@github/copilot-sdk'));
 const { version } = JSON.parse(readFileSync(sdkPackage, 'utf8'));
@@ -18,6 +18,7 @@ if (vallyVersion !== '0.14.0') {
 // sessionFs.setProvider finishes. Remove after an SDK upgrade covers both races.
 // Upstream startup tracking: https://github.com/github/copilot-sdk/pull/2585
 const starts = new WeakMap();
+const workspaceProviders = new WeakMap();
 const originalStart = CopilotClient.prototype.start;
 CopilotClient.prototype.start = function (...args) {
   let starting = starts.get(this);
@@ -34,18 +35,52 @@ for (const method of ['createSession', 'resumeSession']) {
   const original = CopilotClient.prototype[method];
   CopilotClient.prototype[method] = async function (...args) {
     await this.start();
-    if (method === 'createSession' && args[0]?.createSessionFsProvider && args[0].workingDirectory) {
-      const config = args[0];
-      args[0] = {
+    const configIndex = method === 'createSession' ? 0 : 1;
+    const config = args[configIndex];
+    if (config?.createSessionFsProvider && config.workingDirectory) {
+      args[configIndex] = {
         ...config,
         createSessionFsProvider: (...factoryArgs) => {
           const provider = config.createSessionFsProvider(...factoryArgs);
-          return provider instanceof LocalSessionFsHandler
-            ? withWorkspaceIsolationGuard(provider, config.workingDirectory)
-            : provider;
+          if (!(provider instanceof LocalSessionFsHandler)) return provider;
+          const wrapped = withWorkspaceAccess(provider, config.workingDirectory);
+          if (wrapped[closeWorkspace]) {
+            let providers = workspaceProviders.get(this);
+            if (!providers) workspaceProviders.set(this, providers = new Set());
+            providers.add(wrapped);
+          }
+          return wrapped;
         },
       };
     }
     return original.apply(this, args);
+  };
+}
+
+for (const method of ['stop', 'forceStop']) {
+  const original = CopilotClient.prototype[method];
+  CopilotClient.prototype[method] = async function (...args) {
+    let stopError;
+    try {
+      return await original.apply(this, args);
+    } catch (error) {
+      stopError = error;
+      throw error;
+    } finally {
+      const providers = workspaceProviders.get(this);
+      workspaceProviders.delete(this);
+      const errors = [];
+      for (const provider of providers ?? []) {
+        try {
+          provider[closeWorkspace]();
+        } catch (error) {
+          errors.push(error);
+        }
+      }
+      if (errors.length) {
+        if (stopError) errors.unshift(stopError);
+        throw new AggregateError(errors, 'Failed to stop client and close workspace capabilities');
+      }
+    }
   };
 }

@@ -2124,6 +2124,13 @@ esac
             )
         self.assertIn('ln -s ../vally.mjs "$RUNNER_TEMP/evaluation-tools/bin/vally"', install_script)
         self.assertIn("node vally.mjs --version", install_script)
+        self.assertIn("GOTOOLCHAIN=go1.27.1 go build -o ../workspace-root-helper .", install_script)
+        go_index, go = by_name["Setup Go for rooted workspace filesystem"]
+        self.assertLess(find_index, go_index)
+        self.assertLess(go_index, install_index)
+        self.assertEqual(go["if"], expected_condition)
+        self.assertEqual(go["with"]["go-version"], "1.27.1")
+        self.assertFalse(go["with"]["cache"])
         self.assertGreater(
             install_script.index('echo "$RUNNER_TEMP/evaluation-tools/bin"'),
             install_script.index('echo "$RUNNER_TEMP/evaluation-tools/node_modules/.bin"'),
@@ -2142,6 +2149,7 @@ esac
             trusted.mkdir(parents=True)
             for path in (*source.glob("*.mjs"), source / "package.json", source / "package-lock.json"):
                 shutil.copyfile(path, trusted / path.name)
+            shutil.copytree(source / "workspace-root", trusted / "workspace-root")
             environment = os.environ.copy()
             environment["RUNNER_TEMP"] = str(root)
             result = subprocess.run(
@@ -2173,6 +2181,21 @@ esac
                 )
             for filename in ("package.json", "package-lock.json"):
                 self.assertEqual((staged / filename).read_bytes(), (source / filename).read_bytes())
+            for path in (source / "workspace-root").glob("*"):
+                if path.is_file():
+                    self.assertEqual((staged / "workspace-root" / path.name).read_bytes(), path.read_bytes())
+
+    def test_local_evaluations_use_pinned_launcher_and_build_before_token_selection(self) -> None:
+        script = (REPO_ROOT / "eng" / "run-skill-evals.sh").read_text(encoding="utf-8")
+        self.assertIn('export PATH="$SKILLS_ROOT/eng/evaluation-tools:$PATH"', script)
+        self.assertIn('VALLY="${VALLY:-vally.mjs}"', script)
+        self.assertIn('CUSTOM_VALLY="${VALLY:-}"', script)
+        build = script.index("GOTOOLCHAIN=go1.27.1 go build -o ../workspace-root-helper .")
+        smoke = script.index('"$SKILLS_ROOT/eng/evaluation-tools/vally.mjs" --version')
+        token = script.index('if [ -z "${GITHUB_TOKEN:-}" ]')
+        self.assertLess(build, smoke)
+        self.assertLess(smoke, token)
+        self.assertTrue(os.access(REPO_ROOT / "eng" / "evaluation-tools" / "vally.mjs", os.X_OK))
 
     def test_evaluation_tool_manifest_has_secretless_smoke_test(self) -> None:
         workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
@@ -2184,6 +2207,7 @@ esac
         job = workflow["jobs"]["evaluation-tools"]
         self.assertEqual(job["runs-on"], "ubuntu-latest")
         steps = {step.get("name"): step for step in job["steps"]}
+        self.assertEqual(steps["Setup Go for rooted workspace filesystem"]["with"]["go-version"], "1.27.1")
         install_script = steps["Install evaluation tools"]["run"]
         self.assertIn("--prefix eng/evaluation-tools", install_script)
         self.assertIn("npm ci", install_script)
@@ -2193,10 +2217,10 @@ esac
         smoke_script = steps["Smoke test evaluation tools"]["run"]
         self.assertIn("node_modules/.bin/vally --version", smoke_script)
         self.assertIn("node vally.mjs --version", smoke_script)
-        self.assertIn(
-            "node --test eng/evaluation-tools/*.test.mjs",
-            steps["Test SDK startup ordering without model calls"]["run"],
-        )
+        regression_script = steps["Test SDK startup ordering without model calls"]["run"]
+        self.assertIn("node --test eng/evaluation-tools/*.test.mjs", regression_script)
+        self.assertIn("GOTOOLCHAIN=go1.27.1 go test ./...", regression_script)
+        self.assertIn("GOTOOLCHAIN=go1.27.1 go build -o ../workspace-root-helper .", regression_script)
         self.assertIn("node_modules/.bin/copilot --version", smoke_script)
         self.assertIn(
             "import.meta.resolve('@github/copilot-linux-x64/sdk')",
