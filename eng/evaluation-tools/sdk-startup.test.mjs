@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { test } from 'node:test';
 import { CopilotClient } from '@github/copilot-sdk';
+import { LocalSessionFsHandler } from './node_modules/@microsoft/vally/dist/executor/local-session-fs-handler.js';
 import './sdk-startup.mjs';
 
 function deferred() {
@@ -130,3 +133,83 @@ test('ready clients still create sessions concurrently', async () => {
   await Promise.all(sessions);
   assert.equal(calls.filter(c => c === 'spawn').length, 1);
 });
+
+async function workspaceRejectionTest(method) {
+  const { client, entered, release } = clientFixture();
+  const starting = client.start();
+  await entered.promise;
+  release.resolve();
+  await starting;
+  const root = await mkdtemp(path.join(process.cwd(), '.workspace-fs-test-'));
+  try {
+    const workspace = path.join(root, 'workspace');
+    const logs = path.join(root, 'logs');
+    await Promise.all([workspace, logs].map(file => mkdir(file)));
+    const file = path.join(workspace, 'reference.md');
+    await writeFile(file, 'actual reference\n');
+    const provider = new LocalSessionFsHandler(logs);
+    await assert.rejects(provider.stat(file), /escapes root/);
+    await assert.rejects(provider.readFile(file), /escapes root/);
+    let suppliedSession;
+    let installedProvider;
+    const config = {
+      workingDirectory: workspace,
+      createSessionFsProvider: session => { suppliedSession = session; return provider; },
+    };
+    client.setupSessionFs = (session, options) => {
+      installedProvider = options.createSessionFsProvider(session);
+      assert.equal(suppliedSession, session);
+      assert.equal(installedProvider.then, undefined);
+    };
+    const originalFactory = config.createSessionFsProvider;
+    const session = method === 'createSession'
+      ? await client.createSession(config)
+      : await client.resumeSession('resumed-trial', config);
+    assert.equal(config.createSessionFsProvider, originalFactory);
+    assert.equal(config.workingDirectory, workspace);
+    assert.equal(suppliedSession, session);
+    const rejection = { code: 'ERR_EVALUATION_WORKSPACE_ISOLATION_REQUIRED' };
+    await assert.rejects(installedProvider.stat(file), rejection);
+    await assert.rejects(installedProvider.readFile(file), rejection);
+    await installedProvider.writeFile('events.jsonl', 'session log\n');
+    assert.equal(await installedProvider.readFile('events.jsonl'), 'session log\n');
+  } finally {
+    await rm(root, { recursive: true });
+  }
+}
+
+for (const method of ['createSession', 'resumeSession']) {
+  test(`${method} installs workspace rejection and preserves the synchronous provider factory and session argument`,
+    () => workspaceRejectionTest(method));
+
+  test(`${method} leaves non-local providers and caller configuration unchanged`, async () => {
+    const { client, entered, release } = clientFixture();
+    const starting = client.start();
+    await entered.promise;
+    release.resolve();
+    await starting;
+    const provider = {
+      readFile: async () => 'custom provider',
+    };
+    let suppliedSession;
+    let installedProvider;
+    const config = {
+      workingDirectory: process.cwd(),
+      createSessionFsProvider: session => { suppliedSession = session; return provider; },
+    };
+    const originalFactory = config.createSessionFsProvider;
+    client.setupSessionFs = (session, options) => {
+      installedProvider = options.createSessionFsProvider(session);
+      assert.equal(suppliedSession, session);
+      assert.equal(installedProvider, provider);
+      assert.equal(installedProvider.then, undefined);
+    };
+    const session = method === 'createSession'
+      ? await client.createSession(config)
+      : await client.resumeSession('custom-resumed-trial', config);
+    assert.equal(suppliedSession, session);
+    assert.equal(config.createSessionFsProvider, originalFactory);
+    assert.equal(config.workingDirectory, process.cwd());
+    assert.equal(await installedProvider.readFile(path.join(process.cwd(), 'workspace-file')), 'custom provider');
+  });
+}

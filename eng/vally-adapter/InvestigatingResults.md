@@ -90,6 +90,74 @@ Both evaluation and comparison commands use this launcher through `PATH`.
 When updating the SDK, reassess the guard and run
 `node --test eng/evaluation-tools/*.test.mjs` before removing it.
 
+### Existing workspace files reported missing or native patches rejected
+
+With Vally 0.14 and Copilot runtime 1.0.80, native `view` can report
+`Path does not exist` for a file that a shell reader opens at the exact same
+absolute path. This is not necessarily a missing fixture/reference. Instrumented
+provider calls reproduce the cause: native `view` calls the session-fs provider's
+`stat` with the workspace path, but Vally's `LocalSessionFsHandler` confines paths
+to the separate session-log root and rejects the request as a root escape.
+
+The same mismatch affects native `apply_patch` writes. A read-only repair makes
+`view` work but leaves editing broken: SDK events can show repeated
+`Session filesystem path escapes root` failures before the model falls back to
+shell edits. Inspect `tool.execution_complete.data.error`, not just the shorter
+normalized tool result. This can affect one executor family more than another
+and inflate its turns/cost even when the final answer and comparison complete.
+
+The launcher installs a Vally-version-checked fail-closed guard for that local
+provider during both session creation and resumption. Absolute workspace requests
+outside the provider's existing log root
+are rejected with `ERR_EVALUATION_WORKSPACE_ISOLATION_REQUIRED` and an actionable
+message, without canonicalizing or opening workspace paths. Both endpoints of
+rename are checked, including mixed relative/absolute requests. Relative session
+paths and absolute log-root paths (including a log root nested in the workspace)
+retain the original provider's behavior. Paths outside the workspace likewise
+go to the original provider; other provider implementations are not wrapped.
+This guard does not make the original log provider a security sandbox.
+
+**Integration effect:** native workspace reads and patches remain unavailable.
+Provider-level `exists` rejects, but SDK 1.0.11's adapter catches all `exists`
+errors and returns `{ exists: false }` without an error field. That upstream
+protocol limitation is not corrected here. Read/stat/mutation failures retain
+the actionable message with SDK error code `UNKNOWN`; inspect tool events rather
+than relying on existence probes alone. Shell fallback may still complete a task, but that is not evidence
+of repaired native functionality or successful harness/default certification.
+Tests cover explicit rejection, intermediate-parent swaps, unchanged session-log
+operations, and the SDK's synchronous factory/session/configuration contract:
+
+```bash
+node --test eng/evaluation-tools/*.test.mjs
+```
+
+The previous host-filesystem workspace overlay has been removed. Its separate
+canonicalization and pathname-based operation permitted an intermediate-parent
+symlink swap to redirect reads and mutations outside the workspace. Rejecting
+workspace extensions eliminates that overlay's check/reopen window; it does not
+claim atomic confinement of the existing log provider or shell tools. Vally
+0.14's executor uses `approveAll`; tool permissions do not establish an
+independent adversarial boundary for this host-side provider.
+
+The existing Node filesystem APIs and SDK provider interface do not supply
+descriptor-relative traversal for the full read/create/mkdir/rename/remove
+contract. `O_NOFOLLOW` on a final file open does not protect intermediate
+parents. Rechecking paths or serializing provider calls cannot prevent another
+process from swapping them. If adversarial confinement is required, an
+upstream integration is needed before restoring native workspace I/O: use a
+provider with platform-native atomic traversal, or enforce and verify an
+equivalent OS isolation boundary around the Node provider and every workspace
+writer. A sandbox around only the CLI is not evidence that provider I/O is
+isolated. There is no trust flag, opt-in path, or environment override that
+re-enables the unsafe overlay. A verified alternative must be implemented and
+validated with swap-race coverage before the guard can be replaced.
+
+Reassess this compatibility layer on a Vally/SDK upgrade. A local launcher fix
+does not retroactively repair earlier trajectories, and CI uses its trusted
+harness revision; verify that revision before attributing the fix to an official
+run. Read actual `session.start.data.copilotVersion`, not just the installed
+package manifest or a shell CLI's version, when comparing runtime provenance.
+
 ### Investigation steps
 
 1. **Download the results artifacts:** `gh run download <run-id> --repo dotnet/skills --pattern "vally-results-*" --dir ./eval-results`
