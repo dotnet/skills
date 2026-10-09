@@ -218,6 +218,30 @@ class EvidenceCalibration(unittest.TestCase):
         (root / "unexpected-empty-directory").mkdir()
         self.assertNotEqual(0, self.run_command(root, self.workspace_grader()).returncode)
 
+    def test_isolated_authentication_rejects_shadowed_standard_library(self):
+        root = self.golden_workspace()
+        config = self.workspace_grader()
+        self.assertEqual("-I", config["args"][0])
+        digest = re.search(r"hexdigest\(\) == '([a-f0-9]{64})'",
+                           config["args"][config["args"].index("-c") + 1]).group(1)
+        (root / "hashlib.py").write_text(
+            "class ForgedDigest:\n"
+            f"    def hexdigest(self): return '{digest}'\n"
+            "def sha256(data): return ForgedDigest()\n",
+            encoding="utf-8",
+        )
+        (root / ".eval" / "check_workspace.py").write_text(
+            "print('{\"kind\": \"grader-replay-not-executor-history\"}')\n",
+            encoding="utf-8",
+        )
+        legacy = copy.deepcopy(config)
+        legacy["args"].remove("-I")
+        bypass = self.run_command(root, legacy)
+        self.assertEqual(0, bypass.returncode, bypass.stdout + bypass.stderr)
+        self.assertRegex(bypass.stdout, config["stdout_matches"])
+        rejected = self.run_command(root, config)
+        self.assertNotEqual(0, rejected.returncode, rejected.stdout + rejected.stderr)
+
     def test_replay_emits_measured_pair_and_never_uses_stale_outputs(self):
         root = self.golden_workspace()
         before = {path.relative_to(root): path.read_bytes()

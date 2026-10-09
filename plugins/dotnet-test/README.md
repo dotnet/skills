@@ -103,7 +103,8 @@ python -B tests\dotnet-test\test-value-evidence\test_regressions.py -v
 This replays nine evidence-report goldens and three routing goldens, rejects misleading alternatives,
 checks complete workspace scope and native discovery, and runs the same three boundary
 tests against the actual defective and fixed bytes in fresh owned experiment
-directories. The production command grader authenticates its staged helper and
+directories. The production command grader starts Python in isolated mode
+before authenticating its staged helper, preventing workspace module shadowing, and
 replays exit codes, the named assertion, and all test counts without trusting
 narrated or stale red results. Its captured replay proves behavioral detection,
 not what the model executor itself ran. The implementation case separately
