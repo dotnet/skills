@@ -569,6 +569,8 @@ stimuli:
           dest: .eval/Contract.csproj
         - src: graders/owner-contract/Program.cs
           dest: .eval/Program.cs
+        - src: graders/runner_contract.py
+          dest: .eval/runner_contract.py
         - src: ../../dotnet-test/graders/authenticated_artifacts.py
           dest: .eval/authenticated_artifacts.py
     golden_patch:
@@ -579,10 +581,11 @@ stimuli:
       - type: file-not-contains
         config: {path: TestProject.csproj, value: xunit}
       - type: run-command
-        config: &preserved_net8
-          command: dotnet msbuild TestProject.csproj -getProperty:TargetFramework
+        config: &preserved_vstest
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True,timeout=75)" --expect 34b876951be1dcb9a893ca8e3005a7a13e3b462ff4f3ffa49f555ccc2f5b4db7:.eval/runner_contract.py --expect b890fa7f916232da31fc5516007c93c148cb5d3e7aba87bfa594a44611dd4f0f:global.json -- python3 .eval/runner_contract.py
           expected_exit_code: 0
-          stdout_matches: '^net8\.0\s*$'
+          stdout_matches: RUNNER_CONTRACT:net8.0 VSTest, no native or bridged MTP
           timeout: 1m
       - type: run-command
         config:
@@ -604,9 +607,9 @@ stimuli:
       - Owner is not emitted on a class or assembly and repeated identical values are deduplicated.
   - name: Identify conflicting and shared inherited owners before editing
     prompt: |
-      Assess converting this xUnit.net v3 project to MSTest v4. Before changing
-      any files, identify metadata that cannot be preserved automatically and
-      explain which tests need a decision from me.
+      Assess converting this xUnit.net v3 project to MSTest v4 without editing
+      any files. Can all existing metadata be preserved automatically, and
+      would any tests need a decision from me?
     tags: {capability: owner-conflict-restraint, risk: silent-owner-overwrite, journey: assess-shared-inherited-tests}
     environment:
       files:
@@ -671,13 +674,15 @@ stimuli:
           dest: global.json
         - src: graders/assertion_contract.py
           dest: .eval/assertion_contract.py
+        - src: graders/runner_contract.py
+          dest: .eval/runner_contract.py
         - src: ../../dotnet-test/graders/authenticated_artifacts.py
           dest: .eval/authenticated_artifacts.py
     golden_patch:
       path: goldens/awesome-imports.patch
     graders:
       - type: run-command
-        config: *preserved_net8
+        config: *preserved_vstest
       - type: run-command
         config:
           command: >-
@@ -695,3 +700,50 @@ stimuli:
       - Migrates both tests to MSTest without changing net8.0, VSTest, the AwesomeAssertions 9.6.0 package, or the existing assertions.
       - Preserves the local using, global using, and project Using import of AwesomeAssertions rather than changing any of them to FluentAssertions.
       - Both original tests remain discoverable and pass after migration.
+  - name: Advise on xUnit v2 to v3 without framework conversion
+    prompt: |
+      How do I upgrade the tests in this xUnit v2 project to xUnit v3?
+      Explain the migration route and runner compatibility without editing
+      any files.
+    expect_activation: false
+    tags: {capability: xunit-version-boundary, risk: unrelated-framework-conversion, journey: assess-framework-version-upgrade}
+    environment:
+      files:
+        - src: fixtures/migrate-basic-xunit-v2-project-to-mstest-v4-preserving-vstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/migrate-basic-xunit-v2-project-to-mstest-v4-preserving-vstest/CalculatorTests.cs
+          dest: CalculatorTests.cs
+        - src: fixtures/migrate-basic-xunit-v2-project-to-mstest-v4-preserving-vstest/global.json
+          dest: global.json
+        - src: ../../dotnet-test/graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: xunit-version-boundary
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Use the xUnit v2-to-v3 migration path, not a framework conversion.
+              For this net8.0 VSTest project, replace the xunit package with
+              xunit.v3, configure executable output, and update the Visual Studio
+              adapter to a v3-compatible version. Review lifecycle and API
+              differences before implementing, preserving the two existing
+              tests and VSTest runner. No files need to change for this advice.
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';files={p.as_posix() for p in pathlib.Path('.').rglob('*') if p.is_file() and not {'.eval','bin','obj'}.intersection(p.parts) and (p.suffix in {'.cs','.csproj'} or p.name=='global.json')};assert files=={'TestProject.csproj','CalculatorTests.cs','global.json'};subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True,timeout=30)" --expect a05bee1eeb5d20146fc7f3de43bd43a3cbf39defcc65a774f10dc9c75e7b89a6:TestProject.csproj --expect f58840ba98cfb3238db4eefcd374f3660ad2df48f9c760bb2993e1c3cc55fe43:CalculatorTests.cs --expect b890fa7f916232da31fc5516007c93c148cb5d3e7aba87bfa594a44611dd4f0f:global.json
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config: {pattern: '(?i)(xunit(?:\.net)?\s*v?3|xunit\.v3)'}
+      - type: prompt
+    rubric:
+      - Gives the xUnit v2-to-v3 migration route rather than converting the project to MSTest.
+      - Explains v3 package, executable output, adapter and API compatibility while preserving VSTest.
+      - Keeps every supplied project/source/configuration file unchanged as requested.
+      - Does not invoke the xUnit-to-MSTest skill or hijack the version-upgrade request.
