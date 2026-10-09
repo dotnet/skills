@@ -30,15 +30,12 @@ stimuli:
           pattern: \.StandardError\b
       - type: output-not-matches
         config:
-          pattern: RedirectStandardOutput\s*=\s*true
-      - type: output-not-matches
-        config:
-          pattern: BeginOutputReadLine|OutputDataReceived
+          pattern: \.\s*Begin(Output|Error)ReadLine\s*\(|\.\s*(Output|Error)DataReceived\s*\+=
       - type: prompt
     rubric:
       - Uses the new built-in Process.RunAndCaptureText or Process.RunAndCaptureTextAsync static method
       - Targets net11.0 in the project file
-      - Avoids manual redirection setup boilerplate (like RedirectStandardOutput = true, BeginOutputReadLine, etc.)
+      - Captures both streams without event-callback plumbing; if using the ProcessStartInfo overload, enables both output and error redirection
 
   # --- Stimulus 2: Auto-teardown child processes on parent exit ---
   - name: Auto-teardown child processes on parent exit in .NET 11
@@ -86,14 +83,17 @@ stimuli:
           pattern: ReadAllText(Async)?\s*\(
       - type: output-matches
         config:
-          pattern: \)\s*=\s*(await\s+)?\w+\.ReadAllText(Async)?\s*\(
+          pattern: \)\s*=\s*(await\s+)?\w+\.ReadAllText(Async)?\s*\(|\.(StandardOutput|Item1)\b
+      - type: output-matches
+        config:
+          pattern: \)\s*=\s*(await\s+)?\w+\.ReadAllText(Async)?\s*\(|\.(StandardError|Item2)\b
       - type: output-not-matches
         config:
           pattern: string\s+\w+\s*=\s*(await\s+)?\w+\.ReadAllText(Async)?\s*\(
       - type: prompt
     rubric:
       - Uses the new instance method Process.ReadAllText or Process.ReadAllTextAsync
-      - Destructures the (string StandardOutput, string StandardError) tuple return
+      - Uses both returned tuple elements correctly, through deconstruction or tuple member access, rather than treating the result as a single string
       - Does not fall back to manual StandardOutput.ReadToEndAsync() as the primary mechanism
       - Targets net11.0
 
@@ -122,23 +122,23 @@ stimuli:
           pattern: await\s+foreach
       - type: output-matches
         config:
-          pattern: \.Content\b|ProcessOutputLine
+          pattern: \.Content\b|\.ToString\s*\(
       - type: output-matches
         config:
           pattern: \.StandardError\b
       - type: output-not-matches
         config:
-          pattern: OutputDataReceived|BeginOutputReadLine
+          pattern: \.\s*Begin(Output|Error)ReadLine\s*\(|\.\s*(Output|Error)DataReceived\s*\+=
       - type: prompt
     rubric:
       - Uses Process.ReadAllLinesAsync consumed with `await foreach` over IAsyncEnumerable<ProcessOutputLine>
-      - Reads ProcessOutputLine.Content and distinguishes stdout vs stderr via .StandardError
+      - Reads each line's text through Content or ToString and distinguishes stdout vs stderr via StandardError
       - Does NOT use the old OutputDataReceived/BeginOutputReadLine event model; targets net11.0
 
   # --- Stimulus 5: Fire-and-forget process start ---
   - name: Fire-and-forget process start in .NET 11
     prompt: |
-      In a .NET 11 tool, I need to launch an independent helper process (such as a local browser or background tool)
+      In a .NET 11 tool, I need to launch an independent helper executable (such as a background tool)
       and immediately move on without holding onto process handles or having to manage its disposal.
       I just want to launch it without keeping process handle structures alive and obtain its process ID.
       Show me a minimal C# program and the `.csproj` XML targeting `net11.0` for this.
@@ -157,6 +157,7 @@ stimuli:
       - type: prompt
     rubric:
       - Uses the new Process.StartAndForget method added in .NET 11
+      - Launches the executable without shell execution or redirected standard streams, returns its process ID, and releases the parent's process resources
       - Targets net11.0
 
   # --- Stimulus 6: Whitelist inherited handles for child process ---

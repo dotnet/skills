@@ -50,6 +50,8 @@ Before using the new convenience methods, note the following types. Use the fram
 
 #### Static Methods
 
+The `ProcessStartInfo` overloads below require `UseShellExecute = false`. To open a URL or document through the operating system's shell, use `Process.Start` with `UseShellExecute = true` instead; shell launches do not guarantee a new process or a process ID.
+
 ##### `Process.Run` / `Process.RunAsync`
 Starts a process and waits for it to exit, returning the exit status. Does not capture standard output or error. Passing `silent: true` discards standard output and error by internally redirecting standard handles to the `NUL` device. On timeout or cancellation, the process is killed.
 ```csharp
@@ -73,7 +75,9 @@ public static Task<ProcessTextOutput> RunAndCaptureTextAsync(ProcessStartInfo st
 ##### `Process.StartAndForget`
 There is a common misconception that when a process is disposed, it's also being killed. This is not the case, as `Process.Dispose` only releases the resources associated with the process, but does not kill it.
 
-To make it easier to start a process without the need to worry about disposing it, `Process.StartAndForget` was introduced. The method starts a process, returns its ID, and immediately releases all handle resources associated with it. By default, when output/error redirection was not specified, `Process.StartAndForget` redirects all standard handles to the `NUL` device.
+To make it easier to start a process without the need to worry about disposing it, `Process.StartAndForget` was introduced. The method starts an executable, returns its ID, and immediately releases all handle resources associated with it. Standard handles not supplied through `StandardInputHandle`, `StandardOutputHandle`, or `StandardErrorHandle` go to the null device by default.
+
+`StartAndForget` throws `InvalidOperationException` if `UseShellExecute` or any `RedirectStandardInput`, `RedirectStandardOutput`, or `RedirectStandardError` flag is true. Use a capture or streaming API if output needs to be read.
 ```csharp
 public static int StartAndForget(string fileName, IEnumerable<string>? arguments = null)
 public static int StartAndForget(ProcessStartInfo startInfo)
@@ -107,6 +111,7 @@ public bool KillOnParentExit { get; set; }
 ```
 
 In cross-platform code, guard the property assignment with a supported-platform check, not only the assigned value. If automatic teardown is required, fail explicitly on an unsupported platform instead of starting an unprotected child process.
+`KillOnParentExit` requires `UseShellExecute = false`.
 
 #### `InheritedHandles`
 Provides precise control over which handles (file descriptors) are inherited by the child process, preventing accidental resource leaks.
@@ -117,6 +122,7 @@ Provides precise control over which handles (file descriptors) are inherited by 
 - Concurrent process starts must not pass the same handle in `InheritedHandles`: the runtime temporarily changes its inheritance flags. Serialize starts that share a handle, or use separate handles for each concurrent start.
 - Do not enable inheritance on the handles before passing them; other process-start APIs could then inherit them unintentionally.
 - On Unix systems without native handle-inheritance control, setting this property can severely reduce process-start performance.
+- A non-null list requires `UseShellExecute = false` and cannot be combined with a non-empty `UserName`.
 ```csharp
 public IList<SafeHandle>? InheritedHandles { get; set; }
 ```
@@ -126,6 +132,8 @@ Starts the process detached from the parent's terminal or job session, ensuring 
 ```csharp
 public bool StartDetached { get; set; }
 ```
+
+`StartDetached` requires `UseShellExecute = false`.
 
 ---
 
@@ -155,7 +163,7 @@ else
 
 ### 2. Auto-Killing Child Processes on Parent Exit
 
-On Windows and Linux, ensure a long-running background worker process is killed when the main application terminates. On other platforms, this example stops before starting the child process:
+On Windows, Linux, and Android, ensure a long-running background worker process is killed when the main application terminates. On other platforms, this example stops before starting the child process:
 
 ```csharp
 using System;
@@ -163,13 +171,13 @@ using System.Diagnostics;
 
 ProcessStartInfo startInfo = new("dotnet", ["run", "--project", "BackgroundWorker.csproj"]);
 
-if (OperatingSystem.IsWindows() || OperatingSystem.IsLinux())
+if (OperatingSystem.IsWindows() || OperatingSystem.IsLinux() || OperatingSystem.IsAndroid())
 {
     startInfo.KillOnParentExit = true;
 }
 else
 {
-    throw new PlatformNotSupportedException("This example requires Windows or Linux.");
+    throw new PlatformNotSupportedException("This example requires Windows, Linux, or Android.");
 }
 
 using Process process = Process.Start(startInfo)!;
@@ -223,7 +231,7 @@ Console.WriteLine($"Diff output: {stdout}");
 
 ### 5. Start and Forget (Fire & Forget)
 
-Launch a helper tool or browser without holding onto system handle structures:
+Launch a helper executable without holding onto system handle structures:
 
 ```csharp
 using System;
