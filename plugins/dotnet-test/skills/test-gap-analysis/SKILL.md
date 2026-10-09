@@ -45,13 +45,18 @@ state predicates (including derived booleans), identity, and formatting. Private
 code is in scope only to trace an allowed outcome.
 
 Do not expand a focused request into a repository audit, plan artifact, or
-dashboard. Use source and tests directly for familiar frameworks. Invoke
-`test-analysis-extensions` only when discovery or assertion semantics are
-unclear.
+dashboard. Use source and tests directly for familiar frameworks. When discovery
+or assertion semantics are unclear, read the matching language file relative
+to the caller-provided or runtime-listed `test-analysis-extensions` catalog;
+do not invoke the reference-only helper or search installation directories.
+If absent, state the limitation and use the pinned APIs and rules here.
 
 ### 2. Establish one baseline
 
-Run the narrowest existing test command once. Choose it from the project
+For a source-only advisory review, skip execution and label empirical survival
+unverified. A baseline is required when the user requests execution or survivor
+verification, or when closing gaps with tests. Run the narrowest existing test
+command once. Choose it from the project
 manifest; Microsoft.Testing.Platform executables may require `dotnet run`.
 Confirm tests executed: exit 0 with build-only output is not green. If that one
 attempt cannot run the suite, do not troubleshoot the runner or try alternate

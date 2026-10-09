@@ -20,13 +20,12 @@ diagnostic information. The skill **does not discover tests on its own** — the
 caller (typically a PR automation workflow or a human reviewer holding a
 specific list) provides the tests or a bounded diff to assess.
 
-> **Language-specific guidance**: Call the `test-analysis-extensions` skill
-> to discover available extension files, then read the file matching the
-> target codebase's language and framework (e.g., `extensions/dotnet.md`,
-> `extensions/python.md`, `extensions/typescript.md`, `extensions/go.md`).
-> You MUST read the relevant extension file before scoring assertions or
-> anti-patterns, because assertion APIs and idiomatic patterns differ
-> significantly across frameworks.
+> **Language-specific guidance**: Read the caller-provided or runtime-listed
+> `test-analysis-extensions` catalog and its matching language file.
+> The reference-only helper is not an invocable skill. If its files
+> are absent, use the embedded rubric and pinned framework APIs; mark an
+> essential unresolved framework construct Uncertain instead of guessing or
+> searching installation directories.
 
 ## Why a Decision Result Plus Quality Detail
 
@@ -91,11 +90,11 @@ If a valid bounded scope resolves to zero eligible tests, return
 ### Step 1: Detect language and load extension
 
 Identify the target codebase's language and test framework from the file
-extensions and the test method markers in the provided list. Call the
-`test-analysis-extensions` skill and read the matching extension file (e.g.,
-`extensions/dotnet.md` for MSTest/xUnit/NUnit/TUnit, `extensions/python.md`
-for pytest, `extensions/typescript.md` for Jest/Vitest, `extensions/go.md`
-for the standard `testing` package). If the input contains tests from
+extensions and the test method markers in the provided list. Read the matching
+`extensions/` file relative to the supplied `test-analysis-extensions` catalog
+(`dotnet.md`, `python.md`, `typescript.md`, `go.md`, etc.). Use the catalog for
+other languages, not a skill invocation.
+If the input contains tests from
 multiple languages, load each relevant extension and grade each test using
 its language's conventions.
 
@@ -136,7 +135,7 @@ assertion in the test body. Score from highest to lowest:
 
 | Sub-grade | Pattern |
 |-----------|---------|
-| **A** | At least one meaningful value assertion (equality / structural / exception / state) plus, where appropriate, additional checks (negative, type, collection contents). Mock-call verifications (`Verify`, `toHaveBeenCalledWith`, `Should -Invoke`) and bare assertion forms (pytest `assert`, Go `if got != want { t.Errorf(...) }`, Rust `assert!()`) count as real assertions. |
+| **A** | Pins a richer contract through structural equality or nonredundant related observables (such as returned values plus required state/interaction checks), or qualifies for the exception/error calibration below. Grade predicate depth, not assertion count. Mock-call verifications and bare language assertions count normally. |
 | **B** | One clear meaningful assertion that verifies the behavior under test. |
 | **C** | Only trivial assertions (single `IsNotNull` / `toBeDefined` / `assert x is not None`), or assertions that check a single field while the operation produces a richer result. |
 | **D** | One self-referential / tautological assertion (`Assert.AreEqual(x, x)`, `assert dto.name == dto.name`, round-trip identity without a non-trivial input), or broad exception assertions (`Assert.ThrowsException<Exception>`). |
@@ -258,6 +257,12 @@ Convert sub-grades to numeric points: A=4, B=3, C=2, D=1, F=0.
   is **F**, the overall grade is **F**; if the worst sub-grade is **D**,
   the overall grade is at most **D**; and so on. A test that fails on any
   one dimension cannot earn a higher overall grade than that dimension.
+
+Apply the cap after the weighted mapping, not instead of it. For example,
+Assertion B, Anti-pattern A, Structure A gives `3.55`: the provisional weighted
+grade is A, but the final grade is **B (80-89)**. A focused scalar equality can
+therefore be **B / Pass** with no actionable finding; do not invent a weakness
+or missing sibling behavior to justify that grade.
 
 Report the **letter grade** and the **score band** (not a single 0–100
 number). False precision invites bikeshedding; bands keep the conversation

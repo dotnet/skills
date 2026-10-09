@@ -1,4 +1,4 @@
-"""A time-only migration must leave the unique export method unchanged."""
+"""Time-only migrations preserve unrelated behavior and wire the production clock."""
 
 import json
 from pathlib import Path
@@ -156,10 +156,19 @@ def validate_program(current_source, original_source):
             additions.append(statement)
     if position != len(original):
         raise ValueError("Time-only migration removed or changed existing Program statements")
-    if len(additions) > 1:
-        raise ValueError("Time-only migration added unrelated Program statements")
-    if additions and not {"builder", "Services", "TimeProvider", "System"}.issubset(additions[0]):
-        raise ValueError("Time-only migration added an unrelated Program statement")
+    clock_registrations = 0
+    manager_registrations = 0
+    for statement in additions:
+        if not {"builder", "Services"}.issubset(statement):
+            raise ValueError("Time-only migration added an unrelated Program statement")
+        if {"TimeProvider", "System"}.issubset(statement):
+            clock_registrations += 1
+        elif "SubscriptionManager" in statement:
+            manager_registrations += 1
+        else:
+            raise ValueError("Time-only migration added an unrelated Program statement")
+    if clock_registrations != 1 or manager_registrations > 1:
+        raise ValueError("Time-only migration requires one production TimeProvider registration")
 
 
 def baseline_bytes(baseline, path):

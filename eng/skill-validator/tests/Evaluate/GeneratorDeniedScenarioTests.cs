@@ -22,15 +22,18 @@ public class GeneratorDeniedScenarioTests
         var yaml = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "generator.eval.yaml"));
         var scenarios = EvalSchema.ParseEvalConfigFlexible(yaml)!.Scenarios;
 
-        Assert.AreEqual(9, scenarios.Count);
+        Assert.AreEqual(10, scenarios.Count);
         foreach (var scenario in scenarios)
         {
             var helper = Assert.ContainsSingle(scenario.Setup!.Files!.Where(
                 file => file.Path == ".eval/authenticated_artifacts.py"));
             Assert.AreEqual("../graders/authenticated_artifacts.py", helper.Source);
-            Assert.AreSequenceEqual(["test-engineer"], scenario.RejectAgents!);
+            Assert.Contains("test-engineer", scenario.RejectAgents!);
         }
         Assert.IsTrue(Assert.ContainsSingle(scenarios.Where(scenario => scenario.DenyShell)).RejectShellRetries);
+        var focusedReview = Assert.ContainsSingle(scenarios.Where(
+            scenario => scenario.Name == "Review focused assertions without a second audit agent"));
+        Assert.AreSequenceEqual(["test-engineer", "test-quality-auditor"], focusedReview.RejectAgents!);
     }
 
     [TestMethod]

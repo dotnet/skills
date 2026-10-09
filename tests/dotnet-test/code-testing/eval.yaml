@@ -178,7 +178,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 320bc198285f61c60decdfa558da696d1778644cfee7b97a1b085c13c3188e4c:.eval/check_classic_preservation.py --expect 1caa319ee11037343f5d71682ca78c4e85db08898b8ec7bb2fc528e27f2e5860:.eval/classic-preservation.json -- python .eval/check_classic_preservation.py verify fixtures/classic-mstest
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 88e7e3d004f080a6228977dabe9daa9050064dbf8db0693d1c55561139b102e3:.eval/check_classic_preservation.py --expect 1caa319ee11037343f5d71682ca78c4e85db08898b8ec7bb2fc528e27f2e5860:.eval/classic-preservation.json -- python .eval/check_classic_preservation.py verify fixtures/classic-mstest
           expected_exit_code: 0
           timeout: 1m
       - type: file-exists

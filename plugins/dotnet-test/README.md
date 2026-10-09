@@ -83,7 +83,9 @@ For non-.NET languages, use the native coverage tool: `coverage.py`/`pytest-cov`
 
 Three reference skills (`code-testing-extensions`, `test-analysis-extensions`,
 and `filter-syntax`) set `disable-model-invocation: true`, so the CLI keeps them
-out of the model-facing skill menu and a consumer loads them by name. They
+out of model invocation. Consumers read their bundled files directly from
+supplied/runtime-listed catalog paths, resolving language files relative to
+that catalog rather than the project workspace. They
 deliberately have no direct `tests/dotnet-test/<skill>/eval.yaml`: the
 experiment's skilled arm loads a single skill, which the model could never
 invoke here, so such an eval would compare two identical arms and score judge
@@ -112,6 +114,14 @@ Use this single entry-point agent for end-to-end test work:
 | Agent | Purpose |
 |---|---|
 | **test-engineer** | Generates, repairs, runs, audits, and improves tests while coordinating the internal specialists below |
+
+Focused quality reviews use one matching skill directly. Broad audits retain
+per-test/behavior evidence, reconcile summary counts, and give a risk-ranked
+repair order without automatically grading every test. Dependency migrations
+include the real production construction/DI wiring; a compiling injectable
+class alone is not a complete migration. Mechanical clock replacements preserve
+read count and UTC/local semantics, with consistency corrections planned
+separately.
 
 > **Test framework/platform migration** is handled by the `test-migration` agent in the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin.
 

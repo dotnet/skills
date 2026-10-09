@@ -16,6 +16,31 @@
 > evidence: an explicit execution error, a missing or timed-out required arm, a
 > failed run, or a missing pairwise result.
 
+Executor sessions append the exact scenario workspace to the system context.
+Do not resolve fixture paths against a staged skill's base directory or the
+shared evaluator root. Normal shell pre-tool hooks defer to the SDK's typed
+shell permission request: forcing an `ask` decision there creates a separate
+custom permission request without shell-path metadata and causes an
+`Unsupported permission request during evaluation` denial. Explicit
+`deny_shell` and offline-workflow policies still reject the tool before
+execution, including nested sessions; normal path, network, and link checks
+remain in the permission callback.
+
+PowerShell permission requests may omit `possiblePaths` even for an explicit
+project argument. The executor recovers paths only for a single static
+`dotnet build`, `test`, or `run` invocation with known options, then applies the
+same workspace allowlist. Compound commands, computed paths, arbitrary MSBuild
+properties, unknown options, and outside projects remain rejected. Submit
+validation commands separately rather than combining them with shell control
+flow.
+
+Reference-only skill catalogs remain excluded from model invocation. Executor
+context lists their actual staged file paths so consumers can read bundled
+language guidance without a failing skill-tool call. The workspace and typed
+permission contract version participates in baseline identity; recompute
+baselines recorded before this contract rather than comparing old denial
+behavior against the corrected executor.
+
 > The workflow token preflight tries another pool candidate for HTTP 429 or 402
 > quota exhaustion and for the paired heading and token-environment lines in
 > the Copilot CLI's no-authentication setup block. Unrelated service and

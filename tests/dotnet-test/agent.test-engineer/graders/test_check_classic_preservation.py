@@ -53,6 +53,19 @@ class ClassicPreservationTests(unittest.TestCase):
         self.add_generated_items()
         self.run_checker("verify", success=True)
 
+    def test_build_outputs_do_not_change_the_preserved_source_contract(self):
+        for name in ("bin", "obj", "TestResults"):
+            directory = self.root / "tests" / name
+            directory.mkdir()
+            (directory / "output.txt").write_text("build output\n", encoding="utf-8")
+        self.run_checker("snapshot", success=True)
+        self.add_generated_items()
+        self.run_checker("verify", success=True)
+
+    def test_build_output_name_cannot_hide_an_unexpected_file(self):
+        (self.root / "tests/bin").write_text("not a directory\n", encoding="utf-8")
+        self.run_checker("snapshot", success=False)
+
     def test_existing_test_change_fails(self):
         self.add_generated_items()
         (self.root / "tests/DiscountServiceTests.cs").write_text("changed\n", encoding="utf-8")

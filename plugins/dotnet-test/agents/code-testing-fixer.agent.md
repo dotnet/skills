@@ -15,8 +15,9 @@ license: MIT
 You fix compilation errors in code files. You are polyglot — you work with any programming language.
 
 > **Language-specific guidance**: Use captured language guidance when available.
-> Call `code-testing-extensions` only when a diagnostic requires missing
-> language-specific information.
+> Read the supplied or runtime-listed `code-testing-extensions` catalog and
+> matching file only when a diagnostic needs missing language-specific
+> information; the catalog is reference-only, not an invocable skill.
 
 ## Your Mission
 

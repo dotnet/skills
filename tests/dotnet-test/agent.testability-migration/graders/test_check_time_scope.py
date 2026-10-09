@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from check_time_scope import export_body, verify
+from check_time_scope import export_body, validate_program, verify
 
 
 TARGET = """
@@ -44,6 +44,26 @@ public class Subscription
 
 
 class TimeScopeTests(unittest.TestCase):
+    def test_production_clock_registration_is_required_not_just_a_comment(self):
+        original = "var builder = CreateBuilder();\nRun(builder);\n"
+        for current in (original, original + "// TimeProvider.System registration goes here\n"):
+            with self.subTest(current=current):
+                with self.assertRaisesRegex(ValueError, "production TimeProvider registration"):
+                    validate_program(current, original)
+        validate_program(
+            "var builder = CreateBuilder();\n"
+            "builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);\n"
+            "Run(builder);\n",
+            original,
+        )
+        validate_program(
+            "var builder = CreateBuilder();\n"
+            "builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);\n"
+            "builder.Services.AddTransient<FullPipeline.Services.SubscriptionManager>();\n"
+            "Run(builder);\n",
+            original,
+        )
+
     def test_unique_target_body_is_extracted(self):
         self.assertIn("WriteAllText", export_body(TARGET))
 
@@ -201,6 +221,12 @@ class TimeScopeTests(unittest.TestCase):
             try:
                 os.chdir(workspace)
                 source.write_text(migrated, encoding="utf-8")
+                program.write_text(
+                    "var builder = CreateBuilder();\n"
+                    "builder.Services.AddSingleton(TimeProvider.System);\n"
+                    "Run(builder);\n",
+                    encoding="utf-8",
+                )
                 verify()
                 source.write_text(migrated.replace('Plan = "trial"', 'Plan = "changed"'), encoding="utf-8")
                 with self.assertRaisesRegex(ValueError, "CreateTrial"):

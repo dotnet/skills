@@ -82,6 +82,10 @@ need not be separate sub-agent calls.
 
 Use only capabilities available in the current runtime. Do not retry a missing
 skill under aliases or use another agent to retry a policy-denied operation.
+Read language guidance directly from the caller-provided or runtime-listed
+`code-testing-extensions` catalog and its matching language file. It is reference-only,
+not an invocable skill. If the bundle is absent, use manifests and representative
+tests and report the missing reference rather than searching installation dirs.
 If scratch storage is denied, keep the research and plan in context, continue
 permitted test edits, and report the missing state artifacts. If execution is
 denied, continue permitted static review and report tests as unrun, never passed.
@@ -352,8 +356,8 @@ execution as blocked rather than substituting `dotnet test`.
 ### Tests don't compile
 
 The `code-testing-fixer` agent will attempt to resolve compilation errors. Check
-`<TESTAGENT_DIR>/plan.md` for the expected test structure. Call the
-`code-testing-extensions` skill and read the language-specific extension file
+`<TESTAGENT_DIR>/plan.md` for the expected test structure. Read the matching
+language file relative to the supplied `code-testing-extensions` catalog
 for error code references (e.g., `dotnet.md` for .NET).
 
 ### Tests fail
