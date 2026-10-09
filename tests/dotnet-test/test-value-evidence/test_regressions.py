@@ -154,6 +154,10 @@ class EvidenceCalibration(unittest.TestCase):
             test_only,
             "**Test-value evidence:** static. Test-only assertion: the old assertion rejects 10.",
         ))
+        self.assertTrue(self.response_errors(
+            test_only,
+            "**Test-value evidence:** static. Old >= 0 accepts 10; new == 0 rejects 0.",
+        ))
         for wording in (
             "Old >= 0 accepts 10; new == 0 rejects it.",
             "The original assertion remains true for 10. The exact assertion fails for 10.",

@@ -544,7 +544,7 @@ stimuli:
           pattern: '(?i)(?:(?:old|previous|original|>=\s*0)[^.;,\r\n]{0,160}(?:accept|pass|true|satisf)[^.;,\r\n]{0,80}(?:10|wrong|mutant)|(?:old|previous|original|>=\s*0)[^.;,\r\n]{0,160}10[^.;,\r\n]{0,80}(?:accept|pass|true|satisf)|10\s*>=\s*0[^.;,\r\n]{0,80}(?:true|pass))'
       - type: output-matches
         config:
-          pattern: '(?i)(?:(?:new|stronger|exact|==\s*0)[^.;,\r\n]{0,160}(?:reject|fail|false|detect)|10\s*==\s*0[^.;,\r\n]{0,80}(?:false|fail))'
+          pattern: '(?i)(?:(?:new|stronger|exact|==\s*0)[^.;,\r\n]{0,160}(?:reject|fail|false|detect)[^.;,\r\n0-9]{0,80}(?:\b10\b|\bit\b|wrong result|mutant|incorrect result)|10\s*==\s*0[^.;,\r\n]{0,80}(?:false|fail))'
       - type: exit-success
       - type: prompt
     rubric:
