@@ -149,6 +149,11 @@ $ skill-installer install https://github.com/dotnet/skills/tree/main/plugins/<pl
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and how to add a new plugin.
 
+### Website & dashboard
+
+- Repository website / accuracy dashboard: <https://dotnet.github.io/skills/>
+- Agent Skills standard: <https://agentskills.io>
+
 ## License
 
 See [LICENSE](LICENSE) for details.
