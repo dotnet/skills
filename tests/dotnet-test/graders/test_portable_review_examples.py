@@ -163,6 +163,54 @@ class PortableReviewExamplesTests(unittest.TestCase):
         for import_form in ("`using`", "`global using`", '`<Using Include="...">`'):
             self.assertIn(import_form, text)
 
+    def xunit_v3_workspace_contract(self):
+        text = (
+            ROOT / "plugins" / "dotnet-test-migration" / "skills"
+            / "migrate-xunit-to-xunit-v3" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+        return re.sub(
+            r"\s+", " ",
+            text.split("## Workspace and Completion Contract", 1)[1]
+            .split("## Workflow", 1)[0],
+        )
+
+    def test_xunit_v3_reader_fallback_requires_confirmed_authorized_limitation(self):
+        contract = self.xunit_v3_workspace_contract()
+        self.assertIn("classify the rejection before retrying", contract)
+        self.assertIn(
+            "Only a positively confirmed reader/path-normalization limitation "
+            "with authorized access permits retrying through another permitted "
+            "reader/editor",
+            contract,
+        )
+        self.assertNotIn("retry with another available reader/editor", contract)
+
+    def test_xunit_v3_access_denials_stop_without_bypass_or_reconstruction(self):
+        contract = self.xunit_v3_workspace_contract()
+        self.assertIn(
+            "On a permission, policy, or content-exclusion denial, stop that "
+            "path and report the blocker",
+            contract,
+        )
+        self.assertIn(
+            "Never bypass the denial through other tools, shell commands, "
+            "aliases, or agents, or infer or reconstruct the restricted content",
+            contract,
+        )
+
+    def test_xunit_v3_unknown_rejection_preserves_unavailable_and_incomplete_state(self):
+        contract = self.xunit_v3_workspace_contract()
+        self.assertIn(
+            "If the rejection reason is unclear, treat the path as unavailable, "
+            "not missing",
+            contract,
+        )
+        self.assertIn(
+            "Continue only independently permitted work and explicitly "
+            "disclose the incomplete migration",
+            contract,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
