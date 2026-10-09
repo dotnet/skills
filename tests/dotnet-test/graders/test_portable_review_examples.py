@@ -97,6 +97,61 @@ class PortableReviewExamplesTests(unittest.TestCase):
         self.assertIn("expect(repository).not_to have_received(:update)", case)
         self.assert_missing_plan_and_report(text, "mark_as_paid", 10)
 
+    def ruby_harness_discovery(self):
+        text = (EXTENSIONS / "ruby.md").read_text(encoding="utf-8")
+        section = text.split("### Harness Discovery Check", 1)[1].split("## Rule #1", 1)[0]
+        return section, re.findall(r"```bash\n(.*?)```", section, re.S)
+
+    def test_ruby_harness_requires_successful_selected_runner_and_real_counts(self):
+        section, commands = self.ruby_harness_discovery()
+        self.assertEqual(len(commands), 2)
+        for command in commands:
+            self.assertTrue(command.startswith("set -euo pipefail\n"))
+            self.assertNotIn("|", command)
+            self.assertNotIn("2>/dev/null", command)
+        self.assertNotIn("||", section)
+        self.assertIn("require exit code zero before using any count", section)
+        self.assertIn("same Bash process", section)
+        self.assertIn("actual `<N> runs, <N> assertions` summary", section)
+        self.assertIn("not a fallback for a failed selected task", section)
+        self.assertIn("nonzero test/example count", section)
+        self.assertIn("missing\nsummary is a blocker", section)
+
+    def run_ruby_harness_with_synthetic_runner(self, exit_code):
+        _, commands = self.ruby_harness_discovery()
+        fixtures = (
+            ("exec rspec --dry-run --format progress", "9 examples, 0 failures"),
+            ("exec rake test", "9 runs, 9 assertions, 0 failures, 0 errors, 0 skips"),
+        )
+        self.assertEqual(len(commands), len(fixtures))
+        for command, (arguments, summary) in zip(commands, fixtures):
+            with self.subTest(arguments=arguments, exit_code=exit_code):
+                runner = (
+                    "bundle() {\n"
+                    "  printf 'selected: %s\\n' \"$*\"\n"
+                    f"  printf '%s\\n' '{summary}'\n"
+                    "  printf '%s\\n' 'synthetic runner diagnostic' >&2\n"
+                    f"  return {exit_code}\n"
+                    "}\n"
+                )
+                result = subprocess.run(
+                    [shutil.which("bash"), "--noprofile", "--norc", "-c", runner + command],
+                    capture_output=True, text=True, timeout=30,
+                )
+                self.assertEqual(result.returncode, exit_code, result.stdout + result.stderr)
+                self.assertIn(f"selected: {arguments}", result.stdout)
+                self.assertIn(summary, result.stdout)
+                self.assertIn("synthetic runner diagnostic", result.stderr)
+                self.assertEqual(result.stdout.count("selected:"), 1)
+
+    @unittest.skipUnless(shutil.which("bash"), "Bash is required; synthetic runners were not executed")
+    def test_ruby_harness_success_preserves_actual_runner_summary(self):
+        self.run_ruby_harness_with_synthetic_runner(0)
+
+    @unittest.skipUnless(shutil.which("bash"), "Bash is required; synthetic runners were not executed")
+    def test_ruby_harness_failure_is_not_hidden_by_success_shaped_output(self):
+        self.run_ruby_harness_with_synthetic_runner(23)
+
     def test_rust_missing_invoice_matches_plan_and_eight_tests(self):
         text = (EXTENSIONS / "rust-examples.md").read_text(encoding="utf-8")
         tests = re.findall(r"```rust\n(.*?)```", text, re.S)[1]
