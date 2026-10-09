@@ -3,232 +3,496 @@ description: Evaluates the dotnet-template-engine/template-validation skill
 type: capability
 defaults:
   timeout: 3m
+environment:
+  env:
+    XDG_DATA_HOME: .xdg-data
+    LOCALAPPDATA: .local-app-data
+    DOTNET_NOLOGO: "1"
+  files:
+    - src: ./fixtures/global.json
+      dest: global.json
+  commands:
+    - >-
+      node -e "const fs=require('fs');
+      fs.mkdirSync('.xdg-data/NuGet/Migrations',{recursive:true});
+      fs.writeFileSync('.xdg-data/NuGet/Migrations/1','');
+      fs.mkdirSync('.local-app-data/NuGet/Migrations',{recursive:true});
+      fs.writeFileSync('.local-app-data/NuGet/Migrations/1','');"
 stimuli:
-  - name: Validate template with multiple errors
-    prompt: Check this template.json for any issues. It's at .template.config/template.json
+  - name: Report independent errors across a template manifest
+    prompt: |
+      Review `.template.config/template.json` and tell me everything that must be
+      fixed before the template can be used. Do not edit the file.
+    tags:
+      capability: comprehensive-manifest-validation
+      risk: high
+      journey: triage-broken-template
     environment:
       files:
         - src: ./fixtures/validate-template-with-multiple-errors/.template.config/template.json
           dest: .template.config/template.json
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-validation-multiple-errors"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              ❌ Not ready — 8 errors, 1 warning.
+
+              | Severity | Location | Issue | Fix |
+              | --- | --- | --- | --- |
+              | ERROR | `identity` | Required identity is missing | Add a unique reverse-DNS identity such as `Contoso.Templates.MyLibrary` |
+              | ERROR | `shortName` | `list` conflicts with a live `dotnet new` subcommand | Rename it to a distinctive alias such as `contoso-library` |
+              | ERROR | `symbols.targetFramework.defaultValue` | `net7.0` is not one of the choices | Use `net8.0` or `net9.0` |
+              | ERROR | `symbols.enableLogging.defaultValue` | `yes` is not a valid bool | Use `true` or `false` |
+              | ERROR | `symbols.maxRetries.defaultValue` | `abc` is not a valid int | Use an integer such as `3` |
+              | ERROR | `symbols.computed1.value` | Computed symbol is missing its value expression | Add a valid `value` expression |
+              | ERROR | `symbols.generated1.generator` | Generated symbol is missing its generator | Add a supported generator such as `guid` |
+              | ERROR | `postActions[0].actionId` | The post-action has no actionId | Add the identifier for the intended action |
+              | WARNING | `sourceName` | Project-name replacement is not configured | Add the source project name |
+
+              8 errors, 1 warning, 0 suggestions.
     graders:
       - type: exit-success
-      - type: output-contains
-        config:
-          substring: identity
       - type: output-matches
         config:
-          pattern: (?i)shortName.*(list|conflict|reserved|CLI)
+          pattern: '(?i)identity.*(missing|required)'
       - type: output-matches
         config:
-          pattern: (?i)(net7\.0|default.*not in|not.*valid.*choice)
+          pattern: '(?i)shortName.*(list|conflict|subcommand)'
       - type: output-matches
         config:
-          pattern: (?i)((enableLogging|yes).*(bool|boolean).*(invalid|not\s+valid|must\s+be|expected)|(enableLogging|yes).*(invalid|not\s+valid|must\s+be|expected).*(bool|boolean))
+          pattern: '(?i)net7\.0.*(choice|net8\.0|net9\.0)'
       - type: output-matches
         config:
-          pattern: (?i)((maxRetries|abc).*(int|integer).*(invalid|not\s+valid|must\s+be|expected)|(maxRetries|abc).*(invalid|not\s+valid|must\s+be|expected).*(int|integer))
+          pattern: '(?i)(enableLogging|yes).*(bool|boolean)'
       - type: output-matches
         config:
-          pattern: (?i)computed.*(missing|no).*value
+          pattern: '(?i)(maxRetries|abc).*(int|integer)'
       - type: output-matches
         config:
-          pattern: (?i)generated.*(missing|no).*generator
+          pattern: '(?i)computed.*(missing|add).*value'
       - type: output-matches
         config:
-          pattern: (?i)(actionId|post.?action).*(missing|required|no)
+          pattern: '(?i)generated.*(missing|add).*generator'
       - type: output-matches
         config:
-          pattern: (?i)(not ready|\d+\s*error)
+          pattern: '(?i)(actionId|post.?action).*(missing|no|add)'
       - type: output-matches
         config:
-          pattern: \|.*\|
+          pattern: '\|.*\|'
       - type: prompt
     rubric:
-      - The agent identified the missing 'identity' field (required)
-      - The agent flagged 'list' as a shortName that conflicts with a dotnet new subcommand
-      - The agent found that defaultValue 'net7.0' is not in the choices (net8.0, net9.0)
-      - The agent reported that 'yes' is not a valid boolean defaultValue for enableLogging
-      - The agent reported that 'abc' is not a valid integer defaultValue for maxRetries
-      - The agent found the computed symbol missing its 'value' expression
-      - The agent found the generated symbol missing its 'generator' field
-      - The agent found the post-action missing its 'actionId'
-    constraints:
-      expect_tools:
-        - skill
-  - name: Validate correct template and suggest improvements
-    prompt: Review the template at .template.config/template.json and tell me if it's ready to publish to NuGet.
+      - Every independent invalid field is identified with the correct severity and a concrete correction
+      - The response distinguishes required errors from missing optional metadata
+      - The verdict and totals agree with the findings table
+
+  - name: Confirm a correct template without changing it
+    prompt: |
+      Check `.template.config/template.json` for release readiness. It should
+      already be correct, so do not edit or reformat it unless validation finds a
+      real defect.
+    tags:
+      capability: no-op-valid-template-review
+      risk: medium
+      journey: confirm-release-readiness
     environment:
       files:
         - src: ./fixtures/validate-correct-template-and-suggest-improvements/.template.config/template.json
           dest: .template.config/template.json
+      commands:
+        - >-
+          node -e "const fs=require('fs');const crypto=require('crypto');
+          fs.mkdirSync('.eval',{recursive:true});
+          const bytes=fs.readFileSync('.template.config/template.json');
+          fs.writeFileSync('.eval/correct-template-hash',
+          crypto.createHash('sha256').update(bytes).digest('hex'));"
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-validation-correct-template"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              ✅ Ready to publish — 0 errors, 0 warnings.
+
+              | Severity | Location | Issue | Fix |
+              | --- | --- | --- | --- |
+              | — | — | No findings | No change required |
+
+              `identity`, `name`, `shortName`, `sourceName`, author, classifications, and the C# project tags are present and valid. 0 errors, 0 warnings, 0 suggestions. The file was left unchanged.
     graders:
-      - type: exit-success
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - >-
+              const fs=require('fs');const crypto=require('crypto');
+              const actual=crypto.createHash('sha256')
+              .update(fs.readFileSync('.template.config/template.json')).digest('hex');
+              const expected=fs.readFileSync('.eval/correct-template-hash','utf8');
+              if(actual!==expected)throw new Error('The valid template was modified');
+          expected_exit_code: 0
+          timeout: 1m
       - type: output-matches
         config:
-          pattern: (?i)(no errors?\b|0 errors?\b|template (is|looks) (valid|good)|ready to publish|no issues? (found|identified)?)
+          pattern: '(?i)(ready to publish|0 errors)'
       - type: output-matches
         config:
-          pattern: (?i)\b(identity|shortName|name)\b
+          pattern: '(?i)\b(identity|shortName|name)\b'
+      - type: output-matches
+        config:
+          pattern: '(?i)(unchanged|no change)'
       - type: prompt
     rubric:
-      - The agent confirmed the template has no errors
-      - The agent verified all required fields (identity, name, shortName) are present
-      - The agent checked that shortName doesn't conflict with CLI commands
-      - The agent noted the template is well-formed and ready to publish
-      - The agent may suggest optional improvements (defaultName, description) without flagging errors
-    constraints:
-      expect_tools:
-        - skill
+      - The valid template is correctly reported with zero errors and zero warnings
+      - Required and important discoverability fields are verified without inventing defects
+      - The manifest remains byte-for-byte unchanged
 
-  - name: Report a malformed template with its parse location
+  - name: Stop at malformed JSON and show the exact correction
     prompt: |
-      My custom template stopped installing after I edited
-      `.template.config/template.json`. Validate it, identify the syntax problem
-      precisely, and show the concrete correction.
+      My custom template stopped loading after I edited
+      `.template.config/template.json`. Locate the syntax problem precisely and
+      show the smallest correction. Do not edit the file.
+    tags:
+      capability: parse-gate-diagnostics
+      risk: high
+      journey: diagnose-unloadable-template
     environment:
       files:
         - src: ./fixtures/malformed-template/.template.config/template.json
           dest: .template.config/template.json
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-validation-malformed-json"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              ❌ Not ready — JSON parse error at line 4, column 3: expected a comma after the `name` property on line 3.
+
+              Change line 3 to this; the added comma is the complete fix:
+              ```json
+              "name": "Contoso API",
+              ```
     graders:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: (?is)(parse|syntax|JSON).*?\bline(?:\s+number)?\s*:?\s*\d+\b
+          pattern: '(?is)(parse|syntax|JSON).*?\bline(?:\s+number)?\s*:?\s*\d+\b'
       - type: output-matches
         config:
-          pattern: (?i)(missing comma|expected.*comma|add.*comma|unexpected)
-      - type: output-matches
+          pattern: '(?i)(missing comma|expected.*comma|add.*comma)'
+      - type: output-not-matches
         config:
-          pattern: (?i)(not ready|[1-9]\d*\s+errors?\b)
+          pattern: '(?i)(sourceName|description|classifications).*(warning|suggestion|missing)'
       - type: prompt
     rubric:
-      - The response identifies the malformed JSON and points to its location
-      - It gives the specific edit needed to make the file parse
-      - It does not continue with speculative semantic findings after parsing failed
-    constraints:
-      expect_tools:
-        - skill
+      - The parse failure includes an accurate line location and the missing comma correction
+      - The response stops after the parse result instead of inventing semantic findings
+      - The correction is the smallest fragment needed to make the document parse
 
-  - name: Validate discoverability metadata severity
+  - name: Separate discoverability warnings from optional suggestions
     prompt: |
-      Review `.template.config/template.json` before I publish this template.
-      Report errors, warnings, and suggestions with a concrete fix for each.
+      Review `.template.config/template.json` before I package it. Report errors,
+      warnings, and optional improvements separately, with a concrete fix for
+      each finding. Do not edit the file.
+    tags:
+      capability: severity-classification
+      risk: medium
+      journey: review-template-metadata
     environment:
       files:
         - src: ./fixtures/discoverability-metadata/.template.config/template.json
           dest: .template.config/template.json
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-validation-discoverability"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              ⚠️ Publishable but 1 warning.
+
+              | Severity | Location | Issue | Fix |
+              | --- | --- | --- | --- |
+              | WARNING | `sourceName` | `--name` cannot replace the source project name | Add `"sourceName": "Api"` using the source token present in the files |
+              | SUGGESTION | `description` | Search results have no summary | Add a short description of the generated API |
+              | SUGGESTION | `defaultName` | No fallback project name is supplied | Add `"defaultName": "Api"` |
+
+              0 errors, 1 warning, 2 suggestions.
     graders:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)sourceName
+          pattern: '(?i)sourceName'
       - type: output-matches
         config:
-          pattern: (?i)(description|defaultName)
+          pattern: '(?i)(description|defaultName)'
       - type: output-matches
         config:
-          pattern: \|.*\|
+          pattern: '(?i)(publishable|0 errors|no errors)'
       - type: output-matches
         config:
-          pattern: (?i)(publishable|0 errors|no errors)
+          pattern: '\|.*\|'
       - type: prompt
     rubric:
-      - Missing sourceName is reported as a warning and distinguished from optional discoverability metadata
-      - Missing description and defaultName are treated as optional improvements rather than errors
-      - Findings are severity-ordered and summarized accurately
-    constraints:
-      expect_tools:
-        - skill
+      - Missing sourceName is a warning with a concrete replacement token
+      - Missing description and defaultName are optional suggestions rather than errors
+      - The verdict, ordering, and totals match the actual findings
 
-  - name: Check every short name in an alias array
+  - name: Check every alias against live template commands
     prompt: |
-      This template has more than one short-name alias. Validate
-      `.template.config/template.json` against the installed SDK's command names
-      and tell me whether every alias is safe to publish.
+      This template has multiple short-name aliases. Check every alias in
+      `.template.config/template.json` against the installed SDK's `dotnet new`
+      commands and tell me whether each is safe. Do not edit the file.
+    tags:
+      capability: short-name-array-validation
+      risk: high
+      journey: verify-template-aliases
     environment:
       files:
         - src: ./fixtures/short-name-array/.template.config/template.json
           dest: .template.config/template.json
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-validation-short-name-array"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              ❌ Not ready — 1 error, 0 warnings.
+
+              I checked the live `Commands:` section from `dotnet new --help`.
+
+              | Severity | Location | Issue | Fix |
+              | --- | --- | --- | --- |
+              | ERROR | `shortName[1]` | `search` conflicts with a reserved `dotnet new` subcommand and is unsafe | Rename it to `acme-search-service` |
+              | INFO | `shortName[0]` | `acme-service` has no command conflict and is safe | No change required |
+
+              1 error, 0 warnings, 0 suggestions.
     graders:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)\bsearch\b.*(conflict|reserved|subcommand|rename|unsafe)
+          pattern: '(?i)\bsearch\b.*(conflict|reserved|subcommand|unsafe)'
       - type: output-matches
         config:
-          pattern: (?i)\bacme-service\b.*(safe|valid|no conflict|fine)
+          pattern: '(?i)\bacme-service\b.*(safe|valid|no conflict)'
       - type: output-matches
         config:
-          pattern: (?i)(dotnet new --help|Commands:)
+          pattern: '(?i)(dotnet new --help|Commands:)'
       - type: prompt
     rubric:
-      - Every alias is checked rather than treating the shortName array as one scalar
-      - The reserved search alias is rejected based on the installed SDK's dotnet new subcommands
-      - The non-conflicting alias is not incorrectly rejected
-      - A concrete replacement for the conflicting alias is supplied
-    constraints:
-      expect_tools:
-        - skill
+      - Every alias is evaluated independently against the installed SDK command set
+      - The reserved search alias is rejected while the non-conflicting alias is accepted
+      - A concrete distinctive replacement is supplied for the conflicting alias
 
-  - name: Find incomplete symbol definitions
+  - name: Find incomplete parameter definitions
     prompt: |
-      This template's custom parameters are not appearing in `dotnet new --help`.
-      Validate `.template.config/template.json`, focusing on every symbol definition,
-      and give exact fixes for anything incomplete.
+      The custom options from `.template.config/template.json` are not behaving
+      as expected. Validate every symbol and give exact fixes for incomplete
+      definitions. Do not edit the file.
+    tags:
+      capability: symbol-completeness-validation
+      risk: high
+      journey: diagnose-template-options
     environment:
       files:
         - src: ./fixtures/incomplete-symbols/.template.config/template.json
           dest: .template.config/template.json
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-validation-incomplete-symbols"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              ❌ Not ready — 2 errors, 0 warnings.
+
+              | Severity | Location | Issue | Fix |
+              | --- | --- | --- | --- |
+              | ERROR | `symbols.EnableCaching.type` | `EnableCaching` is missing its required symbol type | Add `"type": "parameter"` |
+              | ERROR | `symbols.Color.choices` | Choice parameter `Color` has an empty choices collection | Add entries such as `"Blue": { "displayName": "Blue" }` and `"Green": { "displayName": "Green" }` |
+
+              | WARNING | `symbols.Color.defaultValue` | Optional choice parameter has no default | Add a default after defining choices, such as `"defaultValue": "Blue"` |
+
+              2 errors, 1 warning, 0 suggestions.
     graders:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)EnableCaching.*(missing|no|required).*type
+          pattern: '(?i)EnableCaching.*(missing|required).*type'
       - type: output-matches
         config:
-          pattern: (?i)(Color|choice).*(empty|no choices|missing choices)
+          pattern: '(?i)(Color|choice).*(empty|no choices)'
       - type: output-matches
         config:
-          pattern: (?i)EnableCaching.*"type"\s*:\s*"parameter"
+          pattern: '(?i)EnableCaching.*"type"\s*:\s*"parameter"'
+      - type: output-matches
+        config:
+          pattern: '(?i)(Blue|Green).*displayName'
+      - type: output-matches
+        config:
+          pattern: '(?i)Color.*default'
       - type: prompt
     rubric:
-      - The symbol missing its required type is reported as an error with a concrete parameter type fix
-      - The choice parameter's empty choices object is reported as an error
-      - The response proposes actual choice entries rather than only restating that the object is empty
-      - Findings do not invent unrelated source-condition or prefix-collision errors
-    constraints:
-      expect_tools:
-        - skill
+      - The missing symbol type is reported as an error with a valid parameter-type fix
+      - The empty choice collection is reported as an error with concrete choice entries
+      - The optional choice parameter's missing default is reported separately as a warning
+      - The response does not invent unrelated source-condition or prefix-collision findings
 
   - name: Review post-action and constraint completeness
     prompt: |
-      Check `.template.config/template.json` before release. Pay particular
-      attention to whether its post-action can guide users when automation is
-      unavailable and whether its host constraint is complete.
+      Check `.template.config/template.json` before release. Focus on whether the
+      post-action gives users enough guidance and whether the host constraint is
+      complete. Do not edit the file.
+    tags:
+      capability: post-action-and-constraint-validation
+      risk: high
+      journey: review-template-execution-metadata
     environment:
       files:
         - src: ./fixtures/post-action-and-constraint/.template.config/template.json
           dest: .template.config/template.json
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-validation-post-action-constraint"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              ❌ Not ready — 1 error, 1 warning.
+
+              | Severity | Location | Issue | Fix |
+              | --- | --- | --- | --- |
+              | ERROR | `constraints.sdk-only.args` | The host constraint has no required args array | Add `"args": [{ "hostname": "dotnetcli" }]` |
+              | WARNING | `postActions[0].description` | The existing restore action has no user-facing description | Add `"description": "Restore NuGet packages."` |
+              | SUGGESTION | `postActions[0].manualInstructions` | IDE users have no fallback instructions | Add `[{ "text": "Run 'dotnet restore'." }]` |
+
+              The existing `actionId` and constraint `type` are present. 1 error, 1 warning, 1 suggestion.
     graders:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)post.?action.*description
+          pattern: '(?i)post.?action.*description'
       - type: output-matches
         config:
-          pattern: (?i)manualInstructions
+          pattern: '(?i)manualInstructions'
       - type: output-matches
         config:
-          pattern: (?i)constraint.*args
+          pattern: '(?i)constraint.*args'
       - type: output-matches
         config:
-          pattern: \|.*\|
+          pattern: '\|.*\|'
       - type: prompt
     rubric:
-      - Missing post-action description and manual instructions are reported separately
-      - The incomplete constraint is identified and given a specific args fix
-      - The existing actionId and constraint type are not falsely reported as missing
-      - The final totals match the findings
-    constraints:
-      expect_tools:
-        - skill
+      - Missing post-action description and manual fallback are reported separately with actionable fixes
+      - The host constraint's missing args is an error and the fix contains a supported hostname
+      - Existing actionId and constraint type fields are not falsely reported as missing
+
+  - name: Detect parameter-prefix and source-condition hazards
+    prompt: |
+      Review `.template.config/template.json` because option-dependent source
+      filtering behaves inconsistently. Check parameter naming and every source
+      condition, explain each risk, and give concrete corrections. Do not edit the
+      file.
+    tags:
+      capability: expression-ambiguity-validation
+      risk: high
+      journey: diagnose-source-filtering
+    environment:
+      files:
+        - src: ./fixtures/parameter-prefix-source-condition/.template.config/template.json
+          dest: .template.config/template.json
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-validation-prefix-condition"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              ⚠️ Publishable but 2 warnings.
+
+              | Severity | Location | Issue | Fix |
+              | --- | --- | --- | --- |
+              | WARNING | `symbols.Auth`, `symbols.AuthMode` | `Auth` is a prefix of `AuthMode`, which makes expression references ambiguous | Rename `Auth` to `UseAuth` or `AuthMode` to `AuthenticationMode` |
+              | WARNING | `sources[0].modifiers[0].condition` | `Auth && AuthMode == "Bearer"` uses bare symbol names | Write `(UseAuth) && ((AuthenticationMode) == "Bearer")` after the rename |
+
+              0 errors, 2 warnings, 0 suggestions.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: '(?i)Auth.*prefix.*AuthMode|AuthMode.*prefix.*Auth'
+      - type: output-matches
+        config:
+          pattern: '(?i)condition.*(parentheses|bare symbol)'
+      - type: output-matches
+        config:
+          pattern: '\(UseAuth\).*\(AuthenticationMode\)'
+      - type: prompt
+    rubric:
+      - The parameter-prefix collision is identified as a warning with a non-colliding rename
+      - The bare-symbol source condition is independently identified and rewritten with parenthesized symbol references
+      - The response does not turn either warning into a fabricated required-field error
+
+  - name: Defer creation from an existing project to authoring
+    prompt: |
+      I have an existing project at `src/Orders/Orders.csproj` and want to turn it
+      into a reusable `dotnet new` template for our team. There is no
+      template.json yet. Explain what files and metadata you would create, but do
+      not edit anything yet.
+    tags:
+      capability: dormancy-custom-template-authoring
+      risk: routing
+      journey: respect-authoring-boundary
+    expect_activation: false
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-validation-dormancy-authoring"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a template-creation task, not validation of an existing manifest. I would first copy the project into a dedicated template-source directory, preserve its SDK, properties, package metadata, and repository conventions, then add `.template.config/template.json` with a unique identity, team-facing name and short name, `sourceName` `Orders`, classifications, and C# project tags. After review, the next step would be an isolated local install and renamed instantiation. No files were edited because you asked for a plan only.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: '(?i)(template.?creation|authoring).*(not validation|no manifest|no template\.json)'
+      - type: output-matches
+        config:
+          pattern: '(?i)\.template\.config/template\.json'
+      - type: output-matches
+        config:
+          pattern: '(?i)sourceName.*Orders'
+      - type: output-not-matches
+        config:
+          pattern: '(?i)(ready to publish|not ready).*\d+\s+(error|warning)'
+      - type: prompt
+    rubric:
+      - The response recognizes that no manifest exists to validate and treats the request as template creation
+      - It outlines preservation of the source project's conventions and the required new manifest metadata
+      - It respects the no-edit request and redirects to the authoring workflow without running validation
+      - The validation skill stayed dormant instead of hijacking the authoring request

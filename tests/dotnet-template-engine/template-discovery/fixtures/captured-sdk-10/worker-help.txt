@@ -1,0 +1,17 @@
+Captured with .NET SDK 10.0.100
+Command: dotnet new worker --help
+
+Worker Service (C#)
+Options:
+  -f|--framework <net8.0|net9.0|net10.0>
+      Target framework.
+      Default: net10.0
+  --aot
+      Enable native AOT publishing.
+      Default: false
+  --use-program-main
+      Generate an explicit Program class and Main method.
+      Default: false
+
+No Windows Service option is exposed by this template. Windows Service hosting
+is configured after creation, for example with Microsoft.Extensions.Hosting.WindowsServices.

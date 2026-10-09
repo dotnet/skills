@@ -2,11 +2,13 @@
 name: template-instantiation
 description: >
   Creates .NET projects from templates with validated parameters, smart defaults,
-  Central Package Management adaptation, and latest NuGet version resolution.
+  and Central Package Management adaptation.
   USE FOR: creating new dotnet projects, scaffolding solutions with multiple projects,
+  safely repeating a creation request when the destination may already contain the
+  requested project and must not be overwritten,
   installing or uninstalling template packages, creating projects that respect
   Directory.Packages.props (CPM), composing multi-project solutions (API + tests + library),
-  getting latest NuGet package versions in newly created projects.
+  and verifying generated projects.
   DO NOT USE FOR: finding templates (use template-discovery), producing a detailed
   side-by-side comparison of templates (use template-comparison), authoring custom
   templates (use template-authoring), deciding
@@ -29,6 +31,7 @@ This skill creates .NET projects from templates using `dotnet new` CLI commands,
 | Situation | Required action |
 |-----------|-----------------|
 | Simple standalone project | inspect only the requested template, create at the exact path, then build |
+| Requested destination already contains the project | inspect the existing project type, target framework, and key source files; if it already matches, do not run `dotnet new`, do not overwrite, and build the existing project as the verification |
 | Existing neighboring projects | read their TFMs first and pass the matching supported `--framework` explicitly |
 | `Directory.Packages.props` found | create with `--no-restore` when supported, normalize generated package references, then restore/build once |
 | Multi-project solution | create each project at its final path, add references, add all projects to the solution, then build the solution once |

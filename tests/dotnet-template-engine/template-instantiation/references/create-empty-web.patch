@@ -1,0 +1,50 @@
+diff --git a/src/Status.Web/Program.cs b/src/Status.Web/Program.cs
+new file mode 100644
+--- /dev/null
++++ b/src/Status.Web/Program.cs
+@@ -0,0 +1,6 @@
++var builder = WebApplication.CreateBuilder(args);
++var app = builder.Build();
++
++app.MapGet("/", () => "Hello World!");
++
++app.Run();
+diff --git a/src/Status.Web/Status.Web.csproj b/src/Status.Web/Status.Web.csproj
+new file mode 100644
+--- /dev/null
++++ b/src/Status.Web/Status.Web.csproj
+@@ -0,0 +1,7 @@
++<Project Sdk="Microsoft.NET.Sdk.Web">
++  <PropertyGroup>
++    <TargetFramework>net10.0</TargetFramework>
++    <Nullable>enable</Nullable>
++    <ImplicitUsings>enable</ImplicitUsings>
++  </PropertyGroup>
++</Project>
+diff --git a/src/Status.Web/appsettings.Development.json b/src/Status.Web/appsettings.Development.json
+new file mode 100644
+--- /dev/null
++++ b/src/Status.Web/appsettings.Development.json
+@@ -0,0 +1,8 @@
++{
++  "Logging": {
++    "LogLevel": {
++      "Default": "Information",
++      "Microsoft.AspNetCore": "Warning"
++    }
++  }
++}
+diff --git a/src/Status.Web/appsettings.json b/src/Status.Web/appsettings.json
+new file mode 100644
+--- /dev/null
++++ b/src/Status.Web/appsettings.json
+@@ -0,0 +1,9 @@
++{
++  "Logging": {
++    "LogLevel": {
++      "Default": "Information",
++      "Microsoft.AspNetCore": "Warning"
++    }
++  },
++  "AllowedHosts": "*"
++}

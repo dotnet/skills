@@ -3,228 +3,575 @@ description: Evaluates the dotnet-template-engine/template-authoring skill
 type: capability
 defaults:
   timeout: 6m
+environment:
+  env:
+    XDG_DATA_HOME: .xdg-data
+    LOCALAPPDATA: .local-app-data
+    DOTNET_NOLOGO: "1"
+  files:
+    - src: ./fixtures/global.json
+      dest: global.json
+  commands:
+    - >-
+      node -e "const fs=require('fs');
+      fs.mkdirSync('.xdg-data/NuGet/Migrations',{recursive:true});
+      fs.writeFileSync('.xdg-data/NuGet/Migrations/1','');
+      fs.mkdirSync('.local-app-data/NuGet/Migrations',{recursive:true});
+      fs.writeFileSync('.local-app-data/NuGet/Migrations/1','');"
 stimuli:
-  - name: Add a choice parameter with conditional project content
+  - name: Add a conditional database choice
     prompt: |
-      I'm authoring a reusable `dotnet new` web API template. Add a `database`
-      choice parameter with `None`, `SqlServer`, and `Postgres` choices, defaulting
-      to `None`. Show the complete `symbols` entry and the conditional project-file
-      content needed so only the selected provider's package reference is emitted.
-      Include useful display names and descriptions.
+      Show the complete `symbols.database` entry for a web API template with
+      `None`, `SqlServer`, and `Postgres` choices, defaulting to `None`. Also show
+      the project-file fragment that emits only the selected provider package.
+    tags:
+      capability: conditional-choice-parameter
+      risk: high
+      journey: refine-template-options
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-authoring-choice"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Under `symbols`, use this complete entry:
+              ```json
+              "database": {
+                "type": "parameter",
+                "datatype": "choice",
+                "defaultValue": "None",
+                "displayName": "Database provider",
+                "description": "Select the database provider to include.",
+                "choices": {
+                  "None": { "displayName": "None", "description": "Do not add a provider package." },
+                  "SqlServer": { "displayName": "SQL Server", "description": "Use Microsoft SQL Server." },
+                  "Postgres": { "displayName": "PostgreSQL", "description": "Use PostgreSQL." }
+                }
+              }
+              ```
+              In the source `.csproj`, use valid XML-comment directives:
+              ```xml
+              <!--#if (database == "SqlServer") -->
+              <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+              <!--#endif -->
+              <!--#if (database == "Postgres") -->
+              <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+              <!--#endif -->
+              ```
+              `None` emits neither reference.
     graders:
-      - type: exit-success
       - type: output-matches
-        config:
-          pattern: (?i)"database"
+        config: { pattern: '(?is)"database".*"datatype"\s*:\s*"choice"' }
       - type: output-matches
-        config:
-          pattern: (?i)(SqlServer|Postgres)
+        config: { pattern: '(?i)(SqlServer|Postgres)' }
       - type: output-matches
-        config:
-          pattern: (?i)"datatype"\s*:\s*"choice"
-      - type: output-matches
-        config:
-          pattern: (?i)(#if|"condition"\s*:)
+        config: { pattern: '<!--#if' }
       - type: prompt
     rubric:
-      - The parameter definition is complete, has the requested choices and default, and includes user-facing descriptions
-      - Conditional template content includes exactly the package reference selected by the parameter
-      - The response explains where each snippet belongs in the template source
-    constraints:
-      expect_tools:
-        - skill
-  - name: Create template from existing project
-    prompt: I have an existing xUnit test project at ./test-output/MyTests/MyTests.csproj. Create a reusable template from
-      it so my team can use it for new test projects. The template should be called 'Team Test Project'.
+      - The parameter has all requested choices, a None default, and useful descriptions
+      - Conditional content emits only the selected package and remains valid XML
+
+  - name: Create a template from an existing test project
+    prompt: |
+      Turn `test-output/MyTests/` into a reusable template named
+      `Team Test Project`. Keep the original untouched, create the finished
+      template under `template-source/MyTests/`, use `team-tests` as the short
+      name, preserve project conventions, and verify a renamed local creation.
+    tags:
+      capability: create-from-existing-project
+      risk: high
+      journey: create-and-verify-template
     environment:
       files:
-        - src: ./fixtures/create-template-from-existing-project/test-output/MyTests/MyTests.csproj
-          dest: test-output/MyTests/MyTests.csproj
-        - src: ./fixtures/create-template-from-existing-project/test-output/MyTests/UnitTest1.cs
-          dest: test-output/MyTests/UnitTest1.cs
+        - src: ./fixtures/create-template-from-existing-project/test-output/MyTests
+          dest: test-output/MyTests
+    golden_patch:
+      path: ./references/create-from-project.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-authoring-create-project"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Created `template-source/MyTests/` with a complete manifest for **Team Test Project**, short name `team-tests`, and `sourceName` `MyTests`. The copied project keeps `TreatWarningsAsErrors`, package versions, `IncludeAssets`, and `PrivateAssets`; the original is unchanged. An isolated-hive install succeeded, and `--name TeamOrders` generated `TeamOrders.csproj` with namespace `TeamOrders`.
     graders:
-      - type: exit-success
-      - type: output-contains
+      - type: file-exists
+        config: { path: template-source/MyTests/.template.config/template.json }
+      - type: file-contains
+        config: { path: template-source/MyTests/.template.config/template.json, value: Team Test Project }
+      - type: file-contains
+        config: { path: template-source/MyTests/MyTests.csproj, value: TreatWarningsAsErrors }
+      - type: file-contains
+        config: { path: template-source/MyTests/MyTests.csproj, value: PrivateAssets }
+      - type: run-command
         config:
-          substring: Team Test Project
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require('fs');
+              const path = require('path');
+              const { spawnSync } = require('child_process');
+              function run(args) {
+                const result = spawnSync('dotnet', args, { encoding: 'utf8' });
+                if (result.status !== 0) {
+                  throw new Error((result.stdout ?? '') + (result.stderr ?? ''));
+                }
+                return (result.stdout ?? '') + (result.stderr ?? '');
+              }
+              fs.rmSync('.eval/create-hive', { recursive: true, force: true });
+              fs.rmSync('.eval/generated', { recursive: true, force: true });
+              fs.mkdirSync('.eval', { recursive: true });
+              const hive = path.resolve('.eval/create-hive');
+              run(['new', '--debug:custom-hive', hive, 'install',
+                path.resolve('template-source/MyTests'), '--force']);
+              run(['new', '--debug:custom-hive', hive, 'team-tests',
+                '--name', 'TeamOrders', '--output', path.resolve('.eval/generated'), '--force']);
+              const project = fs.readFileSync('.eval/generated/TeamOrders.csproj', 'utf8');
+              const test = fs.readFileSync('.eval/generated/UnitTest1.cs', 'utf8');
+              if (!project.includes('TreatWarningsAsErrors') ||
+                  !project.includes('PrivateAssets') ||
+                  !test.includes('namespace TeamOrders')) {
+                throw new Error('Generated project did not preserve source conventions');
+              }
+          expected_exit_code: 0
+          timeout: 3m
       - type: output-matches
-        config:
-          pattern: (?i)(template\.json|sourceName|\.template\.config)
+        config: { pattern: '(?i)Team Test Project' }
       - type: prompt
+        config:
+          evidence: [trajectory, diff]
     rubric:
-      - The agent preserved the project conventions (TreatWarningsAsErrors, package references with PrivateAssets)
-      - The agent set the template name to 'Team Test Project'
-      - The agent explained how to install and use the generated template
-    constraints:
-      expect_tools:
-        - skill
+      - A complete installable template is created separately from the unchanged source
+      - Requested metadata and source-name replacement work during isolated local creation
+      - Warning and package-reference metadata remain intact
 
-  - name: Package project templates for NuGet distribution
+  - name: Package two templates for local distribution
     prompt: |
-      I have two custom project templates under `templates/Worker` and
-      `templates/WebApi`, each with its own `.template.config/template.json`.
-      Create the packaging project content needed to ship both in a NuGet package
-      named `Contoso.ProjectTemplates`, and give me the pack, local install, and
-      verification commands.
+      Add `Contoso.ProjectTemplates.csproj` for the templates under
+      `templates/Worker` and `templates/WebApi`. Pack version `1.0.0`, install the
+      resulting package into an isolated template hive, and verify both short
+      names. Do not publish anything.
+    tags:
+      capability: package-multiple-templates
+      risk: high
+      journey: package-and-verify-locally
     environment:
       files:
-        - src: ./fixtures/package-project-templates/templates/Worker/.template.config/template.json
-          dest: templates/Worker/.template.config/template.json
-        - src: ./fixtures/package-project-templates/templates/Worker/Program.cs
-          dest: templates/Worker/Program.cs
-        - src: ./fixtures/package-project-templates/templates/Worker/Worker.csproj
-          dest: templates/Worker/Worker.csproj
-        - src: ./fixtures/package-project-templates/templates/WebApi/.template.config/template.json
-          dest: templates/WebApi/.template.config/template.json
-        - src: ./fixtures/package-project-templates/templates/WebApi/Program.cs
-          dest: templates/WebApi/Program.cs
-        - src: ./fixtures/package-project-templates/templates/WebApi/WebApi.csproj
-          dest: templates/WebApi/WebApi.csproj
+        - src: ./fixtures/package-project-templates
+          dest: .
+    golden_patch:
+      path: ./references/package-project-templates.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-authoring-package"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Added a content-only `Contoso.ProjectTemplates.csproj` with version `1.0.0`, `<PackageType>Template</PackageType>`, and both template trees below `content/`. `dotnet pack` produced the `.nupkg`; installation in an isolated template hive listed `contoso-worker` and `contoso-webapi`. No external publish was attempted.
     graders:
-      - type: exit-success
-      - type: output-matches
+      - type: file-exists
+        config: { path: Contoso.ProjectTemplates.csproj }
+      - type: file-contains
+        config: { path: Contoso.ProjectTemplates.csproj, value: <PackageType>Template</PackageType> }
+      - type: file-contains
+        config: { path: Contoso.ProjectTemplates.csproj, value: 'PackagePath="content\"' }
+      - type: run-command
         config:
-          pattern: (?i)<PackageType>\s*Template\s*</PackageType>
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require('fs');
+              const path = require('path');
+              const { spawnSync } = require('child_process');
+              function run(args) {
+                const result = spawnSync('dotnet', args, { encoding: 'utf8' });
+                if (result.status !== 0) {
+                  throw new Error((result.stdout ?? '') + (result.stderr ?? ''));
+                }
+                return (result.stdout ?? '') + (result.stderr ?? '');
+              }
+              fs.rmSync('.eval/package-hive', { recursive: true, force: true });
+              fs.rmSync('.eval/pkg', { recursive: true, force: true });
+              fs.mkdirSync('.eval/pkg', { recursive: true });
+              run(['pack', 'Contoso.ProjectTemplates.csproj', '-o', '.eval/pkg', '-nologo']);
+              const packagePath = path.resolve('.eval/pkg/Contoso.ProjectTemplates.1.0.0.nupkg');
+              if (!fs.existsSync(packagePath)) throw new Error('Template package was not created');
+              const hive = path.resolve('.eval/package-hive');
+              run(['new', '--debug:custom-hive', hive, 'install', packagePath, '--force']);
+              const list = run(['new', '--debug:custom-hive', hive, 'list']);
+              if (!list.includes('contoso-worker') || !list.includes('contoso-webapi')) {
+                throw new Error('Installed package did not expose both templates');
+              }
+          expected_exit_code: 0
+          timeout: 4m
       - type: output-matches
-        config:
-          pattern: (?i)<Content[^\r\n]*(templates|PackagePath)
+        config: { pattern: '(?i)(dotnet pack|\.nupkg)' }
       - type: output-matches
-        config:
-          pattern: (?i)dotnet pack
-      - type: output-matches
-        config:
-          pattern: (?i)dotnet new install
+        config: { pattern: '(?i)(isolated|custom).*(hive|template)' }
       - type: prompt
+        config:
+          evidence: [trajectory, diff]
     rubric:
-      - The packaging project includes both template directories in the NuGet package's content folder
-      - Package metadata marks the package for template distribution
-      - Commands cover packing, installing the produced package, and verifying its templates
-      - The response does not confuse template packaging with publishing an ordinary library package
-    constraints:
-      expect_tools:
-        - skill
+      - The package is content-only, marked as a template package, and contains both templates
+      - Packing and isolated installation verify both aliases without external publishing
 
-  - name: Add a safe restore post-action
+  - name: Define a safe restore post-action
     prompt: |
-      I'm adding a restore post-action to a custom project template. Write the
-      `postActions` entry so command-line users can restore the generated project,
-      IDE users still get clear manual instructions if the action cannot run, and
-      the action has the required identifier and description. Explain any token or
-      argument used.
+      Show a complete restore `postActions` entry with a command-line action,
+      clear IDE fallback instructions, and a safe way to select the generated
+      project. Explain the path behavior.
+    tags:
+      capability: restore-post-action
+      risk: high
+      journey: add-generation-post-action
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-authoring-restore"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use this complete manifest fragment:
+              ```json
+              "primaryOutputs": [
+                { "path": "MyProject.csproj" }
+              ],
+              "postActions": [
+                {
+                  "description": "Restore NuGet packages.",
+                  "manualInstructions": [
+                    { "text": "Run 'dotnet restore' in the generated project directory." }
+                  ],
+                  "actionId": "210D431B-A78B-4D2F-B762-4ED3E3EA9025",
+                  "continueOnError": true,
+                  "args": {
+                    "files": ["MyProject.csproj"]
+                  }
+                }
+              ]
+              ```
+              `args.files` names the specific source-template project path and is mapped through `sourceName` renames, so the restore action receives the generated project path safely without selecting unrelated projects. `primaryOutputs` also records the main output for hosts and can be used as the restore fallback when `args.files` is omitted. The restore action does not use an `"executable"` script field.
     graders:
-      - type: exit-success
       - type: output-matches
-        config:
-          pattern: (?i)"actionId"
+        config: { pattern: '(?i)"actionId"' }
       - type: output-matches
-        config:
-          pattern: (?i)"manualInstructions"
+        config: { pattern: '(?i)"manualInstructions"' }
       - type: output-matches
-        config:
-          pattern: (?i)"description"
-      - type: output-matches
-        config:
-          pattern: (?i)(restore|dotnet restore)
-      - type: prompt
-    rubric:
-      - The post-action is structurally complete and uses the restore action rather than an unrelated script
-      - Manual instructions give users a concrete fallback when automatic execution is unavailable
-      - The response explains how the generated project path is passed safely
-    constraints:
-      expect_tools:
-        - skill
-
-  - name: Restrict and classify an SDK-specific template
-    prompt: |
-      I'm authoring a project template that only works with the .NET SDK and emits
-      C# web projects. Show the `constraints`, `classifications`, and `tags` portions
-      of template.json so incompatible hosts are filtered and `dotnet new list`
-      searches can find it by language and project type. Use a current SDK-version
-      constraint without pinning my template to one machine's exact patch version.
-    graders:
-      - type: exit-success
-      - type: output-matches
-        config:
-          pattern: (?i)"constraints"
-      - type: output-matches
-        config:
-          pattern: (?i)"type"\s*:\s*"project"
-      - type: output-matches
-        config:
-          pattern: (?i)"language"\s*:\s*"C#"
-      - type: output-matches
-        config:
-          pattern: (?i)(sdk|version)
-      - type: prompt
-    rubric:
-      - The constraint is expressed with valid template-engine structure and does not hardcode a machine-specific SDK patch
-      - Classifications and tags make the template discoverable as a C# web project
-      - The response distinguishes host compatibility constraints from ordinary template parameters
-    constraints:
-      expect_tools:
-        - skill
-
-  - name: Author a reusable item template
-    prompt: |
-      Create the template.json for a `dotnet new` item template that generates a
-      C# repository class from `Repository.cs`. The short name should be
-      `repository`, `--name OrderRepository` should rename the class and file, and
-      the template should be discoverable as a C# item template. Include the source
-      file content and local install/dry-run commands.
-    graders:
-      - type: exit-success
-      - type: output-matches
-        config:
-          pattern: (?i)"shortName"\s*:\s*"repository"
-      - type: output-matches
-        config:
-          pattern: (?i)"sourceName"\s*:\s*"Repository"
-      - type: output-matches
-        config:
-          pattern: (?i)"type"\s*:\s*"item"
-      - type: output-matches
-        config:
-          pattern: (?i)dotnet new repository.*dry-run
-      - type: prompt
-    rubric:
-      - The complete configuration describes an item template rather than a project template
-      - Name replacement covers both the generated class and file name
-      - The supplied commands test the template without creating an unintended project structure
-    constraints:
-      expect_tools:
-        - skill
-
-  - name: Preserve central package management conventions
-    prompt: |
-      Our repository uses `Directory.Packages.props`; project files contain
-      `<PackageReference Include="Serilog" />` with no inline version. I want a
-      reusable project template based on that layout. Show the complete
-      template.json and packaging layout, and explain how the central props file
-      and versionless PackageReference must be handled so generated projects keep
-      using central package management.
-    graders:
-      - type: exit-success
-      - type: output-matches
-        config:
-          pattern: (?i)Directory\.Packages\.props
-      - type: output-matches
-        config:
-          pattern: (?i)PackageReference
+        config: { pattern: '(?i)(primaryOutputs|args.*files)' }
       - type: output-not-matches
-        config:
-          pattern: <PackageReference\b[^>]*\bVersion\s*=
-      - type: output-matches
-        config:
-          pattern: (?i)"identity"
-      - type: output-matches
-        config:
-          pattern: (?i)"sourceName"
+        config: { pattern: '(?i)"executable"\s*:' }
       - type: prompt
     rubric:
-      - The template preserves central package management instead of introducing inline package versions
-      - The answer makes the generated project's dependency on the central props file explicit
-      - The template configuration is complete enough to install and instantiate, not a generic stub
-      - The packaging layout includes all files needed for the convention to survive
-    constraints:
-      expect_tools:
-        - skill
+      - The restore action has its identifier, description, manual fallback, and a valid project selector
+      - Path selection accounts for source-to-output renaming and avoids script-only fields
+
+  - name: Define host and SDK compatibility
+    prompt: |
+      Show `constraints`, `classifications`, and `tags` for a C# web project
+      template that runs only from the dotnet CLI and requires SDK 9.0.100 or
+      newer without pinning one exact installed patch.
+    tags:
+      capability: host-and-sdk-constraints
+      risk: high
+      journey: define-template-compatibility
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-authoring-constraints"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use classifications such as `["Web", "API"]`, C# project tags, a host constraint with `"type": "host"` and `"args": [{ "hostname": "dotnetcli" }]`, plus an SDK constraint with `"type": "sdk-version"` and `"args": "[9.0.100,)"`. The range sets a minimum and does not bind the template to one patch.
+    graders:
+      - type: output-matches
+        config: { pattern: '(?i)"type"\s*:\s*"host"' }
+      - type: output-matches
+        config: { pattern: '(?i)"hostname"\s*:\s*"dotnetcli"' }
+      - type: output-matches
+        config: { pattern: '(?i)"type"\s*:\s*"sdk-version"' }
+      - type: output-matches
+        config: { pattern: '\[9\.0\.100,\)' }
+      - type: prompt
+    rubric:
+      - Host and SDK restrictions use valid, separate constraint structures
+      - Discoverability metadata identifies a C# web project and the SDK range is not an exact patch
+
+  - name: Create a reusable item template
+    prompt: |
+      Add `.template.config/template.json` for `item-template/Repository.cs`.
+      The short name is `repository`; `--name OrderRepository` must rename the
+      class and file. Verify it through an isolated local install and creation.
+    tags:
+      capability: create-item-template
+      risk: high
+      journey: create-and-verify-item-template
+    environment:
+      files:
+        - src: ./fixtures/item-template
+          dest: item-template
+    golden_patch:
+      path: ./references/create-item-template.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-authoring-item"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Added a C# item-template manifest with short name `repository` and `sourceName` `Repository`. Isolated installation succeeded; creating with `--name OrderRepository` produced `OrderRepository.cs` containing `class OrderRepository`.
+    graders:
+      - type: file-exists
+        config: { path: item-template/.template.config/template.json }
+      - type: file-contains
+        config: { path: item-template/.template.config/template.json, value: '"sourceName": "Repository"' }
+      - type: file-contains
+        config: { path: item-template/.template.config/template.json, value: '"type": "item"' }
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require('fs');
+              const path = require('path');
+              const { spawnSync } = require('child_process');
+              function run(args) {
+                const result = spawnSync('dotnet', args, { encoding: 'utf8' });
+                if (result.status !== 0) {
+                  throw new Error((result.stdout ?? '') + (result.stderr ?? ''));
+                }
+              }
+              fs.rmSync('.eval/item-hive', { recursive: true, force: true });
+              fs.rmSync('.eval/item-output', { recursive: true, force: true });
+              fs.mkdirSync('.eval', { recursive: true });
+              const hive = path.resolve('.eval/item-hive');
+              run(['new', '--debug:custom-hive', hive, 'install',
+                path.resolve('item-template'), '--force']);
+              run(['new', '--debug:custom-hive', hive, 'repository',
+                '--name', 'OrderRepository', '--output',
+                path.resolve('.eval/item-output'), '--force']);
+              const source = fs.readFileSync('.eval/item-output/OrderRepository.cs', 'utf8');
+              if (!source.includes('class OrderRepository')) {
+                throw new Error('Item template did not replace the class and file name');
+              }
+          expected_exit_code: 0
+          timeout: 3m
+      - type: output-matches
+        config: { pattern: '(?i)(isolated|custom).*(install|hive)' }
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - The manifest is a complete C# item template with working class and file replacement
+      - Verification uses an isolated hive and proves the requested generated artifact
+
+  - name: Preserve central package management
+    prompt: |
+      Show a complete template manifest and file layout for a source tree that
+      uses root `Directory.Packages.props` and versionless project
+      `PackageReference` items. Explain what must stay together after generation.
+    tags:
+      capability: preserve-central-package-management
+      risk: high
+      journey: retain-repository-conventions
+    golden_trajectory:
+      path: ./references/preserve-cpm.trajectory.json
+    graders:
+      - type: output-matches
+        config: { pattern: '(?i)Directory\.Packages\.props' }
+      - type: output-matches
+        config: { pattern: '(?i)ManagePackageVersionsCentrally' }
+      - type: output-matches
+        config: { pattern: '<PackageReference\s+Include="Serilog"\s*/>' }
+      - type: output-not-matches
+        config: { pattern: '<PackageReference\b[^>]*\bVersion\s*=' }
+      - type: output-matches
+        config: { pattern: '(?i)"sourceName"' }
+      - type: prompt
+    rubric:
+      - The generated layout preserves central package lookup and matching package versions
+      - Project references remain versionless and the manifest supports replacement and discovery
+
+  - name: Leave a correct template unchanged
+    prompt: |
+      Review `ready-template/`. Do not rewrite files for style; change something
+      only if installation or project-name replacement is broken. Report local
+      verification and leave a correct template unchanged.
+    tags:
+      capability: idempotent-authoring-review
+      risk: medium
+      journey: verify-without-churn
+    environment:
+      files:
+        - src: ./fixtures/already-correct-template
+          dest: ready-template
+      commands:
+        - >-
+          node -e "const fs=require('fs');const path=require('path');
+          const crypto=require('crypto');const root='ready-template';const hashes={};
+          function walk(dir){for(const entry of fs.readdirSync(dir,{withFileTypes:true})){
+          const full=path.join(dir,entry.name);if(entry.isDirectory())walk(full);
+          else hashes[path.relative(root,full).split(path.sep).join('/')]=
+          crypto.createHash('sha256').update(fs.readFileSync(full)).digest('hex');}}
+          walk(root);fs.mkdirSync('.eval',{recursive:true});
+          fs.writeFileSync('.eval/ready-hashes',JSON.stringify(hashes));"
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-authoring-noop"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I will verify the existing template without changing it.
+            tool_calls:
+              - tool_call_id: call_verify_template
+                function_name: bash
+                arguments:
+                  command: >-
+                    dotnet new install ./ready-template --debug:custom-hive ./.eval/ready-hive
+                    && dotnet new ready-service --name SampleService
+                    --output ./.eval/ready-output --debug:custom-hive ./.eval/ready-hive
+            observation:
+              results:
+                - source_call_id: call_verify_template
+                  content: >-
+                    Template installed. SampleService.csproj and Program.cs were generated
+                    with the SampleService name.
+          - step_id: 2
+            source: agent
+            message: |-
+              No changes were needed. The complete metadata and `sourceName` are valid. An isolated-hive install succeeded, and `--name SampleService` produced `SampleService.csproj` with namespace `SampleService`. The template files remain unchanged.
+    graders:
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require('fs');
+              const path = require('path');
+              const crypto = require('crypto');
+              const root = 'ready-template';
+              const actual = {};
+              function walk(dir) {
+                for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                  const full = path.join(dir, entry.name);
+                  if (entry.isDirectory()) walk(full);
+                  else actual[path.relative(root, full).split(path.sep).join('/')] =
+                    crypto.createHash('sha256').update(fs.readFileSync(full)).digest('hex');
+                }
+              }
+              walk(root);
+              const expected = JSON.parse(fs.readFileSync('.eval/ready-hashes', 'utf8'));
+              if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+                throw new Error('The already-correct template was modified');
+              }
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require('fs');
+              const path = require('path');
+              const { spawnSync } = require('child_process');
+              function run(args) {
+                const result = spawnSync('dotnet', args, { encoding: 'utf8' });
+                if (result.status !== 0) {
+                  throw new Error((result.stdout ?? '') + (result.stderr ?? ''));
+                }
+              }
+              fs.rmSync('.eval/ready-hive', { recursive: true, force: true });
+              fs.rmSync('.eval/ready-output', { recursive: true, force: true });
+              const hive = path.resolve('.eval/ready-hive');
+              run(['new', '--debug:custom-hive', hive, 'install',
+                path.resolve('ready-template'), '--force']);
+              run(['new', '--debug:custom-hive', hive, 'ready-service',
+                '--name', 'SampleService', '--output',
+                path.resolve('.eval/ready-output'), '--force']);
+              if (!fs.existsSync('.eval/ready-output/SampleService.csproj') ||
+                  !fs.readFileSync('.eval/ready-output/Program.cs', 'utf8')
+                    .includes('namespace SampleService')) {
+                throw new Error('Installed template did not replace the project name');
+              }
+          expected_exit_code: 0
+          timeout: 3m
+      - type: output-matches
+        config: { pattern: '(?i)(no changes|unchanged|already correct)' }
+      - type: prompt
+    rubric:
+      - The already-correct template stays byte-for-byte unchanged
+      - Isolated installation and renamed creation verify correctness without normal-hive changes
+
+  - name: Keep authoring dormant for standalone validation
+    prompt: |
+      Review `ready-template/.template.config/template.json` for errors and
+      warnings only. The template already exists; do not edit or scaffold files.
+    tags:
+      capability: dormancy-standalone-validation
+      risk: routing
+      journey: respect-validation-boundary
+    expect_activation: false
+    environment:
+      files:
+        - src: ./fixtures/already-correct-template
+          dest: ready-template
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-authoring-dormancy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I will inspect the existing manifest without authoring or changing it.
+            tool_calls:
+              - tool_call_id: call_read_manifest
+                function_name: bash
+                arguments:
+                  command: cat ready-template/.template.config/template.json
+            observation:
+              results:
+                - source_call_id: call_read_manifest
+                  content: >-
+                    Valid JSON with identity, name, shortName, sourceName, author,
+                    classifications, and C# project tags.
+          - step_id: 2
+            source: agent
+            message: |-
+              ✅ Ready to publish — 0 errors, 0 warnings.
+
+              | Severity | Location | Issue | Fix |
+              | --- | --- | --- | --- |
+              | — | — | No findings | No change required |
+
+              Required and discoverability metadata are complete. The existing manifest was not edited or scaffolded.
+    graders:
+      - type: output-matches
+        config: { pattern: '(?i)(ready to publish|0 errors)' }
+      - type: output-matches
+        config: { pattern: '\|.*\|' }
+      - type: prompt
+    rubric:
+      - The response performs validation only and does not run an authoring or scaffolding workflow
+      - It reports the valid manifest accurately and leaves files unchanged
+      - The authoring skill stayed dormant for this standalone validation request
