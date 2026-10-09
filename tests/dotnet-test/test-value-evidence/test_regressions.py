@@ -134,9 +134,10 @@ class EvidenceCalibration(unittest.TestCase):
             ("unverified", "release proven"),
             ("equivalent", "survived"),
             ("static: predicts detection", "executed: detected"),
+            ("old nonnegative assertion accepts 10", "old nonnegative assertion rejects 10"),
         ]
         for stimulus, (original, replacement) in zip(
-            SPEC["stimuli"][:9], defects, strict=True
+            SPEC["stimuli"][:10], defects, strict=True
         ):
             with self.subTest(stimulus=stimulus["name"]):
                 response = golden_document(stimulus)["steps"][-1]["message"]
@@ -148,6 +149,20 @@ class EvidenceCalibration(unittest.TestCase):
                         "CS1061 proves the behavior is protected when Export is deleted."
                     )
                 self.assertTrue(self.response_errors(stimulus, broken))
+        test_only = SPEC["stimuli"][9]
+        self.assertTrue(self.response_errors(
+            test_only,
+            "**Test-value evidence:** static. Test-only assertion: the old assertion rejects 10.",
+        ))
+        for wording in (
+            "Old >= 0 accepts 10; new == 0 rejects it.",
+            "The original assertion remains true for 10. The exact assertion fails for 10.",
+            "The old assertion accepts the wrong boundary value 10; the new assertion detects it.",
+        ):
+            with self.subTest(test_only_wording=wording):
+                self.assertEqual([], self.response_errors(
+                    test_only, "**Test-value evidence:** static. " + wording
+                ))
 
     def test_actual_defect_and_restored_green_use_the_same_tests(self):
         root = self.materialize()
