@@ -1,6 +1,6 @@
 ---
 name: assertion-quality
-description: "Analyze assertion quality, depth, variety, and false confidence in existing tests. ALWAYS USE when asked about weak, shallow, trivial, always-true, self-referential, assertion-free, presence/truthiness-only, or insufficiently diverse assertions, including MSTest, Jest, pytest, and Go. DO NOT USE for direct fixes: writing-mstest-tests owns supplied MSTest assertions; code-testing-agent owns new cases. Use test-gap-analysis when asked whether tests would catch a production change, and test-anti-patterns for general severity-ranked audits."
+description: "Analyze assertion quality, depth, variety, and false confidence in existing tests. ALWAYS USE when asked about weak, shallow, trivial, always-true, self-referential, assertion-free, presence/truthiness-only, or insufficiently diverse assertions, including MSTest, Jest, pytest, and Go. DO NOT USE for direct fixes: writing-mstest-tests owns supplied MSTest assertions; code-testing owns new cases. Use test-gap-analysis when asked whether tests would catch a production change, and test-anti-patterns for general severity-ranked audits."
 license: MIT
 ---
 
@@ -30,11 +30,11 @@ Low assertion diversity signals shallow testing. Tests may pass while bugs hide 
 - User wants to know if test assertions are too shallow or trivial
 - User asks for assertion coverage metrics or diversity analysis
 - User suspects tests give false confidence despite passing
-- The `code-testing-generator` agent (or any test-generation workflow) calls this skill as a pre-completion self-review step on freshly generated tests, before declaring the run finished
+- The `test-engineer` agent (or any test-generation workflow) calls this skill as a pre-completion self-review step on freshly generated tests, before declaring the run finished
 
 ## When Not to Use
 
-- User wants to write new tests (use `code-testing-agent` for any language, or `writing-mstest-tests` for MSTest specifically)
+- User wants to write new tests (use `code-testing` for any language, or `writing-mstest-tests` for MSTest specifically)
 - User wants to detect anti-patterns beyond assertions (use `test-anti-patterns`)
 - User wants to fix or rewrite assertions (help them directly)
 - User asks about code coverage percentages (out of scope — this analyzes assertion quality, not line coverage)

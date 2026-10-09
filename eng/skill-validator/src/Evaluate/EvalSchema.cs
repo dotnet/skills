@@ -134,7 +134,10 @@ public static class EvalSchema
                 RejectTools: stimulus.Constraints?.RejectTools,
                 MaxTurns: stimulus.Constraints?.MaxTurns,
                 MaxTokens: stimulus.Constraints?.MaxTokens,
-                ExpectActivation: stimulus.ExpectActivation ?? true));
+                ExpectActivation: stimulus.ExpectActivation ?? true,
+                DenyShell: stimulus.DenyShell,
+                RejectAgents: stimulus.Constraints?.RejectAgents,
+                RejectShellRetries: stimulus.Constraints?.RejectShellRetries ?? false));
         }
 
         return scenarios.Count > 0 ? new EvalConfig(scenarios) : null;
@@ -171,6 +174,17 @@ public static class EvalSchema
     private static CommandAssertionArgs BuildShellCommandAssertion(RawVallyGraderConfig config)
     {
         var command = config.Command!;
+        if (config.Args is not null)
+        {
+            return new CommandAssertionArgs(
+                CommandToRun: command,
+                ExpectedExitCode: config.ExpectedExitCode ?? 0,
+                ExpectedStdOutContains: config.StdoutContains,
+                ExpectedStdOutMatches: config.StdoutMatches,
+                Timeout: ParseDurationSeconds(config.Timeout),
+                ArgumentList: [.. config.Args]);
+        }
+
         return new CommandAssertionArgs(
             CommandToRun: OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/sh",
             ExpectedExitCode: config.ExpectedExitCode ?? 0,
@@ -249,7 +263,10 @@ public static class EvalSchema
             RejectTools: raw.RejectTools,
             MaxTurns: raw.MaxTurns,
             MaxTokens: raw.MaxTokens,
-            ExpectActivation: raw.ExpectActivation ?? true);
+            ExpectActivation: raw.ExpectActivation ?? true,
+            DenyShell: raw.DenyShell,
+            RejectAgents: raw.RejectAgents,
+            RejectShellRetries: raw.RejectShellRetries);
     }
 
     private static Assertion ParseAssertion(RawAssertion raw)
@@ -348,6 +365,9 @@ public static class EvalSchema
         public int? MaxTurns { get; set; }
         public int? MaxTokens { get; set; }
         public bool? ExpectActivation { get; set; }
+        public bool DenyShell { get; set; }
+        public List<string>? RejectAgents { get; set; }
+        public bool RejectShellRetries { get; set; }
     }
 
     internal sealed class RawSetup
@@ -408,6 +428,7 @@ public static class EvalSchema
         public List<string>? Rubric { get; set; }
         public RawVallyConstraints? Constraints { get; set; }
         public bool? ExpectActivation { get; set; }
+        public bool DenyShell { get; set; }
     }
 
     internal sealed class RawVallyEnvironment
@@ -433,6 +454,8 @@ public static class EvalSchema
         public List<string>? RejectTools { get; set; }
         public int? MaxTurns { get; set; }
         public int? MaxTokens { get; set; }
+        public List<string>? RejectAgents { get; set; }
+        public bool RejectShellRetries { get; set; }
     }
 
     internal sealed class RawVallyGrader
@@ -448,6 +471,7 @@ public static class EvalSchema
         public string? Path { get; set; }
         public string? Value { get; set; }
         public string? Command { get; set; }
+        public List<string>? Args { get; set; }
         public int? ExpectedExitCode { get; set; }
         public string? Timeout { get; set; }
         public string? StdoutContains { get; set; }

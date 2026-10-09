@@ -1,0 +1,31 @@
+diff --git a/Directory.Build.props b/Directory.Build.props
+--- a/Directory.Build.props
++++ b/Directory.Build.props
+@@ -3,3 +3,3 @@
+   <PropertyGroup>
+-    <DefineConstants>CUSTOM_FEATURE</DefineConstants>
++    <DefineConstants>$(DefineConstants);CUSTOM_FEATURE</DefineConstants>
+   </PropertyGroup>
+@@ -7,4 +7,4 @@
+-  <!-- Enable documentation for library projects -->
+-  <PropertyGroup Condition="$(IsLibrary) == true">
+-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
++  <!-- Enable documentation by default; projects can override it. -->
++  <PropertyGroup>
++    <GenerateDocumentationFile Condition="'$(GenerateDocumentationFile)' == ''">true</GenerateDocumentationFile>
+   </PropertyGroup>
+@@ -13,3 +13,3 @@
+   <PropertyGroup>
+-    <ToolsPath>C:\BuildTools\analyzers\</ToolsPath>
++    <ToolsPath Condition="'$(ToolsPath)' == ''">$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)', 'tools', 'analyzers'))$([System.IO.Path]::DirectorySeparatorChar)</ToolsPath>
+   </PropertyGroup>
+@@ -18,3 +18,3 @@
+   <PropertyGroup>
+-    <LangVersion>12</LangVersion>
++    <LangVersion Condition="'$(LangVersion)' == ''">12</LangVersion>
+   </PropertyGroup>
+@@ -23,3 +23,3 @@
+   <PropertyGroup>
+-    <CustomOutputDir>artifacts\bin</CustomOutputDir>
++    <CustomOutputDir Condition="'$(CustomOutputDir)' == ''">$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)', 'artifacts', 'bin'))$([System.IO.Path]::DirectorySeparatorChar)</CustomOutputDir>
+   </PropertyGroup>

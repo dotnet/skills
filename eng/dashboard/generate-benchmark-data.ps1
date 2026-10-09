@@ -278,7 +278,9 @@ $verdictEvidence = [System.Collections.Generic.List[object]]::new()
 foreach ($verdict in $results.verdicts) {
     $skillName = $verdict.skillName
     $isAgent = $verdict.PSObject.Properties['skillKind'] -and $verdict.skillKind -eq "agent"
-    $isReferenceSkill = -not $isAgent -and (Test-ReferenceSkill -Plugin $PluginName -Skill $skillName)
+    $isWorkflow = $verdict.PSObject.Properties['skillKind'] -and $verdict.skillKind -eq "workflow"
+    $usesAgentActivation = $isAgent -or $isWorkflow
+    $isReferenceSkill = -not $usesAgentActivation -and (Test-ReferenceSkill -Plugin $PluginName -Skill $skillName)
     $activationScenarios = [System.Collections.Generic.List[object]]::new()
     $judgeRationales = [System.Collections.Generic.List[object]]::new()
 
@@ -296,7 +298,7 @@ foreach ($verdict in $results.verdicts) {
         }
         # Agent results have exact target-agent activation. Skill results retain
         # the existing skillActivation fields and compatibility alias.
-        $sa = if ($isAgent -and $scenario.PSObject.Properties['agentActivationIsolated']) {
+        $sa = if ($isWorkflow -or ($isAgent -and $scenario.PSObject.Properties['agentActivationIsolated'])) {
             $scenario.agentActivationIsolated
         } elseif ($scenario.PSObject.Properties['skillActivationIsolated']) {
             $scenario.skillActivationIsolated
@@ -307,7 +309,7 @@ foreach ($verdict in $results.verdicts) {
             $notActivated = $true
         }
 
-        $saPluginForEvidence = if ($isAgent -and $scenario.PSObject.Properties['agentActivationPlugin']) {
+        $saPluginForEvidence = if ($isWorkflow -or ($isAgent -and $scenario.PSObject.Properties['agentActivationPlugin'])) {
             $scenario.agentActivationPlugin
         } elseif ($scenario.PSObject.Properties['skillActivationPlugin']) {
             $scenario.skillActivationPlugin
@@ -319,7 +321,7 @@ foreach ($verdict in $results.verdicts) {
         $invokedSkills = [object[]]@()
         $isolatedTools = [object[]]@()
         $pluginTools = [object[]]@()
-        if ($isAgent) {
+        if ($usesAgentActivation) {
             $invokedAgents = [object[]]@($sa.invokedAgents | Where-Object { $null -ne $_ })
             $delegatedAgents = [object[]]@($sa.delegatedAgents | Where-Object { $null -ne $_ })
             if ($scenario.PSObject.Properties['skillActivationIsolated']) {
@@ -349,7 +351,7 @@ foreach ($verdict in $results.verdicts) {
             } else {
                 0
             }
-            plugin       = if ($isAgent -and $null -ne $saPluginForEvidence) {
+            plugin       = if ($usesAgentActivation -and $null -ne $saPluginForEvidence) {
                 Get-ActivationStatus -Activation $saPluginForEvidence -ExpectActivation $expectActivation -IsReferenceSkill $false
             } elseif ($null -ne $saPluginForEvidence) {
                 Get-PluginActivityStatus -Activation $saPluginForEvidence
@@ -366,8 +368,8 @@ foreach ($verdict in $results.verdicts) {
             invokedSkills = $invokedSkills
             isolatedTools = $isolatedTools
             pluginTools = $pluginTools
-            isolatedCompleted = if ($isAgent) { $scenario.skilledIsolated.metrics.taskCompleted -eq $true } else { $null }
-            pluginCompleted = if ($isAgent -and $scenario.skilledPlugin) { $scenario.skilledPlugin.metrics.taskCompleted -eq $true } else { $null }
+            isolatedCompleted = if ($usesAgentActivation) { $scenario.skilledIsolated.metrics.taskCompleted -eq $true } else { $null }
+            pluginCompleted = if ($usesAgentActivation -and $scenario.skilledPlugin) { $scenario.skilledPlugin.metrics.taskCompleted -eq $true } else { $null }
         })
 
         # Prefer paired-judge evidence because it explains the W/T/L vote. Fall
@@ -613,6 +615,11 @@ foreach ($verdict in $results.verdicts) {
             alpha             = $verdict.signTest.alpha
             netWin            = $verdict.netWin
             minimumNetWin     = $verdict.practicalSignificance.minimum
+            minCredibleStimuli = if ($verdict.PSObject.Properties['minCredibleStimuli']) {
+                [int]$verdict.minCredibleStimuli
+            } else {
+                5
+            }
         }
         if ($results.PSObject.Properties['schemaVersion'] -and [int]$results.schemaVersion -ge 4) {
             $gateEvidence['excludedStimulusCount'] = if ($verdict.PSObject.Properties['excludedScenarioEvidence']) {
@@ -626,10 +633,12 @@ foreach ($verdict in $results.verdicts) {
     $links = [System.Collections.Generic.List[object]]::new()
     if ($commit.id -and "$($commit.id)" -match '^[0-9a-fA-F]{7,40}$') {
         $revision = "$($commit.id)"
-        $sourceRelativePath = if ($isAgent) {
+        $pluginPattern = [Regex]::Escape($PluginName)
+        $sourceRelativePath = if ($isWorkflow) {
+            "agentic-workflows/$skillName/aw.yml"
+        } elseif ($isAgent) {
             $agentName = $skillName.Substring("agent.".Length)
             $declaredPath = "$($verdict.skillPath)" -replace '\\', '/'
-            $pluginPattern = [Regex]::Escape($PluginName)
             if ($declaredPath -match "^plugins/$pluginPattern/(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+\.agent\.md$" -and
                 $declaredPath -notmatch '(^|/)\.\.(/|$)') {
                 $declaredPath
@@ -640,7 +649,7 @@ foreach ($verdict in $results.verdicts) {
             "plugins/$PluginName/skills/$skillName/SKILL.md"
         }
         $links.Add([ordered]@{
-            label = if ($isAgent) { "Agent source" } else { "Skill source" }
+            label = if ($isWorkflow) { "Workflow source" } elseif ($isAgent) { "Agent source" } else { "Skill source" }
             url   = "https://github.com/dotnet/skills/blob/$revision/$sourceRelativePath"
         })
         $declaredEvalPath = if ($results.PSObject.Properties['evalFile']) {
@@ -667,13 +676,19 @@ foreach ($verdict in $results.verdicts) {
 
     $verdictEvidence.Add([ordered]@{
         skillName          = $skillName
-        skillKind          = if ($isAgent) { "agent" } elseif ($isReferenceSkill) { "reference" } else { "invocable" }
+        skillKind          = if ($isWorkflow) { "workflow" } elseif ($isAgent) { "agent" } elseif ($isReferenceSkill) { "reference" } else { "invocable" }
+        evaluationLane     = if ($verdict.PSObject.Properties['evaluationLane']) { $verdict.evaluationLane } else { $results.evaluationLane }
         state              = if ($verdict.PSObject.Properties['state']) { $verdict.state } else { $null }
         stateReason        = if ($verdict.PSObject.Properties['stateReason']) { $verdict.stateReason } else { $null }
         passed             = $verdict.passed -eq $true
         regressed          = $verdict.regressed -eq $true
         preferenceRegressed = $verdict.preferenceRegressed -eq $true
         reason             = $verdict.reason
+        noChangeDiagnosis  = if ($verdict.PSObject.Properties['noChangeDiagnosis']) {
+            $verdict.noChangeDiagnosis
+        } else {
+            $null
+        }
         gateEvidence       = $gateEvidence
         activationContract = if ($verdict.PSObject.Properties['activationContract']) { $verdict.activationContract } else { $null }
         activationScenarios = $activationScenarios.ToArray()
@@ -707,7 +722,8 @@ $skillValueKey = "SkillValue"
 
 # --- Build Skill Value per-skill aggregates for this run ---
 # One record per skill: baseline (without-skill) vs treatment (with-skill) arm
-# metric means, the treatment activation count, and the aggregate pass matrix.
+# metric means, the treatment activation count, authoritative preference evidence,
+# and the aggregate pass matrix used only for reliability diagnostics.
 # Everything here comes straight from the verdict the adapter already emits, so
 # no adapter change is needed. The dashboard's Skill Value view keys the trailing
 # average by (skill, model, judgeModel) and gates on the sample sizes carried here.
@@ -715,6 +731,7 @@ $skillValueSkills = [System.Collections.Generic.List[object]]::new()
 foreach ($verdict in $results.verdicts) {
     $skillName = $verdict.skillName
     $isAgent = $verdict.PSObject.Properties['skillKind'] -and $verdict.skillKind -eq "agent"
+    $isWorkflow = $verdict.PSObject.Properties['skillKind'] -and $verdict.skillKind -eq "workflow"
 
     $activationExpected = 0   # scenarios where the skill is expected to fire
     $activationFired    = 0   # of those, how many actually fired in the treatment arm
@@ -731,6 +748,45 @@ foreach ($verdict in $results.verdicts) {
     # NOTE: per adapt.mjs these per-arm pass booleans may include LLM-grader
     # results, so they are pass TELEMETRY, not an objective/deterministic gate.
     $passTotal = 0; $baselineFail = 0; $treatmentFail = 0
+    $bothPass = 0; $bothFail = 0; $baselineOnlyPass = 0; $treatmentOnlyPass = 0
+
+    # The adapter's deciding statistic: one directional vote per distinct,
+    # preference-eligible stimulus. Repeated trials have already been collapsed,
+    # and expect_activation:false stimuli have already been excluded. Preserve
+    # this separately from pass telemetry, which may include LLM-grader results.
+    $signTest = $verdict.signTest
+    $activationContract = if ($verdict.activationContract) {
+        @{
+            evaluated = ($verdict.activationContract.evaluated -eq $true)
+            passed    = if ($null -eq $verdict.activationContract.passed) {
+                $null
+            } else {
+                ($verdict.activationContract.passed -eq $true)
+            }
+            count     = [int]$verdict.activationContract.count
+            violated  = [int]$verdict.activationContract.violated
+        }
+    } else {
+        $null
+    }
+    $preference = if ($signTest) {
+        @{
+            count              = [int]$verdict.stimulusVoteCount
+            wins               = [int]$signTest.wins
+            ties               = [int]$signTest.ties
+            losses             = [int]$signTest.losses
+            direction          = $signTest.direction
+            pValue             = $signTest.pValue
+            alpha              = $signTest.alpha
+            netWin             = $verdict.netWin
+            underpowered       = ($verdict.underpowered -eq $true)
+            conclusive         = ($verdict.conclusive -eq $true)
+            minCredibleStimuli = [int]$verdict.minCredibleStimuli
+            practicalPassed    = ($verdict.practicalSignificance.passed -eq $true)
+        }
+    } else {
+        $null
+    }
 
     foreach ($scenario in $verdict.scenarios) {
         # Activation is only meaningful where the scenario expects the skill to
@@ -739,7 +795,7 @@ foreach ($verdict in $results.verdicts) {
         if ($scenario.PSObject.Properties['expectActivation'] -and $scenario.expectActivation -eq $false) {
             $expectActivation = $false
         }
-        $sa = if ($isAgent -and $scenario.PSObject.Properties['agentActivationIsolated']) {
+        $sa = if ($isWorkflow -or ($isAgent -and $scenario.PSObject.Properties['agentActivationIsolated'])) {
             $scenario.agentActivationIsolated
         } elseif ($scenario.PSObject.Properties['skillActivationIsolated']) {
             $scenario.skillActivationIsolated
@@ -753,13 +809,23 @@ foreach ($verdict in $results.verdicts) {
 
         if ($scenario.timedOut -eq $true) { $anyTimedOut = $true }
 
-        # Probe both arms' metrics. Adapter already fills absent token fields with
-        # 0, so a non-null metrics block with a numeric wallTimeMs is fully numeric.
+        # Probe both arms' metrics. The adapters normalize missing wall-time/token
+        # telemetry to 0, so zero is an availability sentinel here, not measured
+        # free execution. Require both core cost metrics to be positive before a
+        # scenario can contribute to cost means or paired metric counts.
         $skilled = if ($scenario.PSObject.Properties['skilledIsolated']) { $scenario.skilledIsolated } else { $scenario.withSkill }
         $tm = $skilled.metrics
         $bm = $scenario.baseline.metrics
-        $treatHas = ($null -ne $tm -and $null -ne $tm.wallTimeMs)
-        $baseHas  = ($null -ne $bm -and $null -ne $bm.wallTimeMs)
+        $treatHas = (
+            $null -ne $tm -and
+            [double]$tm.wallTimeMs -gt 0 -and
+            [double]$tm.tokenEstimate -gt 0
+        )
+        $baseHas = (
+            $null -ne $bm -and
+            [double]$bm.wallTimeMs -gt 0 -and
+            [double]$bm.tokenEstimate -gt 0
+        )
         if ($treatHas) { $treatAvail++ }
         if ($baseHas)  { $baseAvail++ }
 
@@ -795,6 +861,15 @@ foreach ($verdict in $results.verdicts) {
                 $passTotal++
                 if (-not $bp) { $baselineFail++ }
                 if (-not $tp) { $treatmentFail++ }
+                if ($bp -and $tp) {
+                    $bothPass++
+                } elseif ($bp) {
+                    $baselineOnlyPass++
+                } elseif ($tp) {
+                    $treatmentOnlyPass++
+                } else {
+                    $bothFail++
+                }
             }
         }
     }
@@ -828,7 +903,13 @@ foreach ($verdict in $results.verdicts) {
         passTotal        = $passTotal
         baselineFail     = $baselineFail
         treatmentFail    = $treatmentFail
+        bothPass          = $bothPass
+        bothFail          = $bothFail
+        baselineOnlyPass  = $baselineOnlyPass
+        treatmentOnlyPass = $treatmentOnlyPass
         hasPassData      = ($passTotal -gt 0)
+        activationContract = $activationContract
+        preference       = $preference
     })
 }
 

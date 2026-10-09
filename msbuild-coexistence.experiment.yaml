@@ -1,0 +1,44 @@
+# Supplemental to the normal isolated-skill gate: the plugin arm exposes both plugins.
+# Vally resolves eval and skill paths relative to this file, so keep it at the repo root.
+# Keep this list aligned with the skill directories in dotnet and dotnet-msbuild.
+name: msbuild-coexistence
+evals:
+  - tests/dotnet/msbuild/eval.yaml
+overrides:
+  model: gpt-5.6-luna
+  judge_model: claude-haiku-4.5
+vary:
+  - /environment/skills
+baseline: baseline
+variants:
+  baseline:
+    environment:
+      skills: []
+  skilled:
+    environment:
+      skills:
+        - plugins/dotnet/skills/msbuild
+  plugin:
+    environment:
+      skills:
+        - plugins/dotnet/skills/csharp-refactoring
+        - plugins/dotnet/skills/msbuild
+        - plugins/dotnet/skills/setup-local-sdk
+        - plugins/dotnet-msbuild/skills/binlog-failure-analysis
+        - plugins/dotnet-msbuild/skills/binlog-generation
+        - plugins/dotnet-msbuild/skills/build-parallelism
+        - plugins/dotnet-msbuild/skills/build-perf-baseline
+        - plugins/dotnet-msbuild/skills/build-perf-diagnostics
+        - plugins/dotnet-msbuild/skills/check-bin-obj-clash
+        - plugins/dotnet-msbuild/skills/copy-to-output-directory
+        - plugins/dotnet-msbuild/skills/directory-build-organization
+        - plugins/dotnet-msbuild/skills/eval-performance
+        - plugins/dotnet-msbuild/skills/extension-points
+        - plugins/dotnet-msbuild/skills/including-generated-files
+        - plugins/dotnet-msbuild/skills/incremental-build
+        - plugins/dotnet-msbuild/skills/item-management
+        - plugins/dotnet-msbuild/skills/msbuild-antipatterns
+        - plugins/dotnet-msbuild/skills/msbuild-modernization
+        - plugins/dotnet-msbuild/skills/property-patterns
+        - plugins/dotnet-msbuild/skills/resolve-project-references
+        - plugins/dotnet-msbuild/skills/target-authoring

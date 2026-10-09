@@ -4,7 +4,7 @@ description: >
   Design, implement, optimize, and review SIMD code in .NET.
   USE FOR: vectorizing scalar loops with TensorPrimitives,
   Vector64/128/256/512, or platform hardware intrinsics; reviewing existing SIMD
-  code, including Vector<T>, for contract equivalence, tail handling, memory
+  code, including the generic Vector type, for contract equivalence, tail handling, memory
   safety, portability, fallbacks, and measured performance. DO NOT USE FOR:
   performance work unrelated to SIMD or vectorization.
 license: MIT

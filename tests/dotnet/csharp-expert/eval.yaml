@@ -1,0 +1,543 @@
+name: csharp-expert
+description: Evaluates solution-aware routing for C# and .NET requests
+type: capability
+defaults:
+  timeout: 5m
+  runs: 1
+stimuli:
+  - name: Route an ASP.NET Core endpoint request
+    tags:
+      capability: framework-routing
+      solution: aspnetcore
+      risk: medium
+      journey: create
+    prompt: |
+      Before we change this web project, identify the specialist I should add for a multipart upload
+      endpoint that validates size and streams instead of buffering. Explain how to make that
+      specialist available in Copilot CLI, but do not implement the endpoint yet.
+    environment:
+      files:
+        - src: fixtures/aspnet-minimal
+          dest: .
+    constraints:
+      reject_tools: [bash, edit, create]
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*\bdotnet-webapi\b)(?=[\s\S]*\bdotnet-aspnetcore\b)(?=[\s\S]*(multipart|file upload))(?=[\s\S]*(stream|buffer))(?=[\s\S]*(size|limit))
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*/plugin\s+marketplace\s+add\s+dotnet/skills)(?=[\s\S]*/plugin\s+install\s+dotnet-aspnetcore@dotnet-agent-skills)(?=[\s\S]*(restart|reload)[\s\S]{0,500}/skills)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recommended a capability that covers streaming multipart endpoints and request-size validation
+      - The explanation accounted for the existing web application rather than treating the request as a standalone stream helper
+      - Supplied usable Copilot CLI installation and post-restart discovery steps
+      - Stopped after preparation instead of implementing the endpoint
+
+  - name: Route a Blazor component request
+    tags:
+      capability: framework-routing
+      solution: blazor
+      risk: medium
+      journey: create
+    prompt: |
+      Before I edit this project, identify the specialist that should own a reusable editor
+      component with parameters, a RenderFragment content slot, and an event callback to the parent.
+      Explain how to make it available in Copilot CLI, but do not implement it yet.
+    environment:
+      files:
+        - src: fixtures/blazor-components
+          dest: .
+    constraints:
+      reject_tools: [bash, edit, create]
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*\bauthor-component\b)(?=[\s\S]*\bdotnet-blazor\b)(?=[\s\S]*(parameter|RenderFragment))(?=[\s\S]*(content|RenderFragment))(?=[\s\S]*(callback|EventCallback))
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*/plugin\s+marketplace\s+add\s+dotnet/skills)(?=[\s\S]*/plugin\s+install\s+dotnet-blazor@dotnet-agent-skills)(?=[\s\S]*(restart|reload)[\s\S]{0,500}/skills)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recommended a capability that supports component parameters, child content, and parent callbacks in the existing UI project
+      - Supplied usable Copilot CLI installation and post-restart discovery steps
+      - Stopped after marketplace preparation instead of implementing the component
+
+  - name: Route a MAUI binding defect
+    tags:
+      capability: framework-routing
+      solution: maui
+      risk: medium
+      journey: repair
+    prompt: |
+      Before changing this project, choose the specialist for a page that does not update when its
+      view-model property changes. Explain how to make it available in Copilot CLI, but do not fix
+      the code yet.
+    environment:
+      files:
+        - src: fixtures/maui-binding
+          dest: .
+    constraints:
+      reject_tools: [bash, edit, create]
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*\bmaui-data-binding\b)(?=[\s\S]*\bdotnet-maui\b)(?=[\s\S]*(XAML|binding))(?=[\s\S]*(notification|property change|INotifyPropertyChanged))
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*/plugin\s+marketplace\s+add\s+dotnet/skills)(?=[\s\S]*/plugin\s+install\s+dotnet-maui@dotnet-agent-skills)(?=[\s\S]*(restart|reload)[\s\S]{0,500}/skills)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recommended a capability that covers XAML binding updates and view-model change notification in the existing application
+      - Avoided recommending unrelated application setup or navigation help
+      - Supplied usable Copilot CLI installation and post-restart discovery steps
+      - Stopped after marketplace preparation instead of changing the application
+
+  - name: Route an EF Core query optimization
+    tags:
+      capability: data-routing
+      solution: ef-core
+      risk: high
+      journey: optimize
+    prompt: |
+      I use the dotnet/skills marketplace in Copilot CLI. Before changing this EF Core project,
+      identify the maintained specialist for reducing repeated order-and-line queries without
+      changing the returned shape. Explain how to make it available, but do not optimize the query
+      yet.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/ef-orders
+          dest: .
+    constraints:
+      reject_tools: [bash, edit, create]
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*\boptimizing-ef-core-queries\b)(?=[\s\S]*\bdotnet-data\b)(?=[\s\S]*(round trip|N\+1))(?=[\s\S]*(order|line))(?=[\s\S]*(shape|result))
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*/plugin\s+marketplace\s+add\s+dotnet/skills)(?=[\s\S]*/plugin\s+install\s+dotnet-data@dotnet-agent-skills)(?=[\s\S]*(restart|reload)[\s\S]{0,500}/skills)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recommended a maintained data-access capability that owns repeated related-entity query work
+      - Connected the capability to reducing database round trips while preserving the order-and-lines shape
+      - Supplied usable Copilot CLI installation and post-restart discovery steps
+      - Stopped after preparation instead of editing the query
+
+  - name: Route an MSBuild binlog failure
+    tags:
+      capability: tooling-routing
+      solution: msbuild
+      risk: high
+      journey: diagnose
+    prompt: |
+      The CI checkout is gone and failure.binlog is the only surviving artifact. What failed, and
+      what is the smallest repository repair supported by that artifact?
+    environment:
+      files:
+        - src: fixtures/msbuild-missing-schema/Build.proj
+          dest: Build.proj
+      commands:
+        - dotnet msbuild Build.proj -t:Build -p:Configuration=Release -p:SchemaFile=schemas/prod.json -bl:failure.binlog > capture.log 2>&1 || exit 0
+        - >-
+          node -e "const fs=require('fs'); const log=fs.statSync('failure.binlog');
+          if (!log.isFile() || log.size === 0) throw new Error('Expected failure.binlog');
+          if (!fs.readFileSync('capture.log','utf8').includes('SCHEMA1001')) throw new Error('Expected build failure SCHEMA1001');
+          fs.unlinkSync('Build.proj'); fs.unlinkSync('capture.log');"
+    graders:
+      - type: output-contains
+        config:
+          substring: SCHEMA1001
+      - type: output-contains
+        config:
+          substring: schemas/prod.json
+      - type: output-matches
+        config:
+          pattern: ((restore|commit)[\s\S]{0,120}schemas/prod\.json|schemas/prod\.json[\s\S]{0,120}(restore|commit))
+      - type: output-not-matches
+        config:
+          pattern: ((change|set|override) (the )?(SchemaFile|Configuration)|move (the )?(schema|file)|relocat)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified the missing schemas/prod.json input recorded by the ValidateSchema target
+      - Proposed restoring or committing schemas/prod.json as the single smallest repair supported by the artifact
+      - Distinguished MSBuild evaluation from a C# compiler defect
+      - Did not speculate about moving the schema or changing configuration without evidence
+      - Did not claim that the missing file contents could be recovered from the binary log
+
+  - name: Route a test framework migration
+    tags:
+      capability: migration-routing
+      solution: test
+      risk: high
+      journey: migrate
+    prompt: |
+      I use the dotnet/skills marketplace in Copilot CLI. Before changing this NUnit project,
+      identify the maintained specialist for converting it to MSTest while preserving lifecycle
+      hooks and parameterized cases. Explain how to make it available, but do not perform the
+      migration yet.
+    environment:
+      files:
+        - src: fixtures/nunit-migration
+          dest: .
+      commands:
+        - >-
+          node -e "const fs=require('fs'); fs.mkdirSync('.eval-baseline',{recursive:true});
+          for(const file of ['CalculatorTests.cs','TestProject.csproj','global.json'])
+          fs.copyFileSync(file,'.eval-baseline/'+file+'.snapshot');"
+    constraints:
+      reject_tools: [bash, edit, create]
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*\bmigrate-nunit-to-mstest\b)(?=[\s\S]*\bdotnet-test-migration\b)(?=[\s\S]*TestCase)(?=[\s\S]*DataRow)(?=[\s\S]*SetUp)(?=[\s\S]*TestInitialize)(?=[\s\S]*TearDown)(?=[\s\S]*TestCleanup)
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*/plugin\s+marketplace\s+add\s+dotnet/skills)(?=[\s\S]*/plugin\s+install\s+dotnet-test-migration@dotnet-agent-skills)(?=[\s\S]*(restart|reload)[\s\S]{0,500}/skills)
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs');
+            for(const file of ['CalculatorTests.cs','TestProject.csproj','global.json'])
+            if(!fs.readFileSync(file).equals(fs.readFileSync('.eval-baseline/'+file+'.snapshot')))
+            throw new Error(file+' changed');"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recommended a conversion capability that preserves lifecycle hooks and parameterized cases
+      - Explained the lifecycle, parameterized-case, and fixture-isolation risks that the migration must preserve
+      - Supplied usable Copilot CLI installation and post-restart discovery steps
+      - Stopped after marketplace preparation and left the NUnit fixture unchanged
+
+  - name: Route a framework upgrade
+    tags:
+      capability: upgrade-routing
+      solution: dotnet
+      risk: high
+      journey: plan
+    prompt: |
+      Before editing this net8.0 project, identify the maintained specialist that should own its
+      .NET 9 migration and compatibility work. Explain how to make that specialist available in
+      Copilot CLI, but do not modify the project yet.
+    environment:
+      files:
+        - src: fixtures/dotnet8-upgrade
+          dest: .
+      commands:
+        - >-
+          node -e "const fs=require('fs'); fs.mkdirSync('.eval-baseline',{recursive:true});
+          for(const file of ['App.csproj','Program.cs'])
+          fs.copyFileSync(file,'.eval-baseline/'+file+'.snapshot');"
+    constraints:
+      reject_tools: [bash, edit, create]
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*\bmigrate-dotnet8-to-dotnet9\b)(?=[\s\S]*\bdotnet-upgrade\b)(?=[\s\S]*net8\.0)(?=[\s\S]*net9\.0)(?=[\s\S]*(compatib|breaking))
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*/plugin\s+marketplace\s+add\s+dotnet/skills)(?=[\s\S]*/plugin\s+install\s+dotnet-upgrade@dotnet-agent-skills)(?=[\s\S]*(restart|reload)[\s\S]{0,500}/skills)
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs'); for(const file of ['App.csproj','Program.cs'])
+            if(!fs.readFileSync(file).equals(fs.readFileSync('.eval-baseline/'+file+'.snapshot')))
+            throw new Error(file+' changed');"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recommended a capability that covers the requested framework-version transition across multiple projects
+      - Accounted for compatibility work rather than treating the request as an SDK installation only
+      - Supplied usable Copilot CLI installation and post-restart discovery steps
+      - Stopped after marketplace preparation and left the net8.0 fixture unchanged
+
+  - name: Route runtime performance evidence
+    tags:
+      capability: diagnostics-routing
+      solution: runtime
+      risk: high
+      journey: diagnose
+    prompt: |
+      I use the dotnet/skills marketplace in Copilot CLI. Before touching the deployed service,
+      identify the maintained specialist that can collect vendor-neutral CPU and allocation evidence
+      when no hot method is known. Explain how to make it available, but do not start collection or
+      claim a cause yet.
+    constraints:
+      reject_tools: [bash, edit, create]
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*\bdotnet-trace-collect\b)(?=[\s\S]*\bdotnet-diag\b)(?=[\s\S]*(deployed|process))(?=[\s\S]*CPU)(?=[\s\S]*allocation)(?=[\s\S]*(source|code|hot method))(?=[\s\S]*(no cause|before|unknown))
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*/plugin\s+marketplace\s+add\s+dotnet/skills)(?=[\s\S]*/plugin\s+install\s+dotnet-diag@dotnet-agent-skills)(?=[\s\S]*(restart|reload)[\s\S]{0,500}/skills)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recommended a capability that can capture both CPU and allocation evidence before a hot method is known
+      - Distinguished deployed-process evidence from build-time or isolated-code optimization
+      - Kept the recommendation vendor-neutral because the prompt did not name an observability product
+      - Supplied usable Copilot CLI installation and post-restart discovery steps
+      - Stopped after preparation without claiming an unmeasured cause
+
+  - name: Route a file based CSharp request
+    tags:
+      capability: artifact-routing
+      solution: file-based
+      risk: low
+      journey: create
+    prompt: |
+      I am preparing a one-file C# utility that calls an HTTP endpoint and prints selected JSON
+      fields without a project. Which specialist owns that workflow, and how do I make it available
+      in Copilot CLI? Do not write the utility yet.
+    constraints:
+      reject_tools: [bash, edit, create]
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*\bcsharp-scripts\b)(?=[\s\S]*\bdotnet-advanced\b)(?=[\s\S]*(one-file|file-based))(?=[\s\S]*(without (a )?project|no project))(?=[\s\S]*HTTP)(?=[\s\S]*JSON)
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*/plugin\s+marketplace\s+add\s+dotnet/skills)(?=[\s\S]*/plugin\s+install\s+dotnet-advanced@dotnet-agent-skills)(?=[\s\S]*(restart|reload)[\s\S]{0,500}/skills)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recommended a capability that runs a one-file C# HTTP and JSON utility without creating a project
+      - Supplied usable Copilot CLI installation and post-restart discovery steps
+      - Stopped after marketplace preparation instead of generating the utility
+
+  - name: Keep a language semantic fix in the fallback
+    tags:
+      capability: fallback-routing
+      solution: library
+      risk: medium
+      journey: repair
+    prompt: |
+      I already have the core C# specialist available. In a plain class library, a caller-owned
+      Stream is closed after a helper reads one line from it, with no framework-specific packages
+      involved. Tell me whether I need an additional specialist and show the minimal ownership fix.
+      Preserve the helper's existing return behavior. There is no repository to edit.
+    graders:
+      - type: output-matches
+        config:
+          pattern: leaveOpen\s*:\s*true
+      - type: output-not-matches
+        config:
+          pattern: (Step 6|language fallback|routing contract)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Correctly stated that the loaded C# specialist owns the semantic fix and no additional specialist is needed
+      - Gave a safe minimal fix despite the absence of repository files
+      - Explained that the helper must not dispose the caller-owned stream
+      - Preserved the helper's return semantics instead of adding null normalization or unrelated behavior
+      - Did not suggest leaving a disposable wrapper undisposed
+
+  - name: Sequence distinct template and component phases
+    tags:
+      capability: composed-routing
+      solution: blazor
+      risk: medium
+      journey: create
+    prompt: |
+      Before starting, identify the specialists for two phases: instantiate our already-installed
+      Contoso.Blazor template by short name, then author a reusable Blazor form component with
+      validation. Present them in order and explain how to make them available in Copilot CLI. Do
+      not create the project yet.
+    constraints:
+      reject_tools: [bash, edit, create]
+    graders:
+      - type: output-matches
+        config:
+          pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*dotnet-template-engine@dotnet-agent-skills[\s\S]*dotnet-blazor@dotnet-agent-skills
+      - type: output-matches
+        config:
+          pattern: \btemplate-instantiation\b[\s\S]*\bcollect-user-input\b
+      - type: output-matches
+        config:
+          pattern: (restart|reload)[\s\S]{0,500}/skills
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*(short name|template))(?=[\s\S]*(form|validation))
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recommended separate capabilities for instantiating the existing template and authoring the validated form
+      - Presented the two phases in the order they must occur
+      - Supplied actionable installation steps for both required capability providers
+      - Stopped after marketplace preparation instead of creating the project
+
+  - name: Stay dormant for a Python request
+    tags:
+      capability: dormancy
+      solution: non-dotnet
+      risk: low
+      journey: optimize
+    prompt: |
+      Optimize this Python pandas code for large CSV inputs without changing the inner-join result:
+
+      ```python
+      import pandas as pd
+
+      customers = pd.read_csv("customers.csv")
+      orders = pd.read_csv("orders.csv")
+      result = orders.merge(customers, on="customer_id", how="inner")
+      result.to_parquet("joined.parquet")
+      ```
+    expect_activation: false
+    graders:
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Addressed the Python data-processing request without introducing .NET tooling or terminology
+      - The C#/.NET routing skill stayed dormant
+      - Did not mention, install, or apply any .NET capability
+      - Did not change files
+
+  - name: Use the Codex marketplace flow
+    tags:
+      capability: host-routing
+      solution: test
+      risk: medium
+      journey: migrate
+    prompt: |
+      I am using the dotnet/skills marketplace in Codex CLI. Before changing this NUnit project,
+      identify the maintained specialist for converting it to MSTest while preserving parameterized
+      tests and lifecycle hooks. Explain how to make it available in Codex, but do not perform the
+      migration yet.
+    environment:
+      files:
+        - src: fixtures/nunit-migration
+          dest: .
+      commands:
+        - >-
+          node -e "const fs=require('fs'); fs.mkdirSync('.eval-baseline',{recursive:true});
+          for(const file of ['CalculatorTests.cs','TestProject.csproj','global.json'])
+          fs.copyFileSync(file,'.eval-baseline/'+file+'.snapshot');"
+    constraints:
+      reject_tools: [bash, edit, create]
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*\bmigrate-nunit-to-mstest\b)(?=[\s\S]*\bdotnet-test-migration\b)(?=[\s\S]*(Codex|codex|/plugins))(?=[\s\S]*TestCase)(?=[\s\S]*DataRow)(?=[\s\S]*SetUp)(?=[\s\S]*TestInitialize)(?=[\s\S]*TearDown)(?=[\s\S]*TestCleanup)
+      - type: output-matches
+        config:
+          pattern: (?=[\s\S]*codex\s+plugin\s+marketplace\s+add\s+dotnet/skills)(?=[\s\S]*/plugins)(?=[\s\S]*\bdotnet-agent-skills\b)(?=[\s\S]*\bdotnet-test-migration\b)(?=[\s\S]*(install|select|choose))
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs');
+            for(const file of ['CalculatorTests.cs','TestProject.csproj','global.json'])
+            if(!fs.readFileSync(file).equals(fs.readFileSync('.eval-baseline/'+file+'.snapshot')))
+            throw new Error(file+' changed');"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recommended a conversion capability that preserves lifecycle hooks and parameterized cases
+      - Explained lifecycle, parameterized-case, fixture-isolation, and case-count risks before migration
+      - Supplied usable Codex marketplace registration, plugin installation, and `/plugins` discovery steps without promising a Copilot-only agent
+      - Stopped after marketplace preparation and left the NUnit project unchanged
+
+  - name: Choose LSP diagnostics before building
+    tags:
+      capability: language-diagnostics
+      solution: library
+      risk: medium
+      journey: repair
+    prompt: |
+      Program.cs has an editor error, but I do not have build output. Before changing code or
+      building, identify the language-server diagnostic action to run and explain how its file,
+      location, and diagnostic code should scope the repair. Preserve the existing CountActive
+      behavior, but stop before editing.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/lsp-diagnostics
+          dest: .
+      commands:
+        - >-
+          node -e "const fs=require('fs'); fs.mkdirSync('.eval-baseline',{recursive:true});
+          for(const file of ['global.json','Program.cs','DiagnosticsApp.csproj'])
+          fs.copyFileSync(file,'.eval-baseline/'+file+'.snapshot');"
+    constraints:
+      reject_tools: [bash, edit, create]
+    graders:
+      - type: output-matches
+        config:
+          pattern: (LSP|language.server)[\s\S]*diagnostic
+      - type: output-matches
+        config:
+          pattern: Program\.cs
+      - type: output-matches
+        config:
+          pattern: (CS0029|cannot implicitly convert|List<string>[\s\S]*int)
+      - type: file-contains
+        config:
+          path: Program.cs
+          value: int count = values.Where(value => value.Length > 0).ToList();
+      - type: file-contains
+        config:
+          path: Program.cs
+          value: CountActive
+      - type: file-contains
+        config:
+          path: DiagnosticsApp.csproj
+          value: <TargetFramework>net10.0</TargetFramework>
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs');
+            for(const file of ['global.json','Program.cs','DiagnosticsApp.csproj'])
+            if(!fs.readFileSync(file).equals(fs.readFileSync('.eval-baseline/'+file+'.snapshot')))
+            throw new Error(file+' changed');"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Chose language-server diagnostics rather than a build as the first source of the compiler error
+      - Explained that the diagnostic file, range, code, and message should scope the next inspection
+      - Used the type-conversion evidence to describe the smallest likely repair while preserving CountActive semantics
+      - Stopped before editing or building as requested
+
+  - name: Recover an installed but undiscovered plugin
+    tags:
+      capability: discovery-recovery
+      solution: maui
+      risk: low
+      journey: diagnose
+    prompt: |
+      I installed dotnet-maui from the dotnet-agent-skills marketplace, but none of its skills appear
+      when I list available skills. Help me get the MAUI data-binding workflow loaded.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (restart|reload)[\s\S]*/skills
+      - type: output-matches
+        config:
+          pattern: (maui-data-binding|MAUI data.binding)
+      - type: output-not-matches
+        config:
+          pattern: (/plugin\s+(marketplace\s+add|install|update)\b|copilot\s+plugin\s+(install|update)\b|/skills\s+reload\b|(?:first|immediately|right away|now|start by|begin by)[^\r\n.!?]{0,40}(?:reinstall|update)\b|(?:reinstall|update)[^\r\n.!?]{0,40}(?:first|immediately|right away|now)\b)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Explicitly acknowledged that installation had already succeeded and discovery was stale
+      - Gave restart or reload followed by the skill listing as the complete first recovery step
+      - Told the user what binding capability to look for after refresh
+      - Did not invent commands or recommend reinstalling or updating before discovery was refreshed; conditional later diagnostics are acceptable

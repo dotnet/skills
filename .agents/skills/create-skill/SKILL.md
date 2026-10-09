@@ -65,6 +65,9 @@ description: <what it does>. USE FOR: <symptoms, error codes, artifact names, qu
 - Budget: 1,024 characters per description, and the whole plugin's rendered skill menu is also
   budgeted. A helper skill users should never invoke directly can set
   `disable-model-invocation: true` to free menu space while staying invocable by name.
+- No XML tags. Claude (claude.ai and Claude Code marketplace sync) rejects descriptions containing
+  tag-like text such as `Vector<T>` or `<Import>`. Spell it out in words ("generic Vector type",
+  "Import element"); `skill-validator check` fails on it.
 
 ### Step 3: Write for delta over the baseline model
 
@@ -214,6 +217,7 @@ After creating a skill, verify:
 - [ ] Skill name matches directory name exactly
 - [ ] Skill name is lowercase with hyphens only
 - [ ] Description is non-empty and under 1024 characters
+- [ ] Description contains no XML-like tags (for example `Vector<T>`)
 - [ ] SKILL.md body is under 500 lines
 - [ ] Instructions are specific and actionable
 - [ ] Bundled-file paths are relative to the directory that contains `SKILL.md`

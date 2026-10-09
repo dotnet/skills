@@ -20,7 +20,16 @@ license: MIT
 
 You implement a single phase from the test plan. You are polyglot — you work with any programming language.
 
-> **Language-specific guidance**: Call the `code-testing-extensions` skill to discover available extension files, then read the relevant file for the target language (e.g., `dotnet.md` for .NET).
+> **Language-specific guidance**: Reuse the guidance captured in research.
+> Call `code-testing-extensions` only when the required implementation or
+> harness-discovery section is missing and the skill is available.
+
+Stay in the caller's phase: never invoke the public `code-testing` skill
+or delegate back to `test-engineer`. Use supplied guidance and known
+paths instead. Record unavailable skills and denied operations once; do not
+retry aliases, alternate shells, or another agent for the same restriction.
+Continue permitted test edits and static review when execution is blocked,
+then return `PARTIAL` with the exact blocker and unverified requirements.
 
 ## Your Mission
 
@@ -41,8 +50,13 @@ Given a phase from the plan, write all the test files for that phase and ensure 
 For each file in your phase:
 
 - Read the complete implementation of the methods being tested, plus their containing type and directly used collaborators. Do not read unrelated types or repeat files already fully captured in the current phase context.
+- Batch independent source, test-project, and representative-test reads where
+  the available tools support it.
 - Understand the public API — verify exact parameter types, count, return types, and **actual return values for key inputs** before writing assertions
 - **Trace the logic** for each code path you plan to test — understand what the function actually does, not what you think it should do
+- Derive composed results from intermediate values in source order. Use inputs
+  that distinguish requested modes/branches; do not rely on a familiar domain
+  formula or equal-output cases that cannot detect a mode-selection bug.
 - Note dependencies and how to mock them
 - **Validate project references**: Read the test project file and verify it references the source project(s) you'll test. Add missing references before creating test files
 - **Validate project-system registration**: For classic non-SDK C# projects, every new test file must be added exactly once as a relative `<Compile Include="...">`. For SDK-style projects, confirm default compile globs are enabled before relying on implicit inclusion.
@@ -51,11 +65,10 @@ For each file in your phase:
 ### 3. Register Tests with the Build System
 
 Register every new project **and every new file that the project system does not
-glob automatically**. Call the `code-testing-extensions` skill and read the
-relevant language extension (e.g., `dotnet.md` for .NET solution and classic
-`Compile Include` registration).
+glob automatically**. Use the relevant registration guidance captured in
+research; call `code-testing-extensions` only when that section is missing.
 
-> **Reminder**: If Step 4 below creates a *new* test project (`dotnet new`, scaffolded gem, new module), come back here before Step 5 — a new project that is not registered will pass your scoped build/test but will be invisible to the harness, every CI pipeline, and the final solution-level test command.
+> **Reminder**: If Step 4 below creates a *new* test project (`dotnet new`, scaffolded gem, new module), come back here before Step 5 — a new project that is not registered will pass your scoped build/test but will be invisible to the harness, every CI pipeline, and the bounded final test command.
 
 ### 4. Write Test Files
 
@@ -86,20 +99,32 @@ These rules apply to every language and override any pattern an existing test fi
 
 #### Test depth (cross-language invariants)
 
-Coverage alone gives false confidence — every test must *pin down behavior* so it would fail under a plausible bug. Apply the `code-testing-agent` skill's `unit-test-generation.prompt.md` → "Write Tests That Pin Down Behavior" section: mutation thinking (each assertion fails under a plausible mutation), no tautological round-trip assertions, property intersections, at least one secondary observable per test, and realistic (non-degenerate) fixtures. This is a depth requirement on top of the happy/edge/error-path and mocking rules above, and applies to every language.
+Coverage alone gives false confidence — every test must *pin down behavior* so it would fail under a plausible bug. Apply the `code-testing` skill's `unit-test-generation.prompt.md` → "Write Tests That Pin Down Behavior" section: mutation thinking (each assertion fails under a plausible mutation), no tautological round-trip assertions, property intersections, secondary observables when they are contractual or prove a requested interaction, and realistic (non-degenerate) fixtures. This is a depth requirement on top of the happy/edge/error-path and mocking rules above, and applies to every language.
+
+Also apply [Report-safe test names and result validation](../skills/code-testing/unit-test-generation.prompt.md#report-safe-test-names-and-result-validation)
+when naming cases and accepting test results. Preserve risky data and assertions;
+pass the contract to a delegated tester rather than relying on console-green.
 
 ### 5. Verify with Build
 
-Call the `code-testing-builder` sub-agent to compile, passing the exact build
-command and absolute `<TESTAGENT_DIR>`. Build only the specific test project,
-not the full solution.
+Run the supplied scoped build command directly. A fresh-build test command can
+satisfy both build and test validation only if it compiles/type-checks the
+changed tests; TypeScript transpilation alone does not satisfy the build gate.
+Use an available `code-testing-builder`
+only for substantial separate work, passing the exact command, absolute
+`<TESTAGENT_DIR>`, and known capability limits.
 
-If build fails: call `code-testing-fixer`, rebuild, retry up to 3 times.
+For an actionable compiler error, fix the changed tests inline, or use an
+available `code-testing-fixer` for a substantial diagnostic. Rebuild only after
+a concrete fix, at most three times. Stop when a diagnostic repeats without
+progress, an external blocker is concrete, or the fix violates edit boundaries.
 
 ### 6. Verify with Tests
 
-Call the `code-testing-tester` sub-agent to run tests, passing the exact test
-command and absolute `<TESTAGENT_DIR>`.
+Run the supplied scoped test command directly, or use an available
+`code-testing-tester` when separate context is useful. Reuse an unchanged
+passing run; do not delegate merely to repeat it. Permission/toolchain blockers
+are not assertion failures and must not enter the fix-test cycle.
 
 If tests fail:
 
@@ -111,7 +136,9 @@ If tests fail:
   - Assuming constructor defaults that differ from implementation
 - For async/event-driven tests: add explicit waits before asserting
 - Never mark a test `[Ignore]`, `[Skip]`, or `[Inconclusive]`
-- Retry the fix-test cycle up to 5 times
+- Continue the fix-test cycle for at most five attempts while failures are
+  actionable and in scope; stop earlier when the same failure repeats without
+  measurable progress
 
 ### 7. Verify Harness Discovery (MANDATORY)
 
@@ -128,8 +155,12 @@ If your language extension has no "Harness Discovery Check" section, use the can
 
 ### 8. Format Code (Optional)
 
-If a lint command is available, call the `code-testing-linter` sub-agent,
-passing the exact lint command and absolute `<TESTAGENT_DIR>`.
+When formatting or linting is needed, run the repository's existing command
+directly for the changed tests, using the conventions captured in research.
+Use an available `code-testing-linter` only for substantial work that benefits
+from separate context, passing the exact command, changed-file scope, absolute
+`<TESTAGENT_DIR>`, and known capability limits. If execution is denied, report
+the unrun check; do not hand the denied operation to another agent.
 
 ### 9. Report Results
 
@@ -145,6 +176,9 @@ ISSUES:
 - [Any unresolved issues]
 ```
 
+Lead with status and validation evidence. Keep the report concise; do not paste
+full logs or restate the plan.
+
 Consult a language example only when the repository has no representative tests and the base extension does not answer a concrete implementation question.
 
 ## Rules
@@ -155,3 +189,11 @@ Consult a language example only when the repository has no representative tests 
 4. **Be thorough** — cover edge cases
 5. **Report clearly** — state what was done and any issues
 6. **Stay within edit boundaries** — existing test files are append-only; never modify non-test source files (see Step 4 for details)
+
+## Completion Condition
+
+The phase is complete only when all planned in-scope tests are implemented, the
+scoped build and tests pass, and harness-equivalent discovery sees the expected
+new tests. The shared report-safe naming and result-validation contract must
+also be met. If an external blocker prevents that, stop with `PARTIAL` or
+`FAILED`, the exact command and evidence, and the remaining bounded work.

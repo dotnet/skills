@@ -1,8 +1,9 @@
 # Mutation Candidate Catalog
 
 Read this reference only for an explicitly exhaustive audit or when a language's
-mutation semantics are unfamiliar. For focused analysis, use the smaller
-risk-ranked table in `SKILL.md`.
+mutation semantics are unfamiliar, or for the applicable categories in
+[per-test read-only composition](per-test-read-only.md). Reading the catalog
+does not authorize the exhaustive execution procedure below.
 
 ## Candidate categories
 
@@ -55,5 +56,7 @@ Exclude:
 5. Execute every candidate that might be reported as Survived.
 6. After a green run, re-check that the mutation is publicly observable.
 7. Revert after each run and confirm the clean baseline at the end.
-8. Count only executed or definitively killed/equivalent candidates in the
-   mutation totals; disclose any omitted scope.
+8. Separate executed Killed/Survived totals from inferred Likely killed,
+   unverified candidates, and equivalent inventory classifications. Never turn
+   static classifications into empirical killed/total claims; disclose omitted
+   scope.

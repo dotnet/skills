@@ -69,6 +69,10 @@ skill-validator evaluate --runs 1 --verdict-warn-only \
 # Verbose output with per-scenario breakdowns
 skill-validator evaluate --verbose --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
+# Evaluate a redistributable gh-aw package against offline scenario fixtures
+skill-validator evaluate --runs 1 --verdict-warn-only \
+  --tests-dir ./tests/agentic-workflows ./agentic-workflows/msbuild-quality-review/aw.yml
+
 # Custom model and threshold
 skill-validator evaluate --model claude-sonnet-4.5 --min-improvement 0.2 --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
@@ -91,6 +95,22 @@ skill-validator evaluate --reporter junit --tests-dir ./tests/my-plugin ./plugin
 # Verdict-warn-only mode (verdict failures return exit 0, execution errors still fail)
 skill-validator evaluate --verdict-warn-only --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 ```
+
+Workflow targets must be individual `aw.yml` package manifests with exactly one
+entry workflow. The evaluator expands manifest-declared local Markdown imports,
+stages resources at their installed paths, and compares a no-workflow baseline,
+the workflow prompt, and the workflow plus registered packaged agents. Prompt
+expressions require explicit string values in a fixture `workflow-context.json`.
+Missing imports, resources, context, or evals fail instead of reducing coverage.
+The workflow and resource content hash is retained with saved sessions.
+
+These are **offline prompt/decision evaluations**, not executions of GitHub
+Actions jobs or live safe-output publication. Collector results and service
+responses come from fixtures, and proposed actions are written to `result.json`.
+CI adapts results as `skillKind: workflow`, `evaluationLane: workflow-prompt-sdk`.
+Compilation, trusted-helper regression tests, and consumer-repository runtime
+checks remain separate evidence; a passing prompt eval cannot prove publication,
+authentication, event triggers, or external-service compatibility.
 
 ### Static analysis (`check`)
 
@@ -197,7 +217,7 @@ The expensive part of an evaluation is the agent investigation, not the judging.
    skill-validator evaluate rejudge <treatment-results-dir> --baseline-dir <baseline-results-dir>
    ```
 
-   `rejudge` pairs each treatment scenario with its baseline by the shared key (prompt SHA + target SHA), runs the same pairwise/independent judges `evaluate` runs inline, writes the reports, and applies the usual pass/fail gates (`--min-improvement`, `--require-completion`, …). Baseline and treatment must share the same `--model`; the judge model defaults to the value persisted in the treatment `sessions.db` (then the baseline's), and a mismatch between the two persisted judge models is rejected unless you pass `--judge-model`.
+   `rejudge` pairs each treatment scenario with its baseline by the shared key (prompt SHA + target SHA), runs the same pairwise/independent judges `evaluate` runs inline, writes the reports, and applies the usual pass/fail gates (`--min-improvement`, `--require-completion`, …). Accounting is fail-closed: failed or nonterminal sessions, unmatched baseline or treatment runs, and duplicate required roles stop the command before judging or publishing a partial verdict. Baseline and treatment must share the same `--model`; the judge model defaults to the value persisted in the treatment `sessions.db` (then the baseline's), and a mismatch between the two persisted judge models is rejected unless you pass `--judge-model`.
 
 Without `--baseline-dir`, `rejudge` keeps its original single-directory behavior: it re-judges baseline+treatment runs that live in the **same** `sessions.db`.
 

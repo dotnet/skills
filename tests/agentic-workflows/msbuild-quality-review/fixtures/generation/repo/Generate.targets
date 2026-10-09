@@ -1,0 +1,6 @@
+<Project>
+  <Target Name="GenerateVersion" BeforeTargets="CoreCompile">
+    <WriteLinesToFile File="$(MSBuildThisFileDirectory)Version.cs" Lines="public static class VersionInfo { public const string Framework = &quot;$(TargetFramework)&quot;%3B }" Overwrite="true" />
+    <ItemGroup><Compile Include="$(MSBuildThisFileDirectory)Version.cs" /></ItemGroup>
+  </Target>
+</Project>

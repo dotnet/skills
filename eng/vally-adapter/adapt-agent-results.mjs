@@ -4,7 +4,8 @@
  * Convert the native SDK custom-agent evaluator output into the current
  * Vally-adapter result schema. Vally 0.14 cannot register custom agents, so
  * agent evals use skill-validator's Copilot SDK runner for execution and this
- * adapter keeps them in the same statistical/reporting pipeline as skills.
+ * adapter keeps them and offline workflow-package runs in the same reporting
+ * pipeline as skills, with distinct target and execution-lane identities.
  */
 
 import {
@@ -16,8 +17,10 @@ import {
 } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { pathToFileURL } from "node:url";
 
 import {
+  classifyNoChangeEvidence,
   comparisonToVerdict,
   loadExpectedEvalFiles,
   normalizeEvalFile,
@@ -25,7 +28,10 @@ import {
   VERDICT_STATES,
 } from "./adapt.mjs";
 
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+
 const { values: opts } = parseArgs({
+  args: isMain ? process.argv.slice(2) : [],
   options: {
     "results-file": { type: "string" },
     "output-root": { type: "string", default: "eval-results" },
@@ -38,12 +44,12 @@ const { values: opts } = parseArgs({
   strict: true,
 });
 
-if (opts.help || !opts["results-file"]) {
+if (isMain && (opts.help || !opts["results-file"])) {
   console.log(`Usage:
   node adapt-agent-results.mjs --results-file <legacy-results.json> [options]
 
 Options:
-  --output-root <dir>       Output root for per-agent results.json files.
+  --output-root <dir>       Output root for per-agent/workflow results.json files.
   --expected-evals <file>   Newline-delimited or JSON-array expected eval manifest.
   --repo-root <dir>         Repository root used to read eval specs.
   --model <model>           Override the recorded executor model.
@@ -60,6 +66,19 @@ function agentIdentity(evalFile) {
   }
   const plugin = parts[1];
   const evalName = parts.at(-2);
+  if (plugin === "agentic-workflows") {
+    if (parts.length !== 4 || !/^[A-Za-z0-9_-]+$/.test(evalName)) {
+      throw new Error(`Invalid workflow eval identity: ${evalFile}`);
+    }
+    return {
+      plugin,
+      agentName: `workflow.${evalName}`,
+      skill: evalName,
+      skillPath: `agentic-workflows/${evalName}/aw.yml`,
+      kind: "workflow",
+      evaluationLane: "workflow-prompt-sdk",
+    };
+  }
   const agentName = evalName.startsWith("agent.")
     ? evalName.slice("agent.".length)
     : evalName;
@@ -72,6 +91,8 @@ function agentIdentity(evalFile) {
     agentName,
     skill,
     skillPath: `plugins/${plugin}/agents/${agentName}.agent.md`,
+    kind: "agent",
+    evaluationLane: "native-agent-sdk",
   };
 }
 
@@ -99,6 +120,13 @@ function findAgentEvalFile(repoRoot, plugin, agentName) {
 
 function evalFileFromLegacyVerdict(verdict, repoRoot) {
   const normalized = normalizeEvalFile(verdict.skillPath);
+  if (verdict.skillKind === "workflow") {
+    const match = /(?:^|\/)agentic-workflows\/([A-Za-z0-9_-]+)\/aw\.yml$/.exec(normalized);
+    if (!match || verdict.skillName !== match[1]) {
+      throw new Error(`Workflow result has an invalid package identity: ${verdict.skillPath}`);
+    }
+    return `tests/agentic-workflows/${match[1]}/eval.yaml`;
+  }
   const match = /(?:^|\/)plugins\/([^/]+)\/.+\.agent\.md$/.exec(normalized);
   if (!match) {
     throw new Error(`Agent result has an invalid skillPath: ${verdict.skillPath}`);
@@ -126,6 +154,30 @@ function directionFromPairwise(pairwise) {
   if (winner === "skill" || winner === "agent" || winner === "treatment") return 1;
   if (winner === "baseline") return -1;
   return 0;
+}
+
+function validNativePairwiseResult(pairwise) {
+  const winner = String(pairwise?.overallWinner ?? "").toLowerCase();
+  const magnitude = pairwise?.overallMagnitude;
+  const normalizedMagnitude = String(magnitude ?? "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+  const validMagnitude =
+    (Number.isInteger(magnitude) && magnitude >= 0 && magnitude <= 4) ||
+    new Set([
+      "muchbetter",
+      "slightlybetter",
+      "equal",
+      "slightlyworse",
+      "muchworse",
+    ]).has(normalizedMagnitude);
+  return (
+    new Set(["baseline", "skill", "tie"]).has(winner) &&
+    validMagnitude &&
+    Array.isArray(pairwise?.rubricResults) &&
+    typeof pairwise?.overallReasoning === "string" &&
+    typeof pairwise?.positionSwapConsistent === "boolean"
+  );
 }
 
 function magnitudeFromPairwise(pairwise, direction) {
@@ -219,6 +271,30 @@ function scenarioTimedOut(scenario) {
   );
 }
 
+function nativeCompletionRegressed(scenarios) {
+  return (scenarios ?? []).some(
+    (scenario) =>
+      !scenario?.executionError
+      && (scenario?.failedRunCount ?? 0) === 0
+      && !scenarioTimedOut(scenario)
+      && scenario?.baseline
+      && scenario?.skilledIsolated
+      && scenario?.skilledPlugin
+      && validNativePairwiseResult(scenario?.pairwiseResult)
+      && scenario?.baseline?.metrics?.taskCompleted === true
+      && scenario?.skilledIsolated?.metrics?.taskCompleted === false,
+  );
+}
+
+function nativeActivationFailed(scenarios, agentName) {
+  return (scenarios ?? []).some(
+    (scenario) =>
+      scenario?.expectActivation !== false
+      && scenario?.subagentActivationIsolated
+      && !targetAgentActivated(scenario.subagentActivationIsolated, agentName),
+  );
+}
+
 function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
   const identity = agentIdentity(evalFile);
   identity.skillPath = agentSourcePath(legacyVerdict, repoRoot) ?? identity.skillPath;
@@ -231,7 +307,7 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
       `native_${failureKind}`,
       message,
     );
-    verdict.evaluationLane = "native-agent-sdk";
+    verdict.evaluationLane = identity.evaluationLane;
     return verdict;
   }
   const baselineByStim = new Map();
@@ -266,6 +342,16 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
       ["isolated", scenario.skilledIsolated],
       ["plugin", scenario.skilledPlugin],
     ].filter(([, run]) => !run).map(([name]) => name);
+    // All three arms are required adapter evidence even though the plugin arm is
+    // diagnostic-only for the objective completion-regression predicate.
+    const missingCompletionEvidence = [
+      ["baseline", scenario.baseline],
+      ["isolated", scenario.skilledIsolated],
+      ["plugin", scenario.skilledPlugin],
+    ].filter(
+      ([, run]) =>
+        run && typeof run.metrics?.taskCompleted !== "boolean",
+    ).map(([name]) => name);
     const requiredTimedOut = scenarioTimedOut(scenario);
     const executionError = scenario.executionError
       ?? (missingRequiredArms.length > 0
@@ -275,7 +361,12 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
       ?? ((scenario.failedRunCount ?? 0) > 0
         ? `${scenario.failedRunCount} run(s) failed`
         : null)
-      ?? (!scenario.pairwiseResult ? "Pairwise judge did not produce a result" : null);
+      ?? (missingCompletionEvidence.length > 0
+        ? `Missing task-completion evidence for required arm(s): ${missingCompletionEvidence.join(", ")}`
+        : null)
+      ?? (!validNativePairwiseResult(scenario.pairwiseResult)
+        ? "Pairwise judge did not produce a valid result"
+        : null);
     reportStimuli.push({
       stimulusName: scenario.scenarioName,
       meanScore: executionError ? 0 : score,
@@ -329,24 +420,24 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
     nonActivation,
     "agent",
   );
-  verdict.evaluationLane = "native-agent-sdk";
+  verdict.skillKind = identity.kind;
+  verdict.evaluationLane = identity.evaluationLane;
   verdict.overfittingResult = legacyVerdict.overfittingResult ?? null;
-  const nativeCompletionRegressed =
-    legacyVerdict.failureKind === "completion_regression";
-  const nativeActivationFailed = legacyVerdict.skillNotActivated === true
-    || legacyVerdict.failureKind === "skill_not_activated";
-  if (nativeCompletionRegressed) {
-    verdict.state = VERDICT_STATES.VALID_REGRESSION;
-    verdict.stateReason = {
-      code: "native_completion_regression",
-      phase: "completion",
-    };
+  // The generic comparison layer uses `regressed` for reverse preference.
+  // Native-agent results reserve it for objective completion regression; keep
+  // the ordinal signal in `preferenceRegressed`.
+  verdict.regressed = false;
+  const completionRegressed = nativeCompletionRegressed(legacyVerdict.scenarios);
+  const activationFailed = nativeActivationFailed(
+    legacyVerdict.scenarios,
+    identity.agentName,
+  );
+  if (activationFailed) {
     verdict.passed = false;
-    verdict.regressed = true;
-    verdict.reason = `${verdict.reason} — native evaluator reported an objective task-completion regression`;
-  } else if (nativeActivationFailed) {
-    verdict.passed = false;
-    if (verdict.state === VERDICT_STATES.VALID_PASS) {
+    if (
+      verdict.state !== VERDICT_STATES.INVALID_INCONCLUSIVE
+      && verdict.stateReason?.code !== "activation_contract_failed"
+    ) {
       verdict.state = VERDICT_STATES.VALID_NO_CHANGE;
       verdict.stateReason = {
         code: "target_agent_not_activated",
@@ -354,7 +445,38 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
       };
     }
     verdict.reason = `${verdict.reason} — native evaluator reported that the target agent did not activate`;
+  } else if (completionRegressed) {
+    verdict.passed = false;
+    const preferenceOnlyUnderpowered =
+      verdict.state === VERDICT_STATES.INVALID_INCONCLUSIVE
+      && verdict.stateReason?.code === "underpowered";
+    const activationContractFailed =
+      verdict.stateReason?.code === "activation_contract_failed";
+    if (
+      !activationContractFailed
+      && (
+        verdict.state !== VERDICT_STATES.INVALID_INCONCLUSIVE
+        || preferenceOnlyUnderpowered
+      )
+    ) {
+      verdict.state = VERDICT_STATES.VALID_REGRESSION;
+      verdict.stateReason = {
+        code: "native_completion_regression",
+        phase: "completion",
+      };
+      verdict.underpowered = false;
+      verdict.regressed = true;
+    }
+    verdict.reason = `${verdict.reason} — native evaluator reported an objective task-completion regression`;
   }
+  verdict.noChangeDiagnosis = classifyNoChangeEvidence({
+    wins: verdict.signTest.wins,
+    ties: verdict.signTest.ties,
+    losses: verdict.signTest.losses,
+    discordant: verdict.signTest.discordant,
+    minCredibleStimuli: verdict.minCredibleStimuli,
+    reasonCode: verdict.stateReason?.code,
+  });
 
   const legacyByScenario = new Map(
     (legacyVerdict.scenarios ?? []).map((scenario) => [scenario.scenarioName, scenario]),
@@ -385,8 +507,8 @@ function invalidAgentVerdict(identity, code, message) {
   return {
     skillName: identity.skill,
     skillPath: identity.skillPath,
-    skillKind: "agent",
-    evaluationLane: "native-agent-sdk",
+    skillKind: identity.kind,
+    evaluationLane: identity.evaluationLane,
     state: VERDICT_STATES.INVALID_INCONCLUSIVE,
     stateReason: { code, phase: "agent_adapter" },
     conclusive: false,
@@ -428,7 +550,7 @@ function writeResult(outputRoot, evalFile, identity, verdict, model, judgeModel,
       judgeModel,
       timestamp: new Date().toISOString(),
       expectedEval,
-      evaluationLane: "native-agent-sdk",
+      evaluationLane: identity.evaluationLane,
       verdicts: [verdict],
     }, null, 2),
   );
@@ -470,7 +592,7 @@ function main() {
   for (const evalFile of targetEvals) {
     const identity = agentIdentity(evalFile);
     const expectedEval = !expectedManifestProvided || expectedSet.has(evalFile);
-    const legacy = legacyVerdicts.get(identity.agentName);
+    const legacy = legacyVerdicts.get(identity.kind === "workflow" ? identity.skill : identity.agentName);
     let verdict;
     if (!legacy) {
       const message = `Native agent evaluator produced no verdict for ${identity.agentName}`;
@@ -498,6 +620,7 @@ function main() {
       verdict.passed = false;
       verdict.regressed = false;
       verdict.preferenceRegressed = false;
+      verdict.noChangeDiagnosis = null;
       verdict.errors ??= [];
       verdict.errors.push({
         phase: "agent_adapter",
@@ -527,7 +650,8 @@ function main() {
     join(outputRoot, "adapter-summary.json"),
     JSON.stringify({
       schemaVersion: 1,
-      evaluationLane: "native-agent-sdk",
+      evaluationLane: targetEvals.every((evalFile) => agentIdentity(evalFile).kind === "workflow")
+        ? "workflow-prompt-sdk" : "native-agent-sdk",
       expectedManifestProvided,
       expectedEvalCount: expectedEvals.length,
       observedEvalCount: observedEvals.length,
@@ -544,11 +668,13 @@ function main() {
   );
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
-  process.exitCode = 1;
+if (isMain) {
+  try {
+    main();
+  } catch (error) {
+    console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    process.exitCode = 1;
+  }
 }
 
 export {
@@ -556,5 +682,7 @@ export {
   agentIdentity,
   directionFromPairwise,
   legacyToVerdict,
+  nativeActivationFailed,
+  nativeCompletionRegressed,
   magnitudeFromPairwise,
 };

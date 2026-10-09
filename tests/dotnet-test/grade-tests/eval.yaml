@@ -1,17 +1,21 @@
 name: grade-tests
-executionShard: c
+tags:
+  executionShard: c
 description: Evaluates the dotnet-test/grade-tests skill
 type: capability
-# Eight distinct stimuli provide enough evidence to survive one losing
-# stimulus vote when all eight are discordant (7W/1L, p = 0.035).
+# Fourteen preference stimuli and four off-target dormancy contracts.
+# Preference stimuli preserve enough evidence after one tie to survive one
+# losing stimulus vote when eight remain discordant (7W/1L, p = 0.035).
 #
 # Repeated runs collapse to one majority-direction vote per stimulus, so they do
 # not increase the sign-test sample. The three runs below measure reliability and
 # reduce the chance that one noisy execution decides a stimulus vote.
 #
 # Each stimulus exercises a different contract: bounded input, framework-aware
-# grading, large-report usability, unavailable and available production code,
-# unresolved methods, and mixed-language input.
+# decisions, large-report usability, unavailable and available production code,
+# unresolved methods, empty scopes, mixed-language input, independent-test
+# evidence, focused single-field and positivity claims, static labels, and
+# equivalent changes.
 defaults:
   timeout: 5m
   runs: 3
@@ -19,6 +23,10 @@ defaults:
 stimuli:
   - name: Ask for a bounded list instead of grading the workspace
     prompt: Grade my tests.
+    tags:
+      capability: bounded-input-validation
+      risk: unbounded-workspace-grading
+      journey: assess-pr-test-quality
     environment:
       files:
         - src: fixtures/no-list-provided/Some.Tests/Some.Tests.csproj
@@ -41,17 +49,23 @@ stimuli:
         - edit
         - create
 
-  - name: Report an unresolved method without inventing a grade
+  - name: Report an unresolved method as requiring human review
     prompt: |
-      Please grade these test methods from
-      `Banking.Tests/BankAccountTests.cs` individually. Give each an A-F grade
-      in a compact per-test table and add a short summary. The production code
-      is in `Banking/BankAccount.cs`. Do not modify any files.
+      Please review these test methods from
+      `Banking.Tests/BankAccountTests.cs` individually. Tell me which are ready,
+      which need follow-up, and whether any cannot be assessed confidently
+      without human input. Include supporting A-F quality detail when a test
+      body can be assessed. The production code is in
+      `Banking/BankAccount.cs`. Do not modify any files.
 
       Test methods to grade:
         - Banking.Tests.BankAccountTests.Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds
         - Banking.Tests.BankAccountTests.Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself
         - Banking.Tests.BankAccountTests.Transfer_ToClosedAccount_ReturnsFailure
+    tags:
+      capability: unresolved-method-handling
+      risk: invented-test-assessment
+      journey: assess-pr-test-quality
     environment:
       files:
         - src: fixtures/production-available/Banking/Banking.csproj
@@ -65,17 +79,18 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
       - type: output-matches
         config:
-          pattern: (?i)Transfer_ToClosedAccount_ReturnsFailure.*(?:N/A|not found)
+          pattern: (?i)Transfer_ToClosedAccount_ReturnsFailure.*(?:Uncertain|not found|human review)
       - type: exit-success
       - type: prompt
     rubric:
-      - The two located methods receive evidence-based grades consistent with their bodies
-      - The unresolved transfer method is reported as not found rather than receiving an invented grade or analysis
+      - The two located methods receive evidence-based decisions and supporting quality grades consistent with their bodies
+      - The unresolved transfer method is Uncertain and has no invented quality grade or analysis
       - All three requested method names are accounted for in the report
-      - Located tests use the standard per-test columns and score bands, while the unresolved method clearly has no grade
+      - The self-comparison test is Failed with D quality while the valid exception test passes
+      - The overall result is Failed because a definite actionable issue outranks the unresolved method
     constraints:
       reject_tools:
         - edit
@@ -83,9 +98,11 @@ stimuli:
 
   - name: Apply each framework's semantics in one mixed-language request
     prompt: |
-      Please grade these two test functions individually and give me a concise
-      report with an A-F grade and score band for each. Keep the Python and Go
-      results easy to distinguish. Do not modify any files.
+      Please assess these two test functions individually and give me a concise
+      report showing whether each passes or needs improvement. If the evidence
+      is insufficient, mark it uncertain for human review. Keep the A-F quality
+      grade as supporting detail, and keep the Python and Go results easy to
+      distinguish. Do not modify any files.
 
       Tests to grade:
         - `tests/test_shopping_cart.py::test_calculate_total_with_negative_discount_raises_value_error`
@@ -93,6 +110,10 @@ stimuli:
 
       The Python production code is unavailable. The Go production code is in
       `calculator.go`.
+    tags:
+      capability: framework-aware-test-decisions
+      risk: cross-framework-misclassification
+      journey: assess-pr-test-quality
     environment:
       files:
         - src: fixtures/python-pytest/test_shopping_cart.py
@@ -106,27 +127,28 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
       - type: exit-success
       - type: prompt
     rubric:
-      - The Python exception test receives A because its constrained exception assertion completely verifies the stated error case
-      - The Go parse test receives C because it checks only error absence while discarding the parsed value
+      - The Python exception test is Pass with A quality because its constrained exception assertion completely verifies the stated error case
+      - The Go parse test is Failed with C quality because it checks only error absence while discarding the parsed value
       - The report applies each framework's assertion semantics without treating either idiomatic assertion form as missing
-      - Python and Go results are visually distinguishable, and each test has a letter grade, matching score band, and concise evidence-based reason
+      - Python and Go results are visually distinguishable, and each test has a primary result plus concise supporting quality detail
       - The report avoids production-dependent claims about the unavailable Python implementation while using the available Go source
     constraints:
       reject_tools:
         - edit
         - create
-  - name: Grade pytest assertions without production source
+  - name: Decide pytest quality without production source
     prompt: |
-      Please grade each of the following pytest test functions
-      individually for test quality. Give each an A-F grade and produce a
-      compact per-test table (one row per test) plus a short summary. They live
-      in `tests/test_shopping_cart.py`. Do not modify any files. The production
-      code is unavailable, so do not speculate about behavior that cannot be
-      established from the test bodies.
+      Please assess each of the following pytest test functions individually.
+      Report whether each passes quality review, fails because it has an
+      actionable improvement, or is uncertain and needs human review. Keep the
+      A-F quality grade as supporting detail and produce a compact per-test
+      table plus a short summary. They live in `tests/test_shopping_cart.py`.
+      Do not modify any files. The production code is unavailable, so do not
+      speculate about behavior that cannot be established from the test bodies.
 
       Test methods to grade:
         - test_calculate_total_with_discount_applies_discount_and_returns_rounded_amount
@@ -134,6 +156,10 @@ stimuli:
         - test_get_cart_returns_cart
         - test_clear_cart_works
         - test_async_checkout_completes
+    tags:
+      capability: evidence-bounded-test-decisions
+      risk: speculative-quality-decision
+      journey: assess-pr-test-quality
     environment:
       files:
         - src: fixtures/python-pytest/test_shopping_cart.py
@@ -141,34 +167,42 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
       - type: exit-success
       - type: prompt
     rubric:
-      - The discount-total test receives A because it makes meaningful value and state assertions
-      - The negative-discount test receives A because its constrained exception check completely verifies the stated error case
-      - The get-cart test receives C because its only check establishes non-nullness, not a meaningful result value
-      - The clear-cart test receives F because it performs an action without verifying any outcome
-      - The async-checkout test receives F because sleeping and an always-true assertion do not verify completion
+      - The discount-total test is Pass with A quality because it makes meaningful value and state assertions
+      - The negative-discount test is Pass with A quality because its constrained exception check completely verifies the stated error case
+      - The get-cart test is Failed with C quality because its only check establishes non-nullness, not a meaningful result value
+      - The clear-cart test is Failed with F quality because it performs an action without verifying any outcome
+      - The async-checkout test is Failed with F quality because sleeping and an always-true assertion do not verify completion
       - The report limits conclusions to evidence visible in the tests and leaves production-dependent coverage undecided
-      - Every requested test has one row with a letter grade, matching score band, and concise evidence-based reason rather than a point score
+      - Unavailable production context is N/A or unverified mutation evidence, not a grade deduction or an empirical mutation count
+      - Missing production code does not turn tests with decisive body-level evidence into Uncertain results
+      - Every requested test has one row with a primary result, supporting quality band, and concise evidence-based reason
+      - Improvement actions name the missing observation or evidence needed without inventing production-dependent expected values
     constraints:
       reject_tools:
         - edit
         - create
-  - name: Grade Go table-driven tests without misreading the loop as branching
+  - name: Decide Go table-driven quality without misreading the loop
     prompt: |
-      Please grade each of the following Go test functions individually for
-      test quality. Give each an A-F grade and produce a compact per-test table
-      (one row per test) plus a short summary. They live in
-      `calculator_test.go` and the code under test is in `calculator.go`.
-      Do not modify any files.
+      Please assess each of the following Go test functions individually.
+      Report whether each passes quality review, fails because it needs an
+      improvement, or is uncertain and needs human review. Keep the A-F quality
+      grade as supporting detail and produce a compact per-test table plus a
+      short summary. They live in `calculator_test.go` and the code under test
+      is in `calculator.go`. Do not modify any files.
 
       Test functions to grade:
         - TestAdd_TableDriven
         - TestDivide_ByZero
         - TestParse_NoError
         - TestReset_NoAssertions
+    tags:
+      capability: idiomatic-table-driven-analysis
+      risk: false-positive-quality-failure
+      journey: assess-pr-test-quality
     environment:
       files:
         - src: fixtures/go-table-driven/go.mod
@@ -180,31 +214,37 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
       - type: exit-success
       - type: prompt
     rubric:
-      - The table-driven addition test receives A because every case compares the returned value with its expected result
-      - The divide-by-zero test receives A because failing when the expected error is absent completely verifies its stated error case
-      - The parse test receives C because it checks only error absence and discards the meaningful parsed value
-      - The reset test receives F because it calls the function without verifying an outcome
-      - The addition test's grade is not reduced merely because its named cases are executed by a loop
-      - Every requested test has one row with a letter grade, matching score band, and concise evidence-based reason rather than a point score
+      - The table-driven addition test is Pass with A quality because every case compares the returned value with its expected result
+      - The divide-by-zero test is Pass with A quality because failing when the expected error is absent completely verifies its stated error case
+      - The parse test is Failed with C quality because it checks only error absence and discards the meaningful parsed value
+      - The reset test is Failed with F quality because it calls the function without verifying an outcome
+      - The addition test's result or quality is not reduced merely because its named cases are executed by a loop
+      - Every requested test has one row with a primary result, supporting quality band, and concise evidence-based reason
     constraints:
       reject_tools:
         - edit
         - create
-  - name: Keep a 62-test grading report readable as a PR comment
+  - name: Keep a 62-test decision report readable as a PR comment
     prompt: |
-      Please grade every test declared in `Catalog.Tests/ProductCatalogTests.cs`
-      individually for test quality — one row per test — and give me a short
-      summary. The code under test is in `Catalog.Core/ProductCatalog.cs`.
-      Give each test an A-F grade and do not modify any files.
+      Please assess every test declared in
+      `Catalog.Tests/ProductCatalogTests.cs` individually for test quality —
+      one row per test — and give me a short summary. The primary result must
+      show whether each test passes, needs improvement, or requires human
+      review; keep A-F quality as supporting detail. The code under test is in
+      `Catalog.Core/ProductCatalog.cs`. Do not modify any files.
 
       This goes straight into a PR comment, so it has to stay readable when a
       reviewer opens the thread: I don't want to scroll past dozens of rows of
       passing tests before I reach anything I need to act on, and I don't want
       the same problem restated several times in different words.
+    tags:
+      capability: large-report-usability
+      risk: buried-actionable-findings
+      journey: assess-pr-test-quality
     environment:
       files:
         - src: fixtures/large-suite/Catalog.Core/Catalog.Core.csproj
@@ -218,7 +258,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
       - type: exit-success
       - type: prompt
     rubric:
@@ -226,64 +266,123 @@ stimuli:
       - Every declared test remains individually accounted for while the initially visible report stays bounded
       - The summary leads with the highest-impact finding and a concrete improvement instead of repeating the table
       - Each distinct problem is explained once rather than being duplicated across sections
-      - Tests without assertions receive F, including `TotalValue_Runs`, and null-only tests receive C, including `Find_KnownSku_ReturnsSomething`
-      - Every test is reported with a letter grade, matching score band, and concise evidence-based reason rather than a point score
+      - Tests without assertions are Failed with F quality, including `TotalValue_Runs`, and null-only tests are Failed with C quality, including `Find_KnownSku_ReturnsSomething`
+      - Failed and Uncertain rows appear before the sampled Pass rows so actionable work is immediately visible
+      - Every test is reported with a primary result, supporting quality band, and concise evidence-based reason
     constraints:
       reject_tools:
         - edit
         - create
 
-  - name: Grade tests when the production code under test is unavailable
+  - name: Decide test quality when production code is unavailable
     prompt: |
-      Please grade each of the following test methods individually for test
-      quality and produce a compact per-test table (one row per test) plus a
-      short summary that we can post as a PR comment. They live in
+      Please assess each of the following test methods individually and produce
+      a compact per-test table plus a short summary that we can post as a PR
+      comment. Report whether each passes quality review, fails because it has
+      an actionable improvement, or is uncertain and needs human review. Keep
+      A-F quality as supporting detail. They live in
       `Payments.Tests/PaymentGatewayTests.cs`. The production project
       `Payments.Core` is not in this workspace, so its source is unavailable.
-      Give each test an A-F grade and do not modify any files. Do not speculate
-      about behavior that cannot be established without the production source.
+      Do not modify any files or speculate about behavior that cannot be
+      established without the production source.
 
       Test methods to grade:
         - Payments.Tests.PaymentGatewayTests.Charge_ValidCard_ReturnsApprovedResult
         - Payments.Tests.PaymentGatewayTests.Charge_NegativeAmount_ThrowsArgumentOutOfRange
         - Payments.Tests.PaymentGatewayTests.Refund_ExistingCharge_ReturnsReceipt
         - Payments.Tests.PaymentGatewayTests.Settle_PendingBatch_Runs
+    tags:
+      capability: missing-production-context
+      risk: false-uncertainty
+      journey: assess-pr-test-quality
     environment:
       files:
         - src: fixtures/production-unavailable/Payments.Tests/Payments.Tests.csproj
           dest: Payments.Tests/Payments.Tests.csproj
         - src: fixtures/production-unavailable/Payments.Tests/PaymentGatewayTests.cs
           dest: Payments.Tests/PaymentGatewayTests.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: grading-missing-production
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              ## Summary
+              **Result: Failed** — 2 Pass, 2 Failed. Refund and settlement lack outcome checks. Production-dependent behavior coverage: Unverified. Pseudo-mutation: N/A / unverified — Payments.Core source is unavailable; no source-dependent deduction.
+
+              ## Per-test table
+              | Test | Result | Quality | Notes | How to improve |
+              |------|--------|---------|-------|----------------|
+              | `Payments.Tests.PaymentGatewayTests.Settle_PendingBatch_Runs` | Failed | F (0–59) | No assertion observes settlement. | Obtain the settlement contract and assert its specified caller-visible outcome after SettleBatch; do not guess the value. |
+              | `Payments.Tests.PaymentGatewayTests.Refund_ExistingCharge_ReturnsReceipt` | Failed | C (70–79) | Checks receipt presence only. | Obtain the receipt contract for txn-123 and assert its promised contents, not just non-nullness. |
+              | `Payments.Tests.PaymentGatewayTests.Charge_ValidCard_ReturnsApprovedResult` | Pass | A (90–100) | Checks status and charged amount. | None |
+              | `Payments.Tests.PaymentGatewayTests.Charge_NegativeAmount_ThrowsArgumentOutOfRange` | Pass | A (90–100) | Complete specific-exception claim. | None |
     graders:
       - type: output-matches
+        config: &full_report_header
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|\s*How to improve\s*\|
+      - type: output-matches
         config:
-          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+          pattern: '(?m)^\|[^|\r\n]*Settle_PendingBatch_Runs[^|\r\n]*\|\s*Failed\s*\|\s*F\s*\(0.?59\)\s*\|[^|\r\n]*\|[^|\r\n]*(?:assert|verify)[^|\r\n]*(?:contract|outcome|settle)[^|\r\n]*\|'
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|[^|\r\n]*Refund_ExistingCharge_ReturnsReceipt[^|\r\n]*\|\s*Failed\s*\|\s*C\s*\(70.?79\)\s*\|[^|\r\n]*\|[^|\r\n]*(?:assert|verify)[^|\r\n]*(?:receipt|content|contract)[^|\r\n]*\|'
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|[^|\r\n]*Charge_ValidCard_ReturnsApprovedResult[^|\r\n]*\|\s*Pass\s*\|[^|\r\n]*\|[^|\r\n]*\|\s*None\s*\|'
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|[^|\r\n]*Charge_NegativeAmount_ThrowsArgumentOutOfRange[^|\r\n]*\|\s*Pass\s*\|[^|\r\n]*\|[^|\r\n]*\|\s*None\s*\|'
+      - type: output-matches
+        config:
+          pattern: (N/A|unverified)
+      - type: output-matches
+        config:
+          pattern: Charge_ValidCard_ReturnsApprovedResult[^\r\n]*Pass[^\r\n]*A\s*\(90.?100\)
+      - type: output-matches
+        config:
+          pattern: Charge_NegativeAmount_ThrowsArgumentOutOfRange[^\r\n]*Pass[^\r\n]*A\s*\(90.?100\)
+      - type: output-not-matches
+        config:
+          pattern: (?i)(\b\d+\s*/\s*\d+\s*(mutations?|kill)|mutation score\s*[:=]\s*\d)
       - type: exit-success
       - type: prompt
     rubric:
       - Every deduction is supported by evidence in the supplied tests, with source-dependent behavior left undecided
-      - The valid-charge test receives A because it verifies both status and charged amount
-      - The negative-charge test receives A because its specific exception assertion completely verifies the stated error case
-      - The refund test receives C because its only check establishes non-nullness, not receipt contents
-      - The settle-batch test receives F because it performs an action without verifying any outcome
-      - Every requested test has one row with a letter grade, matching score band, and concise evidence-based reason rather than a point score
+      - The valid-charge test is Pass with A quality because it verifies both status and charged amount
+      - The negative-charge test is Pass with A quality because its specific exception assertion completely verifies the stated error case
+      - The refund test is Failed with C quality because its only check establishes non-nullness, not receipt contents
+      - The settle-batch test is Failed with F quality because it performs an action without verifying any outcome
+      - Missing production code does not turn tests with decisive body-level evidence into Uncertain results
+      - Every requested test has one row with a primary result, supporting quality band, and concise evidence-based reason
+      - Unavailable production context is N/A or unverified mutation evidence, not a quality penalty or an empirical mutation count
+      - Improvement actions name the missing observation or evidence needed without inventing receipt fields, settlement outcomes, or expected values
     constraints:
       reject_tools:
         - edit
         - create
-  - name: Grade C# tests against available production code
+  - name: Decide C# test quality against available production code
     prompt: |
-      Please grade each of the following test methods individually for test
-      quality and produce a compact per-test table (one row per test) plus a
-      short summary. They live in `Banking.Tests/BankAccountTests.cs` and the
-      code under test is in `Banking/BankAccount.cs`. Give each test an A-F
-      grade and do not modify any files.
+      Please assess each of the following test methods individually and produce
+      a compact per-test table plus a short summary. Report whether each passes
+      quality review, fails because it has an actionable improvement, or is
+      uncertain and needs human review. Keep A-F quality as supporting detail.
+      They live in `Banking.Tests/BankAccountTests.cs` and the code under test
+      is in `Banking/BankAccount.cs`. Do not modify any files.
 
       Test methods to grade:
         - Banking.Tests.BankAccountTests.Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds
         - Banking.Tests.BankAccountTests.Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself
         - Banking.Tests.BankAccountTests.ApplyInterest_RateDependsOnTier_UpdatesBalance
         - Banking.Tests.BankAccountTests.Deposit_NonPositiveAmount_HandledGracefully
+        - Banking.Tests.BankAccountTests.Deposit_PositiveAmount_UpdatesBalance
+    tags:
+      capability: production-aware-test-decisions
+      risk: incorrect-quality-decision
+      journey: assess-pr-test-quality
     environment:
       files:
         - src: fixtures/production-available/Banking/Banking.csproj
@@ -294,19 +393,613 @@ stimuli:
           dest: Banking.Tests/Banking.Tests.csproj
         - src: fixtures/production-available/Banking.Tests/BankAccountTests.cs
           dest: Banking.Tests/BankAccountTests.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: grading-existing-calibration
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              ## Summary
+              **Result: Failed** — 4 Failed, 1 Pass. Replace swallowed exceptions and self-comparisons with meaningful outcomes.
+
+              ## Per-test table
+              | Test | Result | Quality | Notes | How to improve |
+              |------|--------|---------|-------|----------------|
+              | `Banking.Tests.BankAccountTests.Deposit_NonPositiveAmount_HandledGracefully` | Failed | F (0–59) | Swallows exceptions and asserts nothing. | Replace try/catch with Assert.ThrowsException<ArgumentOutOfRangeException>(() => account.Deposit(-5m)). |
+              | `Banking.Tests.BankAccountTests.Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself` | Failed | D (60–69) | Balance is compared with itself. | Assert.AreEqual(60m, account.Balance) after withdrawing 40m from 100m. |
+              | `Banking.Tests.BankAccountTests.ApplyInterest_RateDependsOnTier_UpdatesBalance` | Failed | D (60–69) | Conditional assertions select their own expected outcome. | Arrange an explicit Standard tier and 0.01m rate, then assert 1010m without branching on account.Tier. |
+              | `Banking.Tests.BankAccountTests.Deposit_PositiveAmount_UpdatesBalance` | Failed | A (90–100) | Leftover debug output is actionable, not a quality deduction. | Remove Console.WriteLine after Deposit(25m); retain the balance and tier assertions. |
+              | `Banking.Tests.BankAccountTests.Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds` | Pass | A (90–100) | Checks the promised exception and message. | None |
+
+              Pseudo-mutation evidence: Candidate survivor (unverified). Omitting Balance -= amount makes Withdraw(40m) from 100m leave 100m instead of 60m; the self-comparison still passes. The existing D rubric already accounts for the tautology in its prescribed dimensions; mutation evidence adds no deduction.
     graders:
       - type: output-matches
+        config: *full_report_header
+      - type: output-matches
         config:
-          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+          pattern: '(?m)^\|[^|\r\n]*Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself[^|\r\n]*\|\s*Failed\s*\|[^|\r\n]*\|[^|\r\n]*\|[^|\r\n]*(?:60[^|\r\n]*Balance|Balance[^|\r\n]*60)[^|\r\n]*\|'
+      - type: output-matches
+        config:
+          pattern: '(?im)^\|[^|\r\n]*Deposit_PositiveAmount_UpdatesBalance[^|\r\n]*\|\s*Failed\s*\|[^|\r\n]*\|[^|\r\n]*\|[^|\r\n]*(?:remov|delet)[^|\r\n]*Console\.WriteLine[^|\r\n]*\|'
+      - type: output-matches
+        config:
+          pattern: '(?im)^\|[^|\r\n]*Deposit_NonPositiveAmount_HandledGracefully[^|\r\n]*\|\s*Failed\s*\|[^|\r\n]*\|[^|\r\n]*\|[^|\r\n]*(?:assert|verify)[^|\r\n]*ArgumentOutOfRangeException[^|\r\n]*\|'
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|[^|\r\n]*ApplyInterest_RateDependsOnTier_UpdatesBalance[^|\r\n]*\|\s*Failed\s*\|[^|\r\n]*\|[^|\r\n]*\|[^|\r\n]*(?:assert|verify)[^|\r\n]*1010[^|\r\n]*\|'
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|[^|\r\n]*Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds[^|\r\n]*\|\s*Pass\s*\|[^|\r\n]*\|[^|\r\n]*\|\s*None\s*\|'
+      - type: output-matches
+        config:
+          pattern: (?i)Deposit_PositiveAmount_UpdatesBalance.*Failed.*A\s*\(90.?100\)
       - type: exit-success
       - type: prompt
     rubric:
-      - The insufficient-funds test receives A because it verifies the documented exception type and message
-      - The self-comparison withdrawal test receives D because comparing the balance with itself cannot verify the withdrawal result
-      - The interest test receives D because its expected value is selected by branching on the same state that drives the behavior under test
-      - The non-positive deposit test receives F because it swallows any exception and verifies no outcome
+      - The insufficient-funds test is Pass with A quality because it verifies the documented exception type and message
+      - The self-comparison withdrawal test is Failed with D quality because comparing the balance with itself cannot verify the withdrawal result
+      - The interest test is Failed with D quality because its expected value is selected by branching on the same state that drives the behavior under test
+      - The non-positive deposit test is Failed with F quality because it swallows any exception and verifies no outcome
+      - The positive-deposit test is Failed with A quality because leftover debug output is actionable but does not reduce its quality grade
+      - The withdrawal improvement replaces the self-comparison with an expected balance of 60 after withdrawing 40 from 100
+      - The positive-deposit improvement specifically removes the Console.WriteLine rather than recommending more assertions or a lower grade
+      - Static mutation evidence is not described as an executed result, and the same assertion weakness is not deducted again as a separate mutation penalty
       - Conclusions use the available production source instead of claiming the behavior cannot be checked
-      - Every requested test has one row with a letter grade, matching score band, and concise evidence-based reason rather than a point score
+      - Every requested test has one row with a primary result, supporting quality band, and concise evidence-based reason
+    constraints:
+      reject_tools:
+        - edit
+        - create
+
+  - name: Recommend an exact assertion without borrowing a sibling test
+    prompt: |
+      Grade only ShippingTests.test_standard_quote_calculates_cost in
+      test_shipping.py and give me its readiness decision, supporting A-F
+      quality band, and the smallest useful improvement if one is warranted.
+      shipping.py contains the implementation. Explain the concrete evidence
+      behind a behavioral finding. This is an individual-test review: leave
+      the files unchanged and do not run tests or commands.
+    tags:
+      capability: independent-test-evidence
+      risk: sibling-assertion-credit
+      journey: strengthen-one-pr-test
+    environment: &focused_environment
+      files:
+        - src: fixtures/focused-mutations/shipping.py
+          dest: shipping.py
+        - src: fixtures/focused-mutations/test_shipping.py
+          dest: test_shipping.py
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: grading-independent-test
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              ## Summary
+              **Result: Failed** — 1 Failed. Pin the standard shipping cost, not just positivity.
+
+              ## Per-test table
+              | Test | Result | Quality | Notes | How to improve |
+              |------|--------|---------|-------|----------------|
+              | `ShippingTests.test_standard_quote_calculates_cost` | Failed | C (70–79) | A positive but wrong cost passes. | Replace assertGreater with assertEqual(10, result.cost) for subtotal 50. |
+
+              Pseudo-mutation evidence: Candidate survivor (unverified). Changing base_cost's 10 to 12 gives cost 10 -> 12 for subtotal 50, express=False; this test's assertGreater(result.cost, 0) still passes. Its own expected-cost assertion would distinguish the outcomes. This is static inference, not execution.
+    graders:
+      - type: output-matches
+        config:
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|\s*How to improve\s*\|
+      - type: output-matches
+        config:
+          pattern: test_standard_quote_calculates_cost[^\r\n]*Failed[^\r\n]*C\s*\(70.?79\)
+      - type: output-matches
+        config:
+          pattern: '(?im)^\|[^|\r\n]*test_standard_quote_calculates_cost[^|\r\n]*\|[^|\r\n]*\|[^|\r\n]*\|[^|\r\n]*\|[^|\r\n]*(?:\b(?:10|ten)\b[^|\r\n]*cost|cost[^|\r\n]*\b(?:10|ten)\b)[^|\r\n]*\|'
+      - type: output-matches
+        config:
+          pattern: (Candidate survivor.*unverified|Pseudo.mutation[^\r\n]*N/A[^\r\n]*unverified)
+      - type: output-not-matches
+        config:
+          pattern: '(?m)^\|(?!(?:[^|\r\n]*\btest_standard_quote_calculates_cost\b))[^|\r\n]+\|\s*(?:\*\*)?(?:Pass|Failed|Uncertain)\b'
+      - type: file-not-exists
+        config:
+          path: .test-executed
+      - type: run-command
+        config: &preserve_focused_files
+          command: >-
+            python -c "import hashlib; from pathlib import Path; expected={'shipping.py':'f12f529a6dcd8c24dadb33900eca290be14509b5d432fcac7397c9a2135cbc7b','test_shipping.py':'f1503aaccfbc41eeea25122cb202136e92d197d9ff5ef213295f7b6c39977ba0'}; actual={p.name:hashlib.sha256(p.read_bytes().replace(bytes([13,10]),bytes([10]))).hexdigest() for p in Path('.').glob('*.py')}; assert actual==expected, actual"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The sole graded test is Failed with C quality because positivity cannot verify its claimed shipping-cost calculation
+      - The recommendation replaces the current broad assertion with an expected cost of 10 for the existing subtotal of 50, not generic stronger assertions
+      - The report explains a publicly different wrong positive cost that this individual test would accept even though another test in the file pins the cost
+      - No unrequested test is graded or credited toward this test, and unrelated invalid-input, express-flag, or free-shipping scenarios are not deductions
+      - Available mutation evidence is static and unverified; an unavailable shared assessment is disclosed without pretending execution or adding a scoring dimension
+      - The source and tests remain unchanged and no test, build, mutation, or agent workflow is executed
+    constraints: &readonly_constraints
+      reject_tools:
+        - bash
+        - edit
+        - create
+        - task
+        - agent
+
+  - name: Accept a complete single-field test without unrelated demands
+    prompt: |
+      Grade only ShippingTests.test_standard_quote_cost_is_ten in
+      test_shipping.py. Give its readiness decision and supporting A-F
+      quality band; suggest a change only if this test actually needs one.
+      The implementation is shipping.py. Keep the report compact, do not
+      modify files, and do not run tests or commands.
+    tags:
+      capability: focused-claim-calibration
+      risk: unrelated-scenario-deduction
+      journey: approve-focused-pr-test
+    environment: *focused_environment
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: grading-focused-field
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              ## Summary
+              **Result: Pass** — 1 Pass. The focused standard-cost claim is verified.
+
+              ## Per-test table
+              | Test | Result | Quality | Notes | How to improve |
+              |------|--------|---------|-------|----------------|
+              | `ShippingTests.test_standard_quote_cost_is_ten` | Pass | A (90–100) | One complete exact-value assertion. | None |
+    graders:
+      - type: output-matches
+        config: *full_report_header
+      - type: output-matches
+        config:
+          pattern: test_standard_quote_cost_is_ten[^\r\n]*Pass[^\r\n]*(?:A\s*\(90.?100\)|B\s*\(80.?89\))
+      - type: output-matches
+        config:
+          pattern: \|\s*How to improve\s*\|[\s\S]*\|\s*None\s*\|
+      - type: output-not-matches
+        config:
+          pattern: \|\s*(Failed|Uncertain)\s*\|
+      - type: output-not-matches
+        config:
+          pattern: '(?m)^\|(?!(?:[^|\r\n]*\btest_standard_quote_cost_is_ten\b))[^|\r\n]+\|\s*(?:\*\*)?(?:Pass|Failed|Uncertain)\b'
+      - type: file-not-exists
+        config:
+          path: .test-executed
+      - type: run-command
+        config: *preserve_focused_files
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The complete single-field test is Pass with A or B quality under the existing assertion rubric because no actionable improvement is established
+      - The standard cost is assessed independently from the returned express field and other subtotal or validation scenarios
+      - No change is manufactured to justify the secondary letter grade
+      - No sibling assertions, production execution, test runs, edits, or audit delegation are used
+    constraints: *readonly_constraints
+
+  - name: Distinguish inferred boundary detection from executed mutation results
+    prompt: |
+      Grade only ShippingTests.test_free_shipping_starts_at_threshold in
+      test_shipping.py for readiness, with an A-F quality band. Also explain
+      whether it would notice an off-by-one change to shipping.py's free
+      shipping comparison, with the original and changed results. This is
+      a source review only: do not run tests, commands, or modify files.
+    tags:
+      capability: static-evidence-labeling
+      risk: invented-empirical-mutation-result
+      journey: explain-pr-test-protection
+    environment: *focused_environment
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: grading-static-boundary
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              ## Summary
+              **Result: Pass** — 1 Pass. The exact threshold cost is protected.
+
+              ## Per-test table
+              | Test | Result | Quality | Notes | How to improve |
+              |------|--------|---------|-------|----------------|
+              | `ShippingTests.test_free_shipping_starts_at_threshold` | Pass | B (80–89) | Checks the exact threshold cost. | None |
+
+              Pseudo-mutation evidence: Likely killed (inferred). For subtotal 100 and express=False, changing subtotal < 100 to subtotal <= 100 changes the cost from 0 to 10. This test's assertEqual(0, result.cost) would fail. No mutation or test was executed; this is not an empirical kill count.
+    graders:
+      - type: output-matches
+        config: *full_report_header
+      - type: output-matches
+        config:
+          pattern: test_free_shipping_starts_at_threshold[^\r\n]*Pass[^\r\n]*(?:A\s*\(90.?100\)|B\s*\(80.?89\))
+      - type: output-matches
+        config:
+          pattern: (Likely killed|inferred|N/A[^\r\n]*unverified)
+      - type: output-matches
+        config:
+          pattern: (100[\s\S]*(0[\s\S]*10|10[\s\S]*0))
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|[^|\r\n]*test_free_shipping_starts_at_threshold[^|\r\n]*\|\s*Pass\s*\|[^|\r\n]*\|[^|\r\n]*\|\s*None\s*\|'
+      - type: output-not-matches
+        config:
+          pattern: (?i)(\b\d+\s*/\s*\d+\s*(mutations?|kill)|mutation score\s*[:=]\s*\d|(?:empirically|executed|verified)\s+killed)
+      - type: output-not-matches
+        config:
+          pattern: '(?m)^\|(?!(?:[^|\r\n]*\btest_free_shipping_starts_at_threshold\b))[^|\r\n]+\|\s*(?:\*\*)?(?:Pass|Failed|Uncertain)\b'
+      - type: file-not-exists
+        config:
+          path: .test-executed
+      - type: run-command
+        config: *preserve_focused_files
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - At subtotal 100 the original cost is 0 and the inclusive mutant cost is 10, so the current equality assertion detects the changed outcome
+      - The result remains Pass with A or B quality under the existing assertion rubric; untested neighboring scenarios are not automatically actionable against this threshold-specific claim
+      - Detection is explicitly inferred rather than executed, with no empirical totals or mutation percentage
+      - No tests, production imports, mutation execution, file changes, or audit delegation occur
+    constraints: *readonly_constraints
+
+  - name: Exclude an equivalent guard from improvement recommendations
+    prompt: |
+      Grade only ShippingTests.test_empty_quantity_raises_value_error in
+      test_shipping.py for readiness, supporting A-F quality, and any
+      necessary improvement. The code is shipping.py. Explain whether
+      deleting the explicit empty-input guard creates a gap in this test.
+      Do not modify files or run tests or commands.
+    tags:
+      capability: observable-equivalence-filter
+      risk: inert-mutation-false-positive
+      journey: avoid-redundant-pr-test-change
+    environment: *focused_environment
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: grading-equivalent-guard
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              ## Summary
+              **Result: Pass** — 1 Pass. The promised invalid-input exception is checked.
+
+              ## Per-test table
+              | Test | Result | Quality | Notes | How to improve |
+              |------|--------|---------|-------|----------------|
+              | `ShippingTests.test_empty_quantity_raises_value_error` | Pass | A (90–100) | Complete exception-only claim. | None |
+
+              Removing the explicit empty-input guard is equivalent for the claimed contract: parse_quantity("") raises ValueError both originally and through int("") after removal. No message contract or side effect is established. Exclude this edit from survivor findings; no new assertion is warranted.
+    graders:
+      - type: output-matches
+        config: *full_report_header
+      - type: output-matches
+        config:
+          pattern: test_empty_quantity_raises_value_error[^\r\n]*Pass[^\r\n]*A\s*\(90.?100\)
+      - type: output-matches
+        config:
+          pattern: (equivalent|same[\s\S]*ValueError|ValueError[\s\S]*both)
+      - type: output-not-matches
+        config:
+          pattern: \|\s*(Failed|Uncertain)\s*\|
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|[^|\r\n]*test_empty_quantity_raises_value_error[^|\r\n]*\|\s*Pass\s*\|[^|\r\n]*\|[^|\r\n]*\|\s*None\s*\|'
+      - type: output-not-matches
+        config:
+          pattern: '(?m)^\|(?!(?:[^|\r\n]*\btest_empty_quantity_raises_value_error\b))[^|\r\n]+\|\s*(?:\*\*)?(?:Pass|Failed|Uncertain)\b'
+      - type: file-not-exists
+        config:
+          path: .test-executed
+      - type: run-command
+        config: *preserve_focused_files
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The invalid-input test is Pass with A quality because its exception assertion is complete for its stated behavior
+      - The removed guard still falls through to ValueError for the same empty input, so it is not reported as an observable survivor
+      - No exception-message assertion, happy-path case, or unrelated input is demanded without an established contract
+      - The review distinguishes excluded equivalence from an unexecuted mutation result and leaves all files unchanged without execution
+    constraints: *readonly_constraints
+
+  - name: Respect an intentionally positivity-only test contract
+    prompt: |
+      Grade only ShippingTests.test_standard_quote_cost_is_positive in
+      test_shipping.py with a readiness decision and A-F quality band.
+      This test deliberately verifies only that a standard quote has a
+      positive cost; it does not promise to check the exact fee calculation.
+      shipping.py is available for context. Recommend a change only for
+      a demonstrated issue with that claim. Do not modify files or run
+      tests or commands.
+    tags:
+      capability: explicit-claim-boundary
+      risk: invented-exact-value-requirement
+      journey: preserve-deliberately-narrow-test
+    environment: *focused_environment
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: grading-positive-claim
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              ## Summary
+              **Result: Pass** — 1 Pass. The deliberate positivity-only claim is verified.
+
+              ## Per-test table
+              | Test | Result | Quality | Notes | How to improve |
+              |------|--------|---------|-------|----------------|
+              | `ShippingTests.test_standard_quote_cost_is_positive` | Pass | B (80–89) | A meaningful positivity assertion. | None |
+    graders:
+      - type: output-matches
+        config: *full_report_header
+      - type: output-matches
+        config:
+          pattern: test_standard_quote_cost_is_positive[^\r\n]*Pass[^\r\n]*B\s*\(80.?89\)
+      - type: output-matches
+        config:
+          pattern: \|\s*How to improve\s*\|[\s\S]*\|\s*None\s*\|
+      - type: output-not-matches
+        config:
+          pattern: \|\s*(Failed|Uncertain)\s*\|
+      - type: output-not-matches
+        config:
+          pattern: '(?m)^\|(?!(?:[^|\r\n]*\btest_standard_quote_cost_is_positive\b))[^|\r\n]+\|\s*(?:\*\*)?(?:Pass|Failed|Uncertain)\b'
+      - type: file-not-exists
+        config:
+          path: .test-executed
+      - type: run-command
+        config: *preserve_focused_files
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The intentional positivity assertion receives B quality and Pass without an invented exact-cost recommendation
+      - A change from one positive cost to another is not called a survivor against the contracted positivity-only outcome
+      - The test is neither credited with the sibling exact-cost assertions nor penalized for not owning their different claim
+      - No files are modified and no tests, commands, mutations, or delegated audits are executed
+    constraints: *readonly_constraints
+
+  - name: Keep suite-wide health reviews outside per-test decisions
+    prompt: |
+      Audit the shipping test suite as a whole for maintainability and common
+      test anti-patterns. I want a severity-ranked suite health assessment,
+      not a readiness decision or letter grade for individual tests.
+      Use shipping.py and test_shipping.py; leave the files unchanged.
+    expect_activation: false
+    tags:
+      capability: suite-audit-routing-boundary
+      risk: per-test-grading-hijacks-suite-audit
+      journey: review-suite-health
+    environment: *focused_environment
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: grading-suite-dormancy
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a suite-wide health audit, not a curated per-test grading request. Use an anti-pattern assessment for severity-ranked maintainability findings; do not assign per-test readiness results or letter grades.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (suite|anti.pattern|severity|maintainab)
+      - type: output-not-matches
+        config: &no_grading_table
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Treats the request as a suite-wide severity-ranked health assessment, not a curated grading report
+      - Stayed dormant for individual-test grading and did not emit per-test readiness or letter grades
+      - Uses or identifies the appropriate anti-pattern or suite-audit workflow and preserves the supplied files
+    constraints:
+      reject_tools: [edit, create]
+
+  - name: Keep test generation outside grading
+    prompt: |
+      Write a new unittest case for quote(50, express=True) in test_shipping.py
+      using shipping.py. It should verify the express shipping cost and flag.
+      I want the test implemented, not a review of the existing tests.
+    expect_activation: false
+    tags:
+      capability: test-generation-routing-boundary
+      risk: grading-substitutes-for-requested-implementation
+      journey: add-a-new-test
+    environment: &editing_environment
+      files:
+        - src: fixtures/focused-mutations/shipping.py
+          dest: shipping.py
+        - src: fixtures/focused-mutations/test_shipping.py
+          dest: test_shipping.py
+        - src: graders/check_test_change.py
+          dest: .eval/check_test_change.py
+      commands:
+        - python -c "import shutil;shutil.copyfile('shipping.py','.eval/shipping.before')"
+    golden_patch:
+      inline: |
+        diff --git a/test_shipping.py b/test_shipping.py
+        --- a/test_shipping.py
+        +++ b/test_shipping.py
+        @@ -9,7 +9,13 @@
+
+
+         class ShippingTests(unittest.TestCase):
+        +    def test_express_quote_returns_cost_and_flag(self):
+        +        result = quote(50, express=True)
+        +
+        +        self.assertEqual(15, result.cost)
+        +        self.assertTrue(result.express)
+        +
+             def test_standard_quote_cost_is_positive(self):
+                 ordinary_subtotal = 50
+
+                 result = quote(ordinary_subtotal)
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: grading-generation-dormancy
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Added test_express_quote_returns_cost_and_flag to test_shipping.py. It checks cost 15 and express=True for quote(50, express=True); shipping.py is unchanged. This is test implementation, not per-test grading.
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/check_test_change.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='5d1c678375132d6422861632a118982d49b207cfbfcb9d80f47162aa6b7a6f73';subprocess.run([sys.executable,'-B',str(p),*sys.argv[1:]],check=True)" generation test_standard_quote_cost_is_positive,test_standard_quote_calculates_cost,test_standard_quote_cost_is_ten,test_free_shipping_starts_at_threshold,test_empty_quantity_raises_value_error 50 15 1 f12f529a6dcd8c24dadb33900eca290be14509b5d432fcac7397c9a2135cbc7b
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-not-matches
+        config: *no_grading_table
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Stayed dormant for grading and implements an express quote test or routes to the test-writing workflow
+      - Verifies the cost of 15 and the express flag rather than assigning grades to existing tests
+      - Does not replace the requested implementation with readiness feedback
+
+  - name: Keep direct assertion repair outside grading
+    prompt: |
+      Fix test_standard_quote_calculates_cost in test_shipping.py so it asserts
+      the actual standard shipping cost for its existing input. Edit the test
+      in place and keep shipping.py unchanged; I do not need a quality report.
+    expect_activation: false
+    tags:
+      capability: test-repair-routing-boundary
+      risk: grading-substitutes-for-direct-repair
+      journey: repair-an-existing-test
+    environment: *editing_environment
+    golden_patch:
+      inline: |
+        diff --git a/test_shipping.py b/test_shipping.py
+        --- a/test_shipping.py
+        +++ b/test_shipping.py
+        @@ -19,8 +19,8 @@
+             def test_standard_quote_calculates_cost(self):
+                 ordinary_subtotal = 50
+
+                 result = quote(ordinary_subtotal)
+
+        -        self.assertGreater(result.cost, 0)
+        +        self.assertEqual(10, result.cost)
+
+             def test_standard_quote_cost_is_ten(self):
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: grading-repair-dormancy
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Replaced the positivity assertion in test_standard_quote_calculates_cost with assertEqual(10, result.cost). The existing input stays at subtotal 50 and shipping.py is unchanged; no quality report was substituted for the edit.
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/check_test_change.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='5d1c678375132d6422861632a118982d49b207cfbfcb9d80f47162aa6b7a6f73';subprocess.run([sys.executable,'-B',str(p),*sys.argv[1:]],check=True)" repair test_standard_quote_calculates_cost 50 10 0 f12f529a6dcd8c24dadb33900eca290be14509b5d432fcac7397c9a2135cbc7b
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-not-matches
+        config: *no_grading_table
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Stayed dormant for grading and repairs the targeted assertion or routes to the direct test-editing workflow
+      - Asserts the expected standard cost of 10 for subtotal 50 while preserving production code
+      - Does not substitute a per-test readiness or letter-grade report for the edit
+
+  - name: Keep measured coverage requests outside grading
+    prompt: |
+      How can I measure line and branch coverage for shipping.py when running
+      this unittest suite? Give me a coverage collection command and explain
+      the report it produces. Do not assess test quality or edit files.
+    expect_activation: false
+    tags:
+      capability: coverage-routing-boundary
+      risk: grading-hijacks-coverage-measurement
+      journey: collect-test-coverage
+    environment: *focused_environment
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: grading-coverage-dormancy
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use native Python coverage tooling, not per-test grading: python -m coverage run --branch --source=shipping -m unittest test_shipping, then python -m coverage report -m. The report shows executed lines, missing lines, and branch coverage. This is a command recommendation, not a measured result.
+    graders:
+      - type: output-matches
+        config:
+          pattern: coverage[\s\S]*(--branch|branch)
+      - type: output-not-matches
+        config: *no_grading_table
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Stayed dormant for per-test grading and uses or identifies native Python coverage tooling
+      - Gives a usable line-and-branch collection command and distinguishes a command recommendation from measured results
+      - Does not edit files or emit test readiness decisions
+    constraints:
+      reject_tools: [edit, create]
+
+  - name: Return not applicable when a bounded diff contains no tests
+    prompt: |
+      Review the tests changed by this pull-request diff and give me the
+      overall test-quality decision. Keep any A-F quality information as
+      supporting detail.
+
+      ```diff
+      diff --git a/src/InvoiceCalculator.cs b/src/InvoiceCalculator.cs
+      index 1234567..89abcde 100644
+      --- a/src/InvoiceCalculator.cs
+      +++ b/src/InvoiceCalculator.cs
+      @@ -18,6 +18,7 @@ public decimal CalculateTotal(Invoice invoice)
+           var subtotal = invoice.Items.Sum(item => item.Price * item.Quantity);
+      +    subtotal = decimal.Round(subtotal, 2, MidpointRounding.AwayFromZero);
+           return subtotal;
+       }
+      ```
+    tags:
+      capability: empty-scope-handling
+      risk: invented-test-findings
+      journey: assess-pr-test-quality
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(result.{0,20}not applicable|not applicable.{0,40}no (eligible|changed) tests)
+      - type: output-not-matches
+        config:
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Returned Not applicable because the valid bounded diff contains no test changes
+      - Did not invent test methods, findings, grades, or per-test rows
+      - Distinguished an empty eligible-test set from an ambiguous request that lacks scope
     constraints:
       reject_tools:
         - edit

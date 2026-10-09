@@ -1,0 +1,60 @@
+{
+  "schema_version": "1",
+  "repository": "fixture/repo",
+  "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "git_object_format": "sha1",
+  "config_digest": "49ea7b693a67dd367e3d4fbdcae49587e4b5859e35276047b5ce6538df59497d",
+  "candidate_count": 1,
+  "candidates": [
+    {
+      "candidate_id": "8daec38b45e687f17fd500b26ed39c62175438883927b334c60154329373d3a4",
+      "stable_owner_id": "93f08752776c76cbfb2097b0393208b393caf137539f299f4bba31245686a28f",
+      "path": "repo/Tests.cs",
+      "blob_oid": "9314b34d5416260dd14a1b503ff2c99cd590bd72",
+      "source_sha256": "0dfbd8ba959e4db1f2b59b9eaed205a91c9ed73da554f701dfd6cb06af320451",
+      "attribute_span": {
+        "start": 42,
+        "length": 50,
+        "start_line": 4,
+        "start_column": 6,
+        "end_line": 4,
+        "end_column": 56
+      },
+      "attribute_text_sha256": "2d1547f680c9df3df1451da0eb2e90f366bc4df2d56d22e9056efd89abba1d24",
+      "attribute_type": "Microsoft.VisualStudio.TestTools.UnitTesting.IgnoreAttribute",
+      "owner": {
+        "kind": "method",
+        "namespace": "Demo",
+        "containing_types": [
+          "Tests"
+        ],
+        "type_fqn": "Demo.Tests",
+        "declaration_id": "M:Demo.Tests.Count()",
+        "method_name": "Count",
+        "method_signature": "Count()",
+        "test_fqns": [
+          "Demo.Tests.Count"
+        ]
+      },
+      "canonical_issue_references": [
+        {
+          "kind": "pull_request",
+          "owner": "fixture",
+          "repo": "repo",
+          "number": 102,
+          "canonical": "fixture/repo#102",
+          "url": "https://github.com/fixture/repo/pull/102",
+          "eligibility": true,
+          "state": "closed",
+          "state_reason": "",
+          "merged_at": "2026-09-30T12:00:00Z"
+        }
+      ],
+      "decision": {
+        "eligible": true,
+        "deferrals": []
+      }
+    }
+  ],
+  "manifest_digest": "0436ecd7262ce42986fa48e09d93ce335bec757c0df767d7017446b58063d525"
+}

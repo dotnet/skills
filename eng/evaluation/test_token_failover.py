@@ -8,7 +8,9 @@ import stat
 import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
+from datetime import date, timedelta
 from pathlib import Path
 
 try:
@@ -22,6 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-run.yml"
 CALLER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation.yml"
 TEST_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-workflow-tests.yml"
+EVAL_QUALITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "eval-quality.yml"
 DASHBOARD_GENERATOR = REPO_ROOT / "eng" / "dashboard" / "generate-benchmark-data.ps1"
 PATH_SAFETY_SCRIPT = REPO_ROOT / "eng" / "evaluation" / "path-safety.ps1"
 FIND_TARGETS_SCRIPT = REPO_ROOT / "eng" / "evaluation" / "find-targets.ps1"
@@ -168,7 +171,7 @@ def run_groom_publisher_without_rows(
     test_case: unittest.TestCase,
     *,
     include_active_finding: bool = True,
-    correlation_date: str = "2026-09-16",
+    correlation_date: str | None = None,
     row_status: str = "🔄 Dispatched",
     result_text: str = "[pending](https://github.com/dotnet/skills/actions/runs/123)",
     change_body_on_recheck: bool = False,
@@ -178,6 +181,13 @@ def run_groom_publisher_without_rows(
         test_case.skipTest("Node.js is required for publisher behavior tests")
 
     finding_id = "pipeline:evaluation:evaluate:test:failure"
+    # Default to a correlation that is still inside the 14-day retention
+    # window. A hard-coded date silently expires once real time passes it,
+    # which made the "resolved but dispatched" fixture drop its row.
+    if correlation_date is None:
+        correlation_date = (
+            date.today() - timedelta(days=1)
+        ).isoformat()
     correlation = f"hc-{correlation_date}-123-1"
     finding = {
         "fingerprint": finding_id,
@@ -185,7 +195,7 @@ def run_groom_publisher_without_rows(
         "severity": "critical",
         "category": "pipeline",
         "url": "https://github.com/dotnet/skills/actions/runs/123",
-        "first_seen": "2026-09-16",
+        "first_seen": correlation_date,
         "occurrences": 1,
     }
     encoded_finding = "pipeline%3Aevaluation%3Aevaluate%3Atest%3Afailure"
@@ -197,7 +207,7 @@ def run_groom_publisher_without_rows(
         f"#investigation-fingerprint:{encoded_finding}) "
         "[](https://github.com/dotnet/skills/issues/695"
         f"#investigation-correlation:{correlation}) Evaluation failed | "
-        f"🔴 critical | {row_status} | 2026-09-16 | "
+        f"🔴 critical | {row_status} | {correlation_date} | "
         f"{result_text} |\n\n"
         "<!-- devops-health-state:v1\n"
         f"{json.dumps({'active_findings': [finding] if include_active_finding else [], 'history': []}, separators=(',', ':'))}\n"
@@ -1393,9 +1403,13 @@ None found.
         self.assertNotIn("hc-2000-01-01-123-1", result["calls"][0]["body"])
 
     def test_groom_status_parser_ignores_result_text(self) -> None:
+        correlation_date = (
+            date.today() - timedelta(days=1)
+        ).isoformat()
         result = run_groom_publisher_without_rows(
             self,
             include_active_finding=False,
+            correlation_date=correlation_date,
             row_status="✅ Done",
             result_text=(
                 "[Summary contains ⏳ Dispatch pending]"
@@ -1408,7 +1422,10 @@ None found.
             [call["type"] for call in result["calls"]],
             ["update"],
         )
-        self.assertNotIn("hc-2026-09-16-123-1", result["calls"][0]["body"])
+        self.assertNotIn(
+            f"hc-{correlation_date}-123-1",
+            result["calls"][0]["body"],
+        )
 
     def test_groom_publisher_rejects_concurrent_body_change(self) -> None:
         result = run_groom_publisher_without_rows(
@@ -1586,29 +1603,35 @@ None found.
             )
         )
 
-        setup_sha = "5e508589e03a7757a7e05b26e834292f5445bfb6"
-        for action in ("setup", "setup-cli"):
-            entry = actions_lock["entries"][
-                f"github/gh-aw-actions/{action}@v0.88.7"
-            ]
-            self.assertEqual(entry["version"], "v0.88.7")
-            self.assertEqual(entry["sha"], setup_sha)
+        setup_sha = "2fbab69bfca02bebd76cd0fc43f2d12acfed994f"
+        self.assertEqual(
+            {
+                key: entry["sha"]
+                for key, entry in actions_lock["entries"].items()
+                if key.startswith("github/gh-aw-actions/")
+            },
+            {
+                f"github/gh-aw-actions/setup@{setup_sha}": setup_sha,
+                f"github/gh-aw-actions/setup-cli@{setup_sha}": setup_sha,
+            },
+            "cached gh-aw action annotations must preserve the explicit SHA pins",
+        )
 
         expected_containers = {
-            "ghcr.io/github/gh-aw-firewall/agent:0.28.14":
-                "sha256:f7df036c86575527b61f3f7df91c4412349a12b2a74988d929eafa2999230c98",
-            "ghcr.io/github/gh-aw-firewall/api-proxy:0.28.14":
-                "sha256:6f95e2234dd9bd6333a8ff28ccea7ecf0204acd4a09108723844dbd2bf6268c5",
-            "ghcr.io/github/gh-aw-firewall/squid:0.28.14":
-                "sha256:2ce8df3abf3e9b76e9c0cf5863da41f1ab3f89b20ad14b988806ab89e7bf2cd5",
-            "ghcr.io/github/gh-aw-mcpg:v0.4.18":
-                "sha256:85b940556a8faa4e1fdbef124bfd75f2c4ebd855a10b88a1c3b6f3e97f6f1a53",
+            "ghcr.io/github/gh-aw-firewall/agent:0.28.25":
+                "sha256:25fbbefb92b690d4e6ef34de8df057c0349e6adf2b7486c0cc56954a8e9a3cd4",
+            "ghcr.io/github/gh-aw-firewall/api-proxy:0.28.25":
+                "sha256:c3c7082e73ba83052c580097e5a9c9c40a11e6f6b6fa0a4710e6859f83a62854",
+            "ghcr.io/github/gh-aw-firewall/squid:0.28.25":
+                "sha256:94cac14372280dbf4a08d021d7b5810a9fd7d73c88802e04a9e05551b1cbcd09",
+            "ghcr.io/github/gh-aw-mcpg:v0.4.26":
+                "sha256:2df1262a5b8877bfd8d99bc13e705f350a14709cf0d45005942fb63702a7a45b",
         }
         expected_executable_images = {
             f"{image}@{digest}"
             for image, digest in expected_containers.items()
         }
-        expected_executable_images.add("ghcr.io/github/gh-aw-mcpg:v0.4.18")
+        expected_executable_images.add("ghcr.io/github/gh-aw-mcpg:v0.4.26")
 
         def gh_aw_action_refs(text: str) -> set[tuple[str, str]]:
             return set(
@@ -1654,7 +1677,7 @@ None found.
                         executable_lock,
                     )
                 )
-                self.assertIn('"compiler_version":"v0.88.7"', lock)
+                self.assertIn('"compiler_version":"v0.89.22"', lock)
                 self.assertEqual(
                     gh_aw_action_refs(executable_lock),
                     {("setup", setup_sha)},
@@ -1676,13 +1699,13 @@ None found.
             gh_aw_action_refs(executable_lines(setup)),
             {("setup-cli", setup_sha)},
         )
-        self.assertIn("version: v0.88.7", setup)
+        self.assertIn("version: v0.89.22", setup)
 
         maintenance = (workflows / "agentics-maintenance.yml").read_text(
             encoding="utf-8"
         )
         self.assertIn(
-            "generated by pkg/workflow/maintenance_workflow.go (v0.88.7)",
+            "generated by pkg/workflow/maintenance_workflow.go (v0.89.22)",
             maintenance,
         )
         self.assertEqual(
@@ -2207,6 +2230,22 @@ esac
         adapter_path = "eng/vally-adapter/**"
         for event in ("pull_request", "push"):
             self.assertEqual(triggers[event]["paths"].count(adapter_path), 1)
+            self.assertEqual(
+                triggers[event]["paths"].count(".github/scripts/**"),
+                1,
+            )
+            self.assertEqual(
+                triggers[event]["paths"].count(
+                    "eng/evaluation/test_pr_triage_retry.py"
+                ),
+                1,
+            )
+            self.assertEqual(
+                triggers[event]["paths"].count(
+                    ".github/workflows/pr-triage.yml"
+                ),
+                1,
+            )
 
         job = workflow["jobs"]["vally-adapter"]
         self.assertEqual(job["runs-on"], "ubuntu-latest")
@@ -2214,6 +2253,17 @@ esac
         self.assertIn(
             "node --test eng/vally-adapter/*.test.mjs",
             steps["Run adapter fault-injection and report tests"]["run"],
+        )
+        tools_job = workflow["jobs"]["token-failover"]
+        tools_steps = {step.get("name"): step for step in tools_job["steps"]}
+        workflow_tests = tools_steps["Test evaluation workflow behavior"]["run"]
+        self.assertIn(
+            "python eng/evaluation/test_token_failover.py",
+            workflow_tests,
+        )
+        self.assertIn(
+            "python eng/evaluation/test_pr_triage_retry.py",
+            workflow_tests,
         )
 
     def test_manual_eval_data_publish_is_explicit_and_main_only(self) -> None:
@@ -2287,6 +2337,147 @@ esac
         )
         self.assertNotIn("re-post `/evaluate`", script)
 
+    def test_pr_session_publish_failure_is_visible_but_non_authoritative(self) -> None:
+        workflow = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        publish_job = workflow["jobs"]["publish-session-data"]
+        self.assertEqual(
+            publish_job["continue-on-error"],
+            "${{ needs.gate.outputs.pr_number != '' }}",
+        )
+        self.assertEqual(
+            publish_job["outputs"]["status"],
+            "${{ steps.publish-status.outputs.status }}",
+        )
+
+        steps = {step.get("name"): step for step in publish_job["steps"]}
+        auth_script = steps["Validate session data credentials"]["run"]
+        self.assertIn('push --dry-run "$REPO_URL"', auth_script)
+        self.assertIn(
+            "Session telemetry token is missing",
+            auth_script,
+        )
+        self.assertIn(
+            "Session data token is missing",
+            auth_script,
+        )
+        self.assertIn(
+            "Session telemetry write preflight failed",
+            auth_script,
+        )
+        self.assertIn(
+            "Session data write preflight failed",
+            auth_script,
+        )
+        self.assertIn(
+            "credential-bearing remote output was suppressed",
+            auth_script,
+        )
+        self.assertIn("commit --allow-empty", auth_script)
+        self.assertIn("session-data-auth-preflight-", auth_script)
+        self.assertLess(
+            [step.get("name") for step in publish_job["steps"]].index(
+                "Validate session data credentials"
+            ),
+            [step.get("name") for step in publish_job["steps"]].index(
+                "Checkout repository"
+            ),
+        )
+        self.assertEqual(
+            steps["Validate session data credentials"]["continue-on-error"],
+            "${{ needs.gate.outputs.pr_number != '' }}",
+        )
+        self.assertEqual(
+            steps["Checkout repository"]["if"],
+            "steps.auth.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Download evaluation artifacts"]["if"],
+            "steps.auth.outcome == 'success' && steps.checkout.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Determine source metadata"]["if"],
+            "steps.download.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Build session manifest"]["if"],
+            "steps.meta.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Clone existing session data branch"]["if"],
+            "steps.build.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Merge and purge old sessions"]["if"],
+            "steps.clone.outcome == 'success'",
+        )
+        self.assertEqual(
+            steps["Push to dashboard-session-data branch (dotnet/skills-data)"]["if"],
+            "steps.merge.outcome == 'success'",
+        )
+        for name in (
+            "Checkout repository",
+            "Inspect downloaded artifacts",
+            "Determine source metadata",
+            "Build session manifest",
+            "Clone existing session data branch",
+            "Merge and purge old sessions",
+            "Push to dashboard-session-data branch (dotnet/skills-data)",
+        ):
+            self.assertEqual(
+                steps[name]["continue-on-error"],
+                "${{ needs.gate.outputs.pr_number != '' }}",
+            )
+        self.assertIn(
+            "needs.gate.outputs.pr_number != '' || needs.evaluate.result != 'success'",
+            steps["Download evaluation artifacts"]["continue-on-error"],
+        )
+        status_step = steps["Report session publishing outcome"]
+        self.assertEqual(status_step["if"], "always()")
+        self.assertEqual(
+            status_step["env"]["DOWNLOAD_OUTCOME"],
+            "${{ steps.download.outcome }}",
+        )
+        status_script = status_step["run"]
+        self.assertIn('"$OUTCOMES" == *skipped*', status_script)
+        self.assertIn('echo "status=degraded"', status_script)
+        self.assertIn(
+            "Evaluation results remain authoritative",
+            status_script,
+        )
+        self.assertIn('echo "status=failed"', status_script)
+        self.assertIn(
+            "Scheduled/main publishing is strict",
+            status_script,
+        )
+
+        comment_steps = {
+            step.get("name"): step
+            for step in workflow["jobs"]["comment-on-pr"]["steps"]
+        }
+        comment_script = comment_steps["Consolidate and post results"]["run"]
+        self.assertIn(
+            'needs.publish-session-data.outputs.status',
+            comment_script,
+        )
+        self.assertIn(
+            "Session replay telemetry was not published",
+            comment_script,
+        )
+        self.assertIn(
+            'needs.publish-session-data.outputs.status }}" == "published"',
+            comment_script,
+        )
+        self.assertNotIn(
+            'needs.publish-session-data.result }}" == "success"',
+            comment_script,
+        )
+
+        deploy_condition = workflow["jobs"]["deploy-dashboard"]["if"]
+        self.assertNotIn(
+            "needs.publish-session-data.outputs.status",
+            deploy_condition,
+        )
+
     def test_partial_matrix_results_never_become_complete_verdicts(self) -> None:
         caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
         comment_job = caller["jobs"]["comment-on-pr"]
@@ -2305,6 +2496,11 @@ esac
             "${{ needs.discover.outputs.entries }}",
         )
         script = consolidate_step["run"]
+        self.assertIn(
+            "find all-results/ -name results.json "
+            "-not -path '*/_agent-timeout-retry/*'",
+            script,
+        )
         incomplete_guard = (
             'if [[ "$MATRIX_MANIFEST_VALID" != "true" '
             '|| "$EVALUATE_RESULT" != "success" '
@@ -2361,6 +2557,90 @@ esac
             runner_steps["Upload results"]["with"]["if-no-files-found"],
             "error",
         )
+
+    def test_execution_shard_uses_only_top_level_tags(self) -> None:
+        caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        discover_script = workflow_step_script(
+            caller, "discover", "function Get-PluginShardEntries"
+        )
+        start = discover_script.index("function Get-EvalExecutionShard")
+        end = discover_script.index(
+            'if ("$env:GATE_PR_NUMBER"', start
+        )
+        functions = discover_script[start:end]
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for skill in ("top-level", "nested-only"):
+                (root / "plugins" / "demo" / "skills" / skill).mkdir(parents=True)
+                (root / "tests" / "demo" / skill).mkdir(parents=True)
+                (root / "plugins" / "demo" / "skills" / skill / "SKILL.md").write_text(
+                    "# Skill", encoding="utf-8"
+                )
+            (root / "tests" / "demo" / "top-level" / "eval.yaml").write_text(
+                "tags:\n"
+                "  executionShard: heavy\n"
+                "stimuli:\n"
+                "  - name: Scenario\n"
+                "    tags:\n"
+                "      executionShard: nested\n",
+                encoding="utf-8",
+            )
+            (root / "tests" / "demo" / "nested-only" / "eval.yaml").write_text(
+                "stimuli:\n"
+                "  - name: Scenario\n"
+                "    tags:\n"
+                "      executionShard: nested\n",
+                encoding="utf-8",
+            )
+            script = (
+                "$ErrorActionPreference = 'Stop'\n"
+                + functions
+                + f"\n$root = '{str(root).replace(chr(39), chr(39) * 2)}'\n"
+                + "$entries = @(Get-PluginShardEntries -plugin demo -contentRoot $root)\n"
+                + "ConvertTo-Json -InputObject @($entries) -Compress\n"
+            )
+            result = subprocess.run(
+                ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            entries = json.loads(result.stdout.strip().splitlines()[-1])
+            self.assertEqual(
+                {entry["name"] for entry in entries},
+                {"demo--shard-default", "demo--shard-heavy"},
+            )
+
+    def test_manual_eval_quality_uses_main_as_comparison_base(self) -> None:
+        workflow = yaml.safe_load(EVAL_QUALITY_WORKFLOW.read_text(encoding="utf-8"))
+        script = workflow_step_script(
+            workflow, "check", 'EVENT_NAME" = "workflow_dispatch'
+        )
+
+        self.assertIn('COMPARISON_REF="origin/main"', script)
+        self.assertIn('python eng/eval-quality/check_eval_quality.py --base-ref "$COMPARISON_REF"', script)
+        manual_branch = script.split(
+            'elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then',
+            maxsplit=1,
+        )[1].split("fi", maxsplit=1)[0]
+        self.assertNotIn("--all", manual_branch)
+
+    def test_eval_quality_contract_changes_audit_every_spec(self) -> None:
+        workflow = yaml.safe_load(EVAL_QUALITY_WORKFLOW.read_text(encoding="utf-8"))
+        script = workflow_step_script(
+            workflow, "check", "Repository-wide contract audit"
+        )
+
+        self.assertIn("check_eval_quality.py --all", script)
+        self.assertIn("checked all ", script)
+        self.assertIn("current_count < base_count", script)
+        self.assertRegex(
+            script,
+            r"eng/eval-quality/\(check_eval_quality\|selftest_eval_quality\)",
+        )
+        self.assertIn("eng/vally-adapter/adapt", script)
 
     def test_fork_checkout_is_blocked_and_adapter_code_is_trusted(self) -> None:
         workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
@@ -2479,6 +2759,10 @@ esac
             'if [ "$PRODUCED" -ne "$EXPECTED_EVAL_COUNT" ]',
             run_script,
         )
+        self.assertIn(
+            '-not -path "$RESULTS_DIR/_agent-timeout-retry/*"',
+            run_script,
+        )
         self.assertIn("s.expectedManifestProvided === true", run_script)
         self.assertIn("s.unexpectedEvalCount === 0", run_script)
         self.assertIn("s.measurementInvalidEvalCount === 0", run_script)
@@ -2494,6 +2778,22 @@ esac
         )
         self.assertIn(
             '--max-groups 3',
+            run_script,
+        )
+        self.assertIn(
+            '--max-attempts-per-group 2',
+            run_script,
+        )
+        self.assertIn(
+            "timeout --signal=TERM --kill-after=30s 45m",
+            run_script,
+        )
+        self.assertIn(
+            '--max-scenario-seconds 1200',
+            run_script,
+        )
+        self.assertIn(
+            '--scenario-overhead-seconds 300',
             run_script,
         )
         self.assertIn(
@@ -2539,13 +2839,47 @@ esac
         self.assertIn(f"node {trusted_adapter}gen-experiment.mjs", run_script)
         self.assertIn(f"node {trusted_adapter}adapt.mjs", run_script)
         self.assertIn(f"node {trusted_adapter}adapt-agent-results.mjs", run_script)
+        self.assertEqual(run_script.count("adapt-agent-results.mjs"), 1)
         self.assertIn('"$RUNNER_TEMP/trusted-validator/skill-validator" evaluate', run_script)
+        self.assertIn(
+            '--retry-results-dir "$RUNNER_TEMP/agent-timeout-retry"',
+            run_script,
+        )
+        self.assertIn(
+            '--retry-audit-dir "$RESULTS_DIR/_agent-timeout-retry"',
+            run_script,
+        )
+        self.assertNotIn(
+            '--retry-results-dir "$RESULTS_DIR',
+            run_script,
+        )
+        self.assertIn("raw result is renamed retry-results.json", run_script)
+        self.assertIn("--keep-sessions", run_script)
         self.assertIn('rm -f "${AGENT_RESULTS[0]}"', run_script)
         self.assertGreater(
             run_script.index('rm -f "${AGENT_RESULTS[0]}"'),
             run_script.index(f"node {trusted_adapter}adapt-agent-results.mjs"),
         )
+        self.assertNotIn('rm -rf "$RESULTS_DIR/_agent-timeout-retry"', run_script)
+        self.assertIn(
+            '-not -path "$RESULTS_DIR/_agent-timeout-retry/*"',
+            summary_script,
+        )
         self.assertNotIn("node eng/vally-adapter/", run_script)
+
+        caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        caller_scripts = "\n".join(
+            step.get("run", "")
+            for job in caller["jobs"].values()
+            for step in job.get("steps", [])
+        )
+        self.assertGreaterEqual(
+            caller_scripts.count(
+                "Where-Object { $_.FullName -notmatch "
+                "'[\\\\/]_agent-timeout-retry[\\\\/]' }"
+            ),
+            2,
+        )
 
     def test_discovery_creates_first_class_agent_matrix_entries(self) -> None:
         caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
@@ -2579,6 +2913,21 @@ esac
         self.assertIn('if [ "$TARGET_KIND" = "agent" ]', run)
         self.assertIn("--verdict-warn-only", run)
         self.assertIn("--keep-sessions", run)
+        native_eval = '"$RUNNER_TEMP/trusted-validator/skill-validator" evaluate'
+        agent_branch = run.index('if [ "$TARGET_KIND" = "agent" ]')
+        self.assertLess(
+            run.index("set +e", agent_branch),
+            run.index(native_eval),
+        )
+        self.assertIn("AGENT_EVAL_STATUS=$?", run)
+        self.assertIn(
+            'if [ "$AGENT_EVAL_STATUS" -ne 0 ]; then',
+            run,
+        )
+        self.assertIn(
+            "attempting bounded recovery and adapting the preserved result",
+            run,
+        )
 
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -2605,7 +2954,7 @@ esac
             (root / "tests" / "demo" / "nested" / "agent.router" / "eval.yaml").write_text(
                 "name: agent.router\nstimuli: []\n", encoding="utf-8")
 
-            start = discover_script.index("function Get-PluginShardEntries")
+            start = discover_script.index("function Get-EvalExecutionShard")
             end = discover_script.index(
                 'if ("$env:GATE_PR_NUMBER"', start)
             functions = discover_script[start:end]
@@ -2755,9 +3104,12 @@ esac
             "plugins/dotnet-test/skills/test-smell-detection/SKILL.md",
             "tests/dotnet-test/agent.test-quality-auditor/eval.yaml",
             "tests/dotnet-test/test-smell-detection/eval.yaml",
+            "tests/agentic-workflows/RESULT_SCHEMA.md",
+            "tests/agentic-workflows/test_graders.py",
+            "tests/agentic-workflows/graders/check_result.py",
             "plugins/dotnet-test/README.md",
         ]
-        expected = changed_files[:6]
+        expected = changed_files[:-1]
 
         for job_name, script in discovery_scripts.items():
             with self.subTest(job=job_name):
@@ -2888,6 +3240,8 @@ esac
                     "state": "VALID_PASS",
                     "passed": True,
                     "reason": "credible preference improvement",
+                    "minCredibleStimuli": 5,
+                    "noChangeDiagnosis": None,
                     "signTest": {
                         "wins": 5, "ties": 0, "losses": 0,
                         "discordant": 5, "direction": "better",
@@ -2962,6 +3316,8 @@ esac
             dashboard = json.loads((output / "demo.json").read_text(encoding="utf-8-sig"))
             evidence = dashboard["entries"]["Quality"][-1]["verdictEvidence"][0]
             self.assertEqual(evidence["skillKind"], "agent")
+            self.assertEqual(evidence["gateEvidence"]["minCredibleStimuli"], 5)
+            self.assertIsNone(evidence["noChangeDiagnosis"])
             scenario = evidence["activationScenarios"][0]
             self.assertEqual(scenario["isolated"], "activated")
             self.assertEqual(scenario["delegatedAgents"], ["helper"])
@@ -3064,6 +3420,80 @@ esac
         self.assertNotIn("Generate judge-comparison data", caller_text)
         self.assertNotIn("all-crossjudge", caller_text)
         self.assertIn('Group-Object -Property { "$($_.Json.model)|$($_.Json.judgeModel)" }', caller_text)
+
+
+class AgentTimeoutRetryQuarantineTests(unittest.TestCase):
+    """The agent timeout-retry tree must never yield a collectable results.json.
+
+    Retry aggregates are staged outside RESULTS_DIR, so TERM/KILL cannot leave
+    one in the uploaded tree. Completed sessions, logs, and a renamed raw result
+    are copied into the audit subtree, which every recursive collector excludes.
+    """
+
+    RETRY_DIR = "_agent-timeout-retry"
+
+    def _run_script(self) -> str:
+        workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        steps = workflow["jobs"]["vally-evaluate"]["steps"]
+        return next(
+            step["run"] for step in steps if step.get("name") == "Run vally evaluations"
+        )
+
+    def test_retry_results_are_staged_outside_results_dir(self) -> None:
+        script = self._run_script()
+        self.assertIn(
+            '--retry-results-dir "$RUNNER_TEMP/agent-timeout-retry"',
+            script,
+        )
+        self.assertIn(
+            f'--retry-audit-dir "$RESULTS_DIR/{self.RETRY_DIR}"',
+            script,
+        )
+        self.assertNotIn('--retry-results-dir "$RESULTS_DIR', script)
+
+    def test_retry_budget_is_wired_to_the_outer_watchdog(self) -> None:
+        script = self._run_script()
+        self.assertIn(
+            "timeout --signal=TERM --kill-after=30s 45m",
+            script,
+        )
+        self.assertIn("--max-scenarios 2", script)
+        self.assertIn("--max-scenario-seconds 1200", script)
+        self.assertIn("--scenario-overhead-seconds 300", script)
+
+    def test_recursive_collectors_exclude_the_retry_tree(self) -> None:
+        # Scan the whole workflow: the produced-result count and the per-skill
+        # summary loop live in different steps, and both walk RESULTS_DIR.
+        workflow_text = WORKFLOW.read_text(encoding="utf-8")
+        finds = [
+            line
+            for line in workflow_text.splitlines()
+            if "find " in line and "-name results.json" in line
+        ]
+        # The AGENT_RAW_DIR probe runs before the retry directory can exist.
+        scoped = [
+            line
+            for line in finds
+            if "$RESULTS_DIR" in line and f'"$RESULTS_DIR/{self.RETRY_DIR}"' not in line
+        ]
+        self.assertGreaterEqual(len(scoped), 2)
+        for line in scoped:
+            with self.subTest(line=line.strip()):
+                self.assertIn(f'-not -path "$RESULTS_DIR/{self.RETRY_DIR}/*"', line)
+
+        caller = CALLER_WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn(
+            "find all-results/ -name results.json "
+            f"-not -path '*/{self.RETRY_DIR}/*'",
+            caller,
+        )
+        self.assertEqual(
+            caller.count(
+                r"Where-Object { $_.FullName -notmatch "
+                rf"'[\\/]{self.RETRY_DIR}[\\/]' }}"
+            ),
+            2,
+        )
 
 
 if __name__ == "__main__":

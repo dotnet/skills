@@ -4,14 +4,24 @@
 # Engineering and CI/CD
 /eng/ @AbhitejJohn @JanKrivanek
 /.github/workflows/ @AbhitejJohn @JanKrivanek
+/agentic-workflows/ @YuliiaKovalova @JanKrivanek @Evangelink
+/tests/agentic-workflows/ @YuliiaKovalova @JanKrivanek @Evangelink
 
 # msbuild
 /plugins/dotnet-msbuild/ @dotnet/msbuild @JanKrivanek @YuliiaKovalova
 /tests/dotnet-msbuild/ @dotnet/msbuild @JanKrivanek @YuliiaKovalova
 
 # dotnet (common everyday C#/.NET)
+/plugins/dotnet/skills/msbuild/ @dotnet/msbuild @JanKrivanek @YuliiaKovalova
+/tests/dotnet/msbuild/ @dotnet/msbuild @JanKrivanek @YuliiaKovalova
+/msbuild-coexistence.experiment.yaml @dotnet/msbuild @JanKrivanek @YuliiaKovalova
 /plugins/dotnet/skills/setup-local-sdk/ @dotnet/roslyn-ide @dotnet/skills-csharp-language-reviewers
 /tests/dotnet/setup-local-sdk/ @dotnet/roslyn-ide @dotnet/skills-csharp-language-reviewers
+/plugins/dotnet/skills/csharp-expert/ @dotnet/roslyn-ide @dotnet/skills-csharp-language-reviewers
+/tests/dotnet/csharp-expert/ @dotnet/roslyn-ide @dotnet/skills-csharp-language-reviewers
+/csharp-expert-coexistence.experiment.yaml @dotnet/roslyn-ide @dotnet/skills-csharp-language-reviewers
+/csharp-expert-coexistence.claude.experiment.yaml @dotnet/roslyn-ide @dotnet/skills-csharp-language-reviewers
+
 /plugins/dotnet/skills/csharp-refactoring/ @dotnet/roslyn-ide @dotnet/skills-csharp-language-reviewers
 /tests/dotnet/csharp-refactoring/ @dotnet/roslyn-ide @dotnet/skills-csharp-language-reviewers
 /plugins/dotnet/lsp.json @dotnet/roslyn-ide @dotnet/skills-csharp-language-reviewers
@@ -82,6 +92,10 @@
 # dotnet-blazor (Blazor component and app development)
 /plugins/dotnet-blazor/ @dotnet/aspnet
 /tests/dotnet-blazor/ @dotnet/aspnet
+
+# dotnet-winforms (Windows Forms development)
+/plugins/dotnet-winforms/ @KlausLoeffelmann @AbhitejJohn
+/tests/dotnet-winforms/ @KlausLoeffelmann @AbhitejJohn
 
 # dotnet-data (data access, Entity Framework)
 /plugins/dotnet-data/skills/optimizing-ef-core-queries/ @dotnet/efteam @dotnet/skills-data-reviewers
