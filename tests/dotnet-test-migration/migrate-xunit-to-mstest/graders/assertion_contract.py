@@ -20,11 +20,17 @@ local = Path("LocalTests.cs").read_text(encoding="utf-8")
 global_import = Path("GlobalUsings.cs").read_text(encoding="utf-8")
 assert re.search(r"(?m)^\s*using\s+AwesomeAssertions\s*;", local)
 assert re.search(r"(?m)^\s*global\s+using\s+AwesomeAssertions\s*;", global_import)
-for file, method in (
-    ("LocalTests.cs", "PreservesLocalAssertions"),
-    ("GlobalTests.cs", "PreservesGlobalAssertions"),
+for file, method, expression in (
+    ("LocalTests.cs", "PreservesLocalAssertions", "(2+2).Should().Be(4)"),
+    ("GlobalTests.cs", "PreservesGlobalAssertions", "new[]{2,4}.Should().Equal(2,4)"),
 ):
     text = Path(file).read_text(encoding="utf-8")
-    assert method in text and re.search(r"\.Should\s*\(", text), file
+    code = re.sub(r"//[^\n]*|/\*.*?\*/", "", text, flags=re.S)
+    code = re.sub(r"\s+", "", code)
+    signature = "void" + method + "()"
+    assert (
+        signature + "=>" + expression + ";" in code
+        or signature + "{" + expression + ";}" in code
+    ), file
     assert not re.search(r"\b(?:Xunit|FluentAssertions)\b", text), file
 print("ASSERTION_CONTRACT:package and all three imports preserved")

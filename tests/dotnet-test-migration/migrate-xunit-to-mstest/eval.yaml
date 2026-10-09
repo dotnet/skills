@@ -643,7 +643,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';files={p.as_posix() for p in pathlib.Path('.').rglob('*') if p.is_file() and not {'.eval','bin','obj'}.intersection(p.parts) and (p.suffix in {'.cs','.csproj'} or p.name=='global.json')};assert files=={'TestProject.csproj','OwnerTests.cs','global.json'};subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True,timeout=30)" --expect 383c5f38dfec494c7d38601f7c81a11c62ea431077df254ef7a17b3351a681c2:TestProject.csproj --expect ba38330b97f700eefdcb62fb9cbb88f7854e37c1a7c023f14b7ae64d624dd6a7:OwnerTests.cs --expect b890fa7f916232da31fc5516007c93c148cb5d3e7aba87bfa594a44611dd4f0f:global.json
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';files={p.as_posix() for p in pathlib.Path('.').rglob('*') if p.is_file() and not {'.eval','.git','bin','obj'}.intersection(p.parts)};assert files=={'TestProject.csproj','OwnerTests.cs','global.json'};subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True,timeout=30)" --expect 383c5f38dfec494c7d38601f7c81a11c62ea431077df254ef7a17b3351a681c2:TestProject.csproj --expect ba38330b97f700eefdcb62fb9cbb88f7854e37c1a7c023f14b7ae64d624dd6a7:OwnerTests.cs --expect b890fa7f916232da31fc5516007c93c148cb5d3e7aba87bfa594a44611dd4f0f:global.json
           expected_exit_code: 0
           timeout: 1m
       - type: output-matches
@@ -686,7 +686,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True,timeout=30)" --expect e120498e333555186cf7cdf1826916e00430c2a42823bb504cf16b353e733993:.eval/assertion_contract.py --expect b890fa7f916232da31fc5516007c93c148cb5d3e7aba87bfa594a44611dd4f0f:global.json -- python3 .eval/assertion_contract.py
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True,timeout=30)" --expect 04253f14f6c13c64218ccad26d236e09a3fd576643d87f3d0338b2f25336982e:.eval/assertion_contract.py --expect b890fa7f916232da31fc5516007c93c148cb5d3e7aba87bfa594a44611dd4f0f:global.json -- python3 .eval/assertion_contract.py
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -736,7 +736,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';files={p.as_posix() for p in pathlib.Path('.').rglob('*') if p.is_file() and not {'.eval','bin','obj'}.intersection(p.parts) and (p.suffix in {'.cs','.csproj'} or p.name=='global.json')};assert files=={'TestProject.csproj','CalculatorTests.cs','global.json'};subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True,timeout=30)" --expect a05bee1eeb5d20146fc7f3de43bd43a3cbf39defcc65a774f10dc9c75e7b89a6:TestProject.csproj --expect f58840ba98cfb3238db4eefcd374f3660ad2df48f9c760bb2993e1c3cc55fe43:CalculatorTests.cs --expect b890fa7f916232da31fc5516007c93c148cb5d3e7aba87bfa594a44611dd4f0f:global.json
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';files={p.as_posix() for p in pathlib.Path('.').rglob('*') if p.is_file() and not {'.eval','.git','bin','obj'}.intersection(p.parts)};assert files=={'TestProject.csproj','CalculatorTests.cs','global.json'};subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True,timeout=30)" --expect a05bee1eeb5d20146fc7f3de43bd43a3cbf39defcc65a774f10dc9c75e7b89a6:TestProject.csproj --expect f58840ba98cfb3238db4eefcd374f3660ad2df48f9c760bb2993e1c3cc55fe43:CalculatorTests.cs --expect b890fa7f916232da31fc5516007c93c148cb5d3e7aba87bfa594a44611dd4f0f:global.json
           expected_exit_code: 0
           timeout: 1m
       - type: output-matches
