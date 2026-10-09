@@ -106,8 +106,10 @@ tests against the actual defective and fixed bytes in fresh owned experiment
 directories. The production command grader authenticates its staged helper and
 replays exit codes, the named assertion, and all test counts without trusting
 narrated or stale red results. Its captured replay proves behavioral detection,
-not what the model executor itself ran; trajectory evidence is still needed for
-that claim. Calibration also rejects unrelated edits, extra files, altered
+not what the model executor itself ran. The implementation case separately
+requires completed test-command events with the named original assertion,
+counts, and matching green output; narration alone cannot pass.
+Calibration also rejects unrelated edits, extra files, altered
 helpers, and skipped or misattributed results.
 Only the allowed changed production file may omit its terminal LF; preserved
 test bytes and all other product content remain exact. It is not a measured

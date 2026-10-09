@@ -1,0 +1,84 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "evidence-boundary",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Run the unchanged tests against the original implementation.",
+      "tool_calls": [
+        {
+          "tool_call_id": "original-tests",
+          "function_name": "bash",
+          "arguments": {
+            "command": "python -B -m unittest -v test_boundary.BoundaryTests"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "original-tests",
+            "content": "test_above_threshold (test_boundary.BoundaryTests.test_above_threshold) ... ok\ntest_below_threshold (test_boundary.BoundaryTests.test_below_threshold) ... ok\ntest_exact_threshold (test_boundary.BoundaryTests.test_exact_threshold) ... FAIL\nAssertionError: 0 != 10\nRan 3 tests in 0.001s\nFAILED (failures=1)\nExit code: 1"
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "Apply only the exact-boundary correction.",
+      "tool_calls": [
+        {
+          "tool_call_id": "boundary-fix",
+          "function_name": "edit",
+          "arguments": {
+            "path": "boundary.py",
+            "old_str": "return 0 if amount > 100 else 10",
+            "new_str": "return 0 if amount >= 100 else 10"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "boundary-fix",
+            "content": "Updated boundary.py."
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 3,
+      "source": "agent",
+      "message": "Run the same unchanged selection against the fixed implementation.",
+      "tool_calls": [
+        {
+          "tool_call_id": "fixed-tests",
+          "function_name": "bash",
+          "arguments": {
+            "command": "python -B -m unittest -v test_boundary.BoundaryTests"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "fixed-tests",
+            "content": "test_above_threshold (test_boundary.BoundaryTests.test_above_threshold) ... ok\ntest_below_threshold (test_boundary.BoundaryTests.test_below_threshold) ... ok\ntest_exact_threshold (test_boundary.BoundaryTests.test_exact_threshold) ... ok\nRan 3 tests in 0.001s\nOK\nExit code: 0"
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 4,
+      "source": "agent",
+      "message": "**Test-value evidence:** executed: detected.\nCorrect patch: golden.patch changes shipping_cost's > to >=; counterfactual is the original boundary.py bytes with >.\nNo commit SHAs are available in the supplied fixture.\ntest_exact_threshold asserts the requirement's 0, not the old 10.\nCommand: python -B -m unittest -v test_boundary.BoundaryTests.\nOriginal: exit 1, selected/executed 3, passed 2, failed 1, skipped 0; the exact-threshold assertion observes 10 instead of 0.\nCorrect implementation: exit 0, selected/executed/passed 3, failed/skipped 0.\nPython unittest; both observed commands use unchanged tests and avoid bytecode outputs.\nExisting unchanged tests suffice; no redundant test is needed."
+    }
+  ]
+}

@@ -26,6 +26,13 @@ checker = importlib.util.module_from_spec(checker_spec)
 checker_spec.loader.exec_module(checker)
 
 
+def golden_document(stimulus):
+    reference = stimulus["golden_trajectory"]
+    if "inline" in reference:
+        return reference["inline"]
+    return json.loads((SUITE / reference["path"]).read_text(encoding="utf-8"))
+
+
 class EvidenceCalibration(unittest.TestCase):
     def materialize(self):
         directory = tempfile.TemporaryDirectory(prefix=".calibration-", dir=SUITE)
@@ -64,7 +71,7 @@ class EvidenceCalibration(unittest.TestCase):
 
     def response_errors(self, stimulus, response):
         checker.errors.clear()
-        document = copy.deepcopy(stimulus["golden_trajectory"]["inline"])
+        document = copy.deepcopy(golden_document(stimulus))
         document["steps"][-1]["message"] = response
         checker.check_trajectory_output_graders(
             str(SUITE / "eval.yaml"), stimulus, document, "calibration"
@@ -76,7 +83,7 @@ class EvidenceCalibration(unittest.TestCase):
         self.assertEqual(12, len(goldens))
         for stimulus in goldens:
             with self.subTest(stimulus=stimulus["name"]):
-                response = stimulus["golden_trajectory"]["inline"]["steps"][-1]["message"]
+                response = golden_document(stimulus)["steps"][-1]["message"]
                 self.assertEqual([], self.response_errors(stimulus, response))
 
     def test_misleading_evidence_is_rejected(self):
@@ -95,7 +102,7 @@ class EvidenceCalibration(unittest.TestCase):
             SPEC["stimuli"][:9], defects, strict=True
         ):
             with self.subTest(stimulus=stimulus["name"]):
-                response = stimulus["golden_trajectory"]["inline"]["steps"][-1]["message"]
+                response = golden_document(stimulus)["steps"][-1]["message"]
                 self.assertIn(original, response)
                 broken = response.replace(original, replacement)
                 if stimulus is SPEC["stimuli"][1]:
@@ -283,16 +290,56 @@ class EvidenceCalibration(unittest.TestCase):
             const {loadEvalSpec} = await import(process.argv[1]);
             const {gradeTrajectory} = await import(process.argv[2]);
             const {fromAtif} = await import(process.argv[5]);
+            const {readFile} = await import('node:fs/promises');
+            const {resolve, dirname} = await import('node:path');
             const spec = await loadEvalSpec(process.argv[3]);
             const results = [];
             let restraint = true;
+            let provenance = true;
             for (const stimulus of spec.stimuli) {
-                const trajectory = fromAtif(stimulus.golden_trajectory.inline, {
+                const document = stimulus.golden_trajectory.inline ??
+                    JSON.parse(await readFile(resolve(dirname(process.argv[3]),
+                        stimulus.golden_trajectory.path), 'utf8'));
+                const trajectory = fromAtif(document, {
                     stimulusName: stimulus.name, stimulusPrompt: stimulus.prompt,
                     workDir: process.argv[4]
                 });
                 const graders = stimulus.graders.filter(g => g.type !== 'prompt');
                 results.push(await gradeTrajectory(trajectory, graders, {stimulus}));
+                if (stimulus === spec.stimuli[0]) {
+                    const mutations = [
+                        events => events.filter(e =>
+                            e.type !== 'tool_call' && e.type !== 'tool_result'),
+                        events => events.filter(e => e.data?.toolCallId !== 'original-tests'),
+                        events => events.filter(e => e.data?.toolCallId !== 'fixed-tests'),
+                        events => events.map(e => e.type === 'tool_result' &&
+                            e.data.toolCallId === 'original-tests' ?
+                            {...e, data:{...e.data, result:'Ran 3 tests in 0.001s\\nOK'}} : e),
+                        events => events.map(e => e.type === 'tool_result' &&
+                            e.data.toolCallId === 'original-tests' ?
+                            {...e, data:{...e.data, result:String(e.data.result)
+                                .replaceAll('test_exact_threshold', 'test_unrelated_setup')}} : e),
+                        events => events.map(e => e.type === 'tool_result' &&
+                            e.data.toolCallId === 'original-tests' ?
+                            {...e, data:{...e.data, result:String(e.data.result)
+                                .replace('Ran 3 tests', 'Ran 0 tests')}} : e),
+                        events => events.map(e => e.type === 'tool_result' &&
+                            e.data.toolCallId === 'fixed-tests' ?
+                            {...e, data:{...e.data, result:String(e.data.result)
+                                .replace('\\nOK', '\\nOK (skipped=1)')}} : e),
+                        events => events.map(e => e.type === 'tool_call' &&
+                            e.data.toolCallId === 'original-tests' ?
+                            {...e, data:{...e.data,
+                                arguments:{command:'echo fabricated output'}}} : e),
+                    ];
+                    for (const mutate of mutations) {
+                        const mutated = structuredClone(trajectory);
+                        mutated.events = mutate(mutated.events);
+                        const graded = await gradeTrajectory(mutated,
+                            graders.filter(g => g.type === 'tool-calls'), {stimulus});
+                        provenance &&= !graded.passed;
+                    }
+                }
                 if (stimulus.constraints) {
                     for (const toolName of ['bash', 'edit', 'create']) {
                         const mutated = structuredClone(trajectory);
@@ -308,8 +355,8 @@ class EvidenceCalibration(unittest.TestCase):
                     }
                 }
             }
-            console.log(JSON.stringify({results, restraint}));
-            process.exit(results.every(r => r.passed) && restraint ? 0 : 1);
+            console.log(JSON.stringify({results, restraint, provenance}));
+            process.exit(results.every(r => r.passed) && restraint && provenance ? 0 : 1);
         """
         root = self.golden_workspace()
         command = [
@@ -325,6 +372,7 @@ class EvidenceCalibration(unittest.TestCase):
         results = graded["results"]
         self.assertEqual(12, len(results))
         self.assertTrue(graded["restraint"])
+        self.assertTrue(graded["provenance"])
         replay = next(detail for detail in results[0]["details"]
                       if detail["name"].startswith("run-command"))
         self.assertEqual([1, 0], [run["exit"] for run in json.loads(

@@ -31,27 +31,17 @@ stimuli:
     golden_patch:
       path: golden.patch
     golden_trajectory:
-      inline:
-        schema_version: ATIF-v1.6
-        session_id: evidence-boundary
-        agent: {name: reference, version: "1.0.0", model_name: curated}
-        steps:
-          - step_id: 1
-            source: agent
-            message: |
-              **Test-value evidence:** executed: detected.
-              Correct patch: golden.patch changes shipping_cost's > to >=;
-              counterfactual is the original boundary.py bytes with >.
-              No commit SHAs are available in the supplied fixture.
-              test_exact_threshold asserts the requirement's 0, not the old 10.
-              Command: python -B -m unittest -v test_boundary.BoundaryTests.
-              Original: exit 1, selected/executed 3, passed 2, failed 1,
-              skipped 0; the exact-threshold assertion observes 10 instead of 0.
-              Correct implementation: exit 0, selected/executed/passed 3,
-              failed/skipped 0. Restored green: same command and counts.
-              Python unittest; each variant uses fresh owned outputs.
-              Existing unchanged tests suffice; no redundant test is needed.
+      path: golden-implementation.json
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - name: bash
+              command: (?i)(unittest|pytest)
+              result: '(?i)(?=[\s\S]*test_exact_threshold)(?=[\s\S]*(?:AssertionError:\s*0\s*!=\s*10|assert\s+0\s*==\s*10))(?=[\s\S]*(?:Ran\s+3\s+tests|1\s+failed[\s\S]*2\s+passed|2\s+passed[\s\S]*1\s+failed))[\s\S]*(?:FAILED\s*\(failures=1\)|1\s+failed)'
+            - name: bash
+              command: (?i)(unittest|pytest)
+              result: '(?i)(?:Ran\s+3\s+tests[\s\S]*\bOK[ \t]*(?:\r?\n|$)|3\s+passed(?![ \t]*,))'
       - type: output-matches
         config: &report
           pattern: (?i)test.value evidence
@@ -110,6 +100,7 @@ stimuli:
     rubric:
       - Corrected only the exact boundary while keeping the existing test file unchanged
       - Demonstrated the exact-threshold assertion failing for the original defect and passing for the fix, with commands and real counts
+      - Attributed execution claims to observed test-command results rather than post-response grader replay
       - Identified the tested revisions or patches without inventing commit provenance
       - Preserved the original test inputs and assertions across the comparison and left no defective product variant
 
