@@ -1,0 +1,519 @@
+name: syncfusion-blazor-toolkit-install
+description: Evaluates the dotnet-blazor/syncfusion-blazor-toolkit-install skill
+type: capability
+defaults:
+  timeout: 20m
+
+stimuli:
+  - name: server-install-success
+    tags:
+      capability: toolkit-install
+      risk: wrong-package-or-host
+      journey: install-legacy-server
+    prompt: |
+      I'm setting up a legacy-style Blazor Server project that targets net8.0 and uses _Host.cshtml.
+      I want to install the open-source Syncfusion Blazor Toolkit.
+      What are the steps I need to follow to get it working?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)Syncfusion\.Blazor\.Toolkit
+      - type: output-matches
+        config:
+          pattern: (?i)using\s+Syncfusion\.Blazor\.Toolkit
+      - type: output-matches
+        config:
+          pattern: (?i)AddSyncfusionBlazorToolkit
+      - type: output-matches
+        config:
+          pattern: (?i)_Host\.cshtml
+      - type: output-matches
+        config:
+          pattern: (?i)_content/Syncfusion\.Blazor\.Toolkit/styles/fluent\.min\.css
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|without|instead of|rather than|no need|unlike|cannot)\b|\w+n[''’]t\b)(?:(?![.:;!?](?:\s|$))[^\n])*?(?:dotnet add package|PackageReference Include=)\s*"?Syncfusion\.Blazor(?!\.Toolkit)\b)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:dotnet add package|PackageReference Include=)\s*"?Syncfusion\.Blazor(?!\.Toolkit)\b(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:wrong|commercial|incorrect|mistake|deprecated)\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:dotnet add package|PackageReference Include=)\s*"?Syncfusion\.Blazor(?!\.Toolkit)\b'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|no|without|free|nothing|avoid|unlike)\b|\w+n[''’]t\b|\bcannot\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:enter|provide|paste|add|register) (?:your|a) (?:syncfusion )?license key'
+      - type: prompt
+    rubric:
+      - Installs the open-source Toolkit package and registers its extension method with the namespace in scope.
+      - Links the Fluent stylesheet from the package's styles directory in the legacy Server host file.
+      - Does not ask the user to enter or register a license key.
+
+  - name: webassembly-install-success
+    tags:
+      capability: toolkit-install
+      risk: wrong-wasm-host
+      journey: install-standalone-wasm
+    prompt: |
+      I'm building a standalone Blazor WebAssembly application that targets net9.0 and want to add
+      the Syncfusion Blazor Toolkit. Can you guide me through installation and setup?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)Syncfusion\.Blazor\.Toolkit
+      - type: output-matches
+        config:
+          pattern: (?i)AddSyncfusionBlazorToolkit
+      - type: output-matches
+        config:
+          pattern: '(?i)wwwroot[/\\]index\.html|index\.html[^\n]{0,60}(?:<link|stylesheet|head)|(?:<link|stylesheet|head)[^\n]{0,60}index\.html'
+      - type: output-matches
+        config:
+          pattern: (?i)RootComponents\.Add<App>\("#app"\)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*@rendermode\s+Interactive
+      - type: prompt
+    rubric:
+      - Uses index.html as the stylesheet host for a standalone WebAssembly app.
+      - Registers the root component only because this is a standalone app, not a Web App Client project.
+      - Does not add a render-mode directive to an app that is already interactive.
+
+  - name: split-webapp-registration
+    tags:
+      capability: split-registration
+      risk: server-only-registration
+      journey: configure-split-web-app
+    prompt: |
+      We have a split Blazor Web App with Server and Client projects. Both Server and Client
+      components need to use the Syncfusion Blazor Toolkit. What configuration is required?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)AddSyncfusionBlazorToolkit
+      - type: output-matches
+        config:
+          pattern: (?i)(both|server and client|client and server)
+      - type: output-matches
+        config:
+          pattern: (?i)prerender
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|wrong|mistake|incorrect|instead of|rather than|without)\b|\w+n[''’]t\b|\bcannot\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:register (?:it )?only (?:in|on) (?:the )?server|only (?:in|on) the server is (?:enough|sufficient)|client inherits (?:the )?(?:server(?:''s)? )?(?:registration|services))'
+      - type: prompt
+    rubric:
+      - Registers Toolkit in both the server and Client hosts when both render Toolkit components.
+      - Keeps server registration because prerendering executes Client components on the server.
+      - Does not treat the Client project as a standalone WebAssembly app with its own root component.
+
+  - name: missing-theme-css-failure
+    tags:
+      capability: theme-linking
+      risk: unstyled-components
+      journey: fix-missing-stylesheet
+    prompt: |
+      I've installed the Syncfusion Blazor Toolkit and added AddSyncfusionBlazorToolkit()
+      to Program.cs, but my components render without any styling—they look plain and basic.
+      The components are there, but no colors or borders. What's wrong?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(stylesheet|css)
+      - type: output-matches
+        config:
+          pattern: _content/Syncfusion\.Blazor\.Toolkit/styles/(fluent|highcontrast)\.min\.css
+      - type: output-matches
+        config:
+          pattern: '(?i)<head|<link[^>]*styles/(?:fluent|highcontrast)\.min\.css'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|instead of|rather than|wrong)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:(?:\.csproj|appsettings|Program\.cs)[^\n]{0,80}(?:<link|fluent\.min\.css)|(?:<link|fluent\.min\.css)[^\n]{0,80}(?:in|to) (?:the |your )?(?:\.csproj|appsettings|Program\.cs))'
+      - type: prompt
+    rubric:
+      - Diagnoses a missing or misplaced stylesheet rather than a package problem.
+      - Gives a package stylesheet path and a host file that matches the app type.
+
+  - name: static-ssr-insufficient
+    tags:
+      capability: render-mode
+      risk: static-ssr
+      journey: enable-interactivity
+    prompt: |
+      I have a net8.0 Blazor Web App created with dotnet new blazor -int Server, and a page with a
+      SfButton component from the Syncfusion Blazor Toolkit. When I click the button, nothing happens.
+      The component is visible and styled correctly, but events don't fire. What's the issue?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)Interactive(Server|WebAssembly|Auto)
+      - type: output-matches
+        config:
+          pattern: (?i)(static|inherit|Routes)
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|unless|without|if)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\bInteractive(?:Server|WebAssembly|Auto)\b[^\n]{0,40}\b(?:on|for|to) (?:everything|every page|all pages)\b|\b(?:everything|every page|all pages)\b[^\n]{0,40}\bInteractive(?:Server|WebAssembly|Auto)\b)'
+      - type: prompt
+    rubric:
+      - Recognizes that dotnet new blazor -int Server is per-page, not global, so a page without its own @rendermode is static SSR; only -ai (--all-interactive) makes every page inherit a mode from Routes.
+      - Checks whether Routes in App.razor already carries a mode before treating the page as static.
+      - Recommends adding exactly one matching directive (InteractiveServer for this template) to the page that hosts the component, without requiring every mode to be named.
+
+  - name: interactive-auto-success
+    tags:
+      capability: render-mode
+      risk: auto-misdescribed
+      journey: configure-auto
+    prompt: |
+      I created a net10.0 app with dotnet new blazor -int Auto. I want the first visit to stay interactive
+      on the server, and later visits to use WebAssembly after the runtime is downloaded. What setup
+      does the current template need for the Syncfusion Blazor Toolkit?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)InteractiveAuto
+      - type: output-matches
+        config:
+          pattern: (?i)AddInteractiveServerComponents
+      - type: output-matches
+        config:
+          pattern: (?i)AddInteractiveWebAssemblyComponents
+      - type: output-matches
+        config:
+          pattern: (?i)AddSyncfusionBlazorToolkit
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|only|without|cannot)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:will|does|would)\s+(?:switch|transition)\b[^\n]{0,60}(?:mid-|while running|same component|without reload)'
+      - type: prompt
+    rubric:
+      - Describes Auto as server interactivity on the first visit and WebAssembly on later cached visits.
+      - Does not describe a running component switching runtimes.
+      - Keeps both interactive endpoints and registers Toolkit on the hosts that render it.
+
+  - name: wrong-commercial-package
+    tags:
+      capability: package-identity
+      risk: commercial-package
+      journey: replace-wrong-package
+    prompt: |
+      I ran `dotnet add package Syncfusion.Blazor` and now I'm seeing references to AddSyncfusionLicense()
+      and license keys. I need to use the open-source Toolkit for a hobby project that has no other
+      Syncfusion components. Did I install the wrong package?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)Syncfusion\.Blazor\.Toolkit
+      - type: output-matches
+        config:
+          pattern: (?i)SyncfusionLicenseProvider\.RegisterLicense
+      - type: output-matches
+        config:
+          pattern: (?i)\b(no|not|n['’]t|without|free)\b[^\n]{0,40}\blicense key
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|no|nonexistent|doesn|wrong|fake)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:call|use|add)\b[^\n]{0,30}AddSyncfusionLicense\s*\('
+      - type: prompt
+    rubric:
+      - Identifies the installed package as the commercial package and replaces it for this Toolkit-only app.
+      - Names the real commercial license API and states that Toolkit does not need a license key.
+      - Does not tell the user to call a nonexistent license extension method.
+
+  - name: split-app-partial-registration-failure
+    tags:
+      capability: split-registration
+      risk: client-unregistered
+      journey: fix-split-registration
+    prompt: |
+      I have a split Blazor Web App. I added the Syncfusion Blazor Toolkit package and registered
+      it with AddSyncfusionBlazorToolkit() in the Server Program.cs. My Server components work fine,
+      but Client components throw errors. Both halves need Toolkit. What's missing?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)Client[\s\S]{0,40}Program\.cs
+      - type: output-matches
+        config:
+          pattern: (?i)AddSyncfusionBlazorToolkit
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|wrong|mistake|incorrect|false)\b|\w+n[''’]t\b|\bcannot\b))(?:(?![.:;!?](?:\s|$))[^\n])*?only (?:the )?server needs'
+      - type: prompt
+    rubric:
+      - Adds the missing Client registration without removing the server registration.
+      - Does not add a standalone WebAssembly root component to the Client project.
+
+  - name: script-failure-or-js-error
+    tags:
+      capability: script-loading
+      risk: js-error
+      journey: diagnose-js-error
+    prompt: |
+      I installed Syncfusion Blazor Toolkit and configured everything, but now the browser console
+      shows JavaScript errors like "undefined is not a function" related to Syncfusion. The components
+      are on the page but they don't respond to clicks. What's wrong?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(JavaScript|script)
+      - type: output-matches
+        config:
+          pattern: (?i)AddSyncfusionBlazorToolkit
+      - type: output-matches
+        config:
+          pattern: (?i)(console|network|404|_content)
+      - type: prompt
+    rubric:
+      - Diagnoses script loading or service registration before changing packages.
+      - Points at console, network, or static-asset evidence rather than a version rollback.
+
+  - name: wrong-theme-name-failure
+    tags:
+      capability: theme-linking
+      risk: unsupported-theme
+      journey: fix-stylesheet-name
+    prompt: |
+      I linked this stylesheet in Components/App.razor:
+      <link href="_content/Syncfusion.Blazor.Toolkit/themes/bootstrap5.css" rel="stylesheet" />
+
+      The components render but they're completely unstyled. Browser DevTools shows no 404 errors on the CSS.
+      What's the issue?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)styles/(fluent|highcontrast)\.min\.css
+      - type: prompt
+    rubric:
+      - Replaces the unsupported stylesheet with the default Fluent file or the high-contrast file.
+      - Does not recommend the bootstrap5 path as the fix.
+
+  - name: wrong-stylesheet-path-failure
+    tags:
+      capability: theme-linking
+      risk: stylesheet-404
+      journey: fix-stylesheet-path
+    prompt: |
+      I'm getting 404 errors for the Toolkit stylesheet. I'm using this path:
+      <link href="_content/Syncfusion.Blazor.Toolkit/themes/fluent.css" rel="stylesheet" />
+
+      The browser DevTools Network tab shows a 404. What's the correct path?
+    graders:
+      - type: output-matches
+        config:
+          pattern: _content/Syncfusion\.Blazor\.Toolkit/styles/fluent\.min\.css
+      - type: prompt
+    rubric:
+      - Corrects both the directory and the filename, including the minified extension.
+
+  - name: script-file-loading-failure
+    tags:
+      capability: static-web-assets
+      risk: content-404
+      journey: diagnose-script-404
+    prompt: |
+      I've installed the Syncfusion Blazor Toolkit and added all the configuration. The browser
+      DevTools shows JavaScript errors like "Cannot read property of undefined" when I interact
+      with components. I can see 404 errors in the Network tab for files in _content/Syncfusion.Blazor.Toolkit/.
+      What's the issue?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(_content|static web asset|package)
+      - type: output-matches
+        config:
+          pattern: (?i)(AddSyncfusionBlazorToolkit|rebuild|clean)
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|wrong|rather than|instead of)\b|\w+n[''’]t\b|\bcannot\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:fluent theme only|only the fluent theme)'
+      - type: prompt
+    rubric:
+      - Treats the 404s as missing package assets or registration, not as a theme-choice problem.
+      - Recommends verifying the package, registration, and a clean rebuild.
+
+  - name: commercial-script-tags-wrong
+    tags:
+      capability: script-loading
+      risk: cdn-conflict
+      journey: remove-external-script
+    prompt: |
+      I'm setting up the Syncfusion Blazor Toolkit. I added the NuGet package, registered it in Program.cs,
+      but then I also added the commercial Syncfusion script tag from the CDN. Now I'm getting errors about
+      conflicts or duplicate library loading. Should I be using external script tags?
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|nothing|keep)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:remove|delete|drop)\b[^\n]{0,80}(?:script|cdn)'
+      - type: output-matches
+        config:
+          pattern: (?i)(embedded|bundled|included in the (nuget )?package|ships with the package)
+      - type: prompt
+    rubric:
+      - Removes the external script tag and explains that the package loads its own JavaScript.
+      - Does not accept leaving the CDN script in place.
+
+  - name: unsupported-framework-net7
+    tags:
+      capability: framework-support
+      risk: install-on-unsupported-tfm
+      journey: check-target-framework
+    prompt: |
+      My Blazor Server app targets net7.0 and I want to add the open-source Syncfusion Blazor
+      Toolkit. What should I do?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(net8\.0|\.NET 8)
+      - type: output-matches
+        config:
+          pattern: (?i)(upgrade|migrat)
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|before|after|once|cannot|fail|until|yet)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?dotnet add package Syncfusion\.Blazor\.Toolkit'
+      - type: prompt
+    rubric:
+      - Identifies that the Toolkit targets net8.0, net9.0, and net10.0 and does not support net7.0, so the Toolkit assemblies would not be available and the build would fail (for example with CS0246 on Syncfusion).
+      - Recommends upgrading the app to .NET 8 or later before installing, rather than installing immediately.
+      - Does not claim that NuGet restore is guaranteed to fail or guaranteed to succeed.
+      - Does not suggest editing only the TargetFramework as a workaround without an upgrade.
+
+  - name: unknown-framework-check-first
+    tags:
+      capability: framework-support
+      risk: install-without-tfm-check
+      journey: check-target-framework
+    prompt: |
+      I have an existing Blazor app and I want to add the open-source Syncfusion Blazor Toolkit.
+      Walk me through installing it.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)TargetFramework
+      - type: output-matches
+        config:
+          pattern: (?i)net8\.0
+      - type: prompt
+    rubric:
+      - Checks the project's TargetFramework before installing, because the framework version was not given.
+      - States that the Toolkit targets net8.0, net9.0, and net10.0 and that an older framework needs an upgrade first.
+      - Does not run or require the install command before the TargetFramework is known and supported.
+
+  - name: component-namespace-resolution
+    tags:
+      capability: namespaces
+      risk: missing-component-namespace
+      journey: fix-sfbutton-not-found
+    prompt: |
+      I installed Syncfusion.Blazor.Toolkit and added `@using Syncfusion.Blazor.Toolkit` to
+      _Imports.razor, but `<SfButton>` says the type or namespace could not be found. Why?
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|wrong)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?@using\s+Syncfusion\.Blazor\.Toolkit\.Buttons'
+      - type: prompt
+    rubric:
+      - Explains that SfButton is in the child namespace Syncfusion.Blazor.Toolkit.Buttons, not the root namespace.
+      - Adds the child namespace using to _Imports.razor rather than changing the package.
+
+  - name: missing-registration-http-500
+    tags:
+      capability: service-registration
+      risk: unregistered-service
+      journey: diagnose-500
+    prompt: |
+      My Blazor Web App page with an SfButton from Syncfusion.Blazor.Toolkit returns HTTP 500.
+      The log says "There is no registered service of type SyncfusionBlazorToolkitService".
+      I referenced the package and added the stylesheet. What is wrong?
+    graders:
+      - type: output-matches
+        config:
+          pattern: AddSyncfusionBlazorToolkit
+      - type: output-matches
+        config:
+          pattern: (?i)using\s+Syncfusion\.Blazor\.Toolkit
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|wrong)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:remove|uninstall|downgrade|roll back)\b[^\n]{0,40}(?:package|Syncfusion)'
+      - type: prompt
+    rubric:
+      - Diagnoses a missing AddSyncfusionBlazorToolkit() registration, not a package or stylesheet problem.
+      - Says to add the registration to every host that renders Toolkit components, including the server when prerendering.
+      - Adds only the using and the registration line to the existing Program.cs rather than retyping it.
+
+  - name: numeric-textbox-unstyled
+    tags:
+      capability: theme-linking
+      risk: bundle-gap
+      journey: link-component-stylesheet
+    prompt: |
+      I linked fluent.min.css from Syncfusion.Blazor.Toolkit and my SfButton and SfTextBox look fine,
+      but SfNumericTextBox renders unstyled. What should I add?
+    graders:
+      - type: output-matches
+        config:
+          pattern: _content/Syncfusion\.Blazor\.Toolkit/styles/numerictextbox\.min\.css
+      - type: prompt
+    rubric:
+      - Adds numerictextbox.min.css alongside fluent.min.css, because the Fluent bundle does not contain the numeric textbox selectors.
+      - Keeps the fluent.min.css link rather than replacing it.
+
+  - name: out-of-scope-component-api
+    tags:
+      capability: dormancy
+      risk: install-skill-hijack
+      journey: answer-component-api
+    prompt: |
+      I'm building a chart dashboard with the Syncfusion Blazor Toolkit. How do I configure
+      the series collection for a line chart? What are the available series types?
+    expect_activation: false
+    graders:
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|no need|without|already)\b|\w+n[''’]t\b|\bcannot\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:first|before (?:answering|anything)|start by)\b[^\n]{0,80}(?:install the package|AddSyncfusionBlazorToolkit|installation steps)'
+      - type: prompt
+    rubric:
+      - The install skill stayed dormant: answer the chart API question or point to component documentation.
+      - Does not hijack the question with package installation, Program.cs registration, or theme setup.
+
+  - name: out-of-scope-project-creation
+    tags:
+      capability: dormancy
+      risk: install-skill-hijack
+      journey: create-project
+    prompt: |
+      Scaffold a new Blazor Web App for an internal equipment-checkout tracker. It needs
+      per-page server interactivity and a simple list page. Walk me through creating the
+      project and what the solution layout should look like.
+    expect_activation: false
+    graders:
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|no need|without|later|avoid|instead of)\b|\w+n[''’]t\b|\bcannot\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:dotnet add package|PackageReference)[^\n]{0,40}Syncfusion'
+      - type: prompt
+    rubric:
+      - The install skill stayed dormant: the request is about creating a project, not installing a UI package.
+      - Answers with project creation and layout guidance without adding Syncfusion packages, registration, or theme links.
+      - Redirects package or component choices to a later step instead of assuming a UI library.
+
+  - name: out-of-scope-hybrid-maui
+    tags:
+      capability: dormancy
+      risk: install-skill-hijack
+      journey: hybrid-boundary
+    prompt: |
+      I have a .NET MAUI Blazor Hybrid app that hosts its UI in a BlazorWebView. I'd like to use
+      the open-source Syncfusion Blazor Toolkit buttons in it. Where do I put the stylesheet
+      and how do I wire it up?
+    expect_activation: false
+    graders:
+      # Directional guards, scoped to a single CLAUSE (text between . : ; ! ? marks), not a
+      # whole line. The first fires only on a clause that INSTRUCTS the user to edit a
+      # Web App / legacy Server host file. A negator (not, never, avoid, unlike, instead
+      # of, ... or any n't contraction) exempts only its own clause, so a correct
+      # boundary explanation may name Components/App.razor, _Host.cshtml, @rendermode
+      # or RootComponents.Add<App>, while "You should not skip this: open
+      # Components/App.razor" (negator in a different clause) is still caught.
+      # AddSyncfusionBlazorToolkit and `dotnet add package` are NOT banned: Hybrid apps
+      # may legitimately use them.
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|without|instead of|rather than|no need|unlike|cannot)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:open|edit|add|put|place|update|modify|link)\b(?:(?![.:;!?](?:\s|$))[^\n]){0,60}(?:Components/App\.razor|_Host\.cshtml)'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^\s*(?:builder\.RootComponents\.Add<App>\(|\.?AddInteractive(?:Server|WebAssembly)(?:Components|RenderMode)\()'
+      - type: prompt
+    rubric:
+      - The install skill stayed dormant: the app is a MAUI Blazor Hybrid app, which is outside this skill's scope.
+      - Recognizes the Hybrid boundary and does not tell the user to apply the Web App, legacy Server, or standalone WebAssembly host-file or render-mode steps.
+      - Judged on intent, not keywords. It may name Components/App.razor, _Host.cshtml, @rendermode, RootComponents.Add<App>, or AddSyncfusionBlazorToolkit when explaining why they do not apply to a BlazorWebView host, and it may mention the package or its registration for Hybrid.
+      - Redirects to the Hybrid or MAUI host page (such as wwwroot/index.html in the BlazorWebView) or to Hybrid-specific documentation.
