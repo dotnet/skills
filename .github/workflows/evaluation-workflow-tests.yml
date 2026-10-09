@@ -19,6 +19,7 @@ on:
       - ".github/workflows/*.lock.yml"
       - ".github/scripts/**"
       - "eng/evaluation-tools/**"
+      - "eng/run-skill-evals.sh"
       - "eng/evaluation/test_token_failover.py"
       - "eng/evaluation/test_pr_triage_retry.py"
       - "eng/evaluation/find-targets.ps1"
@@ -47,6 +48,7 @@ on:
       - ".github/workflows/*.lock.yml"
       - ".github/scripts/**"
       - "eng/evaluation-tools/**"
+      - "eng/run-skill-evals.sh"
       - "eng/evaluation/test_token_failover.py"
       - "eng/evaluation/test_pr_triage_retry.py"
       - "eng/evaluation/find-targets.ps1"
@@ -80,7 +82,23 @@ jobs:
         run: node --test eng/vally-adapter/*.test.mjs eng/dashboard/*.test.js
 
   evaluation-tools:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            platform: linux
+            arch: x64
+          - runner: ubuntu-24.04-arm
+            platform: linux
+            arch: arm64
+          - runner: macos-15-intel
+            platform: darwin
+            arch: x64
+          - runner: macos-15
+            platform: darwin
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 10
     steps:
       - name: Checkout repository
@@ -93,6 +111,12 @@ jobs:
         with:
           node-version: 22
 
+      - name: Setup Go for rooted workspace filesystem
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.27.1
+          cache: false
+
       - name: Install evaluation tools
         run: |
           printf '' > "$RUNNER_TEMP/evaluation.npmrc"
@@ -103,14 +127,25 @@ jobs:
 
       - name: Smoke test evaluation tools
         working-directory: eng/evaluation-tools
+        env:
+          EXPECTED_PLATFORM: ${{ matrix.platform }}
+          EXPECTED_ARCH: ${{ matrix.arch }}
         run: |
+          node --input-type=module -e "import assert from 'node:assert/strict'; assert.equal(process.platform, process.env.EXPECTED_PLATFORM); assert.equal(process.arch, process.env.EXPECTED_ARCH)"
           node_modules/.bin/vally --version
           node vally.mjs --version
           node_modules/.bin/copilot --version
-          node --input-type=module -e "import.meta.resolve('@github/copilot-linux-x64/sdk')"
+          node --input-type=module -e "import.meta.resolve('@github/copilot-' + process.platform + '-' + process.arch + '/sdk')"
 
       - name: Test SDK startup ordering without model calls
-        run: node --test eng/evaluation-tools/*.test.mjs
+        # This native build is traversal-resistant; do not replace it with
+        # GOOS=js/WASI or a pathname-canonicalization implementation.
+        run: |
+          cd eng/evaluation-tools/workspace-root
+          GOTOOLCHAIN=go1.27.1 go test ./...
+          GOTOOLCHAIN=go1.27.1 go build -o ../workspace-root-helper .
+          cd ../../..
+          node --test eng/evaluation-tools/*.test.mjs
 
   token-failover:
     runs-on: ubuntu-latest

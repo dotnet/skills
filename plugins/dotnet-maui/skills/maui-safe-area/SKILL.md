@@ -1,15 +1,15 @@
 ---
 name: maui-safe-area
 description: >-
-  .NET MAUI safe area and edge-to-edge layout guidance for .NET 10+. Covers the
-  new SafeAreaEdges property, SafeAreaRegions enum, per-edge control, keyboard
-  avoidance, Blazor Hybrid CSS safe areas, migration from legacy iOS-only APIs,
-  and platform-specific behavior for Android, iOS, and Mac Catalyst.
+  Guide safe-area layout in native .NET MAUI XAML/C# or MAUI-hosted Blazor Hybrid,
+  including .NET 10 SafeAreaEdges, keyboard avoidance, and legacy branch compatibility.
+  Not for standalone HTML/CSS websites, browser JavaScript, or Blazor web apps
+  without a MAUI host, even when they mention notches or safe-area insets.
   USE FOR: "safe area", "edge-to-edge", "SafeAreaEdges", "SafeAreaRegions",
   "keyboard avoidance", "notch insets", "status bar overlap", "iOS safe area",
   "Android edge-to-edge", "content behind status bar", "UseSafeArea migration",
   "soft input keyboard", "IgnoreSafeArea replacement".
-  DO NOT USE FOR: general layout or grid design (use Grid and StackLayout),
+  DO NOT USE FOR: browser-only CSS env() safe-area questions, general grid design,
   app lifecycle handling (use maui-app-lifecycle), theming or styling
   (use maui-theming), or Shell navigation structure.
 license: MIT
@@ -20,6 +20,9 @@ license: MIT
 .NET 10 introduces a **brand-new, cross-platform safe area API** that replaces the legacy iOS-only `UseSafeArea` and the layout-level `IgnoreSafeArea` properties. The new `SafeAreaEdges` property and `SafeAreaRegions` flags enum give you per-edge, per-control safe area management on Android, iOS, and Mac Catalyst from a single API surface.
 
 > **This is new API surface in .NET 10.** If the project targets .NET 9 or earlier, these APIs do not exist. Guide the developer to the legacy `ios:Page.UseSafeArea` and `Layout.IgnoreSafeArea` properties instead.
+
+First establish the host. A standalone HTML/CSS website uses browser APIs, not
+MAUI controls; this skill's Hybrid section applies only to a real MAUI host.
 
 ## When to Use
 
@@ -32,7 +35,8 @@ license: MIT
 
 ## When Not to Use
 
-- Projects targeting .NET 9 or earlier — use the legacy iOS-specific APIs
+- Standalone websites / browser JavaScript / Blazor web apps without a MAUI host
+- New SafeAreaEdges APIs on .NET 9 or earlier — provide the legacy compatibility example instead
 - General page layout questions unrelated to system bars or keyboard — use standard layout guidance
 - App lifecycle or navigation structure — use maui-app-lifecycle or Shell guidance
 - Theming or visual styling — use the **maui-theming** skill
@@ -99,13 +103,19 @@ SafeAreaEdges="Container, SoftInput"
 SafeAreaEdges="Container, Container, Container, SoftInput"
 ```
 
+The two-value form means **horizontal, vertical**, not "combine these regions."
+The four-value form means left/top/right/bottom. `SoftInput` alone does not
+protect an edge from system bars; use `All` when both keyboard and bars matter.
+Comma-separated values are valid converter syntax, not C# tuples. The property
+is available on the listed containers, not arbitrary controls such as `Image`.
+
 ## Control Defaults
 
 | Control | Default | Notes |
 |---------|---------|-------|
 | `ContentPage` | `None` | Edge-to-edge. **Breaking change from .NET 9 on Android.** |
 | `Layout` (Grid, StackLayout, etc.) | `Container` | Respects bars/notch, flows under keyboard |
-| `ScrollView` | `Default` | iOS maps to automatic content insets. Only `Container` and `None` take effect. |
+| `ScrollView` | `Default` | iOS maps to automatic content insets. Exposes per-edge policies; keyboard handling depends on platform/version. |
 | `ContentView` | `None` | Inherits parent behavior |
 | `Border` | `None` | Inherits parent behavior |
 
@@ -168,7 +178,7 @@ Set `None` on **both** page and layout — layouts default to `Container`:
             </VerticalStackLayout>
         </ScrollView>
         <Border Grid.Row="1" BackgroundColor="LightGray" Padding="20">
-            <Grid ColumnDefinitions="*,Auto" Spacing="10">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                 <Entry Placeholder="Type a message..." />
                 <Button Grid.Column="1" Text="Send" />
             </Grid>
@@ -177,27 +187,32 @@ Set `None` on **both** page and layout — layouts default to `Container`:
 </ContentPage>
 ```
 
-### Mixed: edge-to-edge header + safe body + keyboard footer
+### Mixed: edge-to-edge cover + safe body + keyboard editor
 
 ```xaml
 <ContentPage SafeAreaEdges="None">
-    <Grid RowDefinitions="Auto,*,Auto">
-        <Grid BackgroundColor="{StaticResource Primary}">
-            <Label Text="App Header" TextColor="White" Margin="20,40,20,20" />
-        </Grid>
-        <ScrollView Grid.Row="1" SafeAreaEdges="Container">
-            <!-- Use Container, not All — ScrollView only honors Container and None -->
-            <VerticalStackLayout Padding="20">
-                <Label Text="Main content" />
-            </VerticalStackLayout>
-        </ScrollView>
-        <Grid Grid.Row="2" SafeAreaEdges="SoftInput"
-              BackgroundColor="LightGray" Padding="20">
-            <Entry Placeholder="Type a message..." />
+    <Grid SafeAreaEdges="None">
+        <Image Source="cover.jpg" Aspect="AspectFill" />
+        <Grid SafeAreaEdges="All" RowDefinitions="Auto,*,Auto" Padding="16">
+            <Label Text="Article title" />
+            <ScrollView Grid.Row="1" SafeAreaEdges="None">
+                <VerticalStackLayout SafeAreaEdges="None">
+                    <Label Text="Article body" />
+                </VerticalStackLayout>
+            </ScrollView>
+            <Border Grid.Row="2" SafeAreaEdges="None" Padding="8">
+                <Editor Placeholder="Write a comment..." AutoSize="TextChanges" />
+            </Border>
         </Grid>
     </Grid>
 </ContentPage>
 ```
+
+The cover is behind the inset-aware foreground layer. That one layer owns bar
+and keyboard avoidance; its children opt out of additional inset handling.
+If the design needs a separate hero row, retain that row while keeping one
+foreground inset owner. Do not add guessed notch margins or put `SafeAreaEdges`
+on an `Image`. Actual native inset delivery still needs platform validation.
 
 ### Programmatic (C#)
 
@@ -282,6 +297,19 @@ The legacy `ios:Page.UseSafeArea` and `Layout.IgnoreSafeArea` properties still c
 <ContentPage SafeAreaEdges="Container">
 ```
 
+For a .NET 9 iOS page, the equivalent C# option is:
+
+```csharp
+using Microsoft.Maui.Controls.PlatformConfiguration;
+using Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;
+
+this.On<iOS>().SetUseSafeArea(true); // Inside the ContentPage.
+```
+
+Keep that branch on legacy APIs; no framework upgrade is required just to
+restore its safe-area behavior. `UseSafeArea` is iOS-specific, not a substitute
+for cross-platform keyboard handling.
+
 ## Platform-Specific Behavior
 
 ### iOS & Mac Catalyst
@@ -308,7 +336,7 @@ Transparent navigation bar for content behind the nav bar:
 
 1. **Forgetting to set `None` on the layout too.** `ContentPage SafeAreaEdges="None"` makes the page edge-to-edge, but child layouts default to `Container` and still pad inward. Set `None` on both page and layout for truly immersive content.
 
-2. **Using `SoftInput` directly on ScrollView.** ScrollView manages its own content insets and ignores `SoftInput`. Wrap the ScrollView in a Grid or StackLayout and apply `SoftInput` there.
+2. **Assuming one ScrollView keyboard rule on every platform.** `ScrollView.SafeAreaEdges` accepts `SoftInput` and `All`; MAUI 10's Android scroller passes IME insets through the safe-area calculation. Do not claim that those values are unsupported or always ignored. iOS manages content insets differently, so verify the target MAUI patch and actual keyboard behavior rather than treating property assignment as device proof. For a cross-platform form, a keyboard-aware page or Grid with a bounded scrolling row is a practical starting point. A direct scroller policy can protect inputs inside it, not a sibling composer or submit button: give those controls their own inset owner or use a shared ancestor. Avoid duplicate padding.
 
 3. **Confusing `Default` with `None`.** `Default` means "platform default for this control type" — on ScrollView (iOS) this enables automatic content insets. `None` means "no safe area padding at all."
 
@@ -324,7 +352,7 @@ Transparent navigation bar for content behind the nav bar:
 
 - [ ] Android upgrade: `SafeAreaEdges="Container"` added if content goes under status bar
 - [ ] Edge-to-edge: `None` set on **both** page and layout
-- [ ] ScrollView keyboard avoidance uses wrapper Grid, not ScrollView's own `SafeAreaEdges`
+- [ ] Keyboard policy covers every input/submit control, with bounded scrolling, no duplicate insets, and target-platform verification
 - [ ] Blazor Hybrid: using either XAML or CSS safe areas, not both
 - [ ] `viewport-fit=cover` in Blazor's `index.html` `<meta viewport>` tag
 - [ ] Legacy `UseSafeArea` / `IgnoreSafeArea` migrated to `SafeAreaEdges`

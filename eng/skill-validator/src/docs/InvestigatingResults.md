@@ -65,6 +65,17 @@ behavior against the corrected executor.
 > filesystem-provider setup before sessions start and shares concurrent startup
 > calls. Session-provider errors are harness failures, not skill-quality verdicts.
 > This does not change the historical result schema documented below.
+> The trusted toolchain stages the launcher and native Go1.27.1 `os.Root` helper,
+> then checks startup before selecting a token. Linux/macOS amd64/arm64 workspace
+> I/O uses a directory descriptor captured before agent execution, not
+> canonicalize/reopen checks. Supported native operation coverage is separate
+> from model-outcome evidence. Missing-helper/unsupported-host extensions reject
+> with `ERR_EVALUATION_WORKSPACE_ISOLATION_REQUIRED`; SDK 1.0.11 still suppresses
+> errors from `exists`, so inspect read/stat/mutation events. This provider does
+> not sandbox original log operations, shell tools or grader-host I/O. Trusted
+> initial setup, mount/device/hard-link limitations and readable-target metadata
+> remain explicit. No historical matrix transfers to this native implementation.
+> See the current Vally guide for build instructions and the full scope.
 
 > **Vally schema:** Vally adapter results use an independently owned and
 > versioned schema. Consult the current Vally investigation guide for its

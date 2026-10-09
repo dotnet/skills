@@ -1,76 +1,430 @@
 name: maui-app-lifecycle
 description: Evaluates the dotnet-maui/maui-app-lifecycle skill
 type: capability
-config:
-  timeout: 2m
 stimuli:
-  - name: Save and restore state on background
-    prompt: |
-      My .NET MAUI app has a note-taking page. I need to save the user's draft
-      text when the app goes to the background and restore it when the app comes
-      back. Show me how to do this properly.
-    graders:
-      - type: output-contains
-        config:
-          substring: OnStopped
-      - type: output-contains
-        config:
-          substring: OnResumed
-      - type: output-matches
-        config:
-          pattern: (?i)preferences\.set
-      - type: prompt
-    rubric:
-      - The agent saves state in OnStopped (not OnDeactivated)
-      - The agent restores state in OnResumed
-      - The agent mentions the Android back-button edge case and saving in OnDestroying
-      - The agent warns against heavy I/O in lifecycle handlers
-  - name: Window lifecycle event subscription
-    prompt: |
-      How do I subscribe to all the Window lifecycle events in my .NET MAUI app?
-      I want to log each transition for debugging purposes.
-    graders:
-      - type: output-contains
-        config:
-          substring: CreateWindow
-      - type: output-matches
-        config:
-          pattern: (?i)(?=.*(created|activated))(?=.*(stopped|destroying))(?=.*(resumed|deactivated))
-      - type: prompt
-    rubric:
-      - The agent shows how to override CreateWindow or use a custom Window subclass
-      - "The agent lists all six lifecycle events: Created, Activated, Deactivated, Stopped, Resumed, Destroying"
-      - The agent explains that Resumed does not fire on first launch
-  - name: Platform-specific lifecycle mapping
-    prompt: |
-      I need to run code when my app enters the background on Android (OnPause/OnStop)
-      and iOS (DidEnterBackground). How do I hook into these platform-specific
-      lifecycle events in .NET MAUI?
-    graders:
-      - type: output-contains
-        config:
-          substring: ConfigureLifecycleEvents
-      - type: output-matches
-        config:
-          pattern: (?i)AddAndroid|AddiOS
-      - type: prompt
-    rubric:
-      - The agent uses ConfigureLifecycleEvents in MauiProgram.cs
-      - "The agent shows platform-specific hooks with #if ANDROID and #if IOS preprocessor directives"
-      - The agent maps Window events to their native counterparts
-  - name: Avoid legacy Xamarin.Forms lifecycle methods
-    prompt: |
-      I'm migrating from Xamarin.Forms to .NET MAUI. I used to override OnStart,
-      OnSleep, and OnResume in my Application class. What's the equivalent in MAUI?
-    graders:
-      - type: output-matches
-        config:
-          pattern: (?i)window.*(lifecycle|event)
-      - type: output-matches
-        config:
-          pattern: (?i)(OnActivated|OnStopped|OnResumed)
-      - type: prompt
-    rubric:
-      - The agent explains that OnStart/OnSleep/OnResume are legacy Xamarin.Forms methods
-      - The agent directs the developer to use Window lifecycle events instead
-      - The agent maps OnSleep to OnStopped and OnResume to OnResumed
+- name: Save and restore state on background
+  prompt: |
+    My .NET MAUI app has a note-taking page. I need to save the user's draft
+    text when the app goes to the background and restore it when the app comes
+    back. Show me how to do this properly.
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: Stopped
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Persists drafts promptly when no longer visible and handles warm restoration without relying on a
+    guaranteed termination event.
+  - Covers cold-launch restoration after process death and the best-effort close/back path.
+  - Keeps lifecycle callbacks short and does not promise unrestricted background execution.
+  tags:
+    capability: save-and-restore-state-on-background
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: 'Subscribe to Window.Stopped to persist a draft and Window.Resumed for a warm return.
+          Save the current draft on Window.Destroying as a best-effort close path too, including Android
+          back navigation. Restore durable state during cold initialization: Resumed does not fire on
+          first launch. Keep handlers short, checkpoint frequently, and do not rely on a final callback
+          after process death.'
+- name: Window lifecycle event subscription
+  prompt: |
+    How do I subscribe to all the Window lifecycle events in my .NET MAUI app?
+    I want to log each transition for debugging purposes.
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: Created
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - The agent shows how to override CreateWindow or use a custom Window subclass
+  - 'The agent lists all six lifecycle events: Created, Activated, Deactivated, Stopped, Resumed, Destroying'
+  - The agent explains that Resumed does not fire on first launch
+  tags:
+    capability: window-lifecycle-event-subscription
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Override Application.CreateWindow, create the Window, and subscribe to Created, Activated,
+          Deactivated, Stopped, Resumed, and Destroying on that instance. Log each event; detach any external
+          listeners at destruction. Resumed describes a warm return and is not a first-launch event.
+- name: Platform-specific lifecycle mapping
+  prompt: |
+    I need to run code when my app enters the background on Android (OnPause/OnStop)
+    and iOS (DidEnterBackground). How do I hook into these platform-specific
+    lifecycle events in .NET MAUI?
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: ConfigureLifecycleEvents
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - The agent uses ConfigureLifecycleEvents in MauiProgram.cs
+  - Shows syntactically complete platform-specific hooks with appropriate Android and iOS
+    preprocessor branches. The actual MAUI iOS builder method is AddiOS, not AddIOS;
+    either separate conditional blocks or an equivalent elif structure is valid.
+  - The agent maps Window events to their native counterparts
+  tags:
+    capability: platform-specific-lifecycle-mapping
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: In MauiProgram, use builder.ConfigureLifecycleEvents and platform-guarded events.AddAndroid(android
+          => android.OnPause(activity => Log()).OnStop(activity => Log())) and events.AddiOS(ios => ios.DidEnterBackground(app
+          => Log())). Add Microsoft.Maui.LifecycleEvents and define Log. Window.Deactivated/Stopped map
+          to focus loss/background, but native mappings vary by platform; keep these callbacks fast.
+- name: Avoid legacy Xamarin.Forms lifecycle methods
+  prompt: |
+    I'm migrating from Xamarin.Forms to .NET MAUI. I used to override OnStart,
+    OnSleep, and OnResume in my Application class. What's the equivalent in MAUI?
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (Window|Stopped)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Recommends per-window lifecycle events and maps initialization, backgrounding, and warm resume appropriately.
+  - Does not incorrectly claim that compatibility Application hooks have been removed.
+  tags:
+    capability: avoid-legacy-xamarin-forms-lifecycle-methods
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Use Window events on each MAUI window rather than a single application-wide Xamarin.Forms
+          lifecycle owner. Stopped is the practical replacement for saving at OnSleep, Resumed for OnResume,
+          and Created plus initialization for OnStart. Legacy MAUI Application hooks may still exist for
+          compatibility; they are not proof that the API was removed.
+- name: Cold launch after process death
+  prompt: My phone killed the MAUI note editor while it was backgrounded. On the next launch the draft
+    is blank even though resume works when I switch apps. Where should initialization read the persisted
+    draft, and what events can I not rely on?
+  tags:
+    capability: cold-start
+    risk: process-death-data-loss
+    journey: recover-work
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)(cold|initial|Created)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Recovers a durable draft when the OS creates a fresh process; does not assume a warm-resume or shutdown
+    callback will occur.
+  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Restore durable state on cold initialization/Created as well as warm resume; termination
+          callbacks and Resumed are not guaranteed after process death.
+- name: Two windows with different drafts
+  prompt: Our MAUI desktop app can open two editor windows. Closing one should save its own document without
+    disconnecting the other window's event handlers. Show the ownership and cleanup pattern.
+  tags:
+    capability: window-ownership
+    risk: cross-window-state
+    journey: close-document
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)(per.window|per\s+`window`|each (?:editor )?window|window['’]s (own|document|session)|window.scoped)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Keeps each document's state and listener lifetime independent so destroying one window cannot affect
+    the other.
+  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Keep state and subscriptions per window; unsubscribe disposable listeners on destruction
+          without saving another window's document.
+- name: Interruption is not background
+  prompt: A phone call or permission dialog temporarily steals focus from my MAUI timer screen. My app
+    currently treats that as a permanent background transition and discards the session. What distinction
+    should I make?
+  tags:
+    capability: focus-vs-background
+    risk: premature-state-loss
+    journey: handle-interruption
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)(Deactivated|temporar.{0,40}(interrupt|inactiv|focus).{0,100}(background|terminat))
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Does not discard editing state merely because the app temporarily loses focus.
+  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Deactivated can be temporary loss of focus; Stopped represents no longer visible. Retain
+          the session on mere interruption and avoid expensive work in focus callbacks.
+- name: Long upload on app switch
+  prompt: I start a 60-second HTTP upload in my MAUI window's stopped handler. It sometimes disappears
+    when I leave the app. Can I rely on that task finishing, and what should I do for an important upload?
+  tags:
+    capability: background-work
+    risk: suspended-upload
+    journey: sync-document
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)((?:not|do not).*(?:grant|background|guarantee)|(?:aren['’]t|isn['’]t|not) guaranteed to (?:complete|run)|(?:no|without) (?:guarantee|background.execution entitlement))
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Offers a recoverable upload plan under suspension/termination constraints rather than promising a
+    long callback will finish.
+  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Window events do not grant background execution; persist pending work promptly, retry
+          durably, and use platform background facilities only if required.
+- name: Repair supplied executable contract
+  prompt: The supplied draft service overwrites its saved text when restoring. Fix only Program.cs; retain
+    the Window subscriptions and public API. Run the supplied checks and describe what they do and do
+    not prove. The supplied files are in your working directory; inspect and edit only that copy,
+    not fixture originals elsewhere.
+  tags:
+    capability: executable-repair
+    risk: broken-code
+    journey: repair-feature
+  environment:
+    files:
+    - src: fixtures/repair
+      dest: .
+    commands:
+    - python3 -c "import hashlib,pathlib; assert hashlib.sha256(pathlib.Path('Program.cs').read_bytes()).hexdigest() == '6e8180ef35bcf8aff91e6c6ebbc69c7d77403590855c166071b883a04d530d66', 'Fixture changed before trial setup'"
+  graders:
+  - type: run-command
+    config:
+      command: 'python3 -c ''import hashlib,pathlib; expected={''"''"''Fixture.csproj''"''"'': ''"''"''daaa2155aa040b8c8e421ae545be8d52233f1ed82cac1a46cb39949fb371962c''"''"'',
+        ''"''"''Checks.cs''"''"'': ''"''"''85578f9295be400ab8f8b1d6e1f844b27acc9695c015cb7c57d657656ad94c53''"''"'',
+        ''"''"''Directory.Build.props''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
+        ''"''"''Directory.Build.targets''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"''};
+        assert all(pathlib.Path(p).is_file() and hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()==h
+        for p,h in expected.items())'''
+  - type: diff-not-contains
+    config:
+      pattern: '(?m)^(?:diff --git (?!a/Program\.cs b/Program\.cs$|a/(?:bin|obj)/[^\r\n]+ b/(?:bin|obj)/[^\r\n]+$|"a/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+" "b/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+"$)|rename (?:from|to) (?!(?:bin|obj)/|"(?:bin|obj)/))'
+  - &id001
+    type: run-command
+    config:
+      command: dotnet run --project Fixture.csproj --verbosity quiet
+      expected_exit_code: 0
+      timeout: 120s
+      stdout_matches: 'PASS: behavior-contract'
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+      - diff
+  rubric:
+  - Repairs the stated defect without changing protected files or weakening checks.
+  - Reports only validation actually performed and distinguishes object-model checks from native/device
+    behavior.
+  golden_patch:
+    path: goldens/repair.patch
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: 'Expected result: the supplied defect is corrected in Program.cs without changing the
+          public contract. The executable checks verify platform-neutral code against real MAUI 10.0.0
+          assemblies; they are not device, native layout, navigation or lifecycle execution evidence.'
+- name: Preserve working supplied implementation
+  prompt: Review the supplied implementation for the behavior checked by Checks.cs. Run the checks; if
+    it already satisfies that contract, do not edit, delete, rename, or add any non-generated workspace files.
+    Explain any platform-specific validation limitations rather than rewriting working code.
+    The supplied files are in your working directory; inspect only that copy, not fixture originals elsewhere.
+  tags:
+    capability: working-code-preservation
+    risk: unnecessary-rewrite
+    journey: review-working-code
+  environment:
+    files:
+    - src: fixtures/working
+      dest: .
+    commands:
+    - python3 -c "import hashlib,pathlib; assert hashlib.sha256(pathlib.Path('Program.cs').read_bytes()).hexdigest() == '9c9aae912f9ccda40f8281669c8555a38cf98da1e89b10e88b9ccbecbdf5a025', 'Fixture changed before trial setup'"
+  graders:
+  - type: run-command
+    config:
+      command: 'python3 -c ''import hashlib,pathlib; expected={''"''"''Fixture.csproj''"''"'': ''"''"''daaa2155aa040b8c8e421ae545be8d52233f1ed82cac1a46cb39949fb371962c''"''"'',
+        ''"''"''Checks.cs''"''"'': ''"''"''85578f9295be400ab8f8b1d6e1f844b27acc9695c015cb7c57d657656ad94c53''"''"'',
+        ''"''"''Directory.Build.props''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
+        ''"''"''Directory.Build.targets''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
+        ''"''"''Program.cs''"''"'': ''"''"''9c9aae912f9ccda40f8281669c8555a38cf98da1e89b10e88b9ccbecbdf5a025''"''"''};
+        assert all(pathlib.Path(p).is_file() and hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()==h
+        for p,h in expected.items())'''
+  - type: diff-not-contains
+    config:
+      pattern: '(?m)^(?:diff --git (?!a/(?:bin|obj)/[^\r\n]+ b/(?:bin|obj)/[^\r\n]+$|"a/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+" "b/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+"$)|rename (?:from|to) (?!(?:bin|obj)/|"(?:bin|obj)/))'
+  - *id001
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Leaves the complete supplied source/project file set byte-identical when the checks already pass.
+  - Separates platform-neutral evidence from unperformed native/device validation.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: The supplied implementation satisfies the requested object-model contract; leave every
+          supplied file unchanged. Platform-neutral checks do not establish behavior on a device.
+- name: Browser page lifecycle
+  prompt: In my browser JavaScript editor, how do I use visibilitychange to pause animation when a tab
+    is hidden? Please give browser code only.
+  expect_activation: false
+  tags:
+    capability: routing-boundary
+    risk: off-target-activation
+    journey: use-other-platform
+  graders:
+  - type: exit-success
+  - type: output-not-matches
+    config:
+      pattern: new\s+Window\s*\(
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Recognizes the requested platform/control boundary and gives appropriate guidance.
+  - Treats the native app workflow as out of scope; does not apply its APIs, edit unrelated files, or
+    install tools.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Use browser document.visibilityState/visibilitychange, not MAUI Window or native app
+          callbacks.
+defaults:
+  timeout: 6m
+  runs: 1

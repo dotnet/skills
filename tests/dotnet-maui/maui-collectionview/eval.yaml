@@ -1,129 +1,459 @@
 name: maui-collectionview
 description: Evaluates the dotnet-maui/maui-collectionview skill
 type: capability
-config:
-  timeout: 2m
 stimuli:
-  - name: Basic CollectionView with data binding and DataTemplate
-    prompt: |
-      I have an ObservableCollection<Product> with Name and Price properties.
-      Show me how to display these products in a vertical scrollable list using
-      CollectionView with a DataTemplate that shows both the name and price.
-      Use compiled bindings.
-    graders:
-      - type: output-contains
-        config:
-          substring: CollectionView
-      - type: output-contains
-        config:
-          substring: ItemsSource
-      - type: output-contains
-        config:
-          substring: DataTemplate
-      - type: output-contains
-        config:
-          substring: x:DataType
-      - type: output-contains
-        config:
-          substring: ObservableCollection
-      - type: prompt
-    rubric:
-      - Uses CollectionView with ItemsSource bound to the collection
-      - Defines a DataTemplate with x:DataType for compiled bindings
-      - Binds both Name and Price properties inside the template
-      - Does NOT use ViewCell as the template root
-      - Uses ObservableCollection<T> rather than List<T>
-  - name: Grid layout with CollectionView
-    prompt: |
-      I want to display a photo gallery using CollectionView in a 3-column
-      grid layout with spacing between items. Each item should show an image
-      and a caption. How do I set this up in XAML?
-    graders:
-      - type: output-contains
-        config:
-          substring: GridItemsLayout
-      - type: output-contains
-        config:
-          substring: Span
-      - type: output-contains
-        config:
-          substring: CollectionView
-      - type: output-matches
-        config:
-          pattern: (?i)spacing|ItemSpacing
-      - type: prompt
-    rubric:
-      - Uses GridItemsLayout with Orientation and Span="3"
-      - Configures spacing via VerticalItemSpacing and HorizontalItemSpacing
-      - Includes a DataTemplate with Image and Label for caption
-      - Does NOT use ViewCell
-  - name: Selection and pull-to-refresh with CollectionView
-    prompt: |
-      I need a CollectionView that supports single item selection and
-      pull-to-refresh. When the user selects an item, I want to navigate
-      to a detail page. When they pull to refresh, I want to reload data
-      from my API. Show me the XAML and explain the ViewModel bindings needed.
-    graders:
-      - type: output-contains
-        config:
-          substring: SelectionMode
-      - type: output-contains
-        config:
-          substring: SelectedItem
-      - type: output-contains
-        config:
-          substring: RefreshView
-      - type: output-contains
-        config:
-          substring: IsRefreshing
-      - type: prompt
-    rubric:
-      - Sets SelectionMode to Single and binds SelectedItem with TwoWay binding
-      - Wraps CollectionView in a RefreshView with IsRefreshing and Command bindings
-      - Explains that IsRefreshing must be set back to false when refresh completes
-      - Uses SelectionChangedCommand or SelectedItem binding for navigation
-  - name: Avoid ListView and ViewCell mistakes
-    prompt: |
-      I'm migrating from Xamarin.Forms to .NET MAUI. My existing code uses
-      ListView with ViewCell for each item. Should I keep using ListView in
-      MAUI? Also, can I reuse my ViewCell templates inside CollectionView?
-    graders:
-      - type: output-contains
-        config:
-          substring: CollectionView
-      - type: output-matches
-        config:
-          pattern: (?i)(not|never|don.t|avoid|remove|replace).{0,40}ViewCell|ViewCell.{0,40}(not|never|don.t|avoid|remove|replace)
-      - type: prompt
-    rubric:
-      - Recommends migrating from ListView to CollectionView
-      - Explains that CollectionView has better performance than ListView
-      - Clearly states that ViewCell must NOT be used with CollectionView
-      - Suggests using Grid, StackLayout, or other View/Layout as the template root instead of ViewCell
-  - name: ItemSizingStrategy placement for uniform items
-    prompt: |
-      My CollectionView scrolls slowly. Every row is exactly the same height —
-      a 44px avatar and a single line of text. I read that measuring every item
-      is the bottleneck. Show me the XAML to switch to measuring only the first
-      item, and tell me when that would be the wrong choice.
-    graders:
-      - type: output-contains
-        config:
-          substring: ItemSizingStrategy
-      - type: output-contains
-        config:
-          substring: MeasureFirstItem
-      # Regression guard: ItemSizingStrategy is declared on StructuredItemsView,
-      # so it must be set on <CollectionView>. Setting it on LinearItemsLayout or
-      # GridItemsLayout is a hard build break:
-      #   error MAUIX2002: No accessible property, BindableProperty, or event
-      #   found for "ItemSizingStrategy"
-      - type: output-not-matches
-        config:
-          pattern: <(Linear|Grid)ItemsLayout[^>]*ItemSizingStrategy
-      - type: prompt
-    rubric:
-      - Sets ItemSizingStrategy="MeasureFirstItem" on the CollectionView element itself
-      - Does NOT set ItemSizingStrategy on LinearItemsLayout or GridItemsLayout, which does not compile
-      - Explains that MeasureFirstItem is only safe when every item is the same size
-      - Warns that variable-height items will be clipped or stretched, and that MeasureAllItems is the default
+- name: Basic CollectionView with data binding and DataTemplate
+  prompt: |
+    I have an ObservableCollection<Product> with Name and Price properties.
+    Show me how to display these products in a vertical scrollable list using
+    CollectionView with a DataTemplate that shows both the name and price.
+    Use compiled bindings.
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: '(?i)\bbinding\s*context\b|\bItemsSource\s*=\s*(?:\w+\.)*\w+\b'
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Uses CollectionView with ItemsSource bound to the collection
+  - Defines a DataTemplate with x:DataType for compiled bindings
+  - Declares the namespace prefixes used by both page and template types. Supplies runtime
+    wiring through an assigned BindingContext, an explicitly established existing context,
+    or a direct ItemsSource assignment. Declaring a ViewModel and x:DataType alone does not
+    assign any runtime context; do not mistake type metadata for page initialization.
+    Equivalent "binding context" wording is valid; the literal token BindingContext is not required.
+  - Binds both Name and Price properties inside the template
+  - Does NOT use ViewCell as the template root
+  - Uses ObservableCollection<T> rather than List<T>
+  tags:
+    capability: basic-collectionview-with-data-binding-and-datatemplate
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Define Product with Name and Price, and a ProductsViewModel exposing ObservableCollection<Product>
+          Products. Set the page BindingContext to that ViewModel and root x:DataType="vm:ProductsViewModel";
+          declare xmlns:vm and xmlns:models. A vertical CollectionView ItemsSource="{Binding Products}"
+          contains <DataTemplate x:DataType="models:Product"><VerticalStackLayout><Label Text="{Binding
+          Name}" /><Label Text="{Binding Price, StringFormat='{0:C}'}" /></VerticalStackLayout></DataTemplate>.
+          Do not use ViewCell. Code-behind calls InitializeComponent; reuse existing models if supplied.
+- name: Grid layout with CollectionView
+  prompt: |
+    I want to display a photo gallery using CollectionView in a 3-column
+    grid layout with spacing between items. Each item should show an image
+    and a caption. How do I set this up in XAML?
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: GridItemsLayout
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Uses GridItemsLayout with Orientation and Span="3"
+  - Configures spacing via VerticalItemSpacing and HorizontalItemSpacing
+  - Includes a DataTemplate with Image and Label for caption
+  - Does NOT use ViewCell
+  tags:
+    capability: grid-layout-with-collectionview
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: <CollectionView ItemsSource="{Binding Photos}"><CollectionView.ItemsLayout><GridItemsLayout
+          Orientation="Vertical" Span="3" HorizontalItemSpacing="8" VerticalItemSpacing="8" /></CollectionView.ItemsLayout><CollectionView.ItemTemplate><DataTemplate
+          x:DataType="models:Photo"><VerticalStackLayout><Image Source="{Binding Image}" /><Label Text="{Binding
+          Caption}" /></VerticalStackLayout></DataTemplate></CollectionView.ItemTemplate></CollectionView>.
+          Declare the models namespace, assign the page context, and provide a constrained viewport. The
+          template root is a view, not ViewCell.
+- name: Selection and pull-to-refresh with CollectionView
+  prompt: |
+    I need a CollectionView that supports single item selection and
+    pull-to-refresh. When the user selects an item, I want to navigate
+    to a detail page. When they pull to refresh, I want to reload data
+    from my API. Show me the XAML and explain the ViewModel bindings needed.
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: IsRefreshing
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Sets SelectionMode to Single and binds SelectedItem with TwoWay binding
+  - Wraps CollectionView in a RefreshView with IsRefreshing and Command bindings
+  - Explains that IsRefreshing must be set back to false when refresh completes
+  - Uses SelectionChangedCommand or SelectedItem binding for navigation
+  tags:
+    capability: selection-and-pull-to-refresh-with-collectionview
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Wrap the CollectionView in RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding
+          IsRefreshing}". Set SelectionMode="Single" and SelectedItem="{Binding SelectedProduct, Mode=TwoWay}",
+          with an awaited selection command or notifying setter that initiates navigation safely. Expose
+          the collection, refreshing flag and async command on the assigned ViewModel. Reset IsRefreshing
+          in finally and SelectedItem after navigation so the same item can be selected again.
+- name: Avoid ListView and ViewCell mistakes
+  prompt: |
+    I'm migrating from Xamarin.Forms to .NET MAUI. My existing code uses
+    ListView with ViewCell for each item. Should I keep using ListView in
+    MAUI? Also, can I reuse my ViewCell templates inside CollectionView?
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (CollectionView|ViewCell)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Recommends migrating from ListView to CollectionView
+  - Explains that CollectionView has better performance than ListView
+  - Clearly states that ViewCell must NOT be used with CollectionView
+  - Suggests using Grid, StackLayout, or other View/Layout as the template root instead of ViewCell
+  tags:
+    capability: avoid-listview-and-viewcell-mistakes
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: 'For a requested migration, prefer CollectionView to ListView for virtualized lists and
+          flexible layouts. ViewCell is not a valid CollectionView item template root: replace its wrapper
+          with its contained Grid or other View. Preserve the row content and bindings. Do not rewrite
+          a maintained ListView merely because it exists.'
+- name: ItemSizingStrategy placement for uniform items
+  prompt: "My CollectionView scrolls slowly. Every row is exactly the same height \u2014\na 44px avatar\
+    \ and a single line of text. I read that measuring every item\nis the bottleneck. Show me the XAML\
+    \ to switch to measuring only the first\nitem, and tell me when that would be the wrong choice.\n"
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: MeasureFirstItem
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Sets ItemSizingStrategy="MeasureFirstItem" on the CollectionView element itself
+  - Does NOT set ItemSizingStrategy on LinearItemsLayout or GridItemsLayout, which does not compile
+  - Explains that MeasureFirstItem is only safe when every item is the same size
+  - Warns that variable-height items will be clipped or stretched, and that MeasureAllItems is the default
+  tags:
+    capability: itemsizingstrategy-placement-for-uniform-items
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: <CollectionView ItemSizingStrategy="MeasureFirstItem" ItemsSource="{Binding Products}"
+          /> sets the property on the control, never LinearItemsLayout or GridItemsLayout. Reusing the
+          first measured row is safe only when all rows have the same measured size at the current width/font
+          scale, including later-loaded items. Wrapped text, different templates, image size changes or
+          variable content require the default MeasureAllItems to avoid clipping or wasted space.
+- name: Constrain the list viewport
+  prompt: My MAUI product list sits in a VerticalStackLayout below a toolbar. It grows off-screen, barely
+    scrolls, and loading more rows hurts performance. How should I arrange the toolbar and list without
+    wrapping the list in another scroller?
+  tags:
+    capability: viewport
+    risk: unbounded-measurement
+    journey: browse-products
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)(Grid|constrain)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Gives the list a finite scrolling viewport while leaving the toolbar visible and avoiding nested scroll
+    containers.
+  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Put the toolbar in an Auto row and CollectionView in a star-sized constrained Grid row;
+          avoid an enclosing ScrollView and explain why the original container impairs scrolling/virtualization.
+- name: Selection must work twice
+  prompt: Tapping an item in my MAUI CollectionView opens details. After returning, tapping the same product
+    does nothing. How do I preserve single selection while letting users open the same item again?
+  tags:
+    capability: selection-reset
+    risk: repeat-tap-lost
+    journey: reopen-product
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)(reset|null|clear)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Allows reopening the same product after returning from details without duplicate navigation caused
+    by a cleared selection.
+  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Reset SelectedItem after handling navigation, ignore the resulting null selection, and
+          await navigation to avoid duplicate/racing requests.
+- name: Incremental fetch overlap
+  prompt: My MAUI list's remaining-items callback can fire again before an API request finishes. I get
+    duplicate rows and it keeps fetching even after the last page. Show the minimum guard and completion
+    handling.
+  tags:
+    capability: incremental-loading
+    risk: duplicate-pages
+    journey: browse-more
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)(concurrent|busy|guard|\bif\s*\(\s*_?(is)?loading\b)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Loads each page at most once, stops at exhaustion, and recovers its busy state after request failure.
+  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Guard concurrent loads and exhausted data, append on the UI thread, and release busy
+          state in finally including failures.
+- name: Repair supplied executable contract
+  prompt: This factory is for rows with a fixed 44-unit height and non-wrapping text at every supported
+    font scale. It still measures every row. Change only Program.cs so the control reuses the first measurement
+    without losing its data source or BindingContext. Run the supplied checks and explain when this optimization
+    would become unsafe. The supplied files are in your working directory; inspect and edit
+    only that copy, not fixture originals elsewhere.
+  tags:
+    capability: executable-repair
+    risk: broken-code
+    journey: repair-feature
+  environment:
+    files:
+    - src: fixtures/repair
+      dest: .
+    commands:
+    - python3 -c "import hashlib,pathlib; assert hashlib.sha256(pathlib.Path('Program.cs').read_bytes()).hexdigest() == 'dadc6e50cc1deae1ff0bd849bc7f1d0e1696be0e77c7e4bb41e445cf80324f80', 'Fixture changed before trial setup'"
+  graders:
+  - type: run-command
+    config:
+      command: 'python3 -c ''import hashlib,pathlib; expected={''"''"''Fixture.csproj''"''"'': ''"''"''daaa2155aa040b8c8e421ae545be8d52233f1ed82cac1a46cb39949fb371962c''"''"'',
+        ''"''"''Checks.cs''"''"'': ''"''"''40478be399290a343c131fe9876d5dcde53e7945abe4475418cb60f5f3ec93db''"''"'',
+        ''"''"''Directory.Build.props''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
+        ''"''"''Directory.Build.targets''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"''};
+        assert all(pathlib.Path(p).is_file() and hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()==h
+        for p,h in expected.items())'''
+  - type: diff-not-contains
+    config:
+      pattern: '(?m)^(?:diff --git (?!a/Program\.cs b/Program\.cs$|a/(?:bin|obj)/[^\r\n]+ b/(?:bin|obj)/[^\r\n]+$|"a/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+" "b/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+"$)|rename (?:from|to) (?!(?:bin|obj)/|"(?:bin|obj)/))'
+  - &id001
+    type: run-command
+    config:
+      command: dotnet run --project Fixture.csproj --verbosity quiet
+      expected_exit_code: 0
+      timeout: 120s
+      stdout_matches: 'PASS: behavior-contract'
+  - type: output-matches
+    config:
+      pattern: (?i)(unequal|vary|wrap|font|non.uniform)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+      - diff
+  rubric:
+  - Repairs the stated defect without changing protected files or weakening checks.
+  - Reports only validation actually performed and distinguishes object-model checks from native/device
+    behavior.
+  - Explains that reusing the first measurement becomes unsafe when item heights differ, including wrapping
+    or font-scale changes that break uniform sizing.
+  golden_patch:
+    path: goldens/repair.patch
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: 'Expected result: the supplied defect is corrected in Program.cs without changing the
+          public contract. The executable checks verify platform-neutral code against real MAUI 10.0.0
+          assemblies; they are not device, native layout, navigation or lifecycle execution evidence.
+          MeasureFirstItem becomes unsafe if rows have unequal heights: wrapping, later-loaded content
+          or font-scale changes that break uniform sizing require measuring each item.'
+- name: Preserve working supplied implementation
+  prompt: Review the supplied implementation for the behavior checked by Checks.cs. Run the checks; if
+    it already satisfies that contract, do not edit, delete, rename, or add any non-generated workspace files.
+    Explain any platform-specific validation limitations rather than rewriting working code.
+    The supplied files are in your working directory; inspect only that copy, not fixture originals elsewhere.
+  tags:
+    capability: working-code-preservation
+    risk: unnecessary-rewrite
+    journey: review-working-code
+  environment:
+    files:
+    - src: fixtures/working
+      dest: .
+    commands:
+    - python3 -c "import hashlib,pathlib; assert hashlib.sha256(pathlib.Path('Program.cs').read_bytes()).hexdigest() == 'a9f93f7ab73abe8e68cf566c30b3cb830dc4ccdfadd705de31384a1daaea768a', 'Fixture changed before trial setup'"
+  graders:
+  - type: run-command
+    config:
+      command: 'python3 -c ''import hashlib,pathlib; expected={''"''"''Fixture.csproj''"''"'': ''"''"''daaa2155aa040b8c8e421ae545be8d52233f1ed82cac1a46cb39949fb371962c''"''"'',
+        ''"''"''Checks.cs''"''"'': ''"''"''40478be399290a343c131fe9876d5dcde53e7945abe4475418cb60f5f3ec93db''"''"'',
+        ''"''"''Directory.Build.props''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
+        ''"''"''Directory.Build.targets''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
+        ''"''"''Program.cs''"''"'': ''"''"''a9f93f7ab73abe8e68cf566c30b3cb830dc4ccdfadd705de31384a1daaea768a''"''"''};
+        assert all(pathlib.Path(p).is_file() and hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()==h
+        for p,h in expected.items())'''
+  - type: diff-not-contains
+    config:
+      pattern: '(?m)^(?:diff --git (?!a/(?:bin|obj)/[^\r\n]+ b/(?:bin|obj)/[^\r\n]+$|"a/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+" "b/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+"$)|rename (?:from|to) (?!(?:bin|obj)/|"(?:bin|obj)/))'
+  - *id001
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Leaves the complete supplied source/project file set byte-identical when the checks already pass.
+  - Separates platform-neutral evidence from unperformed native/device validation.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: The supplied implementation satisfies the requested object-model contract; leave every
+          supplied file unchanged. Platform-neutral checks do not establish behavior on a device.
+- name: Static dashboard layout
+  prompt: My MAUI dashboard always has exactly four fixed buttons, no data source or scrolling. Show a
+    simple two-column layout; please do not introduce a list control.
+  expect_activation: false
+  tags:
+    capability: routing-boundary
+    risk: off-target-activation
+    journey: use-other-platform
+  graders:
+  - type: exit-success
+  - type: output-not-matches
+    config:
+      pattern: <CollectionView\b
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Recognizes the requested platform/control boundary and gives appropriate guidance.
+  - Treats the native app workflow as out of scope; does not apply its APIs, edit unrelated files, or
+    install tools.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Use a simple Grid with static controls, not CollectionView or list-loading machinery.
+defaults:
+  timeout: 6m
+  runs: 1

@@ -1,0 +1,1165 @@
+"""Replay deterministic MAUI references without agents, LLM judges, or native hosts.
+
+Run from the repository root using a Python with PyYAML. Add --production to replay
+all references with the pinned Vally oracle, with LLM graders removed. Requires
+the repository's pinned Vally tooling and .NET 10 or later. Scratch workspaces stay inside each
+suite and are removed after replay. MAUI objects here are real package types.
+The shipping XamlC probe compiles child-context and converter examples; the
+object-model probes do not test device layout, navigation, or OS lifecycle delivery.
+"""
+from pathlib import Path
+import importlib.util
+import difflib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+
+import yaml
+
+NAMES = (
+    "maui-app-lifecycle", "maui-safe-area", "maui-data-binding",
+    "maui-collectionview", "maui-shell-navigation", "maui-theming",
+)
+# These are actual wrong recommendations, not an empty/unrelated response. A
+# presence regex may accept one; report that honestly rather than calling it a
+# semantic test. The executable fixtures cover the compile/state defects.
+WRONG_ADVICE = {
+    "maui-app-lifecycle": ("Save and restore state on background",
+        "Save in Window.Stopped and restore only in Window.Resumed. Resumed always fires on first launch, so no cold-start initialization is needed."),
+    "maui-safe-area": ("Keyboard avoidance with safe area for chat UI",
+        'Put messages in <ScrollView SafeAreaEdges="All" /> but leave the sibling composer outside every keyboard inset owner; the scroller will move its sibling too.'),
+    "maui-data-binding": ("Set up compiled bindings with x:DataType on a page",
+        'Set x:DataType="vm:SettingsViewModel"; this creates the BindingContext. Enable <MauiEnableXamlCompilation>true</MauiEnableXamlCompilation> to compile every binding.'),
+    "maui-collectionview": ("ItemSizingStrategy placement for uniform items",
+        '<LinearItemsLayout ItemSizingStrategy="MeasureFirstItem" /> works for rows of varying heights; measuring once is always safe.'),
+    "maui-shell-navigation": ("Set up Shell navigation with tabs and flyout",
+        'Use ContentTemplate for lazy pages, but add Products and another Products subsection before the Active and Archived tabs. The extra visible level is required.'),
+    "maui-theming": ("Swap theme dictionaries without destroying app styles",
+        'Keep a previous-theme reference: private ResourceDictionary? _activeTheme; public static void ApplyTheme(ResourceDictionary theme) { merged.Remove(_activeTheme); merged.Add(theme); _activeTheme = theme; }'),
+}
+WRONG_BOUNDARY = {
+    "maui-app-lifecycle": "For browser visibility use new Window(new ContentPage()) and its Stopped event.",
+    "maui-safe-area": '<ContentPage SafeAreaEdges="Container" /> fixes your HTML website.',
+    "maui-data-binding": "For WPF set <MauiStrictXamlCompilation>true</MauiStrictXamlCompilation>.",
+    "maui-collectionview": '<CollectionView ItemsSource="{Binding Buttons}" /> is necessary for four static buttons.',
+    "maui-shell-navigation": 'For Blazor await Shell.Current.GoToAsync("products?id=1").',
+    "maui-theming": "For Windows Terminal use Application.Current.UserAppTheme = AppTheme.Dark;",
+}
+ROOT = Path(__file__).resolve().parents[3]
+
+
+def command(args, cwd):
+    return subprocess.run(args, cwd=cwd, text=True, capture_output=True)
+
+
+def scope_call(workspace, baseline, **payload):
+    result = subprocess.run(
+        ["node", "tests/dotnet-maui/replay_scope.mjs"], cwd=ROOT,
+        input=json.dumps(dict(payload, workDir=str(workspace), baselineGitDir=str(baseline))),
+        text=True, capture_output=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    return json.loads(result.stdout)
+
+
+def golden_reference(suite, stimulus):
+    reference = stimulus["golden_trajectory"]
+    if "inline" in reference:
+        return reference["inline"]
+    return json.loads((suite / reference["path"]).read_text())
+
+
+def compiler_probe():
+    """Compile both child-context forms with shipping XamlC, without a native host."""
+    workspace = ROOT / "tests/dotnet-maui/maui-collectionview/.compiler-probe-workspace"
+    if workspace.exists():
+        raise RuntimeError(f"Refusing to overwrite {workspace}")
+    project = """<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Maui.Controls.Build.Tasks" Version="10.0.0"
+                      GeneratePathProperty="true" PrivateAssets="all" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+  </ItemGroup>
+  TASK
+</Project>"""
+    source = """using System.ComponentModel;
+using Microsoft.Maui.Controls;
+using Microsoft.Maui.Controls.Xaml;
+namespace Probe;
+public class CustomerViewModel : INotifyPropertyChanged
+{
+    Address _address = new() { City = "First" };
+    public Address SelectedAddress
+    {
+        get => _address;
+        set { _address = value; PropertyChanged?.Invoke(this, new(nameof(SelectedAddress))); }
+    }
+    public event PropertyChangedEventHandler? PropertyChanged;
+}
+public class Address { public string City { get; set; } = ""; }
+public partial class InferredPage : ContentPage
+{
+    public InferredPage() => InitializeComponent();
+}
+public partial class ExplicitPage : ContentPage
+{
+    public ExplicitPage() => InitializeComponent();
+}
+public partial class LiteralSourcePage : ContentPage
+{
+    public LiteralSourcePage() => InitializeComponent();
+}
+public partial class ParameterPage : ContentPage
+{
+    public ParameterPage() => InitializeComponent();
+}
+public sealed class ProbeProductService : MyApp.ViewModels.IProductService
+{
+    public Task<MyApp.ViewModels.Product> GetProductAsync() =>
+        Task.FromResult(new MyApp.ViewModels.Product("Observed", 12.5m, true));
+}
+public static class Checks
+{
+    static BindingBase BindingOf(BindableObject target, BindableProperty property)
+    {
+        const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance |
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic;
+        var context = typeof(BindableObject).GetMethod("GetContext", flags)!
+            .Invoke(target, new object[] { property })!;
+        var bindings = context.GetType().GetField("Bindings")!.GetValue(context)!;
+        return (BindingBase)bindings.GetType().GetMethod("GetValue", flags, null, Type.EmptyTypes, null)!
+            .Invoke(bindings, null)!;
+    }
+    public static void Main()
+    {
+        foreach (ContentPage page in new ContentPage[] { new InferredPage(), new ExplicitPage() })
+        {
+            var panel = (StackLayout)((StackLayout)page.Content!).Children[0];
+            var label = (Label)panel.Children[0];
+            var contextBinding = BindingOf(panel, BindableObject.BindingContextProperty);
+            var cityBinding = BindingOf(label, Label.TextProperty);
+            var outerTypes = contextBinding.GetType().GenericTypeArguments;
+            var childTypes = cityBinding.GetType().GenericTypeArguments;
+            if (outerTypes.Length != 2 || childTypes.Length != 2 ||
+                outerTypes[0] != typeof(CustomerViewModel) || childTypes[0] != typeof(Address))
+                throw new InvalidOperationException(
+                    $"wrong compiled source types: {contextBinding.GetType()}, {cityBinding.GetType()}");
+            var vm = new CustomerViewModel();
+            page.BindingContext = vm;
+            if (label.Text != "First") throw new InvalidOperationException("initial binding failed");
+            page.BindingContext = new CustomerViewModel
+                { SelectedAddress = new Address { City = "Second" } };
+            if (label.Text != "Second") throw new InvalidOperationException("context replacement failed");
+        }
+        var converterPage = new MyApp.ConverterPage();
+        converterPage.BindingContext = new MyApp.ViewModels.MainViewModel { Count = 1 };
+        var toggle = (Switch)converterPage.Content!;
+        if (!toggle.IsToggled) throw new InvalidOperationException("converter resource did not resolve");
+        converterPage.BindingContext = new MyApp.ViewModels.MainViewModel { Count = 0 };
+        if (toggle.IsToggled) throw new InvalidOperationException("converter scope did not rebind");
+        var sourcePage = new LiteralSourcePage();
+        var sourceLabel = (Label)((StackLayout)sourcePage.Content!).Children[1];
+        if (BindingOf(sourceLabel, Label.TextProperty).GetType().GenericTypeArguments[0] != typeof(Slider) ||
+            sourceLabel.Text != "42")
+            throw new InvalidOperationException(
+                $"literal source binding: {BindingOf(sourceLabel, Label.TextProperty).GetType()}, " +
+                $"text={sourceLabel.Text}, value={((Slider)((StackLayout)sourcePage.Content!).Children[0]).Value}");
+        if (((Button)new ParameterPage().Content!).CommandParameter is not int value || value != 123)
+            throw new InvalidOperationException("documented command parameter is not an integer");
+        var product = new MyApp.ViewModels.ProductDetailViewModel(new ProbeProductService());
+        var productChanges = new List<string?>();
+        product.PropertyChanged += (_, args) => productChanges.Add(args.PropertyName);
+        product.LoadCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+        if (product.Name != "Observed" || product.Price != 12.5m || !product.IsAvailable ||
+            !productChanges.SequenceEqual(new[] { "Name", "Price", "IsAvailable" }))
+            throw new InvalidOperationException("Toolkit golden notification contract failed");
+        Console.WriteLine("PASS: shipping Toolkit golden generates and notifies the requested members");
+        Console.WriteLine("PASS: x:Int32 command parameter compiles and preserves its runtime type");
+        Console.WriteLine("PASS: inferred and explicit child scopes use typed bindings");
+        Console.WriteLine("PASS: documented converter namespace/resource wiring compiles and binds");
+        Console.WriteLine("PASS: literal binding-local Slider source type compiles and binds");
+    }
+}"""
+    def markup(name, explicit=False):
+        context = ("{Binding SelectedAddress, x:DataType={x:Type local:CustomerViewModel}}"
+                   if explicit else "{Binding SelectedAddress}")
+        return f"""<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+ xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ xmlns:local="clr-namespace:Probe" x:Class="Probe.{name}"
+ x:DataType="local:CustomerViewModel">
+ <StackLayout>
+  <StackLayout BindingContext="{context}" x:DataType="local:Address">
+   <Label Text="{{Binding City}}" />
+  </StackLayout>
+ </StackLayout>
+</ContentPage>"""
+    try:
+        workspace.mkdir()
+        for filename in ("Directory.Build.props", "Directory.Build.targets"):
+            (workspace / filename).write_text("<Project />")
+        (workspace / "Probe.csproj").write_text(project.replace("TASK", ""))
+        (workspace / "Program.cs").write_text(source)
+        binding_skill = (ROOT / "plugins/dotnet-maui/skills/maui-data-binding/SKILL.md").read_text()
+        warning_policy = re.search(r"<WarningsAsErrors>([^<]+)</WarningsAsErrors>", binding_skill)
+        assert warning_policy, "binding core must document its selective warning policy"
+        warning_codes = ";".join(
+            code for code in warning_policy.group(1).split(";") if code.startswith("XC"))
+        assert warning_codes, "binding core must name the promoted XamlC diagnostics"
+        notification_section = binding_skill.split("## Publish changes without unnecessary dependencies", 1)[1]
+        notification_source = notification_section.split("```csharp\n", 1)[1].split("\n```", 1)[0]
+        (workspace / "DetailsViewModel.cs").write_text(notification_source)
+        notification_checks = """var details = new DetailsViewModel();
+        var notifications = new List<string?>();
+        details.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+        details.Value = "first";
+        details.Value = "first";
+        if (details.Value != "first" || notifications.Count != 1 || notifications[0] != "Value")
+            throw new InvalidOperationException("documented notification property contract");
+        Console.WriteLine("PASS: documented notifying property compiles and notifies once");"""
+        (workspace / "Program.cs").write_text(source.replace(
+            'Console.WriteLine("PASS: inferred and explicit child scopes use typed bindings");',
+            notification_checks + '\n        Console.WriteLine("PASS: inferred and explicit child scopes use typed bindings");'))
+        converter_reference = ROOT / "plugins/dotnet-maui/skills/maui-data-binding/references/specialized-bindings.md"
+        converter_section = converter_reference.read_text().split("## IValueConverter and resources", 1)[1]
+        converter_source = converter_section.split("```csharp\n", 1)[1].split("\n```", 1)[0]
+        converter_markup = converter_section.split("```xml\n", 1)[1].split("\n```", 1)[0]
+        (workspace / "Converter.cs").write_text(converter_source)
+        (workspace / "ConverterPage.xaml").write_text(converter_markup.replace(
+            'x:DataType="vm:MainViewModel"',
+            'x:Class="MyApp.ConverterPage" x:DataType="vm:MainViewModel"'))
+        (workspace / "ConverterPage.cs").write_text("""using Microsoft.Maui.Controls;
+namespace MyApp;
+public partial class ConverterPage : ContentPage
+{
+    public ConverterPage() => InitializeComponent();
+}""")
+        (workspace / "MainViewModel.cs").write_text("""namespace MyApp.ViewModels;
+public sealed class MainViewModel { public int Count { get; set; } }""")
+        for name in ("InferredPage", "ExplicitPage"):
+            (workspace / f"{name}.xaml").write_text(markup(name, name.startswith("Explicit")))
+        (workspace / "LiteralSourcePage.xaml").write_text("""<ContentPage
+ xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+ xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ x:Class="Probe.LiteralSourcePage">
+ <StackLayout>
+  <Slider x:Name="amount" Maximum="100" Value="42" />
+  <Label Text="{Binding Source={x:Reference amount}, Path=Value, x:DataType=Slider}" />
+ </StackLayout>
+</ContentPage>""")
+        parameter_markup = """<ContentPage
+ xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+ xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ x:Class="Probe.ParameterPage">
+ <Button Text="Load">
+  <Button.CommandParameter><x:Int32>123</x:Int32></Button.CommandParameter>
+ </Button>
+</ContentPage>"""
+        (workspace / "ParameterPage.xaml").write_text(parameter_markup)
+        binding_spec = yaml.safe_load(
+            (ROOT / "tests/dotnet-maui/maui-data-binding/eval.yaml").read_text())
+        product_case = next(s for s in binding_spec["stimuli"]
+                            if s["name"] == "Implement MVVM ViewModel with ObservableObject")
+        product_response = golden_reference(
+            ROOT / "tests/dotnet-maui/maui-data-binding", product_case)["steps"][-1]["message"]
+        product_code = "\n".join(re.findall(r"```csharp\n(.*?)\n```", product_response, re.S))
+        assert product_code, "ViewModel golden must supply the requested implementation"
+        (workspace / "ProductDetailViewModel.cs").write_text(product_code)
+        restored = command(["dotnet", "restore", "Probe.csproj", "--verbosity", "quiet"], workspace)
+        assert restored.returncode == 0, restored.stdout + restored.stderr
+        location = command(["dotnet", "msbuild", "Probe.csproj",
+                            "-getProperty:PkgMicrosoft_Maui_Controls_Build_Tasks"], workspace)
+        package = Path(location.stdout.strip())
+        tasks = list(package.rglob("Microsoft.Maui.Controls.Build.Tasks.dll"))
+        assert tasks, location.stdout + location.stderr
+        task = next((p for p in tasks if "netstandard2.0" in p.parts), tasks[0])
+        target = f"""<UsingTask TaskName="Microsoft.Maui.Controls.Build.Tasks.XamlCTask"
+ AssemblyFile="{task}" />
+ <Target Name="ProbeCompileXaml" AfterTargets="Build">
+  <XamlCTask Assembly="$(TargetPath)" ReferencePath="@(ReferencePath)"
+   DefaultCompile="true" ForceCompile="true" CompileBindingsWithSource="true"
+   TreatWarningsAsErrors="false" WarningsAsErrors="{warning_codes}" />
+ </Target>"""
+        (workspace / "Probe.csproj").write_text(project.replace("TASK", target))
+        built = command(["dotnet", "build", "Probe.csproj", "--no-restore", "--verbosity", "quiet"], workspace)
+        assert built.returncode == 0, built.stdout + built.stderr
+        run = command(["dotnet", "run", "--project", "Probe.csproj", "--no-build"], workspace)
+        assert run.returncode == 0, run.stdout + run.stderr
+        print(run.stdout.strip())
+        assert "Name = product.Name;" in product_code
+        (workspace / "ProductDetailViewModel.cs").write_text(
+            product_code.replace("Name = product.Name;", ""))
+        broken = command(["dotnet", "run", "--project", "Probe.csproj",
+                          "--verbosity", "quiet"], workspace)
+        assert broken.returncode != 0 and "Toolkit golden notification contract failed" in broken.stderr, (
+            broken.stdout + broken.stderr)
+        print("PASS: Toolkit golden rejects an omitted public-property update")
+        (workspace / "ProductDetailViewModel.cs").write_text(product_code)
+        (workspace / "ParameterPage.xaml").write_text(parameter_markup.replace(
+            '<Button Text="Load">', '<Button Text="Load" CommandParameter="123">').replace(
+                "<Button.CommandParameter><x:Int32>123</x:Int32></Button.CommandParameter>", ""))
+        broken = command(["dotnet", "run", "--project", "Probe.csproj",
+                          "--verbosity", "quiet"], workspace)
+        assert broken.returncode != 0 and "documented command parameter is not an integer" in broken.stderr, (
+            broken.stdout + broken.stderr)
+        print("PASS: compiled literal command parameter remains a string and is rejected")
+        (workspace / "ParameterPage.xaml").write_text(parameter_markup)
+        (workspace / "DetailsViewModel.cs").write_text(
+            notification_source.replace("nameof(Value)", '"_value"'))
+        broken = command(["dotnet", "run", "--project", "Probe.csproj", "--verbosity", "quiet"], workspace)
+        assert broken.returncode != 0 and "documented notification property contract" in broken.stderr, (
+            broken.stdout + broken.stderr)
+        print("PASS: documented notification rejects the backing-field-name mutation")
+        (workspace / "DetailsViewModel.cs").write_text(notification_source)
+        (workspace / "ExplicitPage.xaml").write_text(
+            markup("ExplicitPage", True).replace("{Binding City}", "{Binding MissingCity}"))
+        unpromoted_target = target.replace(f'WarningsAsErrors="{warning_codes}"', 'WarningsAsErrors=""')
+        (workspace / "Probe.csproj").write_text(project.replace("TASK", unpromoted_target))
+        unpromoted = command(
+            ["dotnet", "build", "Probe.csproj", "--no-restore", "--verbosity", "quiet"], workspace)
+        assert unpromoted.returncode == 0 and "XC0045" in unpromoted.stdout and "MissingCity" in unpromoted.stdout, (
+            unpromoted.stdout + unpromoted.stderr)
+        print("PASS: unpromoted missing-member XC0045 is a warning, not a failed build")
+        fallback_codes = ";".join(code for code in warning_codes.split(";") if code != "XC0045")
+        fallback_target = target.replace(
+            f'WarningsAsErrors="{warning_codes}"', f'WarningsAsErrors="{fallback_codes}"')
+        (workspace / "Probe.csproj").write_text(project.replace("TASK", fallback_target))
+        fallback = command(
+            ["dotnet", "build", "Probe.csproj", "--no-restore", "--verbosity", "quiet"], workspace)
+        assert fallback.returncode == 0 and "XC0045" in fallback.stdout, (
+            fallback.stdout + fallback.stderr)
+        print("PASS: removing XC0045 from the selective policy reproduces the false-success build")
+        (workspace / "Probe.csproj").write_text(project.replace("TASK", target))
+        broken = command(["dotnet", "build", "Probe.csproj", "--no-restore", "--verbosity", "quiet"], workspace)
+        assert broken.returncode != 0 and "XC0045" in broken.stdout and "MissingCity" in broken.stdout, (
+            broken.stdout + broken.stderr)
+        print(f"PASS: shipping selective policy ({warning_codes}) rejects the missing child property")
+        (workspace / "ExplicitPage.xaml").write_text(markup("ExplicitPage", True))
+        source_markup = (workspace / "LiteralSourcePage.xaml").read_text()
+        (workspace / "LiteralSourcePage.xaml").write_text(
+            source_markup.replace("x:DataType=Slider", "x:DataType=Entry"))
+        broken = command(["dotnet", "build", "Probe.csproj", "--no-restore", "--verbosity", "quiet"], workspace)
+        assert broken.returncode != 0 and "Value" in broken.stdout, broken.stdout + broken.stderr
+        print("PASS: XamlC rejects a binding-local source type without the requested property")
+        (workspace / "LiteralSourcePage.xaml").write_text(source_markup)
+        for control in ("Label", "Editor"):
+            (workspace / "LiteralSourcePage.xaml").write_text(source_markup.replace(
+                "<Label Text=", f'<{control} SafeAreaEdges="None" Text='))
+            broken = command(["dotnet", "build", "Probe.csproj", "--no-restore", "--verbosity", "quiet"], workspace)
+            assert broken.returncode != 0 and "SafeAreaEdges" in broken.stdout, broken.stdout + broken.stderr
+            print(f"PASS: XamlC rejects unsupported SafeAreaEdges on {control}")
+        (workspace / "LiteralSourcePage.xaml").write_text(source_markup)
+        (workspace / "ConverterPage.xaml").write_text(converter_markup.replace(
+            'x:DataType="vm:MainViewModel"',
+            'x:Class="MyApp.ConverterPage" x:DataType="vm:MainViewModel"').replace(
+                "clr-namespace:MyApp.Converters", "clr-namespace:MyApp.MissingConverters"))
+        broken = command(["dotnet", "build", "Probe.csproj", "--no-restore", "--verbosity", "quiet"], workspace)
+        assert broken.returncode != 0 and "IntToBoolConverter" in broken.stdout, broken.stdout + broken.stderr
+        print("PASS: XamlC rejects the mismatched converter CLR namespace")
+    finally:
+        shutil.rmtree(workspace)
+
+
+def api_probe():
+    """Probe load-bearing snippets against the same real package as the fixtures."""
+    binding_skill = ROOT / "plugins/dotnet-maui/skills/maui-data-binding/SKILL.md"
+    binding_markup = binding_skill.read_text().split("### Page and control scopes", 1)[1].split(
+        "```xml\n", 1)[1].split("\n```", 1)[0]
+    page = ET.fromstring('<Root xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">'
+                        + binding_markup + "</Root>")[0]
+    assert len(page) == 1 and page[0].tag == (
+        "{http://schemas.microsoft.com/dotnet/2021/maui}StackLayout"
+    ), "page has multiple content roots or an incorrect layout namespace"
+    layout = page[0]
+    page.remove(layout)
+    page.extend(list(layout))
+    assert len(page) > 1, "malformed sibling-content mutation was not reproduced"
+    print("PASS: binding-markup single-root/mutation checks (not XAML compilation)")
+    suite = ROOT / "tests/dotnet-maui/maui-collectionview"
+    workspace = suite / ".api-probe-workspace"
+    if workspace.exists():
+        raise RuntimeError(f"Refusing to overwrite {workspace}")
+    theme_skill = ROOT / "plugins/dotnet-maui/skills/maui-theming/SKILL.md"
+    theme_manager = theme_skill.read_text().split(
+        "```csharp\npublic sealed class ThemeManager\n", 1)[1].split(
+        "\npublic partial class App", 1)[0]
+    theme_choice = theme_skill.read_text().split("Themes.ApplyTheme(", 1)[1].split(");", 1)[0]
+    theme_choice = theme_choice.replace("_choice", "saved").replace("RequestedTheme", "AppTheme.Dark")
+    theme_app = theme_skill.read_text().split("\npublic partial class App : Application\n", 1)[1].split(
+        "\n// Settings uses", 1)[0]
+    shell_spec = yaml.safe_load(
+        (ROOT / "tests/dotnet-maui/maui-shell-navigation/eval.yaml").read_text())
+    deferral = next(s for s in shell_spec["stimuli"]
+                    if s["name"] == "Confirmation pending during navigation")
+    deferral_response = deferral["golden_trajectory"]["inline"]["steps"][-1]["message"]
+    deferral_code = "\n".join(re.findall(r"```csharp\n(.*?)\n```", deferral_response, re.S))
+    assert deferral_code, "deferral golden must supply the requested app-level code"
+    shell_skill = (ROOT / "plugins/dotnet-maui/skills/maui-shell-navigation/SKILL.md").read_text()
+    guard_section = shell_skill.split("## Workflow: Guard Navigation", 1)[1].split(
+        "## Tab Configuration", 1)[0]
+    guard_code = "\n".join(re.findall(r"```csharp\n(.*?)\n```", guard_section, re.S))
+    assert "public async Task<bool> TryNavigateAsync" in guard_code
+    event_reference = ROOT / "plugins/dotnet-maui/skills/maui-theming/references/event-ownership.md"
+    event_page = event_reference.read_text().split("```csharp\n", 1)[1].split("\n```", 1)[0]
+    event_page = "\n".join(line for line in event_page.splitlines() if not line.startswith("using "))
+    lifecycle_skill = (ROOT / "plugins/dotnet-maui/skills/maui-app-lifecycle/SKILL.md").read_text()
+    draft_window = lifecycle_skill.split("```csharp\npublic sealed class DraftWindow", 1)[1].split(
+        "\n```", 1)[0]
+    source = """using System.ComponentModel;
+using Microsoft.Maui;
+using Microsoft.Maui.Controls;
+using Microsoft.Maui.Storage;
+using Microsoft.Maui.Controls.PlatformConfiguration;
+using Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;
+using Application = Microsoft.Maui.Controls.Application;
+using Page = Microsoft.Maui.Controls.Page;
+public sealed class ProbeBindingBehavior : Behavior<Label> { }
+public static class Checks
+{
+    static void Require(bool condition, string message)
+    {
+        if (!condition) throw new InvalidOperationException(message);
+    }
+    public static void Main()
+    {
+        Require(new CollectionView().ItemSizingStrategy == ItemSizingStrategy.MeasureAllItems,
+            "MAUI sizing default changed");
+        Require(typeof(LinearItemsLayout).GetProperty("ItemSizingStrategy") is null,
+            "sizing property owner changed");
+        Require(typeof(ContentPage).GetProperty("Content")!.PropertyType == typeof(View),
+            "page content is not a single View");
+        Require(typeof(BackButtonBehavior).GetProperty("TextOverride") is not null &&
+            typeof(BackButtonBehavior).GetProperty("Text") is null,
+            "back-button text property ownership changed");
+        var products = new System.Collections.ObjectModel.ObservableCollection<string>();
+        var directList = new CollectionView { ItemsSource = products };
+        Require(directList.BindingContext is null && ReferenceEquals(directList.ItemsSource, products),
+            "direct ItemsSource assignment incorrectly requires BindingContext");
+        var draft = new NoteViewModel();
+        var editor = new ContentPage { BindingContext = draft };
+        var ownedWindow = new DraftWindow(editor, draft, "draft:one");
+        ownedWindow.BindingContext = new NoteViewModel();
+        Require(ReferenceEquals(editor.BindingContext, draft) &&
+            ReferenceEquals(typeof(DraftWindow).GetField("_viewModel",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .GetValue(ownedWindow), draft), "draft owner disconnected from editor ViewModel");
+        Preferences.Set("draft:one", "persisted");
+        Preferences.Set("draft:one:scroll", 12.0);
+        var lifecycle = (IWindow)ownedWindow;
+        lifecycle.Stopped();
+        Require(Preferences.Get("draft:one", "") == "persisted",
+            "stop before initialization overwrote the saved draft");
+        lifecycle.Activated();
+        Require(draft.DraftText == "persisted" && draft.ScrollY == 12.0,
+            "cold start did not restore both state fields");
+        draft.DraftText = "ordinary edit";
+        draft.ScrollY = 24.0;
+        Require(Preferences.Get("draft:one", "") == "ordinary edit" &&
+            Preferences.Get("draft:one:scroll", 0.0) == 24.0,
+            "ordinary change did not persist both state fields");
+        lifecycle.Destroying();
+        draft.DraftText = "detached";
+        Require(Preferences.Get("draft:one", "") == "ordinary edit",
+            "destroyed window retained its change subscription");
+        Preferences.Set("draft:unloaded", "keep");
+        var unloaded = new DraftWindow(new ContentPage(), new NoteViewModel(), "draft:unloaded");
+        ((IWindow)unloaded).Destroying();
+        Require(Preferences.Get("draft:unloaded", "") == "keep",
+            "teardown before initialization overwrote the saved draft");
+        var parent = new Grid();
+        var child = new Label();
+        parent.Children.Add(child);
+        var first = new object();
+        var second = new object();
+        parent.BindingContext = first;
+        Require(ReferenceEquals(child.BindingContext, first), "context not inherited");
+        parent.BindingContext = second;
+        Require(ReferenceEquals(child.BindingContext, second), "context replacement not propagated");
+        var behavior = new ProbeBindingBehavior();
+        child.Behaviors.Add(behavior);
+        Require(behavior.BindingContext is null, "behavior unexpectedly inherited its view context");
+        behavior.BindingContext = child.BindingContext;
+        Require(ReferenceEquals(behavior.BindingContext, second), "explicit behavior context failed");
+        var converter = TypeDescriptor.GetConverter(typeof(SafeAreaEdges));
+        var perEdge = (SafeAreaEdges)converter.ConvertFromInvariantString(
+            "Container,Container,Container,SoftInput")!;
+        Require(perEdge.Left == SafeAreaRegions.Container &&
+            perEdge.Top == SafeAreaRegions.Container &&
+            perEdge.Right == SafeAreaRegions.Container &&
+            perEdge.Bottom == SafeAreaRegions.SoftInput, "valid per-edge syntax rejected");
+        var axes = (SafeAreaEdges)converter.ConvertFromInvariantString("Container,SoftInput")!;
+        Require(axes.Left == SafeAreaRegions.Container && axes.Right == SafeAreaRegions.Container &&
+            axes.Top == SafeAreaRegions.SoftInput && axes.Bottom == SafeAreaRegions.SoftInput,
+            "two-value form confused with region combination");
+        var all = (SafeAreaEdges)converter.ConvertFromInvariantString("All")!;
+        Require(all.Left == SafeAreaRegions.All && all.Top == SafeAreaRegions.All &&
+            all.Right == SafeAreaRegions.All && all.Bottom == SafeAreaRegions.All,
+            "All converter no longer matches the public all-regions policy");
+        var keyboardWrapper = new Grid { SafeAreaEdges = all };
+        Require(keyboardWrapper.SafeAreaEdges == SafeAreaEdges.All,
+            "Grid cannot own the all-regions policy");
+        var keyboardScroller = new Microsoft.Maui.Controls.ScrollView
+        {
+            SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.SoftInput)
+        };
+        Require(keyboardScroller.SafeAreaEdges.Left == SafeAreaRegions.SoftInput &&
+            keyboardScroller.SafeAreaEdges.Top == SafeAreaRegions.SoftInput &&
+            keyboardScroller.SafeAreaEdges.Right == SafeAreaRegions.SoftInput &&
+            keyboardScroller.SafeAreaEdges.Bottom == SafeAreaRegions.SoftInput,
+            "ScrollView does not expose the direct keyboard-region policy");
+        keyboardScroller.SafeAreaEdges = SafeAreaEdges.All;
+        Require(keyboardScroller.SafeAreaEdges == SafeAreaEdges.All,
+            "ScrollView does not expose the direct all-regions policy");
+        var composer = ChatLayout.Create();
+        Require(composer.ColumnSpacing == 10 && composer.RowDefinitions.Count == 0 &&
+            composer.ColumnDefinitions.Count == 0, "safe-area fixture geometry/column contract changed");
+        composer.RowSpacing = 10;
+        Require(composer.ColumnSpacing == 10, "optional row spacing changed the required column gap");
+        Require(typeof(Image).GetProperty("SafeAreaEdges") is null,
+            "unsupported Image property assumption changed");
+        var legacyPage = new ContentPage();
+        legacyPage.On<iOS>().SetUseSafeArea(true);
+        Require(legacyPage.On<iOS>().UsingSafeArea(), "legacy C# safe-area setup failed");
+        var routes = new Shell();
+        var animals = new FlyoutItem { Route = "animals" };
+        var domestic = new Tab { Route = "domestic" };
+        domestic.Items.Add(new ShellContent {
+            Route = "cats", ContentTemplate = new DataTemplate(() => new ContentPage()) });
+        animals.Items.Add(domestic);
+        routes.Items.Add(animals);
+        var uriHandler = typeof(Shell).Assembly.GetType("Microsoft.Maui.Controls.ShellUriHandler")!;
+        var resolve = uriHandler.GetMethod("GetNavigationRequest",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        object? Resolve(string path) => resolve.Invoke(null,
+            new object?[] { routes, new Uri(path, UriKind.Relative), false, true, null });
+        Require(Resolve("//animals/domestic/cats") is not null, "absolute hierarchy route failed");
+        Require(Resolve("//cats") is not null, "unique absolute leaf route failed");
+        try
+        {
+            Resolve("domestic");
+            throw new InvalidOperationException("relative visual push unexpectedly supported");
+        }
+        catch (System.Reflection.TargetInvocationException ex)
+            when (ex.InnerException?.Message.Contains("Relative routing to shell elements") == true) { }
+        Routing.RegisterRoute("replay-details", typeof(ContentPage));
+        try
+        {
+            Require(Resolve("replay-details") is not null, "registered relative detail failed");
+        }
+        finally { Routing.UnRegisterRoute("replay-details"); }
+        foreach (bool explicitWrapper in new[] { false, true })
+        {
+            var shell = new Shell();
+            var item = new FlyoutItem { Route = "dashboard" };
+            var content = new ShellContent {
+                Route = "home", ContentTemplate = new DataTemplate(() => new ContentPage()) };
+            if (explicitWrapper)
+            {
+                var tab = new Tab();
+                tab.Items.Add(content);
+                item.Items.Add(tab);
+            }
+            else
+                item.Items.Add(content);
+            shell.Items.Add(item);
+            Require(item.Items.Count == 1 && item.Items[0].Items.Count == 1,
+                "explicit/implicit wrappers differ in hierarchy");
+            Require(!((IShellItemController)item).ShowTabs,
+                "single-page wrapper unexpectedly forces a tab bar");
+            item.FlyoutDisplayOptions = FlyoutDisplayOptions.AsMultipleItems;
+            Require(!((IShellItemController)item).ShowTabs,
+                "flyout display options confused with tab-bar visibility");
+        }
+        var publisher = new Application();
+        var firstPage = new ProbeThemeAwarePage(publisher);
+        var secondPage = new ProbeThemeAwarePage(publisher);
+        firstPage.Appear(); firstPage.Appear(); secondPage.Appear();
+        publisher.UserAppTheme = AppTheme.Dark;
+        Require(firstPage.Callbacks == 1 && secondPage.Callbacks == 1,
+            "appearance registered duplicate callbacks");
+        firstPage.Disappear();
+        publisher.UserAppTheme = AppTheme.Light;
+        Require(firstPage.Callbacks == 1 && secondPage.Callbacks == 2,
+            "page cleanup affected another subscriber");
+        firstPage.Appear();
+        publisher.UserAppTheme = AppTheme.Dark;
+        Require(firstPage.Callbacks == 2 && secondPage.Callbacks == 3,
+            "reappearing page did not resume observation");
+        firstPage.Disappear(); secondPage.Disappear();
+        var resources = new ResourceDictionary();
+        var styles = new ResourceDictionary { ["Brand"] = "retained" };
+        var light = new ResourceDictionary { ["Text"] = "black" };
+        var dark = new ResourceDictionary { ["Text"] = "white" };
+        resources.MergedDictionaries.Add(styles);
+        var manager = new ThemeManager(resources);
+        manager.ApplyTheme(light);
+        manager.ApplyTheme(dark);
+        manager.ApplyTheme(light);
+        Require(resources.MergedDictionaries.Count == 2 &&
+            resources.MergedDictionaries.Contains(styles) &&
+            resources.MergedDictionaries.Contains(light) &&
+            !resources.MergedDictionaries.Contains(dark), "theme ownership/preservation failed");
+        var saved = "Dark";
+        manager.ApplyTheme(__THEME_STARTUP_CHOICE__);
+        foreach (var choice in new[] { "System", "stale", "", "Light", "Dark" })
+        {
+            foreach (var system in new[] { AppTheme.Light, AppTheme.Dark })
+            {
+                var selected = ThemeManager.ResolveTheme(choice, system);
+                var darkSelected = choice == "Dark" || (choice != "Light" && system == AppTheme.Dark);
+                Require(darkSelected ? selected is DarkTheme : selected is LightTheme,
+                    "stored theme selection ignored explicit choice or System fallback");
+            }
+            Preferences.Set("CustomTheme", "stale");
+            var themeApp = new App();
+            themeApp.UserAppTheme = AppTheme.Dark;
+            Require(themeApp.Resources.MergedDictionaries.Single() is DarkTheme,
+                "System fallback did not react to requested-theme changes");
+            themeApp.SelectTheme("Light");
+            themeApp.UserAppTheme = AppTheme.Light;
+            themeApp.UserAppTheme = AppTheme.Dark;
+            Require(themeApp.Resources.MergedDictionaries.Single() is LightTheme,
+                "requested-theme change replaced an explicit stored theme");
+            themeApp.SelectTheme("System");
+            themeApp.UserAppTheme = AppTheme.Light;
+            Require(themeApp.Resources.MergedDictionaries.Single() is LightTheme &&
+                Preferences.Get("CustomTheme", "") == "System",
+                "System selection did not persist and resume theme observation");
+        }
+        Require(!new DeferralCore().SkipPending().GetAwaiter().GetResult(),
+            "the actual source caller did not reject a pending request");
+        Console.WriteLine("PASS: package-api-probe (no XAML/native/device execution)");
+    }
+}
+public sealed class ThemeManager
+""" + theme_manager + "\npublic partial class App : Application\n" + theme_app + """
+public partial class App
+{
+    private void InitializeComponent() { }
+}
+""" + "\n" + event_page + """
+public sealed class ProbeThemeAwarePage(Application publisher) : ThemeAwarePage(publisher)
+{
+    public int Callbacks { get; private set; }
+    public void Appear() => base.OnAppearing();
+    public void Disappear() => base.OnDisappearing();
+    protected override void OnThemeChanged(object? sender, AppThemeChangedEventArgs e)
+        => Callbacks++;
+}
+""" + "\npublic sealed class DraftWindow" + draft_window + """
+public sealed class NoteViewModel : INotifyPropertyChanged
+{
+    private string _text = "";
+    private double _scroll;
+    public event PropertyChangedEventHandler? PropertyChanged;
+    public string DraftText
+    {
+        get => _text;
+        set { _text = value; PropertyChanged?.Invoke(this, new(nameof(DraftText))); }
+    }
+    public double ScrollY
+    {
+        get => _scroll;
+        set { _scroll = value; PropertyChanged?.Invoke(this, new(nameof(ScrollY))); }
+    }
+}
+public static class Preferences
+{
+    private static readonly Dictionary<string, object> Values = new();
+    public static T Get<T>(string key, T fallback) =>
+        Values.TryGetValue(key, out var value) ? (T)value : fallback;
+    public static void Set<T>(string key, T value) where T : notnull => Values[key] = value;
+}
+public sealed class LightTheme : ResourceDictionary { }
+public sealed class DarkTheme : ResourceDictionary { }
+"""
+    source = source.replace("__THEME_STARTUP_CHOICE__", theme_choice)
+    source += "\npublic sealed class DeferralGolden : Shell\n{\n" + deferral_code + "\n}\n"
+    source += """
+public sealed class DeferralCore : Shell
+{
+    private bool _checkingNavigation;
+    private bool hasUnsavedChanges = true;
+    private Task<bool> ShowConfirmationDialog() => Task.FromResult(true);
+    public Task<bool> SkipPending()
+    {
+        _checkingNavigation = true;
+        return TryNavigateAsync("not-started");
+    }
+""" + guard_code + "\n}\n"
+    try:
+        workspace.mkdir()
+        for filename in ("Fixture.csproj", "Directory.Build.props", "Directory.Build.targets"):
+            shutil.copy2(suite / "fixtures/working" / filename, workspace / filename)
+        (workspace / "Program.cs").write_text(source)
+        shutil.copy2(ROOT / "tests/dotnet-maui/maui-safe-area/fixtures/working/Program.cs",
+                     workspace / "ChatLayout.cs")
+        result = command(["dotnet", "run", "--project", "Fixture.csproj", "--verbosity", "quiet"], workspace)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "PASS: package-api-probe" in result.stdout, result.stdout
+        print(result.stdout.strip())
+        runtime_mutations = (
+            ("stop before initialization overwrote", "if (!_draftLoaded)\n            return;", ""),
+            ("ordinary change did not persist", 'Preferences.Set($"{_draftKey}:scroll", _viewModel.ScrollY);', ""),
+            ("ordinary change did not persist", "_viewModel.PropertyChanged += OnStateChanged;", ""),
+            ("destroyed window retained", "_viewModel.PropertyChanged -= OnStateChanged;", ""),
+            ("stored theme selection ignored",
+             "_ => systemTheme == AppTheme.Dark ? new DarkTheme() : new LightTheme()",
+             "_ => new LightTheme()"),
+            ("System fallback did not react", 'if (_choice is not ("Light" or "Dark"))',
+             'if (false)'),
+        )
+        for diagnostic, before, after in runtime_mutations:
+            assert source.count(before) == 1, before
+            (workspace / "Program.cs").write_text(source.replace(before, after))
+            failed = command(["dotnet", "run", "--project", "Fixture.csproj", "--no-restore",
+                              "--verbosity", "quiet"], workspace)
+            assert failed.returncode != 0 and diagnostic in failed.stdout + failed.stderr, (
+                diagnostic, failed.stdout, failed.stderr)
+        print("PASS: lifecycle initialization/ordinary-save/detachment and stored-theme fallback mutations")
+        mutations = (
+            ("CS0173", """
+public static class InvalidThemeChoice
+{
+    public static object Create(bool dark)
+    {
+        var theme = dark ? new DarkTheme() : new LightTheme();
+        return theme;
+    }
+}
+"""),
+            ("CS1061", """
+public static class InvalidThemeRemoval
+{
+    public static void Remove(ResourceDictionary resources)
+        => resources.MergedDictionaries.RemoveWhere(theme => theme is LightTheme or DarkTheme);
+}
+"""),
+        )
+        for diagnostic, mutation in mutations:
+            (workspace / "Program.cs").write_text(source + mutation)
+            failed = command(["dotnet", "build", "Fixture.csproj", "--no-restore",
+                              "--verbosity", "quiet"], workspace)
+            assert failed.returncode != 0 and diagnostic in failed.stdout + failed.stderr, (
+                diagnostic, failed.stdout, failed.stderr)
+        print("PASS: real-package compiler rejects sibling-var choice and undeclared RemoveWhere")
+    finally:
+        shutil.rmtree(workspace)
+
+
+def production_replay(suite, spec, expected_pass=True, expected_failure_type="output-matches",
+                      skills=None):
+    """Use the shipping parser/oracle with only deterministic graders selected."""
+    path = suite / ".oracle-eval.yaml"
+    workspace = suite / ".oracle-workspace"
+    scratch = suite / ".oracle-scratch"
+    if path.exists() or workspace.exists() or scratch.exists():
+        raise RuntimeError(f"Refusing to overwrite oracle scratch files in {suite}")
+    deterministic = json.loads(json.dumps(spec))
+    for stimulus in deterministic["stimuli"]:
+        if skills is not None:
+            stimulus["environment"]["skills"] = [str(path) for path in skills]
+        stimulus["graders"] = [g for g in stimulus["graders"] if g["type"] != "prompt"]
+        stimulus.pop("rubric", None)
+    try:
+        path.write_text(yaml.safe_dump(deterministic, sort_keys=False))
+        scratch.mkdir()
+        for stimulus in deterministic["stimuli"]:
+            workspace.mkdir()
+            # Both explicit and internal oracle scratch stay within this suite.
+            env = dict(os.environ, VALLY_TELEMETRY_OPTOUT="1",
+                       TMPDIR=str(scratch), GIT_CEILING_DIRECTORIES=str(suite))
+            initialized = subprocess.run(["git", "init", "--quiet"], cwd=workspace,
+                                         env=env, capture_output=True, text=True)
+            assert initialized.returncode == 0, initialized.stderr
+            args = ["node", "eng/evaluation-tools/vally.mjs", "oracle",
+                    "--eval-spec", str(path), "--stimulus", stimulus["name"],
+                    "--workspace", str(workspace), "--output", "jsonl"]
+            result = subprocess.run(args, cwd=ROOT, env=env, text=True, capture_output=True)
+            records = [json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")]
+            assert len(records) == 1, result.stdout + result.stderr
+            assert records[0].get("status") != "error", result.stdout
+            assert records[0]["gradeResult"].get("status") != "error", result.stdout
+            assert all(g.get("status") != "error"
+                       for g in records[0]["gradeResult"]["details"]), result.stdout
+            assert records[0]["gradeResult"]["passed"] is expected_pass, result.stdout
+            if expected_pass:
+                assert result.returncode == 0 and records[0]["status"] == "success", result.stdout
+            else:
+                assert any(g.get("graderType") == expected_failure_type and not g["passed"]
+                           for g in records[0]["gradeResult"]["details"]), result.stdout
+                if expected_failure_type == "diff-not-contains":
+                    details = records[0]["gradeResult"]["details"]
+                    assert all("found in workspace diff" in g["evidence"]
+                               for g in details if g.get("graderType") == "diff-not-contains"
+                               and not g["passed"]), result.stdout
+                    assert all(g["passed"] for g in details
+                               if g.get("graderType") != "diff-not-contains"), result.stdout
+            shutil.rmtree(workspace)
+    finally:
+        path.unlink(missing_ok=True)
+        if workspace.exists():
+            shutil.rmtree(workspace)
+        if scratch.exists():
+            shutil.rmtree(scratch)
+
+
+def wording_regressions(production=False):
+    """Accept equivalent domain evidence without accepting relative/bare routes."""
+    cases = (
+        ("maui-app-lifecycle", "Two windows with different drafts",
+         "Each editor window owns its document and subscriptions.",
+         "Use one global current document for every editor."),
+        ("maui-app-lifecycle", "Two windows with different drafts",
+         "Use one owner object per `Window`. The owner contains that window’s document/session.",
+         "Every editor changes one shared document and unsubscribes all listeners on close."),
+        ("maui-app-lifecycle", "Interruption is not background",
+         "Distinguish temporary interruption/inactivity from session-ending backgrounding or termination.",
+         "Discard the timer session whenever the screen loses focus."),
+        ("maui-app-lifecycle", "Long upload on app switch",
+         "OnStopped handlers aren't guaranteed to complete. Persist pending intent and retry.",
+         "Stopped grants a guaranteed minute of background execution."),
+        ("maui-safe-area", "Landscape inset change",
+         "Use SafeAreaEdges so the OS computes insets per device and orientation.",
+         "Hardcode Margin=44 on every rotation."),
+        ("maui-safe-area", "ScrollView keyboard wrapper",
+         "Wrap the ScrollView in a Grid; that Grid owns the keyboard inset.",
+         "Remove scrolling and place Submit outside the form."),
+        ("maui-safe-area", "ScrollView keyboard wrapper",
+         "The page/window root owns the keyboard inset; keep the ScrollView in a bounded Grid row.",
+         "Give Submit a fixed bottom margin of 20 pixels and remove scrolling."),
+        ("maui-safe-area", "ScrollView keyboard wrapper",
+         'On Android MAUI 10 use ScrollView SafeAreaEdges="All" in a bounded viewport '
+         'with the form and Submit inside its content. Check window configuration and the MAUI patch.',
+         "Disable all inset handling and remove Submit."),
+        ("maui-shell-navigation", "Stable routes for deep linking into tabs",
+         'await Shell.Current.GoToAsync("//tasks/archived/archivedlist");',
+         'await Shell.Current.GoToAsync("tasks/archived/archivedlist");'),
+        ("maui-shell-navigation", "Repair supplied executable contract",
+         'Absolute URI: //products/status/archived',
+         "Absolute path: products/status/archived"),
+        ("maui-collectionview", "Incremental fetch overlap",
+         "if (_isLoading || !_hasMore) return; _isLoading = true; "
+         "try { await FetchAsync(); } finally { _isLoading = false; }",
+         "private bool _isLoading; await FetchAsync();"),
+        ("maui-collectionview", "Basic CollectionView with data binding and DataTemplate",
+         "Assign the page's binding context to the ProductsViewModel instance.",
+         'x:DataType="vm:ProductsViewModel"; ItemsSource="{Binding Products}"'),
+        ("maui-collectionview", "Basic CollectionView with data binding and DataTemplate",
+         "productsView.ItemsSource = viewModel.Products;",
+         'ItemsSource="{Binding Products}" without a runtime source'),
+        ("maui-theming", "Swap theme dictionaries without destroying app styles",
+         "if (_activeTheme is not null) dictionaries.Remove(_activeTheme); "
+         "_activeTheme = new DarkTheme(); dictionaries.Add(_activeTheme);",
+         "dictionaries.Clear(); dictionaries.Add(new DarkTheme());"),
+        ("maui-theming", "Swap theme dictionaries without destroying app styles",
+         "foreach (var d in dictionaries.Where(d => d is LightTheme || d is DarkTheme).ToList()) "
+         "dictionaries.Remove(d); dictionaries.Add(new DarkTheme());",
+         "dictionaries.Add(new DarkTheme());"),
+        ("maui-theming", "Explicit theme event ownership",
+         "_observedApplication.RequestedThemeChanged -= OnRequestedThemeChanged;",
+         "_observedApplication.RequestedThemeChanged += OnRequestedThemeChanged;"),
+        ("maui-theming", "Accessible branding",
+         "Model high contrast as a peer ResourceDictionary theme, selected independently of the OS signal.",
+         "Add HighContrast as another AppTheme enum value."),
+        ("maui-theming", "Accessible branding",
+         "High contrast needs to be a **peer, independent theme choice**, handled via ResourceDictionary swapping.",
+         "Use the OS AppTheme enum as the only selection model."),
+        ("maui-theming", "Accessible branding",
+         '**Model it as an independent, peer "theme choice" with three ResourceDictionary options**',
+         "Let the operating system choose between light and dark."),
+        ("maui-shell-navigation", "Repair supplied executable contract",
+         'await Shell.Current.GoToAsync("//products/status/archived");',
+         'await Shell.Current.GoToAsync("/products/status/archived");'),
+    )
+    gate_spec = importlib.util.spec_from_file_location(
+        "quality_gate", ROOT / "eng/eval-quality/check_eval_quality.py")
+    gate = importlib.util.module_from_spec(gate_spec)
+    gate_spec.loader.exec_module(gate)
+    for name, title, valid, invalid in cases:
+        suite = ROOT / "tests/dotnet-maui" / name
+        original = yaml.safe_load((suite / "eval.yaml").read_text())
+        stimulus = next(s for s in original["stimuli"] if s["name"] == title)
+        matches = [g for g in stimulus["graders"] if g["type"] == "output-matches"]
+        assert all(gate.vally_regex_found(g["config"]["pattern"], valid) for g in matches), title
+        assert any(not gate.vally_regex_found(g["config"]["pattern"], invalid) for g in matches), title
+        if name == "maui-shell-navigation":
+            wrong = "Use // for absolute navigation" if title.startswith("Stable") else "//tasks/status/archived"
+            assert any(not gate.vally_regex_found(g["config"]["pattern"], wrong) for g in matches), title
+        if production:
+            for response, expected in ((valid, True), (invalid, False)):
+                spec = json.loads(json.dumps(original))
+                spec["stimuli"] = [next(s for s in spec["stimuli"] if s["name"] == title)]
+                spec["stimuli"][0]["golden_trajectory"]["inline"]["steps"][-1]["message"] = response
+                production_replay(suite, spec, expected_pass=expected)
+    print(f"PASS: {len(cases)} equivalent-wording acceptances and {len(cases)} contract mutations" +
+          (" through shipping Vally" if production else ""))
+
+
+def main():
+    loader = importlib.util.spec_from_file_location(
+        "quality_gate", ROOT / "eng/eval-quality/check_eval_quality.py")
+    gate = importlib.util.module_from_spec(loader)
+    loader.loader.exec_module(gate)
+    totals = {"references": 0, "output_mutations": 0, "golden_workspaces": 0,
+              "defect_rejections": 0, "preservation_rejections": 0,
+              "routing_output_rejections": 0, "semantic_advice_not_proven": 0,
+              "setup_rejections": 0, "production_scope_acceptances": 0,
+              "production_scope_rejections": 0}
+    for name in NAMES:
+        suite = ROOT / "tests/dotnet-maui" / name
+        spec = yaml.safe_load((suite / "eval.yaml").read_text())
+        for stimulus in spec["stimuli"]:
+            reference = golden_reference(suite, stimulus)
+            gate._validate_atif_trajectory(reference)
+            response = reference["steps"][-1]["message"]
+            for grader in stimulus["graders"]:
+                if grader["type"] == "prompt":
+                    assert "golden_patch" not in grader.get("config", {}).get("evidence", []), (
+                        name, stimulus["name"], "Vally eval does not resolve golden_patch evidence")
+                if grader["type"] == "output-matches":
+                    pattern = grader["config"]["pattern"]
+                    assert gate.vally_regex_found(pattern, response), (name, stimulus["name"], pattern)
+                    assert not gate.vally_regex_found(pattern, "Unrelated answer."), pattern
+                    totals["output_mutations"] += 1
+                elif grader["type"] == "output-not-matches":
+                    pattern = grader["config"]["pattern"]
+                    assert not gate.vally_regex_found(pattern, response), (name, stimulus["name"], pattern)
+                    assert gate.vally_regex_found(pattern, WRONG_BOUNDARY[name]), name
+                    totals["routing_output_rejections"] += 1
+            gate.check_trajectory_claims(
+                str(suite / "eval.yaml"), stimulus, reference,
+                f"{suite / 'eval.yaml'}#{stimulus['name']}",
+            )
+            totals["references"] += 1
+        title, wrong = WRONG_ADVICE[name]
+        advice = next(s for s in spec["stimuli"] if s["name"] == title)
+        matches = [g for g in advice["graders"] if g["type"] == "output-matches"]
+        if all(gate.vally_regex_found(g["config"]["pattern"], wrong) for g in matches):
+            totals["semantic_advice_not_proven"] += 1
+            print(f"{name}: realistic incorrect advice passes presence regex; semantic judging remains pending")
+        for stimulus in spec["stimuli"][-3:-1]:
+            workspace = suite / ".replay-workspace"
+            baseline = suite / ".scope-baseline"
+            if workspace.exists() or baseline.exists():
+                raise RuntimeError(f"Refusing to overwrite {workspace}")
+            try:
+                workspace.mkdir()
+                initialized = command(["git", "init", "--quiet"], workspace)
+                assert initialized.returncode == 0, initialized.stderr
+                fixture = suite / stimulus["environment"]["files"][0]["src"]
+                for source in fixture.rglob("*"):
+                    if source.is_file():
+                        target = workspace / source.relative_to(fixture)
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(source, target)
+                for setup in stimulus["environment"].get("commands", []):
+                    result = command(["bash", "-c", setup], workspace)
+                    assert result.returncode == 0, result.stdout + result.stderr
+                # A prior arm's repair must fail setup rather than look like a
+                # no-op success in the next arm.
+                if stimulus["environment"].get("commands"):
+                    target = workspace / "Program.cs"
+                    original = target.read_bytes()
+                    try:
+                        target.write_bytes(original + b"\n")
+                        assert any(command(["bash", "-c", setup], workspace).returncode != 0
+                                   for setup in stimulus["environment"]["commands"])
+                    finally:
+                        target.write_bytes(original)
+                    totals["setup_rejections"] += 1
+                supplied_skills = []
+                for skill in sorted((ROOT / "plugins/dotnet-maui/skills").iterdir()):
+                    assert skill.is_dir(), skill
+                    shutil.copytree(skill, workspace / skill.name)
+                    supplied_skills.extend((workspace / skill.name).rglob("*"))
+                rename_seed = workspace / "bin" / "rename seed.txt"
+                rename_seed.parent.mkdir()
+                rename_seed.write_text("generated before the agent\n")
+                baseline.mkdir()
+                baseline_ref = scope_call(workspace, baseline, action="capture")["baselineRef"]
+                scope_config = next(g["config"] for g in stimulus["graders"]
+                                    if g["type"] == "diff-not-contains")
+
+                def scope_passes():
+                    return scope_call(workspace, baseline, action="grade",
+                                      config=scope_config, baselineRef=baseline_ref)["passed"]
+
+                if "golden_patch" in stimulus:
+                    patch = (suite / stimulus["golden_patch"]["path"]).resolve()
+                    checked = command(["git", "apply", "--check", str(patch)], workspace)
+                    assert checked.returncode == 0, checked.stderr
+                    applied = command(["git", "apply", str(patch)], workspace)
+                    assert applied.returncode == 0, applied.stderr
+                for grader in stimulus["graders"]:
+                    if grader["type"] != "run-command":
+                        continue
+                    cfg = grader["config"]
+                    result = command(["bash", "-c", cfg["command"]], workspace)
+                    assert result.returncode == cfg.get("expected_exit_code", 0), result.stdout + result.stderr
+                    if "stdout_matches" in cfg:
+                        assert re.search(cfg["stdout_matches"], result.stdout), result.stdout
+                totals["golden_workspaces"] += 1
+                assert scope_passes(), (name, stimulus["name"])
+                if name == "maui-app-lifecycle" and "golden_patch" in stimulus:
+                    program = workspace / "Program.cs"
+                    original_program = program.read_text()
+                    event_mutations = (
+                        ("Stopped subscription", "window.Stopped += (_, _) => Save();", ""),
+                        ("Destroying subscription", "window.Destroying += (_, _) => Save();", ""),
+                        ("resume overwrote", "window.Resumed += (_, _) => Restore();",
+                         "window.Resumed += (_, _) => Save();"),
+                        ("CS1061", "public void Attach(Window window)", "public void MissingAttach(Window window)"),
+                    )
+                    try:
+                        for diagnostic, before, after in event_mutations:
+                            assert original_program.count(before) == 1, before
+                            program.write_text(original_program.replace(before, after))
+                            result = command(["dotnet", "run", "--project", "Fixture.csproj",
+                                              "--no-restore", "--verbosity", "quiet"], workspace)
+                            assert result.returncode != 0 and diagnostic in result.stdout + result.stderr, (
+                                diagnostic, result.stdout, result.stderr)
+                            totals["defect_rejections"] += 1
+                    finally:
+                        program.write_text(original_program)
+                for supplied in supplied_skills:
+                    if not supplied.is_file():
+                        continue
+                    original = supplied.read_bytes()
+                    try:
+                        supplied.write_bytes(original + b"\nunrequested\n")
+                        assert not scope_passes(), supplied
+                        supplied.unlink()
+                        assert not scope_passes(), supplied
+                    finally:
+                        supplied.write_bytes(original)
+                    totals["preservation_rejections"] += 2
+                for filename, expected in (
+                    ("bin/renamed seed.txt", True),
+                    ("unrequested seed.txt", False),
+                    ('unrequested "seed".txt', False),
+                    ("unrequested\nseed.txt", False),
+                    ("unrequested b/bin/seed.txt", False),
+                ):
+                    renamed = workspace / filename
+                    renamed.parent.mkdir(parents=True, exist_ok=True)
+                    try:
+                        rename_seed.rename(renamed)
+                        assert scope_passes() is expected, filename
+                    finally:
+                        renamed.rename(rename_seed)
+                preservation = stimulus["graders"][0]["config"]["command"]
+                for source in fixture.rglob("*"):
+                    if not source.is_file() or ("golden_patch" in stimulus and source.name == "Program.cs"):
+                        continue
+                    target = workspace / source.relative_to(fixture)
+                    original = target.read_bytes()
+                    try:
+                        target.write_bytes(original + b"\n")
+                        assert command(["bash", "-c", preservation], workspace).returncode != 0
+                    finally:
+                        target.write_bytes(original)
+                    totals["preservation_rejections"] += 1
+                for filename, content in (
+                    ("nested/Unrequested.cs", "public class Unrequested {}\n"),
+                    ("nested/Unrequested.xaml", "<ContentPage />\n"),
+                    ("nested/Unrequested.resx", "<root />\n"),
+                    ("NuGet.Config", "<configuration />\n"),
+                    ("test.sh", "echo unrequested\n"),
+                    ("nested/notes.md", "unrequested\n"),
+                    (".state.json", "{}\n"),
+                    (".scratch/notes.txt", "unrequested\n"),
+                    ("nested/bin/unrequested.txt", "unrequested\n"),
+                    ('nested/quoted "note".txt', "unrequested\n"),
+                    ("nested/line\nbreak.txt", "unrequested\n"),
+                    ("nested/space note.txt", "unrequested\n"),
+                ):
+                    extra = workspace / filename
+                    extra.parent.mkdir(parents=True, exist_ok=True)
+                    try:
+                        extra.write_text(content)
+                        assert not scope_passes(), filename
+                    finally:
+                        extra.unlink()
+                    totals["preservation_rejections"] += 1
+                extra = workspace / "Unrequested.link"
+                for destination in ("Checks.cs", "missing-file"):
+                    try:
+                        extra.symlink_to(destination)
+                        assert not scope_passes(), destination
+                    finally:
+                        extra.unlink()
+                    totals["preservation_rejections"] += 1
+                for filename in ("bin/space note.txt", 'obj/quoted "note".txt',
+                                 "bin/line\nbreak.txt"):
+                    extra = workspace / filename
+                    extra.parent.mkdir(parents=True, exist_ok=True)
+                    try:
+                        extra.write_text("generated\n")
+                        assert scope_passes(), filename
+                    finally:
+                        extra.unlink()
+                # Undo the actual repair: the production executable must reject it.
+                if "golden_patch" in stimulus:
+                    shutil.copy2(fixture / "Program.cs", workspace / "Program.cs")
+                    for generated in ("obj", "bin"):
+                        shutil.rmtree(workspace / generated, ignore_errors=True)
+                    result = command(["dotnet", "run", "--project", "Fixture.csproj", "--verbosity", "quiet"], workspace)
+                    assert result.returncode != 0, f"{name}: seeded defect escaped"
+                    assert "PASS: behavior-contract" not in result.stdout
+                    totals["defect_rejections"] += 1
+            finally:
+                shutil.rmtree(workspace)
+                if baseline.exists():
+                    shutil.rmtree(baseline)
+        if "--production" in sys.argv:
+            production_replay(suite, spec)
+            for stimulus in spec["stimuli"][-3:-1]:
+                target_skill = ROOT / "plugins/dotnet-maui/skills" / name
+                all_skills = sorted((ROOT / "plugins/dotnet-maui/skills").iterdir())
+                for skills in ([], [target_skill], all_skills):
+                    production_replay(suite, {"name": spec["name"], "stimuli": [stimulus]},
+                                      skills=skills)
+                    totals["production_scope_acceptances"] += 1
+                    original_patch = ((suite / stimulus["golden_patch"]["path"]).read_text()
+                                      if "golden_patch" in stimulus else "")
+                    mutations = [("unrequested.sh", "", "echo unrequested\n")]
+                    if skills:
+                        for source in target_skill.rglob("*"):
+                            if source.is_file() and (source.name == "SKILL.md"
+                                                     or source.parent.name == "references"):
+                                text = source.read_text()
+                                path = f"{target_skill.name}/{source.relative_to(target_skill)}"
+                                mutations.append((path, text, text + "\nunrequested\n"))
+                        assert len(mutations) > 1, name
+                    for path, before, after in mutations:
+                        mutation = json.loads(json.dumps(stimulus))
+                        patch = (f"diff --git a/{path} b/{path}\n"
+                                 + ("new file mode 100644\n" if not before else "")
+                                 + "".join(difflib.unified_diff(
+                            before.splitlines(keepends=True), after.splitlines(keepends=True),
+                            fromfile=f"a/{path}" if before else "/dev/null", tofile=f"b/{path}")))
+                        mutation["golden_patch"] = {"inline": original_patch + patch}
+                        production_replay(suite, {"name": spec["name"], "stimuli": [mutation]},
+                                          skills=skills, expected_pass=False,
+                                          expected_failure_type="diff-not-contains")
+                        totals["production_scope_rejections"] += 1
+        print(f"{name}: references, repaired/working execution and mutation rejection pass")
+    assert not gate.errors, "\n".join(gate.errors)
+    api_probe()
+    compiler_probe()
+    wording_regressions("--production" in sys.argv)
+    print(json.dumps(totals, sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()

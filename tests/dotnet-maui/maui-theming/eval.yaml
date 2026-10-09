@@ -1,128 +1,450 @@
 name: maui-theming
 description: Validates the dotnet-maui/maui-theming skill for theme support in .NET MAUI apps
 type: capability
-
-config:
-  timeout: 2m
-
 stimuli:
-  - name: "Add light/dark mode support using AppThemeBinding"
-    prompt: |
-      I have a .NET MAUI app with a ContentPage containing labels, buttons, and
-      a background color. Everything is hardcoded to light colors right now.
-      I want the app to automatically switch between light and dark mode based
-      on the device's system theme. Show me how to use AppThemeBinding to make
-      this page theme-aware in XAML and explain the C# alternative.
-    graders:
-      - type: output-contains
-        config:
-          substring: "AppThemeBinding"
-      - type: output-matches
-        config:
-          pattern: "(?i)Light.*Dark"
-      - type: output-matches
-        config:
-          pattern: "SetAppThemeColor|SetAppTheme"
-      - type: prompt
-    rubric:
-      - "Shows XAML AppThemeBinding syntax with Light and Dark values on visual properties"
-      - "Demonstrates the C# SetAppThemeColor or SetAppTheme<T> extension method"
-      - "Does not suggest hardcoded color values as a final solution"
-
-  - name: "Create custom themes with ResourceDictionary switching"
-    prompt: |
-      I need to support three branded themes in my .NET MAUI app — a light theme,
-      a dark theme, and a high-contrast theme. Users should be able to pick their
-      preferred theme from a settings page and it should apply immediately across
-      the app. How do I set this up?
-    graders:
-      - type: output-contains
-        config:
-          substring: "ResourceDictionary"
-      - type: output-contains
-        config:
-          substring: "DynamicResource"
-      - type: output-contains
-        config:
-          substring: "MergedDictionaries"
-      - type: prompt
-    rubric:
-      - "Creates separate ResourceDictionary files with matching keys for each theme"
-      - "Uses DynamicResource (not StaticResource) for consuming theme values"
-      - "Shows how to swap theme dictionaries at runtime via MergedDictionaries"
-      - "Mentions how theme ResourceDictionaries are structured and loaded (compiled XAML with x:Class or Source-based)"
-
-  - name: "Detect and respond to system theme changes"
-    prompt: |
-      My .NET MAUI app needs to detect when the user toggles dark mode in their
-      device settings and respond in real time — both updating the UI and logging
-      the change. How do I detect the current system theme and subscribe to
-      theme change events? Also, how do I let the user force a specific theme
-      regardless of system setting?
-    graders:
-      - type: output-contains
-        config:
-          substring: "RequestedThemeChanged"
-      - type: output-contains
-        config:
-          substring: "UserAppTheme"
-      - type: output-matches
-        config:
-          pattern: "RequestedTheme"
-      - type: prompt
-    rubric:
-      - "Shows how to read the current theme via Application.Current.RequestedTheme"
-      - "Subscribes to the RequestedThemeChanged event for real-time detection"
-      - "Demonstrates forcing a theme with Application.Current.UserAppTheme"
-      - "Shows resetting to system default with AppTheme.Unspecified"
-
-  - name: "Avoid common theming mistakes"
-    prompt: |
-      I'm adding dark mode to my .NET MAUI Android app. I created ResourceDictionary
-      themes and used StaticResource to bind colors in my XAML pages. When I
-      switch themes at runtime nothing changes — the colors stay the same. Also,
-      when the user toggles dark mode in Android settings my app seems to restart
-      completely. What am I doing wrong?
-    graders:
-      - type: output-contains
-        config:
-          substring: "DynamicResource"
-      - type: output-contains
-        config:
-          substring: "StaticResource"
-      - type: output-contains
-        config:
-          substring: "UiMode"
-      - type: prompt
-    rubric:
-      - "Identifies StaticResource as the root cause of colors not updating and recommends DynamicResource"
-      - "Explains that StaticResource is frozen at first load and does not respond to dictionary changes"
-      - "Identifies the missing ConfigChanges.UiMode on MainActivity as the cause of the activity restart"
-      - "Provides the correct Activity attribute with ConfigChanges.UiMode included"
-  - name: "Swap theme dictionaries without destroying app styles"
-    prompt: |
-      I have a .NET MAUI app created from the standard template, so App.xaml
-      already merges Resources/Styles/Colors.xaml and Styles.xaml. I've added
-      LightTheme.xaml and DarkTheme.xaml containing my own colour keys.
-      Write the C# method that switches between the light and dark theme at
-      runtime when the user toggles a switch in Settings.
-    graders:
-      - type: output-contains
-        config:
-          substring: MergedDictionaries
-      # Regression guard: MergedDictionaries.Clear() also removes the template's
-      # Colors.xaml / Styles.xaml. Verified at runtime — after Clear() the count
-      # drops 2 -> 1 and the template's "Primary" resource no longer resolves,
-      # which is exactly the "everything lost its styling" symptom described.
-      # Requiring .Remove( is the reliable signal: a correct answer may still
-      # *name* Clear() when diagnosing the cause, so matching on it directly
-      # would penalise the right answer.
-      - type: output-matches
-        config:
-          pattern: (?i)\.Remove\s*\(
-      - type: prompt
-    rubric:
-      - Removes only the previously applied theme dictionary, then adds the new one
-      - Does NOT call MergedDictionaries.Clear(), which would also remove the template's Colors.xaml and Styles.xaml and unstyle the whole app
-      - Keeps a reference to the current theme so it can be removed on the next switch
-      - Produces code that leaves the app's existing styles intact after repeated switches
+- name: Add light/dark mode support using AppThemeBinding
+  prompt: |
+    I have a .NET MAUI app with a ContentPage containing labels, buttons, and
+    a background color. Everything is hardcoded to light colors right now.
+    I want the app to automatically switch between light and dark mode based
+    on the device's system theme. Show me how to use AppThemeBinding to make
+    this page theme-aware in XAML and explain the C# alternative.
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: AppThemeBinding
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Shows XAML AppThemeBinding syntax with Light and Dark values on visual properties
+  - Demonstrates the C# SetAppThemeColor or SetAppTheme<T> extension method
+  - Replaces fixed light-only colors with values that follow the effective theme. Literal
+    Light/Dark pairs and literal colors inside named palette resources are valid;
+    do not confuse either with a fixed color that ignores theme changes.
+  tags:
+    capability: add-light-dark-mode-support-using-appthemebinding
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Use BackgroundColor="{AppThemeBinding Light=White, Dark=Black}" and TextColor="{AppThemeBinding
+          Light=Black, Dark=White}" with theme-aware button colors on the page. In C#, label.SetAppThemeColor(Label.TextColorProperty,
+          Colors.Black, Colors.White), or SetAppTheme<T> for a non-color bindable property. These expressions
+          follow the effective theme rather than freezing a light palette.
+- name: Create custom themes with ResourceDictionary switching
+  prompt: "I need to support three branded themes in my .NET MAUI app \u2014 a light theme,\na dark theme,\
+    \ and a high-contrast theme. Users should be able to pick their\npreferred theme from a settings page\
+    \ and it should apply immediately across\nthe app. How do I set this up?\n"
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: DynamicResource
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Creates separate ResourceDictionary files with matching keys for each theme
+  - Uses DynamicResource (not StaticResource) for consuming theme values
+  - Shows how to swap theme dictionaries at runtime via MergedDictionaries
+  - Mentions how theme ResourceDictionaries are structured and loaded (compiled XAML with x:Class or Source-based)
+  tags:
+    capability: create-custom-themes-with-resourcedictionary-switching
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Create LightTheme, DarkTheme, and HighContrastTheme ResourceDictionary files with identical
+          keys and compiled x:Class/code-behind or valid Source loading. Consume keys with DynamicResource.
+          An instance ThemeManager removes only its tracked previous theme and adds the selected dictionary
+          to Application.Resources.MergedDictionaries; preserve shared styles, persist the user choice,
+          and do not Clear the collection. High contrast is a custom brand choice, not an extra AppTheme
+          enum value.
+- name: Detect and respond to system theme changes
+  prompt: "My .NET MAUI app needs to detect when the user toggles dark mode in their\ndevice settings\
+    \ and respond in real time \u2014 both updating the UI and logging\nthe change. How do I detect the\
+    \ current system theme and subscribe to\ntheme change events? Also, how do I let the user force a\
+    \ specific theme\nregardless of system setting?\n"
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: Unspecified
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Shows how to read the current theme via Application.Current.RequestedTheme
+  - Subscribes to the RequestedThemeChanged event for real-time detection
+  - Demonstrates forcing a theme with Application.Current.UserAppTheme
+  - Shows resetting to system default with AppTheme.Unspecified
+  tags:
+    capability: detect-and-respond-to-system-theme-changes
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Read Application.Current.RequestedTheme and subscribe to RequestedThemeChanged to log
+          changes and update app-specific state; AppThemeBinding handles its own UI updates. Set UserAppTheme=AppTheme.Light
+          or Dark for an override and AppTheme.Unspecified to return to following the system. Match event
+          subscription lifetime to its owner and unsubscribe transient pages.
+- name: Avoid common theming mistakes
+  prompt: "I'm adding dark mode to my .NET MAUI Android app. I created ResourceDictionary\nthemes and\
+    \ used StaticResource to bind colors in my XAML pages. When I\nswitch themes at runtime nothing changes\
+    \ \u2014 the colors stay the same. Also,\nwhen the user toggles dark mode in Android settings my app\
+    \ seems to restart\ncompletely. What am I doing wrong?\n"
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: UiMode
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Identifies StaticResource as the root cause of colors not updating and recommends DynamicResource
+  - Explains that StaticResource is frozen at first load and does not respond to dictionary changes
+  - Identifies the missing ConfigChanges.UiMode on MainActivity as the cause of the activity restart
+  - Provides the correct Activity attribute with ConfigChanges.UiMode included
+  tags:
+    capability: avoid-common-theming-mistakes
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Use DynamicResource for values replaced at runtime; StaticResource resolves once and
+          does not observe a dictionary swap. On Android retain the template MainActivity ConfigurationChanges
+          flags and include ConfigChanges.UiMode so theme configuration changes do not recreate the activity.
+          Verify the actual attribute before assuming it is absent.
+- name: Swap theme dictionaries without destroying app styles
+  prompt: |
+    I have a .NET MAUI app created from the standard template, so App.xaml
+    already merges Resources/Styles/Colors.xaml and Styles.xaml. I've added
+    LightTheme.xaml and DarkTheme.xaml containing my own colour keys.
+    Write the C# method that switches between the light and dark theme at
+    runtime when the user toggles a switch in Settings.
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)(previous|reference|\.Remove\(\s*\w*(active|current|old)Theme\s*\)|\bis\s+LightTheme\s*\|\|\s*\w+\s+is\s+DarkTheme)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Produces compilable switching code with consistent instance/static ownership.
+  - Removes only the previous theme using a precise identity or reference and preserves unrelated application
+    dictionaries.
+  - Repeated switches replace the current theme rather than accumulating themes or clearing template styles.
+  tags:
+    capability: swap-theme-dictionaries-without-destroying-app-styles
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: 'Use an instance-owned ResourceDictionary? _activeTheme and an instance ApplyTheme method
+          (or make both consistently static). Remove only that previous reference from Application.Current.Resources.MergedDictionaries,
+          add the new theme, and update the reference. Never Clear: Colors.xaml and Styles.xaml must survive
+          every switch. A tracked reference or another precise identification of only theme dictionaries
+          is acceptable.'
+- name: Restore follow-system preference
+  prompt: My MAUI settings page offers Light, Dark, and Follow device. A stored Dark preference works,
+    but selecting Follow device keeps the app dark. Show how to persist and restore all three choices
+    without forcing the current device theme permanently.
+  tags:
+    capability: preference-reset
+    risk: sticky-override
+    journey: change-preference
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: Unspecified
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Restores the user's selected policy, including returning to live system-following behavior.
+  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Map follow-system to AppTheme.Unspecified, persist the preference rather than the observed
+          theme, and restore before the UI initializes.
+- name: Explicit theme event ownership
+  prompt: A transient MAUI settings page logs RequestedThemeChanged. Opening the page repeatedly produces
+    duplicate log lines and keeps old pages alive. Show a subscription ownership and cleanup pattern that
+    still observes changes.
+  tags:
+    capability: event-lifetime
+    risk: page-leak
+    journey: reopen-settings
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)(unsubscrib\w*|lifetime|RequestedThemeChanged\s*-=)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Keeps logging active for the current owner without duplicate callbacks or retaining obsolete pages.
+  - Does not falsely describe RequestedThemeChanged as static or infer a strong-reference leak from
+    the subscription alone; MAUI 10 uses an instance-owned weak-event manager. Cleanup still prevents
+    duplicate callbacks on live pages.
+  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Match subscription lifetime to its owner, unsubscribe when no longer observing, avoid
+          duplicate subscriptions, and retain live observation on reopening.
+- name: Accessible branding
+  prompt: Our MAUI designer wants light, dark, and a high-contrast brand option. Should we model high
+    contrast as another value of AppTheme, and how do we keep runtime resources consistent across all
+    three?
+  tags:
+    capability: custom-theme-model
+    risk: unsupported-enum
+    journey: accessible-branding
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)(custom|separate|(?:peer|independent)(?:[\s,*_"'-]+(?:peer|independent|ResourceDictionary)){0,2}[\s,*_"'-]+theme|independent\w*\s+of\s+the\s+OS|orthogonal)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Supports an additional accessible palette with consistent resource coverage without inventing unsupported
+    enum values.
+  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Keep custom brand choices separate from AppTheme's Light/Dark/Unspecified values; use
+          consistent resource keys and dynamic consumers for runtime swapping.
+- name: Repair supplied executable contract
+  prompt: 'The supplied theme service does not compile: its Apply method and tracking field disagree about
+    ownership. Repair Program.cs only. Repeated light/dark switches must preserve the unrelated application
+    style dictionary and remove the old theme. Run the supplied checks. The supplied files are
+    in your working directory; inspect and edit only that copy, not fixture originals elsewhere.'
+  tags:
+    capability: executable-repair
+    risk: broken-code
+    journey: repair-feature
+  environment:
+    files:
+    - src: fixtures/repair
+      dest: .
+    commands:
+    - python3 -c "import hashlib,pathlib; assert hashlib.sha256(pathlib.Path('Program.cs').read_bytes()).hexdigest() == '82fba02f1071071e9bc64446629161ef0d398242c8c6357caa1f422cba14ba0c', 'Fixture changed before trial setup'"
+  graders:
+  - type: run-command
+    config:
+      command: 'python3 -c ''import hashlib,pathlib; expected={''"''"''Fixture.csproj''"''"'': ''"''"''daaa2155aa040b8c8e421ae545be8d52233f1ed82cac1a46cb39949fb371962c''"''"'',
+        ''"''"''Checks.cs''"''"'': ''"''"''8d90bdb09981b3a7fd19755ae769cd0011a556121894e44db5835e063e7a745e''"''"'',
+        ''"''"''Directory.Build.props''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
+        ''"''"''Directory.Build.targets''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"''};
+        assert all(pathlib.Path(p).is_file() and hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()==h
+        for p,h in expected.items())'''
+  - type: diff-not-contains
+    config:
+      pattern: '(?m)^(?:diff --git (?!a/Program\.cs b/Program\.cs$|a/(?:bin|obj)/[^\r\n]+ b/(?:bin|obj)/[^\r\n]+$|"a/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+" "b/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+"$)|rename (?:from|to) (?!(?:bin|obj)/|"(?:bin|obj)/))'
+  - &id001
+    type: run-command
+    config:
+      command: dotnet run --project Fixture.csproj --verbosity quiet
+      expected_exit_code: 0
+      timeout: 120s
+      stdout_matches: 'PASS: behavior-contract'
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+      - diff
+  rubric:
+  - Repairs the stated defect without changing protected files or weakening checks.
+  - Reports only validation actually performed and distinguishes object-model checks from native/device
+    behavior.
+  golden_patch:
+    path: goldens/repair.patch
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: 'Expected result: the supplied defect is corrected in Program.cs without changing the
+          public contract. The executable checks verify platform-neutral code against real MAUI 10.0.0
+          assemblies; they are not device, native layout, navigation or lifecycle execution evidence.'
+- name: Preserve working supplied implementation
+  prompt: Review the supplied implementation for the behavior checked by Checks.cs. Run the checks; if
+    it already satisfies that contract, do not edit, delete, rename, or add any non-generated workspace files.
+    Explain any platform-specific validation limitations rather than rewriting working code.
+    The supplied files are in your working directory; inspect only that copy, not fixture originals elsewhere.
+  tags:
+    capability: working-code-preservation
+    risk: unnecessary-rewrite
+    journey: review-working-code
+  environment:
+    files:
+    - src: fixtures/working
+      dest: .
+    commands:
+    - python3 -c "import hashlib,pathlib; assert hashlib.sha256(pathlib.Path('Program.cs').read_bytes()).hexdigest() == '228587ce663319340599e382137800e0d123668d85763cee35331310faed75da', 'Fixture changed before trial setup'"
+  graders:
+  - type: run-command
+    config:
+      command: 'python3 -c ''import hashlib,pathlib; expected={''"''"''Fixture.csproj''"''"'': ''"''"''daaa2155aa040b8c8e421ae545be8d52233f1ed82cac1a46cb39949fb371962c''"''"'',
+        ''"''"''Checks.cs''"''"'': ''"''"''8d90bdb09981b3a7fd19755ae769cd0011a556121894e44db5835e063e7a745e''"''"'',
+        ''"''"''Directory.Build.props''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
+        ''"''"''Directory.Build.targets''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
+        ''"''"''Program.cs''"''"'': ''"''"''228587ce663319340599e382137800e0d123668d85763cee35331310faed75da''"''"''};
+        assert all(pathlib.Path(p).is_file() and hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()==h
+        for p,h in expected.items())'''
+  - type: diff-not-contains
+    config:
+      pattern: '(?m)^(?:diff --git (?!a/(?:bin|obj)/[^\r\n]+ b/(?:bin|obj)/[^\r\n]+$|"a/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+" "b/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+"$)|rename (?:from|to) (?!(?:bin|obj)/|"(?:bin|obj)/))'
+  - *id001
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Leaves the complete supplied source/project file set byte-identical when the checks already pass.
+  - Separates platform-neutral evidence from unperformed native/device validation.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: The supplied implementation satisfies the requested object-model contract; leave every
+          supplied file unchanged. Platform-neutral checks do not establish behavior on a device.
+- name: Terminal color scheme
+  prompt: How do I change the colors of my Windows Terminal profile using settings.json? I am not building
+    a graphical application.
+  expect_activation: false
+  tags:
+    capability: routing-boundary
+    risk: off-target-activation
+    journey: use-other-platform
+  graders:
+  - type: exit-success
+  - type: output-not-matches
+    config:
+      pattern: Application\.Current\.UserAppTheme\s*=
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Recognizes the requested platform/control boundary and gives appropriate guidance.
+  - Treats MAUI app development as out of scope; does not apply MAUI APIs, edit unrelated files, or
+    install tools. Opening Windows Terminal's settings editor to edit its JSON is legitimate terminal
+    configuration, not a MAUI development workflow.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Use Windows Terminal profile colorScheme and schemes configuration, not MAUI ResourceDictionary
+          or AppTheme.
+defaults:
+  timeout: 6m
+  runs: 1

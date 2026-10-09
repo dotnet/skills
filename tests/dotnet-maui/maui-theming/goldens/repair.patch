@@ -1,0 +1,11 @@
+--- a/Program.cs
++++ b/Program.cs
+@@ -2,7 +2,7 @@
+ public sealed class ThemeManager
+ {
+     private ResourceDictionary? _activeTheme;
+-    public static void Apply(ResourceDictionary resources, ResourceDictionary theme)
++    public void Apply(ResourceDictionary resources, ResourceDictionary theme)
+     {
+         if (_activeTheme is not null)
+             resources.MergedDictionaries.Remove(_activeTheme);

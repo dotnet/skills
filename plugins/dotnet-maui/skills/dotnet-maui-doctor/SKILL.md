@@ -1,207 +1,151 @@
 ---
 name: dotnet-maui-doctor
 description: >-
-  Diagnoses and fixes .NET MAUI development environment issues. Validates .NET SDK,
-  workloads, Java JDK, Android SDK, Xcode, and Windows SDK. All version requirements
-  discovered dynamically from NuGet WorkloadDependencies.json — never hardcoded.
-  Use when: setting up MAUI development, build errors mentioning SDK/workload/JDK/Android,
-  "Android SDK not found", "Java version" errors, "Xcode not found", environment verification
-  after updates, or any MAUI toolchain issues. Do not use for: non-MAUI .NET projects,
-  Xamarin.Forms apps, runtime app crashes unrelated to environment setup, or app store
-  publishing issues. Works on macOS, Windows, and Linux.
+  Use ONLY for .NET MAUI SDK/workload selection failures, including advice-only
+  CI repair that preserves global.json pins, toolchain provisioning, scoped
+  environment verification, or workload dependency discovery/automation. Do not
+  load for an app that builds and launches but
+  throws in a button handler or ViewModel; debug that application code instead.
+  Diagnose missing SDK/workloads,
+  Android SDK not found, Java/JDK version or path errors, Xcode not found, and
+  "A compatible .NET SDK was not found" with a MAUI global.json pin. Use for
+  MAUI setup plans, offline CI workload dependency/manifest scripts, supplied
+  environment evidence review and scoped health checks after updates on
+  macOS, Windows, or Linux. Respect project SDK
+  pins and target frameworks. Not for non-MAUI projects,
+  Xamarin.Forms, UI implementation, or app-store signing/publishing.
 license: MIT
 ---
 
 # .NET MAUI Doctor
 
-Validate and fix .NET MAUI development environments. All version requirements are discovered dynamically from NuGet APIs — never hardcode versions.
+Diagnose the requested host and target, not every possible MAUI dependency.
 
-## When to Use
+## Scope and stop conditions
 
-- Setting up a new .NET MAUI development environment
-- Build errors mentioning missing SDKs, workloads, JDK, or Android components
-- Errors like "Android SDK not found", "Java version", or "Xcode not found"
-- Verifying environment health after SDK or OS updates
+- Advice-only or supplied-log questions: answer from the evidence; do not run a
+  machine inventory, download packages, or create a sample project.
+- Supplied files are evidence too: inspect relevant workspace files before asking
+  the user to paste them. Reading a supplied report is not a toolchain inventory.
+- Reference paths are relative to the loaded skill's directory, not the app.
+  If a reference cannot be opened, use its reported location or a bounded
+  workspace search; never search the filesystem root or home directory.
+  For incomplete advice-only evidence, disclose the gap and answer without
+  launching background searches or turning their completion into the answer.
+- With shell access, use read-only inspection first. SDK/workload/JDK installs,
+  license acceptance, Xcode selection, persistent environment changes, restore,
+  builds, and deployment are separate actions requiring the user's authorization.
+- An already-working target needs no remediation. Stop after the requested check.
+- Do not upgrade project pins to the latest SDK to make an inventory look healthy.
+  Maintenance releases are not automatically invalid; report support/lifecycle
+  concerns separately from the observed failure.
+- Do not invoke this workflow for app logic, runtime crashes, or signing failures.
 
-## When Not to Use
+## Diagnostic path
 
-- Non-MAUI .NET projects (use standard .NET SDK troubleshooting instead)
-- Xamarin.Forms apps (different toolchain and workload requirements)
-- Runtime app crashes unrelated to environment setup
-- App store publishing or signing issues
-- IDE-specific issues (Visual Studio or VS Code configuration)
+1. Identify the request, host, project, target framework, and first actionable
+   error. Inspect the project and applicable `global.json` (including ancestors),
+   imported build settings and CI configuration only as needed.
+   For an unexplained build failure with no saved error or diagnostic report,
+   stop before platform/vendor reference lookup: state that the cause is
+   unconfirmed and request the first actionable error and build-selected
+   toolchain evidence. Reference recommendations cannot establish what failed.
+   This stop does not apply to a requested setup plan or reference comparison
+   that is not diagnosing a failed build.
+2. From the project directory, inspect `dotnet --version`, `dotnet --info`, and
+   `dotnet workload list` when relevant. Check SDK `version`, `rollForward`,
+   `allowPrerelease`, and `workloadVersion`; installed SDKs alone do not establish
+   which SDK the project resolves. A missing pinned SDK is a selection problem,
+   not evidence that the pin should be removed. With `rollForward: disable`,
+   propose provisioning that exact SDK in CI; changing `version`, `rollForward`
+   or `allowPrerelease` changes repository policy and needs an explicit upgrade
+   decision. A newer installed feature band does not satisfy an exact pin.
+   If IDE and CLI resolution differ, compare their `dotnet` executable, PATH and
+   `DOTNET_ROOT` before changing versions; an outside-repository inventory alone
+   cannot settle that discrepancy.
+3. Select only relevant checks:
 
-## Important: .NET Version Currency
+   | Target on host | Checks |
+   |---|---|
+   | Android on macOS/Windows/Linux | Android workload, actual selected JDK and Android SDK |
+   | iOS/Mac Catalyst on macOS | Matching Apple workload, selected Xcode and SDK |
+   | Windows on Windows | Windows target framework and Windows SDK |
+   | iOS from Windows | Mac build-host requirements; do not claim local Xcode is available |
+   | iOS/Mac Catalyst/Windows on Linux | Explain host limitation; do not install unsupported workloads |
 
-Your training data may be outdated regarding .NET versions. .NET ships new major releases annually (November). Always check the releases-index.json (Task 2) to discover the **latest active major release** — do not assume your training data reflects the current version. For example, if you know about .NET 9.0 but the releases index shows .NET 10.0 as active, use .NET 10.0.
+   `maui` is a convenient full setup on macOS/Windows, not mandatory for an
+   Android-only check. Linux Android setup uses `maui-android`. Plain `android`
+   supports .NET for Android; it alone does not establish MAUI dependencies.
+4. Use installed/effective workload manifests and project targets for dependency
+   requirements. Read `references/workload-dependencies-discovery.md` only when
+   exact versions/package discovery is needed. Resolve manifest version **and its
+   feature band**, which can differ from the selected SDK's band. Missing metadata
+   is an uncertainty, not a license to query an unrelated latest release.
+   The manifest is a baseline, not an override of the project's compile API.
+   If the evaluated Android TFM compiles against API 36, platform 35 alone is
+   insufficient: provision `platforms;android-36` or use the project-aware
+   `InstallAndroidDependencies` target. Do not infer compile API from
+   `minSdkVersion` or `targetSdkVersion` alone, or assume build-tools must share
+   the platform's version number. .NET Android does not silently switch to a
+   lower installed compile platform as a Gradle fallback.
+5. For Java errors, use the supplied error and build-selected path first. Read
+   `references/microsoft-openjdk.md` only for unresolved version/vendor questions.
+   Microsoft OpenJDK is
+   recommended and tested; a different vendor is not by itself a proven failure
+   or a blanket compatibility guarantee. Without the selected workload's
+   requirements, leave JDK version compatibility unconfirmed rather than
+   endorsing a familiar Java major across current releases. Compare the actual
+   build-selected
+   `JavaSdkDirectory`, JDK executables/version/architecture, `JAVA_HOME`, and PATH.
+   Check `AndroidSdkDirectory` and selected SDK packages similarly.
+   An evaluated path does not identify the setting's origin. Do not invent an
+   IDE preference location or claim Java fallback never occurs. Propose an
+   explicit project/build `JavaSdkDirectory` override when appropriate;
+   changing IDE configuration still requires authorization.
+6. Load just the matching platform requirement or troubleshooting reference for
+   the unresolved issue. Installation references are for an authorized fix or a
+   requested plan, not compulsory reads on every invocation.
 
-## Inputs
+## Remediation and verification
 
-- A development machine running macOS, Windows, or Linux
-- Shell access (Bash on macOS/Linux, PowerShell on Windows)
-- Internet access for NuGet API queries and SDK downloads
-- Admin/sudo access may be required for installing SDKs and workloads
-- **Bash prerequisites**: `curl`, `jq`, and `unzip` (macOS/Linux)
-- **PowerShell prerequisites**: `Invoke-RestMethod` and `System.IO.Compression` (built-in on Windows)
+Choose the smallest evidenced fix. Read `references/installation-commands.md`
+for project-aware Android dependency installation and workload-set rules.
+Preserve repository pins. `workload update` is an intentional version change;
+`workload repair` reinstalls installed workload packs for corruption. Neither is
+a first response to an unexplained error, nor universally forbidden.
+Repair covers all installed workloads for the selected SDK/workload installation,
+not only MAUI or the current project; explain that mutation scope when proposing it.
 
-## Behavior
+For offline automation, distinguish supplied inputs and validation state from
+outputs you create. Existing validation state is supplied input, even when it
+looks like a hidden or temporary test artifact. Do not delete or recapture it,
+including during cleanup after a successful check. Clean up only explicitly
+owned, expendable outputs; retain requested deliverables. Report a failed check
+without changing its evidence or claiming input preservation afterward.
 
-- Run through ALL tasks autonomously
-- Re-validate after each fix
-- Iterate until complete or no further actions possible
-- After detecting platform (Task 1), load only the matching platform-specific references
+If a build is authorized, use the existing project with its exact target:
+`dotnet build <project> -f <project-target-framework>`. Building writes outputs
+and can restore packages; do not call it read-only. Do not create an all-platform
+template to validate one target. Deployment/emulator launch requires separate
+permission and is not needed to establish build success.
 
-## Workflow
+## Output contract
 
-### Task 1: Detect Environment
+Keep small requests concise. Report:
 
-```bash
-# macOS
-sw_vers && uname -m
+- **Finding:** root cause supported by evidence, or the missing evidence.
+- **Next step:** a scoped check or proposed/authorized fix, preserving pins.
+- **Validation:** what actually ran and its result; distinguish supplied evidence,
+  static inspection, successful target build, and unverified plan. Never claim a
+  healthy environment or working app from version strings or simulated fixtures.
+  For file-only review, say how the files were read and that no inventory,
+  build or installation ran. Reserve "no shell commands ran" for a trajectory
+  with no shell calls; shell commands used only to read files still count.
 
-# Windows
-systeminfo | findstr /B /C:"OS Name" /C:"OS Version"
+Keep the decisive evidence in the answer: name the conflicting selected path or
+pin, rather than only listing places to search. If supplied configuration already
+satisfies the requested target, explicitly state that no change is indicated.
 
-# Linux
-cat /etc/os-release && uname -m
-```
-
-After detection, load the matching platform references:
-- **macOS**: `references/platform-requirements-macos.md`, `references/installation-commands-macos.md`, `references/troubleshooting-macos.md`
-- **Windows**: `references/platform-requirements-windows.md`, `references/installation-commands-windows.md`, `references/troubleshooting-windows.md`
-- **Linux**: `references/platform-requirements-linux.md`
-
-### Task 2: Check .NET SDK
-
-```bash
-dotnet --info
-```
-
-Compare installed vs `latest-sdk` from https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json where `support-phase` is `"active"`.
-
-### Task 3: Check MAUI Workloads
-
-| Workload | macOS | Windows | Linux |
-|----------|-------|---------|-------|
-| `maui` | Required | Required | ❌ Use `maui-android` |
-| `maui-android` | Alias | Alias | Required |
-| `android` | Required | Required | Required |
-| `ios` | Required | Optional | N/A |
-
-### Task 4: Discover Requirements from NuGet
-
-See `references/workload-dependencies-discovery.md` for complete process.
-
-Query NuGet for workload manifest → extract `WorkloadDependencies.json` → get:
-- `jdk.version` range and `jdk.recommendedVersion`
-- `androidsdk.packages`, `buildToolsVersion`, `apiLevel`
-- `xcode.version` range
-
-### Task 5: Validate Java JDK
-
-**Only Microsoft OpenJDK supported.** Verify `java -version` output contains "Microsoft". See `references/microsoft-openjdk.md` for detection paths.
-
-> Use the JDK version recommended by WorkloadDependencies.json (`jdk.recommendedVersion`), ensuring it satisfies the `jdk.version` range. Do not hardcode JDK versions.
-
-**JAVA_HOME is NOT required.** .NET MAUI tools auto-detect Microsoft OpenJDK installations from known paths. Do not tell users to set JAVA_HOME — it is unnecessary and risks pointing to a non-Microsoft JDK.
-
-| JAVA_HOME state | OK? | Action |
-|-----------------|-----|--------|
-| Not set | ✅ | None needed — auto-detection works |
-| Set to Microsoft JDK | ✅ | None needed |
-| Set to non-Microsoft JDK | ⚠️ | **Report as anomaly** — let user decide to unset or redirect |
-
-### Task 6: Validate Android SDK
-
-Check packages from `androidsdk.packages`, `buildToolsVersion`, `apiLevel` (Task 4). See `references/installation-commands.md` for sdkmanager commands.
-
-### Task 7: Validate Xcode (macOS Only)
-
-```bash
-xcodebuild -version
-```
-
-Compare against `xcode.version` range from Task 4. See `references/installation-commands-macos.md`.
-
-### Task 8: Validate Windows SDK (Windows Only)
-
-The Windows SDK is typically installed as part of the .NET MAUI workload or Visual Studio. See `references/installation-commands-windows.md`.
-
-### Task 9: Remediation
-
-See `references/installation-commands.md` for all commands.
-
-Key rules:
-- **Workloads**: Always use `--version` flag. Never use `workload update` or `workload repair`.
-- **JDK**: Only install Microsoft OpenJDK. Do not set JAVA_HOME (auto-detected).
-- **Android SDK**: Use `sdkmanager` (from Android SDK command-line tools). On Windows use `sdkmanager.bat`.
-
-### Task 10: Re-validate
-
-After each fix, re-run the relevant validation task. Iterate until all checks pass.
-
-## Validation
-
-A successful run produces:
-- .NET SDK installed and matches an active release
-- All required workloads installed with consistent versions
-- Microsoft OpenJDK detected (`java -version` contains "Microsoft")
-- All required Android SDK packages installed (per WorkloadDependencies.json)
-- Xcode version in supported range (macOS only)
-- Windows SDK detected (Windows only)
-
-### Build Verification (Recommended)
-
-After all checks pass, create and build a test project to confirm the environment actually works:
-
-```bash
-TEMP_DIR=$(mktemp -d)
-dotnet new maui -o "$TEMP_DIR/MauiTest"
-dotnet build "$TEMP_DIR/MauiTest"
-rm -rf "$TEMP_DIR"
-```
-
-On Windows, use `$env:TEMP` or `New-TemporaryFile` for the temp directory.
-
-If the build succeeds, the environment is verified. If it fails, use the error output to diagnose remaining issues.
-
-### Run Verification (Optional — Ask User First)
-
-After a successful build, **ask the user** if they want to launch the app on a target platform to verify end-to-end:
-
-```bash
-# Replace net10.0 with the current major .NET version
-dotnet build -t:Run -f net10.0-android
-dotnet build -t:Run -f net10.0-ios        # macOS only
-dotnet build -t:Run -f net10.0-maccatalyst # macOS only
-dotnet build -t:Run -f net10.0-windows    # Windows only
-```
-
-Only run the target frameworks relevant to the user's platform and intent. This step deploys to an emulator/simulator/device, so confirm with the user before proceeding.
-
-## Common Pitfalls
-
-- **`maui` vs `maui-android` workload**: On Linux, the `maui` meta-workload is not available — use `maui-android` instead. On macOS/Windows, `maui` installs all platform workloads.
-- **`workload update` / `workload repair`**: Never use these commands. Always install workloads with an explicit `--version` flag to ensure version consistency.
-- **Non-Microsoft JDK**: Only Microsoft OpenJDK is supported. Other distributions (Oracle, Adoptium, Azul) will cause build failures even if the version is correct.
-- **Unnecessary JAVA_HOME**: Do not set JAVA_HOME. MAUI auto-detects JDK from known install paths. If JAVA_HOME is set to a non-Microsoft JDK (e.g., Temurin), report this as an anomaly — it may override auto-detection and cause failures. Let the user decide whether to unset it.
-- **Hardcoded versions**: Never hardcode SDK, workload, or dependency versions. Always discover them dynamically from the NuGet APIs (see Task 4).
-- **Android SDK `sdkmanager` on Windows**: Use `sdkmanager.bat`, not `sdkmanager`, on Windows.
-- **Stale training data**: LLM training data may reference outdated .NET versions. Always check the releases-index.json to discover the current active release.
-
-## References
-
-- `references/workload-dependencies-discovery.md` — NuGet API discovery process
-- `references/microsoft-openjdk.md` — JDK detection paths, identification, JAVA_HOME
-- `references/installation-commands.md` — .NET workloads, Android SDK (sdkmanager)
-- `references/troubleshooting.md` — Common errors and solutions
-- `references/platform-requirements-{platform}.md` — Platform-specific requirements
-- `references/installation-commands-{platform}.md` — Platform-specific install commands
-- `references/troubleshooting-{platform}.md` — Platform-specific troubleshooting
-
-Official docs:
-- [.NET MAUI Installation](https://learn.microsoft.com/en-us/dotnet/maui/get-started/installation)
-- [.NET SDK Downloads](https://dotnet.microsoft.com/download)
-- [Microsoft OpenJDK](https://learn.microsoft.com/en-us/java/openjdk/install)
-- [Android SDK Command-Line Tools](https://developer.android.com/studio#command-line-tools-only)
-- [Xcode Downloads](https://developer.apple.com/xcode/)
+Official guidance: [.NET MAUI installation](https://learn.microsoft.com/dotnet/maui/get-started/installation),
+[Android dependencies](https://learn.microsoft.com/dotnet/android/getting-started/installation/dependencies),
+[workload sets](https://learn.microsoft.com/dotnet/core/tools/dotnet-workload-sets).

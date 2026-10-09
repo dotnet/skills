@@ -1,249 +1,171 @@
-# Workload Dependencies Discovery
+# Project-aware workload dependency discovery
 
-This reference describes how to discover authoritative version requirements from NuGet APIs. All JDK, Android SDK, and Xcode requirements come from WorkloadDependencies.json - never hardcode versions.
+Use this only when exact package/version discovery is needed. Prefer the
+effective installed metadata; live NuGet lookup is a fallback, not an obligatory
+scan of the latest SDK.
 
-## Workload Aliases
+## Select the effective context first
 
-| Alias | Full ID |
-|-------|---------|
-| ios | microsoft.net.sdk.ios |
-| android | microsoft.net.sdk.android |
-| maccatalyst | microsoft.net.sdk.maccatalyst |
-| macos | microsoft.net.sdk.macos |
-| tvos | microsoft.net.sdk.tvos |
-| maui | microsoft.net.sdk.maui |
+From the project directory, read the applicable `global.json`, target frameworks
+and imported settings; inspect `dotnet --version`, `dotnet --info`,
+`dotnet workload list`. For workload-set-capable SDKs also inspect
+`dotnet workload --version` and `dotnet workload config --update-mode`.
 
----
+- Respect SDK roll-forward/preview policy and `sdk.workloadVersion`.
+- In loose-manifest mode, `<band>-manifests.<hash>` is **not** a downloadable
+  workload-set version. Use the effective installed manifests shown by the CLI.
+- An installed workload's manifest version can differ from the SDK version.
+  Do not use advertising manifests as evidence of installed requirements.
+- For a new setup with no pins, choose a supported SDK and compatible set
+  deliberately. The release index can inform that choice, but must not override
+  an existing project. Query only the relevant channel.
 
-## Discovery Process
+SDK feature bands round the SDK patch component down to a multiple of 100:
+`10.0.205` → `10.0.200`, **not** `10.0.100`. Preview identities need their
+documented package suffix; do not strip prerelease information.
 
-### Step 1: Get Latest SDK Version
+## NuGet fallback
 
-**Bash:**
+1. Resolve the selected workload set (if one exists), not the first/latest
+   search result. Newer SDKs may expose
+   `dotnet workload search version <selected-version>`; inspect `--help` before
+   relying on JSON/options. This command is not available uniformly on old SDKs.
+2. A workload-set NuGet package is `Microsoft.NET.Workloads.<set-feature-band>`.
+   Its NuGet version is not the CLI set-version string. For example CLI
+   `10.0.102` corresponds to NuGet `10.102.0` under
+   `Microsoft.NET.Workloads.10.0.100`. Verify the exact correspondence in the
+   package README/metadata. Do not generalize a string replacement to arbitrary
+   prereleases or infer a set package's band from an Android manifest's band.
+3. Download that exact package and extract
+   `data/microsoft.net.workloads.workloadset.json`.
+4. Each manifest entry is `"manifestVersion/manifestFeatureBand"`. Match workload
+   IDs case-insensitively: published set keys can be `Microsoft.NET.Sdk.Android`.
+   **Use both fields of that entry**, even if its band differs from the SDK or
+   the set package. For Android `35.0.50/9.0.100`, the package is
+   `Microsoft.NET.Sdk.Android.Manifest-9.0.100` version `35.0.50`, even when
+   the selected SDK/set band is `10.0.100`.
+5. Extract `data/WorkloadDependencies.json`, then the matching workload key.
+   Read `jdk.version` / `recommendedVersion`, `androidsdk.packages`, and Apple
+   `xcode.version` where present. Treat absent metadata as unavailable, not empty
+   requirements. Use version-specific official docs/project-aware installation
+   instead of silently substituting newer requirements.
+
+### Bash: resolving an already-selected Android set entry
+
+Prerequisites: `curl`, `jq`, `unzip`. Do not install prerequisites during diagnosis.
+`WORKLOAD_SET_JSON` is the exact extracted set, `MANIFEST_ARCHIVE` is a
+user-approved cache/output path (downloads write files).
+
 ```bash
-curl -s "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json" | \
-  jq '.["releases-index"][] | select(.["channel-version"]=="{MAJOR}.0")'
+entry=$(jq -er 'to_entries | map(select(.key | ascii_downcase ==
+  "microsoft.net.sdk.android")) | select(length == 1) |
+  .[0].value | select(type == "string")' "$WORKLOAD_SET_JSON") || exit 1
+IFS=/ read -r manifest_version manifest_band extra <<< "$entry"
+if [ -z "$manifest_version" ] || [ -z "$manifest_band" ] || [[ "$entry" == */*/* ]]; then
+  printf '%s\n' "Invalid Android manifest entry: $entry" >&2
+  exit 1
+fi
+package_id="microsoft.net.sdk.android.manifest-$manifest_band"
+package_id=$(printf '%s' "$package_id" | tr '[:upper:]' '[:lower:]')
+package_version=$(printf '%s' "$manifest_version" | tr '[:upper:]' '[:lower:]')
+url="https://api.nuget.org/v3-flatcontainer/$package_id/$package_version/$package_id.$package_version.nupkg"
+curl --fail --show-error --location "$url" -o "$MANIFEST_ARCHIVE" || exit 1
+unzip -p "$MANIFEST_ARCHIVE" data/WorkloadDependencies.json |
+  jq -e '."microsoft.net.sdk.android" // error("Android dependency key missing")' || exit 1
 ```
 
-**PowerShell:**
-```powershell
-$releases = Invoke-RestMethod "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json"
-$releases.'releases-index' | Where-Object { $_.'channel-version' -eq '{MAJOR}.0' }
-```
-
-Response fields:
-| Field | Description |
-|-------|-------------|
-| `channel-version` | Major.minor (e.g., "10.0") |
-| `latest-sdk` | Current stable SDK version |
-| `support-phase` | "active", "maintenance", "eol" |
-
-Extract `latest-sdk` and derive SDK band:
-- `10.0.102` → band `10.0.100` (hundreds digit)
-- `10.0.205` → band `10.0.200`
-
-### Step 2: Find Workload Set Version
-
-Use the `dotnet workload search version` command to discover the latest workload set version:
-
-```bash
-dotnet workload search version --format json --take 1
-# Returns: [{"workloadVersion":"10.0.103"}]
-```
+### PowerShell: the same entry, no SDK-band substitution
 
 ```powershell
-dotnet workload search version --format json --take 1 | ConvertFrom-Json
-```
-
-The returned `workloadVersion` is the CLI version to use with `--version` flag.
-
-To convert this to the NuGet package version (needed for Steps 3-4):
-- CLI `10.0.102` → NuGet `10.102.0` (remove middle `.0.`, combine)
-- The NuGet package is: `Microsoft.NET.Workloads.{band}` where band = CLI version (e.g., `Microsoft.NET.Workloads.10.0.100`)
-
-### Step 3: Download Workload Set Manifest
-
-**Bash:**
-```bash
-curl -o workloadset.nupkg "https://api.nuget.org/v3-flatcontainer/microsoft.net.workloads.{band}/{version}/microsoft.net.workloads.{band}.{version}.nupkg"
-unzip -p workloadset.nupkg data/microsoft.net.workloads.workloadset.json
-```
-
-**PowerShell:**
-```powershell
-Invoke-WebRequest "https://api.nuget.org/v3-flatcontainer/microsoft.net.workloads.{band}/{version}/microsoft.net.workloads.{band}.{version}.nupkg" -OutFile workloadset.nupkg
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$zip = [System.IO.Compression.ZipFile]::OpenRead("workloadset.nupkg")
-$entry = $zip.Entries | Where-Object { $_.FullName -eq "data/microsoft.net.workloads.workloadset.json" }
-$reader = [System.IO.StreamReader]::new($entry.Open())
-$reader.ReadToEnd() | ConvertFrom-Json
-$reader.Dispose(); $zip.Dispose()
-```
-
-Contents format: `"{workload_id}": "{manifestVersion}/{sdkBand}"`
-
-Example:
-```json
-{
-  "microsoft.net.sdk.android": "35.0.50/9.0.100",
-  "microsoft.net.sdk.ios": "26.2.10191/10.0.100",
-  "microsoft.net.sdk.maui": "10.0.10/10.0.100"
+$set = Get-Content -Raw $WorkloadSetJson | ConvertFrom-Json
+$parts = $set.'microsoft.net.sdk.android' -split '/'
+if ($parts.Count -ne 2 -or !$parts[0] -or !$parts[1]) {
+    throw 'Invalid Android manifest entry'
 }
-```
-
-### Step 4: Download Workload Manifest
-
-Build package id: `{WorkloadId}.Manifest-{sdkBand}`
-
-Examples:
-- `Microsoft.NET.Sdk.iOS.Manifest-10.0.100`
-- `Microsoft.NET.Sdk.Android.Manifest-9.0.100`
-
-**Bash:**
-```bash
-curl -o manifest.nupkg "https://api.nuget.org/v3-flatcontainer/{packageid}/{version}/{packageid}.{version}.nupkg"
-unzip -p manifest.nupkg data/WorkloadDependencies.json
-```
-
-**PowerShell:**
-```powershell
-Invoke-WebRequest "https://api.nuget.org/v3-flatcontainer/{packageid}/{version}/{packageid}.{version}.nupkg" -OutFile manifest.nupkg
+$manifestVersion, $manifestBand = $parts
+$packageId = "microsoft.net.sdk.android.manifest-$manifestBand".ToLowerInvariant()
+$packageVersion = $manifestVersion.ToLowerInvariant()
+$url = "https://api.nuget.org/v3-flatcontainer/$packageId/$packageVersion/$packageId.$packageVersion.nupkg"
+Invoke-WebRequest $url -OutFile $ManifestArchive -ErrorAction Stop
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-$zip = [System.IO.Compression.ZipFile]::OpenRead("manifest.nupkg")
-$entry = $zip.Entries | Where-Object { $_.FullName -eq "data/WorkloadDependencies.json" }
-$reader = [System.IO.StreamReader]::new($entry.Open())
-$reader.ReadToEnd() | ConvertFrom-Json
-$reader.Dispose(); $zip.Dispose()
+$zip = [System.IO.Compression.ZipFile]::OpenRead($ManifestArchive)
+try {
+    $entry = $zip.GetEntry('data/WorkloadDependencies.json')
+    if (!$entry) { throw 'Dependency metadata unavailable' }
+    $reader = [System.IO.StreamReader]::new($entry.Open())
+    try { $deps = $reader.ReadToEnd() | ConvertFrom-Json }
+    finally { $reader.Dispose() }
+    if (!$deps.'microsoft.net.sdk.android') { throw 'Android dependency key missing' }
+    $deps.'microsoft.net.sdk.android'
+} finally { $zip.Dispose() }
 ```
 
-### Step 5: Parse WorkloadDependencies.json
+NuGet flat-container URLs require lowercase package IDs and normalized lowercase
+versions. Preserve prerelease identity when normalizing. Record selected SDK,
+set/mode, manifest version/band and source so CI discovery can be reproduced.
 
-**Android workload** (`microsoft.net.sdk.android`):
-```json
-{
-  "microsoft.net.sdk.android": {
-    "jdk": {
-      "version": "[17.0,22.0)",
-      "recommendedVersion": "21.0.8"
-    },
-    "androidsdk": {
-      "packages": ["build-tools;35.0.0", "platform-tools", "platforms;android-35", "cmdline-tools;13.0"],
-      "apiLevel": "35",
-      "buildToolsVersion": "35.0.0",
-      "cmdLineToolsVersion": "13.0"
-    }
-  }
-}
+## Interpret requirements, not just inventory
+
+Range brackets are inclusive, parentheses exclusive:
+`[17.0,22.0)` means at least 17.0, below 22.0. A recommended version is a
+recommendation, not the sole valid value in that range.
+
+Published `androidsdk.packages` can contain **objects**, not just strings:
+`sdkPackage.id` is the package ID, `optional` can be the string `"true"`/`"false"`,
+and IDs for system images can be host-keyed maps. Select required packages for
+build-only CI; include optional items only for the requested task/host.
+Do not invent `apiLevel`, `buildToolsVersion` or `cmdLineToolsVersion` fields if
+they are absent: derive them from the actual package IDs when needed.
+
+For build-only Python automation, normalize each entry before collecting IDs.
+Checking only `entry["id"]` misses the published nested `sdkPackage` shape:
+
+```python
+def required_android_packages(entries):
+    if not isinstance(entries, list):
+        raise ValueError("Android package list unavailable")
+    required = set()
+    for entry in entries:
+        if isinstance(entry, str):
+            package_id = entry
+        elif isinstance(entry, dict):
+            optional = entry.get("optional", False)
+            if isinstance(optional, str) and optional.lower() in ("true", "false"):
+                optional = optional.lower() == "true"
+            if not isinstance(optional, bool):
+                raise ValueError("Invalid optional package flag")
+            if optional:
+                continue
+            package = entry.get("sdkPackage", entry)
+            if not isinstance(package, dict):
+                raise ValueError("Invalid Android package object")
+            package_id = package.get("id")
+        else:
+            raise ValueError("Invalid Android package entry")
+        if not isinstance(package_id, str) or not package_id.strip():
+            raise ValueError("Required package ID unavailable")
+        required.add(package_id)
+    if not required:
+        raise ValueError("Required Android package list is empty")
+    return sorted(required)
 ```
 
-**iOS workload** (`microsoft.net.sdk.ios`):
-```json
-{
-  "microsoft.net.sdk.ios": {
-    "xcode": {
-      "version": "[26.2,)",
-      "recommendedVersion": "26.2"
-    },
-    "sdk": {
-      "version": "26.2"
-    }
-  }
-}
-```
+Pass the selected manifest's actual `androidsdk.packages` list to this helper;
+do not hardcode a fixture's IDs. Optional host-keyed system-image maps are skipped
+for build-only discovery. A required host-keyed ID needs explicit host selection,
+not an arbitrary first value. Report malformed/unavailable metadata as a
+nonzero failure before writing normal requirements output.
 
-### Version Range Notation
+`androidsdk.packages` describes workload dependencies, not necessarily every
+project-specific API/package. Inspect the evaluated compile API/Android TFM:
+an explicit higher compile API requires its matching `platforms;android-XX`,
+even if the workload baseline lists an older platform. Minimum/target runtime
+SDK policy is not the compile API, and build-tools need not have the same version
+number as the platform. Do not assume a Gradle-style fallback to any installed API. The
+authorized `InstallAndroidDependencies` target handles project-aware installation.
+For build-only CI avoid emulator images unless actually requested.
 
-| Notation | Meaning |
-|----------|---------|
-| `[17.0,22.0)` | >= 17.0 AND < 22.0 |
-| `[26.2,)` | >= 26.2 (no upper bound) |
-
-Brackets: `[` = inclusive, `(` = exclusive
-
----
-
-## Complete Example
-
-**Goal**: Find requirements for .NET 10
-
-### Bash
-
-```bash
-# Step 1: Get SDK info
-curl -s "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json" | \
-  jq '.["releases-index"][] | select(.["channel-version"]=="10.0") | .["latest-sdk"]'
-# Result: "10.0.102" → band "10.0.100"
-
-# Step 2: Get latest workload set version
-dotnet workload search version --format json --take 1
-# Result: [{"workloadVersion":"10.0.102"}]
-# NuGet version: 10.102.0
-
-# Step 3: Download workload set manifest
-curl -so workloadset.nupkg "https://api.nuget.org/v3-flatcontainer/microsoft.net.workloads.10.0.100/10.102.0/microsoft.net.workloads.10.0.100.10.102.0.nupkg"
-unzip -p workloadset.nupkg data/microsoft.net.workloads.workloadset.json | jq '."microsoft.net.sdk.android"'
-# Result: "35.0.50/9.0.100"
-
-# Step 4: Download Android manifest
-curl -so android.nupkg "https://api.nuget.org/v3-flatcontainer/microsoft.net.sdk.android.manifest-9.0.100/35.0.50/microsoft.net.sdk.android.manifest-9.0.100.35.0.50.nupkg"
-unzip -p android.nupkg data/WorkloadDependencies.json | jq '.["microsoft.net.sdk.android"]'
-```
-
-### PowerShell
-
-```powershell
-# Step 1: Get SDK info
-$releases = Invoke-RestMethod "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json"
-$sdkInfo = $releases.'releases-index' | Where-Object { $_.'channel-version' -eq '10.0' }
-$latestSdk = $sdkInfo.'latest-sdk'
-# Result: "10.0.102" → band "10.0.100"
-
-# Step 2: Get latest workload set version
-$workloadVersion = (dotnet workload search version --format json --take 1 | ConvertFrom-Json).workloadVersion
-# Result: "10.0.102"
-# NuGet version: 10.102.0
-
-# Step 3: Download workload set manifest and extract
-Invoke-WebRequest "https://api.nuget.org/v3-flatcontainer/microsoft.net.workloads.10.0.100/10.102.0/microsoft.net.workloads.10.0.100.10.102.0.nupkg" -OutFile workloadset.nupkg
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$zip = [System.IO.Compression.ZipFile]::OpenRead("workloadset.nupkg")
-$entry = $zip.Entries | Where-Object { $_.FullName -eq "data/microsoft.net.workloads.workloadset.json" }
-$reader = [System.IO.StreamReader]::new($entry.Open())
-$manifest = $reader.ReadToEnd() | ConvertFrom-Json
-$reader.Dispose(); $zip.Dispose()
-$manifest.'microsoft.net.sdk.android'
-# Result: "35.0.50/9.0.100"
-
-# Step 4: Download Android manifest and extract WorkloadDependencies
-Invoke-WebRequest "https://api.nuget.org/v3-flatcontainer/microsoft.net.sdk.android.manifest-9.0.100/35.0.50/microsoft.net.sdk.android.manifest-9.0.100.35.0.50.nupkg" -OutFile android.nupkg
-$zip = [System.IO.Compression.ZipFile]::OpenRead("android.nupkg")
-$entry = $zip.Entries | Where-Object { $_.FullName -eq "data/WorkloadDependencies.json" }
-$reader = [System.IO.StreamReader]::new($entry.Open())
-$reader.ReadToEnd() | ConvertFrom-Json
-$reader.Dispose(); $zip.Dispose()
-```
-
-**Result**: Authoritative JDK, Android SDK, and Xcode requirements from live NuGet data.
-
----
-
-## NuGet API Reference
-
-| Operation | Endpoint |
-|-----------|----------|
-| .NET releases | `https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json` |
-| NuGet service index | `https://api.nuget.org/v3/index.json` |
-| Download package | `https://api.nuget.org/v3-flatcontainer/{id}/{version}/{id}.{version}.nupkg` |
-
-**Workload version discovery**: Use `dotnet workload search version --format json --take 1` instead of querying NuGet search APIs directly. The NuGet download URLs are still needed for Steps 3-4 (manifest extraction).
-
-**Important**: Package IDs must be lowercase in download URLs.
-
----
-
-## Best Practices
-
-- **ALWAYS** fetch live data from NuGet APIs
-- **NEVER** hardcode version requirements
-- **ALWAYS** include SDK band with manifest versions
-- Show exact URLs used for transparency
+Sources:
+- [Workload sets and package/version mapping](https://learn.microsoft.com/dotnet/core/tools/dotnet-workload-sets)
+- [Workload search](https://learn.microsoft.com/dotnet/core/tools/dotnet-workload-search)
+- [Android dependencies](https://learn.microsoft.com/dotnet/android/getting-started/installation/dependencies)
