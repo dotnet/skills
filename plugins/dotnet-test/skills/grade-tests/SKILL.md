@@ -1,15 +1,14 @@
 ---
 name: grade-tests
 description: >
-  Grade a curated list of individual tests for readiness, A-F quality, and
-  concrete improvements. ALWAYS USE FOR: grade tests, review only a named test,
-  per-test readiness decisions, or quality bands for supplied methods, bodies,
-  file spans, or bounded PR diffs, including existing tests. Produce a PR-ready
-  Pass, Failed, Uncertain, or Not applicable table; unresolved or empty scopes
-  omit the grade. Compose read-only per-test mutation evidence when available.
-  Polyglot: .NET, Python, TS/JS, Java, Go, Ruby, Rust, Swift, Kotlin,
-  PowerShell, C++. DO NOT USE FOR: suite-wide audits (test-engineer or
-  test-anti-patterns), writing or fixing tests, or measuring coverage.
+  Grade curated individual tests for readiness, A-F quality and improvements.
+  ALWAYS USE FOR: grade tests, review only a named test, per-test readiness or
+  quality bands for supplied methods, bodies, file spans or bounded PR diffs,
+  including existing tests. Return Pass/Failed/Uncertain/Not applicable;
+  unresolved/empty scopes omit grades. Compose read-only per-test evidence.
+  Polyglot. DO NOT USE FOR: suite audits (test-engineer/test-anti-patterns),
+  concrete fix/feature detection proof (test-value-evidence), writing/fixing
+  tests, or coverage.
 license: MIT
 ---
 

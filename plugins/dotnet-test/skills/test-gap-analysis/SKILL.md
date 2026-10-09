@@ -1,17 +1,14 @@
 ---
 name: test-gap-analysis
 description: >-
-  Pseudo-mutation analysis ONLY: answer whether tests would catch a bug if
-  production code changed, which meaningful changes would still pass, or which
-  caller-visible mutations existing assertions would miss; verify candidates
-  when requested, then optionally close verified gaps. Includes explicit
-  read-only per-test composition for grading. Activate for behavioral blind
-  spots tied to production behavior. Polyglot. DO NOT USE FOR: suite taxonomy,
-  metadata, or distribution reports (test-tagging); .NET line-vs-branch or
-  Cobertura interpretation, arithmetic, plateaus, project-wide coverage gaps,
-  or coverage-backed test/CRAP priorities (coverage-analysis; use native
-  coverage tooling outside .NET); named-target CRAP (crap-score); new suites
-  (code-testing); assertion/smell audits; or mutation tools.
+  Find caller-visible production changes existing tests would miss through
+  pseudo-mutation analysis; verify candidates or close gaps only when requested.
+  Includes read-only per-test composition for grading. Polyglot.
+  USE FOR: would tests catch a bug, behavioral blind spots, surviving mutations.
+  DO NOT USE FOR: concrete fix/feature revision proof (test-value-evidence);
+  suite taxonomy (test-tagging); .NET coverage, Cobertura, plateaus or
+  coverage-backed priorities (coverage-analysis); named CRAP (crap-score);
+  new suites (code-testing); assertion/smell audits; mutation tools.
 license: MIT
 ---
 
