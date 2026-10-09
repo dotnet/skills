@@ -11,8 +11,10 @@ description: >
   and data flow.
   DO NOT USE FOR: creating new Blazor projects or apps from scratch
   (use create-blazor-project), implementing a single individual component
-  (use author-component), writing component code with parameters and
-  EventCallback (use author-component), or simple single-component pages.
+  (use author-component), form-centric work whose main problem is binding or
+  validation (use collect-user-input), or simple single-component pages.
+  After decomposing a complex feature, apply author-component rules to each
+  leaf component during implementation.
 ---
 
 # Plan a Blazor UI Change

@@ -1,10 +1,18 @@
 name: collect-user-input
 description: Evaluates the dotnet-blazor/collect-user-input skill
 type: capability
-config:
+tags:
+  executionShard: runtime
+defaults:
   timeout: 15m
+  runs: 1
 stimuli:
   - name: Event registration with custom validation
+    tags:
+      feature: server-field-validation
+      capability: server-field-validation
+      risk: medium
+      journey: build-input-flow
     prompt: |
       I have an existing Blazor Web App with Interactive Server (per-page).
 
@@ -25,9 +33,13 @@ stimuli:
       Create a RegistrationService with a stub ValidateAsync method that returns
       field-specific errors (simulate the email already being registered for a
       hardcoded test email like "taken@example.com").
-    environment:
+    environment: &interactive-server-project
+      files:
+        - src: ../fixtures/global.json
+          dest: global.json
       commands:
-        - dotnet new blazor --interactivity server --no-https --force
+        # Avoid the parallel NuGet first-use mutex race; see dotnet/runtime#125632.
+        - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor --interactivity server --no-https --force
     graders:
       - type: file-exists
         config:
@@ -44,6 +56,11 @@ stimuli:
         config:
           path: '**/Register.razor'
           value: DataAnnotationsValidator
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
       - type: prompt
     rubric:
       - Uses a custom validator component (or ValidationMessageStore directly) to display server-returned field-specific errors — the email duplicate error appears next to the email field via ValidationMessage, not as a generic message
@@ -52,6 +69,11 @@ stimuli:
       - The form lets the user correct the email and resubmit — errors clear when the field changes
       - Uses InputText, InputNumber, InputSelect or InputRadioGroup for the respective fields
   - name: Multi-step booking form with cross-field validation
+    tags:
+      feature: multi-step-cross-field-validation
+      capability: multi-step-cross-field-validation
+      risk: medium
+      journey: build-input-flow
     prompt: |
       I have a Blazor Web App with per-page interactivity (Server mode).
 
@@ -89,9 +111,7 @@ stimuli:
       with doctor "Dr. Smith", and reject timeslot "10:00 AM" as taken.
 
       Make this page interactive with @rendermode InteractiveServer.
-    environment:
-      commands:
-        - dotnet new blazor --interactivity server --no-https --force
+    environment: *interactive-server-project
     graders:
       - type: file-exists
         config:
@@ -104,6 +124,11 @@ stimuli:
         config:
           path: '**/BookAppointment.razor'
           value: ValidationMessage
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
       - type: prompt
     rubric:
       - Server-returned errors appear next to the specific field via ValidationMessage — uses ValidationMessageStore or equivalent to add field-level errors from the service response, not manual conditional divs
@@ -111,3 +136,250 @@ stimuli:
       - Uses data annotation attributes for client-side validation (Required, EmailAddress, MaxLength, custom date validator) with DataAnnotationsValidator
       - Multi-step progression — step 2 fields only appear after step 1 validates successfully, providing progressive disclosure
       - Time slots load dynamically based on doctor and date selection — cascading dropdown behavior within the form
+  - name: Submit a static SSR contact form
+    tags:
+      feature: static-ssr-form
+      capability: static-ssr-form
+      risk: medium
+      journey: build-input-flow
+    prompt: |
+      Add a static SSR /contact page to this Blazor Web App. It must post a
+      ContactRequest with required Name, valid Email, Subject, and Message fields.
+      Show field validation, preserve posted values when validation fails, and
+      show a confirmation after a valid submission. Do not make the page
+      interactive and do not add a client-side render mode.
+    environment: *interactive-server-project
+    graders:
+      - type: file-exists
+        config:
+          path: '**/Contact.razor'
+      - type: file-contains
+        config:
+          path: '**/Contact.razor'
+          value: SupplyParameterFromForm
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=list(Path('.').glob('**/Contact.razor'));
+            text='\n'.join(p.read_text() for p in files);
+            sys.exit(0 if files and re.search(r'formname', text, re.I) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-not-contains
+        config:
+          path: '**/Contact.razor'
+          value: '@rendermode'
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Implements a static POST form without adding an interactive render mode
+      - Binds posted values through SupplyParameterFromForm and initializes only on the initial GET
+      - Uses data annotations and field-level validation messages
+      - Preserves the user's submitted values on an invalid post
+  - name: Isolate two static SSR forms on one page
+    tags:
+      feature: multiple-static-forms
+      capability: multiple-static-forms
+      risk: medium
+      journey: build-input-flow
+    prompt: |
+      Create a static SSR /account/preferences page with two independent forms:
+      one changes the display name and one changes the notification email.
+      Submitting either form must validate and update only its own model. Invalid
+      values in one form must not trigger or overwrite the other form. Keep the
+      page non-interactive.
+    environment: *interactive-server-project
+    graders:
+      - type: file-exists
+        config:
+          path: '**/*Preferences*.razor'
+      - type: file-contains
+        config:
+          path: '**/*Preferences*.razor'
+          value: SupplyParameterFromForm
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=list(Path('.').glob('**/*Preferences*.razor'));
+            pattern=r'(?:FormName|@formname)\s*=\s*[\x22\x27]([^\x22\x27]+)';
+            sys.exit(0 if files and any(len(set(re.findall(pattern, p.read_text(), re.I))) >= 2 for p in files) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Gives each static form a unique identity and binds each posted model to the matching form
+      - Submitting one form does not execute or reset the other form
+      - Keeps both forms static SSR and preserves invalid posted values
+  - name: Upload a bounded document interactively
+    tags:
+      feature: interactive-file-upload
+      capability: interactive-file-upload
+      risk: medium
+      journey: build-input-flow
+    prompt: |
+      Add an interactive /upload-document page. The user selects one PDF up to
+      5 MB, sees its name and size before upload, and submits it to an injected
+      DocumentService.SaveAsync(Stream, string, CancellationToken). Reject other
+      file types or oversized files with a friendly validation message. Disable
+      the submit button while saving and do not buffer the whole file in memory.
+      Create a minimal DocumentService stub and register it so the project builds.
+    environment: *interactive-server-project
+    graders:
+      - type: file-exists
+        config:
+          path: '**/UploadDocument.razor'
+      - type: file-contains
+        config:
+          path: '**/UploadDocument.razor'
+          value: InputFile
+      - type: file-contains
+        config:
+          path: '**/UploadDocument.razor'
+          value: OpenReadStream
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Enforces the PDF and 5 MB limits before handing the stream to the service
+      - Streams through OpenReadStream with an explicit maximum instead of loading the entire file into memory
+      - Prevents duplicate submissions while the upload is running and reports failures without losing the selection context
+  - name: Build dependent interactive filters
+    tags:
+      feature: reactive-input-binding
+      capability: reactive-input-binding
+      risk: medium
+      journey: build-input-flow
+    prompt: |
+      Add an interactive ProductFilter component with Category and Subcategory
+      selects plus a search box. Categories and their subcategories are supplied
+      as parameters. Changing Category resets an invalid Subcategory immediately.
+      Typing in Search applies the filter after the bound value changes. Notify
+      the parent with one ProductFilterValue containing all three values.
+      Define the filter value and sample category models needed for the project to build.
+    environment: *interactive-server-project
+    graders:
+      - type: file-exists
+        config:
+          path: '**/ProductFilter.razor'
+      - type: file-contains
+        config:
+          path: '**/ProductFilter.razor'
+          value: EventCallback
+      - type: file-contains
+        config:
+          path: '**/ProductFilter.razor'
+          value: InputSelect
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Keeps the dependent subcategory selection valid when the category changes
+      - Applies search behavior after the model value is updated
+      - Emits one coherent filter value to the parent instead of separate partially ordered callbacks
+  - name: Edit one inventory row inline
+    tags:
+      feature: inline-editing
+      capability: inline-editing
+      risk: medium
+      journey: build-input-flow
+    prompt: |
+      Create an interactive InventoryRowEditor component. It receives an
+      InventoryItem parameter and normally renders read-only values. Edit creates
+      a private working copy with validation for required Name and non-negative
+      Quantity. Save sends the validated copy through EventCallback; Cancel
+      restores the original values. The component must never mutate the parent's
+      InventoryItem instance while the user types.
+      Define a minimal InventoryItem model and a usage page so the project builds.
+    environment: *interactive-server-project
+    graders:
+      - type: file-exists
+        config:
+          path: '**/InventoryRowEditor.razor'
+      - type: file-contains
+        config:
+          path: '**/InventoryRowEditor.razor'
+          value: EditForm
+      - type: file-contains
+        config:
+          path: '**/InventoryRowEditor.razor'
+          value: EventCallback
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Edits a private copy and leaves the parent-owned item unchanged until Save
+      - Validates the working copy and sends only valid values to the parent
+      - Cancel discards edits and returns to the current parameter values
+  - name: Prevent duplicate checkout submission
+    tags:
+      feature: submission-lifecycle
+      capability: submission-lifecycle
+      risk: medium
+      journey: build-input-flow
+    prompt: |
+      Add an interactive /checkout page with an EditForm for ShippingAddress and
+      a Place Order button that calls OrderService.PlaceAsync. A slow request must
+      not create duplicate orders if the user clicks repeatedly. Show a saving
+      state, restore the button after failure, retain the entered address, and
+      show a friendly error that allows retry.
+      Create minimal models and an OrderService stub and register it so the project builds.
+    environment: *interactive-server-project
+    graders:
+      - type: file-exists
+        config:
+          path: '**/Checkout.razor'
+      - type: file-contains
+        config:
+          path: '**/Checkout.razor'
+          value: disabled
+      - type: file-contains
+        config:
+          path: '**/Checkout.razor'
+          value: EditForm
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Guards the submit handler as well as disabling the button so repeated clicks cannot create duplicate orders
+      - Restores the saving state in all success and failure paths
+      - Preserves entered form values and provides a retryable friendly failure state
+  - name: Stay dormant for a read-only component
+    tags:
+      feature: routing-boundary
+      capability: routing-boundary
+      risk: routing
+      journey: decline-off-target
+    prompt: |
+      Write a reusable ProductCard Blazor component that only displays a product
+      name, price, and image and notifies its parent when the card is selected.
+      There are no editable fields or validation rules.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Produces a display component with a parent callback
+      - Does not introduce EditForm, validation, or input controls that the request does not need
+      - Stayed dormant and did not hijack display-only component work with a form workflow

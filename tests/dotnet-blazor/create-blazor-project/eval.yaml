@@ -1,12 +1,21 @@
 name: create-blazor-project
 description: Evaluates the dotnet-blazor/create-blazor-project skill
 type: capability
-config:
-  timeout: 20m
+tags:
+  executionShard: app
+defaults:
+  timeout: 8m
+  runs: 1
 stimuli:
   - name: University course catalog with enrollment form
+    tags:
+      feature: static-ssr-selection
+      capability: static-ssr-selection
+      risk: medium
+      journey: choose-app-architecture
     prompt: |
-      Create a Blazor Web App for a university course catalog.
+      Recommend the exact `dotnet new blazor` command and initial architecture
+      for a university course catalog. Do not run commands or create files.
 
       Requirements:
       - Browse departments and courses in a searchable, filterable list
@@ -22,12 +31,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: -int(eractivity)? None
-      - type: output-not-contains
+      - type: output-not-matches
         config:
-          substring: blazorwasm
-      - type: output-not-contains
-        config:
-          substring: blazorserver
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+new\s+(?:blazorwasm|blazorserver)\b
       - type: output-matches
         config:
           pattern: (Static SSR|no.interactive|None.*interactivity)
@@ -37,11 +43,20 @@ stimuli:
       - Recognizes that Static SSR uses standard HTML POST forms and enhanced navigation — no interactivity needed for a course catalog with enrollment
       - Documents the static rendering choice — explains why the app uses no interactive render mode
       - Plans the domain features — identifies the pages/components needed for browsing courses and submitting enrollments
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
   - name: Recipe community with interactive ratings on static pages
+    tags:
+      feature: server-per-page-selection
+      capability: server-per-page-selection
+      risk: medium
+      journey: choose-app-architecture
     prompt: |
-      Create a new Blazor Web App project for a recipe sharing community.
-      Run `dotnet new blazor` with the appropriate options, create the project structure,
-      and implement the pages.
+      Recommend the exact `dotnet new blazor` command and project structure for
+      a recipe sharing community. Do not run commands or create files.
 
       Requirements:
       - Browse recipes by category — read-only content pages
@@ -58,13 +73,10 @@ stimuli:
           pattern: -int(eractivity)? Server
       - type: output-not-matches
         config:
-          pattern: dotnet new blazor[^\n]*-ai
-      - type: output-not-contains
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+new\s+blazor[^\r\n]*(?:-ai|--all-interactive)(?:\s|$)
+      - type: output-not-matches
         config:
-          substring: blazorwasm
-      - type: output-not-contains
-        config:
-          substring: blazorserver
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+new\s+(?:blazorwasm|blazorserver)\b
       - type: output-matches
         config:
           pattern: (per.page|per-page|opt.in)
@@ -74,9 +86,21 @@ stimuli:
       - Static pages (browse, homepage, recipe content) remain SSR for performance while interactive components (rating widget, comments) opt in with @rendermode InteractiveServer
       - Documents the per-page strategy — explains why most pages are static and only specific features opt in to interactivity
       - Differentiates which features need interactivity (rating widget, form submission) vs which can be static (content browsing)
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
   - name: Global logistics tracking for worldwide users
+    tags:
+      feature: auto-global-selection
+      capability: auto-global-selection
+      risk: medium
+      journey: choose-app-architecture
     prompt: |
-      Create a Blazor Web App for a logistics company that tracks shipments.
+      Recommend the exact `dotnet new blazor` command and initial project
+      structure for a logistics company that tracks shipments. Do not run
+      commands or create files.
 
       Requirements:
       - Dispatchers view a list of shipments with status and destination
@@ -95,12 +119,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (-ai|--all-interactive)
-      - type: output-not-contains
+      - type: output-not-matches
         config:
-          substring: blazorwasm
-      - type: output-not-contains
-        config:
-          substring: blazorserver
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+new\s+(?:blazorwasm|blazorserver)\b
       - type: output-matches
         config:
           pattern: (-au|--auth) Individual
@@ -113,3 +134,230 @@ stimuli:
       - Components cannot directly access server resources — all data through HTTP APIs, both server and client Program.cs register matching services, component code must not assume execution environment
       - Documents the Auto mode trade-offs — explains why this rendering strategy suits the requirements
       - Addresses the latency requirement — explains why Auto mode solves worldwide latency (Server first, then switches to WebAssembly for client-side speed)
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Internal operations dashboard with global interactivity
+    tags:
+      feature: server-global-selection
+      capability: server-global-selection
+      risk: medium
+      journey: choose-app-architecture
+    prompt: |
+      Recommend the exact `dotnet new blazor` command and architecture for a new
+      internal operations dashboard. Do not run commands or create files.
+
+      Requirements:
+      - Every page has live filters, modal editors, and frequently updating metrics
+      - Users are employees on a low-latency corporate network
+      - Server access to internal databases and services should stay direct
+      - The team wants one consistent interactive programming model on every page
+      - No offline support is required
+    graders:
+      - type: output-contains
+        config:
+          substring: dotnet new blazor
+      - type: output-matches
+        config:
+          pattern: -int(eractivity)? Server
+      - type: output-matches
+        config:
+          pattern: (-ai|--all-interactive)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+new\s+(?:blazorwasm|blazorserver)\b
+      - type: prompt
+    rubric:
+      - Selects globally interactive Server rendering for a low-latency internal app where every page is interactive
+      - Keeps a single server project and direct server-side service access
+      - Explains the per-user circuit cost and why it is acceptable for the stated environment
+      - Does not add WebAssembly complexity without an offline or latency requirement
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Offline field inspection application
+    tags:
+      feature: webassembly-global-selection
+      capability: webassembly-global-selection
+      risk: medium
+      journey: choose-app-architecture
+    prompt: |
+      Recommend the exact `dotnet new blazor` command and architecture for a new
+      field inspection app. Do not run commands or create files.
+
+      Requirements:
+      - Inspectors use tablets on unreliable networks
+      - After the first load, forms and photo metadata must remain usable while disconnected
+      - All application screens are interactive
+      - Changes synchronize to server APIs when connectivity returns
+      - Fast server-side database access is not available from the device
+    graders:
+      - type: output-contains
+        config:
+          substring: dotnet new blazor
+      - type: output-matches
+        config:
+          pattern: -int(eractivity)? WebAssembly
+      - type: output-matches
+        config:
+          pattern: (-ai|--all-interactive)
+      - type: output-matches
+        config:
+          pattern: (PWA|service worker|offline)
+      - type: output-matches
+        config:
+          pattern: (\.Client|HTTP API|HttpClient)
+      - type: prompt
+    rubric:
+      - Selects globally interactive WebAssembly because disconnected browser execution is required
+      - Places interactive UI in the Client project and sends server work through APIs
+      - Explains that offline support needs an added service worker and local persistence beyond the base template
+      - Does not promise that the template alone supplies a complete offline synchronization system
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Public news site with one live election widget
+    tags:
+      feature: sparse-interactivity-selection
+      capability: sparse-interactivity-selection
+      risk: medium
+      journey: choose-app-architecture
+    prompt: |
+      Recommend the exact `dotnet new blazor` command and architecture for a
+      public news site. Do not run commands or create files.
+
+      Requirements:
+      - Thousands of article pages are read-only and SEO-sensitive
+      - One election-results widget receives live updates and lets users filter regions
+      - The editorial submission system is a separate application
+      - First response size and server scalability matter
+      - No offline behavior is needed
+    graders:
+      - type: output-contains
+        config:
+          substring: dotnet new blazor
+      - type: output-matches
+        config:
+          pattern: -int(eractivity)? Server
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+new\s+blazor[^\r\n]*(?:-ai|--all-interactive)(?:\s|$)
+      - type: output-matches
+        config:
+          pattern: (per.page|per-page|opt.in)
+      - type: prompt
+    rubric:
+      - Keeps article pages on static SSR and opts only the live widget into Interactive Server
+      - Avoids global interactivity for a site dominated by read-only content
+      - Explains why Server is sufficient when only one widget needs live behavior and offline support is absent
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Mixed storefront with low-latency configurator
+    tags:
+      feature: auto-per-page-selection
+      capability: auto-per-page-selection
+      risk: medium
+      journey: choose-app-architecture
+    prompt: |
+      Recommend the exact `dotnet new blazor` command and architecture for a
+      global storefront. Do not run commands or create files.
+
+      Requirements:
+      - Marketing, policy, and category pages are static content
+      - A 3D product configurator is interactive and latency-sensitive
+      - The configurator should show quickly on first visit but run in the browser on later visits
+      - Product data comes from HTTP APIs
+      - Only the configurator and cart need interactive execution
+    graders:
+      - type: output-contains
+        config:
+          substring: dotnet new blazor
+      - type: output-matches
+        config:
+          pattern: -int(eractivity)? Auto
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+new\s+blazor[^\r\n]*(?:-ai|--all-interactive)(?:\s|$)
+      - type: output-matches
+        config:
+          pattern: (\.Client|HTTP API|HttpClient)
+      - type: output-matches
+        config:
+          pattern: (per.page|per-page|opt.in)
+      - type: prompt
+    rubric:
+      - Selects per-page Auto for the small latency-sensitive interactive surface
+      - Leaves static content outside the interactive runtime
+      - Places Auto components in the Client project and uses API-mediated data access
+      - Explains first-visit Server execution and later cached WebAssembly execution
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Staff portal with individual accounts
+    tags:
+      feature: identity-scaffolding
+      capability: identity-scaffolding
+      risk: medium
+      journey: choose-app-architecture
+    prompt: |
+      Recommend the exact `dotnet new blazor` command and architecture for a new
+      staff self-service portal. Do not run commands or create files.
+
+      Requirements:
+      - Employees sign in with application-managed individual accounts
+      - Most pages contain interactive forms and tables
+      - The portal runs in one region close to all employees
+      - Direct server-side access to HR services is preferred
+      - Account login, registration, and management must work correctly
+    graders:
+      - type: output-contains
+        config:
+          substring: dotnet new blazor
+      - type: output-matches
+        config:
+          pattern: -int(eractivity)? Server
+      - type: output-matches
+        config:
+          pattern: (-au|--auth) Individual
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+new\s+(?:blazorwasm|blazorserver)\b
+      - type: prompt
+    rubric:
+      - Selects Interactive Server with Individual authentication for the low-latency server-centric portal
+      - Keeps Identity account pages static even if the application pages use global or per-page interactivity
+      - Uses the modern Blazor Web App template rather than legacy blazorserver or blazorwasm templates
+      - Does not add a client project without a browser-execution requirement
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Stay dormant for an existing app feature
+    tags:
+      feature: routing-boundary
+      capability: routing-boundary
+      risk: routing
+      journey: decline-off-target
+    prompt: |
+      I already have a Blazor Web App using Interactive Server. Add a reusable
+      sortable ProductTable component to the existing project. Do not scaffold a
+      new application or change its render mode.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Adds the requested component within the existing architecture
+      - Does not propose or run a new project scaffold
+      - Stayed dormant and did not hijack the feature request with application-creation decisions
