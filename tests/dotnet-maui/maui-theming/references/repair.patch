@@ -1,0 +1,30 @@
+diff --git a/MainPage.xaml b/MainPage.xaml
+--- a/MainPage.xaml
++++ b/MainPage.xaml
+@@ -4,5 +4,5 @@
+     x:Class="ThemeSample.MainPage"
+-    BackgroundColor="{StaticResource PageBackgroundColor}">
++    BackgroundColor="{DynamicResource PageBackgroundColor}">
+     <Label Text="Welcome"
+-           TextColor="{StaticResource PrimaryTextColor}" />
++           TextColor="{DynamicResource PrimaryTextColor}" />
+ </ContentPage>
+diff --git a/ThemeService.cs b/ThemeService.cs
+--- a/ThemeService.cs
++++ b/ThemeService.cs
+@@ -4,2 +4,4 @@
+ {
++    private static ResourceDictionary? _currentTheme;
++
+     public static void ApplyTheme(ResourceDictionary theme)
+@@ -7,4 +9,9 @@
+         var merged = Application.Current!.Resources.MergedDictionaries;
+-        merged.Clear();
++        if (_currentTheme is not null)
++        {
++            merged.Remove(_currentTheme);
++        }
++
+         merged.Add(theme);
++        _currentTheme = theme;
+     }

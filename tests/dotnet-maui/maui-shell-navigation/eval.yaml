@@ -1,133 +1,381 @@
 name: maui-shell-navigation
+tags:
+  executionShard: medium
 description: Evaluates the dotnet-maui/maui-shell-navigation skill
 type: capability
-config:
-  timeout: 2m
+defaults:
+  timeout: 6m
+  runs: 1
+scoring:
+  threshold: 1.0
+
 stimuli:
-  - name: Set up Shell navigation with tabs and flyout
+  - name: Repair eager pages and missing routes
+    tags:
+      capability: repair-shell-page-declarations
+      risk: startup-cost-and-navigation-failure
+      journey: fix-app-shell
     prompt: |
-      I'm starting a new .NET MAUI app that needs a flyout menu with two sections:
-      "Dashboard" (single page) and "Products" (with two sub-tabs: "Active" and
-      "Archived"). I also need a Settings page accessible from the flyout.
-      Show me how to set up AppShell.xaml with this structure, including route
-      registration for a ProductDetailsPage that I'll navigate to from the list.
+      The files under repair/ eagerly construct both top-level pages, have no
+      stable page routes, and cannot navigate to OrderDetailsPage by the route
+      name orderdetails. Edit only those two files to fix those defects.
+    environment:
+      files:
+        - src: fixtures/repair
+          dest: repair
+        - src: graders/validate_fixture.py
+          dest: .eval/validate_fixture.py
+    golden_patch:
+      path: ./references/repair-shell.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-shell-repair-pages-routes"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I replaced both eager page instances with ContentTemplate data templates, added explicit home and orders Route values, and added Routing.RegisterRoute for orderdetails. Only the two requested shell files changed.
     graders:
-      - type: output-contains
+      - type: run-command
         config:
-          substring: FlyoutItem
-      - type: output-contains
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/validate_fixture.py');assert
+            hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='51de08805b47cb919ddc3ff64fd73a05c62ebe09efc6a696a085d139f5e6bd41';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)"
+            repair repair
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
         config:
-          substring: ContentTemplate
+          pattern: (?i)(ContentTemplate|Route|RegisterRoute)
+      - type: exit-success
+      - type: prompt
+        config:
+          evidence:
+            - trajectory
+            - diff
+            - golden_patch
+    rubric:
+      - Replaced eager page instances with lazy data templates
+      - Added stable routes to both hierarchy pages
+      - Registered the detail route without unrelated restructuring
+
+  - name: Preserve an already-correct shell hierarchy
+    tags:
+      capability: recognize-correct-shell-configuration
+      risk: unnecessary-route-churn
+      journey: review-working-navigation
+    prompt: |
+      Review the shell files under healthy/. Navigation and startup already work.
+      Identify a concrete correctness defect if one exists; otherwise leave both
+      files byte-for-byte unchanged and do not add anything.
+    environment:
+      files:
+        - src: fixtures/healthy
+          dest: healthy
+        - src: graders/validate_fixture.py
+          dest: .eval/validate_fixture.py
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-shell-noop"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The hierarchy is already correct, so I left both files unchanged.
+
+              - `AppShell.xaml` explicitly uses `FlyoutBehavior="Flyout"`.
+              - The Catalog flyout has stable `catalog` and `products` routes, and ProductsPage is created lazily through `ContentTemplate="{DataTemplate views:ProductsPage}"`.
+              - The Account flyout has stable `account` and `profile` routes, and ProfilePage also uses a lazy `ContentTemplate`.
+              - `AppShell.xaml.cs` registers the non-hierarchy `productdetails` route once in the shell constructor.
+              - There are no eager page instances, missing hierarchy routes, or duplicate detail registrations to fix.
+
+              No correctness issue was found; no bytes, paths, or additional files were changed.
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/validate_fixture.py');assert
+            hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='51de08805b47cb919ddc3ff64fd73a05c62ebe09efc6a696a085d139f5e6bd41';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)"
+            noop healthy
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: (?i)(already correct|no (correctness )?(issue|problem|change)|leave.*unchanged)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recognized the complete stable and lazy hierarchy
+      - Confirmed the detail route is registered exactly where needed
+      - Left the entire healthy fixture tree byte-for-byte unchanged with no extra files
+
+  - name: Design flyout and tab hierarchy
+    tags:
+      capability: author-shell-visual-hierarchy
+      risk: incorrect-navigation-structure
+      journey: create-primary-navigation
+    prompt: |
+      I need a flyout with Dashboard, a Products section containing Active and
+      Archived top tabs, and Settings. Show AppShell markup that loads pages
+      lazily and uses stable routes, plus registration for ProductDetailsPage.
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      path: ./references/flyout-tab-hierarchy.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(FlyoutItem|Tab|ShellContent)
+      - type: output-matches
+        config:
+          pattern: ContentTemplate="\{DataTemplate
+      - type: output-matches
+        config:
+          pattern: Route\s*=
       - type: output-matches
         config:
           pattern: Routing\.RegisterRoute
-      - type: output-matches
-        config:
-          pattern: (?i)ShellContent
+      - type: exit-success
       - type: prompt
     rubric:
-      - Uses ContentTemplate with DataTemplate for lazy page creation, not eager Content
-      - Correctly nests ShellContent inside Tab to produce top tabs for Active/Archived
-      - Registers ProductDetailsPage route in AppShell constructor
-      - Sets FlyoutBehavior on Shell element
-  - name: Navigate with parameters using GoToAsync
+      - Built the requested flyout and top-tab hierarchy
+      - Used lazy page templates and explicit stable routes
+      - Registered the non-hierarchy detail page route
+
+  - name: Pass scalar and object navigation data
+    tags:
+      capability: pass-and-receive-navigation-data
+      risk: lost-or-untyped-navigation-state
+      journey: open-product-details
     prompt: |
-      I have a ProductListPage that shows products in a CollectionView. When the
-      user taps a product, I need to navigate to ProductDetailsPage and pass the
-      product ID as a string parameter AND sometimes the full Product object.
-      Show me both approaches and how to receive the data on the target page
-      using IQueryAttributable on my ViewModel.
+      From a product list, I sometimes pass only an ID and sometimes the selected
+      Product object to ProductDetailsPage. Show both awaited navigation calls
+      and one view-model receiver that can handle the incoming data.
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      path: ./references/navigation-data-parameters.json
     graders:
-      - type: output-contains
+      - type: output-matches
         config:
-          substring: GoToAsync
-      - type: output-contains
-        config:
-          substring: IQueryAttributable
+          pattern: await\s+Shell\.Current\.GoToAsync
       - type: output-matches
         config:
           pattern: ShellNavigationQueryParameters
       - type: output-matches
         config:
-          pattern: ApplyQueryAttributes
+          pattern: (?i)(IQueryAttributable|ApplyQueryAttributes)
+      - type: exit-success
       - type: prompt
     rubric:
-      - Shows query string approach for the string ID parameter
-      - Shows ShellNavigationQueryParameters for passing the full object
-      - Implements IQueryAttributable on the ViewModel, not the page
-      - Always awaits GoToAsync calls
-  - name: Handle back navigation and unsaved changes guard
+      - Used a query string for scalar data and a navigation parameter dictionary for the object
+      - Awaited both navigation operations
+      - Kept incoming state handling in the view model
+
+  - name: Guard asynchronous back navigation
+    tags:
+      capability: implement-navigation-deferral
+      risk: lost-unsaved-edits
+      journey: protect-edit-form
     prompt: |
-      My EditProductPage has a form with unsaved changes. I need to:
-      1. Show a confirmation dialog when the user tries to navigate back
-      2. Cancel navigation if they choose to stay
-      3. Also provide a custom back button that says "Cancel" instead of the
-         default back arrow.
-      How do I implement this in .NET MAUI Shell?
+      An edit page must ask before a back action discards changes, cancel when
+      the user stays, and show a back button labeled Cancel. Show the asynchronous
+      navigation guard and the page markup.
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      path: ./references/asynchronous-back-navigation.json
     graders:
       - type: output-matches
         config:
-          pattern: (?i)OnNavigating|ShellNavigatingEventArgs
+          pattern: (?i)(GetDeferral|deferral\.Complete)
       - type: output-matches
         config:
-          pattern: GetDeferral
-      - type: output-contains
-        config:
-          substring: BackButtonBehavior
+          pattern: ShellNavigationSource\.Pop
       - type: output-matches
         config:
-          pattern: (?i)args\.Cancel|Cancel\(\)
+          pattern: (?i)(args\.Cancel|Cancel\(\))
+      - type: output-matches
+        config:
+          pattern: (?i)(BackButtonBehavior|TextOverride="Cancel")
+      - type: exit-success
       - type: prompt
     rubric:
-      - Uses GetDeferral/Complete pattern for async confirmation dialog
-      - Checks ShellNavigationSource.Pop to detect back navigation
-      - Shows BackButtonBehavior XAML with TextOverride for custom label
-      - Does not use synchronous blocking for the async dialog check
-  - name: Diagnose common Shell navigation mistakes
+      - Deferred navigation while awaiting the confirmation
+      - Limited the guard to a back-pop action and canceled correctly
+      - Configured the requested back-button label without blocking on async work
+
+  - name: Diagnose three navigation symptoms
+    tags:
+      capability: diagnose-route-and-startup-failures
+      risk: misdirected-navigation-fix
+      journey: troubleshoot-shell-app
     prompt: |
-      My .NET MAUI Shell app has these problems:
-      1. GoToAsync("productdetails") throws an exception
-      2. GoToAsync("//products/active") navigates but nothing visible changes
-      3. My app takes 3 seconds to start and I have 12 pages in Shell
-      What's likely wrong in each case and how do I fix them?
+      Explain these independent symptoms: a relative details route throws, an
+      absolute products path does not switch the visible page, and startup is
+      slow when twelve pages are declared in the shell. Give one focused fix for
+      each without switching navigation frameworks.
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-shell-diagnose-symptoms"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The relative details failure points to a missing Routing.RegisterRoute call. The absolute products URI must match the full visual hierarchy and explicit route names, so correct that path rather than changing frameworks. The startup delay comes from eager page instances; replace them with ContentTemplate data templates so pages are created on demand.
     graders:
       - type: output-matches
         config:
-          pattern: (?i)RegisterRoute|register.*route
+          pattern: (?i)(RegisterRoute|register.*route)
       - type: output-matches
         config:
-          pattern: (?i)hierarchy|absolute.*route|path
-      - type: output-contains
+          pattern: (?i)(absolute|hierarchy|full path|route path)
+      - type: output-matches
         config:
-          substring: ContentTemplate
+          pattern: ContentTemplate
+      - type: output-not-matches
+        config:
+          pattern: (?i)(NavigationPage|PushAsync)
+      - type: exit-success
       - type: prompt
     rubric:
-      - Identifies missing Routing.RegisterRoute for the relative route case
-      - Explains that the absolute route path must match the full visual hierarchy
-      - Recommends ContentTemplate with DataTemplate to fix eager page creation at startup
-      - Does not suggest NavigationPage-based solutions for Shell navigation issues
-  - name: "Stable routes for deep linking into tabs"
+      - Connected the thrown relative route to missing registration
+      - Connected the no-op absolute route to a mismatched hierarchy path
+      - Connected startup cost to eager page creation and retained the existing navigation model
+
+  - name: Stabilize absolute routes for hierarchy pages
+    tags:
+      capability: author-stable-absolute-routes
+      risk: order-dependent-generated-routes
+      journey: support-internal-deep-navigation
     prompt: |
-      I need to deep link straight to the Archived tab of my Shell app from a
-      push notification, using an absolute route. My AppShell.xaml declares the
-      FlyoutItem, Tab and ShellContent elements but I never set any Route
-      attributes. Show me the AppShell.xaml I should have and the GoToAsync
-      call, and explain why my current markup makes this unreliable.
+      Push notifications inside the app need to switch directly to the Archived
+      products tab with an absolute route. The hierarchy elements currently have
+      no Route values. Show corrected markup and the awaited navigation call,
+      and explain why generated names are unsafe to store.
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-shell-stable-routes"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Give every segment in the absolute path an explicit route:
+
+              ```xml
+              <FlyoutItem Title="Products" Route="products">
+                  <Tab Title="Catalog" Route="catalog">
+                      <ShellContent Title="Active"
+                                    Route="active"
+                                    ContentTemplate="{DataTemplate views:ActiveProductsPage}" />
+                      <ShellContent Title="Archived"
+                                    Route="archived"
+                                    ContentTemplate="{DataTemplate views:ArchivedProductsPage}" />
+                  </Tab>
+              </FlyoutItem>
+              ```
+
+              The push-notification handler can then switch to the tab with the complete, awaited absolute path:
+
+              ```csharp
+              await Shell.Current.GoToAsync("//products/catalog/archived");
+              ```
+
+              When `Route` is omitted, MAUI creates `D_FAULT_...` names from a shared construction counter. Adding or reordering shell elements can change those generated names, so they are not stable identifiers for stored notification targets.
     graders:
-      - type: output-contains
-        config:
-          substring: Route
-      # Regression guard: without an explicit Route, Routing.cs generates
-      # "D_FAULT_{TypeName}{++s_routeCount}" from a counter shared across all
-      # Shell element types. Verified at runtime: three ShellContent elements
-      # produced D_FAULT_ShellContent2 and D_FAULT_ShellContent5 — non-sequential
-      # and order-dependent, so no absolute route can target them reliably.
       - type: output-matches
         config:
-          pattern: <ShellContent[^>]*Route\s*=|Route\s*=\s*"[a-zA-Z]
+          pattern: <ShellContent[^>]*Route\s*=
+      - type: output-matches
+        config:
+          pattern: await\s+Shell\.Current\.GoToAsync\("//
+      - type: output-matches
+        config:
+          pattern: (?i)(generated|D_FAULT|order-dependent|unstable)
+      - type: exit-success
       - type: prompt
     rubric:
-      - Sets an explicit Route on the ShellContent elements in AppShell.xaml
-      - Explains that without Route, MAUI auto-generates an unstable name (D_FAULT_ prefixed) that shifts when pages are reordered or added
-      - Shows an absolute GoToAsync route (leading //) built from the explicit route names
-      - Does NOT rely on auto-generated route names for deep linking
+      - Added explicit routes to the hierarchy elements used by the absolute path
+      - Built an awaited absolute route from stable names
+      - Explained why generated route names can shift as the hierarchy changes
+
+  - name: Prevent duplicate and fire-and-forget navigation
+    tags:
+      capability: enforce-route-and-await-discipline
+      risk: route-collision-and-navigation-race
+      journey: review-navigation-service
+    prompt: |
+      A navigation helper registers "details" in two constructors and calls
+      GoToAsync without awaiting it. Explain the failures this can cause and show
+      a safe registration and call pattern.
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-shell-route-registration-discipline"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Register "details" once in the AppShell constructor; duplicate registration can throw ArgumentException during startup. Expose an async navigation method and use `await Shell.Current.GoToAsync("details");` so route failures propagate and multiple calls do not race as unobserved work.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(duplicate|ArgumentException|already registered)
+      - type: output-matches
+        config:
+          pattern: await\s+.*GoToAsync
+      - type: output-matches
+        config:
+          pattern: (?i)(once|single|AppShell)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified duplicate route registration as an exception risk
+      - Centralized registration so it executes once
+      - Awaited navigation so failures and ordering remain observable
+
+  - name: Stay dormant for external app-link setup
+    expect_activation: false
+    tags:
+      capability: boundary-external-app-links
+      risk: incorrect-skill-activation
+      journey: route-platform-linking-question
+    prompt: |
+      Configure Android intent filters and iOS associated domains so
+      https://example.com/orders/42 launches the installed app. I only need the
+      platform app-link setup, not in-app page routing. Do not edit files.
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      path: ./references/external-app-link-setup.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(intent filter|assetlinks|associated domains|apple-app-site-association)
+      - type: output-not-matches
+        config:
+          pattern: Routing\.RegisterRoute
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The in-app navigation workflow stayed dormant for platform app-link setup
+      - Addressed Android and iOS external-link association
+      - Did not substitute internal route registration for platform app-link setup
+      - Made no file changes

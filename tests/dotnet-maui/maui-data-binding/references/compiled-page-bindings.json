@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "maui-binding-compiled-page",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Type the page's binding scope at the ContentPage root:\n\n```xml\n<ContentPage\n    xmlns=\"http://schemas.microsoft.com/dotnet/2021/maui\"\n    xmlns:x=\"http://schemas.microsoft.com/winfx/2009/xaml\"\n    xmlns:vm=\"clr-namespace:MyApp.ViewModels\"\n    x:Class=\"MyApp.SettingsPage\"\n    x:DataType=\"vm:SettingsViewModel\">\n    <VerticalStackLayout>\n        <Picker ItemsSource=\"{Binding Themes}\"\n                SelectedItem=\"{Binding Theme}\" />\n        <Switch IsToggled=\"{Binding NotificationsEnabled}\" />\n        <Slider Minimum=\"10\"\n                Maximum=\"30\"\n                Value=\"{Binding FontSize}\" />\n    </VerticalStackLayout>\n</ContentPage>\n```\n\nDo not add x:DataType to each child and do not use x:Object, which would disable compile-time checking. In the project file:\n\n```xml\n<PropertyGroup>\n    <MauiStrictXamlCompilation>true</MauiStrictXamlCompilation>\n    <MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>\n    <WarningsAsErrors>$(WarningsAsErrors);XC0022;XC0025</WarningsAsErrors>\n</PropertyGroup>\n```\n\nMauiStrictXamlCompilation enables the compiled-binding warning set, and XC0022 then catches bindings with no typed scope. Enabling Source compilation before promoting XC0025 keeps explicit Source or RelativeSource bindings from becoming intentional reflection fallbacks that fail the build."
+    }
+  ]
+}

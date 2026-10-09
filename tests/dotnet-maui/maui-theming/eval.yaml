@@ -1,128 +1,496 @@
 name: maui-theming
-description: Validates the dotnet-maui/maui-theming skill for theme support in .NET MAUI apps
+tags:
+  executionShard: medium
+description: Evaluates the dotnet-maui/maui-theming skill
 type: capability
-
-config:
-  timeout: 2m
-
+defaults:
+  timeout: 6m
+  runs: 1
+scoring:
+  threshold: 1.0
 stimuli:
-  - name: "Add light/dark mode support using AppThemeBinding"
+  - name: Follow the system light and dark theme
     prompt: |
-      I have a .NET MAUI app with a ContentPage containing labels, buttons, and
-      a background color. Everything is hardcoded to light colors right now.
-      I want the app to automatically switch between light and dark mode based
-      on the device's system theme. Show me how to use AppThemeBinding to make
-      this page theme-aware in XAML and explain the C# alternative.
+      A page has hardcoded light colors. Show a maintainable XAML design that
+      follows the device light or dark setting without repeating color literals
+      on every control, and include the C# alternative for a one-off property.
+    tags:
+      capability: app-theme-binding
+      risk: unreadable-dark-mode
+      journey: add-system-theme-support
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      path: ./references/system-light-dark-theme.json
     graders:
+      - type: exit-success
       - type: output-contains
         config:
-          substring: "AppThemeBinding"
+          substring: AppThemeBinding
       - type: output-matches
         config:
-          pattern: "(?i)Light.*Dark"
-      - type: output-matches
-        config:
-          pattern: "SetAppThemeColor|SetAppTheme"
+          pattern: SetAppThemeColor|SetAppTheme<
       - type: prompt
     rubric:
-      - "Shows XAML AppThemeBinding syntax with Light and Dark values on visual properties"
-      - "Demonstrates the C# SetAppThemeColor or SetAppTheme<T> extension method"
-      - "Does not suggest hardcoded color values as a final solution"
+      - Centralizes the palette and applies theme pairs through reusable resources or styles
+      - Includes a valid C# theme-property alternative
+      - Avoids scattering hardcoded light and dark literals as the final design
 
-  - name: "Create custom themes with ResourceDictionary switching"
+  - name: Support three user-selectable themes
     prompt: |
-      I need to support three branded themes in my .NET MAUI app — a light theme,
-      a dark theme, and a high-contrast theme. Users should be able to pick their
-      preferred theme from a settings page and it should apply immediately across
-      the app. How do I set this up?
+      Users can choose light, dark, or high-contrast branding and see the choice
+      immediately across the app. Describe the resource files, consumption
+      syntax, runtime swap, and preference persistence needed for this design.
+    tags:
+      capability: multi-theme-dictionaries
+      risk: partial-theme-update
+      journey: build-theme-picker
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-theming-three-themes"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Create light, dark, and high-contrast ResourceDictionary files that expose the same semantic keys. Bind pages with DynamicResource so loaded controls update when the active dictionary changes. Store the selected theme in Preferences, load it during startup, remove only the previously applied custom dictionary from MergedDictionaries, and add the selected replacement.
     graders:
+      - type: exit-success
       - type: output-contains
         config:
-          substring: "ResourceDictionary"
+          substring: ResourceDictionary
       - type: output-contains
         config:
-          substring: "DynamicResource"
-      - type: output-contains
-        config:
-          substring: "MergedDictionaries"
-      - type: prompt
-    rubric:
-      - "Creates separate ResourceDictionary files with matching keys for each theme"
-      - "Uses DynamicResource (not StaticResource) for consuming theme values"
-      - "Shows how to swap theme dictionaries at runtime via MergedDictionaries"
-      - "Mentions how theme ResourceDictionaries are structured and loaded (compiled XAML with x:Class or Source-based)"
-
-  - name: "Detect and respond to system theme changes"
-    prompt: |
-      My .NET MAUI app needs to detect when the user toggles dark mode in their
-      device settings and respond in real time — both updating the UI and logging
-      the change. How do I detect the current system theme and subscribe to
-      theme change events? Also, how do I let the user force a specific theme
-      regardless of system setting?
-    graders:
-      - type: output-contains
-        config:
-          substring: "RequestedThemeChanged"
-      - type: output-contains
-        config:
-          substring: "UserAppTheme"
-      - type: output-matches
-        config:
-          pattern: "RequestedTheme"
-      - type: prompt
-    rubric:
-      - "Shows how to read the current theme via Application.Current.RequestedTheme"
-      - "Subscribes to the RequestedThemeChanged event for real-time detection"
-      - "Demonstrates forcing a theme with Application.Current.UserAppTheme"
-      - "Shows resetting to system default with AppTheme.Unspecified"
-
-  - name: "Avoid common theming mistakes"
-    prompt: |
-      I'm adding dark mode to my .NET MAUI Android app. I created ResourceDictionary
-      themes and used StaticResource to bind colors in my XAML pages. When I
-      switch themes at runtime nothing changes — the colors stay the same. Also,
-      when the user toggles dark mode in Android settings my app seems to restart
-      completely. What am I doing wrong?
-    graders:
-      - type: output-contains
-        config:
-          substring: "DynamicResource"
-      - type: output-contains
-        config:
-          substring: "StaticResource"
-      - type: output-contains
-        config:
-          substring: "UiMode"
-      - type: prompt
-    rubric:
-      - "Identifies StaticResource as the root cause of colors not updating and recommends DynamicResource"
-      - "Explains that StaticResource is frozen at first load and does not respond to dictionary changes"
-      - "Identifies the missing ConfigChanges.UiMode on MainActivity as the cause of the activity restart"
-      - "Provides the correct Activity attribute with ConfigChanges.UiMode included"
-  - name: "Swap theme dictionaries without destroying app styles"
-    prompt: |
-      I have a .NET MAUI app created from the standard template, so App.xaml
-      already merges Resources/Styles/Colors.xaml and Styles.xaml. I've added
-      LightTheme.xaml and DarkTheme.xaml containing my own colour keys.
-      Write the C# method that switches between the light and dark theme at
-      runtime when the user toggles a switch in Settings.
-    graders:
+          substring: DynamicResource
       - type: output-contains
         config:
           substring: MergedDictionaries
-      # Regression guard: MergedDictionaries.Clear() also removes the template's
-      # Colors.xaml / Styles.xaml. Verified at runtime — after Clear() the count
-      # drops 2 -> 1 and the template's "Primary" resource no longer resolves,
-      # which is exactly the "everything lost its styling" symptom described.
-      # Requiring .Remove( is the reliable signal: a correct answer may still
-      # *name* Clear() when diagnosing the cause, so matching on it directly
-      # would penalise the right answer.
+      - type: prompt
+    rubric:
+      - Uses dictionaries with matching semantic keys for all three themes
+      - Uses dynamic resource lookup so active controls update immediately
+      - Persists and reapplies the selected theme without replacing unrelated resources
+
+  - name: React to system theme changes and user overrides
+    prompt: |
+      The app must log live device-theme changes and let a user force light,
+      force dark, or return to following the system. Show the APIs and event
+      lifecycle for all four operations.
+    tags:
+      capability: theme-detection-and-override
+      risk: stale-theme-preference
+      journey: implement-theme-settings
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-theming-detection-overrides"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Read and observe the system choice with a disposable subscription:
+
+              ```csharp
+              sealed class ThemeMonitor : IDisposable
+              {
+                  readonly Application app = Application.Current!;
+
+                  public ThemeMonitor()
+                  {
+                      Debug.WriteLine($"Initial theme: {app.RequestedTheme}");
+                      app.RequestedThemeChanged += OnChanged;
+                  }
+
+                  void OnChanged(object? sender, AppThemeChangedEventArgs e)
+                      => Debug.WriteLine($"System theme changed: {e.RequestedTheme}");
+
+                  public void Dispose()
+                      => app.RequestedThemeChanged -= OnChanged;
+              }
+              ```
+
+              Force a choice with `Application.Current!.UserAppTheme = AppTheme.Light` or `AppTheme.Dark`. Set `UserAppTheme = AppTheme.Unspecified` for "follow system"; `RequestedTheme` and `RequestedThemeChanged` then describe the effective device choice again.
+    graders:
+      - type: exit-success
+      - type: output-contains
+        config:
+          substring: RequestedThemeChanged
+      - type: output-contains
+        config:
+          substring: UserAppTheme
+      - type: output-contains
+        config:
+          substring: AppTheme.Unspecified
+      - type: prompt
+    rubric:
+      - Reads the current requested theme and observes later changes
+      - Uses the user-theme override for explicit light and dark choices
+      - Restores system following with the unspecified value
+
+  - name: Diagnose frozen colors and Android restarts
+    prompt: |
+      Runtime dictionary switching leaves page colors unchanged, and changing
+      Android dark mode restarts the activity and loses navigation state. The
+      pages use static resource lookups and MainActivity does not declare the
+      UI-mode configuration change. Diagnose both symptoms with focused fixes.
+    tags:
+      capability: runtime-theme-diagnosis
+      risk: stale-ui-and-state-loss
+      journey: troubleshoot-android-theme-switch
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-theming-frozen-colors-android"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              These are two independent defects: replace StaticResource with DynamicResource for runtime-swapped keys.
+
+              ```xml
+              <Label TextColor="{DynamicResource PrimaryTextColor}" />
+              ```
+
+              StaticResource resolves only when the XAML loads, so existing controls never observe the replacement dictionary. Separately, include UiMode in the existing MainActivity configuration-change flags:
+
+              ```csharp
+              [Activity(
+                  Theme = "@style/Maui.SplashTheme",
+                  MainLauncher = true,
+                  ConfigurationChanges =
+                      ConfigChanges.ScreenSize |
+                      ConfigChanges.Orientation |
+                      ConfigChanges.UiMode)]
+              public class MainActivity : MauiAppCompatActivity
+              {
+              }
+              ```
+
+              DynamicResource fixes the frozen colors; ConfigChanges.UiMode prevents Android from recreating the activity and losing navigation state for runtime/system theme changes.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: DynamicResource.*StaticResource|StaticResource.*DynamicResource
+      - type: output-contains
+        config:
+          substring: UiMode
+      - type: prompt
+    rubric:
+      - Replaces one-time lookup with dynamic lookup for runtime-swapped values
+      - Adds the Android UI-mode configuration declaration for runtime theme switching
+      - Treats the frozen colors and activity restart as independent causes
+
+  - name: Preserve template resources while switching themes
+    prompt: |
+      App.xaml already merges the template Colors.xaml and Styles.xaml. We add
+      one custom theme dictionary at a time. Show a switch method that can run
+      repeatedly without removing the template resources.
+    tags:
+      capability: safe-dictionary-swap
+      risk: global-style-loss
+      journey: implement-runtime-switch
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-theming-preserve-template-resources"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Track only the custom theme dictionary and replace that instance:
+
+              ```csharp
+              static ResourceDictionary? _currentTheme;
+
+              static void ApplyTheme(ResourceDictionary theme)
+              {
+                  var merged = Application.Current!.Resources.MergedDictionaries;
+                  if (_currentTheme is not null)
+                      merged.Remove(_currentTheme);
+
+                  merged.Add(theme);
+                  _currentTheme = theme;
+              }
+              ```
+
+              Do not clear the merged dictionary collection, because that would also remove the template Colors.xaml and Styles.xaml dictionaries. Repeated calls remove only the previous custom theme, add the replacement, and keep the template resources intact.
+    graders:
+      - type: exit-success
+      - type: output-contains
+        config:
+          substring: MergedDictionaries
       - type: output-matches
         config:
           pattern: (?i)\.Remove\s*\(
+      - type: output-not-matches
+        config:
+          pattern: MergedDictionaries\s*\.\s*Clear\s*\(
       - type: prompt
     rubric:
-      - Removes only the previously applied theme dictionary, then adds the new one
-      - Does NOT call MergedDictionaries.Clear(), which would also remove the template's Colors.xaml and Styles.xaml and unstyle the whole app
-      - Keeps a reference to the current theme so it can be removed on the next switch
-      - Produces code that leaves the app's existing styles intact after repeated switches
+      - Tracks and removes only the previously applied custom theme
+      - Adds the replacement theme and updates the tracked reference
+      - Leaves the template colors and styles present across repeated switches
+
+  - name: Theme bindable properties from C sharp
+    prompt: |
+      A code-built page needs theme-aware label color, font size, and image
+      source. Show the color-specific helper and the generic helper, placing
+      each BindableProperty on the correct control.
+    tags:
+      capability: code-theme-properties
+      risk: invalid-bindable-property-owner
+      journey: theme-code-built-ui
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-theming-code-properties"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Call label.SetAppThemeColor(Label.TextColorProperty, lightColor, darkColor) for the color-specific case. Use label.SetAppTheme<double>(Label.FontSizeProperty, lightSize, darkSize) for font size. Create an Image and call image.SetAppTheme<ImageSource>(Image.SourceProperty, lightSource, darkSource); the BindableProperty must belong to the object receiving the call.
+    graders:
+      - type: exit-success
+      - type: output-contains
+        config:
+          substring: SetAppThemeColor
+      - type: output-matches
+        config:
+          pattern: SetAppTheme<(double|ImageSource|Color)>
+      - type: prompt
+    rubric:
+      - Uses the color helper for a color property and the generic helper for other property types
+      - Applies image source configuration to an Image rather than an unrelated control
+      - Provides both light and dark values without manually reacting to events
+
+  - name: Combine brand switching with system theme
+    prompt: |
+      Each selectable brand dictionary provides LightPrimary and DarkPrimary.
+      The app must swap brands at runtime while still following the OS light or
+      dark setting. Show the XAML lookup shape that keeps both decisions live.
+    tags:
+      capability: nested-dynamic-app-theme
+      risk: frozen-brand-palette
+      journey: combine-brand-and-system-theme
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-theming-nested-dynamic-theme"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Keep the OS choice in AppThemeBinding and make each branch a live dictionary lookup:
+
+              ```xml
+              <Label TextColor="{AppThemeBinding
+                  Light={DynamicResource LightPrimary},
+                  Dark={DynamicResource DarkPrimary}}" />
+              ```
+
+              AppThemeBinding reselects the branch when the OS theme changes. The nested DynamicResource resolves the current brand dictionary and updates loaded controls after a dictionary swap. StaticResource inside either branch would freeze that brand value at load time.
+    graders:
+      - type: exit-success
+      - type: output-contains
+        config:
+          substring: AppThemeBinding
+      - type: output-matches
+        config:
+          pattern: Light=\{DynamicResource[\s\S]*Dark=\{DynamicResource
+      - type: output-matches
+        config:
+          pattern: (?i)StaticResource.*(freeze|load)|freeze.*StaticResource
+      - type: prompt
+    rubric:
+      - Uses AppThemeBinding for the OS choice and DynamicResource for both brand values
+      - Explains why both system changes and runtime dictionary swaps remain observable
+      - Rejects StaticResource for values supplied by a replaceable dictionary
+
+  - name: Reject CSS for a runtime theme picker
+    prompt: |
+      A MAUI app has separate light.css and dark.css files. Product wants a
+      settings switch that changes the complete theme immediately without
+      recreating pages. Can the app swap those CSS themes at runtime, and what
+      mechanism should replace that design?
+    tags:
+      capability: css-runtime-switch-boundary
+      risk: nonfunctional-theme-picker
+      journey: redesign-css-theme-switching
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-theming-css-runtime-boundary"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              MAUI CSS theme files cannot be swapped dynamically to restyle already loaded controls, so they are not a valid implementation for this runtime picker. Put the semantic values in matching ResourceDictionary files, consume them with DynamicResource, and switch by removing only the current custom dictionary and adding the selected one. Existing controls then update without page recreation.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)CSS.*(cannot|can.t|not).*(swap|dynamic|runtime)
+      - type: output-contains
+        config:
+          substring: ResourceDictionary
+      - type: output-contains
+        config:
+          substring: DynamicResource
+      - type: prompt
+    rubric:
+      - States the runtime limitation of MAUI CSS themes directly
+      - Redirects the picker to replaceable ResourceDictionary palettes
+      - Uses DynamicResource so existing controls update after the switch
+
+  - name: Repair runtime theme switching
+    prompt: |
+      The focused sample clears every merged dictionary and its page uses
+      one-time resource lookups, so switching themes removes template styles and
+      leaves existing controls unchanged. Edit ThemeService.cs and MainPage.xaml
+      to fix both defects without redesigning the theme model.
+    tags:
+      capability: theming-repair
+      risk: style-loss-and-stale-ui
+      journey: repair-theme-switch
+    environment:
+      files:
+        - src: ./fixtures/repair/ThemeService.cs
+          dest: ThemeService.cs
+        - src: ./fixtures/repair/MainPage.xaml
+          dest: MainPage.xaml
+        - src: ./fixtures/repair/validate.py
+          dest: .eval/validate.py
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-theming-repair-runtime-switch"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I fixed only the two runtime defects. In ThemeService.cs I added a static `_currentTheme` reference, removed only that dictionary with `merged.Remove(_currentTheme)` when present, added the new dictionary, and stored it; `merged.Clear()` is gone, so template Colors.xaml and Styles.xaml survive. In MainPage.xaml I changed PageBackgroundColor and PrimaryTextColor from StaticResource to DynamicResource so loaded controls update after a swap. I ran `python .eval/validate.py .`; it passed.
+    golden_patch:
+      path: ./references/repair.patch
+    graders:
+      - type: exit-success
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/validate.py');assert
+            hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e840a6c74f043b0b667c0236b8f4879de6ca2256acfdc7827ba7671f92a188cb';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)"
+            .
+          expected_exit_code: 0
+      - type: file-not-contains
+        config:
+          path: ThemeService.cs
+          value: merged.Clear()
+      - type: prompt
+        config:
+          evidence:
+            - trajectory
+            - diff
+            - golden_patch
+    rubric:
+      - Removes only the previous custom theme and preserves unrelated merged dictionaries
+      - Uses dynamic lookup for values supplied by the swapped dictionary
+      - Keeps the change focused on the two demonstrated runtime defects
+
+  - name: Leave a correct theme switch unchanged
+    prompt: |
+      Review noop/ for safe runtime theme switching. Fix it only if existing
+      controls fail to update or template resources can be removed. Otherwise,
+      explain why it is correct and preserve the directory byte-for-byte.
+    tags:
+      capability: theming-idempotence
+      risk: needless-style-regression
+      journey: verify-theme-switch
+    environment:
+      files:
+        - src: ./fixtures/noop
+          dest: noop
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-theming-noop"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This implementation is already correct. ThemeService keeps a reference to the current custom dictionary, removes only that dictionary, and leaves template resources intact. MainPage uses DynamicResource for both swapped values, so existing controls update. I made no changes.
+    graders:
+      - type: exit-success
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -c
+            - "import hashlib,pathlib; root=pathlib.Path('noop'); expected={'MainPage.xaml':'a3d468f413d6605bef080e66d5c9a560728f16d0c73023469b2357f0efe57380','ThemeService.cs':'17ec5dd84044af905fbbf94013ee113daa5e08629bc0eced968bdae863c9360c'}; files=sorted(str(p.relative_to(root)).replace('\\\\','/') for p in root.rglob('*') if p.is_file()); assert files==sorted(expected), files; [(_ for _ in ()).throw(AssertionError(name)) for name,digest in expected.items() if hashlib.sha256((root/name).read_bytes().replace(b'\\r\\n',b'\\n')).hexdigest()!=digest]"
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (?i)already.*correct|no (change|fix).*needed|left.*unchanged
+      - type: prompt
+    rubric:
+      - Confirms that only the custom theme dictionary is replaced
+      - Confirms that runtime values use dynamic resource lookup
+      - Leaves every fixture file unchanged
+
+  - name: Keep language switching out of visual theming
+    prompt: |
+      Users can change the app language at runtime, including translated text,
+      plural rules, and right-to-left layout. Colors and visual themes already
+      work. Recommend the correct direction without editing files.
+    expect_activation: false
+    tags:
+      capability: boundary-localization
+      risk: wrong-routing
+      journey: redirect-language-switching
+    constraints:
+      reject_tools: [edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "maui-theming-dormancy-localization"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is localization and culture switching, not visual theming. Use localized resources, culture selection, pluralization support, and flow-direction handling. AppThemeBinding or theme dictionary swapping would not translate content or implement right-to-left behavior.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)localization|culture|resource.*string|right.to.left
+      - type: prompt
+    rubric:
+      - Recognizes that language, pluralization, and flow direction are localization concerns
+      - Redirects to culture and localized resource handling
+      - Did not apply visual theming to a language-switching request
+      - Does not propose color-theme mechanisms as a translation system

@@ -1,0 +1,13 @@
+diff --git a/ChatPage.xaml b/ChatPage.xaml
+--- a/ChatPage.xaml
++++ b/ChatPage.xaml
+@@ -3,7 +3,8 @@
+     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+     x:Class="SafeAreaSample.ChatPage"
+     SafeAreaEdges="None">
+-    <Grid RowDefinitions="*,Auto" SafeAreaEdges="Container">
++    <Grid RowDefinitions="*,Auto"
++          SafeAreaEdges="Container, Container, Container, SoftInput">
+         <ScrollView Grid.Row="0">
+             <VerticalStackLayout>

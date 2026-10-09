@@ -1,0 +1,18 @@
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:BindingSample.ViewModels"
+    xmlns:model="clr-namespace:BindingSample.Models"
+    x:Class="BindingSample.SettingsPage"
+    x:DataType="vm:SettingsViewModel">
+    <VerticalStackLayout>
+        <Label Text="{Binding Title}" />
+        <CollectionView ItemsSource="{Binding Options}">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="model:Option">
+                    <Label Text="{Binding DisplayName}" />
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </VerticalStackLayout>
+</ContentPage>
