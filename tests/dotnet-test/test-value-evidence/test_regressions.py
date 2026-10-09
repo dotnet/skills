@@ -69,6 +69,18 @@ class EvidenceCalibration(unittest.TestCase):
         return next(item["config"] for item in SPEC["stimuli"][0]["graders"]
                     if item["type"] == "run-command")
 
+    def recorder_config(self, source_bytes):
+        config = copy.deepcopy(self.workspace_grader())
+        config["args"] = config["args"][:config["args"].index("--expect")]
+        config["args"].extend([
+            "--record-run", "--source", "boundary.py",
+            "--source-digest", hashlib.sha256(source_bytes).hexdigest(),
+            "--tests", "test_boundary.py", "--tests-digest",
+            hashlib.sha256((SUITE / "fixtures" / "test_boundary.py").read_bytes()).hexdigest(),
+            "--selection", "test_boundary.BoundaryTests",
+        ])
+        return config
+
     def response_errors(self, stimulus, response):
         checker.errors.clear()
         document = copy.deepcopy(golden_document(stimulus))
@@ -242,6 +254,58 @@ class EvidenceCalibration(unittest.TestCase):
         rejected = self.run_command(root, config)
         self.assertNotEqual(0, rejected.returncode, rejected.stdout + rejected.stderr)
 
+    def test_executor_recorder_binds_unchanged_tests_and_source_transition(self):
+        root = self.materialize()
+        source = root / "boundary.py"
+        tests = root / "test_boundary.py"
+        original = source.read_bytes()
+        protected = tests.read_bytes()
+        red = self.run_command(root, self.recorder_config(original))
+        self.assertEqual(0, red.returncode, red.stdout + red.stderr)
+        original_record = json.loads(red.stdout)
+        self.assertEqual("executor-test-evidence", original_record["kind"])
+        self.assertEqual(hashlib.sha256(original).hexdigest(),
+                         original_record["source_sha256"])
+        self.assertEqual(hashlib.sha256(protected).hexdigest(),
+                         original_record["tests_sha256"])
+        self.assertEqual(1, original_record["run"]["exit"])
+        self.assertEqual({"selected": 3, "executed": 3, "passed": 2, "failed": 1,
+                          "errors": 0, "skipped": 0}, original_record["run"]["counts"])
+        tests.write_bytes(protected.replace(
+            b"self.assertEqual(0, shipping_cost(100))", b"self.assertEqual(0, 10)"))
+        fake_red = self.run_command(root, {
+            "command": "python -B -m unittest -v test_boundary.BoundaryTests 2>&1"
+        })
+        self.assertEqual(1, fake_red.returncode)
+        self.assertIn("AssertionError: 0 != 10", fake_red.stdout)
+        self.assertRegex(fake_red.stdout, r"Ran 3 tests[\s\S]*FAILED \(failures=1\)")
+        manufactured = self.run_command(root, self.recorder_config(original))
+        self.assertNotEqual(0, manufactured.returncode)
+        self.assertIn("Test digest differs before execution", manufactured.stderr)
+        self.assertNotIn("executor-test-evidence", manufactured.stdout)
+        tests.write_bytes(protected)
+        self.apply_golden(root)
+        fixed = source.read_bytes()
+        wrong_source = self.run_command(root, self.recorder_config(original))
+        self.assertNotEqual(0, wrong_source.returncode)
+        self.assertIn("Source digest differs before execution", wrong_source.stderr)
+        green = self.run_command(root, self.recorder_config(fixed))
+        self.assertEqual(0, green.returncode, green.stdout + green.stderr)
+        fixed_record = json.loads(green.stdout)
+        self.assertEqual(hashlib.sha256(fixed).hexdigest(), fixed_record["source_sha256"])
+        self.assertEqual(original_record["tests_sha256"], fixed_record["tests_sha256"])
+        self.assertEqual(0, fixed_record["run"]["exit"])
+        self.assertEqual({**original_record["run"]["counts"], "passed": 3, "failed": 0},
+                         fixed_record["run"]["counts"])
+        source.write_bytes(fixed[:-1])
+        no_lf = self.run_command(root, self.recorder_config(fixed[:-1]))
+        self.assertEqual(0, no_lf.returncode, no_lf.stdout + no_lf.stderr)
+        self.assertEqual(hashlib.sha256(fixed[:-1]).hexdigest(),
+                         json.loads(no_lf.stdout)["source_sha256"])
+        source.write_bytes(fixed)
+        self.assertEqual(protected, tests.read_bytes())
+        self.assertFalse(list((root / ".eval").glob(".record-*")))
+
     def test_replay_emits_measured_pair_and_never_uses_stale_outputs(self):
         root = self.golden_workspace()
         before = {path.relative_to(root): path.read_bytes()
@@ -332,15 +396,12 @@ class EvidenceCalibration(unittest.TestCase):
                 results.push(await gradeTrajectory(trajectory, graders, {stimulus}));
                 if (stimulus === spec.stimuli[0]) {
                     const executionGraders = graders.filter(g => g.type === 'tool-calls');
-                    for (const command of [
-                        'python -m unittest -v test_boundary',
-                        'python3 -B -m unittest --verbose test_boundary.BoundaryTests',
-                        'py -3 -m unittest -v test_boundary.py 2>&1',
-                    ]) {
+                    for (const launcher of ['python3', 'py -3', 'python.exe']) {
                         const variant = structuredClone(trajectory);
                         variant.events = variant.events.map(e =>
                             e.type === 'tool_call' && e.data.toolName === 'bash' ?
-                            {...e, data:{...e.data, arguments:{command}}} : e);
+                            {...e, data:{...e.data, arguments:{command:
+                                e.data.arguments.command.replace(/^python /, launcher+' ')}}} : e);
                         const graded = await gradeTrajectory(variant,
                             executionGraders, {stimulus});
                         provenance &&= graded.passed;
@@ -360,11 +421,11 @@ class EvidenceCalibration(unittest.TestCase):
                         events => events.map(e => e.type === 'tool_result' &&
                             e.data.toolCallId === 'original-tests' ?
                             {...e, data:{...e.data, result:String(e.data.result)
-                                .replace('Ran 3 tests', 'Ran 0 tests')}} : e),
+                                .replace('"executed": 3', '"executed": 0')}} : e),
                         events => events.map(e => e.type === 'tool_result' &&
                             e.data.toolCallId === 'fixed-tests' ?
                             {...e, data:{...e.data, result:String(e.data.result)
-                                .replace('\\nOK', '\\nOK (skipped=1)')}} : e),
+                                .replace('"skipped": 0', '"skipped": 1')}} : e),
                         events => events.map(e => e.type === 'tool_call' &&
                             e.data.toolCallId === 'original-tests' ?
                             {...e, data:{...e.data,
@@ -377,6 +438,26 @@ class EvidenceCalibration(unittest.TestCase):
                             e.data.toolCallId === 'original-tests' ?
                             {...e, data:{...e.data, arguments:{command:
                                 'python -B -m unittest -v test_boundary.BoundaryTests; echo fabricated output'}}} : e),
+                        events => events.map(e => e.type === 'tool_result' &&
+                            e.data.toolCallId === 'original-tests' ?
+                            {...e, data:{...e.data, result:String(e.data.result)
+                                .replace(/"tests_sha256": "[a-f0-9]+"/,
+                                    '"tests_sha256": "'+'0'.repeat(64)+'"')}} : e),
+                        events => events.map(e => e.type === 'tool_call' &&
+                            e.data.toolCallId === 'original-tests' ?
+                            {...e, data:{...e.data, arguments:{command:
+                                e.data.arguments.command.replace(
+                                    /--tests-digest [a-f0-9]+/, '--tests-digest '+'0'.repeat(64))}}} : e),
+                        events => events.map(e => e.type === 'tool_result' &&
+                            e.data.toolCallId === 'original-tests' ?
+                            {...e, data:{...e.data, result:String(e.data.result)
+                                .replace(/"source_sha256": "[a-f0-9]+"/,
+                                    '"source_sha256": "'+'0'.repeat(64)+'"')}} : e),
+                        events => [
+                            ...events.filter(e => e.type !== 'tool_call' && e.type !== 'tool_result'),
+                            ...events.filter(e => e.data?.toolCallId === 'fixed-tests'),
+                            ...events.filter(e => e.data?.toolCallId === 'original-tests'),
+                        ],
                     ];
                     for (const mutate of mutations) {
                         const mutated = structuredClone(trajectory);

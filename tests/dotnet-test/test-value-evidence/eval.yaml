@@ -16,6 +16,8 @@ stimuli:
       whether its current cases detect the original problem, not just whether
       the final suite is green. Limit the work to this defect; capture run
       evidence in terminal output and leave no extra files.
+      Use the supplied recorder's --record-run mode for source/test-digest-bound
+      evidence, authenticating its bytes before execution.
     tags:
       capability: actual-defect-detection
       risk: green-only-regression-proof
@@ -37,11 +39,20 @@ stimuli:
         config:
           required:
             - name: bash
-              command: &boundary_command '(?i)^[ \t]*(?:python(?:3(?:\.\d+)?)?(?:\.exe)?|py(?:\.exe)?(?:[ \t]+-3)?)(?:[ \t]+-B)?[ \t]+-m[ \t]+unittest[ \t]+(?:-v|--verbose)[ \t]+test_boundary(?:\.BoundaryTests|\.py)?(?:[ \t]+2>&1)?[ \t]*$'
-              result: '(?i)(?=[\s\S]*test_exact_threshold)(?=[\s\S]*(?:AssertionError:\s*0\s*!=\s*10|assert\s+0\s*==\s*10))(?=[\s\S]*(?:Ran\s+3\s+tests|1\s+failed[\s\S]*2\s+passed|2\s+passed[\s\S]*1\s+failed))[\s\S]*(?:FAILED\s*\(failures=1\)|1\s+failed)'
+              command: &original_command >-
+                ^(?:python(?:3(?:\.\d+)?)?(?:\.exe)?|py(?:\.exe)?(?: -3)?) -I -B -c "import hashlib,pathlib,sys; p=pathlib\.Path\('\.eval/check_workspace\.py'\); data=p\.read_bytes\(\)\.replace\(b'\\r\\n',b'\\n'\); assert not p\.is_symlink\(\) and not p\.parent\.is_symlink\(\); assert hashlib\.sha256\(data\)\.hexdigest\(\) == '3d3aa717b7a83d3656aa88840a2425937eb00b0914e896fee5e7a85345fa7ffb'; sys\.argv=\[str\(p\),\*sys\.argv\[1:\]\]; exec\(compile\(data,str\(p\),'exec'\),\{'__name__':'__main__'\}\)" --record-run --source boundary\.py --source-digest 0a7d1f7a60b27435ab6e5b11b51bb879545fae7680cb00cc22c37f57ebda7ae3 --tests test_boundary\.py --tests-digest fea6f5fec6509fc06f7bfdbabd43b7f2d48992b11c2d69ac84369d51fed000c7 --selection test_boundary\.BoundaryTests$
+              result: >-
+                (?=[\s\S]*"kind":\s*"executor-test-evidence")(?=[\s\S]*"source_sha256":\s*"0a7d1f7a60b27435ab6e5b11b51bb879545fae7680cb00cc22c37f57ebda7ae3")(?=[\s\S]*"tests_sha256":\s*"fea6f5fec6509fc06f7bfdbabd43b7f2d48992b11c2d69ac84369d51fed000c7")(?=[\s\S]*"exit":\s*1[,}])(?=[\s\S]*"executed":\s*3[,}])(?=[\s\S]*"selected":\s*3[,}])(?=[\s\S]*"passed":\s*2[,}])(?=[\s\S]*"failed":\s*1[,}])(?=[\s\S]*"errors":\s*0[,}])(?=[\s\S]*"skipped":\s*0[,}])(?=[\s\S]*test_exact_threshold)[\s\S]*AssertionError:\s*0\s*!=\s*10
             - name: bash
-              command: *boundary_command
-              result: '(?i)(?:Ran\s+3\s+tests[\s\S]*\bOK[ \t]*(?:\r?\n|$)|3\s+passed(?![ \t]*,))'
+              command: &fixed_command >-
+                ^(?:python(?:3(?:\.\d+)?)?(?:\.exe)?|py(?:\.exe)?(?: -3)?) -I -B -c "import hashlib,pathlib,sys; p=pathlib\.Path\('\.eval/check_workspace\.py'\); data=p\.read_bytes\(\)\.replace\(b'\\r\\n',b'\\n'\); assert not p\.is_symlink\(\) and not p\.parent\.is_symlink\(\); assert hashlib\.sha256\(data\)\.hexdigest\(\) == '3d3aa717b7a83d3656aa88840a2425937eb00b0914e896fee5e7a85345fa7ffb'; sys\.argv=\[str\(p\),\*sys\.argv\[1:\]\]; exec\(compile\(data,str\(p\),'exec'\),\{'__name__':'__main__'\}\)" --record-run --source boundary\.py --source-digest (?:f51b404d8de6f3aaec18b8af4f54c19c50cb9a157eb53834689ead1b1cd4eee6|55854114ce9ee6a2e1d015e26c44fb24975cdb38f1aec6018b6de4dc5e2b362b) --tests test_boundary\.py --tests-digest fea6f5fec6509fc06f7bfdbabd43b7f2d48992b11c2d69ac84369d51fed000c7 --selection test_boundary\.BoundaryTests$
+              result: >-
+                (?=[\s\S]*"kind":\s*"executor-test-evidence")(?=[\s\S]*"source_sha256":\s*"(?:f51b404d8de6f3aaec18b8af4f54c19c50cb9a157eb53834689ead1b1cd4eee6|55854114ce9ee6a2e1d015e26c44fb24975cdb38f1aec6018b6de4dc5e2b362b)")(?=[\s\S]*"tests_sha256":\s*"fea6f5fec6509fc06f7bfdbabd43b7f2d48992b11c2d69ac84369d51fed000c7")(?=[\s\S]*"exit":\s*0[,}])(?=[\s\S]*"executed":\s*3[,}])(?=[\s\S]*"selected":\s*3[,}])(?=[\s\S]*"passed":\s*3[,}])(?=[\s\S]*"failed":\s*0[,}])(?=[\s\S]*"errors":\s*0[,}])[\s\S]*"skipped":\s*0[,}]
+          sequence:
+            - name: bash
+              command: *original_command
+            - name: bash
+              command: *fixed_command
       - type: output-matches
         config: &report
           pattern: (?i)test.value evidence
@@ -70,7 +81,7 @@ stimuli:
               p=pathlib.Path('.eval/check_workspace.py');
               data=p.read_bytes().replace(b'\r\n',b'\n');
               assert not p.is_symlink() and not p.parent.is_symlink();
-              assert hashlib.sha256(data).hexdigest() == '0188849c1fb3dc05a22b1b060f0ad1cdd75f8db81ad9e1b5ee248d37570c00c6';
+              assert hashlib.sha256(data).hexdigest() == '3d3aa717b7a83d3656aa88840a2425937eb00b0914e896fee5e7a85345fa7ffb';
               sys.argv=[str(p),*sys.argv[1:]];
               exec(compile(data,str(p),'exec'),{'__name__':'__main__'})
             - --expect
@@ -78,7 +89,7 @@ stimuli:
             - --expect
             - fea6f5fec6509fc06f7bfdbabd43b7f2d48992b11c2d69ac84369d51fed000c7:test_boundary.py
             - --expect
-            - 0188849c1fb3dc05a22b1b060f0ad1cdd75f8db81ad9e1b5ee248d37570c00c6:.eval/check_workspace.py
+            - 3d3aa717b7a83d3656aa88840a2425937eb00b0914e896fee5e7a85345fa7ffb:.eval/check_workspace.py
             - --optional
             - 57a22e3b37bf90359e30e9770be45a6aa0308bcd6c8ce9dda182c346b380a641:test-value-evidence/SKILL.md
             - --original

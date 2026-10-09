@@ -2,6 +2,10 @@
 
 Expected bytes, selection, failure attribution, and counts are grader arguments,
 not model-facing fixture answers. Replay proves behavior, not executor history.
+For executor evidence, authenticate this helper from Python isolated mode, then
+use --record-run --source PATH --source-digest SHA256 --tests PATH
+--tests-digest SHA256 --selection TEST. This checks both digests before testing
+immutable snapshots; its JSON binds the actual run to those bytes.
 """
 
 import argparse
@@ -68,9 +72,9 @@ def check_workspace(root, expected, optional, changed_source):
         require(hashlib.sha256(data).hexdigest() == digest, f"Changed bytes: {name}")
 
 
-def run_variant(root, command):
+def run_variant(root, command, input_text=None):
     result = subprocess.run(
-        command, cwd=root, capture_output=True, text=True, timeout=20,
+        command, cwd=root, capture_output=True, text=True, timeout=20, input=input_text,
         env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
     )
     output = result.stdout + result.stderr
@@ -106,17 +110,77 @@ def verify_runs(red, green, args):
     require(re.search(r"^OK\s*$", green["output"], re.MULTILINE), "Missing green result")
 
 
+def record_run(args):
+    root = Path.cwd()
+    source = safe_relative(args.source)
+    tests = safe_relative(args.tests)
+    require(source != tests, "Changed product and preserved tests must be distinct")
+    source_bytes = (root / source).read_bytes()
+    test_bytes = (root / tests).read_bytes()
+    source_digest = hashlib.sha256(source_bytes).hexdigest()
+    test_digest = hashlib.sha256(test_bytes).hexdigest()
+    require(source_digest == args.source_digest, "Source digest differs before execution")
+    require(test_digest == args.tests_digest, "Test digest differs before execution")
+    with tempfile.TemporaryDirectory(prefix=".record-", dir=root / ".eval") as owned:
+        snapshot = Path(owned)
+        for path, data in ((source, source_bytes), (tests, test_bytes)):
+            (snapshot / path).parent.mkdir(parents=True, exist_ok=True)
+            (snapshot / path).write_bytes(data)
+        command = [
+            sys.executable, "-I", "-B", "-c",
+            "import base64,json,sys,types,unittest\n"
+            "payload=json.load(sys.stdin)\n"
+            "for name in ('source','tests'):\n"
+            " module=types.ModuleType(payload[name+'_module'])\n"
+            " sys.modules[module.__name__]=module\n"
+            " code=base64.b64decode(payload[name],validate=True)\n"
+            " exec(compile(code,module.__name__+'.py','exec'),module.__dict__)\n"
+            "unittest.main(module=None,argv=['unittest','-v',sys.argv[1]])",
+            args.selection,
+        ]
+        payload = json.dumps({
+            "source_module": source.stem,
+            "tests_module": tests.stem,
+            "source": base64.b64encode(source_bytes).decode("ascii"),
+            "tests": base64.b64encode(test_bytes).decode("ascii"),
+        })
+        measured = run_variant(snapshot, command, payload)
+        require((snapshot / source).read_bytes() == source_bytes, "Runner modified source")
+        require((snapshot / tests).read_bytes() == test_bytes, "Runner modified tests")
+        require(sorted(path.relative_to(snapshot).as_posix()
+                       for path in snapshot.rglob("*") if path.is_file())
+                == sorted((source.as_posix(), tests.as_posix())),
+                "Runner produced unexpected artifacts")
+    print(json.dumps({
+        "kind": "executor-test-evidence",
+        "source_sha256": source_digest,
+        "tests_sha256": test_digest,
+        "run": measured,
+    }, sort_keys=True))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--expect", action="append", required=True, metavar="SHA256:PATH")
+    parser.add_argument("--record-run", action="store_true")
+    parser.add_argument("--source")
+    parser.add_argument("--source-digest")
+    parser.add_argument("--tests-digest")
+    parser.add_argument("--expect", action="append", metavar="SHA256:PATH")
     parser.add_argument("--optional", action="append", default=[], metavar="SHA256:PATH")
-    parser.add_argument("--original", required=True, metavar="PATH:BASE64")
+    parser.add_argument("--original", metavar="PATH:BASE64")
     parser.add_argument("--tests", required=True)
     parser.add_argument("--selection", required=True)
-    parser.add_argument("--failed-test", required=True)
-    parser.add_argument("--assertion", required=True)
-    parser.add_argument("--count", type=int, required=True)
+    parser.add_argument("--failed-test")
+    parser.add_argument("--assertion")
+    parser.add_argument("--count", type=int)
     args = parser.parse_args()
+    if args.record_run:
+        if not all((args.source, args.source_digest, args.tests_digest)):
+            parser.error("--record-run requires source and test digests")
+        record_run(args)
+        return
+    if not all((args.expect, args.original, args.failed_test, args.assertion, args.count)):
+        parser.error("replay requires expected files, original source and failure/count criteria")
     root = Path.cwd()
     expected = dict(parse_digest(item) for item in args.expect)
     optional = dict(parse_digest(item) for item in args.optional)

@@ -10,13 +10,13 @@
     {
       "step_id": 1,
       "source": "agent",
-      "message": "Run the unchanged tests against the original implementation.",
+      "message": "Authenticate the recorder and bind the original run to the source and unchanged test digests.",
       "tool_calls": [
         {
           "tool_call_id": "original-tests",
           "function_name": "bash",
           "arguments": {
-            "command": "python -B -m unittest -v test_boundary.BoundaryTests"
+            "command": "python -I -B -c \"import hashlib,pathlib,sys; p=pathlib.Path('.eval/check_workspace.py'); data=p.read_bytes().replace(b'\\r\\n',b'\\n'); assert not p.is_symlink() and not p.parent.is_symlink(); assert hashlib.sha256(data).hexdigest() == '3d3aa717b7a83d3656aa88840a2425937eb00b0914e896fee5e7a85345fa7ffb'; sys.argv=[str(p),*sys.argv[1:]]; exec(compile(data,str(p),'exec'),{'__name__':'__main__'})\" --record-run --source boundary.py --source-digest 0a7d1f7a60b27435ab6e5b11b51bb879545fae7680cb00cc22c37f57ebda7ae3 --tests test_boundary.py --tests-digest fea6f5fec6509fc06f7bfdbabd43b7f2d48992b11c2d69ac84369d51fed000c7 --selection test_boundary.BoundaryTests"
           }
         }
       ],
@@ -24,7 +24,7 @@
         "results": [
           {
             "source_call_id": "original-tests",
-            "content": "test_above_threshold (test_boundary.BoundaryTests.test_above_threshold) ... ok\ntest_below_threshold (test_boundary.BoundaryTests.test_below_threshold) ... ok\ntest_exact_threshold (test_boundary.BoundaryTests.test_exact_threshold) ... FAIL\nAssertionError: 0 != 10\nRan 3 tests in 0.001s\nFAILED (failures=1)\nExit code: 1"
+            "content": "{\"kind\": \"executor-test-evidence\", \"source_sha256\": \"0a7d1f7a60b27435ab6e5b11b51bb879545fae7680cb00cc22c37f57ebda7ae3\", \"tests_sha256\": \"fea6f5fec6509fc06f7bfdbabd43b7f2d48992b11c2d69ac84369d51fed000c7\", \"run\": {\"exit\": 1, \"counts\": {\"errors\": 0, \"executed\": 3, \"failed\": 1, \"passed\": 2, \"selected\": 3, \"skipped\": 0}, \"output\": \"test_exact_threshold ... FAIL\\nAssertionError: 0 != 10\\nRan 3 tests\\nFAILED (failures=1)\"}}"
           }
         ]
       }
@@ -56,13 +56,13 @@
     {
       "step_id": 3,
       "source": "agent",
-      "message": "Run the same unchanged selection against the fixed implementation.",
+      "message": "Authenticate the recorder and run the fixed source with the same test digest and selection.",
       "tool_calls": [
         {
           "tool_call_id": "fixed-tests",
           "function_name": "bash",
           "arguments": {
-            "command": "python -B -m unittest -v test_boundary.BoundaryTests"
+            "command": "python -I -B -c \"import hashlib,pathlib,sys; p=pathlib.Path('.eval/check_workspace.py'); data=p.read_bytes().replace(b'\\r\\n',b'\\n'); assert not p.is_symlink() and not p.parent.is_symlink(); assert hashlib.sha256(data).hexdigest() == '3d3aa717b7a83d3656aa88840a2425937eb00b0914e896fee5e7a85345fa7ffb'; sys.argv=[str(p),*sys.argv[1:]]; exec(compile(data,str(p),'exec'),{'__name__':'__main__'})\" --record-run --source boundary.py --source-digest f51b404d8de6f3aaec18b8af4f54c19c50cb9a157eb53834689ead1b1cd4eee6 --tests test_boundary.py --tests-digest fea6f5fec6509fc06f7bfdbabd43b7f2d48992b11c2d69ac84369d51fed000c7 --selection test_boundary.BoundaryTests"
           }
         }
       ],
@@ -70,7 +70,7 @@
         "results": [
           {
             "source_call_id": "fixed-tests",
-            "content": "test_above_threshold (test_boundary.BoundaryTests.test_above_threshold) ... ok\ntest_below_threshold (test_boundary.BoundaryTests.test_below_threshold) ... ok\ntest_exact_threshold (test_boundary.BoundaryTests.test_exact_threshold) ... ok\nRan 3 tests in 0.001s\nOK\nExit code: 0"
+            "content": "{\"kind\": \"executor-test-evidence\", \"source_sha256\": \"f51b404d8de6f3aaec18b8af4f54c19c50cb9a157eb53834689ead1b1cd4eee6\", \"tests_sha256\": \"fea6f5fec6509fc06f7bfdbabd43b7f2d48992b11c2d69ac84369d51fed000c7\", \"run\": {\"exit\": 0, \"counts\": {\"errors\": 0, \"executed\": 3, \"failed\": 0, \"passed\": 3, \"selected\": 3, \"skipped\": 0}, \"output\": \"Ran 3 tests\\nOK\"}}"
           }
         ]
       }
@@ -78,7 +78,7 @@
     {
       "step_id": 4,
       "source": "agent",
-      "message": "**Test-value evidence:** executed: detected.\nCorrect patch: golden.patch changes shipping_cost's > to >=; counterfactual is the original boundary.py bytes with >.\nNo commit SHAs are available in the supplied fixture.\ntest_exact_threshold asserts the requirement's 0, not the old 10.\nCommand: python -B -m unittest -v test_boundary.BoundaryTests.\nOriginal: exit 1, selected/executed 3, passed 2, failed 1, skipped 0; the exact-threshold assertion observes 10 instead of 0.\nCorrect implementation: exit 0, selected/executed/passed 3, failed/skipped 0.\nPython unittest; both observed commands use unchanged tests and avoid bytecode outputs.\nExisting unchanged tests suffice; no redundant test is needed."
+      "message": "**Test-value evidence:** executed: detected.\nCorrect patch: golden.patch changes shipping_cost's > to >=; counterfactual is the original boundary.py bytes with >.\nNo commit SHAs are available in the supplied fixture.\ntest_exact_threshold asserts the requirement's 0, not the old 10.\nCommands: authenticated Python -I -B -c recorder calls above; selection test_boundary.BoundaryTests.\nOriginal runner: exit 1, selected/executed 3, passed 2, failed 1, skipped 0; the exact-threshold assertion observes 10 instead of 0.\nCorrect implementation runner: exit 0, selected/executed/passed 3, failed/skipped 0; recorders exit 0 for both measurements.\nBoth records bind the actual source digests to unchanged tests SHA-256 fea6f5fec6509fc06f7bfdbabd43b7f2d48992b11c2d69ac84369d51fed000c7.\nExisting unchanged tests suffice; no redundant test is needed."
     }
   ]
 }
