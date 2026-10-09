@@ -1,0 +1,70 @@
+diff --git a/simple-solution/Directory.Packages.props b/simple-solution/Directory.Packages.props
+new file mode 100644
+--- /dev/null
++++ b/simple-solution/Directory.Packages.props
+@@ -0,0 +1,13 @@
++<Project>
++  <PropertyGroup>
++    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
++  </PropertyGroup>
++  <ItemGroup>
++    <PackageVersion Include="Contoso.Json" Version="9.0.0" />
++    <PackageVersion Include="Contoso.OpenApi" Version="8.0.0" />
++    <PackageVersion Include="Contoso.Telemetry" Version="1.1.0" />
++    <PackageVersion Include="Contoso.TestRunner" Version="2.0.0" />
++    <PackageVersion Include="Contoso.TestSdk" Version="1.0.0" />
++    <PackageVersion Include="Contoso.Testing" Version="2.0.0" />
++  </ItemGroup>
++</Project>
+diff --git a/simple-solution/Core/Core.csproj b/simple-solution/Core/Core.csproj
+--- a/simple-solution/Core/Core.csproj
++++ b/simple-solution/Core/Core.csproj
+@@ -3,6 +3,6 @@
+     <TargetFramework>net8.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Contoso.Json" Version="9.0.0" />
++    <PackageReference Include="Contoso.Json" />
+   </ItemGroup>
+ </Project>
+diff --git a/simple-solution/Tests/Tests.csproj b/simple-solution/Tests/Tests.csproj
+--- a/simple-solution/Tests/Tests.csproj
++++ b/simple-solution/Tests/Tests.csproj
+@@ -3,9 +3,9 @@
+     <TargetFramework>net8.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Contoso.TestSdk" Version="1.0.0" />
+-    <PackageReference Include="Contoso.Testing" Version="2.0.0" />
+-    <PackageReference Include="Contoso.TestRunner" Version="2.0.0" PrivateAssets="all" />
++    <PackageReference Include="Contoso.TestSdk" />
++    <PackageReference Include="Contoso.Testing" />
++    <PackageReference Include="Contoso.TestRunner" PrivateAssets="all" />
+   </ItemGroup>
+   <ItemGroup>
+     <ProjectReference Include="..\Core\Core.csproj" />
+diff --git a/simple-solution/Web/Web.csproj b/simple-solution/Web/Web.csproj
+--- a/simple-solution/Web/Web.csproj
++++ b/simple-solution/Web/Web.csproj
+@@ -4,8 +4,8 @@
+     <TargetFramework>net8.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Contoso.Telemetry" Version="1.1.0" />
+-    <PackageReference Include="Contoso.OpenApi" Version="8.0.0" />
++    <PackageReference Include="Contoso.Telemetry" />
++    <PackageReference Include="Contoso.OpenApi" />
+   </ItemGroup>
+   <ItemGroup>
+     <ProjectReference Include="..\Core\Core.csproj" />
+diff --git a/simple-solution/convert-to-cpm.md b/simple-solution/convert-to-cpm.md
+new file mode 100644
+--- /dev/null
++++ b/simple-solution/convert-to-cpm.md
+@@ -0,0 +1,6 @@
++# Central Package Management conversion
++
++## Outcome
++All solution package versions and metadata were preserved.
++
++Baseline and after-conversion build/package evidence was retained for review.
