@@ -1,0 +1,12 @@
+diff --git a/SalesOperationsService.cs b/SalesOperationsService.cs
+--- a/SalesOperationsService.cs
++++ b/SalesOperationsService.cs
+@@ -136,7 +136,7 @@ public class SalesOperationsService
+     public List<OrderRow> GetPendingOrders()
+     {
++        // Query rewrite is separate from the DBA-owned (Status, CreatedAt) index review.
+         return _db.Orders
+-            .AsEnumerable()
+             .Where(o => o.Status == "Pending")
+             .OrderBy(o => o.CreatedAt)
+             .Select(o => new OrderRow(o.Id, o.CreatedAt, o.Total))
