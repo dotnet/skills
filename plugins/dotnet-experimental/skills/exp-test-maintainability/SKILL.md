@@ -1,6 +1,6 @@
 ---
 name: exp-test-maintainability
-description: "Detects duplicate boilerplate, copy-paste tests, and structural maintainability issues across .NET test suites. Use when the user asks to reduce repetition, consolidate similar test methods, convert copy-paste tests to data-driven parameterized tests, suggest a better test structure, or identify refactoring opportunities. Identifies repeated construction, assertion patterns, copy-paste methods convertible to DataRow/Theory/TestCase, redundant setup/teardown, and shared infrastructure. Produces an analysis report with concrete before/after suggestions. Works with MSTest, xUnit, NUnit, and TUnit. DO NOT USE FOR: writing new tests (use writing-mstest-tests), reviewing test quality or anti-patterns (use test-anti-patterns), or deep mock auditing (use exp-mock-usage-analysis)."
+description: "READ-ONLY analysis only. Never activate for a request to edit/refactor test files or write new tests. Detects duplicate boilerplate, copy-paste tests, and structural maintainability issues when methods repeat construction, assertions, setup/teardown, test data, handlers, clients, or other infrastructure across files or classes. Recommends data-driven tests, helpers, factories, or fixtures only for genuine 3+ occurrence patterns. Works with MSTest, xUnit, NUnit, and TUnit. DO NOT USE FOR: test implementation, test quality/anti-pattern review (use test-anti-patterns), or deep mock auditing (use exp-mock-usage-analysis)."
 license: MIT
 ---
 
@@ -123,6 +123,15 @@ Look for test methods with near-identical bodies differing only in input values 
 - Prefer `[DataRow]` with `DisplayName` over `[DynamicData]` when all values are compile-time constants. Reserve `[DynamicData]` for computed or complex values.
 - Add `DisplayName` for non-obvious parameter values. `[DataRow("Gold", 100.0, 90.0)]` is self-explanatory; `[DataRow(3, 7, 42)]` is not.
 
+**Framework legality and readability gate:**
+- xUnit `[InlineData]` accepts only attribute-compatible constants. Do not put `decimal`, records,
+  DTOs, arrays created at runtime, or other complex objects in `[InlineData]`; use typed
+  `TheoryData<...>` exposed through `[MemberData]` or `[ClassData]`.
+- Keep a complex scenario cohesive. Prefer one named case record that contains the input,
+  configuration, and expected result over a long positional row of primitive values.
+- Ensure the test runner can identify the case. Use a descriptive case name or a case type whose
+  `ToString()` gives useful output rather than hiding meaning in argument positions.
+
 #### Category 4: Duplicated setup/teardown logic
 
 Look for initialization or cleanup code repeated across test classes.
@@ -155,7 +164,9 @@ Look for structural patterns shared across test classes.
 
 Before reporting, filter findings through these rules:
 
-- **Only report at 3+ occurrences.** Two similar setups are not boilerplate — they may be intentional clarity.
+- **Hard gate: count before recommending.** Only report a refactoring at 3+ occurrences. At one or two
+  occurrences, explicitly keep the code local and do not include an extraction example. A possible
+  future third occurrence is a reconsideration point, not permission to refactor now.
 - **Don't flag simple constructors.** `new Calculator()` or `new List<int>()` is not meaningful boilerplate. Don't recommend builders for `new User(1, "Alice")` either.
 - **Respect intentional verbosity.** If each test is self-contained and reads clearly on its own, explicit setup per test is a valid choice. Note it but don't flag it as a problem.
 - **Distinguish structural similarity from true duplication.** Tests that follow AAA (Arrange-Act-Assert) will look similar by nature. Only flag when the actual code (not just the structure) is duplicated.
