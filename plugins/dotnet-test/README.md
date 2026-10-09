@@ -108,7 +108,8 @@ before authenticating its staged helper, preventing workspace module shadowing, 
 replays exit codes, the named assertion, and all test counts without trusting
 narrated or stale red results. Its captured replay proves behavioral detection,
 not what the model executor itself ran. The implementation case separately
-requires completed test-command events with the named original assertion,
+requires completed, anchored runner/selection commands without shell chaining,
+with the named original assertion,
 counts, and matching green output; narration alone cannot pass.
 Calibration also rejects unrelated edits, extra files, altered
 helpers, and skipped or misattributed results.

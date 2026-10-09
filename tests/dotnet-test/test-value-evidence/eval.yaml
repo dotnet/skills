@@ -37,10 +37,10 @@ stimuli:
         config:
           required:
             - name: bash
-              command: (?i)(unittest|pytest)
+              command: &boundary_command '(?i)^[ \t]*(?:python(?:3(?:\.\d+)?)?(?:\.exe)?|py(?:\.exe)?(?:[ \t]+-3)?)(?:[ \t]+-B)?[ \t]+-m[ \t]+unittest[ \t]+(?:-v|--verbose)[ \t]+test_boundary(?:\.BoundaryTests|\.py)?(?:[ \t]+2>&1)?[ \t]*$'
               result: '(?i)(?=[\s\S]*test_exact_threshold)(?=[\s\S]*(?:AssertionError:\s*0\s*!=\s*10|assert\s+0\s*==\s*10))(?=[\s\S]*(?:Ran\s+3\s+tests|1\s+failed[\s\S]*2\s+passed|2\s+passed[\s\S]*1\s+failed))[\s\S]*(?:FAILED\s*\(failures=1\)|1\s+failed)'
             - name: bash
-              command: (?i)(unittest|pytest)
+              command: *boundary_command
               result: '(?i)(?:Ran\s+3\s+tests[\s\S]*\bOK[ \t]*(?:\r?\n|$)|3\s+passed(?![ \t]*,))'
       - type: output-matches
         config: &report

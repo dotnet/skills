@@ -331,6 +331,20 @@ class EvidenceCalibration(unittest.TestCase):
                 const graders = stimulus.graders.filter(g => g.type !== 'prompt');
                 results.push(await gradeTrajectory(trajectory, graders, {stimulus}));
                 if (stimulus === spec.stimuli[0]) {
+                    const executionGraders = graders.filter(g => g.type === 'tool-calls');
+                    for (const command of [
+                        'python -m unittest -v test_boundary',
+                        'python3 -B -m unittest --verbose test_boundary.BoundaryTests',
+                        'py -3 -m unittest -v test_boundary.py 2>&1',
+                    ]) {
+                        const variant = structuredClone(trajectory);
+                        variant.events = variant.events.map(e =>
+                            e.type === 'tool_call' && e.data.toolName === 'bash' ?
+                            {...e, data:{...e.data, arguments:{command}}} : e);
+                        const graded = await gradeTrajectory(variant,
+                            executionGraders, {stimulus});
+                        provenance &&= graded.passed;
+                    }
                     const mutations = [
                         events => events.filter(e =>
                             e.type !== 'tool_call' && e.type !== 'tool_result'),
@@ -355,12 +369,20 @@ class EvidenceCalibration(unittest.TestCase):
                             e.data.toolCallId === 'original-tests' ?
                             {...e, data:{...e.data,
                                 arguments:{command:'echo fabricated output'}}} : e),
+                        events => events.map(e => e.type === 'tool_call' &&
+                            e.data.toolCallId === 'original-tests' ?
+                            {...e, data:{...e.data,
+                                arguments:{command:'echo unittest fabricated output'}}} : e),
+                        events => events.map(e => e.type === 'tool_call' &&
+                            e.data.toolCallId === 'original-tests' ?
+                            {...e, data:{...e.data, arguments:{command:
+                                'python -B -m unittest -v test_boundary.BoundaryTests; echo fabricated output'}}} : e),
                     ];
                     for (const mutate of mutations) {
                         const mutated = structuredClone(trajectory);
                         mutated.events = mutate(mutated.events);
                         const graded = await gradeTrajectory(mutated,
-                            graders.filter(g => g.type === 'tool-calls'), {stimulus});
+                            executionGraders, {stimulus});
                         provenance &&= !graded.passed;
                     }
                 }
