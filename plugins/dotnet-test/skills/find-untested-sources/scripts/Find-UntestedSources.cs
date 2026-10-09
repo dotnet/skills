@@ -220,8 +220,7 @@ Parallel.ForEach(testFiles, file =>
             if (d.Namespace.Length == 0
                 || usings.Contains(d.Namespace)
                 || d.Namespace == localNs
-                || (localNs.Length > 0 && localNs.StartsWith(d.Namespace + ".", StringComparison.Ordinal))
-                || IsUsingPrefix(usings, d.Namespace))
+                || (localNs.Length > 0 && localNs.StartsWith(d.Namespace + ".", StringComparison.Ordinal)))
             {
                 (preferred ??= new List<Decl>()).Add(d);
             }
@@ -333,6 +332,17 @@ return 0;
 
 static IEnumerable<string> EnumerateCsFiles(string root)
 {
+    foreach (var file in EnumerateFilesSafely(root, "*.cs"))
+    {
+        if (!IsSkippedFile(file))
+        {
+            yield return file;
+        }
+    }
+}
+
+static IEnumerable<string> EnumerateFilesSafely(string root, string searchPattern)
+{
     var stack = new Stack<string>();
     stack.Push(root);
     while (stack.Count > 0)
@@ -344,11 +354,8 @@ static IEnumerable<string> EnumerateCsFiles(string root)
         foreach (var sub in subdirs)
         {
             var name = Path.GetFileName(sub);
-            if (name.Length == 0)
-            {
-                continue;
-            }
-            if (string.Equals(name, "bin", StringComparison.OrdinalIgnoreCase)
+            if (name.Length == 0
+                || string.Equals(name, "bin", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(name, "obj", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(name, "node_modules", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(name, ".git", StringComparison.OrdinalIgnoreCase)
@@ -358,17 +365,24 @@ static IEnumerable<string> EnumerateCsFiles(string root)
             {
                 continue;
             }
-            stack.Push(sub);
-        }
-        IEnumerable<string> files;
-        try { files = Directory.EnumerateFiles(dir, "*.cs"); }
-        catch { continue; }
-        foreach (var f in files)
-        {
-            if (IsSkippedFile(f))
+            try
+            {
+                if ((File.GetAttributes(sub) & FileAttributes.ReparsePoint) != 0)
+                {
+                    continue;
+                }
+            }
+            catch
             {
                 continue;
             }
+            stack.Push(sub);
+        }
+        IEnumerable<string> files;
+        try { files = Directory.EnumerateFiles(dir, searchPattern); }
+        catch { continue; }
+        foreach (var f in files)
+        {
             yield return f;
         }
     }
@@ -440,34 +454,10 @@ static string GetNamespaceFor(SyntaxNode node)
     return string.Join(".", parts);
 }
 
-static bool IsUsingPrefix(HashSet<string> usings, string ns)
-{
-    if (ns.Length == 0)
-    {
-        return false;
-    }
-    foreach (var u in usings)
-    {
-        if (ns.StartsWith(u + ".", StringComparison.Ordinal))
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
 static Dictionary<string, string> BuildProductionToTestProjectMap(string root)
 {
     var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-    List<string> allCsproj;
-    try
-    {
-        allCsproj = Directory.EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories).ToList();
-    }
-    catch
-    {
-        return map;
-    }
+    List<string> allCsproj = EnumerateFilesSafely(root, "*.csproj").ToList();
     // Sort so the deterministic "first write wins" rule below selects the
     // same test project across runs/machines regardless of filesystem
     // enumeration order.
