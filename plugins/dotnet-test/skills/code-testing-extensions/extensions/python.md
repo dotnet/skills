@@ -20,7 +20,7 @@ Before writing any test or running any command, discover what the repo already d
 
 **Use whatever framework and conventions the repo already uses.** If the repo uses a custom test framework (custom file formats, custom runners, domain-specific test utilities), adopt it fully — do not layer pytest on top. Only introduce pytest if the repo has no tests at all.
 
-**Never finish with a failing or erroring test.** Run the full new-test suite before finishing. If a test cannot be made to pass within a reasonable number of attempts, delete it. A smaller suite where every test passes is strictly better than a larger suite with any failure — a suite with one failing test can score zero.
+**Preserve requested regression coverage.** Run the full new-test suite before finishing. Fix test defects without weakening required assertions. If a requested regression exposes a production defect or cannot run because of a tooling/environment blocker, retain the test and report the failing evidence and blocker; do not delete, skip, or xfail it merely to report green. Remove only speculative cases outside the requested scope.
 
 **Start simple to bank coverage.** Write high-certainty tests for pure functions, validation branches, serializers, small helpers, and deterministic error paths before attempting async views, templates, sessions, network paths, or integration-heavy code.
 
@@ -128,9 +128,9 @@ python -c "from package import module; print('ok')"
 
 If a heavy/native dependency such as NumPy, pandas, PyTorch, TensorFlow, cryptography, or a compiled extension cannot be imported or built in the environment:
 
-- Do not write tests that import the failing module
+- For an explicitly requested target, preserve its regression cases and report the import/build failure as an environment blocker; do not replace the requested target with unrelated tests
 - Do not spend the budget fighting native build/import failures or installing unrelated packages
-- Scope down to a pure-Python submodule that imports cleanly, or omit tests for that module rather than shipping ones that cannot run (see *Finalization: Green Suite or Remove*)
+- For an open-ended request only, choose a pure-Python submodule that imports cleanly and disclose the omitted scope (see *Finalization: Validate and Report Blockers*)
 
 ## Test File Naming
 
@@ -152,7 +152,7 @@ If writing new tests in a repo with no tests, default to pytest conventions.
 | `TypeError: missing required argument` | Read the full `__init__`/function signature; pass all required parameters |
 | `async def functions are not natively supported` | Use `@pytest.mark.asyncio` only if `pytest-asyncio` is already in deps; check for `asyncio_mode = "auto"` in config |
 | `DJANGO_SETTINGS_MODULE is undefined` | Use the repo's Django runner or set the same settings module used by existing tests |
-| `ImportError` from `torch`, `numpy`, or compiled extension | Avoid that module; choose a pure-Python target that imports cleanly |
+| `ImportError` from `torch`, `numpy`, or compiled extension | Report the environment blocker for a requested target; choose a pure-Python alternative only for open-ended scope |
 | `SyntaxError` | Fix syntax at the indicated line |
 
 ## Mocking Rules
@@ -177,7 +177,7 @@ Only install packages after investigation confirms they are missing. Use the det
 
 Never run bare `pip install` in a Poetry/PDM/uv project — it bypasses the lockfile.
 
-## Finalization: Green Suite or Remove
+## Finalization: Validate and Report Blockers
 
 Before finishing, run the complete set of tests you added with the repo's native invocation, under the **same env wrapper as the repo's tests** (`poetry run`, `pdm run`, `uv run`, `pipenv run`, `hatch run`). Running the green-suite check in a different interpreter/venv can pass locally yet still fail under the repo's actual runner.
 
@@ -188,7 +188,7 @@ uv run python -m unittest path.to.new_test_module
 poetry run python manage.py test app_label.tests.test_module
 ```
 
-If any new test fails or errors after a reasonable fix attempt, delete that test before finishing. Never leave skipped, xfailed, failing, or collection-error tests just to keep more lines. The final submitted suite must be green.
+Fix test defects and rerun without weakening required assertions. Retain explicitly requested regression cases when they expose a production defect or an environment/collection blocker, and report the exact command, failure, and remaining work rather than claiming success. Do not skip, xfail, or delete required cases to manufacture a green suite. Remove only speculative out-of-scope cases, and disclose any scope reduction.
 
 ## Skip Coverage Tools
 
