@@ -1,0 +1,10 @@
+<Project>
+  <Target Name="ValidateSchema">
+    <Error Condition="!Exists('$(SchemaFile)')"
+           Code="SCHEMA1001"
+           Text="Required schema '$(SchemaFile)' is missing for configuration '$(Configuration)'." />
+  </Target>
+  <Target Name="Build" DependsOnTargets="ValidateSchema">
+    <Message Text="Schema validation succeeded." Importance="high" />
+  </Target>
+</Project>

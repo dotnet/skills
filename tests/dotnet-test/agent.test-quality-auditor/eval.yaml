@@ -97,7 +97,7 @@ stimuli:
           pattern: (?s)(?=.*AddItem_ItemIsAdded)(?=.*AddItem_NegativePrice_Throws)(?=.*ItemCount_AfterAdd)(?=.*GetTotal_WithMultipleItems)
       - type: output-not-matches
         config:
-          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|(?:\s*How to improve\s*\|)?
       - type: run-command
         config:
           command: >-
@@ -381,11 +381,12 @@ stimuli:
         - python .eval/check_readonly.py snapshot WeakTests
       skills:
         - ../../plugins/dotnet-test/skills/grade-tests
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
         - ../../plugins/dotnet-test/skills/test-analysis-extensions
     graders:
       - type: output-matches
         config:
-          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|\s*How to improve\s*\|
       - type: output-matches
         config:
           pattern: (?i)ItemCount_AfterAdd.*Pass.*B\s*\(80.?89\)
@@ -403,6 +404,7 @@ stimuli:
       - ItemCount_AfterAdd is Pass with B quality because its focused equality assertion completely verifies the stated behavior
       - AddItem_Works is Failed with F quality because it executes the behavior without any assertion
       - Used the primary decision result for follow-up and retained the quality grade only as supporting detail
+      - Kept the assessment read-only, included concrete improvements for Failed tests, and composed per-test mutation evidence without execution or delegation
 
   - name: Decline request to generate new tests
     prompt: |

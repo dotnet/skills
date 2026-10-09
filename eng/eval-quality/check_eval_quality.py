@@ -532,6 +532,10 @@ def check_fixtures(spec: str, doc: dict, tracked: set[str]) -> None:
         for entry in (stim.get("environment") or {}).get("files") or []:
             src = entry.get("src")
             dest = entry.get("dest")
+            if src and not dest:
+                errors.append(
+                    f"{spec}: '{stim.get('name')}' fixture {src!r} is missing required dest")
+                continue
             if dest:
                 try:
                     path_within(base, dest)

@@ -35,6 +35,22 @@ CLASSIC_CHECKER = (
 
 
 class EvalAuthenticationDigestTests(unittest.TestCase):
+    def test_curated_auditor_grading_stages_readonly_composition_dependency(self):
+        document = yaml.safe_load(EVALS[1].read_text(encoding="utf-8-sig"))
+        stimulus = next(
+            item for item in document["stimuli"]
+            if item["name"] == "Route a curated test list to per-test decisions"
+        )
+        self.assertIn(
+            "../../plugins/dotnet-test/skills/test-gap-analysis",
+            stimulus["environment"]["skills"],
+        )
+        output_patterns = [
+            grader["config"]["pattern"] for grader in stimulus["graders"]
+            if grader["type"] == "output-matches"
+        ]
+        self.assertTrue(any("How to improve" in pattern for pattern in output_patterns))
+
     def test_specialist_stimuli_stage_their_authentication_helper(self):
         for path in EVALS[1:3]:
             document = yaml.safe_load(path.read_text(encoding="utf-8-sig"))

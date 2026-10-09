@@ -1,0 +1,481 @@
+name: csharp-expert-coexistence
+description: Evaluates routing when dotnet/skills marketplace specialists are already installed
+type: capability
+# Graders are shared by the target-only skilled arm and the full plugin arm. A shared no-install
+# guard is valid only when the stimulus explicitly prohibits installation advice.
+defaults:
+  timeout: 5m
+  runs: 1
+stimuli:
+  - name: Invoke installed Blazor component guidance
+    tags:
+      capability: installed-routing
+      solution: blazor
+      risk: medium
+      journey: create
+    prompt: |
+      Build a reusable editor component with parameters, a RenderFragment content slot, and an event
+      callback to the parent. Complete it with the capabilities available in this run; do not
+      recommend installing anything.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/blazor-components
+          dest: .
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs');
+            const strip=s=>s.replace(/@\*[\s\S]*?\*@/g,'').replace(/<!--[\s\S]*?-->/g,'').replace(/\/\/.*$/gm,'');
+            const editor=strip(fs.readFileSync('Components/Editor.razor','utf8'));
+            const codeBehind=fs.existsSync('Components/Editor.razor.cs')?strip(fs.readFileSync('Components/Editor.razor.cs','utf8')):'';
+            const declarations=editor+'\n'+codeBehind; const params=[];
+            const property=/((?:\[[^\]\r\n]+\]\s*)+)public\s+([^\r\n{=]+?)\s+(\w+)\s*\{\s*get\s*;\s*set\s*;\s*\}/g;
+            for(let match;(match=property.exec(declarations));)
+            if(/\bParameter(?:Attribute)?\b/.test(match[1])) params.push({type:match[2],name:match[3]});
+            const fragment=params.find(p=>/RenderFragment/.test(p.type));
+            const callback=params.find(p=>/EventCallback/.test(p.type));
+            const value=params.find(p=>!/RenderFragment|EventCallback/.test(p.type));
+            if(!fragment||!callback||!value) throw new Error('Expected value, RenderFragment, and EventCallback parameters');
+            const escape=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+            if(!new RegExp('@'+escape(value.name)+'\\b').test(editor)) throw new Error('Value parameter is not rendered');
+            if(!new RegExp('@'+escape(fragment.name)+'\\b').test(editor)) throw new Error('RenderFragment is not rendered');
+            if(!new RegExp(escape(callback.name)+'\\s*\\.\\s*InvokeAsync\\s*\\(').test(declarations))
+            throw new Error('EventCallback is not invoked');
+            const parent=strip(fs.readFileSync('Components/App.razor','utf8'));
+            const opening=parent.match(/<Editor\b([^>]*)>/); const body=parent.match(/<Editor\b[^>]*>([\s\S]*?)<\/Editor>/);
+            if(!opening||!body||!body[1].trim()) throw new Error('Parent does not supply child content');
+            if(!new RegExp('\\b'+escape(value.name)+'\\s*=').test(opening[1])) throw new Error('Parent does not supply value parameter');
+            const callbackWired=new RegExp('\\b'+escape(callback.name)+'\\s*=').test(opening[1]);
+            const bindWired=/Changed$/.test(callback.name)&&new RegExp('@bind-'+escape(callback.name.slice(0,-7))+'\\s*=').test(opening[1]);
+            if(!callbackWired&&!bindWired) throw new Error('Parent does not wire callback');"
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: dotnet build
+          expected_exit_code: 0
+          timeout: 3m
+      - type: output-not-matches
+        config:
+          pattern: /plugin (marketplace add|install)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Completed the Blazor component task without making specialist installation a prerequisite
+      - Grounded the response in the existing Razor component project
+
+  - name: Invoke installed MAUI binding guidance
+    tags:
+      capability: installed-routing
+      solution: maui
+      risk: medium
+      journey: repair
+    prompt: |
+      The page does not update when its view-model property changes. Fix the binding and
+      notification behavior.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/maui-binding
+          dest: .
+    graders:
+      - type: run-command
+        config:
+          command: grep -Eq 'INotifyPropertyChanged|ObservableObject' StatusViewModel.cs
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: grep -Eq 'PropertyChanged|ObservableProperty|SetProperty' StatusViewModel.cs
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs'); const source=fs.readFileSync('StatusViewModel.cs','utf8');
+            const app=fs.readFileSync('App.csproj','utf8'); const usesToolkit=/CommunityToolkit\.Mvvm/.test(source);
+            const packageElement=app.match(/<PackageReference\s+Include=[\"']CommunityToolkit\.Mvvm[\"'][^>]*(?:\/>|>[\s\S]*?<\/PackageReference>)/i);
+            const packageVersion=packageElement&&(packageElement[0].match(/\bVersion=[\"']([^\"']+)[\"']/i)||packageElement[0].match(/<Version>([^<]+)<\/Version>/i));
+            if(usesToolkit&&!packageVersion) throw new Error('CommunityToolkit implementation requires a versioned package reference');
+            fs.mkdirSync('.eval-check',{recursive:true});
+            const packageRef=usesToolkit?'<PackageReference Include=\"CommunityToolkit.Mvvm\" Version=\"'+packageVersion[1]+'\" />':'';
+            fs.writeFileSync('.eval-check/Behavior.csproj','<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup><ItemGroup><Compile Include=\"Program.cs\" /><Compile Include=\"../StatusViewModel.cs\" Link=\"StatusViewModel.cs\" />'+packageRef+'</ItemGroup></Project>');
+            fs.writeFileSync('.eval-check/Program.cs','using System.ComponentModel; using System.Reflection; var type=Assembly.GetExecutingAssembly().GetTypes().Single(t=>t.GetProperty(\"Status\")?.CanWrite==true && typeof(INotifyPropertyChanged).IsAssignableFrom(t)); var vm=Activator.CreateInstance(type)!; var changed=false; ((INotifyPropertyChanged)vm).PropertyChanged+=(s,e)=>changed|=e.PropertyName==\"Status\"; type.GetProperty(\"Status\")!.SetValue(vm,\"Ready\"); if(!changed) throw new Exception(\"Status assignment did not raise PropertyChanged\");');"
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: dotnet run --project .eval-check/Behavior.csproj
+          expected_exit_code: 0
+          timeout: 3m
+      - type: file-not-contains
+        config:
+          path: StatusViewModel.cs
+          value: 'public string Status { get; set; }'
+      - type: file-contains
+        config:
+          path: MainPage.xaml
+          value: 'Text="{Binding Status}"'
+      - type: file-contains
+        config:
+          path: MainPage.xaml
+          value: 'Clicked="OnAdvanceClicked"'
+      - type: file-contains
+        config:
+          path: MainPage.xaml.cs
+          value: BindingContext = ViewModel
+      - type: file-contains
+        config:
+          path: MainPage.xaml.cs
+          value: ViewModel.Status = "Ready"
+      - type: file-contains
+        config:
+          path: App.csproj
+          value: <UseMaui>true</UseMaui>
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Completed the MAUI binding repair without making specialist installation a prerequisite
+      - Recognized the MAUI project and XAML binding evidence
+
+  - name: Invoke installed EF Core optimization guidance
+    tags:
+      capability: installed-routing
+      solution: ef-core
+      risk: high
+      journey: optimize
+    prompt: |
+      Loading orders and their lines issues many database queries. Reduce the database work without
+      changing the returned shape.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/ef-orders
+          dest: .
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs'); const source=fs.readFileSync('OrderQueries.cs','utf8');
+            const code=source.replace(/\/\*[\s\S]*?\*\//g,'').replace(/\/\/.*$/gm,'');
+            const direct=/return\s+await\s+context\s*\.\s*Orders(?:(?!;)[\s\S])*?\.Include\s*\(\s*(\w+)\s*=>\s*\1\s*\.\s*Lines\s*\)(?:(?!;)[\s\S])*?\.ToListAsync\s*\(\s*cancellationToken\s*\)\s*;/;
+            const result=/\b(?:var|IReadOnlyList<Order>|List<Order>)\s+(\w+)\s*=\s*await\s+context\s*\.\s*Orders(?:(?!;)[\s\S])*?\.Include\s*\(\s*(\w+)\s*=>\s*\2\s*\.\s*Lines\s*\)(?:(?!;)[\s\S])*?\.ToListAsync\s*\(\s*cancellationToken\s*\)\s*;[\s\S]{0,400}\breturn\s+\1\s*;/;
+            const query=/\b(?:var|IQueryable<Order>)\s+(\w+)\s*=\s*context\s*\.\s*Orders(?:(?!;)[\s\S])*?\.Include\s*\(\s*(\w+)\s*=>\s*\2\s*\.\s*Lines\s*\)(?:(?!;)[\s\S])*?;[\s\S]{0,400}\breturn\s+await\s+\1\s*\.\s*ToListAsync\s*\(\s*cancellationToken\s*\)\s*;/;
+            if(!direct.test(code) && !result.test(code) && !query.test(code))
+            throw new Error('Returned orders must come from the eager-loading query');"
+          expected_exit_code: 0
+      - type: file-not-contains
+        config:
+          path: OrderQueries.cs
+          value: .Collection(
+      - type: run-command
+        config:
+          command: dotnet build
+          expected_exit_code: 0
+          timeout: 3m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Completed the EF Core optimization without making specialist installation a prerequisite
+      - Identified the repeated related-entity loading as the database concern
+
+  - name: Invoke installed test migration guidance
+    tags:
+      capability: installed-routing
+      solution: test
+      risk: high
+      journey: migrate
+    prompt: |
+      Convert an NUnit test project to MSTest while preserving parameterized cases and lifecycle
+      hooks. Run the migrated tests.
+    environment:
+      files:
+        - src: fixtures/nunit-migration
+          dest: .
+      commands:
+        - >-
+          node -e "const fs=require('fs'); fs.mkdirSync('.eval-baseline',{recursive:true});
+          fs.copyFileSync('TestProject.csproj','.eval-baseline/TestProject.csproj.snapshot');
+          fs.copyFileSync('global.json','.eval-baseline/global.json.snapshot');"
+    graders:
+      - type: file-exists
+        config:
+          path: CalculatorTests.cs
+      - type: file-exists
+        config:
+          path: TestProject.csproj
+      - type: file-exists
+        config:
+          path: global.json
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs');
+            const normalize=s=>s.replace(/\r\n/g,'\n').split('\n').filter(line=>!line.includes('<PackageReference')).join('\n').trim();
+            const before=normalize(fs.readFileSync('.eval-baseline/TestProject.csproj.snapshot','utf8'));
+            const after=normalize(fs.readFileSync('TestProject.csproj','utf8'));
+            if(before!==after) throw new Error('Non-package project settings changed');
+            const globalBefore=fs.readFileSync('.eval-baseline/global.json.snapshot','utf8').replace(/\r\n/g,'\n');
+            const globalAfter=fs.readFileSync('global.json','utf8').replace(/\r\n/g,'\n');
+            if(globalBefore!==globalAfter) throw new Error('global.json changed');"
+          expected_exit_code: 0
+      - type: file-not-contains
+        config:
+          path: "**/*.cs"
+          value: NUnit
+      - type: file-not-contains
+        config:
+          path: "**/*.csproj"
+          value: NUnit
+      - type: file-contains
+        config:
+          path: "**/*.cs"
+          value: '[TestInitialize]'
+      - type: file-contains
+        config:
+          path: "**/*.cs"
+          value: '[TestCleanup]'
+      - type: file-contains
+        config:
+          path: "**/*.cs"
+          value: '[DataRow(2, 3, 6)]'
+      - type: file-contains
+        config:
+          path: "**/*.cs"
+          value: '[DataRow(-1, 1, 1)]'
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_matches: '(?i)Passed:\s+3\b'
+          timeout: 3m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Completed the NUnit-to-MSTest migration without making specialist installation a prerequisite
+      - Preserved the requested test semantics and ran the migrated tests successfully
+
+  - name: Keep an already MSTest project unchanged
+    tags:
+      capability: installed-routing
+      solution: test
+      risk: high
+      journey: migrate
+    prompt: |
+      Convert this NUnit test project to MSTest while preserving its existing tests. Run the tests
+      after the migration.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: ../../dotnet-test-migration/migrate-nunit-to-mstest/fixtures/already-mstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ../../dotnet-test-migration/migrate-nunit-to-mstest/fixtures/already-mstest/ExistingTests.cs
+          dest: ExistingTests.cs
+      commands:
+        - >-
+          node -e "const fs=require('fs'); fs.mkdirSync('.eval-baseline',{recursive:true});
+          for(const file of ['global.json','TestProject.csproj','ExistingTests.cs'])
+          fs.copyFileSync(file,'.eval-baseline/'+file+'.snapshot');"
+    graders:
+      - type: output-matches
+        config:
+          pattern: (already|no.{0,30}migration|not.{0,20}need|already.{0,20}MSTest)
+      - type: output-not-matches
+        config:
+          pattern: /plugin (marketplace add|install)
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs');
+            for(const file of ['global.json','TestProject.csproj','ExistingTests.cs'])
+            if(!fs.readFileSync(file).equals(fs.readFileSync('.eval-baseline/'+file+'.snapshot')))
+            throw new Error(file+' changed');"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 3m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recognized that the project already uses MSTest and needs no NUnit-to-MSTest migration
+      - Left every staged project and test file unchanged
+      - Ran the existing MSTest suite successfully
+      - Did not recommend installing a specialist that is already available
+
+  - name: Invoke installed runtime diagnostics guidance
+    tags:
+      capability: installed-routing
+      solution: runtime
+      risk: high
+      journey: diagnose
+    prompt: |
+      A deployed .NET 10 service in a Linux container has periodic CPU spikes and allocation
+      growth. I have root shell access inside the container. Give me the exact evidence-collection
+      plan to run there, but do not claim a cause before a trace is captured.
+    constraints:
+      reject_tools: [edit, create]
+    graders:
+      - type: output-matches
+        config:
+          pattern: dotnet-trace (collect-linux|collect)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Provided runtime diagnostics guidance without making specialist installation a prerequisite
+      - Selected Linux .NET tracing appropriate to the stated access and avoided inventing a cause
+
+  - name: Invoke installed file based CSharp guidance
+    tags:
+      capability: installed-routing
+      solution: file-based
+      risk: low
+      journey: create
+    prompt: |
+      Create StatusTool.cs as a one-file C# utility. Read the HTTP endpoint from the first command
+      line argument and print the response's name and status JSON fields. With no argument, print
+      `Usage: StatusTool <url>` and exit successfully. Do not create a project.
+    graders:
+      - type: file-contains
+        config:
+          path: StatusTool.cs
+          value: HttpClient
+      - type: file-contains
+        config:
+          path: StatusTool.cs
+          value: name
+      - type: file-contains
+        config:
+          path: StatusTool.cs
+          value: status
+      - type: run-command
+        config:
+          command: test -z "$(find . -name '*.csproj' -print -quit)"
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: dotnet StatusTool.cs
+          expected_exit_code: 0
+          stdout_matches: '(?i)Usage:\s*StatusTool\s+<url>'
+          timeout: 3m
+      - type: run-command
+        config:
+          command: >-
+            node -e "const http=require('http'); const {spawn}=require('child_process');
+            const server=http.createServer((req,res)=>{res.setHeader('Content-Type','application/json');
+            res.end(JSON.stringify({name:'router-probe',status:'healthy'}));});
+            const fail=e=>server.close(()=>{console.error(e);process.exit(1);});
+            server.listen(0,'127.0.0.1',()=>{const url='http://127.0.0.1:'+server.address().port+'/status';
+            const child=spawn('dotnet',['StatusTool.cs',url]); let out=''; let err='';
+            child.stdout.on('data',d=>out+=d); child.stderr.on('data',d=>err+=d);
+            const timer=setTimeout(()=>{child.kill();fail('StatusTool timed out');},30000);
+            child.on('error',fail); child.on('close',code=>{clearTimeout(timer);
+            if(code!==0||!out.includes('router-probe')||!out.includes('healthy')) return fail('Unexpected result: '+code+' '+out+' '+err);
+            server.close(()=>process.exit(0));});});"
+          expected_exit_code: 0
+          timeout: 3m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Completed the file-based C# task without making specialist installation a prerequisite
+      - Respected the no-project constraint
+
+  - name: Invoke installed ASP.NET Core API guidance
+    tags:
+      capability: installed-routing
+      solution: aspnetcore
+      risk: medium
+      journey: create
+    prompt: |
+      Add an endpoint that accepts a multipart file upload, validates the size before processing,
+      and asynchronously copies the uploaded file to its destination.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/aspnet-minimal
+          dest: .
+    graders:
+      - type: file-contains
+        config:
+          path: Program.cs
+          value: MapPost(
+      - type: file-contains
+        config:
+          path: Program.cs
+          value: IFormFile
+      - type: file-contains
+        config:
+          path: Program.cs
+          value: Length
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs'); const source=fs.readFileSync('Program.cs','utf8');
+            const guard=source.search(/\.Length[\s\S]{0,80}>\s*/);
+            const reject=source.search(/(?:Results|TypedResults)\.(?:BadRequest|StatusCode|Problem|ValidationProblem)\s*\(/);
+            const copy=source.search(/\bawait\s+(?:[\w.]+\s*\.\s*)?(?:CopyToAsync|WriteAsync|WriteAllBytesAsync)\s*\(\s*(?!Stream\.Null\b)/);
+            const success=copy < 0 ? -1 : source.slice(copy).search(/(?:Results|TypedResults)\.(?:Ok|Created|NoContent)\s*\(/);
+            if (guard < 0 || reject < guard || copy < reject || success < 0)
+            throw new Error('Expected oversized rejection before an awaited copy/write to a destination and success afterward');"
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: dotnet build
+          expected_exit_code: 0
+          timeout: 3m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Completed the ASP.NET Core endpoint task without making specialist installation a prerequisite
+      - Grounded the response in the existing minimal API project
+
+  - name: Invoke installed framework upgrade guidance
+    tags:
+      capability: installed-routing
+      solution: dotnet
+      risk: high
+      journey: plan
+    prompt: |
+      Before editing this project, identify the specialist that should own its .NET 8 to .NET 9
+      migration and outline the target-framework and validation steps. Do not modify files or
+      recommend installing anything.
+    environment:
+      files:
+        - src: fixtures/dotnet8-upgrade
+          dest: .
+      commands:
+        - >-
+          node -e "const fs=require('fs'); fs.mkdirSync('.eval-baseline',{recursive:true});
+          for(const file of ['App.csproj','Program.cs'])
+          fs.copyFileSync(file,'.eval-baseline/'+file+'.snapshot');"
+    constraints:
+      reject_tools: [bash, edit, create]
+    graders:
+      - type: output-matches
+        config:
+          pattern: net9\.0
+      - type: output-matches
+        config:
+          pattern: dotnet (build|test)
+      - type: output-not-matches
+        config:
+          pattern: /plugin (marketplace add|install)
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs'); for(const file of ['App.csproj','Program.cs'])
+            if(!fs.readFileSync(file).equals(fs.readFileSync('.eval-baseline/'+file+'.snapshot')))
+            throw new Error(file+' changed');"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Selected the .NET 8 to .NET 9 migration specialist without recommending installation
+      - Produced a project-specific migration and validation plan without editing the fixture
