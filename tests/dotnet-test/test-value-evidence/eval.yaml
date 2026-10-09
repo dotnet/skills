@@ -1,0 +1,659 @@
+name: test-value-evidence
+description: Evaluates revision-bound behavioral test evidence and honest review limits
+type: capability
+# Ten distinct preference cases cover static code repair, feature ablation,
+# unchanged tests, refactor preservation, oracle independence, selection,
+# consumer provenance, equivalent edits, and inaccessible review evidence.
+# Three repeats measure reliability; three dormancy cases do not vote.
+defaults:
+  timeout: 5m
+  runs: 3
+stimuli:
+  - name: Repair a threshold without unauthorized execution
+    prompt: |
+      Orders of at least 100 should ship free, but the exact threshold still
+      costs 10. Fix boundary.py. Keep test_boundary.py unchanged and
+      explain from the source which existing case distinguishes the original
+      defect from the fix. Do not execute commands; I want a minimal patch
+      and a static assessment, with no extra files.
+    constraints:
+      reject_tools: [bash, powershell, task, author_factory]
+    tags:
+      capability: actual-defect-detection
+      risk: green-only-regression-proof
+      journey: implement-boundary-fix
+    environment:
+      files:
+        - src: fixtures/boundary.py
+          dest: boundary.py
+        - src: fixtures/test_boundary.py
+          dest: test_boundary.py
+        - src: graders/check_workspace.py
+          dest: .eval/check_workspace.py
+    golden_patch:
+      path: golden.patch
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: evidence-static-patch
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              **Test-value evidence:** static: predicts detection.
+              The minimal patch changes shipping_cost's > to >=.
+              test_exact_threshold asserts the independent contract's 0 at 100;
+              the original comparison returns 10, so that assertion would fail.
+              Three existing cases protect below/at/above the threshold.
+              Execution was prohibited, so selected/executed/passed/failed/skipped
+              counts and process exits are unknown, not measured red-green proof.
+              The supplied fixture has no commit SHAs; golden.patch identifies
+              the tested change. Existing unchanged tests suffice.
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, powershell, task, author_factory]
+      - type: output-matches
+        config: &report
+          pattern: (?i)test.value evidence
+      - type: output-matches
+        config:
+          pattern: (?i)test_exact_threshold
+      - type: output-matches
+        config:
+          pattern: (?i)(counterfactual|original|pre.fix)[\s\S]*(exit\s*1|fail)
+      - type: output-matches
+        config:
+          pattern: (?i)(static|unverified|not executed)
+      - type: output-not-matches
+        config:
+          pattern: (?i)executed:\s*(detected|survived)
+      - type: run-command
+        config:
+          # Vally executes explicit args in the trial workspace. Authenticate
+          # the staged helper before execution; expected answers stay in argv.
+          # Replay proves the paired behavior, not the executor's tool history.
+          # Only the changed product may omit its terminal LF; tests stay exact.
+          command: python
+          args:
+            - -I
+            - -B
+            - -c
+            - >-
+              import hashlib,pathlib,sys;
+              p=pathlib.Path('.eval/check_workspace.py');
+              data=p.read_bytes().replace(b'\r\n',b'\n');
+              assert not p.is_symlink() and not p.parent.is_symlink();
+              assert hashlib.sha256(data).hexdigest() == '3d3aa717b7a83d3656aa88840a2425937eb00b0914e896fee5e7a85345fa7ffb';
+              sys.argv=[str(p),*sys.argv[1:]];
+              exec(compile(data,str(p),'exec'),{'__name__':'__main__'})
+            - --expect
+            - f51b404d8de6f3aaec18b8af4f54c19c50cb9a157eb53834689ead1b1cd4eee6:boundary.py
+            - --expect
+            - fea6f5fec6509fc06f7bfdbabd43b7f2d48992b11c2d69ac84369d51fed000c7:test_boundary.py
+            - --expect
+            - 3d3aa717b7a83d3656aa88840a2425937eb00b0914e896fee5e7a85345fa7ffb:.eval/check_workspace.py
+            - --optional
+            - 6bdc27d24c2c67df88fd53a9e32dbd74225229d58889e8994f6f03323a73b372:test-value-evidence/SKILL.md
+            - --original
+            - boundary.py:ZGVmIHNoaXBwaW5nX2Nvc3QoYW1vdW50KToKICAgICIiIk9yZGVycyBvZiBhdCBsZWFzdCAxMDAgc2hpcCBmcmVlOyBvdGhlciBvcmRlcnMgY29zdCAxMC4iIiIKICAgIHJldHVybiAwIGlmIGFtb3VudCA+IDEwMCBlbHNlIDEwCg==
+            - --tests
+            - test_boundary.py
+            - --selection
+            - test_boundary.BoundaryTests
+            - --failed-test
+            - test_exact_threshold
+            - --assertion
+            - "AssertionError: 0 != 10"
+            - --count
+            - "3"
+          expected_exit_code: 0
+          timeout: 1m
+          stdout_matches: '"kind": "grader-replay-not-executor-history"'
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Corrected only the exact boundary while keeping the existing test file unchanged
+      - Explained why the independent exact-threshold assertion distinguishes the old defect from the fixed behavior
+      - Kept the result a source-based prediction and did not execute commands or invent measured counts
+      - Identified the tested revisions or patches without inventing commit provenance
+      - Preserved the original test inputs and assertions across the comparison and left no defective product variant
+
+  - name: Reject a missing method as feature detection
+    prompt: |
+      Review only this feature diff and the author's check; do not edit or run
+      anything. The requirement is that Export writes a JSON file with id 7.
+      Head adds Export() and the test calls it, reads the file, and asserts
+      parsed["id"] == 7. The author deleted Export to check the test, got CS1061,
+      and says this proves the test detects a missing feature. Head CI is green.
+      Is that claim supported, and what would a useful check look like?
+    tags:
+      capability: buildable-feature-ablation
+      risk: compile-error-as-behavior-proof
+      journey: review-new-feature
+    constraints: &read_only
+      reject_tools: [bash, powershell, edit, create, apply_patch, task, author_factory]
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: evidence-feature
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              **Test-value evidence:** unverified; CS1061 is a compilation
+              failure, not detection of missing JSON behavior.
+              Keep Export's signature and replace its body with a buildable no-op
+              or write the wrong id. Static: predicts detection via file/id
+              assertions. Exact base/head SHAs, patch identity and paired
+              command/exits/counts/artifacts are missing; green CI is insufficient.
+    graders:
+      # Explicit trajectory grading enforces restraint in the production runner.
+      - type: tool-calls
+        config: &no_execution
+          disallowed: [bash, powershell, edit, create, apply_patch, task, author_factory]
+      - type: output-matches
+        config: *report
+      - type: output-matches
+        config:
+          pattern: (?i)(compil|CS1061)[\s\S]*(not|no).*?(proof|detection|behavior)
+      - type: output-matches
+        config:
+          pattern: (?i)(no.op|signature|buildable|wrong id)
+      - type: output-matches
+        config: &nonexecution
+          pattern: (?i)(static|unverified|not executed)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Rejected the compiler error as evidence about the file-writing contract
+      - Proposed an API-compatible disabled or incorrect implementation that lets the existing assertions run
+      - Did not treat green CI as a paired feature check or invent missing revision/run evidence
+
+  - name: Credit an unchanged test for a source-only fix
+    prompt: |
+      Read-only review: base aaaaaaa computes retry delay as seconds * 100;
+      head bbbbbbb changes it to seconds * 1000. The contract is milliseconds.
+      RetryTests.DelayForTwoSeconds already asserts Delay(2) == 2000 and its
+      setup calls this real implementation. No tests changed. No logs are
+      available. Must this PR add a new test before its fix can be assessed?
+    tags:
+      capability: unchanged-test-credit
+      risk: redundant-regression-test-demand
+      journey: review-source-only-fix
+    constraints: *read_only
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: evidence-unchanged
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              **Test-value evidence:** static: predicts detection.
+              RetryTests.DelayForTwoSeconds already distinguishes base aaaaaaa's
+              200 from head bbbbbbb's contractual 2000. An unchanged test suffices;
+              a duplicate is not required. Restore * 100 as the counterfactual.
+              Exact full revision identities and paired commands, exits, counts
+              and artifacts are missing; this is not executed proof.
+    graders:
+      - type: tool-calls
+        config: *no_execution
+      - type: output-matches
+        config: *report
+      - type: output-matches
+        config:
+          pattern: (?i)(unchanged|existing)[\s\S]*(suffic|suffice|already|protect)
+      - type: output-matches
+        config:
+          pattern: (?i)200[\s\S]*2000|2000[\s\S]*200
+      - type: output-matches
+        config: *nonexecution
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Credited the existing direct assertion and did not require a redundant new test
+      - Distinguished predicted failure of the real old arithmetic from observed execution
+      - Identified the missing execution records instead of claiming proof from the diff
+
+  - name: Preserve a refactor instead of demanding old-version failure
+    prompt: |
+      Do not edit or run code. A behavior-preserving refactor replaces
+      return min(amount, 100) with return amount if amount < 100 else 100.
+      The existing cases assert results for amounts 99, 100 and 101.
+      The reviewer says these tests are ineffective because they would pass
+      on the old code too. Evaluate that objection; no run artifacts are given.
+    tags:
+      capability: refactor-preservation
+      risk: false-missing-red-defect
+      journey: review-preserving-refactor
+    constraints: *read_only
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: evidence-refactor
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              **Test-value evidence:** static preservation prediction.
+              Passing on both revisions is expected for this refactor, not a
+              test gap. The contract at 99/100/101 is preserved; optionally
+              probing a wrong cap is a separate check. Runs, full revision
+              identities, commands, exits, counts and artifacts are unavailable.
+    graders:
+      - type: tool-calls
+        config: *no_execution
+      - type: output-matches
+        config: *report
+      - type: output-matches
+        config:
+          pattern: (?i)(both revisions|both versions|before and after)
+      - type: output-matches
+        config:
+          pattern: (?i)(expected|preserv)
+      - type: output-matches
+        config: *nonexecution
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Rejected the requirement for refactor tests to fail on the old implementation
+      - Explained the preserved caller-visible contract without inventing execution
+
+  - name: Separate an independent requirement from a mirrored oracle
+    prompt: |
+      Review this rate-fix test without running or editing anything. Requirement:
+      charge 10 percent of 80, so the fee is 8. Base returns amount * .2;
+      head returns amount * .1. The test obtains expected = Fee(80) and then
+      assert Fee(80) == expected. CI passes. Does this establish that the
+      intended fee is protected?
+    tags:
+      capability: independent-contract-oracle
+      risk: implementation-mirrored-expectation
+      journey: review-financial-fix
+    constraints: *read_only
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: evidence-oracle
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              **Test-value evidence:** static: predicts survival.
+              expected mirrors Fee, so restoring .2 yields 16 on both sides
+              and the assertion still passes. Assert the independent contract's
+              8 for input 80 instead. No paired execution, exact revision/patch,
+              commands, exits, counts or artifacts establish a measured result.
+    graders:
+      - type: tool-calls
+        config: *no_execution
+      - type: output-matches
+        config: *report
+      - type: output-matches
+        config:
+          pattern: (?i)(self|mirror|same.*(function|algorithm)|tautolog)
+      - type: output-matches
+        config:
+          pattern: (?i)(assert|expect|contract)[\s\S]*\b8\b
+      - type: output-matches
+        config: *nonexecution
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified why the implementation-derived expectation accepts the actual old defect
+      - Derived the expected 8 from the requirement rather than the implementation
+      - Reported a predicted gap without a measured mutation score
+
+  - name: Reject skipped target tests and unrelated setup failure
+    prompt: |
+      Read-only assessment. For a cancellation fix, the correct run reports
+      selected 1, executed 1, passed 1, failed 0, skipped 0, exit 0.
+      Restoring the original lost-cancellation branch builds successfully,
+      but the run reports selected 1, executed 0, passed 0, failed 0,
+      skipped 1. A separate setup process fails with exit 1 due to expired
+      credentials before CancellationTests.Propagates can run.
+      The author calls that red-green proof. Is the conclusion warranted?
+    tags:
+      capability: attributable-selection-evidence
+      risk: unrelated-failure-as-detection
+      journey: assess-partial-run-records
+    constraints: *read_only
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: evidence-skipped
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              **Test-value evidence:** unverified. The target is skipped with
+              zero tests executing in the defective variant; the credential/setup exit 1
+              is not an attributable cancellation assertion. The correct
+              run's pass alone is insufficient. Preserve these per-run counts;
+              obtain a matching failing target assertion and full revision,
+              counterfactual patch, command and artifact provenance.
+    graders:
+      - type: tool-calls
+        config: *no_execution
+      - type: output-matches
+        config: *report
+      - type: output-matches
+        config:
+          pattern: (?i)unverified
+      - type: output-matches
+        config:
+          pattern: (?i)(skip|executed\s*0|zero.*execut)
+      - type: output-matches
+        config:
+          pattern: (?i)(credential|setup)[\s\S]*(not|unrelated)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Did not count a skipped target or credential failure as detection of the restored defect
+      - Kept the passing correct run distinct from the missing meaningful failure
+      - Identified the specific evidence needed to complete the comparison
+
+  - name: Reject paired packages that load the same consumer bytes
+    prompt: |
+      Review these acceptance records without execution or edits. This PR adds
+      a plugin handshake and legacy fallback. The new and disabled producer
+      packages both use version 1.0.0. Unit checks cover a mocked consumer.
+      Both acceptance restores resolve cache/plugins/1.0.0/head.dll with
+      identical SHA-256. The author says the two green commands validate the
+      real fallback. Are the records adequate for release?
+    tags:
+      capability: shipping-consumer-provenance
+      risk: stale-variant-false-proof
+      journey: validate-cross-component-release
+    constraints: *read_only
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: evidence-consumer
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              **Test-value evidence:** unverified. Both consumers load head.dll,
+              so the disabled variant has no proven package provenance.
+              Rebuild/repack each variant and isolate effective package caches;
+              prove the loaded shipping consumer/producer hashes and versions.
+              Validate handshake and no-handshake legacy fallback, exit codes
+              and applicable cancellation/partial/multi-module behavior using
+              aligned shipping packages/release branches. Mocks and two green
+              commands do not supply this evidence.
+    graders:
+      - type: tool-calls
+        config: *no_execution
+      - type: output-matches
+        config: *report
+      - type: output-matches
+        config:
+          pattern: (?i)unverified
+      - type: output-matches
+        config:
+          pattern: (?i)(cache|repack|rebuild)[\s\S]*(variant|isolat|package)
+      - type: output-matches
+        config:
+          pattern: (?i)(loaded|shipping|consumer)[\s\S]*(hash|version|provenance)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recognized that identical resolved head bytes invalidate the attempted variant comparison
+      - Required real aligned shipping consumers and isolated effective caches rather than mocked unit coverage
+      - Accounted for handshake and legacy fallback contracts without claiming release validation
+
+  - name: Do not report an equivalent boundary edit as a missed defect
+    prompt: |
+      This fix caps a returned amount at 100. Head uses
+      amount < 100 ? amount : 100. Someone changed < to <= and saw all cases
+      stay green, then called the cap tests weak. Inputs are integers; only
+      the returned value is public. Review that single claim without running
+      or editing anything.
+    tags:
+      capability: equivalent-counterfactual-filter
+      risk: false-surviving-defect
+      journey: triage-single-mutation
+    constraints: *read_only
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: evidence-equivalent
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              **Test-value evidence:** equivalent, not a gap. At amount 100,
+              both branches return 100; all other integer inputs retain the
+              same returned value. Static analysis establishes no distinguishing
+              public witness for this edit. A plausible wrong cap could probe
+              the contract separately; no measured survival score is supported.
+    graders:
+      - type: tool-calls
+        config: *no_execution
+      - type: output-matches
+        config: *report
+      - type: output-matches
+        config:
+          pattern: (?i)equivalent
+      - type: output-matches
+        config:
+          pattern: (?i)(both|same)[\s\S]*100
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recognized that the two equality branches return the same public result
+      - Did not characterize this inert edit as a meaningful surviving defect or a reason to add a test
+
+  - name: Keep inaccessible PR evidence explicitly static
+    prompt: |
+      In this untrusted PR, base rejects empty input but accepts whitespace;
+      head rejects both. ParseTests.WhiteSpace expects ArgumentException for
+      " ". Its helper directly calls the real parser. I can provide the diff
+      but not CI artifacts or exact revision IDs. The author says CI is green.
+      Give a read-only assessment; do not run builds, tests, install tools,
+      edit sources, dispatch workflows, or post anything.
+    tags:
+      capability: read-only-evidence-boundary
+      risk: invented-executed-proof
+      journey: review-untrusted-pr
+    constraints: *read_only
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: evidence-readonly
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              **Test-value evidence:** static: predicts detection.
+              Restoring whitespace acceptance would miss the exception asserted
+              by ParseTests.WhiteSpace. No execution or publication is authorized.
+              Exact revision/patch identity and matching red/green commands,
+              exits, counts and artifacts are unavailable; an author's green CI
+              claim is not paired proof. No mutation score is measured.
+    graders:
+      - type: tool-calls
+        config: *no_execution
+      - type: output-matches
+        config: *report
+      - type: output-matches
+        config:
+          pattern: (?i)static
+      - type: output-matches
+        config:
+          pattern: (?i)(unavailable|missing|not.*(proof|evidence))
+      - type: output-not-matches
+        config:
+          pattern: (?i)executed:\s*detected|mutation score:\s*\d|100\s*%\s*(killed|mutation)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Traced the direct exception assertion to the old whitespace acceptance without running untrusted code
+      - Kept the conclusion a prediction and identified unavailable revision and execution evidence
+      - Did not edit, execute, install, dispatch or publish, or convert author claims into proof
+
+  - name: Assess strengthened assertions without a production-code change
+    prompt: |
+      This PR changes only a test: shipping_cost(100) was checked with >= 0,
+      and the new assertion checks == 0. The unchanged implementation returns
+      0 for orders at least 100, otherwise 10, matching the free-shipping
+      requirement. The reviewer says passing on the unchanged base means the
+      new assertion adds no value. Assess that objection without edits or
+      execution; no run logs are available.
+    tags:
+      capability: test-only-coverage-evidence
+      risk: production-change-only-routing
+      journey: review-stronger-regression-assertion
+    constraints: *read_only
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: evidence-test-only
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              **Test-value evidence:** static: predicts detection.
+              This identified test-only change strengthens coverage even though
+              the healthy production base still passes. Changing >= 100 to > 100
+              would return 10 at 100: the old nonnegative assertion accepts 10,
+              while the new == 0 assertion rejects it. This is a prediction, not
+              measured red-green proof; revision identities and run records
+              remain unavailable.
+    graders:
+      - type: tool-calls
+        config: *no_execution
+      - type: output-matches
+        config: *report
+      - type: output-matches
+        config: *nonexecution
+      - type: output-matches
+        config:
+          pattern: '(?i)(?:(?:old|previous|original|>=\s*0)[^.;,\r\n]{0,160}(?:accept|pass|true|satisf)[^.;,\r\n]{0,80}(?:10|wrong|mutant)|(?:old|previous|original|>=\s*0)[^.;,\r\n]{0,160}10[^.;,\r\n]{0,80}(?:accept|pass|true|satisf)|10\s*>=\s*0[^.;,\r\n]{0,80}(?:true|pass))'
+      - type: output-matches
+        config:
+          pattern: '(?i)(?:(?:new|stronger|exact|==\s*0)[^.;,\r\n]{0,160}(?:reject|fail|false|detect)[^.;,\r\n0-9]{0,80}(?:\b10\b|\bit\b|wrong result|mutant|incorrect result)|10\s*==\s*0[^.;,\r\n]{0,80}(?:false|fail))'
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Credited stronger test-only assertions despite unchanged healthy production code
+      - Identified a plausible wrong boundary whose result satisfies the old assertion but violates the new one
+      - Kept the evidence static without inventing measured results or requiring a source-code diff
+
+  - name: Leave individual quality grades to the grading workflow
+    expect_activation: false
+    constraints: *read_only
+    prompt: |
+      Grade only this pytest test for readiness and A-F quality; do not discuss
+      a change or run anything: def test_sum(): assert sum([1, 2]) == 3.
+    tags:
+      capability: curated-grading-routing
+      risk: revision-proof-hijacks-quality-grading
+      journey: grade-named-test
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: evidence-dormant-grading
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Pass, A quality: the direct assertion covers the supplied sum
+              example. No concrete improvement is required for that narrow
+              claim; no revision comparison or execution is needed.
+    graders:
+      - type: tool-calls
+        config: *no_execution
+      - type: output-matches
+        config:
+          pattern: (?i)(pass|ready|grade|quality)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Addressed the supplied test's quality without demanding revision comparisons or running tests
+      - Did not invoke an unrelated change-validation workflow or expand the requested scope
+
+  - name: Leave existing-suite blind spots to the gap workflow
+    expect_activation: false
+    constraints: *read_only
+    prompt: |
+      No PR or source change is involved. My clamp function is min(x, 10).
+      Existing tests check only x=3. Which caller-visible small changes would
+      those tests miss? Keep the answer static and focused on this suite.
+    tags:
+      capability: general-gap-routing
+      risk: revision-proof-hijacks-suite-analysis
+      journey: inspect-existing-suite
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: evidence-dormant-gap
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              The cap is untested: changing min(x, 10) to x preserves the
+              existing x=3 result but returns 11 rather than 10 at x=11.
+              Assert the capped result for x=11. This is static reasoning,
+              not a measured mutation result.
+    graders:
+      - type: tool-calls
+        config: *no_execution
+      - type: output-matches
+        config:
+          pattern: (?i)(cap|10|above|boundar)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified the untested cap behavior without demanding unrelated PR identities or executing code
+      - Did not invoke an unrelated revision-validation workflow or expand the requested scope
+
+  - name: Leave repository mutation campaigns outside change evidence
+    expect_activation: false
+    constraints: *read_only
+    prompt: |
+      I want to plan Stryker installation and a whole-repository mutation-score
+      campaign for our .NET suite, not validate a particular PR or fix.
+      Explain prerequisites and scope only; do not install or run anything.
+    tags:
+      capability: mutation-campaign-routing
+      risk: change-proof-hijacks-mutation-tooling
+      journey: plan-mutation-campaign
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: evidence-dormant-campaign
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Plan Stryker against a supported SDK and test framework, with
+              a stable green baseline and a bounded initial project selection.
+              Keep installation and execution separately authorized; do not
+              introduce a new mutation engine or score unexecuted candidates.
+    graders:
+      - type: tool-calls
+        config: *no_execution
+      - type: output-matches
+        config:
+          pattern: (?i)(stryker|mutation)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Kept the answer advisory and about existing mutation tooling rather than introducing a new engine or performing revision experiments
+      - Did not invoke an unrelated change-validation workflow or expand the requested scope
