@@ -1,6 +1,6 @@
 ---
 name: technology-selection
-description: "Guides technology selection and implementation of AI and ML features in .NET 8+ applications using ML.NET, Microsoft.Extensions.AI (MEAI), Microsoft Agent Framework (MAF), GitHub Copilot SDK, ONNX Runtime, and OllamaSharp. Covers the full spectrum from classic ML through modern LLM orchestration to local inference. Use when adding classification, regression, clustering, anomaly detection, recommendation, LLM integration (text generation, summarization, reasoning), RAG pipelines with vector search, agentic workflows with tool calling, Copilot extensions, or custom model inference via ONNX Runtime to a .NET project. DO NOT USE FOR projects targeting .NET Framework (requires .NET 8+), the task is pure data engineering or ETL with no ML/AI component, or the project needs a custom deep learning training loop (use Python with PyTorch/TensorFlow, then export to ONNX for .NET inference)."
+description: "Guides technology selection and implementation of AI and ML features in .NET 8+ using ML.NET, Microsoft.Extensions.AI, Microsoft Agent Framework, GitHub Copilot SDK, ONNX Runtime, and OllamaSharp. Use for classification and churn prediction, regression, clustering, anomaly detection, recommendation, LLM integration, RAG, AI agents with web-search or note-taking tools, Copilot extensions, ONNX inference, or reviewing an existing AI architecture. DO NOT USE to train a new convolutional/neural network from scratch, design custom augmentations, run distributed GPU training, or manage training experiments. Also exclude .NET Framework and pure ETL with no ML/AI. Use Python with PyTorch/TensorFlow for training, then export a versioned ONNX artifact for production inference."
 license: MIT
 ---
 
@@ -9,6 +9,10 @@ license: MIT
 Pick the right technology first, then deliver **only what the task asks for**. If the task asks for
 a plan, comparison, or architecture (or says "do not write code"), produce that — do not scaffold,
 build, or run code unprompted.
+
+When the user asks you to review an existing project, inspect the relevant project, data, and
+requirements files before choosing a technology. "Answer from this file alone" below means do not
+open a branch reference for a plan-only request; it does not mean skip the user's repository.
 
 ## Step 1: Classify the task (decision tree)
 
@@ -49,9 +53,13 @@ via DI; load secrets from user-secrets / env / Key Vault — never hardcode keys
 
 Every answer — plan or implementation — must address the guardrails for the selected branch:
 
-- **ML.NET** — `new MLContext(seed: …)` (reproducible); `TrainTestSplit` + evaluate on the held-out
-  set; report real metrics (MicroAccuracy/MacroAccuracy/LogLoss, AUC/F1, or RMSE/R²); serve with
-  `PredictionEnginePool<TIn,TOut>` (never a singleton `PredictionEngine`).
+- **ML.NET** — inspect row count, class balance, and label quality before approving training. If the
+  fixture has only a handful of rows, state that no split or cross-validation can produce credible
+  performance evidence and require more representative labeled data. With adequate data, use
+  `new MLContext(seed: …)` (reproducible), `TrainTestSplit`, held-out metrics
+  (MicroAccuracy/MacroAccuracy/LogLoss, AUC/F1, or RMSE/R²), and threshold/calibration decisions
+  tied to false-positive/false-negative cost. Serve with `PredictionEnginePool<TIn,TOut>` (never a
+  singleton `PredictionEngine`) and plan drift monitoring and periodic revalidation.
 - **LLM (MEAI)** — depend on `IChatClient` registered via `AddChatClient` (provider behind it);
   set `Temperature` and `MaxOutputTokens` in `ChatOptions`; add retry/timeout
   (`RetryingChatClient`/Polly); pin a dated model; load keys from user-secrets / env / Key Vault —
@@ -64,14 +72,35 @@ Every answer — plan or implementation — must address the guardrails for the 
   the embeddings** (don't re-embed per query); store/query with
   `Microsoft.Extensions.VectorData.Abstractions` (MEVD) + the provider the user asked for (e.g.
   pgvector); filter by a **minimum similarity score**; keep **source attribution** for each answer.
-  Honor the UI/storage the user specified; use only real, existing NuGet packages.
+  Maintain a manifest keyed by stable source identity with path, normalized-content hash, chunk
+  hashes, and the current index generation. Use the content hash as an embedding-cache key, **not**
+  as the sole document identity (two files can have identical content). On a rename with unchanged
+  content, update path metadata without re-embedding; on changed content, replace only changed
+  chunks; on deletion, remove orphan vectors. Build a complete new generation and switch it
+  atomically so queries never see a half-updated index. Deduplicate retrieved context before
+  generation. Honor the UI/storage the user specified; use only real, existing NuGet packages.
+- **ONNX inference** — validate model input/output names, types, and shapes at startup; register and
+  warm one `InferenceSession`; bound input and batch sizes; dispose native-backed results; version
+  the artifact with its preprocessing contract.
+- **Local/offline LLM** — put OllamaSharp behind `IChatClient`; externalize endpoint/model settings;
+  verify the model is installed before serving; bound prompt, output, timeout, cancellation,
+  concurrency, memory, and latency. If policy requires local-only operation, fail cleanly rather
+  than silently falling back to a cloud provider.
+- **Copilot SDK** — pin the pre-1.0 SDK; reuse one `CopilotClient`; create a bounded disposable
+  session per workflow; set working directory, model, permissions, timeout, and cancellation;
+  default unattended permission requests to deny; capture error, usage, and completion events.
+- **Hybrid** — keep the deterministic ML score authoritative and persisted before LLM explanation;
+  pass only approved evidence to the LLM, validate its output, and return a deterministic fallback
+  without changing the score when generation fails.
 
 **Then choose depth:**
 
-- **Plan / comparison / architecture only** (or "do not write code"): answer from this file alone
-  using the essentials above. **Do NOT open a reference** — the branch essentials here are
-  sufficient for a selection or plan. For RAG plans, cover chat, ingestion/chunking, embeddings,
-  vector storage, source attribution, and the requested UI/storage.
+- **Plan / comparison / architecture only** (or "do not write code"): inspect the supplied project
+  context, then answer using the essentials above. **Do NOT open a reference** — the branch
+  essentials here are sufficient for a selection or plan. For RAG plans, cover chat,
+  ingestion/chunking, embeddings, vector storage, source attribution, and the requested UI/storage.
+- **Review of an already-correct design**: state that no change is needed and preserve the
+  workspace. Do not add a framework, provider, or abstraction only to demonstrate the skill.
 - **Writing implementation code**: read the matching reference(s) for packages and implementation
   guidance (read only the selected branch; for Hybrid, read both Classic ML.NET and LLM):
   - Classic ML.NET → [`references/classic-ml.md`](references/classic-ml.md)
