@@ -14,7 +14,8 @@ stimuli:
       Orders of at least 100 should ship free, but the exact threshold still
       costs 10. Fix boundary.py. Keep test_boundary.py unchanged and show
       whether its current cases detect the original problem, not just whether
-      the final suite is green. Limit the work to this defect.
+      the final suite is green. Limit the work to this defect; capture run
+      evidence in terminal output and leave no extra files.
     tags:
       capability: actual-defect-detection
       risk: green-only-regression-proof
@@ -25,6 +26,8 @@ stimuli:
           dest: boundary.py
         - src: fixtures/test_boundary.py
           dest: test_boundary.py
+        - src: graders/check_workspace.py
+          dest: .eval/check_workspace.py
     golden_patch:
       path: golden.patch
     golden_trajectory:
@@ -61,20 +64,47 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)(selected|executed)[\s\S]*3
-      - type: file-contains
-        config:
-          path: boundary.py
-          value: amount >= 100
       - type: run-command
         config:
-          command: python -B -m unittest -v test_boundary.BoundaryTests 2>&1
-          stdout_matches: Ran 3 tests[\s\S]*OK
-      - type: run-command
-        config:
-          command: >-
-            python -c "from pathlib import Path; import hashlib;
-            assert hashlib.sha256(Path('test_boundary.py').read_bytes()).hexdigest()
-            == 'fea6f5fec6509fc06f7bfdbabd43b7f2d48992b11c2d69ac84369d51fed000c7'"
+          # Vally executes explicit args in the trial workspace. Authenticate
+          # the staged helper before execution; expected answers stay in argv.
+          # Replay proves the paired behavior, not the executor's tool history.
+          # Only the changed product may omit its terminal LF; tests stay exact.
+          command: python
+          args:
+            - -B
+            - -c
+            - >-
+              import hashlib,pathlib,sys;
+              p=pathlib.Path('.eval/check_workspace.py');
+              data=p.read_bytes().replace(b'\r\n',b'\n');
+              assert not p.is_symlink() and not p.parent.is_symlink();
+              assert hashlib.sha256(data).hexdigest() == '0188849c1fb3dc05a22b1b060f0ad1cdd75f8db81ad9e1b5ee248d37570c00c6';
+              sys.argv=[str(p),*sys.argv[1:]];
+              exec(compile(data,str(p),'exec'),{'__name__':'__main__'})
+            - --expect
+            - f51b404d8de6f3aaec18b8af4f54c19c50cb9a157eb53834689ead1b1cd4eee6:boundary.py
+            - --expect
+            - fea6f5fec6509fc06f7bfdbabd43b7f2d48992b11c2d69ac84369d51fed000c7:test_boundary.py
+            - --expect
+            - 0188849c1fb3dc05a22b1b060f0ad1cdd75f8db81ad9e1b5ee248d37570c00c6:.eval/check_workspace.py
+            - --optional
+            - 57a22e3b37bf90359e30e9770be45a6aa0308bcd6c8ce9dda182c346b380a641:test-value-evidence/SKILL.md
+            - --original
+            - boundary.py:ZGVmIHNoaXBwaW5nX2Nvc3QoYW1vdW50KToKICAgICIiIk9yZGVycyBvZiBhdCBsZWFzdCAxMDAgc2hpcCBmcmVlOyBvdGhlciBvcmRlcnMgY29zdCAxMC4iIiIKICAgIHJldHVybiAwIGlmIGFtb3VudCA+IDEwMCBlbHNlIDEwCg==
+            - --tests
+            - test_boundary.py
+            - --selection
+            - test_boundary.BoundaryTests
+            - --failed-test
+            - test_exact_threshold
+            - --assertion
+            - "AssertionError: 0 != 10"
+            - --count
+            - "3"
+          expected_exit_code: 0
+          timeout: 1m
+          stdout_matches: '"kind": "grader-replay-not-executor-history"'
       - type: exit-success
       - type: prompt
     rubric:
@@ -96,7 +126,7 @@ stimuli:
       risk: compile-error-as-behavior-proof
       journey: review-new-feature
     constraints: &read_only
-      reject_tools: [edit, create]
+      reject_tools: [bash, edit, create]
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6
@@ -113,6 +143,10 @@ stimuli:
               assertions. Exact base/head SHAs, patch identity and paired
               command/exits/counts/artifacts are missing; green CI is insufficient.
     graders:
+      # Explicit trajectory grading enforces restraint in the production runner.
+      - type: tool-calls
+        config: &no_execution
+          disallowed: [bash, edit, create]
       - type: output-matches
         config: *report
       - type: output-matches
@@ -159,6 +193,8 @@ stimuli:
               Exact full revision identities and paired commands, exits, counts
               and artifacts are missing; this is not executed proof.
     graders:
+      - type: tool-calls
+        config: *no_execution
       - type: output-matches
         config: *report
       - type: output-matches
@@ -203,6 +239,8 @@ stimuli:
               probing a wrong cap is a separate check. Runs, full revision
               identities, commands, exits, counts and artifacts are unavailable.
     graders:
+      - type: tool-calls
+        config: *no_execution
       - type: output-matches
         config: *report
       - type: output-matches
@@ -246,6 +284,8 @@ stimuli:
               8 for input 80 instead. No paired execution, exact revision/patch,
               commands, exits, counts or artifacts establish a measured result.
     graders:
+      - type: tool-calls
+        config: *no_execution
       - type: output-matches
         config: *report
       - type: output-matches
@@ -293,6 +333,8 @@ stimuli:
               obtain a matching failing target assertion and full revision,
               counterfactual patch, command and artifact provenance.
     graders:
+      - type: tool-calls
+        config: *no_execution
       - type: output-matches
         config: *report
       - type: output-matches
@@ -342,6 +384,8 @@ stimuli:
               aligned shipping packages/release branches. Mocks and two green
               commands do not supply this evidence.
     graders:
+      - type: tool-calls
+        config: *no_execution
       - type: output-matches
         config: *report
       - type: output-matches
@@ -387,6 +431,8 @@ stimuli:
               public witness for this edit. A plausible wrong cap could probe
               the contract separately; no measured survival score is supported.
     graders:
+      - type: tool-calls
+        config: *no_execution
       - type: output-matches
         config: *report
       - type: output-matches
@@ -430,6 +476,8 @@ stimuli:
               exits, counts and artifacts are unavailable; an author's green CI
               claim is not paired proof. No mutation score is measured.
     graders:
+      - type: tool-calls
+        config: *no_execution
       - type: output-matches
         config: *report
       - type: output-matches
@@ -450,6 +498,7 @@ stimuli:
 
   - name: Leave individual quality grades to the grading workflow
     expect_activation: false
+    constraints: *read_only
     prompt: |
       Grade only this pytest test for readiness and A-F quality; do not discuss
       a change or run anything: def test_sum(): assert sum([1, 2]) == 3.
@@ -470,6 +519,8 @@ stimuli:
               example. No concrete improvement is required for that narrow
               claim; no revision comparison or execution is needed.
     graders:
+      - type: tool-calls
+        config: *no_execution
       - type: output-matches
         config:
           pattern: (?i)(pass|ready|grade|quality)
@@ -481,6 +532,7 @@ stimuli:
 
   - name: Leave existing-suite blind spots to the gap workflow
     expect_activation: false
+    constraints: *read_only
     prompt: |
       No PR or source change is involved. My clamp function is min(x, 10).
       Existing tests check only x=3. Which caller-visible small changes would
@@ -503,6 +555,8 @@ stimuli:
               Assert the capped result for x=11. This is static reasoning,
               not a measured mutation result.
     graders:
+      - type: tool-calls
+        config: *no_execution
       - type: output-matches
         config:
           pattern: (?i)(cap|10|above|boundar)
@@ -514,6 +568,7 @@ stimuli:
 
   - name: Leave repository mutation campaigns outside change evidence
     expect_activation: false
+    constraints: *read_only
     prompt: |
       I want to plan Stryker installation and a whole-repository mutation-score
       campaign for our .NET suite, not validate a particular PR or fix.
@@ -536,6 +591,8 @@ stimuli:
               Keep installation and execution separately authorized; do not
               introduce a new mutation engine or score unexecuted candidates.
     graders:
+      - type: tool-calls
+        config: *no_execution
       - type: output-matches
         config:
           pattern: (?i)(stryker|mutation)

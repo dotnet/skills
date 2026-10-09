@@ -101,9 +101,17 @@ python -B tests\dotnet-test\test-value-evidence\test_regressions.py -v
 ```
 
 This replays nine evidence-report goldens and three routing goldens, rejects misleading alternatives,
-checks preservation and native discovery, and runs the same three boundary
-tests against the actual defective, fixed, and restored variants in owned
-temporary directories. It is not a measured model-vs-baseline verdict. The
+checks complete workspace scope and native discovery, and runs the same three boundary
+tests against the actual defective and fixed bytes in fresh owned experiment
+directories. The production command grader authenticates its staged helper and
+replays exit codes, the named assertion, and all test counts without trusting
+narrated or stale red results. Its captured replay proves behavioral detection,
+not what the model executor itself ran; trajectory evidence is still needed for
+that claim. Calibration also rejects unrelated edits, extra files, altered
+helpers, and skipped or misattributed results.
+Only the allowed changed production file may omit its terminal LF; preserved
+test bytes and all other product content remain exact. It is not a measured
+model-vs-baseline verdict. The
 Vally eval adds implementation and advisory cases plus three sibling-routing
 dormancy guards; run it through the repository's normal evaluation entry point.
 

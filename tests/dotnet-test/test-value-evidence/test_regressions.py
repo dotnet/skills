@@ -1,8 +1,10 @@
 """Replay calibration goldens and reject misleading behavioral evidence."""
 
 import copy
+import base64
 import hashlib
 import importlib.util
+import json
 from pathlib import Path
 import re
 import shutil
@@ -26,18 +28,39 @@ checker_spec.loader.exec_module(checker)
 
 class EvidenceCalibration(unittest.TestCase):
     def materialize(self):
-        directory = tempfile.TemporaryDirectory(prefix="test-value-calibration-")
+        directory = tempfile.TemporaryDirectory(prefix=".calibration-", dir=SUITE)
         self.addCleanup(directory.cleanup)
         root = Path(directory.name)
         for item in SPEC["stimuli"][0]["environment"]["files"]:
+            (root / item["dest"]).parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(SUITE / item["src"], root / item["dest"])
         return root
 
     def run_command(self, root, config):
+        command = config["command"]
+        if "args" in config:
+            command = [command, *config["args"]]
         return subprocess.run(
-            config["command"], cwd=root, shell=True, capture_output=True,
+            command, cwd=root, shell="args" not in config, capture_output=True,
             text=True, timeout=30,
         )
+
+    def golden_workspace(self):
+        root = self.materialize()
+        self.apply_golden(root)
+        return root
+
+    def apply_golden(self, root):
+        applied = subprocess.run(
+            ["git", "apply", "--directory", root.relative_to(ROOT).as_posix(),
+             str(SUITE / "golden.patch")], cwd=ROOT,
+            capture_output=True, text=True, timeout=30,
+        )
+        self.assertEqual(0, applied.returncode, applied.stderr)
+
+    def workspace_grader(self):
+        return next(item["config"] for item in SPEC["stimuli"][0]["graders"]
+                    if item["type"] == "run-command")
 
     def response_errors(self, stimulus, response):
         checker.errors.clear()
@@ -97,11 +120,7 @@ class EvidenceCalibration(unittest.TestCase):
         self.assertEqual(2, len(re.findall(r"\.\.\. ok", red.stdout)))
         self.assertNotIn("skipped", red.stdout)
 
-        applied = subprocess.run(
-            ["git", "apply", str(SUITE / "golden.patch")], cwd=root,
-            capture_output=True, text=True, timeout=30,
-        )
-        self.assertEqual(0, applied.returncode, applied.stderr)
+        self.apply_golden(root)
         correct_bytes = (root / "boundary.py").read_bytes()
         green = self.run_command(root, command)
         self.assertEqual(0, green.returncode, green.stdout + green.stderr)
@@ -119,12 +138,7 @@ class EvidenceCalibration(unittest.TestCase):
         self.assertFalse(list(root.glob("__pycache__")))
 
     def test_golden_workspace_passes_all_file_and_command_graders(self):
-        root = self.materialize()
-        applied = subprocess.run(
-            ["git", "apply", str(SUITE / "golden.patch")], cwd=root,
-            capture_output=True, text=True, timeout=30,
-        )
-        self.assertEqual(0, applied.returncode, applied.stderr)
+        root = self.golden_workspace()
         for grader in SPEC["stimuli"][0]["graders"]:
             config = grader.get("config", {})
             with self.subTest(grader=grader["type"], config=config):
@@ -140,20 +154,205 @@ class EvidenceCalibration(unittest.TestCase):
                         self.assertRegex(result.stdout, config["stdout_matches"])
 
     def test_preservation_grader_rejects_changed_or_missing_tests(self):
-        config = next(
-            item["config"] for item in SPEC["stimuli"][0]["graders"]
-            if item["type"] == "run-command"
-            and "sha256" in item["config"]["command"]
-        )
+        config = self.workspace_grader()
         for missing in (False, True):
             with self.subTest(missing=missing):
-                root = self.materialize()
+                root = self.golden_workspace()
                 path = root / "test_boundary.py"
                 if missing:
                     path.unlink()
                 else:
                     path.write_bytes(path.read_bytes() + b"\n# unrelated change\n")
                 self.assertNotEqual(0, self.run_command(root, config).returncode)
+
+    def test_only_changed_product_may_omit_its_final_lf(self):
+        root = self.golden_workspace()
+        product = root / "boundary.py"
+        tests = root / "test_boundary.py"
+        test_bytes = tests.read_bytes()
+        fixed_bytes = product.read_bytes()
+        self.assertTrue(fixed_bytes.endswith(b"\n"))
+        without_lf = fixed_bytes[:-1]
+        product.write_bytes(without_lf)
+        result = self.run_command(root, self.workspace_grader())
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        replay = json.loads(result.stdout)
+        self.assertEqual(hashlib.sha256(without_lf).hexdigest(), replay["fixed_sha256"])
+        self.assertEqual(without_lf, product.read_bytes())
+        self.assertEqual(test_bytes, tests.read_bytes())
+        for extra in (b"\n# unrelated comment\n", b" # unrelated comment",
+                      b"\n\n", b" ", b"\r\n"):
+            with self.subTest(extra=extra):
+                product.write_bytes(without_lf + extra)
+                rejected = self.run_command(root, self.workspace_grader())
+                self.assertNotEqual(0, rejected.returncode, rejected.stdout + rejected.stderr)
+        product.write_bytes(without_lf)
+        tests.write_bytes(test_bytes[:-1])
+        rejected = self.run_command(root, self.workspace_grader())
+        self.assertNotEqual(0, rejected.returncode, rejected.stdout + rejected.stderr)
+
+    def test_complete_scope_rejects_unrelated_and_evaluator_changes(self):
+        mutations = [
+            ("boundary.py", b"\n# unrelated production edit\n"),
+            ("notes.txt", b"unexpected user file\n"),
+            (".eval/notes.txt", b"unexpected evaluator-directory file\n"),
+            (".eval/check_workspace.py", b"\nraise SystemExit(0)\n"),
+            ("test-value-evidence/SKILL.md", b"not a harness-installed skill\n"),
+        ]
+        for name, extra in mutations:
+            with self.subTest(path=name):
+                root = self.golden_workspace()
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes((path.read_bytes() if path.exists() else b"") + extra)
+                result = self.run_command(root, self.workspace_grader())
+                self.assertNotEqual(0, result.returncode, result.stdout + result.stderr)
+        root = self.golden_workspace()
+        (root / "unexpected-empty-directory").mkdir()
+        self.assertNotEqual(0, self.run_command(root, self.workspace_grader()).returncode)
+
+    def test_replay_emits_measured_pair_and_never_uses_stale_outputs(self):
+        root = self.golden_workspace()
+        before = {path.relative_to(root): path.read_bytes()
+                  for path in root.rglob("*") if path.is_file()}
+        for _ in range(2):
+            result = self.run_command(root, self.workspace_grader())
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            artifact = json.loads(result.stdout)
+            self.assertEqual("grader-replay-not-executor-history", artifact["kind"])
+            red, green = artifact["runs"]
+            self.assertEqual([1, 0], [red["exit"], green["exit"]])
+            self.assertEqual(
+                {"selected": 3, "executed": 3, "passed": 2, "failed": 1,
+                 "errors": 0, "skipped": 0}, red["counts"])
+            self.assertEqual({**red["counts"], "passed": 3, "failed": 0}, green["counts"])
+            self.assertIn("AssertionError: 0 != 10", red["output"])
+            self.assertEqual([["test_exact_threshold", "FAIL"]],
+                             [case for case in red["cases"] if case[1] == "FAIL"])
+            self.assertEqual(hashlib.sha256((SUITE / "fixtures" / "boundary.py")
+                                           .read_bytes()).hexdigest(),
+                             artifact["original_sha256"])
+            self.assertEqual(before, {path.relative_to(root): path.read_bytes()
+                                    for path in root.rglob("*") if path.is_file()})
+        (root / ".eval" / "stale-red.log").write_text(
+            red["output"], encoding="utf-8")
+        self.assertNotEqual(0, self.run_command(root, self.workspace_grader()).returncode)
+
+    def test_counterfactual_rejects_green_skipped_wrong_assertion_and_zero_selection(self):
+        correct = (SUITE / "fixtures" / "boundary.py").read_bytes().replace(
+            b"amount > 100", b"amount >= 100")
+        alternatives = [
+            correct + b"\n# equivalent green counterfactual\n",
+            b"import unittest\n" + correct.replace(
+                b"    return 0", b"    if amount == 100: raise unittest.SkipTest('skip')\n    return 0"),
+            correct.replace(b"    return 0", b"    if amount == 100: return 1\n    return 0"),
+        ]
+        for original in alternatives:
+            with self.subTest(original=original):
+                root = self.golden_workspace()
+                config = copy.deepcopy(self.workspace_grader())
+                index = config["args"].index("--original") + 1
+                config["args"][index] = "boundary.py:" + base64.b64encode(original).decode()
+                result = self.run_command(root, config)
+                self.assertNotEqual(0, result.returncode, result.stdout + result.stderr)
+                self.assertFalse(list((root / ".eval").glob(".replay-*")))
+        for selection in ("test_boundary.BoundaryTests.test_below_threshold",
+                          "test_boundary.DoesNotExist"):
+            with self.subTest(selection=selection):
+                config = copy.deepcopy(self.workspace_grader())
+                config["args"][config["args"].index("--selection") + 1] = selection
+                self.assertNotEqual(0, self.run_command(
+                    self.golden_workspace(), config).returncode)
+
+    def test_installed_skill_is_the_only_optional_resource(self):
+        root = self.golden_workspace()
+        installed = root / "test-value-evidence"
+        installed.mkdir()
+        shutil.copyfile(
+            ROOT / "plugins" / "dotnet-test" / "skills" / "test-value-evidence" / "SKILL.md",
+            installed / "SKILL.md",
+        )
+        result = self.run_command(root, self.workspace_grader())
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        (installed / "extra.py").write_text("pass\n", encoding="utf-8")
+        self.assertNotEqual(0, self.run_command(root, self.workspace_grader()).returncode)
+
+    def test_production_vally_parser_and_command_grader(self):
+        vally = ROOT / "eng" / "evaluation-tools" / "node_modules" / "@microsoft" / "vally" / "dist"
+        script = """
+            const {loadEvalSpec} = await import(process.argv[1]);
+            const {gradeTrajectory} = await import(process.argv[2]);
+            const {fromAtif} = await import(process.argv[5]);
+            const spec = await loadEvalSpec(process.argv[3]);
+            const results = [];
+            let restraint = true;
+            for (const stimulus of spec.stimuli) {
+                const trajectory = fromAtif(stimulus.golden_trajectory.inline, {
+                    stimulusName: stimulus.name, stimulusPrompt: stimulus.prompt,
+                    workDir: process.argv[4]
+                });
+                const graders = stimulus.graders.filter(g => g.type !== 'prompt');
+                results.push(await gradeTrajectory(trajectory, graders, {stimulus}));
+                if (stimulus.constraints) {
+                    for (const toolName of ['bash', 'edit', 'create']) {
+                        const mutated = structuredClone(trajectory);
+                        const toolCallId = 'forbidden-call';
+                        mutated.events.push(
+                            {type:'tool_call', data:{toolCallId, toolName,
+                                arguments:{command:'python -m unittest'}}},
+                            {type:'tool_result', data:{toolCallId, toolName,
+                                result:'synthetic forbidden execution'}}
+                        );
+                        const graded = await gradeTrajectory(mutated, graders, {stimulus});
+                        restraint &&= !graded.passed;
+                    }
+                }
+            }
+            console.log(JSON.stringify({results, restraint}));
+            process.exit(results.every(r => r.passed) && restraint ? 0 : 1);
+        """
+        root = self.golden_workspace()
+        command = [
+            "node", "--input-type=module", "-e", script,
+            (vally / "eval" / "loader.js").as_uri(),
+            (vally / "pipeline" / "grading.js").as_uri(),
+            str(SUITE / "eval.yaml"), str(root),
+            (vally / "trajectory" / "atif-adapter.js").as_uri(),
+        ]
+        passed = subprocess.run(command, capture_output=True, text=True, timeout=30)
+        self.assertEqual(0, passed.returncode, passed.stdout + passed.stderr)
+        graded = json.loads(passed.stdout)
+        results = graded["results"]
+        self.assertEqual(12, len(results))
+        self.assertTrue(graded["restraint"])
+        replay = next(detail for detail in results[0]["details"]
+                      if detail["name"].startswith("run-command"))
+        self.assertEqual([1, 0], [run["exit"] for run in json.loads(
+            replay["metadata"]["stdout"])["runs"]])
+        product = root / "boundary.py"
+        no_lf_bytes = product.read_bytes()[:-1]
+        product.write_bytes(no_lf_bytes)
+        no_final_lf = subprocess.run(command, capture_output=True, text=True, timeout=30)
+        self.assertEqual(0, no_final_lf.returncode, no_final_lf.stdout + no_final_lf.stderr)
+        self.assertTrue(all(result["passed"] for result in json.loads(
+            no_final_lf.stdout)["results"]))
+        product.write_bytes(no_lf_bytes + b"\n# unrelated comment\n")
+        unrelated = subprocess.run(command, capture_output=True, text=True, timeout=30)
+        self.assertEqual(1, unrelated.returncode, unrelated.stdout + unrelated.stderr)
+        product.write_bytes(no_lf_bytes)
+        (root / "unexpected.txt").write_text("unexpected\n", encoding="utf-8")
+        rejected = subprocess.run(command, capture_output=True, text=True, timeout=30)
+        self.assertEqual(1, rejected.returncode, rejected.stdout + rejected.stderr)
+
+    def test_all_advisory_cases_reject_execution_and_edits(self):
+        for stimulus in SPEC["stimuli"][1:]:
+            with self.subTest(stimulus=stimulus["name"]):
+                self.assertEqual({"bash", "edit", "create"},
+                                 set(stimulus["constraints"]["reject_tools"]))
+                restraint = next(grader for grader in stimulus["graders"]
+                                 if grader["type"] == "tool-calls")
+                self.assertEqual({"bash", "edit", "create"},
+                                 set(restraint["config"]["disallowed"]))
 
     def test_portable_single_file_and_native_discovery(self):
         skill = ROOT / "plugins" / "dotnet-test" / "skills" / "test-value-evidence" / "SKILL.md"
