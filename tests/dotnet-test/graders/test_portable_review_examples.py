@@ -47,11 +47,64 @@ class PortableReviewExamplesTests(unittest.TestCase):
                  "$ErrorActionPreference = 'Stop'; "
                  "Import-Module Pester -MinimumVersion 5.0 -ErrorAction Stop; "
                  "$result = Invoke-Pester -Path ./Tests -PassThru -Output Detailed; "
-                 "if ($result.TotalCount -ne 8 -or $result.PassedCount -ne 8 "
-                 "-or $result.FailedCount -ne 0) { throw 'Expected eight passing examples' }"],
+                 "if ($result.TotalCount -ne 9 -or $result.PassedCount -ne 9 "
+                 "-or $result.FailedCount -ne 0) { throw 'Expected nine passing examples' }"],
                 cwd=root, capture_output=True, text=True, timeout=60,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def assert_missing_plan_and_report(self, text, method, count):
+        plan = text.split("## Sample Plan Output", 1)[1].split("## Sample Generated Test File", 1)[0]
+        self.assertRegex(plan, rf"`{re.escape(method)}`[^\n]*missing")
+        report = text.split("## Sample Final Report", 1)[1]
+        self.assertRegex(report, rf"{re.escape(method)}[^\n]*missing-invoice[^\n]*do not update")
+        for metric in ("Tests created", "Tests passing"):
+            self.assertRegex(report, rf"\|\s*{metric}\s*\|\s*{count}\s*\|")
+
+    def test_kotlin_missing_invoice_matches_plan_and_nine_invocations(self):
+        text = (EXTENSIONS / "kotlin-examples.md").read_text(encoding="utf-8")
+        tests = re.findall(r"```kotlin\n(.*?)```", text, re.S)[1]
+        ordinary = len(re.findall(r"(?m)^\s*@Test\s*$", tests))
+        rows = re.search(r"(?s)@CsvSource\((.*?)\)", tests).group(1)
+        self.assertEqual(ordinary, 6)
+        self.assertEqual(len(re.findall(r'"[^"]+"', rows)), 3)
+        case = tests.split("fun `markAsPaid throws and does not update missing invoice`", 1)[1].split("    }", 1)[0]
+        self.assertRegex(case, r"assertThrows<NoSuchElementException>\s*\{\s*service\.markAsPaid\(999\)")
+        self.assertIn('assertEquals("Invoice 999 not found.", exception.message)', case)
+        self.assertIn("assertEquals(null, repository.updated)", case)
+        self.assert_missing_plan_and_report(text, "markAsPaid", ordinary + 3)
+
+    def test_pester_missing_invoice_matches_plan_and_nine_invocations(self):
+        text = (EXTENSIONS / "powershell-examples.md").read_text(encoding="utf-8")
+        tests = re.findall(r"```powershell\n(.*?)```", text, re.S)[1]
+        self.assertEqual(len(re.findall(r"(?m)^\s*It '", tests)), 7)
+        self.assertEqual(len(re.findall(r"@\{ Name =", tests)), 3)
+        case = tests.split("It 'throws and does not update a missing invoice'", 1)[1].split("        }", 1)[0]
+        self.assertRegex(case, r"Set-InvoicePaid -Id 999.*Should -Throw -ExpectedMessage 'Invoice 999 not found\.'")
+        self.assertIn("$findInvoice = { $null }", case)
+        self.assertIn("$script:wasUpdated = $false", case)
+        self.assertIn("$script:wasUpdated = $true", case)
+        self.assertIn("$script:wasUpdated | Should -BeFalse", case)
+        self.assert_missing_plan_and_report(text, "Set-InvoicePaid", 6 + 3)
+
+    def test_ruby_missing_invoice_matches_plan_and_ten_examples(self):
+        text = (EXTENSIONS / "ruby-examples.md").read_text(encoding="utf-8")
+        tests = re.findall(r"```ruby\n(.*?)```", text, re.S)[1]
+        self.assertEqual(len(re.findall(r"(?m)^\s*it '", tests)), 10)
+        case = tests.split("it 'raises KeyError and does not update a missing invoice'", 1)[1].split("    end", 1)[0]
+        self.assertIn("receive(:find).with(999).and_return(nil)", case)
+        self.assertRegex(case, r"service\.mark_as_paid\(999\).*raise_error\(KeyError, 'Invoice 999 not found\.'\)")
+        self.assertIn("expect(repository).not_to have_received(:update)", case)
+        self.assert_missing_plan_and_report(text, "mark_as_paid", 10)
+
+    def test_rust_missing_invoice_matches_plan_and_eight_tests(self):
+        text = (EXTENSIONS / "rust-examples.md").read_text(encoding="utf-8")
+        tests = re.findall(r"```rust\n(.*?)```", text, re.S)[1]
+        self.assertEqual(tests.count("#[test]"), 8)
+        case = tests.split("fn mark_as_paid_missing_invoice_returns_not_found_without_update()", 1)[1].split("    }", 1)[0]
+        self.assertIn("assert_eq!(Err(InvoiceError::NotFound(999)), service.mark_as_paid(999))", case)
+        self.assertIn("assert!(service.repository.updated.is_none())", case)
+        self.assert_missing_plan_and_report(text, "mark_as_paid", 8)
 
     def test_cpp_sample_has_all_nine_planned_sections(self):
         text = (EXTENSIONS / "cpp-examples.md").read_text(encoding="utf-8")

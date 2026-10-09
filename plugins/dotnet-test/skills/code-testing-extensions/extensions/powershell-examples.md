@@ -216,6 +216,15 @@ Describe 'Contoso.Billing invoice functions' {
             { Set-InvoicePaid -Id 1 -FindInvoice $findInvoice -UpdateInvoice $updateInvoice } | Should -Throw '*already paid*'
             $script:updatedInvoice | Should -BeNullOrEmpty
         }
+
+        It 'throws and does not update a missing invoice' {
+            $findInvoice = { $null }
+            $script:wasUpdated = $false
+            $updateInvoice = { param($Invoice) $script:wasUpdated = $true }
+
+            { Set-InvoicePaid -Id 999 -FindInvoice $findInvoice -UpdateInvoice $updateInvoice } | Should -Throw -ExpectedMessage 'Invoice 999 not found.'
+            $script:wasUpdated | Should -BeFalse
+        }
     }
 }
 ```
@@ -247,21 +256,21 @@ Unable to find type [InvoiceStatus].
 ### Results
 | Metric         | Value |
 |----------------|-------|
-| Tests created  | 8     |
-| Tests passing  | 8     |
+| Tests created  | 9     |
+| Tests passing  | 9     |
 | Tests failing  | 0     |
 | Files created  | 1     |
 
 ### Files Created
-- `Tests/Contoso.Billing.Tests.ps1` (8 Pester examples, 3 data-driven total cases)
+- `Tests/Contoso.Billing.Tests.ps1` (9 Pester invocations: 6 ordinary examples and 3 data-driven total rows)
 
 ### Coverage
 - Get-InvoiceTotal — 3 happy path, 1 error case
 - Get-InvoiceById — found and missing branches
-- Set-InvoicePaid — success and already-paid branches
+- Set-InvoicePaid — success, already-paid and missing-invoice branches; error cases do not update the repository
 
 ### Build / Test Validation
 - Module load: ✅ `Import-Module ./src/Contoso.Billing.psd1 -Force -ErrorAction Stop`
-- Discovery: ✅ Pester found 8 tests
+- Discovery: ✅ Pester found 9 tests
 - Test run: ✅ `Invoke-Pester -Path ./Tests -Output Detailed`
 ```
