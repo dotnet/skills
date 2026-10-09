@@ -14,6 +14,37 @@ stimuli:
       capability: capture-process-output
       risk: redirected-stream-deadlock
       journey: run-external-cli
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: process-api-net11-capture
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              `Program.cs`:
+              ```csharp
+              using System;
+              using System.Diagnostics;
+
+              ProcessTextOutput output = Process.RunAndCaptureText("git", ["status"]);
+              Console.Out.Write(output.StandardOutput);
+              Console.Error.Write(output.StandardError);
+              Environment.ExitCode = output.ExitStatus.ExitCode;
+              ```
+
+              `Capture.csproj`:
+              ```xml
+              <Project Sdk="Microsoft.NET.Sdk">
+                <PropertyGroup>
+                  <OutputType>Exe</OutputType>
+                  <TargetFramework>net11.0</TargetFramework>
+                </PropertyGroup>
+              </Project>
+              ```
+
+              This API drains both streams together. No manual event subscriptions are needed.
     graders:
       - type: exit-success
       - type: output-matches
@@ -47,6 +78,49 @@ stimuli:
       capability: child-process-lifetime
       risk: orphaned-child-process
       journey: supervise-background-daemon
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: process-api-net11-teardown
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Replace `daemon` with the executable to supervise.
+
+              `Program.cs`:
+              ```csharp
+              using System;
+              using System.Diagnostics;
+
+              var info = new ProcessStartInfo("daemon") { UseShellExecute = false };
+              if (OperatingSystem.IsWindows() || OperatingSystem.IsLinux() || OperatingSystem.IsAndroid())
+              {
+                  info.KillOnParentExit = true;
+              }
+              else
+              {
+                  throw new PlatformNotSupportedException("Automatic teardown is not supported here.");
+              }
+
+              using Process child = Process.Start(info)
+                  ?? throw new InvalidOperationException("The child did not start.");
+              Console.WriteLine("Press Enter to exit the parent.");
+              Console.ReadLine();
+              ```
+
+              `Supervisor.csproj`:
+              ```xml
+              <Project Sdk="Microsoft.NET.Sdk">
+                <PropertyGroup>
+                  <OutputType>Exe</OutputType>
+                  <TargetFramework>net11.0</TargetFramework>
+                </PropertyGroup>
+              </Project>
+              ```
+
+              The property assignment itself is guarded. Unsupported platforms fail before any child starts.
     graders:
       - type: exit-success
       - type: output-matches
@@ -73,6 +147,46 @@ stimuli:
       capability: read-complete-process-output
       risk: incorrect-tuple-return
       journey: capture-custom-process-streams
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: process-api-net11-tuple
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              `Program.cs`:
+              ```csharp
+              using System;
+              using System.Diagnostics;
+
+              var info = new ProcessStartInfo("git", ["status"])
+              {
+                  UseShellExecute = false,
+                  RedirectStandardOutput = true,
+                  RedirectStandardError = true
+              };
+              using Process process = Process.Start(info)
+                  ?? throw new InvalidOperationException("The child did not start.");
+              var output = await process.ReadAllTextAsync();
+              Console.Out.Write(output.StandardOutput);
+              Console.Error.Write(output.StandardError);
+              await process.WaitForExitAsync();
+              Environment.ExitCode = process.ExitCode;
+              ```
+
+              `ReadOutput.csproj`:
+              ```xml
+              <Project Sdk="Microsoft.NET.Sdk">
+                <PropertyGroup>
+                  <OutputType>Exe</OutputType>
+                  <TargetFramework>net11.0</TargetFramework>
+                </PropertyGroup>
+              </Project>
+              ```
+
+              The returned value is a tuple with both streams, not one string. Both streams are drained together.
     graders:
       - type: exit-success
       - type: output-matches
@@ -109,6 +223,51 @@ stimuli:
       capability: stream-tagged-process-output
       risk: lost-stream-identity
       journey: monitor-running-process
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: process-api-net11-stream
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Replace `worker` with the long-running executable.
+
+              `Program.cs`:
+              ```csharp
+              using System;
+              using System.Diagnostics;
+              using System.IO;
+
+              var info = new ProcessStartInfo("worker")
+              {
+                  UseShellExecute = false,
+                  RedirectStandardOutput = true,
+                  RedirectStandardError = true
+              };
+              using Process process = Process.Start(info)
+                  ?? throw new InvalidOperationException("The child did not start.");
+              await foreach (ProcessOutputLine line in process.ReadAllLinesAsync())
+              {
+                  TextWriter destination = line.StandardError ? Console.Error : Console.Out;
+                  destination.WriteLine(line.Content);
+              }
+              await process.WaitForExitAsync();
+              Environment.ExitCode = process.ExitCode;
+              ```
+
+              `StreamOutput.csproj`:
+              ```xml
+              <Project Sdk="Microsoft.NET.Sdk">
+                <PropertyGroup>
+                  <OutputType>Exe</OutputType>
+                  <TargetFramework>net11.0</TargetFramework>
+                </PropertyGroup>
+              </Project>
+              ```
+
+              The async sequence supplies each line's text and source without event-callback plumbing.
     graders:
       - type: exit-success
       - type: output-matches
@@ -146,6 +305,42 @@ stimuli:
       capability: fire-and-forget-process
       risk: retained-process-handle
       journey: launch-independent-helper
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: process-api-net11-forget
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Supply the helper executable path as the program's first argument.
+
+              `Program.cs`:
+              ```csharp
+              using System;
+              using System.Diagnostics;
+
+              if (args.Length != 1)
+              {
+                  throw new ArgumentException("Supply a helper executable path.");
+              }
+              int processId = Process.StartAndForget(args[0]);
+              Console.WriteLine(processId);
+              ```
+
+              `LaunchHelper.csproj`:
+              ```xml
+              <Project Sdk="Microsoft.NET.Sdk">
+                <PropertyGroup>
+                  <OutputType>Exe</OutputType>
+                  <TargetFramework>net11.0</TargetFramework>
+                </PropertyGroup>
+              </Project>
+              ```
+
+              This returns the process ID and releases the parent's process resources. It does not kill the child.
+              It launches an executable, not a URL through the shell. Do not enable standard-stream redirection.
     graders:
       - type: exit-success
       - type: output-matches
@@ -171,6 +366,52 @@ stimuli:
       capability: control-handle-inheritance
       risk: leaked-file-descriptor
       journey: spawn-processes-under-load
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: process-api-net11-handles
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              This example supplies one file handle to a helper that accepts the inherited handle value.
+              Replace `handle-reader` with that helper. The parent keeps the handle open until the child exits.
+
+              `Program.cs`:
+              ```csharp
+              using System;
+              using System.Diagnostics;
+              using System.Globalization;
+              using System.IO;
+              using Microsoft.Win32.SafeHandles;
+
+              using SafeFileHandle handle = File.OpenHandle("shared.txt", FileMode.Open, FileAccess.Read);
+              string value = handle.DangerousGetHandle().ToInt64().ToString(CultureInfo.InvariantCulture);
+              var info = new ProcessStartInfo("handle-reader", [value])
+              {
+                  UseShellExecute = false,
+                  InheritedHandles = [handle]
+              };
+              using Process child = Process.Start(info)
+                  ?? throw new InvalidOperationException("The child did not start.");
+              child.WaitForExit();
+              Environment.ExitCode = child.ExitCode;
+              ```
+
+              `InheritHandle.csproj`:
+              ```xml
+              <Project Sdk="Microsoft.NET.Sdk">
+                <PropertyGroup>
+                  <OutputType>Exe</OutputType>
+                  <TargetFramework>net11.0</TargetFramework>
+                </PropertyGroup>
+              </Project>
+              ```
+
+              Only the explicit list is allowed to inherit; an empty list passes no extra handles.
+              Serialize starts that share this handle. Do not pre-enable inheritance or combine the list with a username.
+              This feature can reduce process-start performance on Unix systems without native inheritance control.
     graders:
       - type: exit-success
       - type: output-matches
@@ -198,6 +439,38 @@ stimuli:
       capability: framework-version-boundary
       risk: unsupported-net8-api
       journey: launch-legacy-framework-process
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: process-api-net11-net8
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              This example runs on Windows, where Notepad is available.
+
+              `Program.cs`:
+              ```csharp
+              using System;
+              using System.Diagnostics;
+
+              using Process process = Process.Start("notepad.exe")
+                  ?? throw new InvalidOperationException("Notepad did not start.");
+              Console.WriteLine(process.Id);
+              ```
+
+              `LaunchNotepad.csproj`:
+              ```xml
+              <Project Sdk="Microsoft.NET.Sdk">
+                <PropertyGroup>
+                  <OutputType>Exe</OutputType>
+                  <TargetFramework>net8.0</TargetFramework>
+                </PropertyGroup>
+              </Project>
+              ```
+
+              Disposing the wrapper releases the parent's resources; it does not stop Notepad.
     graders:
       - type: exit-success
       - type: output-matches
@@ -226,6 +499,45 @@ stimuli:
       capability: framework-version-boundary
       risk: unsupported-net10-api
       journey: capture-legacy-framework-output
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: process-api-net11-net10
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              `Program.cs`:
+              ```csharp
+              using System;
+              using System.Diagnostics;
+
+              var info = new ProcessStartInfo("git", ["status"])
+              {
+                  UseShellExecute = false,
+                  RedirectStandardOutput = true
+              };
+              using Process process = Process.Start(info)
+                  ?? throw new InvalidOperationException("The child did not start.");
+              string output = await process.StandardOutput.ReadToEndAsync();
+              await process.WaitForExitAsync();
+              Console.Write(output);
+              Environment.ExitCode = process.ExitCode;
+              ```
+
+              `CaptureLegacy.csproj`:
+              ```xml
+              <Project Sdk="Microsoft.NET.Sdk">
+                <PropertyGroup>
+                  <OutputType>Exe</OutputType>
+                  <TargetFramework>net10.0</TargetFramework>
+                </PropertyGroup>
+              </Project>
+              ```
+
+              Only stdout is redirected. Stderr remains inherited, so there is no second redirected pipe to drain.
+              The .NET 11 convenience APIs are not available on this target.
     graders:
       - type: exit-success
       - type: output-matches
