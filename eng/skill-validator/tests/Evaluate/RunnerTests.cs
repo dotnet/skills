@@ -916,6 +916,7 @@ public class BuildSessionConfigTests
     [DataRow("dotnet build FullPipeline --no-restore --verbosity:minimal", "FullPipeline")]
     [DataRow("dotnet run --project \".eval/TimeContract/TimeContract.csproj\" --no-restore", ".eval/TimeContract/TimeContract.csproj")]
     [DataRow("dotnet test --project Tests.csproj --report-trx", "Tests.csproj")]
+    [DataRow("dotnet test Tests.csproj --filter FullyQualifiedName~ClockTests", "Tests.csproj")]
     public void RecoversScopedDotnetPathsWhenPowerShellMetadataOmitsThem(string command, string expected)
     {
         Assert.Contains(expected, AgentRunner.GetScopedDotnetCommandPaths(command)!);
@@ -929,6 +930,18 @@ public class BuildSessionConfigTests
     [DataRow("dotnet build \"unterminated")]
     [DataRow("python -c 'print(1)'")]
     [DataRow("dotnet build a.csproj --configuration ../outside")]
+    [DataRow("dotnet build ~/outside.csproj")]
+    [DataRow("dotnet build '~user/outside.csproj'")]
+    [DataRow("dotnet build --project ~/outside.csproj")]
+    [DataRow("dotnet build --solution ~/outside.sln")]
+    [DataRow("dotnet build a.csproj --output ~/outside")]
+    [DataRow("dotnet test a.csproj --results-directory ~/results")]
+    [DataRow("dotnet test a.csproj --report-trx-filename ~/results.trx")]
+    [DataRow("dotnet build @options.rsp")]
+    [DataRow("dotnet build \"@options.rsp\"")]
+    [DataRow("dotnet build a.csproj @options.rsp")]
+    [DataRow("dotnet build --project @options.rsp")]
+    [DataRow("dotnet build a.csproj --output @options.rsp")]
     public void ScopedDotnetFallbackRejectsUnknownOrComputedShellForms(string command)
     {
         Assert.IsNull(AgentRunner.GetScopedDotnetCommandPaths(command));
@@ -948,6 +961,12 @@ public class BuildSessionConfigTests
         Assert.AreEqual("approve-once", (await config.OnPermissionRequest!(request, null!)).Kind);
         request.FullCommandText = "dotnet build ../outside.csproj --nologo";
         Assert.AreEqual("reject", (await config.OnPermissionRequest!(request, null!)).Kind);
+        request.FullCommandText = "dotnet build ~/outside.csproj";
+        Assert.AreEqual("reject", (await config.OnPermissionRequest!(request, null!)).Kind);
+        request.FullCommandText = "dotnet build @options.rsp";
+        Assert.AreEqual("reject", (await config.OnPermissionRequest!(request, null!)).Kind);
+        request.FullCommandText = "dotnet test local.csproj --filter FullyQualifiedName~ClockTests";
+        Assert.AreEqual("approve-once", (await config.OnPermissionRequest!(request, null!)).Kind);
     }
 
     [TestMethod]

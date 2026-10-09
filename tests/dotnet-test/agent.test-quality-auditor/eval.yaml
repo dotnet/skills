@@ -94,7 +94,28 @@ stimuli:
           pattern: (GetTotalWithDiscount|discount)
       - type: output-matches
         config:
-          pattern: (?s)(?=.*AddItem_ItemIsAdded)(?=.*AddItem_NegativePrice_Throws)(?=.*ItemCount_AfterAdd)(?=.*GetTotal_WithMultipleItems)
+          pattern: &assertion_free_finding '(?i)\bAddItem_Works\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,400}(?:assertion.free|no\s+(?:\w+\s+){0,2}assertions?|without\s+(?:any\s+)?assertions?)'
+      - type: output-matches
+        config:
+          pattern: &presence_only_finding '(?i)\bAddItem_ItemIsAdded\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,400}(?:presence.only|trivial|only\s+(?:\w+\s+){0,2}(?:checks?|asserts?)|(?:empty|wrong)\s+(?:cart|collection|item)\s+passes?|(?:IsNotNull|non.?null|presence)[^\r\n]*(?:empty|wrong|does\s+not\s+verify))'
+      - type: output-matches
+        config:
+          pattern: &tautological_finding '(?i)\bGetTotal_ReturnsValue\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,400}(?:tautolog\w*|self.compar\w*|compares?[^\r\n]*itself|AreEqual\s*\(\s*total\s*,\s*total)'
+      - type: output-matches
+        config:
+          pattern: &swallowed_exception_finding '(?i)\bAddItem_NegativePrice_Throws\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,400}(?:catch.and.swallow|swallow\w*|passes?[^\r\n]*(?:no|any|wrong)\s+exception|no\s+(?:\w+\s+){0,2}exception\s+assertion)'
+      - type: output-matches
+        config:
+          pattern: &meaningful_count_finding '(?i)\bItemCount_AfterAdd\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,200}\b(?:meaningful(?:ly)?|valid|sound|useful|pins?|protects?|verifies)\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,200}\b(?:count|ItemCount|1)\b'
+      - type: output-matches
+        config:
+          pattern: &meaningful_total_finding '(?i)\bGetTotal_WithMultipleItems\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,200}\b(?:meaningful(?:ly)?|valid|sound|useful|pins?|protects?|verifies)\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,200}\b(?:total|25(?:\.00)?)\b'
+      - type: output-not-matches
+        config:
+          pattern: &invalid_meaningful_finding '(?i)\b(?:ItemCount_AfterAdd|GetTotal_WithMultipleItems)\b[^\r\n]*(?:meaningless|tautolog\w*|assertion.free|no\s+assertions?|not\s+(?:a\s+)?meaningful)'
+      - type: output-not-matches
+        config:
+          pattern: &contradictory_summary '(?i)\b(?:only\s+)?(?:one|1)\s+of\s+(?:six|6)\s+(?:tests?|assertions?)\s+(?:\w+\s+){0,3}(?:meaningful|concrete)\s+(?:behavior|checks?|assertions?)'
       - type: output-not-matches
         config:
           pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|(?:\s*How to improve\s*\|)?
@@ -247,7 +268,28 @@ stimuli:
           pattern: (collection|state|structural|quantity|product.?id)
       - type: output-matches
         config:
-          pattern: (?s)(?=.*AddItem_Works)(?=.*AddItem_ItemIsAdded)(?=.*GetTotal_ReturnsValue)(?=.*AddItem_NegativePrice_Throws)(?=.*ItemCount_AfterAdd)(?=.*GetTotal_WithMultipleItems)
+          pattern: *assertion_free_finding
+      - type: output-matches
+        config:
+          pattern: *presence_only_finding
+      - type: output-matches
+        config:
+          pattern: *tautological_finding
+      - type: output-matches
+        config:
+          pattern: *swallowed_exception_finding
+      - type: output-matches
+        config:
+          pattern: *meaningful_count_finding
+      - type: output-matches
+        config:
+          pattern: *meaningful_total_finding
+      - type: output-not-matches
+        config:
+          pattern: *invalid_meaningful_finding
+      - type: output-not-matches
+        config:
+          pattern: *contradictory_summary
       - type: run-command
         config:
           command: >-

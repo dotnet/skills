@@ -69,7 +69,7 @@ internal sealed class RunEventBuffer
 
 public static class AgentRunner
 {
-    internal const string ExecutionContractVersion = "workspace-and-typed-shell-permissions-v2";
+    internal const string ExecutionContractVersion = "workspace-and-typed-shell-permissions-v3";
     private static readonly HashSet<string> EvaluatorOnlySetupEntries =
         new(StringComparer.OrdinalIgnoreCase)
         {
@@ -407,7 +407,8 @@ public static class AgentRunner
         }
         if (!string.IsNullOrWhiteSpace(command[position..]) || words.Count < 2
             || !words[0].Equals("dotnet", StringComparison.OrdinalIgnoreCase)
-            || words[1] is not ("build" or "test" or "run"))
+            || words[1] is not ("build" or "test" or "run")
+            || words.Any(word => word.StartsWith('@')))
             return null;
 
         var paths = new List<string>();
@@ -429,7 +430,8 @@ public static class AgentRunner
             if (word is "--project" or "--solution" or "--output" or "-o" or "--results-directory"
                 or "--report-trx-filename")
             {
-                if (++index >= words.Count || string.IsNullOrWhiteSpace(words[index]))
+                if (++index >= words.Count || string.IsNullOrWhiteSpace(words[index])
+                    || words[index].StartsWith('~'))
                     return null;
                 paths.Add(words[index]);
                 hasProject |= word is "--project" or "--solution";
@@ -452,6 +454,8 @@ public static class AgentRunner
             }
             if (!word.StartsWith('-') && !hasProject)
             {
+                if (word.StartsWith('~'))
+                    return null;
                 paths.Add(word);
                 hasProject = true;
                 continue;

@@ -8,6 +8,49 @@ namespace SkillValidator.Tests;
 [TestClass]
 public class GeneratorDeniedScenarioTests
 {
+    [TestMethod]
+    [DataRow("generator.eval.yaml", "Review focused assertions without a second audit agent")]
+    [DataRow("auditor.eval.yaml", "Comprehensive test quality audit of weak test suite")]
+    [DataRow("auditor.eval.yaml", "Assertion quality analysis")]
+    public async Task ReadOnlyReviewGradersRequireCorrectPerTestAssessments(string fixture, string name)
+    {
+        var config = EvalSchema.ParseEvalConfigFlexible(
+            File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", fixture)));
+        Assert.IsNotNull(config);
+        var scenario = Assert.ContainsSingle(config.Scenarios.Where(item => item.Name == name));
+        var assertions = scenario.Assertions!.Where(
+            assertion => assertion.Type is AssertionType.OutputMatches or AssertionType.OutputNotMatches).ToList();
+        const string report = """
+            summary: weak, limited assertion variety; two of six tests have meaningful checks. priority: repair hollow tests.
+            | Test | Assessment |
+            | AddItem_Works | assertion-free; no assertion rejects a no-op |
+            | AddItem_ItemIsAdded | only checks non-null Items; an empty cart passes |
+            | GetTotal_ReturnsValue | tautology; compares total to itself |
+            | AddItem_NegativePrice_Throws | catch-and-swallow; passes with no exception or any exception |
+            | ItemCount_AfterAdd | meaningful count check; pins ItemCount to 1 |
+            | GetTotal_WithMultipleItems | meaningful total check; pins the total to 25.00 |
+            Use Assert.AreEqual, IsNotNull guards, and explicit exception assertions.
+            RemoveItem and GetTotalWithDiscount have gaps; assert collection state and quantity.
+            """;
+        var results = await AssertionEvaluator.EvaluateAssertions(assertions, report, AppContext.BaseDirectory);
+        Assert.IsTrue(results.All(result => result.Passed), string.Join('\n', results.Where(result => !result.Passed).Select(result => result.Message)));
+
+        foreach (var broken in new[]
+        {
+            string.Join('\n', new[] { "AddItem_Works", "AddItem_ItemIsAdded", "GetTotal_ReturnsValue",
+                "AddItem_NegativePrice_Throws", "ItemCount_AfterAdd", "GetTotal_WithMultipleItems" }),
+            report.Replace("AddItem_Works", "SWAP", StringComparison.Ordinal)
+                .Replace("ItemCount_AfterAdd", "AddItem_Works", StringComparison.Ordinal)
+                .Replace("SWAP", "ItemCount_AfterAdd", StringComparison.Ordinal),
+            report.Replace("two of six tests have meaningful checks",
+                "only one of six tests has meaningful checks", StringComparison.Ordinal),
+        })
+        {
+            results = await AssertionEvaluator.EvaluateAssertions(assertions, broken, AppContext.BaseDirectory);
+            Assert.IsFalse(results.All(result => result.Passed));
+        }
+    }
+
     private static EvalScenario LoadScenario()
     {
         var yaml = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "generator.eval.yaml"));

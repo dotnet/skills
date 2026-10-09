@@ -30,7 +30,9 @@ PowerShell permission requests may omit `possiblePaths` even for an explicit
 project argument. The executor recovers paths only for a single static
 `dotnet build`, `test`, or `run` invocation with known options, then applies the
 same workspace allowlist. Compound commands, computed paths, arbitrary MSBuild
-properties, unknown options, and outside projects remain rejected. Submit
+properties, response-file tokens, home-expanded path operands, unknown options,
+and outside projects remain rejected. VSTest substring filters may still use
+`~`; it is rejected in path operands, not globally. Submit
 validation commands separately rather than combining them with shell control
 flow.
 
@@ -584,7 +586,9 @@ empty set and report a clean run.
 > - Mark reference / agent-orchestrated skills that are never meant to be
 >   model-invoked from a user prompt with `disable-model-invocation: true`.
 >   The CLI drops them from the menu entirely, freeing budget for the skills
->   that should be discoverable. (They remain invocable by explicit name.)
+>   that should be discoverable. Consumers read their supplied or staged catalog
+>   files and bundled references directly; these reference-only skills are not
+>   callable through the model's skill tool, even by explicit name.
 > - Reduce the plugin's aggregate skill-menu footprint so its model-invocable
 >   skills fit under the budget. The `check` command enforces this via
 >   `SkillProfiler.MaxRenderedSkillMenuLength` (15,000), summing each

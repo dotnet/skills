@@ -44,6 +44,50 @@ public class Subscription
 
 
 class TimeScopeTests(unittest.TestCase):
+    def test_supported_clock_registration_forms_pass(self):
+        original = "var builder = CreateBuilder();\nvar app = builder.Build();\napp.Run();\n"
+        for registration in (
+            "builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);",
+            "builder.Services.AddSingleton(TimeProvider.System);",
+            "builder.Services.AddSingleton<System.TimeProvider>(System.TimeProvider.System);",
+            "builder.Services.AddSingleton<TimeProvider>(_ => TimeProvider.System);",
+            "builder.Services.AddSingleton<TimeProvider>(static services => TimeProvider.System);",
+            "builder.Services.TryAddSingleton<TimeProvider>(TimeProvider.System);",
+            "builder.Services.AddSingleton(typeof(TimeProvider), TimeProvider.System);",
+        ):
+            with self.subTest(registration=registration):
+                validate_program(
+                    original.replace("var app =", registration + "\nvar app ="),
+                    original,
+                )
+
+    def test_token_only_clock_registration_mutations_fail(self):
+        original = "var builder = CreateBuilder();\nvar app = builder.Build();\napp.Run();\n"
+        for registration in (
+            "builder.Services.AddSingleton(nameof(TimeProvider.System));",
+            'builder.Services.AddSingleton("TimeProvider.System");',
+            "builder.Services.AddSingleton(typeof(string), TimeProvider.System);",
+            "builder.Services.AddSingleton<TimeProvider>(_ => null);",
+            "builder.Services.Remove(TimeProvider.System);",
+        ):
+            with self.subTest(registration=registration):
+                with self.assertRaisesRegex(ValueError, "unrelated Program statement"):
+                    validate_program(
+                        original.replace("var app =", registration + "\nvar app ="),
+                        original,
+                    )
+
+    def test_clock_registration_after_host_build_fails(self):
+        original = "var builder = CreateBuilder();\nvar app = builder.Build();\napp.Run();\n"
+        with self.assertRaisesRegex(ValueError, "before builder.Build"):
+            validate_program(
+                original.replace(
+                    "app.Run();",
+                    "builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);\napp.Run();",
+                ),
+                original,
+            )
+
     def test_production_clock_registration_is_required_not_just_a_comment(self):
         original = "var builder = CreateBuilder();\nRun(builder);\n"
         for current in (original, original + "// TimeProvider.System registration goes here\n"):
