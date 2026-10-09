@@ -1,38 +1,478 @@
 name: microbenchmarking
 description: Evaluates the dotnet-diag/microbenchmarking skill
 type: capability
-config:
-  timeout: 10m
+defaults:
+  timeout: 6m
+environment:
+  files:
+    - src: ../graders/readonly_guard.py
+      dest: .eval/readonly_guard.py
 stimuli:
-  - name: Investigate runtime upgrade performance impact
-    prompt: >
-      Your team is upgrading the codebase from .NET 9 to .NET 10. You have been asked to benchmark AverageWordLength,
-      WordLengthHistogram, and UniqueWordCount to check how the upgrade will impact their performance. The source code
-      is in the TextAnalyzer subdirectory (TextAnalyzer.cs and TextAnalyzer.csproj). We don't need anything too
-      comprehensive, don't spend more than 10 minutes on this. Don't worry about cleaning up any files or projects you
-      create along the way. Note: this machine may be under load from other processes. If the .NET 9 runtime is missing,
-      install it using the official dotnet-install script from https://dot.net/v1/dotnet-install.sh (or
-      dotnet-install.ps1 on Windows).
+  - name: Design focused coverage for a text analysis API
+    prompt: |
+      Review the TextAnalyzer project and propose a maintainable benchmark plan
+      for its three public query methods. I need useful comparisons without a
+      large case matrix. Do not change files, restore packages, or run anything.
+    tags:
+      capability: benchmark-suite-design
+      risk: misleading-coverage
+      journey: plan-api-benchmarks
     environment:
       files:
-        - src: .
-          dest: .
+        - src: TextAnalyzer
+          dest: TextAnalyzer
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "microbenchmarking-text-analyzer-plan"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Treat this as a permanent coverage suite. Put representative text construction in GlobalSetup, keep the analyzer in a field, and benchmark AverageWordLength, WordLengthHistogram, and UniqueWordCount as separate methods that return their results. Mark one meaningful method or implementation as the Baseline only when a ratio comparison exists. Start with one empty, one typical, and one larger repeated-word input rather than a Cartesian product. Validate with Dry, use Short while iterating, and reserve the default job for final measurements.
     graders:
-      - type: file-contains
+      - type: output-matches
         config:
-          path: "**/*.csproj"
-          value: BenchmarkDotNet
-      - type: file-exists
+          pattern: '(?i)(GlobalSetup|setup.{0,40}field)'
+      - type: output-matches
         config:
-          path: "**/*-report*.md"
+          pattern: '(?is)((return|consume).{0,120}(result|value|histogram|count)|\[Benchmark\].{0,120}(double|int|ReadOnlyCollection)|=>\s*_analyzer\.)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(Dry|Short).{0,100}(default|final)'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect 232d9d2c57f666714549078844675fb19db0f17fa6f238261f69a123edf63385:TextAnalyzer/TextAnalyzer.cs --expect fa6375684d4de4f1bcd0aafb6276543df3b66460d98c49190cd7c2fcd815821c:TextAnalyzer/TextAnalyzer.csproj
+      - type: exit-success
       - type: prompt
     rubric:
-      - "The benchmarks follow best practices: methods return their results to prevent dead code elimination, input data
-        is stored in fields/properties rather than const or literal values, and initialization/data setup is in a setup
-        method not inside the benchmark methods"
-      - The agent let NuGet resolve the BenchmarkDotNet version rather than writing one from memory
-      - The benchmarks were actually run and completed, producing results that compare .NET 9 vs .NET 10
-      - The agent correctly identified that AverageWordLength and WordLengthHistogram got significantly faster on .NET
-        10 (expected ~2-3x faster), while UniqueWordCount showed no meaningful change
-      - The agent completed the task efficiently within the time constraints rather than spending excessive time on
-        unnecessary iterations or troubleshooting
+      - Proposed separate benchmarks for all three public query methods with representative inputs
+      - Kept input construction outside timed benchmark methods and required benchmark methods to return results
+      - Limited the case matrix to scenarios that add distinct coverage
+      - Proposed a fast validation run before final measurements
+      - Left the supplied project unchanged
+
+  - name: Review a benchmark that measures setup and manual repetition
+    prompt: |
+      This benchmark was added during a code review. Explain why its numbers
+      would not represent one Normalize operation and give a corrected design.
+      Review only; do not edit or run the code.
+    tags:
+      capability: benchmark-correctness-review
+      risk: invalid-measurement
+      journey: review-benchmark-pr
+    environment:
+      files:
+        - src: fixtures/flawed-methods/FlawedBenchmarks.cs
+          dest: FlawedBenchmarks.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "microbenchmarking-flawed-methods"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The timed method includes array creation and a manual loop of 100 Normalize calls, then discards every result. Move the input into a field initialized by GlobalSetup, remove the repetition because BenchmarkDotNet controls invocation count, and return the joined string. If batching were intentionally required, declare OperationsPerInvoke equal to the batch size so reported time remains per operation. Add a comparison baseline only when another implementation is present.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(GlobalSetup|outside.{0,30}(benchmark|timed))'
+      - type: output-matches
+        config:
+          pattern: '(?i)(manual loop|BenchmarkDotNet.{0,50}(invocation|iteration)|remove.{0,30}loop)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(return|consume).{0,50}(string|result|value)'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect a12e16c3a36daa4624f97e34c9c444143204e5e33ff787cd5bc409ef4552bdd4:FlawedBenchmarks.cs
+      - type: prompt
+    rubric:
+      - Identified setup work, manual repetition, and discarded results as separate measurement defects
+      - Explained that BenchmarkDotNet controls invocation count
+      - Proposed a corrected design that returns the operation result
+      - Left the supplied source unchanged
+
+  - name: Estimate and reduce a combinatorial case matrix
+    prompt: |
+      Estimate how many benchmark cases this class creates before anyone runs
+      it, give a rough default-job wall-clock range, and reduce the plan while
+      retaining useful search coverage. Do not edit or execute the fixture.
+    tags:
+      capability: case-cost-estimation
+      risk: runaway-benchmark-duration
+      journey: scope-benchmark-run
+    environment:
+      files:
+        - src: fixtures/case-budget/SearchBenchmarks.cs
+          dest: SearchBenchmarks.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "microbenchmarking-case-budget"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The matrix is 3 Count values x 4 Query values x 5 methods = 60 benchmark cases per job. At roughly 15-25 seconds per default case, one job is about 15-25 minutes before overhead. Keep representative small and large counts, split found versus missing queries into focused runs, and use --filter for one method family at a time. Validate with Dry and use Short during design; run the intentional final matrix with the default job.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)\b60\b.{0,60}(case|benchmark)'
+      - type: output-matches
+        config:
+          pattern: '(?i)\b(10|15)\s*[–-]\s*(25|30)\s*minute'
+      - type: output-matches
+        config:
+          pattern: '(?i)(Short|Dry|--filter|representative)'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect 4375b2214492e16aad4dcac618d634e25f3ce4af706d249e09d4d1bfca6d09d1:SearchBenchmarks.cs
+      - type: prompt
+    rubric:
+      - Correctly calculated 60 cases per job
+      - Translated the case count into a realistic default-job duration
+      - Proposed reducing parameters or splitting filtered runs without dropping all scale coverage
+      - Left the supplied source unchanged
+
+  - name: Review a side-by-side runtime comparison
+    prompt: |
+      We plan to compare this parser on two installed .NET runtimes. Review the
+      configuration for a useful ratio and reproducible invocation. Do not
+      install runtimes, restore packages, run the benchmark, or change files.
+    tags:
+      capability: runtime-comparison-design
+      risk: incomparable-runtime-results
+      journey: review-runtime-comparison
+    environment:
+      files:
+        - src: fixtures/runtime-comparison/RuntimeBenchmarks.cs
+          dest: RuntimeBenchmarks.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "microbenchmarking-runtime-comparison"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The .NET 8 and .NET 9 SimpleJob attributes create the runtime axis, but designate one job with AsBaseline so the report has runtime ratios. Keep both target runtimes preinstalled and record the SDK, OS, architecture, and hardware; do not install a runtime as part of measurement. Prefer BenchmarkSwitcher or pass args through the runner so `--filter` and job controls are honored. Run both jobs in the same invocation after a Dry validation.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(AsBaseline|baseline job|job.{0,30}baseline)'
+      - type: output-matches
+        config:
+          pattern: '(?is)((net8|Net80|\.NET\s*8).{0,500}(net9|Net90|\.NET\s*9)|(net9|Net90|\.NET\s*9).{0,500}(net8|Net80|\.NET\s*8))'
+      - type: output-matches
+        config:
+          pattern: '(?i)(pass.{0,20}args|BenchmarkSwitcher|--filter)'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect 74bffbaa17fc997abd48911740034fc98b841157504192bd03424f225dc60bba:RuntimeBenchmarks.cs
+      - type: prompt
+    rubric:
+      - Required a job baseline so runtime ratios are meaningful
+      - Kept runtime installation outside the benchmark workflow
+      - Required reproducible environment metadata and one side-by-side invocation
+      - Left the supplied source unchanged
+
+  - name: Detect state contamination between sort iterations
+    prompt: |
+      The first sort iteration is slow and later iterations are almost free.
+      Review the benchmark class and explain how to make every measurement use
+      equivalent unsorted data. Do not edit or run it.
+    tags:
+      capability: mutable-state-isolation
+      risk: state-contaminated-results
+      journey: diagnose-unstable-benchmark
+    environment:
+      files:
+        - src: fixtures/mutating-state/SortBenchmarks.cs
+          dest: SortBenchmarks.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "microbenchmarking-mutating-state"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              GlobalSetup creates one list, so ListSort mutates it and later invocations sort already-sorted data; LinqOrderBy also replaces shared state. Build an immutable source once, then clone it in IterationSetup (or InvocationSetup only if the cost is justified and excluded) so both methods start from the same unsorted values. Return or consume equivalent outputs, and decide whether the comparison is in-place sorting versus allocating sorting because those have different contracts.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(already.sorted|mutat|shared state|contaminat)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(IterationSetup|InvocationSetup).{0,100}(clone|copy|reset|unsorted)'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect 93e277e03f286b512b8fcb3841723cf2e108bc712f84ac244b21e85e78c6586b:SortBenchmarks.cs
+      - type: prompt
+    rubric:
+      - Identified mutation of shared state as the reason later measurements differ
+      - Proposed resetting from a stable source outside the timed operation
+      - Noted that the two methods have different allocation contracts
+      - Left the supplied source unchanged
+
+  - name: Calibrate a deliberately batched operation
+    prompt: |
+      This operation is intentionally batched because one Guid format is very
+      small. Explain what the current result means and how to report time per
+      Guid without removing the batch. Review only.
+    tags:
+      capability: operations-per-invoke
+      risk: misreported-operation-cost
+      journey: calibrate-tiny-operation
+    environment:
+      files:
+        - src: fixtures/batched-operations/BatchBenchmarks.cs
+          dest: BatchBenchmarks.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "microbenchmarking-batched-operations"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              One invocation currently performs 1,000 logical Guid formatting operations, so without metadata the reported Mean is per batch. Keep the loop but declare `[Benchmark(OperationsPerInvoke = 1000)]`; BenchmarkDotNet will divide iteration time by the operation count and report time per Guid. Keep the accumulated return value so the work remains observable, and ensure the array length cannot drift from OperationsPerInvoke.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)OperationsPerInvoke.{0,30}1[_,]?000'
+      - type: output-matches
+        config:
+          pattern: '(?i)(per batch|1,?000.{0,30}(operation|Guid)|per Guid)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(return|observable|dead code)'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect d6a21648078a073d2597f53367d69a5a158814a9c0bce18b64a478d2a4e8d3e1:BatchBenchmarks.cs
+      - type: prompt
+    rubric:
+      - Distinguished invocation time from logical operation time
+      - Set OperationsPerInvoke to the exact batch size
+      - Preserved an observable result and required batch-size consistency
+      - Left the supplied source unchanged
+
+  - name: Review async measurement without live network variance
+    prompt: |
+      We want to compare asynchronous response-processing overhead, not internet
+      latency. Review this benchmark and propose a deterministic design. Do not
+      make network calls, install anything, run it, or edit the file.
+    tags:
+      capability: async-benchmark-design
+      risk: environment-dominated-results
+      journey: isolate-async-overhead
+    environment:
+      files:
+        - src: fixtures/async-methods/AsyncBenchmarks.cs
+          dest: AsyncBenchmarks.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "microbenchmarking-async-methods"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              `.Result` measures sync-over-async behavior and the live URL makes network scheduling dominate the result. Make the benchmark method return Task<int> or ValueTask<int> and await the operation naturally. Replace the external call with a deterministic in-memory HttpMessageHandler or benchmark only the response-processing function using prebuilt data from GlobalSetup. If real service latency matters, use a load or integration test instead of a microbenchmark.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(\.Result|sync.over.async).{0,100}(wrong|distort|measure|block)'
+      - type: output-matches
+        config:
+          pattern: '(?is)((return|returns).{0,80}(Task|ValueTask)|async\s+(Task|ValueTask)\s*<)'
+      - type: output-matches
+        config:
+          pattern: '(?is)((in.memory|fake|deterministic|fixed|pre.?built).{0,180}(handler|data|response)|(HttpMessageHandler|DelegatingHandler).{0,180}(in.memory|fake|deterministic|fixed|pre.?built|Task\.FromResult))'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect afb600ab1d1cebb20295bf7783c301654b609f3a97094ce8dccd1cc2ec9c8d3e:AsyncBenchmarks.cs
+      - type: prompt
+    rubric:
+      - Rejected live network latency as an uncontrolled microbenchmark input
+      - Replaced blocking Result access with a task-returning benchmark
+      - Proposed deterministic response data or an in-memory handler
+      - Left the supplied source unchanged
+
+  - name: Select evidence for an allocation comparison
+    prompt: |
+      The question is whether the second implementation allocates more memory.
+      Review this class and specify the smallest useful diagnostics and result
+      comparison. Do not edit or run it.
+    tags:
+      capability: diagnoser-selection
+      risk: missing-allocation-evidence
+      journey: compare-allocations
+    environment:
+      files:
+        - src: fixtures/diagnoser-choice/AllocationBenchmarks.cs
+          dest: AllocationBenchmarks.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "microbenchmarking-diagnoser-choice"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Add MemoryDiagnoser and keep TrimWithArray as the method baseline. Compare Allocated bytes and Gen0 collections together with the Ratio column; the returned array and list make the work observable. Do not add hardware counters or a profiler because the stated question is managed allocation. Keep the same input field for both methods and use a representative size parameter only if scale is part of the question.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)MemoryDiagnoser'
+      - type: output-matches
+        config:
+          pattern: '(?i)(Allocated|Gen0).{0,80}(Ratio|baseline)|Ratio.{0,80}(Allocated|Gen0)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(do not|avoid|unnecessary|no need).{0,50}(hardware counter|profiler)'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect 66c0b9a5700b7b0d6a6284beb739669e17942e9cb66a15b82ddd3f94283ebb44:AllocationBenchmarks.cs
+      - type: prompt
+    rubric:
+      - Selected MemoryDiagnoser as the diagnostic that answers the allocation question
+      - Defined a baseline-relative comparison using allocation columns
+      - Avoided unrelated expensive diagnostics
+      - Left the supplied source unchanged
+
+  - name: Prevent an interactive benchmark entry point
+    prompt: |
+      CI sometimes hangs and command-line filters appear to be ignored. Review
+      the entry point and show the minimal correction and invocation pattern.
+      Do not edit, restore, or run it.
+    tags:
+      capability: benchmark-entry-point
+      risk: interactive-ci-hang
+      journey: make-benchmark-automation-safe
+    environment:
+      files:
+        - src: fixtures/entry-point/Program.cs
+          dest: Program.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "microbenchmarking-entry-point"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              `BenchmarkSwitcher.Run()` drops Main's args and can open interactive selection. Change it to `BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args)`. In CI invoke a noninteractive subset such as `dotnet run -c Release -- --filter "*ParserBenchmarks*" --job Dry` for validation, then use Short or the final job intentionally. Redirect verbose output to a log and read the generated Markdown report.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)\.Run\(args\)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(interactive|hang).{0,100}--filter|--filter.{0,100}(interactive|hang)'
+      - type: output-matches
+        config:
+          pattern: '(?is)dotnet run.{0,180}--\s+--filter'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect d11778c9bcf279e7d464a62d67500f0047c0553ff2f87982a79e7c5ca1ffeff0:Program.cs
+      - type: prompt
+    rubric:
+      - Identified the dropped args as the cause of ignored filters and interactive selection
+      - Passed args to BenchmarkSwitcher
+      - Supplied a filtered noninteractive validation command
+      - Left the supplied source unchanged
+
+  - name: Stay dormant for service load testing
+    prompt: |
+      I need to find the maximum sustained request rate of our deployed ASP.NET
+      Core service with 500 concurrent clients and realistic think time. What
+      test approach should we use?
+    expect_activation: false
+    tags:
+      capability: dormancy-load-testing
+      risk: routing
+      journey: choose-load-test
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "microbenchmarking-dormancy-load"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a load and capacity test, not a process-local microbenchmark. Use a tool such as Crank, k6, or another HTTP load generator from representative client machines. Define warm-up, concurrency, request mix, think time, duration, throughput, latency percentiles, errors, and server resource telemetry. Keep the deployed environment stable and repeat runs before selecting a safe sustained rate.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(load|capacity|stress).{0,40}test'
+      - type: output-matches
+        config:
+          pattern: '(?i)(Crank|k6|load generator)'
+      - type: output-not-matches
+        config:
+          pattern: '(?i)BenchmarkRunner\.Run|BenchmarkSwitcher|\[Benchmark\]|MemoryDiagnoser'
+      - type: prompt
+    rubric:
+      - Recognized a deployed concurrency request as load testing rather than microbenchmarking
+      - Recommended a suitable load-generation approach and production-relevant metrics
+      - Did not propose a process-local benchmark harness
+      - Stayed dormant instead of activating the microbenchmark workflow
+
+  - name: Stay dormant for production CPU trace analysis
+    prompt: |
+      A production worker has periodic CPU spikes. We already captured a
+      dotnet-trace file during an incident. How should we find the hot call
+      stacks and blocking intervals?
+    expect_activation: false
+    tags:
+      capability: dormancy-trace-analysis
+      risk: routing
+      journey: analyze-production-trace
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "microbenchmarking-dormancy-trace"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Analyze the captured trace with a trace viewer such as PerfView or speedscope. Inspect CPU stacks by inclusive and exclusive time, correlate spike windows with thread activity, and inspect contention or blocking events when present. Preserve symbols and deployment metadata. A microbenchmark may later validate an isolated fix, but it is not the tool for locating the production hot path.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(PerfView|speedscope|trace viewer)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(CPU stack|inclusive|exclusive|contention|blocking)'
+      - type: output-not-matches
+        config:
+          pattern: '(?i)(write|create|run).{0,30}(a )?BenchmarkDotNet'
+      - type: prompt
+    rubric:
+      - Directed the user to trace analysis for locating production hot paths
+      - Recommended stack and blocking analysis grounded in the captured artifact
+      - Kept microbenchmarking as an optional later validation step rather than the diagnosis method
+      - Stayed dormant instead of activating the microbenchmark workflow

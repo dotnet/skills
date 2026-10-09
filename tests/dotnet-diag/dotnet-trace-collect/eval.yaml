@@ -1,296 +1,406 @@
 name: dotnet-trace-collect
 description: Evaluates the dotnet-diag/dotnet-trace-collect skill
 type: capability
-config:
-  timeout: 2m
+tags:
+  executionShard: medium
+defaults:
+  timeout: 6m
+  runs: 1
 stimuli:
-  - name: High CPU in Kubernetes on Linux (.NET 8)
-    prompt: My ASP.NET Core application running on Linux in a Kubernetes pod is experiencing high CPU usage. I'm running
-      .NET 8. How do I collect diagnostic data to figure out what's going on?
+  - name: Collect CPU evidence from a .NET 8 Kubernetes workload
+    prompt: |
+      A .NET 8 API in a Linux Kubernetes pod has sustained high CPU. I can
+      exec into the pod, and the diagnostics utility is already available.
+      Give the exact 30-second collection and copy-out commands. Do not run
+      commands or change files.
+    tags: { capability: kubernetes-console-cpu-collection, risk: medium, journey: capture-production-cpu-evidence }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "trace-kubernetes-net8-cpu"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Run `dotnet-trace collect -p <PID> --duration 00:00:00:30 -o /tmp/cpu.nettrace`, then `kubectl cp <pod>:/tmp/cpu.nettrace ./cpu.nettrace`. Use the ordinary managed collector because this is .NET 8. Record UTC times, image tag, PID, and the command with the artifact. I did not execute anything.
     graders:
       - type: output-matches
-        config:
-          pattern: (dotnet-trace|dotnet trace)
+        config: { pattern: '(?i)dotnet-trace\s+collect\s+-p\s+<PID>\s+--duration\s+00:00:00:30\s+-o\s+/tmp/cpu\.nettrace' }
       - type: output-matches
-        config:
-          pattern: (kubectl|container|pod)
+        config: { pattern: '(?i)kubectl\s+cp(?:\s+-n\s+\S+)?\s+(?:<namespace>/)?<pod>:/tmp/cpu\.nettrace\s+\.[\\/]cpu\.nettrace' }
+      - type: output-not-matches
+        config: { pattern: '(?im)^\s*(?:[$>]\s*)?(?:sudo\s+)?dotnet-trace\s+collect-linux\b' }
+      - type: exit-success
       - type: prompt
     rubric:
-      - Recommends dotnet-trace as the preferred approach when the user can exec into the container
-      - Provides specific commands to install or download dotnet-trace inside the container (e.g., aka.ms links or
-        dotnet tool install)
-      - Mentions dotnet-monitor as an alternative when console access is not available
-      - Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)
-      - Mentions how to get the collected trace out of the container for analysis (e.g., kubectl cp)
-  - name: .NET Framework on Windows without admin privileges
-    prompt: Our .NET Framework service running directly on a Windows Server has high CPU, but I don't have admin rights on
-      the server. What diagnostics can I collect, and what are the limitations?
-    graders:
-      - type: output-contains
-        config:
-          substring: PerfView
-      - type: output-matches
-        config:
-          pattern: (admin|privilege|elevated)
-      - type: prompt
-    rubric:
-      - Explains that PerfView is the primary diagnostic tool for .NET Framework but requires admin privileges
-      - Clearly states there is no trace-based fallback for .NET Framework without admin access
-      - Does not recommend dotnet-trace since it does not work with .NET Framework
-      - Mentions that process dumps can still be captured without admin for hangs or memory leaks
-      - Advises the user to obtain admin privileges for high CPU investigation on .NET Framework
-  - name: .NET 10 on Linux with root access and native call stacks
-    prompt: My .NET 10 service runs directly on a Linux VM (kernel 6.8) and I have root access. I'm seeing high CPU and
-      suspect native code is involved. What's the best way to collect a rich trace with native call stacks?
-    graders:
-      - type: output-contains
-        config:
-          substring: collect-linux
-      - type: output-matches
-        config:
-          pattern: (native|kernel)
-      - type: prompt
-    rubric:
-      - Recommends dotnet-trace collect-linux as the preferred tool for .NET 10+ with root
-      - Explains that collect-linux uses perf_events for richer traces including native call stacks and kernel events
-      - Mentions that dotnet-trace (without collect-linux) is a fallback if root or kernel requirements are not met
-      - Provides the specific command to run dotnet-trace collect-linux
-  - name: Memory leak on Linux (.NET 8)
-    prompt: My .NET 8 app running directly on a Linux VM has memory that keeps growing over hours. What exact data should I
-      collect to identify a memory leak?
+      - Selects a collector compatible with .NET 8 and in-pod access
+      - Gives bounded collection and artifact-copy commands with an explicit output path
+      - Preserves useful handoff metadata without performing production actions
+    constraints: { reject_tools: [bash, edit, create] }
+
+  - name: Collect native CPU stacks on .NET 10 Linux
+    prompt: |
+      A .NET 10 service runs on Linux kernel 6.8. I have root access and need
+      native and kernel stacks for 30 seconds. Give one exact command that
+      writes /var/tmp/native-cpu.nettrace. Do not execute it.
+    tags: { capability: linux-net10-native-stack-collection, risk: high, journey: capture-native-cpu-evidence }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "trace-linux-net10-native"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use `sudo dotnet-trace collect-linux --duration 00:00:00:30 -o /var/tmp/native-cpu.nettrace`. .NET 10, kernel 6.8, and root meet the richer collector prerequisites; it captures native stacks and kernel events. Confirm free space and retain runtime, kernel, UTC window, and command metadata. I did not execute it.
     graders:
       - type: output-matches
-        config:
-          pattern: (dump|dump-collect)
+        config: { pattern: '(?is)(?:sudo\s+)?dotnet-trace\s+collect-linux(?=[^\r\n]*--duration\s+00:00:00:30)(?=[^\r\n]*(?:-o|--output)\s+/var/tmp/native-cpu\.nettrace)[^\r\n]*' }
       - type: output-matches
-        config:
-          pattern: (dotnet-trace|dotnet trace)
+        config: { pattern: '(?i)(native|kernel).*(stack|event)' }
+      - type: output-not-matches
+        config: { pattern: '(?im)^\s*(?:[$>]\s*)?dotnet-trace\s+collect\s+-p\b' }
+      - type: exit-success
       - type: prompt
     rubric:
-      - Recommends capturing two dumps at different points during memory growth for heap diffing
-      - Invokes the dump-collect skill for dump collection rather than providing direct dotnet-dump commands
-      - Recommends dotnet-trace while memory is growing for allocation tracking
-      - Explains that diffing two dumps helps identify which objects are increasing
-      - Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)
-  - name: Slow requests on Windows with PerfView
-    prompt: My ASP.NET Core (.NET 8) app running on a Windows Server has slow requests under load. I have admin access.
-      Which trace should I collect to capture waits/blocks, and what PerfView arguments should I use?
-    graders:
-      - type: output-contains
-        config:
-          substring: PerfView
-      - type: output-contains
-        config:
-          substring: ThreadTime
-      - type: output-matches
-        config:
-          pattern: (BufferSizeMB|CircularMB)
-      - type: prompt
-    rubric:
-      - Recommends PerfView with the /ThreadTime argument to capture thread-level wait and block detail
-      - Includes /BufferSizeMB and /CircularMB for larger buffers since thread time traces generate more data
-      - Does not include a stop trigger by default for slow request scenarios
-      - Provides the specific PerfView command line to run
-      - Explains that /ThreadTime adds thread-level wait and block detail for diagnosing slow requests
-  - name: Excessive GC on Linux (.NET 8)
-    prompt: My .NET 8 service running on a Linux VM is spending a lot of time in garbage collection. Response times spike
-      during GC pauses. What trace should I collect to analyze GC behavior, and what commands do I run?
+      - Selects the richer Linux collector only after all prerequisites are met
+      - Gives the requested bounded command and deterministic output path
+      - Includes storage and handoff safeguards without execution
+    constraints: { reject_tools: [bash, edit, create] }
+
+  - name: Capture slow ASP.NET Core requests on Windows
+    prompt: |
+      A .NET 8 ASP.NET Core service on Windows has slow requests under load.
+      I have administrator access. Give the exact collection command that
+      preserves thread waits and request events with a circular buffer. Do not run it.
+    tags: { capability: windows-thread-time-request-collection, risk: high, journey: capture-slow-request-evidence }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "trace-windows-slow-requests"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              From an elevated shell use `PerfView /ThreadTime collect /BufferSizeMB:1024 /CircularMB:2048 /Providers:*Microsoft.AspNetCore.Hosting,*Microsoft-AspNetCore-Server-Kestrel`. Stop after reproducing the slow requests. Thread-time data shows waits and blocks; the providers add request lifecycle events. Do not guess an automatic stop condition. I did not execute anything.
     graders:
       - type: output-matches
-        config:
-          pattern: (dotnet-trace|dotnet trace)
+        config: { pattern: '(?is)PerfView(?:\.exe)?(?=[^\r\n]*/ThreadTime)(?=[^\r\n]*\bcollect\b)(?=[^\r\n]*/BufferSizeMB:1024)(?=[^\r\n]*/CircularMB:2048)[^\r\n]*' }
       - type: output-matches
-        config:
-          pattern: (gc-verbose|gc verbose)
-      - type: output-matches
-        config:
-          pattern: --profile\s+gc-verbose
+        config: { pattern: '(?i)Microsoft\.AspNetCore\.Hosting.*Microsoft-AspNetCore-Server-Kestrel' }
+      - type: output-not-matches
+        config: { pattern: '(?i)/StopOn(?:PerfCounter|GCEvent|Exception)' }
+      - type: exit-success
       - type: prompt
     rubric:
-      - Recommends dotnet-trace with the gc-verbose profile for capturing GC events on Linux
-      - Explains that a trace is required to analyze GC events, pause times, and allocation patterns — a dump is not
-        sufficient
-      - Provides the specific dotnet-trace collect command with --profile gc-verbose
-      - Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)
-      - Suggests an analysis tool for the resulting .nettrace file
-  - name: Hang or deadlock diagnosis on Linux
-    prompt: My .NET 8 application running on a Linux VM appears completely hung — it's not responding to any requests. How
-      do I diagnose what's going on?
+      - Chooses Windows thread-time collection with adequate circular buffers
+      - Includes ASP.NET Core request lifecycle providers
+      - Avoids inventing an unsafe stop condition
+    constraints: { reject_tools: [bash, edit, create] }
+
+  - name: Capture excessive GC on .NET 8 Linux
+    prompt: |
+      A .NET 8 Linux service pauses frequently during garbage collection.
+      PID 7312 is the target. Give one exact 45-second command that writes
+      gc.nettrace and captures GC behavior. Do not execute it.
+    tags: { capability: linux-gc-trace-collection, risk: medium, journey: capture-gc-pause-evidence }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "trace-linux-net8-gc"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use `dotnet-trace collect -p 7312 --profile gc-verbose --duration 00:00:00:45 -o gc.nettrace`. GC event data measures collections, pauses, and allocations; a memory snapshot alone cannot provide that timeline. I did not execute it.
     graders:
       - type: output-matches
-        config:
-          pattern: (dotnet-trace|dotnet trace|trace)
-      - type: output-matches
-        config:
-          pattern: (thread|stack)
+        config: { pattern: '(?is)dotnet-trace\s+collect(?=[^\r\n]*(?:-p|--process-id)\s+7312)(?=[^\r\n]*--profile\s+gc-verbose)(?=[^\r\n]*--duration\s+00:00:00:45)(?=[^\r\n]*(?:-o|--output)\s+gc\.nettrace)[^\r\n]*' }
+      - type: output-not-matches
+        config: { pattern: '(?im)^\s*(?:[$>]\s*)?dotnet-dump\s+collect\b' }
+      - type: exit-success
       - type: prompt
     rubric:
-      - Recommends starting with a trace to understand what threads are doing (livelock, thread starvation, or partial
-        forward progress)
-      - Explains that if the trace does not explain the hang, the issue may be a true deadlock requiring a dump
-      - Mentions invoking the dump-collect skill or recommends a dump as a follow-up step
-      - Mentions lldb with SOS or a debugger for analyzing thread stacks in the dump
-      - Distinguishes between livelocks (threads spinning), thread starvation, and true deadlocks
-  - name: Windows container high CPU with PerfView
-    prompt: My .NET 8 application runs in a Windows container on Kubernetes. I'm seeing high CPU. I have admin access on the
-      host. How do I collect a trace?
-    graders:
-      - type: output-contains
-        config:
-          substring: PerfView
-      - type: output-matches
-        config:
-          pattern: (EnableEventsInContainers|container)
-      - type: prompt
-    rubric:
-      - Recommends PerfView from the host with /EnableEventsInContainers for process-isolation Windows containers
-      - "Explains the two analysis options: analyze locally while container is running, or merge symbols before
-        container shuts down"
-      - Mentions PerfViewCollect merge /ImageIDsOnly for off-machine analysis
-  - name: Long-running intermittent issue with PerfView triggers
-    prompt: My .NET 8 Windows service running on a Windows Server has a high CPU spike that happens roughly once every 4-6
-      hours. I have admin access but I can't sit and watch it. How do I set up PerfView to automatically capture the
-      spike with a circular buffer?
-    graders:
-      - type: output-contains
-        config:
-          substring: PerfView
-      - type: output-matches
-        config:
-          pattern: (StopOn|CircularMB|BufferSizeMB)
-      - type: prompt
-    rubric:
-      - Recommends PerfView with a /StopOn trigger that fires on the symptom (e.g., /StopOnPerfCounter)
-      - Includes /CircularMB and /BufferSizeMB for a circular buffer that keeps only the most recent data
-      - Explains that the stop trigger should fire on the interesting event, not the recovery
-      - Provides specific PerfView command-line arguments for the circular buffer and trigger setup
-  - name: Linux pre-.NET 10 needing native call stacks
-    prompt: I have a .NET 8 app running directly on a Linux server with root access. I suspect the high CPU is partly in
-      native code (a native interop library). How do I get native call stacks in my trace?
-    graders:
-      - type: output-contains
-        config:
-          substring: perfcollect
-      - type: output-matches
-        config:
-          pattern: (native|perf)
-      - type: prompt
-    rubric:
-      - Recommends perfcollect for capturing native call stacks on Linux with pre-.NET 10
-      - Explains that perfcollect requires root/admin access
-      - Mentions that dotnet-trace only captures managed stacks and would miss native frames
-      - Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)
-      - Provides guidance on installing and running perfcollect
-  - name: Windows modern .NET with admin high CPU
-    prompt: I have a .NET 8 service running on Windows Server with admin access. CPU is pegged at 100%. What's the best tool
-      to collect a CPU trace and how do I run it?
-    graders:
-      - type: output-contains
-        config:
-          substring: PerfView
-      - type: output-contains
-        config:
-          substring: PerfView collect
-      - type: prompt
-    rubric:
-      - Recommends PerfView as the preferred tool for Windows with admin access
-      - Provides the specific PerfView collect command to run
-      - Recommends analysis approach for the resulting .etl.zip file
-  - name: Memory leak on .NET Framework Windows
-    prompt: Our .NET Framework 4.8 Windows service has a slow memory leak. Memory grows over days until the process crashes
-      with an OutOfMemoryException. I have admin access. What should I collect?
-    graders:
-      - type: output-contains
-        config:
-          substring: PerfView
-      - type: output-matches
-        config:
-          pattern: (dump|dumps)
-      - type: prompt
-    rubric:
-      - Recommends capturing two process dumps at different points during memory growth for diffing
-      - Provides dump collection commands directly (e.g., procdump -ma) since dump-collect does not support .NET
-        Framework
-      - Recommends a PerfView trace while memory is growing to see what is being allocated
-      - Explains that diffing two dumps in PerfView identifies which objects have increased
-      - Advises to capture during the growth period rather than waiting for the OutOfMemoryException
-  - name: Kubernetes with console access prefers console tools
-    prompt: My .NET 8 app is running in a Kubernetes pod on Linux and I have high CPU. I can exec into the container. What's
-      the best way to collect a CPU trace?
+      - Selects time-based GC event collection rather than a memory snapshot
+      - Uses the requested PID, duration, profile, and output path
+      - Explains what evidence the artifact provides
+    constraints: { reject_tools: [bash, edit, create] }
+
+  - name: Plan evidence for gradual memory growth
+    prompt: |
+      A .NET 8 Linux service grows from 2 GB to 8 GB over several hours. I
+      need evidence that shows which objects grow and when allocations occur.
+      Give collection guidance only; do not run commands.
+    tags: { capability: memory-growth-artifact-plan, risk: high, journey: plan-memory-leak-evidence }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "trace-memory-growth-plan"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Collect two full memory dumps, one near 2 GB and one after substantial growth, through the modern .NET dump-collection workflow. During growth use `dotnet-trace collect -p <PID> --profile gc-verbose -o allocations.nettrace`. Preserve timestamps and build identity to correlate the artifacts. I did not execute anything.
     graders:
       - type: output-matches
-        config:
-          pattern: (dotnet-trace|dotnet trace)
+        config: { pattern: '(?i)two\s+(?:(?:full|memory|heap|process)\s+)*dumps' }
+      - type: output-matches
+        config: { pattern: '(?is)dotnet-trace\s+collect(?=[^\r\n]*(?:-p|--process-id)\s+<PID>)(?=[^\r\n]*--profile\s+gc-verbose)[^\r\n]*(?:(?:-o|--output)\s+allocations\.nettrace|--duration\s+\S+)' }
+      - type: output-not-matches
+        config: { pattern: '(?im)^\s*(?:[$>]\s*)?dotnet-dump\s+collect\b' }
+      - type: exit-success
       - type: prompt
     rubric:
-      - Recommends dotnet-trace (console tool) as the preferred option since the user has console access to the container
-      - Provides the specific dotnet-trace collect command to run inside the container
-      - Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)
-  - name: Container installation without .NET SDK
-    prompt: I need to collect a CPU trace from my .NET 8 app running in a Linux container that is experiencing high CPU, but
-      the container image doesn't have the .NET SDK installed. How can I get dotnet-trace into the container?
+      - Plans time-separated memory snapshots for retained-object comparison
+      - Adds allocation and GC timeline evidence during growth
+      - Keeps dump capture in the appropriate collection workflow
+    constraints: { reject_tools: [bash, edit, create] }
+
+  - name: State the .NET Framework high-CPU privilege limit
+    prompt: |
+      A .NET Framework 4.8 Windows service has high CPU, but I cannot get
+      administrator rights. What diagnostic collection is actually possible?
+      Do not run anything or suggest changing the service.
+    tags: { capability: framework-no-admin-limit, risk: high, journey: avoid-unsupported-high-cpu-collection }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "trace-framework-no-admin"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              There is no supported trace collection for this high-CPU case without administrator access. PerfView is the applicable .NET Framework CPU collector, and ETW collection requires elevation. Obtain an approved elevated session or reproduce where an administrator can collect. Dumps can help hangs or memory growth but do not replace CPU trace evidence.
     graders:
       - type: output-matches
-        config:
-          pattern: (aka.ms|curl|wget)
+        config: { pattern: '(?is)(?:no\s+(?:supported\s+)?trace|can(?:not|''t)\s+be\s+traced|no\s+alternative\s+trace\s+tool).{0,160}(?:without\s+(?:administrator|admin)|requires?\s+(?:administrator|admin|elevation))|without\s+(?:administrator|admin).{0,160}(?:no\s+(?:supported\s+)?trace|can(?:not|''t)\s+be\s+traced)' }
+      - type: output-matches
+        config: { pattern: '(?i)PerfView.*(?:administrator|admin|elevat)' }
+      - type: output-not-matches
+        config: { pattern: '(?im)^\s*(?:[$>]\s*)?(?:PerfView\s+collect|dotnet-trace\s+collect)\b' }
+      - type: exit-success
       - type: prompt
     rubric:
-      - Mentions the aka.ms direct download links as a way to get dotnet-trace without the SDK
-      - Provides the curl or wget command to download dotnet-trace for the appropriate platform
-      - Explains that this avoids the need for a .NET SDK in the container
-      - Mentions kubectl cp as an alternative to copy the tool into the container
-  - name: HTTP 500s from downstream service on Linux (.NET 8)
-    prompt: My .NET 8 ASP.NET Core app running on a Linux VM is making HTTP calls to a downstream API using HttpClient, and
-      we're seeing intermittent HTTP 500 responses from that downstream service. I need to understand which requests are
-      failing and how long they're taking. What trace should I collect?
+      - States the real privilege limitation instead of an incompatible fallback
+      - Identifies the approved prerequisite for CPU collection
+      - Does not misrepresent a dump as equivalent CPU evidence
+    constraints: { reject_tools: [bash, edit, create] }
+
+  - name: Configure a symptom-triggered circular CPU capture
+    prompt: |
+      A Windows service has a CPU spike every few hours. Collection should stop
+      when total processor use exceeds 80 percent and retain only recent
+      history. Give the exact PerfView command. Do not execute it.
+    tags: { capability: perfview-symptom-trigger, risk: high, journey: capture-intermittent-cpu-spike }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "trace-perfview-cpu-trigger"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use `PerfView collect /StopOnPerfCounter:"Processor:% Processor Time:_Total>80" /BufferSizeMB:2048 /CircularMB:4096`. The trigger fires on the spike, so recent lead-up remains in the circular buffer. Confirm disk space and use an approved elevated shell. I did not execute it.
     graders:
       - type: output-matches
-        config:
-          pattern: (dotnet-trace|dotnet trace)
+        config: { pattern: '(?is)PerfView(?:\.exe)?(?=[^\r\n]*\bcollect\b)(?=[^\r\n]*/StopOnPerfCounter:"Processor:% Processor Time:_Total>80")(?=[^\r\n]*/CircularMB:\d+)[^\r\n]*' }
       - type: output-matches
-        config:
-          pattern: System\.Net\.Http
+        config: { pattern: '(?is)(?:(spike|symptom).*(circular|rolling|recent|lead-up)|(circular|rolling|recent|lead-up).*(spike|symptom))' }
+      - type: output-not-matches
+        config: { pattern: '(?i)(recovery|<\s*80).*StopOnPerfCounter' }
+      - type: exit-success
       - type: prompt
     rubric:
-      - Recommends dotnet-trace with networking providers (at minimum System.Net.Http)
-      - Explains that System.Net.Http events include HTTP status codes in RequestStop events, allowing identification of
-        5xx responses
-      - Mentions that the trace also captures request timing to correlate slow requests with failures
-      - Provides the specific dotnet-trace collect command with --providers for networking
-      - Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)
-  - name: Networking timeouts on Windows with admin (.NET 8)
-    prompt: My .NET 8 Windows service is experiencing networking timeouts when calling external APIs via HttpClient.
-      Requests are timing out after 30 seconds. I have admin access. What's the best way to collect diagnostic data to
-      understand what's happening at the networking level?
-    graders:
-      - type: output-contains
-        config:
-          substring: PerfView
-      - type: output-matches
-        config:
-          pattern: System\.Net
-      - type: prompt
-    rubric:
-      - Recommends PerfView with /ThreadTime and networking providers as Additional Providers
-      - Lists the networking providers to enable (System.Net.Http, and optionally System.Net.NameResolution,
-        System.Net.Security, System.Net.Sockets)
-      - Explains that combining thread-time traces with networking events shows both where threads are blocked and what
-        networking operations are failing
-      - Mentions that RequestFailed events capture exception messages for timed-out requests
-  - name: Assembly loading failure on Linux (.NET 8)
-    prompt: My .NET 8 application running on a Linux VM throws a ReflectionTypeLoadException at startup when loading a
-      plugin via a custom AssemblyLoadContext. How do I collect the right trace to diagnose what's going wrong with
-      assembly loading?
+      - Stops on the symptom rather than recovery
+      - Uses a finite circular buffer for intermittent collection
+      - Notes privilege and storage prerequisites
+    constraints: { reject_tools: [bash, edit, create] }
+
+  - name: Capture Linux HTTP timeout evidence
+    prompt: |
+      A .NET 8 Linux API intermittently times out while calling external
+      services. PID 8120 is the target. Give one command that captures thread
+      time plus HTTP, DNS, TLS, and socket events to network.nettrace. Do not run it.
+    tags: { capability: networking-provider-collection, risk: high, journey: capture-http-timeout-evidence }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "trace-linux-networking"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use `dotnet-trace collect -p 8120 --profile dotnet-common,dotnet-sampled-thread-time --providers System.Net.Http,System.Net.NameResolution,System.Net.Security,System.Net.Sockets -o network.nettrace`. The explicit profile preserves runtime and thread-time data when custom providers are supplied. I did not execute it.
     graders:
       - type: output-matches
-        config:
-          pattern: (dotnet-trace|dotnet trace)
+        config: { pattern: '(?i)dotnet-trace\s+collect\s+-p\s+8120\s+--profile\s+dotnet-common,dotnet-sampled-thread-time' }
       - type: output-matches
-        config:
-          pattern: (assemblyloader|assembly.?load|loader|binder)
+        config: { pattern: 'System\.Net\.Http,System\.Net\.NameResolution,System\.Net\.Security,System\.Net\.Sockets' }
+      - type: output-not-matches
+        config: { pattern: '(?im)^\s*(?:[$>]\s*)?dotnet-trace\s+collect\s+-p\s+8120\s+--providers\b' }
+      - type: exit-success
       - type: prompt
     rubric:
-      - Recommends dotnet-trace with --clrevents assemblyloader or --providers Microsoft-Windows-DotNETRuntime:0x4:4 to
-        capture assembly loader binder events
-      - Recommends the launch form (-- <exe>) rather than attaching by PID since the process may fail on startup
-      - Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)
+      - Preserves thread-time and runtime profiles with custom providers
+      - Includes all requested networking provider families
+      - Produces a deterministic artifact path without execution
+    constraints: { reject_tools: [bash, edit, create] }
+
+  - name: Capture startup assembly binding failure
+    prompt: |
+      A .NET 8 Linux process exits during startup with
+      ReflectionTypeLoadException before PID attachment. The executable is
+      ./PluginHost. Give the exact launch-and-collect command. Do not run it.
+    tags: { capability: assembly-loader-launch-collection, risk: medium, journey: capture-startup-binding-evidence }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "trace-assembly-loader-launch"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use `dotnet-trace collect --clrevents assemblyloader -- ./PluginHost`. This launch form captures loader and binder events from process start and avoids the PID attach race. I did not execute it.
+    graders:
+      - type: output-matches
+        config: { pattern: '(?i)dotnet-trace\s+collect\s+--clrevents\s+assemblyloader\s+--\s+\./PluginHost' }
+      - type: output-matches
+        config: { pattern: '(?i)(launch|process start|attach race)' }
+      - type: output-not-matches
+        config: { pattern: '(?im)^\s*(?:[$>]\s*)?dotnet-trace\s+collect.*\s-p\s+<PID>' }
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Uses launch-time collection because the process exits before attachment
+      - Enables loader events with the executable after the separator
+      - Explains the avoided race without execution
+    constraints: { reject_tools: [bash, edit, create] }
+
+  - name: Stay dormant for an existing trace analysis request
+    prompt: |
+      I already have checkout.nettrace from yesterday. Inspect it and tell me
+      which methods consumed the most CPU. Do not change files.
+    expect_activation: false
+    tags: { capability: dormancy-trace-analysis, risk: routing, journey: redirect-existing-artifact-analysis }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "trace-dormancy-analysis"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is analysis of an existing artifact, not collection. Open checkout.nettrace in PerfView on Windows or Speedscope for a portable CPU view, then inspect CPU stacks and inclusive samples. I will not start another collection or claim findings without reading the artifact.
+    graders:
+      - type: output-matches
+        config: { pattern: '(?is)(?:(existing artifact|analysis).*(PerfView|Speedscope)|(?:provide|share|exact)\s+(?:the\s+)?(?:full\s+)?path.*checkout\.nettrace)' }
+      - type: output-not-matches
+        config: { pattern: '(?im)^\s*(?:[$>]\s*)?(?:sudo\s+)?dotnet-trace\s+collect' }
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recognizes artifact analysis and redirects appropriately
+      - Does not start or recommend a new capture
+      - The target collection workflow stayed dormant
+    constraints: { reject_tools: [bash, edit, create] }
+
+  - name: Stay dormant for crash dump capture
+    prompt: |
+      A modern .NET service is deadlocked and I need a full process dump from
+      PID 4400 on Linux. Give safe capture steps only; do not run them.
+    expect_activation: false
+    tags: { capability: dormancy-dump-collection, risk: routing, journey: redirect-dump-capture }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "trace-dormancy-dump-capture"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This needs the modern .NET crash-dump collection workflow, including destination checks, a full dump for PID 4400, and reporting the resulting path. It does not need performance event collection. I will not run commands or analyze the dump.
+    graders:
+      - type: output-matches
+        config: { pattern: '(?is)(?:(?:dump collection|crash-dump collection|full process dump|dotnet-dump\s+collect).*(?:PID\s*)?4400|(?:PID\s*)?4400.*(?:dump collection|full process dump|dotnet-dump\s+collect))' }
+      - type: output-not-matches
+        config: { pattern: '(?im)^\s*(?:[$>]\s*)?(?:sudo\s+)?dotnet-trace\s+collect' }
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Routes to process-dump collection without substituting tracing
+      - Preserves the advisory and collection-only boundary
+      - The target collection workflow stayed dormant
+    constraints: { reject_tools: [bash, edit, create] }
+
+  - name: Stay dormant for source performance review
+    prompt: |
+      Review this C# caching implementation for allocation hot spots and
+      algorithmic mistakes. I want source findings, not production collection.
+      Do not edit anything.
+    expect_activation: false
+    tags: { capability: dormancy-source-analysis, risk: routing, journey: redirect-source-performance-review }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "trace-dormancy-source-review"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This calls for a read-only source review. Inspect ownership, eviction, repeated allocations, complexity, and concurrency, then report supported findings. Production collection is not needed.
+    graders:
+      - type: output-matches
+        config: { pattern: '(?is)(?:(source review|inspect).*(allocation|complexity|concurrency)|(?:share|provide|paste).*(?:file|code|implementation).*(?:review|analy))' }
+      - type: output-not-matches
+        config: { pattern: '(?im)^\s*(?:[$>]\s*)?(?:PerfView|dotnet-trace|perfcollect)\b' }
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recognizes a source-analysis task and focuses on code evidence
+      - Does not introduce production collection commands
+      - The target collection workflow stayed dormant
+    constraints: { reject_tools: [bash, edit, create] }
+
+  - name: Stay dormant for development benchmarking
+    prompt: |
+      Compare two JSON serializers in a local .NET 9 project. Design a
+      repeatable microbenchmark with warmup, payload sizes, and memory
+      measurements. Do not run it or edit files.
+    expect_activation: false
+    tags: { capability: dormancy-benchmarking, risk: routing, journey: redirect-development-benchmark }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "trace-dormancy-benchmark"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use BenchmarkDotNet with two serializer methods, parameterized payload sizes, standard warmup and measurement iterations, and MemoryDiagnoser. Keep setup outside measured methods and consume results. This is development benchmarking, not production collection.
+    graders:
+      - type: output-matches
+        config: { pattern: '(?is)BenchmarkDotNet.*(MemoryDiagnoser|memory)' }
+      - type: output-matches
+        config: { pattern: '(?is)(?:(parameter|payload).*(warmup|measurement)|(warmup|measurement).*(parameter|payload))' }
+      - type: output-not-matches
+        config: { pattern: '(?im)^\s*(?:[$>]\s*)?(?:PerfView|dotnet-trace|perfcollect)\b' }
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Selects a repeatable development benchmark with allocation evidence
+      - Does not redirect the task into production tracing
+      - The target collection workflow stayed dormant
+    constraints: { reject_tools: [bash, edit, create] }

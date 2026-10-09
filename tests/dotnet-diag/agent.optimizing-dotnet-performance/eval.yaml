@@ -1,0 +1,415 @@
+name: agent.optimizing-dotnet-performance
+description: Evaluates the dotnet-diag/optimizing-dotnet-performance custom agent
+type: capability
+defaults:
+  timeout: 6m
+stimuli:
+  - name: Perform two-pass regex hot-path review
+    prompt: |
+      Review CaseTransformExtensions.cs. These methods run millions of times,
+      but application startup also has a strict budget. Prioritize changes and
+      do not modify the source.
+    tags: { capability: two-pass-regex-review, risk: missed-compound-cost, journey: review-hot-text-path }
+    environment:
+      files:
+        - src: ../graders/readonly_guard.py
+          dest: .eval/readonly_guard.py
+        - src: ../analyzing-dotnet-performance/fixtures/inflector-and-regex.cs
+          dest: CaseTransformExtensions.cs
+      skills:
+        - ../../plugins/dotnet-diag/skills/analyzing-dotnet-performance
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "optimizer-agent-regex-review"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Summary Assessment: the main request-path cost is the chained string transformation; compiled regex also consumes startup budget.
+              Pass 1: Initial Performance Review
+              Root Cause: Underscore performs two Regex.Replace operations and ToLower, creating multiple intermediate strings per call. Pascalize also creates an uppercase string for each match.
+              Recommended Changes: combine parsing into one pass where maintainable, choose an explicit casing policy, and benchmark representative short strings.
+              Expected Impact: likely lower allocation and GC pressure; measure before giving a numeric claim.
+              Pass 2: Deep Pattern Scan
+              New finding: two RegexOptions.Compiled instances trade startup cost for throughput, while GeneratedRegex is already used correctly. Prefer source generation for fixed patterns or non-compiled caching when startup wins.
+              Trade-offs: a hand-written parser is harder to maintain.
+              Disclaimer: verify with benchmarks and human review.
+    graders:
+      - type: output-matches
+        config: { pattern: '(?i)Pass 1:\s*Initial Performance Review' }
+      - type: output-matches
+        config: { pattern: '(?i)Pass 2:\s*Deep Pattern Scan' }
+      - type: output-matches
+        config: { pattern: '(?i)RegexOptions\.Compiled.{0,140}(startup|cost|budget)' }
+      - type: output-matches
+        config: { pattern: '(?i)Disclaimer' }
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect a51a14d5e31b32b727b28d206988aef01b133864ef2513d174ab384d29dea06f:CaseTransformExtensions.cs
+      - type: prompt
+    rubric:
+      - Delivered both labeled analysis passes with distinct, grounded findings
+      - Prioritized compound per-call allocations separately from startup cost
+      - Preserved behavior caveats and left the source unchanged
+
+  - name: Separate direct findings from dictionary deep scan
+    prompt: |
+      Our export spends substantial time in NumberConverters.cs. Review the two
+      converters, recommend concrete allocation reductions, and leave the file
+      unchanged.
+    tags: { capability: two-pass-allocation-review, risk: duplicated-shallow-analysis, journey: optimize-batch-export }
+    environment:
+      files:
+        - src: ../graders/readonly_guard.py
+          dest: .eval/readonly_guard.py
+        - src: ../analyzing-dotnet-performance/fixtures/number-converter-farsi-kurdish.cs
+          dest: NumberConverters.cs
+      skills:
+        - ../../plugins/dotnet-diag/skills/analyzing-dotnet-performance
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "optimizer-agent-dictionary-review"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Summary Assessment: repeated lookup construction is the dominant avoidable allocation.
+              Pass 1: Initial Performance Review
+              Root Cause: each Convert creates a Dictionary and delegates, so the batch pays setup cost per row.
+              Recommended Changes: hoist immutable rules to static readonly fields only when delegates capture no per-request state.
+              Expected Impact: removes repeated dictionary, bucket, entry, and delegate allocations.
+              Pass 2: Deep Pattern Scan
+              New findings: pre-size the Farsi List when its bound is known, and replace literal string.Format to avoid boxing the long.
+              Trade-offs: static state must remain immutable and thread-safe.
+              Disclaimer: verify with allocation benchmarks and human review.
+    graders:
+      - type: output-matches
+        config: { pattern: '(?i)Pass 1:\s*Initial Performance Review' }
+      - type: output-matches
+        config: { pattern: '(?i)Pass 2:\s*Deep Pattern Scan' }
+      - type: output-matches
+        config: { pattern: '(?i)Dictionary.{0,120}(static|hoist|per row|per.call)' }
+      - type: output-matches
+        config: { pattern: '(?i)string\.Format.{0,100}(box|interpolat)' }
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect 7c6264047f6fd17da0830429f003ac0542d069dadd87b1c8d5d3bf221cf76f7f:NumberConverters.cs
+      - type: prompt
+    rubric:
+      - Used the first pass for the dominant repeated construction and the deep scan for secondary findings
+      - Included static-state correctness and thread-safety constraints
+      - Left the source unchanged
+
+  - name: Avoid freezing a mutable runtime cache
+    prompt: |
+      Review MultiLocaleConverters.cs for throughput improvements. Fixed lookup
+      tables may be optimized, but runtime behavior must remain correct. Do not
+      apply changes.
+    tags: { capability: safe-collection-optimization, risk: correctness-affecting-optimization, journey: review-locale-lookups }
+    environment:
+      files:
+        - src: ../graders/readonly_guard.py
+          dest: .eval/readonly_guard.py
+        - src: ../analyzing-dotnet-performance/fixtures/number-converter-multi-locale.cs
+          dest: MultiLocaleConverters.cs
+      skills:
+        - ../../plugins/dotnet-diag/skills/analyzing-dotnet-performance
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "optimizer-agent-mutable-cache"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Summary Assessment: the safe wins are ordinal comparisons and possibly freezing only the fixed table.
+              Pass 1: Initial Performance Review
+              Root Cause: StartsWith and EndsWith omit StringComparison, and French conversion grows a List.
+              Recommended Changes: use StringComparison.Ordinal for invariant tokens and pre-size when count is available.
+              Pass 2: Deep Pattern Scan
+              New finding: SwedishConverter.Units is fixed and may benefit from FrozenDictionary, but HungarianConverter._runtimeCache is mutated by Convert and must not be frozen.
+              Expected Impact: conditional on measured lookup volume.
+              Trade-offs: freezing adds startup work.
+              Disclaimer: verify with benchmarks and correctness tests.
+    graders:
+      - type: output-matches
+        config: { pattern: '(?i)Pass 1:\s*Initial Performance Review' }
+      - type: output-matches
+        config: { pattern: '(?i)Pass 2:\s*Deep Pattern Scan' }
+      - type: output-matches
+        config: { pattern: '(?i)(runtimeCache|runtime cache|mutat).{0,80}(must not|do not|not).{0,30}(freeze|frozen)' }
+      - type: output-matches
+        config: { pattern: '(?i)StringComparison\.Ordinal' }
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect 124895705eb0b74bb5a31569bc5997077fce2df0cac19f69b5efc41a46ca432d:MultiLocaleConverters.cs
+      - type: prompt
+    rubric:
+      - Distinguished fixed lookup data from the mutable runtime cache
+      - Refused a correctness-breaking frozen cache change
+      - Left the source unchanged
+
+  - name: Compare sibling truncation implementations
+    prompt: |
+      Review Truncation.cs. Compare the sibling methods, explain the largest
+      allocation difference, and recommend a safe direction without editing.
+    tags: { capability: cross-method-agent-review, risk: inconsistent-optimization, journey: optimize-truncation }
+    environment:
+      files:
+        - src: ../graders/readonly_guard.py
+          dest: .eval/readonly_guard.py
+        - src: ../analyzing-dotnet-performance/fixtures/truncation-and-span.cs
+          dest: Truncation.cs
+      skills:
+        - ../../plugins/dotnet-diag/skills/analyzing-dotnet-performance
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "optimizer-agent-truncation"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Summary Assessment: two sibling methods create a substring before trimming, while one delays allocation with Span.
+              Pass 1: Initial Performance Review
+              Root Cause: value[..length].TrimEnd can allocate for the slice and again for trimming.
+              Recommended Changes: trim over a span and create one final string after confirming Unicode and whitespace behavior.
+              Pass 2: Deep Pattern Scan
+              New finding: Symbols stores fixed punctuation in List<char>[]; immutable static char storage or ReadOnlySpan<char> is more appropriate.
+              Expected Impact: fewer short-lived strings.
+              Trade-offs: span code can reduce readability.
+              Disclaimer: verify with tests and benchmarks.
+    graders:
+      - type: output-matches
+        config: { pattern: '(?i)Pass 1:\s*Initial Performance Review' }
+      - type: output-matches
+        config: { pattern: '(?i)Pass 2:\s*Deep Pattern Scan' }
+      - type: output-matches
+        config: { pattern: '(?i)TrimEnd.{0,100}(allocat|slice|substring)' }
+      - type: output-matches
+        config: { pattern: '(?i)(ReadOnlySpan<char>|immutable static char)' }
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect e8354bf52fe0007f9b5921fc2614cd4ab8845a059c09952f5aa7bc6b90df05e2:Truncation.cs
+      - type: prompt
+    rubric:
+      - Delivered two distinct passes and compared sibling implementations
+      - Flagged behavior compatibility as a prerequisite
+      - Left the source unchanged
+
+  - name: Preserve a public hierarchy extension point
+    prompt: |
+      Virtual locale formatting is a measured hot path. Review Locales.cs for
+      devirtualization opportunities without breaking intended inheritance.
+      Do not modify the hierarchy.
+    tags: { capability: hierarchy-performance-review, risk: public-api-break, journey: optimize-virtual-dispatch }
+    environment:
+      files:
+        - src: ../graders/readonly_guard.py
+          dest: .eval/readonly_guard.py
+        - src: ../analyzing-dotnet-performance/fixtures/unsealed-classes.cs
+          dest: Locales.cs
+      skills:
+        - ../../plugins/dotnet-diag/skills/analyzing-dotnet-performance
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "optimizer-agent-hierarchy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Summary Assessment: only concrete leaves are candidates; the abstract base is the extension point.
+              Pass 1: Initial Performance Review
+              Root Cause: EnglishOrdinalizer and FrenchOrdinalizer are unsealed leaves.
+              Recommended Changes: seal those leaves only after confirming external derivation is unsupported. Keep Ordinalizer abstract and unsealed.
+              Pass 2: Deep Pattern Scan
+              New findings: 1 of 3 concrete leaves is sealed, and LocaleRegistry uses OrdinalIgnoreCase correctly.
+              Expected Impact: a small dispatch and inlining opportunity, not a guaranteed broad speedup.
+              Trade-offs: sealing a public type is an API compatibility change.
+              Disclaimer: verify compatibility and benchmark the call path.
+    graders:
+      - type: output-matches
+        config: { pattern: '(?i)Pass 1:\s*Initial Performance Review' }
+      - type: output-matches
+        config: { pattern: '(?i)Pass 2:\s*Deep Pattern Scan' }
+      - type: output-matches
+        config: { pattern: '(?i)(EnglishOrdinalizer|FrenchOrdinalizer).{0,100}seal' }
+      - type: output-matches
+        config: { pattern: '(?i)(API compatibility|external derivation|breaking)' }
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect 348f949f5cc98eb864888c7ab8631a16cb4ad56700fe8f76e7e3452c21676897:Locales.cs
+      - type: prompt
+    rubric:
+      - Limited sealing advice to true leaves and preserved the abstract extension point
+      - Treated sealing as an API compatibility decision
+      - Left the source unchanged
+
+  - name: Surface globalization risk before allocation tuning
+    prompt: |
+      GreekConverter.Convert is allocation-heavy, but localized output must stay
+      correct. Prioritize improvements without changing the file or assuming
+      invariant casing is always valid.
+    tags: { capability: correctness-first-performance-review, risk: localized-output-regression, journey: optimize-localized-output }
+    environment:
+      files:
+        - src: ../graders/readonly_guard.py
+          dest: .eval/readonly_guard.py
+        - src: ../analyzing-dotnet-performance/fixtures/number-converter-greek.cs
+          dest: GreekConverter.cs
+      skills:
+        - ../../plugins/dotnet-diag/skills/analyzing-dotnet-performance
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "optimizer-agent-globalization"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Summary Assessment: the converter has a correctness-critical non-progressing recursion before any allocation concern.
+              Pass 1: Initial Performance Review
+              Root Cause: for values 11 through 99, `value % 100` equals `value`, so `Convert(value % 100)` recurses with the same value until StackOverflowException.
+              Recommended Changes: repair the base cases and guarantee that every recursive call decreases the input. Then accumulate tokens and apply casing once at the output boundary. Confirm the required culture with Greek-language tests before choosing ToLowerInvariant or CultureInfo.
+              Pass 2: Deep Pattern Scan
+              New finding: the two += sites add result strings after interpolation, so the compound cost exceeds the ToLower calls alone.
+              Expected Impact: reduced allocation growth through recursion.
+              Trade-offs: casing changes can alter localized text.
+              Disclaimer: validate output with native-language tests and benchmarks.
+    graders:
+      - type: output-matches
+        config: { pattern: '(?i)Pass 1:\s*Initial Performance Review' }
+      - type: output-matches
+        config: { pattern: '(?i)Pass 2:\s*Deep Pattern Scan' }
+      - type: output-matches
+        config: { pattern: '(?i)(same value|without progress|StackOverflowException|stack overflow|infinite recursion)' }
+      - type: output-matches
+        config: { pattern: '(?i)(culture|Greek|localized).{0,120}(test|correct|semantics)' }
+      - type: output-matches
+        config: { pattern: '(?i)(once|boundary).{0,80}(casing|lower)' }
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect 7369baeadf95243f134dfac37f8a1cf2d63b13cab1950c7aa5049327b9583023:GreekConverter.cs
+      - type: prompt
+    rubric:
+      - Reported the non-progressing recursion and stack-overflow risk before allocation guidance
+      - Put localized output correctness ahead of a casing micro-optimization
+      - Explained the compound recursive allocation mechanism
+      - Left the source unchanged
+
+  - name: Give measured guidance for branched formatting
+    prompt: |
+      DataSize.Format appears in a high-frequency UI trace. Review the code,
+      recommend the next optimization step, and avoid unsupported speedup
+      claims. Do not edit the file.
+    tags: { capability: evidence-calibrated-review, risk: speculative-speedup-claim, journey: optimize-formatting-hot-path }
+    environment:
+      files:
+        - src: ../graders/readonly_guard.py
+          dest: .eval/readonly_guard.py
+        - src: ../analyzing-dotnet-performance/fixtures/byte-size-formatting.cs
+          dest: DataSize.cs
+      skills:
+        - ../../plugins/dotnet-diag/skills/analyzing-dotnet-performance
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "optimizer-agent-formatting"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Summary Assessment: matching calls create two intermediate strings, but the best replacement depends on format distribution.
+              Pass 1: Initial Performance Review
+              Root Cause: a unit Replace is followed by placeholder Replace.
+              Recommended Changes: benchmark KB, MB, and no-unit formats; if this dominates, parse once while preserving exact output.
+              Expected Impact: fewer short-lived strings; no defensible percentage is available from static review.
+              Pass 2: Deep Pattern Scan
+              New finding: DataSize already implements IEquatable<DataSize>, so equality boxing is not a problem.
+              Trade-offs: a custom parser is more complex.
+              Disclaimer: verify output equivalence and benchmark before adoption.
+    graders:
+      - type: output-matches
+        config: { pattern: '(?i)Pass 1:\s*Initial Performance Review' }
+      - type: output-matches
+        config: { pattern: '(?i)Pass 2:\s*Deep Pattern Scan' }
+      - type: output-matches
+        config: { pattern: '(?i)(no defensible|cannot|avoid).{0,80}(percentage|speedup|numeric)' }
+      - type: output-matches
+        config: { pattern: '(?i)IEquatable.{0,80}(already|not a problem|positive)' }
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect 10bdfbe4acf855a2e8168da51698dc1fed2104ecf97fcacee1fec7e9dc5d1496:DataSize.cs
+      - type: prompt
+    rubric:
+      - Refused to invent a numeric speedup from static analysis
+      - Recognized the existing equality implementation
+      - Left the source unchanged
+
+  - name: Escalate when source review cannot locate the bottleneck
+    prompt: |
+      A background worker is intermittently slow in production, but the only
+      file we have is this small formatter. Explain what review can establish
+      and what evidence is needed before claiming it is the bottleneck.
+    tags: { capability: evidence-escalation, risk: false-bottleneck-attribution, journey: triage-production-slowdown }
+    environment:
+      files:
+        - src: ../graders/readonly_guard.py
+          dest: .eval/readonly_guard.py
+        - src: ../analyzing-dotnet-performance/fixtures/timespan-and-collection-formatters.cs
+          dest: TimeSpanFormatting.cs
+      skills:
+        - ../../plugins/dotnet-diag/skills/analyzing-dotnet-performance
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "optimizer-agent-escalation"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Summary Assessment: the formatter has allocation opportunities, but this file cannot prove the production bottleneck.
+              Pass 1: Initial Performance Review
+              Root Cause: unknown. Capture a production-correlated CPU/allocation trace, latency timeline, and workload identifiers.
+              Recommended Changes: locate hot call stacks and allocation volume before changing the formatter.
+              Pass 2: Deep Pattern Scan
+              Conditional findings: ToList/ToArray and the params Transform overload allocate per call; they matter only if the trace shows this code is hot.
+              Expected Impact: not estimable until call frequency and allocation evidence exist.
+              Trade-offs: tracing has operational overhead.
+              Disclaimer: verify with captured evidence and human review.
+    graders:
+      - type: output-matches
+        config: { pattern: '(?i)Pass 1:\s*Initial Performance Review' }
+      - type: output-matches
+        config: { pattern: '(?i)Pass 2:\s*Deep Pattern Scan' }
+      - type: output-matches
+        config: { pattern: '(?i)(cannot|does not|unknown).{0,100}(prove|bottleneck|root cause)' }
+      - type: output-matches
+        config: { pattern: '(?i)(CPU|allocation).{0,30}trace' }
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/readonly_guard.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='4506d9294c411789be88e1761dc230ef9242a90e7b82245aee9e40889f69827c';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --root . --expect c09bc23a9338ab930921bb39767b907698e34fd18091d3289113301695c93b72:TimeSpanFormatting.cs
+      - type: prompt
+    rubric:
+      - Refused to attribute the slowdown from one source file
+      - Requested trace evidence and kept static findings conditional
+      - Left the source unchanged

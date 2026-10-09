@@ -1,94 +1,371 @@
 name: apple-crash-symbolication
 description: Evaluates the dotnet-diag/apple-crash-symbolication skill
 type: capability
-config:
-  timeout: 5m
+defaults:
+  timeout: 6m
 stimuli:
-  - name: Parse .NET frames and locate dSYMs from an iOS crash log
-    prompt: >
-      I have an iOS .ips crash log at ios_crash.ips from a crashed .NET MAUI
-      app. Parse the crash log, identify the .NET runtime frames that need
-      symbolication, locate the dSYM debug symbols, and show me the atos
-      commands to symbolicate them.
+  - name: Triage a CoreCLR iOS launch crash offline
+    prompt: >-
+      ios_crash.ips came from a .NET MAUI app that aborts during launch. I am on
+      Windows without Apple tools or network access. Give me a first-pass
+      diagnosis and preserve the exact runtime identity the Mac engineer needs.
+    tags: { capability: coreclr-ios-first-pass, risk: high, journey: triage-ios-launch-crash }
     environment:
-      files:
-        - src: ./ios_crash.ips
-          dest: ios_crash.ips
-    graders:
-      - type: output-matches
-        config:
-          pattern: libcoreclr
-      - type: output-matches
-        config:
-          pattern: (dSYM|dsym|SDK.packs|NuGet.cache|nuget)
-      - type: output-matches
-        config:
-          pattern: (SIGABRT|EXC_CRASH)
-      - type: prompt
-    rubric:
-      - >-
-        Correctly handled the .ips two-part JSON format — line 1 is a metadata
-        header and the remaining lines are a separate crash body JSON — and
-        extracted usedImages, threads, and exception information
-      - >-
-        Identified all .NET binary images by filtering usedImages for
-        libcoreclr and libSystem.* BCL native components (not just the crashing
-        thread), listing their UUIDs and base load addresses
-      - >-
-        Provided .NET-specific dSYM search paths: build output, SDK packs
-        ($DOTNET_ROOT/packs/), NuGet cache (~/.nuget/packages/), or the
-        Microsoft symbol server
-      - >-
-        Generated correct atos commands where -o points inside the .dSYM
-        bundle (Contents/Resources/DWARF/<binary>), -l is the base load
-        address from usedImages, and -arch matches the crash log architecture
-      - >-
-        Explained UUID verification with dwarfdump --uuid and named the
-        correct NuGet runtime package for the platform (e.g.,
-        Microsoft.NETCore.App.Runtime.ios-arm64)
+      files: [{ src: ./ios_crash.ips, dest: ios_crash.ips }]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: apple-coreclr-first-pass
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              `SampleMAUI` terminated with `EXC_CRASH / SIGABRT` on the main thread during launch. The path contains `xamarin_process_managed_exception` and `application:didFinishLaunchingWithOptions:`, so the failure crossed the managed-to-Objective-C bridge before abort. Application Specific Information only says `abort() called`; it does not identify the managed exception.
 
-  - name: Investigate root cause of a .NET MAUI iOS crash
-    prompt: >
-      I have an iOS .ips crash log at ios_crash.ips from a crashed .NET MAUI
-      app. Please analyze the crash log and help me figure out what went wrong.
-    environment:
-      files:
-        - src: ./ios_crash.ips
-          dest: ios_crash.ips
+              The runtime image is `libcoreclr`, UUID `87d24fda191f393880634c56f505eb9d`, architecture `arm64`, load address `0x1023e0000`. Preserve these values with the frame addresses. No symbols were downloaded and no Apple tools were installed.
     graders:
-      - type: output-matches
+      - { type: file-exists, config: { path: ios_crash.ips } }
+      - type: run-command
         config:
-          pattern: (SIGABRT|EXC_CRASH|abort)
-      - type: output-matches
-        config:
-          pattern: (SampleMAUI|libcoreclr)
-      - type: prompt
+          command: >-
+            python -c "import json; from pathlib import Path; a,b=Path('ios_crash.ips').read_text().split('\n',1);
+            assert json.loads(a)['app_name']=='SampleMAUI' and json.loads(b)['exception']['signal']=='SIGABRT';
+            print('ips-ok')"
+          expected_exit_code: 0
+          stdout_matches: ips-ok
+      - { type: output-matches, config: { pattern: 'EXC_CRASH[\s\S]*SIGABRT' } }
+      - { type: output-matches, config: { pattern: '(?i)xamarin_process_managed_exception[\s\S]*didFinishLaunchingWithOptions' } }
+      - { type: output-matches, config: { pattern: '(?i)libcoreclr[\s\S]*87d24fda-?191f-?3938-?8063-?4c56f505eb9d[\s\S]*0x1023e0000' } }
+      - { type: output-not-matches, config: { pattern: '(?i)(installed Xcode|downloaded (the )?symbols)' } }
+      - { type: prompt }
     rubric:
-      - Extracted the exception type and any application-specific crash messages from the crash log
-      - Identified that the crash is a SIGABRT / EXC_CRASH in a CoreCLR .NET MAUI app
-      - Examined both the faulting thread and lastExceptionBacktrace for .NET frames
-      - Provided specific dSYM search paths (SDK packs or NuGet cache) for symbolicating the CoreCLR frames
+      - Identified the launch-time managed exception bridge failure
+      - Kept the limited application information distinct from a managed exception
+      - Preserved the exact CoreCLR UUID, architecture, and load address
+      - Respected the offline and non-macOS constraints
 
-  - name: Reject Android tombstone passed as iOS crash log
-    prompt: >
-      I have a crash file at crash_android.txt from a crashed .NET app. Please
-      parse this crash log, identify the .NET runtime frames, and help me
-      symbolicate them.
+  - name: Prepare an exact atos command for CoreCLR
+    prompt: >-
+      Read ios_crash.ips and prepare the command template the Mac engineer should
+      use after locating the matching CoreCLR dSYM. Include a verified frame
+      address and the values needed to avoid an address error.
+    tags: { capability: atos-address-construction, risk: high, journey: prepare-symbolication-handoff }
     environment:
-      files:
-        - src: ./tombstone_sample.txt
-          dest: crash_android.txt
+      files: [{ src: ./ios_crash.ips, dest: ios_crash.ips }]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: apple-coreclr-atos
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use UUID `87d24fda191f393880634c56f505eb9d`, architecture `arm64`, and load `0x1023e0000`. Offset `0x3e1700` gives absolute address `0x1027c1700`.
+
+              `atos -arch arm64 -o libcoreclr.dSYM/Contents/Resources/DWARF/libcoreclr -l 0x1023e0000 0x1027c1700`
+
+              `-o` points to the DWARF binary inside the dSYM; `-l` is the image base.
     graders:
-      - type: output-matches
-        config:
-          pattern: (Android|tombstone|not.*(iOS|\.ips)|wrong.*(format|type)|different.*(format|process))
-      - type: prompt
+      - { type: output-matches, config: { pattern: '(?i)87d24fda-?191f-?3938-?8063-?4c56f505eb9d' } }
+      - { type: output-matches, config: { pattern: '(?i)atos[\s\S]*-arch arm64[\s\S]*Contents/Resources/DWARF/libcoreclr[\s\S]*-l 0x1023e0000[\s\S]*0x1027c1700' } }
+      - { type: output-matches, config: { pattern: '(?is)(?:(?:offset|imageOffset)[\s\S]{0,120}(?:0x3e1700|4069120)[\s\S]{0,120}0x1027c1700|0x1027c1700[\s\S]{0,120}(?:offset|imageOffset)[\s\S]{0,40}(?:0x3e1700|4069120))' } }
+      - { type: prompt }
     rubric:
-      - >-
-        Recognized that the crash file is an Android tombstone (not an Apple
-        .ips crash log) and clearly communicated the format mismatch to the
-        user
-      - >-
-        Recommended using Android-specific crash analysis tools (such as
-        ndk-stack, addr2line, or a tombstone analysis workflow) rather than iOS
-        symbolication tools like atos or dSYMs
+      - Computed the absolute address from the image base and offset
+      - Produced a valid command with the correct architecture and load address
+      - Pointed at the DWARF binary inside the dSYM
+      - Preserved the UUID needed to verify the artifact
+
+  - name: Restrict the report to the faulting thread
+    prompt: >-
+      Inspect ios_crash.ips but include only the faulting thread in the incident
+      summary. State the .NET frame count and addresses. Exclude the exception
+      backtrace and background threads.
+    tags: { capability: faulting-thread-scope, risk: medium, journey: focused-incident-summary }
+    environment:
+      files: [{ src: ./ios_crash.ips, dest: ios_crash.ips }]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: apple-faulting-thread
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Thread 0 contains six .NET frames, all in `libcoreclr`: `0x1027c1700`, `0x1026415fc`, `0x10254c31c`, `0x10254c620`, `0x10256b678`, and `0x1023e49cc`. This intentionally excludes `lastExceptionBacktrace` and background-thread frames.
+    graders:
+      - { type: output-matches, config: { pattern: '(?i)(?:(?:six|6)[^\r\n]{0,30}\.NET[^\r\n]{0,30}frames|\.NET[^\r\n]{0,30}(?:frames|frame count)[^\r\n]{0,20}(?:six|6))' } }
+      - { type: output-matches, config: { pattern: '0x1027c1700[\s\S]*0x1026415fc[\s\S]*0x10254c31c[\s\S]*0x10254c620[\s\S]*0x10256b678[\s\S]*0x1023e49cc' } }
+      - { type: output-matches, config: { pattern: '(?is)(?:(?:exclude|excluded|omits?)[^\r\n]{0,100}(?:lastExceptionBacktrace|exception backtrace|background|other threads)|(?:lastExceptionBacktrace|exception backtrace|background|other threads)[^\r\n]{0,100}(?:exclude|excluded|omits?))' } }
+      - { type: prompt }
+    rubric:
+      - Scoped the result to the faulting thread
+      - Reported the correct frame count and addresses
+      - Explicitly excluded exception and background frames
+
+  - name: Inventory Mono and BCL frames across threads
+    prompt: >-
+      fixtures/mono-ios.ips is from a Mono-based iOS app. Produce an offline
+      inventory that keeps the exception path, crashed thread, and finalizer
+      distinct. Group required artifacts by image.
+    tags: { capability: mono-multi-thread-inventory, risk: high, journey: triage-mono-ios-crash }
+    environment:
+      files: [{ src: ./fixtures/mono-ios.ips, dest: mono-ios.ips }]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: apple-mono-inventory
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The capture reports `System.InvalidOperationException: note is read-only`.
+              - Last Exception Backtrace: `libmonosgen-2.0` at `0x100000400`
+              - Thread 0 (Crashed): `libmonosgen-2.0` at `0x100000090`; `libSystem.Native` at `0x101000200`
+              - Thread 1 (Finalizer): `libmonosgen-2.0` at `0x100000300`
+
+              Request `libmonosgen-2.0` UUID `11111111222233334444555555555555`, load `0x100000000`, and `libSystem.Native` UUID `aaaaaaaabbbbccccddddeeeeeeeeeeee`, load `0x101000000`. The artifacts are not interchangeable.
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python -c "import json; from pathlib import Path; a,b=Path('mono-ios.ips').read_text().split('\n',1);
+            c=json.loads(b); assert len(c['threads'])==2 and len(c['lastExceptionBacktrace'])==1; print('mono-ok')"
+          expected_exit_code: 0
+          stdout_matches: mono-ok
+      - { type: output-matches, config: { pattern: 'System\.InvalidOperationException: note is read-only' } }
+      - { type: output-matches, config: { pattern: '(?is)(?=.*(?:Last Exception Backtrace|lastExceptionBacktrace|Exception path))(?=.*(?:Thread 0 \(Crashed\)|Crashed thread \(Thread 0\)|Crashed thread))(?=.*(?:Finalizer|Thread 1))' } }
+      - { type: output-matches, config: { pattern: '(?i)libmonosgen-2\.0[\s\S]*11111111-?2222-?3333-?4444-?555555555555[\s\S]*0x100000000' } }
+      - { type: output-matches, config: { pattern: '(?i)libSystem\.Native[\s\S]*aaaaaaaa-?bbbb-?cccc-?dddd-?eeeeeeeeeeee[\s\S]*0x101000000' } }
+      - { type: prompt }
+    rubric:
+      - Kept the three contexts distinct
+      - Reported the managed exception
+      - Grouped frames under the correct images
+      - Preserved separate UUID and load-address requirements
+
+  - name: Recover a macOS runtime version from its path
+    prompt: >-
+      Review fixtures/macos-version.ips. Give me a no-network handoff that names
+      the runtime version, crashing image, and a ready Apple command using the
+      captured addresses.
+    tags: { capability: runtime-version-from-image-path, risk: medium, journey: triage-macos-crash }
+    environment:
+      files: [{ src: ./fixtures/macos-version.ips, dest: macos-version.ips }]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: apple-macos-version
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              `libcoreclr.dylib` loaded from `Microsoft.NETCore.App/10.0.4`, so the runtime is .NET `10.0.4`. UUID `1234567890abcdef1234567890abcdef`, architecture `arm64`, load `0x200000000`; addresses `0x200001234` and `0x200005678`.
+
+              `atos -arch arm64 -o libcoreclr.dylib.dSYM/Contents/Resources/DWARF/libcoreclr.dylib -l 0x200000000 0x200001234 0x200005678`
+    graders:
+      - { type: file-exists, config: { path: macos-version.ips } }
+      - { type: output-matches, config: { pattern: '(?i)(\.NET )?10\.0\.4' } }
+      - { type: output-matches, config: { pattern: '(?i)libcoreclr\.dylib[\s\S]*12345678-?90ab-?cdef-?1234-?567890abcdef' } }
+      - { type: output-matches, config: { pattern: '(?i)atos[\s\S]*-l 0x200000000[\s\S]*0x200001234[\s\S]*0x200005678' } }
+      - { type: prompt }
+    rubric:
+      - Derived the runtime version from the image path
+      - Reported the exact runtime image identity
+      - Calculated both addresses correctly
+      - Produced a usable command
+
+  - name: Separate NativeAOT app and BCL symbols
+    prompt: >-
+      fixtures/nativeaot-ios.ips came from an iOS NativeAOT build. Explain which
+      frame needs our app dSYM and which needs a .NET component dSYM. Preserve
+      exact UUIDs and addresses.
+    tags: { capability: nativeaot-symbol-ownership, risk: high, journey: triage-nativeaot-ios-crash }
+    environment:
+      files: [{ src: ./fixtures/nativeaot-ios.ips, dest: nativeaot-ios.ips }]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: apple-nativeaot
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              In this NativeAOT layout, `AotCamera` contains the statically linked runtime. Frame #0 at `0x103001000` needs the app's own dSYM, UUID `0f0f0f0f111122223333444444444444`.
+
+              Frame #1 is `libSystem.Native` at `0x104002000`, UUID `99999999888877776666555555555555`. These artifacts are separate. This is not a shared `libcoreclr` or `libmonosgen-2.0` crash.
+    graders:
+      - { type: output-matches, config: { pattern: '(?is)NativeAOT[\s\S]*AotCamera[\s\S]*(?:0x103001000[\s\S]*0f0f0f0f-?1111-?2222-?3333-?444444444444|0f0f0f0f-?1111-?2222-?3333-?444444444444[\s\S]*0x103001000)' } }
+      - { type: output-matches, config: { pattern: '(?is)libSystem\.Native[\s\S]*(?:0x104002000[\s\S]*99999999-?8888-?7777-?6666-?555555555555|99999999-?8888-?7777-?6666-?555555555555[\s\S]*0x104002000)' } }
+      - { type: output-matches, config: { pattern: '(?i)(app.s own dSYM|application dSYM|build dSYM)' } }
+      - { type: output-not-matches, config: { pattern: '(?i)(shared libcoreclr|shared libmonosgen)' } }
+      - { type: prompt }
+    rubric:
+      - Assigned each frame to the correct symbol owner
+      - Preserved both UUIDs and addresses
+      - Did not misclassify the NativeAOT layout
+
+  - name: Parse an ips body with case-conflicting keys
+    prompt: >-
+      fixtures/duplicate-case-keys.ips came from a device and ordinary JSON
+      tooling complains about keys that differ only by case. Extract the .NET
+      frame safely and give the exact image identity and command.
+    tags: { capability: duplicate-case-key-tolerance, risk: medium, journey: recover-ips-parser-edge }
+    environment:
+      files: [{ src: ./fixtures/duplicate-case-keys.ips, dest: duplicate-case-keys.ips }]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: apple-duplicate-keys
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The body contains `vmRegionInfo` and `vmregioninfo`. Preserve the camel-case value and rename or ignore only the lowercase duplicate.
+
+              The frame is `libcoreclr` at `0x140000abc`, from load `0x140000000` plus offset `0xabc`. UUID `abcdefabcdefabcdefabcdefabcdefab`, architecture `arm64`.
+
+              `atos -arch arm64 -o libcoreclr.dSYM/Contents/Resources/DWARF/libcoreclr -l 0x140000000 0x140000abc`
+    graders:
+      - { type: output-matches, config: { pattern: '(?is)(?:(?:vmRegionInfo[\s\S]*vmregioninfo|duplicate[- ]key|case clash|conflicting key)[\s\S]{0,180}(?:rename|ignore|preserve|pre-process|handled|doesn.t break|safely))' } }
+      - { type: output-matches, config: { pattern: 'abcdefabcdefabcdefabcdefabcdefab' } }
+      - { type: output-matches, config: { pattern: '(?i)atos[\s\S]*-l 0x140000000[\s\S]*0x140000abc' } }
+      - { type: prompt }
+    rubric:
+      - Recovered the body without discarding valid data
+      - Reported the exact CoreCLR identity
+      - Calculated the absolute address correctly
+      - Produced a usable command
+
+  - name: Separate loaded dotnet images from active frames
+    prompt: >-
+      From ios_crash.ips, list every loaded .NET native image and the subset with
+      captured frames. Include UUIDs and do not imply causation from load alone.
+    tags: { capability: image-inventory-vs-frame-subset, risk: high, journey: complete-symbol-inventory }
+    environment:
+      files: [{ src: ./ios_crash.ips, dest: ios_crash.ips }]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: apple-image-inventory
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Loaded images:
+              - `libSystem.Globalization.Native` — `a27f397d6e063b2bb157dacaaef7c2ae`
+              - `libSystem.IO.Compression.Native` — `72d59bbe37943794b71a910a3590fe4d`
+              - `libSystem.Native` — `e0a3241b3ad83586ae7885d9be70eb24`
+              - `libSystem.Net.Security.Native` — `d78e00c5d8b83488b140c75dd78fd7c1`
+              - `libSystem.Security.Cryptography.Native.Apple` — `b915e180b81534529786789da92459d7`
+              - `libcoreclr` — `87d24fda191f393880634c56f505eb9d`
+
+              Only `libcoreclr` has captured .NET frames across the threads and exception backtrace. The five BCL images have no captured frames and are not evidence of causation.
+    graders:
+      - { type: output-matches, config: { pattern: '(?i)libSystem\.Globalization\.Native[\s\S]*a27f397d-?6e06-?3b2b-?b157-?dacaaef7c2ae' } }
+      - { type: output-matches, config: { pattern: '(?i)libSystem\.Native[\s\S]*e0a3241b-?3ad8-?3586-?ae78-?85d9be70eb24' } }
+      - { type: output-matches, config: { pattern: '(?i)libSystem\.Security\.Cryptography\.Native\.Apple[\s\S]*b915e180-?b815-?3452-?9786-?789da92459d7' } }
+      - { type: output-matches, config: { pattern: '(?is)(?=.*libcoreclr)(?=.*(?:only|zero frames|no (?:captured )?frames))' } }
+      - { type: prompt }
+    rubric:
+      - Listed every loaded .NET image with its UUID
+      - Distinguished loaded images from active frame images
+      - Identified CoreCLR as the only active .NET image
+      - Avoided unsupported causation claims
+
+  - name: Route an Apple crash without dotnet
+    prompt: >-
+      Review fixtures/no-dotnet.ips and tell me which team should receive it.
+      Preserve the app image identity without installing tools or fetching symbols.
+    tags: { capability: native-apple-handoff, risk: routing, journey: route-native-apple-crash }
+    environment:
+      files: [{ src: ./fixtures/no-dotnet.ips, dest: no-dotnet.ips }]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: apple-dormancy-no-dotnet
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This `.ips` report has no .NET runtime or BCL images. Route it to the Swift/iOS application team. Preserve `SwiftWeather` UUID `fedcba9876543210fedcba9876543210` and use its matching app dSYM if needed. Do not request Microsoft .NET symbols.
+    graders:
+      - { type: output-matches, config: { pattern: '(?is)(?=.*(?:no \.NET|no dotnet))(?=.*(?:Swift|iOS|Apple).{0,40}(?:team|owner))' } }
+      - { type: output-matches, config: { pattern: '(?i)fedcba98-?7654-?3210-?fedc-?ba9876543210' } }
+      - { type: output-not-matches, config: { pattern: 'msdl\.microsoft\.com|mach-uuid-sym-' } }
+      - { type: prompt }
+    rubric:
+      - Recognized the absence of .NET components
+      - Routed the crash to the native Apple owner
+      - Preserved the application UUID
+      - Avoided a .NET runtime workflow
+      - Stopped .NET crash symbolication after confirming that the report contains no .NET images
+
+  - name: Stay dormant for an Android tombstone
+    prompt: >-
+      tombstone_sample.txt is from our Android build. Identify the format and
+      tell the Android engineer which debug artifact and resolver they need.
+    expect_activation: false
+    tags: { capability: dormancy-android-tombstone, risk: routing, journey: route-android-crash }
+    environment:
+      files: [{ src: ./tombstone_sample.txt, dest: tombstone_sample.txt }]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: apple-dormancy-android
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is an Android tombstone with ELF frames, not Apple `.ips`. The engineer needs an ELF debug object matching BuildId `1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be` for `libmonosgen-2.0.so` and can resolve `0x222098` with `llvm-symbolizer`. Apple dSYMs and `atos` do not apply.
+    graders:
+      - { type: output-matches, config: { pattern: '(?i)Android tombstone[\s\S]*(?:ELF|BuildId|libmonosgen-2\.0\.so)' } }
+      - { type: output-matches, config: { pattern: '(?is)(?=.*1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be)(?=.*libmonosgen-2\.0\.so)(?=.*(?:0x)?0*222098)' } }
+      - { type: output-matches, config: { pattern: '(?i)(?:llvm-symbolizer|ndk-stack|addr2line)' } }
+      - { type: output-not-matches, config: { pattern: '(?i)atos[\s\S]*-arch|Contents/Resources/DWARF' } }
+      - { type: prompt }
+    rubric:
+      - Identified the Android format
+      - Redirected to ELF BuildId resolution
+      - Preserved a concrete library, BuildId, and offset
+      - Did not apply Apple steps
+
+  - name: Stay dormant for a legacy Apple text report
+    prompt: >-
+      fixtures/legacy.crash is all I received from an older device. Tell me
+      whether the modern device-report parser applies and what artifact to find.
+    expect_activation: false
+    tags: { capability: dormancy-legacy-apple-text, risk: routing, journey: route-legacy-apple-crash }
+    environment:
+      files: [{ src: ./fixtures/legacy.crash, dest: legacy.crash }]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: apple-dormancy-legacy
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a legacy Apple `.crash` text report, not two-part JSON `.ips`. Do not feed it to the modern parser. Locate the matching `LegacyApp` dSYM and use Xcode's organizer or the legacy Apple symbolication workflow.
+    graders:
+      - { type: output-matches, config: { pattern: '(?is)(?:(?:legacy Apple|old-style|legacy)[\s\S]{0,80}\.crash[\s\S]{0,120}(?:not|isn.t)[\s\S]{0,40}(?:JSON|\.ips|modern)|\.crash[\s\S]{0,60}(?:legacy Apple|old-style|legacy)[\s\S]{0,120}(?:not|isn.t)[\s\S]{0,40}(?:JSON|\.ips|modern))' } }
+      - { type: output-matches, config: { pattern: '(?i)LegacyApp[\s\S]*dSYM[\s\S]*(Xcode|legacy)' } }
+      - { type: output-not-matches, config: { pattern: 'mach-uuid-sym-|atos[\s\S]*-l' } }
+      - { type: prompt }
+    rubric:
+      - Distinguished legacy text from modern ips JSON
+      - Prevented use of the wrong parser
+      - Requested the matching app dSYM
+      - Redirected to an appropriate legacy workflow
+      - Stayed dormant and did not run the modern ips workflow
