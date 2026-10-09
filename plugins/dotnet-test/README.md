@@ -215,9 +215,15 @@ work that benefits from separate context.
 The `test-engineer` agent, `code-testing` skill, generation workers, internal
 quality auditor, and seven test-analysis skills (`test-anti-patterns`,
 `test-smell-detection`, `assertion-quality`, `test-gap-analysis`,
-`test-tagging`, `grade-tests`, `test-value-evidence`) work with any supported language above. You just
-need a working test runtime for the target language (for example `pytest`,
+`test-tagging`, `grade-tests`, `test-value-evidence`) work with any supported
+language above. Execution requires a working test runtime for the target
+language (for example `pytest`,
 `npm test`, `mvn`, `go`, `cargo test`, Pester, or CMake plus a C++ test runner).
+
+`test-value-evidence` can also assess a change statically in read-only mode when
+execution is unavailable or unauthorized. This does not require a working
+runtime; the result must distinguish static predictions and missing evidence
+from executed proof.
 
 ### For .NET-only skills and agents
 
