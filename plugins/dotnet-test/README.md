@@ -107,11 +107,13 @@ directories. The production command grader starts Python in isolated mode
 before authenticating its staged helper, preventing workspace module shadowing, and
 replays exit codes, the named assertion, and all test counts without trusting
 narrated or stale red results. Its captured replay proves behavioral detection,
-not what the model executor itself ran. The implementation case separately
-requires authenticated recorder calls in original-to-fixed order. Each call
+not what the model executor itself ran. Recorder conformance is tested separately
+from the model-facing prompts, with authenticated calls in original-to-fixed order. Each call
 checks the source and unchanged-test digests before executing captured bytes in
 an isolated child; records include those digests, the named assertion, counts,
 and actual exits. Temporary test edits cannot manufacture accepted red evidence.
+The model-facing patch case asks for a minimal correction and a static assessment
+without command execution; it does not prescribe this evaluator's recorder API.
 Calibration also rejects unrelated edits, extra files, altered
 helpers, and skipped or misattributed results.
 Only the allowed changed production file may omit its terminal LF; preserved

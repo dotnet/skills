@@ -1,10 +1,11 @@
 ---
 name: test-value-evidence
 description: >-
-  Prove tests detect a specific fix/feature's absence or wrong behavior.
-  USE FOR: regression-test validation, red-green evidence for a PR/commit,
-  change-specific test effectiveness. Polyglot. DO NOT USE FOR: general suite
-  blind spots (test-gap-analysis), per-test readiness/A-F grades (grade-tests),
+  Assess tests for an identified fix, feature, PR or commit. USE FOR: review
+  changed behavior or regression tests, prove pre-fix/missing behavior is
+  detected, revision-bound red-green evidence. Polyglot. DO NOT USE without an
+  actual production change: hypothetical mutations or general suite blind
+  spots (test-gap-analysis). Also exclude per-test readiness/A-F grades (grade-tests),
   coverage (coverage-analysis), new suites (code-testing), or mutation engines.
 license: MIT
 ---

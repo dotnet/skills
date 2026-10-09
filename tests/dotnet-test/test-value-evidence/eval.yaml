@@ -9,15 +9,15 @@ defaults:
   timeout: 5m
   runs: 3
 stimuli:
-  - name: Repair a threshold using the unchanged regression test
+  - name: Repair a threshold without unauthorized execution
     prompt: |
       Orders of at least 100 should ship free, but the exact threshold still
       costs 10. Fix boundary.py. Keep test_boundary.py unchanged and show
-      whether its current cases detect the original problem, not just whether
-      the final suite is green. Limit the work to this defect; capture run
-      evidence in terminal output and leave no extra files.
-      Use the supplied recorder's --record-run mode for source/test-digest-bound
-      evidence, authenticating its bytes before execution.
+      explain from the source which existing case distinguishes the original
+      defect from the fix. Do not execute commands; I want a minimal patch
+      and a static assessment, with no extra files.
+    constraints:
+      reject_tools: [bash, powershell, task, author_factory]
     tags:
       capability: actual-defect-detection
       risk: green-only-regression-proof
@@ -33,26 +33,27 @@ stimuli:
     golden_patch:
       path: golden.patch
     golden_trajectory:
-      path: golden-implementation.json
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: evidence-static-patch
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              **Test-value evidence:** static: predicts detection.
+              The minimal patch changes shipping_cost's > to >=.
+              test_exact_threshold asserts the independent contract's 0 at 100;
+              the original comparison returns 10, so that assertion would fail.
+              Three existing cases protect below/at/above the threshold.
+              Execution was prohibited, so selected/executed/passed/failed/skipped
+              counts and process exits are unknown, not measured red-green proof.
+              The supplied fixture has no commit SHAs; golden.patch identifies
+              the tested change. Existing unchanged tests suffice.
     graders:
       - type: tool-calls
         config:
-          required:
-            - name: bash
-              command: &original_command >-
-                ^(?:python(?:3(?:\.\d+)?)?(?:\.exe)?|py(?:\.exe)?(?: -3)?) -I -B -c "import hashlib,pathlib,sys; p=pathlib\.Path\('\.eval/check_workspace\.py'\); data=p\.read_bytes\(\)\.replace\(b'\\r\\n',b'\\n'\); assert not p\.is_symlink\(\) and not p\.parent\.is_symlink\(\); assert hashlib\.sha256\(data\)\.hexdigest\(\) == '3d3aa717b7a83d3656aa88840a2425937eb00b0914e896fee5e7a85345fa7ffb'; sys\.argv=\[str\(p\),\*sys\.argv\[1:\]\]; exec\(compile\(data,str\(p\),'exec'\),\{'__name__':'__main__'\}\)" --record-run --source boundary\.py --source-digest 0a7d1f7a60b27435ab6e5b11b51bb879545fae7680cb00cc22c37f57ebda7ae3 --tests test_boundary\.py --tests-digest fea6f5fec6509fc06f7bfdbabd43b7f2d48992b11c2d69ac84369d51fed000c7 --selection test_boundary\.BoundaryTests$
-              result: >-
-                (?=[\s\S]*"kind":\s*"executor-test-evidence")(?=[\s\S]*"source_sha256":\s*"0a7d1f7a60b27435ab6e5b11b51bb879545fae7680cb00cc22c37f57ebda7ae3")(?=[\s\S]*"tests_sha256":\s*"fea6f5fec6509fc06f7bfdbabd43b7f2d48992b11c2d69ac84369d51fed000c7")(?=[\s\S]*"exit":\s*1[,}])(?=[\s\S]*"executed":\s*3[,}])(?=[\s\S]*"selected":\s*3[,}])(?=[\s\S]*"passed":\s*2[,}])(?=[\s\S]*"failed":\s*1[,}])(?=[\s\S]*"errors":\s*0[,}])(?=[\s\S]*"skipped":\s*0[,}])(?=[\s\S]*test_exact_threshold)[\s\S]*AssertionError:\s*0\s*!=\s*10
-            - name: bash
-              command: &fixed_command >-
-                ^(?:python(?:3(?:\.\d+)?)?(?:\.exe)?|py(?:\.exe)?(?: -3)?) -I -B -c "import hashlib,pathlib,sys; p=pathlib\.Path\('\.eval/check_workspace\.py'\); data=p\.read_bytes\(\)\.replace\(b'\\r\\n',b'\\n'\); assert not p\.is_symlink\(\) and not p\.parent\.is_symlink\(\); assert hashlib\.sha256\(data\)\.hexdigest\(\) == '3d3aa717b7a83d3656aa88840a2425937eb00b0914e896fee5e7a85345fa7ffb'; sys\.argv=\[str\(p\),\*sys\.argv\[1:\]\]; exec\(compile\(data,str\(p\),'exec'\),\{'__name__':'__main__'\}\)" --record-run --source boundary\.py --source-digest (?:f51b404d8de6f3aaec18b8af4f54c19c50cb9a157eb53834689ead1b1cd4eee6|55854114ce9ee6a2e1d015e26c44fb24975cdb38f1aec6018b6de4dc5e2b362b) --tests test_boundary\.py --tests-digest fea6f5fec6509fc06f7bfdbabd43b7f2d48992b11c2d69ac84369d51fed000c7 --selection test_boundary\.BoundaryTests$
-              result: >-
-                (?=[\s\S]*"kind":\s*"executor-test-evidence")(?=[\s\S]*"source_sha256":\s*"(?:f51b404d8de6f3aaec18b8af4f54c19c50cb9a157eb53834689ead1b1cd4eee6|55854114ce9ee6a2e1d015e26c44fb24975cdb38f1aec6018b6de4dc5e2b362b)")(?=[\s\S]*"tests_sha256":\s*"fea6f5fec6509fc06f7bfdbabd43b7f2d48992b11c2d69ac84369d51fed000c7")(?=[\s\S]*"exit":\s*0[,}])(?=[\s\S]*"executed":\s*3[,}])(?=[\s\S]*"selected":\s*3[,}])(?=[\s\S]*"passed":\s*3[,}])(?=[\s\S]*"failed":\s*0[,}])(?=[\s\S]*"errors":\s*0[,}])[\s\S]*"skipped":\s*0[,}]
-          sequence:
-            - name: bash
-              command: *original_command
-            - name: bash
-              command: *fixed_command
+          disallowed: [bash, powershell, task, author_factory]
       - type: output-matches
         config: &report
           pattern: (?i)test.value evidence
@@ -64,7 +65,10 @@ stimuli:
           pattern: (?i)(counterfactual|original|pre.fix)[\s\S]*(exit\s*1|fail)
       - type: output-matches
         config:
-          pattern: (?i)(selected|executed)[\s\S]*3
+          pattern: (?i)(static|unverified|not executed)
+      - type: output-not-matches
+        config:
+          pattern: (?i)executed:\s*(detected|survived)
       - type: run-command
         config:
           # Vally executes explicit args in the trial workspace. Authenticate
@@ -91,7 +95,7 @@ stimuli:
             - --expect
             - 3d3aa717b7a83d3656aa88840a2425937eb00b0914e896fee5e7a85345fa7ffb:.eval/check_workspace.py
             - --optional
-            - 57a22e3b37bf90359e30e9770be45a6aa0308bcd6c8ce9dda182c346b380a641:test-value-evidence/SKILL.md
+            - e383b260617f4bdb2aa350057a32a105e6569be7a629ca189a1fc43c4098b583:test-value-evidence/SKILL.md
             - --original
             - boundary.py:ZGVmIHNoaXBwaW5nX2Nvc3QoYW1vdW50KToKICAgICIiIk9yZGVycyBvZiBhdCBsZWFzdCAxMDAgc2hpcCBmcmVlOyBvdGhlciBvcmRlcnMgY29zdCAxMC4iIiIKICAgIHJldHVybiAwIGlmIGFtb3VudCA+IDEwMCBlbHNlIDEwCg==
             - --tests
@@ -111,8 +115,8 @@ stimuli:
       - type: prompt
     rubric:
       - Corrected only the exact boundary while keeping the existing test file unchanged
-      - Demonstrated the exact-threshold assertion failing for the original defect and passing for the fix, with commands and real counts
-      - Attributed execution claims to observed test-command results rather than post-response grader replay
+      - Explained why the independent exact-threshold assertion distinguishes the old defect from the fixed behavior
+      - Kept the result a source-based prediction and did not execute commands or invent measured counts
       - Identified the tested revisions or patches without inventing commit provenance
       - Preserved the original test inputs and assertions across the comparison and left no defective product variant
 
@@ -129,7 +133,7 @@ stimuli:
       risk: compile-error-as-behavior-proof
       journey: review-new-feature
     constraints: &read_only
-      reject_tools: [bash, edit, create]
+      reject_tools: [bash, powershell, edit, create, apply_patch, task, author_factory]
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6
@@ -149,7 +153,7 @@ stimuli:
       # Explicit trajectory grading enforces restraint in the production runner.
       - type: tool-calls
         config: &no_execution
-          disallowed: [bash, edit, create]
+          disallowed: [bash, powershell, edit, create, apply_patch, task, author_factory]
       - type: output-matches
         config: *report
       - type: output-matches

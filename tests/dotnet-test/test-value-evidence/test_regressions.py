@@ -33,6 +33,31 @@ def golden_document(stimulus):
     return json.loads((SUITE / reference["path"]).read_text(encoding="utf-8"))
 
 
+def provenance_graders():
+    document = json.loads((SUITE / "golden-implementation.json").read_text(encoding="utf-8"))
+    required = []
+    for step in (document["steps"][0], document["steps"][2]):
+        command = re.escape(step["tool_calls"][0]["arguments"]["command"])
+        command = command.replace("python", r"(?:python3?|python\.exe|py -3)", 1)
+        record = json.loads(step["observation"]["results"][0]["content"])
+        fields = {key: record[key] for key in ("kind", "source_sha256", "tests_sha256")}
+        fields.update(record["run"]["counts"])
+        fields["exit"] = record["run"]["exit"]
+        conditions = []
+        for key, value in fields.items():
+            encoded = re.escape(json.dumps(value))
+            conditions.append(r'(?=[\s\S]*"' + key + r'":\s*' + encoded + r'[,}])')
+        observation = (r"(?=[\s\S]*test_exact_threshold)[\s\S]*AssertionError:\s*0\s*!=\s*10"
+                       if record["run"]["exit"] == 1 else r"[\s\S]*")
+        required.append({"name": "bash", "command": "^" + command + "$",
+                         "result": "".join(conditions) + observation})
+    return [{"type": "tool-calls", "config": {
+        "required": required,
+        "sequence": [{"name": item["name"], "command": item["command"]}
+                     for item in required],
+    }}]
+
+
 class EvidenceCalibration(unittest.TestCase):
     def materialize(self):
         directory = tempfile.TemporaryDirectory(prefix=".calibration-", dir=SUITE)
@@ -269,6 +294,8 @@ class EvidenceCalibration(unittest.TestCase):
         self.assertEqual(hashlib.sha256(protected).hexdigest(),
                          original_record["tests_sha256"])
         self.assertEqual(1, original_record["run"]["exit"])
+        self.assertIn("test_exact_threshold", original_record["run"]["output"])
+        self.assertIn("AssertionError: 0 != 10", original_record["run"]["output"])
         self.assertEqual({"selected": 3, "executed": 3, "passed": 2, "failed": 1,
                           "errors": 0, "skipped": 0}, original_record["run"]["counts"])
         tests.write_bytes(protected.replace(
@@ -395,9 +422,18 @@ class EvidenceCalibration(unittest.TestCase):
                 const graders = stimulus.graders.filter(g => g.type !== 'prompt');
                 results.push(await gradeTrajectory(trajectory, graders, {stimulus}));
                 if (stimulus === spec.stimuli[0]) {
-                    const executionGraders = graders.filter(g => g.type === 'tool-calls');
+                    const evidence = JSON.parse(await readFile(process.argv[6], 'utf8'));
+                    const authenticated = fromAtif(evidence, {
+                        stimulusName:'offline provenance calibration',
+                        stimulusPrompt:'Validate the deterministic recorder',
+                        workDir:process.argv[4]
+                    });
+                    const executionGraders = JSON.parse(process.argv[7]);
+                    const acceptance = await gradeTrajectory(authenticated,
+                        executionGraders, {stimulus});
+                    provenance &&= acceptance.passed;
                     for (const launcher of ['python3', 'py -3', 'python.exe']) {
-                        const variant = structuredClone(trajectory);
+                        const variant = structuredClone(authenticated);
                         variant.events = variant.events.map(e =>
                             e.type === 'tool_call' && e.data.toolName === 'bash' ?
                             {...e, data:{...e.data, arguments:{command:
@@ -460,7 +496,7 @@ class EvidenceCalibration(unittest.TestCase):
                         ],
                     ];
                     for (const mutate of mutations) {
-                        const mutated = structuredClone(trajectory);
+                        const mutated = structuredClone(authenticated);
                         mutated.events = mutate(mutated.events);
                         const graded = await gradeTrajectory(mutated,
                             executionGraders, {stimulus});
@@ -468,7 +504,7 @@ class EvidenceCalibration(unittest.TestCase):
                     }
                 }
                 if (stimulus.constraints) {
-                    for (const toolName of ['bash', 'edit', 'create']) {
+                    for (const toolName of stimulus.constraints.reject_tools) {
                         const mutated = structuredClone(trajectory);
                         const toolCallId = 'forbidden-call';
                         mutated.events.push(
@@ -492,6 +528,7 @@ class EvidenceCalibration(unittest.TestCase):
             (vally / "pipeline" / "grading.js").as_uri(),
             str(SUITE / "eval.yaml"), str(root),
             (vally / "trajectory" / "atif-adapter.js").as_uri(),
+            str(SUITE / "golden-implementation.json"), json.dumps(provenance_graders()),
         ]
         passed = subprocess.run(command, capture_output=True, text=True, timeout=30)
         self.assertEqual(0, passed.returncode, passed.stdout + passed.stderr)
@@ -522,11 +559,13 @@ class EvidenceCalibration(unittest.TestCase):
     def test_all_advisory_cases_reject_execution_and_edits(self):
         for stimulus in SPEC["stimuli"][1:]:
             with self.subTest(stimulus=stimulus["name"]):
-                self.assertEqual({"bash", "edit", "create"},
+                self.assertEqual({"bash", "powershell", "edit", "create",
+                                  "apply_patch", "task", "author_factory"},
                                  set(stimulus["constraints"]["reject_tools"]))
                 restraint = next(grader for grader in stimulus["graders"]
                                  if grader["type"] == "tool-calls")
-                self.assertEqual({"bash", "edit", "create"},
+                self.assertEqual({"bash", "powershell", "edit", "create",
+                                  "apply_patch", "task", "author_factory"},
                                  set(restraint["config"]["disallowed"]))
 
     def test_portable_single_file_and_native_discovery(self):
