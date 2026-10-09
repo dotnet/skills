@@ -100,7 +100,7 @@ Focused offline calibration:
 python -B tests\dotnet-test\test-value-evidence\test_regressions.py -v
 ```
 
-This replays nine evidence-report goldens and three routing goldens, rejects misleading alternatives,
+This replays ten evidence-report goldens and three routing goldens, rejects misleading alternatives,
 checks complete workspace scope and native discovery, and runs the same three boundary
 tests against the actual defective and fixed bytes in fresh owned experiment
 directories. The production command grader starts Python in isolated mode
@@ -119,8 +119,11 @@ helpers, and skipped or misattributed results.
 Only the allowed changed production file may omit its terminal LF; preserved
 test bytes and all other product content remain exact. It is not a measured
 model-vs-baseline verdict. The
-Vally eval adds implementation and advisory cases plus three sibling-routing
+Vally eval adds static-edit and advisory cases plus three sibling-routing
 dormancy guards; run it through the repository's normal evaluation entry point.
+The current model-facing matrix does not certify authorized paired execution;
+that path is calibrated offline and still needs trusted host instrumentation
+before it can be graded without directing the model to evaluator-specific APIs.
 
 ### Coverage & risk *(.NET only)*
 

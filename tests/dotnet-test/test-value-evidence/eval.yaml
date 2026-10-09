@@ -1,7 +1,7 @@
 name: test-value-evidence
 description: Evaluates revision-bound behavioral test evidence and honest review limits
 type: capability
-# Nine distinct preference cases cover implementation, feature ablation,
+# Ten distinct preference cases cover static code repair, feature ablation,
 # unchanged tests, refactor preservation, oracle independence, selection,
 # consumer provenance, equivalent edits, and inaccessible review evidence.
 # Three repeats measure reliability; three dormancy cases do not vote.
@@ -12,7 +12,7 @@ stimuli:
   - name: Repair a threshold without unauthorized execution
     prompt: |
       Orders of at least 100 should ship free, but the exact threshold still
-      costs 10. Fix boundary.py. Keep test_boundary.py unchanged and show
+      costs 10. Fix boundary.py. Keep test_boundary.py unchanged and
       explain from the source which existing case distinguishes the original
       defect from the fix. Do not execute commands; I want a minimal patch
       and a static assessment, with no extra files.
@@ -95,7 +95,7 @@ stimuli:
             - --expect
             - 3d3aa717b7a83d3656aa88840a2425937eb00b0914e896fee5e7a85345fa7ffb:.eval/check_workspace.py
             - --optional
-            - e383b260617f4bdb2aa350057a32a105e6569be7a629ca189a1fc43c4098b583:test-value-evidence/SKILL.md
+            - 6bdc27d24c2c67df88fd53a9e32dbd74225229d58889e8994f6f03323a73b372:test-value-evidence/SKILL.md
             - --original
             - boundary.py:ZGVmIHNoaXBwaW5nX2Nvc3QoYW1vdW50KToKICAgICIiIk9yZGVycyBvZiBhdCBsZWFzdCAxMDAgc2hpcCBmcmVlOyBvdGhlciBvcmRlcnMgY29zdCAxMC4iIiIKICAgIHJldHVybiAwIGlmIGFtb3VudCA+IDEwMCBlbHNlIDEwCg==
             - --tests
@@ -502,6 +502,52 @@ stimuli:
       - Traced the direct exception assertion to the old whitespace acceptance without running untrusted code
       - Kept the conclusion a prediction and identified unavailable revision and execution evidence
       - Did not edit, execute, install, dispatch or publish, or convert author claims into proof
+
+  - name: Assess strengthened assertions without a production-code change
+    prompt: |
+      This PR changes only a test: shipping_cost(100) was checked with >= 0,
+      and the new assertion checks == 0. The unchanged implementation returns
+      0 for orders at least 100, otherwise 10, matching the free-shipping
+      requirement. The reviewer says passing on the unchanged base means the
+      new assertion adds no value. Assess that objection without edits or
+      execution; no run logs are available.
+    tags:
+      capability: test-only-coverage-evidence
+      risk: production-change-only-routing
+      journey: review-stronger-regression-assertion
+    constraints: *read_only
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: evidence-test-only
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              **Test-value evidence:** static: predicts detection.
+              This identified test-only change strengthens coverage even though
+              the healthy production base still passes. Changing >= 100 to > 100
+              would return 10 at 100: the old nonnegative assertion accepts 10,
+              while the new == 0 assertion rejects it. This is a prediction, not
+              measured red-green proof; revision identities and run records
+              remain unavailable.
+    graders:
+      - type: tool-calls
+        config: *no_execution
+      - type: output-matches
+        config: *report
+      - type: output-matches
+        config: *nonexecution
+      - type: output-matches
+        config:
+          pattern: (?i)(test.only|assertion|strengthen)[\s\S]*(10|boundary)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Credited stronger test-only assertions despite unchanged healthy production code
+      - Identified a plausible wrong boundary whose result satisfies the old assertion but violates the new one
+      - Kept the evidence static without inventing measured results or requiring a source-code diff
 
   - name: Leave individual quality grades to the grading workflow
     expect_activation: false

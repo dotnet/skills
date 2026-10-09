@@ -117,7 +117,7 @@ class EvidenceCalibration(unittest.TestCase):
 
     def test_every_golden_response_passes_output_graders(self):
         goldens = [item for item in SPEC["stimuli"] if "golden_trajectory" in item]
-        self.assertEqual(12, len(goldens))
+        self.assertEqual(13, len(goldens))
         for stimulus in goldens:
             with self.subTest(stimulus=stimulus["name"]):
                 response = golden_document(stimulus)["steps"][-1]["message"]
@@ -534,7 +534,7 @@ class EvidenceCalibration(unittest.TestCase):
         self.assertEqual(0, passed.returncode, passed.stdout + passed.stderr)
         graded = json.loads(passed.stdout)
         results = graded["results"]
-        self.assertEqual(12, len(results))
+        self.assertEqual(13, len(results))
         self.assertTrue(graded["restraint"])
         self.assertTrue(graded["provenance"])
         replay = next(detail for detail in results[0]["details"]
@@ -582,7 +582,7 @@ class EvidenceCalibration(unittest.TestCase):
             data = yaml.safe_load((ROOT / "plugins" / "dotnet-test" / manifest).read_text(encoding="utf-8"))
             self.assertEqual(["./skills/"], data["skills"])
         active = sum(item.get("expect_activation", True) for item in SPEC["stimuli"])
-        self.assertEqual(9, active)
+        self.assertEqual(10, active)
         self.assertEqual(3, len(SPEC["stimuli"]) - active)
 
 
