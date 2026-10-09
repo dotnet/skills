@@ -32,22 +32,98 @@ public class GeneratorDeniedScenarioTests
             Use Assert.AreEqual, IsNotNull guards, and explicit exception assertions.
             RemoveItem and GetTotalWithDiscount have gaps; assert collection state and quantity.
             """;
-        var results = await AssertionEvaluator.EvaluateAssertions(assertions, report, AppContext.BaseDirectory);
-        Assert.IsTrue(results.All(result => result.Passed), string.Join('\n', results.Where(result => !result.Passed).Select(result => result.Message)));
+        const string summary = "two of six tests have meaningful checks";
+        foreach (var validSummary in new[]
+        {
+            summary,
+            "exactly 2 out of 6 tests contain meaningful assertions",
+            "two of the six tests have meaningful checks",
+            "two of    six tests have meaningful checks",
+            "only two tests have meaningful checks",
+            "2/6 tests have meaningful checks",
+            "two meaningful tests",
+            "Meaningful tests: two",
+            "Tests with meaningful checks: 2",
+            "Meaningful checks in two tests",
+            "| Meaningful tests | 2/6 |",
+            "| Meaningful tests | two |",
+            "| Tests with meaningful checks | 2 (33%) |",
+            "some tests have meaningful checks; the suite is weak overall",
+            "not all six tests have meaningful checks",
+            "not  all six tests have meaningful checks",
+            "not every test is meaningful",
+            "all six tests were reviewed; four assertion calls include two meaningful checks",
+            "four hollow tests need repair; two tests protect behavior",
+            "one assertion checks count 1; another asserts total 25.00",
+            "no tests have been run; execution and coverage were not measured",
+            "three new tests should have meaningful checks",
+            "add three meaningful tests for missing behavior",
+            "at least one test has meaningful checks",
+            "at most six tests have meaningful checks",
+            "more than one test has meaningful checks",
+            "fewer than three tests have meaningful checks",
+            "no more than two tests have meaningful checks",
+            "no fewer than two tests have meaningful checks",
+            "four tests lack meaningful assertions",
+            "four tests have no meaningful checks",
+        })
+        {
+            var results = await AssertionEvaluator.EvaluateAssertions(assertions,
+                report.Replace(summary, validSummary, StringComparison.Ordinal), AppContext.BaseDirectory);
+            Assert.IsTrue(results.All(result => result.Passed),
+                $"{validSummary}: {string.Join('\n', results.Where(result => !result.Passed).Select(result => result.Message))}");
+        }
 
-        foreach (var broken in new[]
+        var invalidSummaries = new List<string>
+        {
+            "only one of six tests has meaningful checks",
+            "none of six tests have meaningful checks",
+            "no tests have meaningful assertions",
+            "only a single test has meaningful checks",
+            "all six tests have meaningful checks",
+            "all tests are meaningful",
+            "every test contains meaningful assertions",
+            "most of the tests have meaningful checks",
+            "half of the six tests have meaningful checks",
+            "a majority of the tests have meaningful checks",
+            "0/6 tests have meaningful checks",
+            "3/6 tests have meaningful checks",
+            "there are no meaningful tests",
+            "three meaningful tests",
+            "Meaningful tests: 0",
+            "Meaningful tests: three",
+            "Tests with meaningful checks: 1",
+            "Meaningful checks in six tests",
+            "at least three tests have meaningful checks",
+            "at least 6 tests contain meaningful assertions",
+            "at most one test has meaningful checks",
+            "at most 0 tests have meaningful checks",
+            "more than two tests have meaningful checks",
+            "more than 2 tests have meaningful checks",
+            "fewer than two tests have meaningful checks",
+            "less than 2 tests have meaningful checks",
+            "no more than one test has meaningful checks",
+            "no fewer than three tests have meaningful checks",
+        };
+        foreach (var count in new[] { "zero", "one", "three", "four", "five", "six", "0", "1", "3", "4", "5", "6" })
+            foreach (var scope in new[] { "of six", "out of 6" })
+                foreach (var assessment in new[] { "have meaningful checks", "meaningfully protect behavior" })
+                    invalidSummaries.Add($"{count} {scope} tests {assessment}");
+        foreach (var count in new[] { "zero", "one", "three", "four", "five", "six", "0", "1", "3", "4", "5", "6", "none", "all" })
+            invalidSummaries.Add($"| Meaningful tests | {count}/6 |");
+
+        var brokenReports = new[]
         {
             string.Join('\n', new[] { "AddItem_Works", "AddItem_ItemIsAdded", "GetTotal_ReturnsValue",
                 "AddItem_NegativePrice_Throws", "ItemCount_AfterAdd", "GetTotal_WithMultipleItems" }),
             report.Replace("AddItem_Works", "SWAP", StringComparison.Ordinal)
                 .Replace("ItemCount_AfterAdd", "AddItem_Works", StringComparison.Ordinal)
                 .Replace("SWAP", "ItemCount_AfterAdd", StringComparison.Ordinal),
-            report.Replace("two of six tests have meaningful checks",
-                "only one of six tests has meaningful checks", StringComparison.Ordinal),
-        })
+        }.Concat(invalidSummaries.Select(invalid => report.Replace(summary, invalid, StringComparison.Ordinal)));
+        foreach (var broken in brokenReports)
         {
-            results = await AssertionEvaluator.EvaluateAssertions(assertions, broken, AppContext.BaseDirectory);
-            Assert.IsFalse(results.All(result => result.Passed));
+            var results = await AssertionEvaluator.EvaluateAssertions(assertions, broken, AppContext.BaseDirectory);
+            Assert.IsFalse(results.All(result => result.Passed), broken);
         }
     }
 

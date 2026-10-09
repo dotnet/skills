@@ -115,7 +115,11 @@ stimuli:
           pattern: &invalid_meaningful_finding '(?i)\b(?:ItemCount_AfterAdd|GetTotal_WithMultipleItems)\b[^\r\n]*(?:meaningless|tautolog\w*|assertion.free|no\s+assertions?|not\s+(?:a\s+)?meaningful)'
       - type: output-not-matches
         config:
-          pattern: &contradictory_summary '(?i)\b(?:only\s+)?(?:one|1)\s+of\s+(?:six|6)\s+(?:tests?|assertions?)\s+(?:\w+\s+){0,3}(?:meaningful|concrete)\s+(?:behavior|checks?|assertions?)'
+          # Do not rematch denominators or turn negations, valid bounds or proposed tests into exact counts.
+          pattern: &contradictory_summary '(?i)(?:^|[^\w\s/]|\b(?!(?:not|no|of|in|the|all|every|most|half|at|least|than|add|write|create|generate|need|want|recommend)\b)\w+\s+)\s*(?:the\s+)?\b(?!(?:two|2)\b)(?:\d+|zero|one|single|three|four|five|six|seven|eight|nine|ten|none|no|all|every|most|half|majority|(?:at\s+least|no\s+(?:fewer|less)\s+than)\s+(?:[3-9]|[1-9]\d+|three|four|five|six|seven|eight|nine|ten)|(?:at\s+most|no\s+more\s+than)\s+(?:[01]|zero|one)|more\s+than\s+(?:[2-9]|[1-9]\d+|two|three|four|five|six|seven|eight|nine|ten)|(?:fewer|less)\s+than\s+(?:[012]|zero|one|two))(?:\s*/\s*6\s+|(?:\s+(?:out\s+of|of|in))?\s+(?:the\s+)?(?:(?:six|6)\s+)?)(?:(?:meaningful|concrete)\s+tests?\b|tests?\s+(?:(?:have|has|contains?|includes?|provides?|protects?|pins?)\s+(?:(?:a|any|some)\s+)?(?:meaningful|concrete)\s+(?:behavior|checks?|assertions?)\b|(?:are|is)\s+(?:meaningful|concrete)\b|meaningfully\s+(?:protects?|checks?|verif(?:y|ies)|pins?)\s+behavior\b))'
+      - type: output-not-matches
+        config:
+          pattern: &contradictory_summary_reversed '(?i)\b(?:(?:meaningful|concrete)\s+tests?|tests?\s+(?:with|having)\s+(?:meaningful|concrete)\s+(?:checks?|assertions?))\s*[:=|]\s*(?!(?:two|2)\b)(?:\d+|zero|one|single|three|four|five|six|seven|eight|nine|ten|none|no|all|every|most|half|majority)\b|\b(?:meaningful|concrete)\s+(?:checks?|assertions?)\s+in\s+(?!(?:two|2)\b)(?:\d+|zero|one|single|three|four|five|six|seven|eight|nine|ten|none|no|all|every|most|half|majority)\s+tests?\b'
       - type: output-not-matches
         config:
           pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|(?:\s*How to improve\s*\|)?
@@ -290,6 +294,9 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: *contradictory_summary
+      - type: output-not-matches
+        config:
+          pattern: *contradictory_summary_reversed
       - type: run-command
         config:
           command: >-
