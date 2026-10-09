@@ -4,18 +4,45 @@ type: capability
 defaults:
   timeout: 5m
   runs: 1
+scoring:
+  weights: {}
+# Vally 0.14 lint recommends selecting golden_patch as prompt evidence, but
+# live experiments cannot resolve it. Oracle exposes the applied patch as diff,
+# so patch-backed prompts intentionally use trajectory and diff evidence.
 stimuli:
   - name: Detect unsigned tail offset underflow
     prompt: |
-      Review TailSearch.cs for correctness and memory safety across every input
-      length. Do not edit the file. Report only issues that can affect behavior.
+      Review the SIMD search in TailSearch.cs for correctness and memory safety
+      across every input length. Do not edit the file. Report only issues that
+      can affect behavior.
+    tags:
+      capability: review-tail-handling
+      risk: out-of-bounds-read
+      journey: review-vectorized-search
     environment:
       files:
         - src: fixtures/TailSearch.cs
           dest: TailSearch.cs
     constraints:
       reject_tools: [bash, edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "vectorization-tail-offset-underflow"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              `values.Length - Vector128<int>.Count` is negative for lengths 0-3. Casting that result to `nuint` creates a very large unsigned offset, so `LoadUnsafe` can read outside the span. Check the length before subtracting a vector width. Prefer the existing accelerated span search, or use a scalar path for short spans, bounds-checked vector creation for full blocks, and an overlapping final vector only after at least one full vector is available.
     graders:
+      - type: output-matches
+        config:
+          pattern: (?is)(negative|underflow).{0,120}(nuint|unsigned|large)
+      - type: output-matches
+        config:
+          pattern: (?is)(short|small|length).{0,160}(vector width|Vector128<int>\.Count|full vector)
+      - type: diff-empty
       - type: exit-success
       - type: prompt
     rubric:
@@ -28,19 +55,31 @@ stimuli:
       SumValues.cs produces wrong answers for some input lengths, and profiling
       shows this method is hot. Fix the implementation without losing SIMD for
       inputs that contain at least one full vector.
+    tags:
+      capability: repair-vectorized-reduction
+      risk: incorrect-results
+      journey: fix-hot-reduction
     environment:
       files:
         - src: fixtures/sum-values
           dest: .
+    golden_patch:
+      path: references/sum-values.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "vectorization-repair-reduction"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Updated `SumValues.cs`. Short inputs and machines without accelerated `Vector128` use the scalar path with explicit unchecked addition. Full blocks use `Vector128.Create` over bounds-checked slices. A final overlapping vector is included only for a nonempty remainder, and `ConditionalSelect` masks out lanes that the main loop already counted, so exact-width and nonmultiple lengths are not double-counted. I ran `dotnet run --project SumValues.csproj` and the same command with `DOTNET_EnableHWIntrinsic=0`; both printed `PASS`.
     graders:
       - type: file-contains
         config:
           path: SumValues.cs
           value: Vector128.Create
-      - type: file-contains
-        config:
-          path: SumValues.cs
-          value: ConditionalSelect
       - type: file-contains
         config:
           path: SumValues.cs
@@ -60,29 +99,54 @@ stimuli:
           stdout_matches: PASS
       - type: run-command
         config:
-          command: DOTNET_EnableHWIntrinsic=0 dotnet run --project SumValues.csproj
+          command: dotnet run --project SumValues.csproj
+          env:
+            DOTNET_EnableHWIntrinsic: "0"
           expected_exit_code: 0
           stdout_matches: PASS
       - type: exit-success
       - type: prompt
+        config:
+          evidence: [trajectory, diff]
     rubric:
       - Corrects the double-counted overlap for exact-width and nonmultiple lengths
       - Preserves unchecked integer overflow behavior
       - Uses bounds-checked span operations rather than managed-reference arithmetic
-      - Keeps the final partial block vectorized by excluding already-counted lanes
+      - Keeps the final partial block vectorized by excluding already-counted lanes, whether through ConditionalSelect or an equivalent vector mask
       - Uses the scalar implementation for short inputs and when hardware acceleration is unavailable
 
   - name: Reject fragile backwards reference
     prompt: |
-      Review LastMatch.cs for correctness and managed-memory safety. Do not edit
-      the file.
+      LastMatch.cs is a proposed helper for a SIMD rewrite. Review its backwards
+      traversal for correctness and managed-memory safety. Do not edit the file.
+    tags:
+      capability: review-managed-reference-pattern
+      risk: fragile-managed-reference
+      journey: review-simd-helper
     environment:
       files:
         - src: fixtures/LastMatch.cs
           dest: LastMatch.cs
     constraints:
       reject_tools: [bash, edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "vectorization-backwards-reference"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              A non-dereferenced managed reference exactly one past an array or object is permitted by the runtime, so this is not an immediate out-of-bounds dereference. I would still reject this helper as a conservative safety policy: the one-past-span reference is fragile and a small refactor can dereference it. Keep the base reference in range and use an integer element offset with `Unsafe.Add`, or use ordinary span indexing.
     graders:
+      - type: output-matches
+        config:
+          pattern: (?is)(one[- ]past|past (the )?end).{0,160}(permit|valid|legal|not.{0,30}dereference)
+      - type: output-matches
+        config:
+          pattern: (?is)(fragile|conservative|avoid).{0,180}(base reference|offset|index)
+      - type: diff-empty
       - type: exit-success
       - type: prompt
     rubric:
@@ -92,15 +156,34 @@ stimuli:
 
   - name: Detect empty-span reference access
     prompt: |
-      Review ZeroBytes.cs for edge-case correctness and memory safety. Do not edit
-      the file. The public contract permits an empty span.
+      Review the vectorized zero check in ZeroBytes.cs for edge-case correctness
+      and memory safety. Do not edit the file. The public contract permits an
+      empty span.
+    tags:
+      capability: review-empty-input
+      risk: empty-input-exception
+      journey: review-vectorized-predicate
     environment:
       files:
         - src: fixtures/ZeroBytes.cs
           dest: ZeroBytes.cs
     constraints:
       reject_tools: [bash, edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "vectorization-empty-span-reference"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              `ref byte start = ref data[0]` executes before `data.IsEmpty`, so an empty span throws while indexing element zero and never reaches the documented `true` result. Move the empty check before taking a reference. Prefer the existing accelerated span operation, or keep explicit SIMD with bounds-checked span-based vector creation.
     graders:
+      - type: output-matches
+        config:
+          pattern: (?is)(data\[0\]|element zero|index 0).{0,180}(empty|before).{0,120}(throw|exception)
+      - type: diff-empty
       - type: exit-success
       - type: prompt
     rubric:
@@ -109,15 +192,36 @@ stimuli:
 
   - name: Detect unsupported vector element type
     prompt: |
-      Review AsciiLetters.cs for portability and runtime correctness on .NET 8.
-      Do not edit the file.
+      Review the Vector128-based branch in AsciiLetters.cs for portability and
+      runtime correctness on .NET 8. Do not edit the file.
+    tags:
+      capability: select-supported-element-type
+      risk: runtime-exception
+      journey: review-vector-api-portability
     environment:
       files:
         - src: fixtures/AsciiLetters.cs
           dest: AsciiLetters.cs
     constraints:
       reject_tools: [bash, edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "vectorization-unsupported-char-element"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              `char` is not a supported fixed-width `Vector128<T>` element type. On a hardware-accelerated machine the condition evaluates `Vector128<char>.Count`, which throws `NotSupportedException`. The method only classifies the first character, so there is no useful vectorizable loop. Keep the direct scalar `text.Length != 0 && char.IsAsciiLetter(text[0])` implementation.
     graders:
+      - type: output-matches
+        config:
+          pattern: (?is)(Vector128<char>|char).{0,140}(unsupported|not supported|NotSupportedException)
+      - type: output-matches
+        config:
+          pattern: (?is)(char\.IsAsciiLetter|scalar|direct).{0,140}(keep|retain|use|implementation)
+      - type: diff-empty
       - type: exit-success
       - type: prompt
     rubric:
@@ -128,15 +232,37 @@ stimuli:
 
   - name: Detect architecture-specific behavior change
     prompt: |
-      Review ContainsZero.cs. It must return the same answer on x64, Arm64, and
-      machines with hardware intrinsics disabled. Do not edit the file.
+      Review the AVX2 search in ContainsZero.cs. It must return the same answer
+      on x64, Arm64, and machines with hardware intrinsics disabled. Do not edit
+      the file.
+    tags:
+      capability: preserve-cross-platform-fallback
+      risk: architecture-dependent-results
+      journey: review-avx2-search
     environment:
       files:
         - src: fixtures/ContainsZero.cs
           dest: ContainsZero.cs
     constraints:
       reject_tools: [bash, edit, create]
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "vectorization-architecture-fallback"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              `if (!Avx2.IsSupported) return false;` changes the result on Arm64 and when intrinsics are disabled: an input that contains zero reports false without being searched. Use the existing accelerated span search such as `data.IndexOf((byte)0) >= 0`, or add equivalent portable `Vector128` and scalar fallbacks with safe span loading.
     graders:
+      - type: output-matches
+        config:
+          pattern: (?is)(Avx2\.IsSupported|AVX2).{0,180}(false|fallback|unsupported|Arm64)
+      - type: output-matches
+        config:
+          pattern: (?is)(IndexOf|Contains|scalar|Vector128).{0,180}(fallback|portable|equivalent|search)
+      - type: diff-empty
       - type: exit-success
       - type: prompt
     rubric:
@@ -148,10 +274,26 @@ stimuli:
       Product.cs is in a .NET 10 project and processes arrays containing
       100-1000 values. Optimize it for throughput without changing any
       observable behavior, including empty input.
+    tags:
+      capability: reuse-tensor-primitives
+      risk: contract-regression
+      journey: optimize-hot-product
     environment:
       files:
         - src: fixtures/product
           dest: .
+    golden_patch:
+      path: references/product.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "vectorization-product-contract"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Updated `Product.cs` to keep the existing empty-input result of `0` and delegate nonempty products to `TensorPrimitives.Product`. This removes the duplicate scalar reduction while preserving the tested nonempty and unchecked-overflow results. I ran `dotnet run --project Product.csproj`; it printed `PASS`. This is a framework-operation reuse change, not a claim of a measured speedup.
     graders:
       - type: file-contains
         config:
@@ -164,10 +306,13 @@ stimuli:
           stdout_matches: PASS
       - type: exit-success
       - type: prompt
+        config:
+          evidence: [trajectory, diff]
     rubric:
       - Produces a concise optimized implementation without duplicating a framework-provided operation
       - Preserves the existing zero result for empty input and correct results for non-empty input
       - Leaves the supplied project building and running successfully
+      - Does not claim a measured speedup or speedup magnitude that the prompt did not provide
 
   - name: Vectorize conditional increment safely
     prompt: |
@@ -176,10 +321,26 @@ stimuli:
       representative benchmark data is available yet. Optimize IncrementAbove
       for throughput on x64 and Arm64 while preserving its behavior for every
       input length.
+    tags:
+      capability: author-portable-simd-loop
+      risk: tail-double-mutation
+      journey: vectorize-hot-loop
     environment:
       files:
         - src: fixtures/conditional-increment
           dest: .
+    golden_patch:
+      path: references/conditional-increment.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "vectorization-conditional-increment"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Updated `ConditionalIncrement.cs` with a portable `Vector128` path and a scalar fallback for short inputs or disabled hardware intrinsics. Full blocks use bounds-checked vector creation and `CopyTo`. For a nonmultiple tail, the last full vector overlaps the main loop, but a lane mask permits increments only in the previously unprocessed lanes, so elements are never incremented twice. The implementation has no x86-specific or unmeasured `Vector256` path. I ran the project normally and with `DOTNET_EnableHWIntrinsic=0`; both printed `PASS`, including the large-input cases. Throughput remains unmeasured until a representative benchmark is run.
     graders:
       - type: file-contains
         config:
@@ -220,27 +381,48 @@ stimuli:
           stdout_matches: PASS
       - type: run-command
         config:
-          command: DOTNET_EnableHWIntrinsic=0 dotnet run --project ConditionalIncrement.csproj
+          command: dotnet run --project ConditionalIncrement.csproj
+          env:
+            DOTNET_EnableHWIntrinsic: "0"
           expected_exit_code: 0
           stdout_matches: PASS
       - type: exit-success
       - type: prompt
+        config:
+          evidence: [trajectory, diff]
     rubric:
       - Produces the same mutations as the scalar contract for empty, short, exact-width, nonmultiple, and large inputs
       - Uses an implementation that can run on both x64 and Arm64
       - Retains correct processing when hardware intrinsics are unavailable
       - Keeps the nonmultiple tail vectorized without applying the increment twice to overlapping elements
       - Does not add wider vector paths without measurements showing they improve this method
+      - Treats throughput improvement as unmeasured until a representative benchmark is run
 
   - name: Extend an existing vectorized path
     prompt: |
       A benchmark shows that ClampNegative.ToZero benefits from a Vector256 path
       on supported hardware. Add that path while retaining the existing
       self-contained Vector128 dispatch and scalar behavior on other machines.
+    tags:
+      capability: extend-width-dispatch
+      risk: fallback-regression
+      journey: apply-measured-wide-path
     environment:
       files:
         - src: fixtures/widen-clamp
           dest: .
+    golden_patch:
+      path: references/widen-clamp.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "vectorization-widen-clamp"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Added a portable `Vector256` dispatch before the existing `Vector128` and scalar paths. The 256-bit and 128-bit helpers use the same full-block and overlapping-tail structure. If 256-bit acceleration is available but the input is shorter than one 256-bit vector, the method uses the dedicated small-input path and returns instead of cascading through the narrower hardware guard. I ran the project normally, with `DOTNET_EnableAVX2=0`, and with `DOTNET_EnableHWIntrinsic=0`; all three runs printed `PASS` across empty, short, exact-width, nonmultiple, and large inputs. The user-supplied benchmark justifies adding the path; I am not claiming an unstated speedup magnitude.
     graders:
       - type: file-contains
         config:
@@ -281,16 +463,22 @@ stimuli:
           stdout_matches: PASS
       - type: run-command
         config:
-          command: DOTNET_EnableAVX2=0 dotnet run --project WidenClamp.csproj
+          command: dotnet run --project WidenClamp.csproj
+          env:
+            DOTNET_EnableAVX2: "0"
           expected_exit_code: 0
           stdout_matches: PASS
       - type: run-command
         config:
-          command: DOTNET_EnableHWIntrinsic=0 dotnet run --project WidenClamp.csproj
+          command: dotnet run --project WidenClamp.csproj
+          env:
+            DOTNET_EnableHWIntrinsic: "0"
           expected_exit_code: 0
           stdout_matches: PASS
       - type: exit-success
       - type: prompt
+        config:
+          evidence: [trajectory, diff]
     rubric:
       - Adds a portable wider path without removing the existing Vector128 or scalar paths
       - Keeps the wider and narrower implementations structurally consistent
@@ -298,6 +486,7 @@ stimuli:
       - Does not cascade through narrower hardware-dispatch guards merely because the input is shorter than a wider vector
       - Preserves correct behavior for empty, short, exact-width, nonmultiple, and large inputs
       - Selects an equivalent fallback when the wider instruction set or all hardware intrinsics are unavailable
+      - Does not invent a speedup magnitude beyond the benchmark result supplied by the user
 
   - name: Ignore unrelated parser performance request
     prompt: |
@@ -305,7 +494,30 @@ stimuli:
       nested JSON into polymorphic objects and 21% to dictionary lookups. How
       should I approach optimizing it?
     expect_activation: false
+    tags:
+      capability: boundary-non-vectorizable-profile
+      risk: incorrect-skill-activation
+      journey: decline-off-target
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "vectorization-dormancy-json-parser"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Treat this as parser, allocation, and lookup optimization, not as a handwritten vectorization task. Capture representative request traces and allocation profiles first. For the 62% JSON cost, measure `System.Text.Json` source generation, polymorphism configuration, object materialization, and avoidable allocations. For the 21% dictionary cost, benchmark key construction, comparer choice, lookup count, and whether data can be indexed once. Re-run the endpoint benchmark after each change.
     graders:
+      - type: output-matches
+        config:
+          pattern: (?is)(System\.Text\.Json|JsonSerializer|source generation|polymorph|allocation|dictionary)
+      - type: output-matches
+        config:
+          pattern: (?is)(profil|benchmark|measure|trace)
+      - type: output-not-matches
+        config:
+          pattern: (Vector128|Vector256|LoadUnsafe|StoreUnsafe|System\.Runtime\.Intrinsics)
       - type: exit-success
       - type: prompt
     rubric:

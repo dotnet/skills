@@ -1,0 +1,17 @@
+diff --git a/PacketHeader.cs b/PacketHeader.cs
+--- a/PacketHeader.cs
++++ b/PacketHeader.cs
+@@ -1,10 +1,12 @@
+ using System.Runtime.InteropServices;
+ 
+-[StructLayout(LayoutKind.Sequential)]
++[StructLayout(LayoutKind.Sequential, Pack = 1)]
+ internal struct PacketHeader
+ {
+     internal byte Kind;
+     internal uint Length;
+     internal ushort Flags;
++
++    [MarshalAs(UnmanagedType.U1)]
+     internal bool Compressed;
+ }

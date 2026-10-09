@@ -1,14 +1,17 @@
 ---
 name: dotnet-pinvoke
 description: >
-  Correctly call native (C/C++) libraries from .NET using P/Invoke and LibraryImport.
-  Covers function signatures, string marshalling, memory lifetime, SafeHandle, and
-  cross-platform patterns.
-  USE FOR: writing new P/Invoke or LibraryImport declarations, reviewing or debugging
-  existing native interop code, wrapping a C or C++ library for use in .NET, diagnosing
-  crashes, memory leaks, or corruption at the managed/native boundary.
-  DO NOT USE FOR: COM interop, C++/CLI mixed-mode assemblies, or pure managed code with
-  no native dependencies.
+  Write, review, or debug direct native-library calls from exported C/C++ functions,
+  structs, pointers, or handles using P/Invoke, DllImport, or LibraryImport. USE FOR
+  "fix this size_t mapping", ".NET Framework x86", "preserve last error", "#pragma
+  pack", "review UTF-8/UTF-16 marshalling", SafeHandle ownership, callback lifetime,
+  allocator/free contracts, AccessViolationException, stale Win32Exception codes,
+  heap corruption, leaks, or crashes after GC. HARD EXCLUSION: never load this skill
+  when the requested output is a COM type-library projection or COM activation setup,
+  including generated managed interfaces, coclasses, events, IDispatch members,
+  registration-free COM, or COMReference. Those requests require COM-specific
+  guidance even if they mention .NET 8, a vendor library, native interop, or managed
+  interfaces. Also exclude C++/CLI and pure managed code.
 license: MIT
 ---
 
@@ -33,7 +36,22 @@ This skill covers both `DllImport` (available since .NET Framework 1.0) and `Lib
 - **Don't migrate** existing `DllImport` to `LibraryImport` unless the user asks or AOT/trimming is an explicit requirement.
 - **Don't recommend CsWin32** unless the target is specifically Win32 APIs.
 - **Don't generate callbacks** (Step 8) unless the native API requires function pointers.
-- **Review request?** Use the validation checklist — don't rewrite working code.
+- **Read-only review?** Inspect the header and declaration. If the widths, encoding, ownership, and ABI already match, say **No changes needed**, give the exact mapping in 2-4 sentences, and do not edit or migrate anything.
+- **COM terms present?** If the request is about a type library, coclass, `IDispatch`, registration-free COM, or `<COMReference>`, stop. Do not provide P/Invoke declarations or generic `<COMReference>` setup advice; route to COM-specific tooling and guidance.
+- **Replacing or unregistering a callback?** Keep the old delegate rooted until the native replacement or unregister call returns. Root the replacement before passing it to native code.
+
+## Decisions That Change the Answer
+
+| Developer request or evidence | Decision |
+|-------------------------------|----------|
+| `size_t` mapped to `ulong`/`int` | Use `nuint` on .NET 8+ or `UIntPtr` on legacy targets |
+| Library-allocated pointer or heap corruption on free | Use the documented paired free export in `finally`; never guess an allocator |
+| Stale `Win32Exception` code | Set `SetLastError = true`; read `Marshal.GetLastPInvokeError()` immediately |
+| .NET Framework x86, `__cdecl`, or `__stdcall` | Use `DllImport` and the header's explicit calling convention |
+| `#pragma pack`, wrong size, or shifted fields | Match packing, order, widths, and boolean size; verify offsets |
+| UTF-8/UTF-16 review | If the explicit native and managed encodings match, report that and stop |
+| Stored callback | Root it for its lifetime; keep the old root through replacement/unregister |
+| Type library, coclass, `IDispatch`, or COM activation | Stop and redirect without prescribing P/Invoke or `<COMReference>` |
 
 ## Inputs
 
@@ -57,7 +75,7 @@ This skill covers both `DllImport` (available since .NET Framework 1.0) and `Lib
 | **Mechanism** | Runtime marshalling | Source generator (compile-time) |
 | **AOT / Trim safe** | No | Yes |
 | **String marshalling** | `CharSet` enum | `StringMarshalling` enum |
-| **Error handling** | `SetLastError` | `SetLastPInvokeError` |
+| **Error handling** | `SetLastError = true`; read `Marshal.GetLastWin32Error()` | `SetLastError = true`; read `Marshal.GetLastPInvokeError()` |
 | **Availability** | .NET Framework 1.0+ | .NET 7+ only |
 
 ### Step 2: Map Native Types to .NET Types
@@ -141,6 +159,8 @@ internal static partial int ProcessRecords(
 
 > ❌ **NEVER** rely on `CharSet.Auto` or omit string encoding — there is no safe default.
 
+For a read-only encoding review, compare the header's exact character type with the explicit managed setting. If they match, answer directly: **No changes needed**, name the UTF-8 and/or UTF-16 mapping, and stop. Do not turn a correct review into a migration.
+
 ```csharp
 // DllImport — Windows API (UTF-16)
 [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
@@ -154,7 +174,7 @@ private static extern int SetName(
 
 // LibraryImport — UTF-16
 [LibraryImport("kernel32", StringMarshalling = StringMarshalling.Utf16,
-    SetLastPInvokeError = true)]
+    SetLastError = true)]
 internal static partial int GetModuleFileNameW(
     IntPtr hModule, [Out] char[] filename, int size);
 
@@ -225,15 +245,15 @@ var gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
 
 Raw `IntPtr` leaks on exceptions and has no double-free protection. `SafeHandle` is non-negotiable.
 
+With `LibraryImport`, keep the raw return private and wrap it immediately. The source generator does not support every direct `SafeHandle` return shape.
+
 ```csharp
-internal sealed class MyLibHandle : SafeHandleZeroOrMinusOneIsInvalid
+internal sealed partial class MyLibHandle : SafeHandleZeroOrMinusOneIsInvalid
 {
-    // Required by the marshalling infrastructure to instantiate the handle.
-    // Do not remove — there are no direct callers.
-    private MyLibHandle() : base(ownsHandle: true) { }
+    private MyLibHandle(IntPtr value) : base(ownsHandle: true) => SetHandle(value);
 
     [LibraryImport("mylib", StringMarshalling = StringMarshalling.Utf8)]
-    private static partial MyLibHandle CreateHandle(string config);
+    private static partial IntPtr CreateHandleNative(string config);
 
     [LibraryImport("mylib")]
     private static partial int UseHandle(MyLibHandle h, ReadOnlySpan<byte> data, nuint len);
@@ -245,8 +265,12 @@ internal sealed class MyLibHandle : SafeHandleZeroOrMinusOneIsInvalid
 
     public static MyLibHandle Create(string config)
     {
-        var h = CreateHandle(config);
-        if (h.IsInvalid) throw new InvalidOperationException("Failed to create handle");
+        var h = new MyLibHandle(CreateHandleNative(config));
+        if (h.IsInvalid)
+        {
+            h.Dispose();
+            throw new InvalidOperationException("Failed to create handle");
+        }
         return h;
     }
 
@@ -261,8 +285,8 @@ int result = handle.Use(myData);
 ### Step 7: Handle Errors
 
 ```csharp
-// Win32 APIs — check SetLastError
-[LibraryImport("kernel32", SetLastPInvokeError = true)]
+// Win32 APIs — preserve and immediately read the last-error value
+[LibraryImport("kernel32", SetLastError = true)]
 [return: MarshalAs(UnmanagedType.Bool)]
 internal static partial bool CloseHandle(IntPtr hObject);
 
@@ -304,18 +328,51 @@ private delegate void LogCallbackDelegate(int level, IntPtr message);
 // CRITICAL: prevent delegate from being garbage collected
 private static LogCallbackDelegate? s_logCallback;
 
-public static void EnableLogging(Action<int, string> handler)
+private static LogCallbackDelegate CreateCallback(Action<int, string> handler)
 {
-    s_logCallback = (level, msgPtr) =>
+    return (level, msgPtr) =>
     {
-        string msg = Marshal.PtrToStringUTF8(msgPtr) ?? string.Empty;
-        handler(level, msg);
+        try
+        {
+            string msg = Marshal.PtrToStringUTF8(msgPtr) ?? string.Empty;
+            handler(level, msg);
+        }
+        catch (Exception ex)
+        {
+            Environment.FailFast("Managed callback failed.", ex);
+        }
     };
-    SetLogCallback(s_logCallback);
+}
+
+public static void ReplaceLogging(Action<int, string> handler)
+{
+    LogCallbackDelegate? previous = s_logCallback;
+    LogCallbackDelegate replacement = CreateCallback(handler);
+    s_logCallback = replacement; // Root the replacement before native stores it.
+    try
+    {
+        SetLogCallback(replacement);
+    }
+    catch
+    {
+        s_logCallback = previous;
+        throw;
+    }
+    GC.KeepAlive(previous); // Keep the old pointer valid until replacement completes.
+}
+
+public static void DisableLogging()
+{
+    LogCallbackDelegate? previous = s_logCallback;
+    SetLogCallback(null);
+    s_logCallback = null; // Clear only after native confirms unregistration.
+    GC.KeepAlive(previous);
 }
 ```
 
 If native code stores the function pointer, the delegate **must** stay rooted for its entire lifetime. A collected delegate means a crash.
+
+**Replacement rule:** Never overwrite the only root to the active delegate and then call native code. Hold the previous delegate locally through the replacement/unregister call, root the replacement first, and clear the old root only after native code can no longer call it.
 
 **`GC.KeepAlive` for short-lived callbacks:** When converting a delegate to a function pointer with `Marshal.GetFunctionPointerForDelegate`, the GC does not track the relationship between the pointer and the delegate. Use `GC.KeepAlive` to prevent collection before the native call completes:
 
@@ -381,7 +438,7 @@ For codebases targeting .NET 7+, migrating provides AOT compatibility and trimmi
 1. Add `partial` to the containing class and make the method `static partial`
 2. Replace `[DllImport]` with `[LibraryImport]`
 3. Replace `CharSet` with `StringMarshalling`
-4. Replace `SetLastError = true` with `SetLastPInvokeError = true`
+4. Keep `SetLastError = true`; use `Marshal.GetLastPInvokeError()` when reading the preserved value
 5. Remove `CallingConvention` unless targeting Windows x86
 6. Build and fix `SYSLIB1054`–`SYSLIB1057` analyzer warnings
 
@@ -396,23 +453,9 @@ Enable the interop analyzers:
 
 ---
 
-## Tooling
+## Optional Generators
 
-### CsWin32 (Win32 APIs)
-
-For Win32 P/Invoke, prefer [Microsoft.Windows.CsWin32](https://github.com/microsoft/CsWin32) over hand-written signatures. It source-generates correct declarations from metadata. Add a `NativeMethods.txt` listing the APIs you need:
-
-```bash
-dotnet add package Microsoft.Windows.CsWin32
-```
-
-### CsWinRT (WinRT APIs)
-
-For WinRT interop, use [Microsoft.Windows.CsWinRT](https://github.com/microsoft/CsWinRT) to generate .NET projections from `.winmd` files.
-
-### Objective Sharpie (Objective-C APIs)
-
-For binding Objective-C libraries (macOS/iOS), use [Objective Sharpie](https://learn.microsoft.com/previous-versions/xamarin/cross-platform/macios/binding/objective-sharpie) to generate initial P/Invoke and binding definitions from Objective-C headers.
+Load the tooling section in [references/diagnostics.md](references/diagnostics.md) only when the target is Win32, WinRT, or Objective-C and a metadata-driven generator may replace hand-written declarations.
 
 ---
 
@@ -426,7 +469,7 @@ For binding Objective-C libraries (macOS/iOS), use [Objective Sharpie](https://l
 - [ ] Memory ownership is documented and matched (who allocates, who frees, with what)
 - [ ] `SafeHandle` used for all native handles (no raw `IntPtr` escaping the interop layer)
 - [ ] Delegates passed as callbacks are rooted to prevent GC collection
-- [ ] `SetLastError`/`SetLastPInvokeError` set for APIs that use OS error codes
+- [ ] `SetLastError = true` is set for APIs that use OS error codes, with the getter appropriate to the import mechanism
 - [ ] Struct layout matches native (packing, alignment, field order)
 - [ ] `CLong`/`CULong` used for C `long`/`unsigned long` in cross-platform code
 - [ ] If using `CLong`/`CULong` with `LibraryImport`, `[assembly: DisableRuntimeMarshalling]` is applied

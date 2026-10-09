@@ -1,0 +1,57 @@
+--- a/SumValues.cs
++++ b/SumValues.cs
+@@ -1,33 +1,38 @@
+-using System.Runtime.InteropServices;
+ using System.Runtime.Intrinsics;
+-
++
+ public static class SumValues
+ {
+     public static int Sum(ReadOnlySpan<int> values)
+     {
+-        if (values.Length < Vector128<int>.Count)
++        if (!Vector128.IsHardwareAccelerated || values.Length < Vector128<int>.Count)
+         {
+             int scalar = 0;
+-
++
+             foreach (int value in values)
+             {
+-                scalar += value;
++                scalar = unchecked(scalar + value);
+             }
+-
++
+             return scalar;
+         }
+-
++
+-        ref int start = ref MemoryMarshal.GetReference(values);
+         Vector128<int> sum = Vector128<int>.Zero;
+-        nuint i = 0;
++        int i = 0;
+-
++
+-        for (; i + (nuint)Vector128<int>.Count <= (nuint)values.Length; i += (nuint)Vector128<int>.Count)
++        for (; i + Vector128<int>.Count <= values.Length; i += Vector128<int>.Count)
+         {
+-            sum += Vector128.LoadUnsafe(ref start, i);
++            sum += Vector128.Create(values.Slice(i, Vector128<int>.Count));
+         }
+-
++
+-        nuint last = (nuint)(values.Length - Vector128<int>.Count);
+-        sum += Vector128.LoadUnsafe(ref start, last);
++        int remaining = values.Length - i;
++        if (remaining != 0)
++        {
++            int overlap = Vector128<int>.Count - remaining;
++            Vector128<int> tail = Vector128.Create(values.Slice(values.Length - Vector128<int>.Count));
++            Vector128<int> lanes = Vector128.Create(0, 1, 2, 3);
++            Vector128<int> mask = Vector128.GreaterThanOrEqual(lanes, Vector128.Create(overlap));
++            sum += Vector128.ConditionalSelect(mask, tail, Vector128<int>.Zero);
++        }
+-
++
+         return Vector128.Sum(sum);
+     }

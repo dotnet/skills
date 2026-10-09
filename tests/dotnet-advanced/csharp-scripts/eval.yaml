@@ -1,27 +1,600 @@
 name: csharp-scripts
-description: Evaluates the dotnet/csharp-scripts skill
+description: Evaluates the dotnet-advanced/csharp-scripts skill
 type: capability
-config:
-  timeout: 2m
+defaults:
+  timeout: 8m
+  runs: 1
+scoring: {}
+# Vally 0.14 live eval cannot resolve golden_patch judge evidence. Keep patches
+# for oracle/materialization; live prompt graders intentionally use trajectory
+# and diff, so non-strict lint reports unreferenced-golden-patch warnings.
+environment:
+  files:
+    - src: workspace_ops.cs
+      dest: .eval/workspace-ops.cs
 stimuli:
-  - name: Test a C# language feature with a script
-    prompt: Does C# support creating a stackalloc'd Span of native-sized integers? Can you test it and see?
+  - name: Run a one-file argument probe
+    prompt: |
+      I need a quick C# check without creating a project. Create
+      `argument-report.cs`, run it with the arguments `7` and `blue sky`, and
+      make it print exactly `count=2;first=7;last=blue sky`. Leave the source
+      file in place and report the command and result.
+    tags:
+      capability: direct-execution
+      risk: low
+      journey: run-language-experiment
+    golden_patch:
+      inline: |
+        diff --git a/argument-report.cs b/argument-report.cs
+        new file mode 100644
+        --- /dev/null
+        +++ b/argument-report.cs
+        @@ -0,0 +1 @@
+        +Console.WriteLine($"count={args.Length};first={args[0]};last={args[^1]}");
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "csharp-scripts-argument-probe"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Ran `dotnet argument-report.cs -- 7 "blue sky"` successfully.
+              Output: `count=2;first=7;last=blue sky`.
     graders:
-      - type: exit-success
+      - type: file-exists
+        config:
+          path: argument-report.cs
+      - type: file-not-exists
+        config:
+          path: argument-report.csproj
+      - type: run-command
+        config:
+          command: dotnet argument-report.cs -- 7 "blue sky"
+          expected_exit_code: 0
+          stdout_matches: ^count=2;first=7;last=blue sky\s*$
+          timeout: 3m
       - type: output-matches
         config:
-          pattern: (nint|nuint|native)
+          pattern: (?i)(count=2;first=7;last=blue sky|completed|ran successfully)
+      - type: exit-success
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - Produced one C# source file that reads the two supplied command-line arguments
+      - Ran the source directly and reported the exact requested output
+      - Did not create a project or solution
+
+  - name: Consume a package from a local feed
+    prompt: |
+      A local NuGet feed is already configured in this folder. It contains
+      `Eval.Greeting` version `1.0.0`, whose public API is
+      `Eval.Greeting.Greeter.Hello(string)`. Create only `package-app.cs`, use
+      that package to greet Ada, run it, and print exactly `Hello, Ada!`. Do not
+      create a project file.
+    tags:
+      capability: package-reference
+      risk: medium
+      journey: try-external-api
+    golden_patch:
+      inline: |
+        diff --git a/package-app.cs b/package-app.cs
+        new file mode 100644
+        --- /dev/null
+        +++ b/package-app.cs
+        @@ -0,0 +1,3 @@
+        +#:package Eval.Greeting@1.0.0
+        +using Eval.Greeting;
+        +Console.WriteLine(Greeter.Hello("Ada"));
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "csharp-scripts-local-package"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Ran `dotnet package-app.cs` using Eval.Greeting 1.0.0 from the
+              configured local feed. Output: `Hello, Ada!`.
+    environment:
+      commands:
+        - dotnet .eval/workspace-ops.cs -- setup-package
+    graders:
+      - type: file-contains
+        config:
+          path: package-app.cs
+          value: "#:package Eval.Greeting@1.0.0"
+      - type: file-not-exists
+        config:
+          path: package-app.csproj
+      - type: run-command
+        config:
+          command: dotnet package-app.cs
+          expected_exit_code: 0
+          stdout_matches: ^Hello, Ada!\s*$
+          timeout: 5m
       - type: output-contains
         config:
-          substring: stackalloc
+          substring: Hello, Ada!
+      - type: exit-success
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - Referenced the exact package and version available from the configured local feed
+      - Called the supplied package API and produced the requested greeting
+      - Kept the experiment to one C# source file with no project file
+
+  - name: Call an existing library from one source file
+    prompt: |
+      `NumberLib/NumberLib.csproj` is an existing library that exposes
+      `NumberLib.Answer.Value`. Create `project-client.cs` beside that folder,
+      call the library from that single source file, and run it so it prints
+      exactly `answer=42`. Do not create another project.
+    tags:
+      capability: project-reference
+      risk: medium
+      journey: probe-existing-library
+    golden_patch:
+      inline: |
+        diff --git a/project-client.cs b/project-client.cs
+        new file mode 100644
+        --- /dev/null
+        +++ b/project-client.cs
+        @@ -0,0 +1,3 @@
+        +#:project NumberLib/NumberLib.csproj
+        +using NumberLib;
+        +Console.WriteLine($"answer={Answer.Value}");
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "csharp-scripts-project-reference"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Ran `dotnet project-client.cs` against the existing NumberLib
+              project. Output: `answer=42`.
+    environment:
+      commands:
+        - dotnet .eval/workspace-ops.cs -- setup-project
+    graders:
+      - type: file-contains
+        config:
+          path: project-client.cs
+          value: "#:project NumberLib/NumberLib.csproj"
+      - type: file-not-exists
+        config:
+          path: project-client.csproj
+      - type: run-command
+        config:
+          command: dotnet project-client.cs
+          expected_exit_code: 0
+          stdout_matches: ^answer=42\s*$
+          timeout: 5m
+      - type: run-command
+        config:
+          command: dotnet .eval/workspace-ops.cs -- verify-project
+          expected_exit_code: 0
+          timeout: 1m
+      - type: diff-not-contains
+        config:
+          pattern: (?m)^diff --git a/NumberLib/
+      - type: diff-not-contains
+        config:
+          pattern: (?im)^diff --git a/.+\.csproj b/.+\.csproj$
+      - type: output-contains
+        config:
+          substring: answer=42
+      - type: exit-success
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - Reused the supplied library project instead of copying its implementation
+      - Ran a one-source-file client that printed the library value
+      - Did not create a second project or modify the existing library
+
+  - name: Enable an unsafe pointer experiment
+    prompt: |
+      Test a small unsafe C# example without creating a project. Put it in
+      `pointer-probe.cs`: take the address of an integer initialized to 42,
+      dereference the pointer, and print exactly `pointer=42`. Run it and report
+      the result.
+    tags:
+      capability: inline-build-property
+      risk: high
+      journey: test-unsafe-code
+    golden_patch:
+      inline: |
+        diff --git a/pointer-probe.cs b/pointer-probe.cs
+        new file mode 100644
+        --- /dev/null
+        +++ b/pointer-probe.cs
+        @@ -0,0 +1,7 @@
+        +#:property AllowUnsafeBlocks=true
+        +unsafe
+        +{
+        +    int value = 42;
+        +    int* pointer = &value;
+        +    Console.WriteLine($"pointer={*pointer}");
+        +}
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "csharp-scripts-unsafe-pointer"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Ran `dotnet pointer-probe.cs` with unsafe compilation enabled.
+              Output: `pointer=42`.
+    graders:
+      - type: file-contains
+        config:
+          path: pointer-probe.cs
+          value: "#:property AllowUnsafeBlocks=true"
+      - type: file-not-exists
+        config:
+          path: pointer-probe.csproj
+      - type: run-command
+        config:
+          command: dotnet pointer-probe.cs
+          expected_exit_code: 0
+          stdout_matches: ^pointer=42\s*$
+          timeout: 3m
+      - type: output-contains
+        config:
+          substring: pointer=42
+      - type: exit-success
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - Enabled unsafe compilation within the one-file experiment
+      - Used an actual pointer address and dereference and produced the requested value
+      - Did not create a project solely to change the unsafe compilation setting
+
+  - name: Compile without executing side effects
+    prompt: |
+      I want to know whether this C# snippet compiles, but it must not be run
+      because execution writes a marker file. Save it as `compile-only.cs`,
+      perform a compile-only check, and report whether compilation succeeded.
+      Do not create a project.
+
+      ```csharp
+      using System.Numerics;
+
+      static T Twice<T>(T value) where T : INumber<T> => value + value;
+
+      File.WriteAllText("executed.marker", "ran");
+      Console.WriteLine(Twice(21));
+      ```
+    tags:
+      capability: compile-only
+      risk: high
+      journey: validate-dangerous-experiment
+    golden_patch:
+      inline: |
+        diff --git a/compile-only.cs b/compile-only.cs
+        new file mode 100644
+        --- /dev/null
+        +++ b/compile-only.cs
+        @@ -0,0 +1,6 @@
+        +using System.Numerics;
+        +
+        +static T Twice<T>(T value) where T : INumber<T> => value + value;
+        +
+        +File.WriteAllText("executed.marker", "ran");
+        +Console.WriteLine(Twice(21));
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "csharp-scripts-compile-only"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I will compile the file without executing it.
+            tool_calls:
+              - tool_call_id: compile-file-app
+                function_name: run_command
+                arguments:
+                  command: dotnet build compile-only.cs --nologo
+            observation:
+              results:
+                - source_call_id: compile-file-app
+                  content: |-
+                    Build succeeded.
+                        0 Warning(s)
+                        0 Error(s)
+          - step_id: 2
+            source: agent
+            message: >-
+              Build succeeded for compile-only.cs with
+              `dotnet build compile-only.cs --nologo`. I did not run the app,
+              so executed.marker was not created.
+    graders:
+      - type: file-contains
+        config:
+          path: compile-only.cs
+          value: File.WriteAllText("executed.marker", "ran")
+      - type: file-not-exists
+        config:
+          path: compile-only.csproj
+      - type: file-not-exists
+        config:
+          path: executed.marker
+      - type: run-command
+        config:
+          command: dotnet build compile-only.cs --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: output-matches
+        config:
+          pattern: (?i)(build succeeded|compil(?:e|ed|ation).{0,30}(succeed|success)|succeeded.{0,30}compil)
+      - type: exit-success
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+          prompt: >-
+            This environment uses .NET SDK 10, where `dotnet build <file>.cs`
+            is a supported compile-only operation for a file-based app.
+    rubric:
+      - Compiled the supplied source successfully without executing it
+      - Preserved the requested generic-math code and its runtime marker operation
+      - Left no execution marker and did not create a project
+
+  - name: Pin a language version for a feature check
+    prompt: |
+      Check whether C# 13 supports a `params ReadOnlySpan<int>` parameter.
+      Create `params-span.cs` as one source file, explicitly compile it as C# 13,
+      call the method with `1, 2, 3, 4`, and run it so it prints exactly
+      `sum=10`. Do not create a project.
+    tags:
+      capability: language-version
+      risk: medium
+      journey: verify-language-boundary
+    golden_patch:
+      inline: |
+        diff --git a/params-span.cs b/params-span.cs
+        new file mode 100644
+        --- /dev/null
+        +++ b/params-span.cs
+        @@ -0,0 +1,10 @@
+        +#:property LangVersion=13
+        +static int Sum(params ReadOnlySpan<int> values)
+        +{
+        +    var total = 0;
+        +    foreach (var value in values)
+        +        total += value;
+        +    return total;
+        +}
+        +
+        +Console.WriteLine($"sum={Sum(1, 2, 3, 4)}");
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "csharp-scripts-language-version"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Ran params-span.cs with the language version pinned to C# 13.
+              Output: `sum=10`.
+    graders:
+      - type: file-contains
+        config:
+          path: params-span.cs
+          value: "#:property LangVersion=13"
+      - type: file-contains
+        config:
+          path: params-span.cs
+          value: params ReadOnlySpan<int>
+      - type: file-not-exists
+        config:
+          path: params-span.csproj
+      - type: run-command
+        config:
+          command: dotnet params-span.cs
+          expected_exit_code: 0
+          stdout_matches: ^sum=10\s*$
+          timeout: 3m
+      - type: output-contains
+        config:
+          substring: sum=10
+      - type: exit-success
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - Tested the requested parameter form under an explicit C# 13 language boundary
+      - Compiled and ran the example with the expected sum
+      - Kept the language experiment independent of a project file
+
+  - name: Clean a temporary one-file experiment
+    prompt: |
+      Create `cleanup-probe.cs` as a temporary C# experiment with no project.
+      It should print exactly `cleanup-ok`. Run it once, then clean its cached
+      build artifacts while leaving the source file for review. Report both the
+      run and cleanup results.
+    tags:
+      capability: cleanup
+      risk: low
+      journey: finish-temporary-experiment
+    golden_patch:
+      inline: |
+        diff --git a/cleanup-probe.cs b/cleanup-probe.cs
+        new file mode 100644
+        --- /dev/null
+        +++ b/cleanup-probe.cs
+        @@ -0,0 +1 @@
+        +Console.WriteLine("cleanup-ok");
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "csharp-scripts-cleanup"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Ran `dotnet cleanup-probe.cs`; output was `cleanup-ok`. Then ran
+              `dotnet clean cleanup-probe.cs`; the cached build artifacts were cleaned.
+    graders:
+      - type: file-exists
+        config:
+          path: cleanup-probe.cs
+      - type: file-not-exists
+        config:
+          path: "**/*.csproj"
+      - type: run-command
+        config:
+          command: dotnet .eval/workspace-ops.cs -- run-clean cleanup-probe.cs
+          expected_exit_code: 0
+          stdout_matches: ^cleanup-ok\s*$
+          timeout: 5m
+      - type: run-command
+        config:
+          command: dotnet .eval/workspace-ops.cs -- verify-clean cleanup-probe.cs
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: (?i)(dotnet clean|clean(?:ed|up)|cached build artifacts)
+      - type: exit-success
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - Ran the temporary source and obtained the requested output
+      - Cleaned the cached build products while preserving the source for review
+      - Did not create project-local bin or obj directories or a project file
+
+  - name: Respect an SDK feature-band boundary
+    prompt: |
+      Our build image is pinned to .NET SDK 10.0.112. I have a small C# program
+      in one source file and want to split ordinary helper declarations into
+      two more `.cs` files while keeping it project-free. Can that SDK do this
+      directly? Do not create or edit files; explain the safe options and the
+      minimum SDK change, if one is required.
+    tags:
+      capability: sdk-feature-boundary
+      risk: high
+      journey: plan-multifile-experiment
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "csharp-scripts-sdk-boundary"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              SDK 10.0.112 cannot directly compose ordinary helper .cs files in
+              one project-free compilation. Same-compilation helper inclusion
+              starts in SDK 10.0.300. Safe options are to keep a single source
+              file, upgrade to 10.0.300 or later, or use a normal project.
+    graders:
+      - type: output-matches
+        config:
+          pattern: 10\.0\.300
+      - type: output-matches
+        config:
+          pattern: (?i)(10\.0\.112.{0,100}(cannot|does not|not supported|unavailable)|(?:cannot|does not|not supported|unavailable).{0,100}10\.0\.112)
+      - type: output-matches
+        config:
+          pattern: (?i)(keep.{0,40}(one|single).{0,20}(file|source)|upgrade.{0,40}10\.0\.300|create.{0,30}(project|csproj))
       - type: output-not-matches
         config:
-          pattern: dotnet new console
+          pattern: (?i)(created|wrote|modified).{0,40}\.cs
+      - type: diff-empty
+      - type: exit-success
       - type: prompt
+        config:
+          evidence: [trajectory, diff, repo]
     rubric:
-      - Runs the test using 'dotnet <file>.cs' (file-based app) rather than creating a full project with 'dotnet new
-        console'
-      - The code compiles and runs, demonstrating that stackalloc with Span<nint> works
-    constraints:
-      expect_tools:
-        - bash
+      - Correctly states that SDK 10.0.112 cannot compose ordinary helper source files directly in this project-free form
+      - Identifies SDK 10.0.300 as the minimum feature band for same-compilation helper inclusion
+      - Offers safe choices such as keeping one source file, upgrading the SDK, or using a normal project
+      - Keeps the advisory request read-only
+
+  - name: Keep Python data conversion out of scope
+    prompt: |
+      Write `convert.py` in Python. It must read `input.csv` with the columns
+      `name,score`, write a JSON array to the output path passed as the second
+      argument, and preserve scores as integers. Run it with `input.csv` and
+      `output.json`.
+    tags:
+      capability: dormancy
+      risk: low
+      journey: write-python-automation
+    expect_activation: false
+    golden_patch:
+      inline: |
+        diff --git a/convert.py b/convert.py
+        new file mode 100644
+        --- /dev/null
+        +++ b/convert.py
+        @@ -0,0 +1,12 @@
+        +import csv
+        +import json
+        +import sys
+        +
+        +with open(sys.argv[1], newline="", encoding="utf-8") as source:
+        +    rows = [
+        +        {"name": row["name"], "score": int(row["score"])}
+        +        for row in csv.DictReader(source)
+        +    ]
+        +
+        +with open(sys.argv[2], "w", encoding="utf-8") as destination:
+        +    json.dump(rows, destination)
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "csharp-scripts-python-dormancy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              Implemented convert.py in Python, ran it with input.csv and
+              output.json, and preserved score values as integers. The solution
+              stays entirely in Python.
+    environment:
+      commands:
+        - dotnet .eval/workspace-ops.cs -- setup-csv
+    graders:
+      - type: file-exists
+        config:
+          path: convert.py
+      - type: file-not-exists
+        config:
+          path: "*.cs"
+      - type: file-not-exists
+        config:
+          path: "*.csproj"
+      - type: run-command
+        config:
+          command: dotnet .eval/workspace-ops.cs -- run-python convert.py input.csv output.json
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet .eval/workspace-ops.cs -- verify-json output.json
+          expected_exit_code: 0
+          timeout: 1m
+      - type: exit-success
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - Implements the requested CSV-to-JSON conversion in Python
+      - Preserves the two rows and converts score values to integers
+      - Did not attempt a C# or .NET implementation

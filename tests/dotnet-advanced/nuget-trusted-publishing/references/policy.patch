@@ -1,0 +1,47 @@
+diff --git a/.github/workflows/draft-publish.yml b/.github/workflows/draft-publish.yml
+deleted file mode 100644
+index c87c92a..0000000
+--- a/.github/workflows/draft-publish.yml
++++ /dev/null
+@@ -1,12 +0,0 @@
+-name: Draft package publish
+-on:
+-  workflow_dispatch:
+-jobs:
+-  publish:
+-    runs-on: ubuntu-latest
+-    environment: staging
+-    permissions:
+-      contents: read
+-    steps:
+-      - uses: actions/checkout@v4
+-      - run: dotnet pack src/Policy/Policy.csproj -c Release -o artifacts
+diff --git a/.github/workflows/release-nuget.yml b/.github/workflows/release-nuget.yml
+new file mode 100644
+index 0000000..15054fe
+--- /dev/null
++++ b/.github/workflows/release-nuget.yml
+@@ -0,0 +1,23 @@
++name: Publish
++on:
++  push:
++    tags:
++      - "v*"
++jobs:
++  publish:
++    runs-on: ubuntu-latest
++    environment: nuget-release
++    permissions:
++      id-token: write
++      contents: read
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-dotnet@v4
++        with:
++          dotnet-version: "10.0.x"
++      - run: dotnet pack src/Policy/Policy.csproj -c Release -o artifacts
++      - id: login
++        uses: NuGet/login@v1
++        with:
++          user: ${{ secrets.NUGET_USER }}
++      - run: dotnet nuget push "artifacts/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
