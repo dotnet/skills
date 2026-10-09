@@ -1,6 +1,7 @@
 """Execute the published discovery example against isolated entry-point fixtures."""
 
 from pathlib import Path
+import json
 import re
 import shutil
 import subprocess
@@ -45,20 +46,41 @@ class SetupDiscoveryTests(unittest.TestCase):
         self.assertEqual(result.returncode == 0, success, result.stdout + result.stderr)
         return result.stdout + result.stderr
 
+    def solution(self, path, projects=()):
+        if path.endswith(".slnx"):
+            content = '<Solution>' + "".join(
+                f'<Project Path="{project}" />' for project in projects
+            ) + '</Solution>'
+        else:
+            content = 'Microsoft Visual Studio Solution File, Format Version 12.00\n'
+            content += "".join(
+                f'Project("{{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}}") = "Tests", "{project}", "{{00000000-0000-0000-0000-000000000001}}"\nEndProject\n'
+                for project in projects
+            )
+        return self.write(path, content)
+
     def test_explicit_entries_are_preserved_despite_alternatives(self):
         self.write("Other.sln")
         self.write("Other.slnx")
         self.write("Other.Tests.csproj", SDK_TEST)
         for extension in ("sln", "slnx", "slnf", "csproj"):
             with self.subTest(extension=extension):
-                selected = self.write(f"Selected.{extension}", SDK_TEST if extension == "csproj" else "")
+                if extension in ("sln", "slnx"):
+                    selected = self.solution(f"Selected.{extension}")
+                elif extension == "slnf":
+                    self.solution("Underlying.sln")
+                    selected = self.write("Selected.slnf", json.dumps({
+                        "solution": {"path": "Underlying.sln", "projects": []},
+                    }))
+                else:
+                    selected = self.write("Selected.csproj", SDK_TEST)
                 output = self.discover(selected)
                 self.assertIn(f"ENTRY:{selected}", output)
 
     def test_automatic_solution_formats(self):
         for extension in ("sln", "slnx"):
             with self.subTest(extension=extension):
-                selected = self.write(f"Selected.{extension}")
+                selected = self.solution(f"Selected.{extension}")
                 self.write("App.csproj", '<Project Sdk="Microsoft.NET.Sdk" />')
                 self.assertIn(f"ENTRY:{selected}", self.discover(self.repo))
                 selected.unlink()
@@ -83,7 +105,7 @@ class SetupDiscoveryTests(unittest.TestCase):
         self.discover(self.write("README.txt"), success=False)
 
     def test_classic_and_sdk_classification_survives(self):
-        entry = self.write("Selected.slnx")
+        entry = self.solution("Selected.slnx", ("Modern.Tests.csproj", "Classic.Tests.csproj"))
         self.write("Modern.Tests.csproj", SDK_TEST)
         self.write("Classic.Tests.csproj", CLASSIC_TEST)
         output = self.discover(entry)
@@ -91,7 +113,7 @@ class SetupDiscoveryTests(unittest.TestCase):
         self.assertIn("SDK_TEST_PROJECTS:1", output)
 
     def test_packages_config_remains_classic(self):
-        entry = self.write("Selected.sln")
+        entry = self.solution("Selected.sln", ("Legacy.Tests.csproj",))
         self.write("Legacy.Tests.csproj", '<Project />')
         self.write("packages.config", '<packages />')
         self.assertIn("CLASSIC_TEST_PROJECTS:1", self.discover(entry))
@@ -137,6 +159,52 @@ class SetupDiscoveryTests(unittest.TestCase):
         nested.mkdir()
         (nested / ".git").write_text("gitdir: missing-metadata\n", encoding="utf-8")
         self.assertIn("Git root lookup failed", self.discover(nested, success=False))
+
+    def test_explicit_project_excludes_in_repository_sdk_and_classic_siblings(self):
+        selected = self.write("selected/Billing.Tests.csproj", SDK_TEST)
+        self.write("selected/Unrelated.Tests.csproj", SDK_TEST)
+        self.write("legacy/Classic.Tests.csproj", CLASSIC_TEST)
+        output = self.discover(selected)
+        self.assertIn(f"TEST_PROJECT:{selected}", output)
+        self.assertIn("TEST_PROJECTS:1", output)
+        self.assertIn("CLASSIC_TEST_PROJECTS:0", output)
+        self.assertNotIn("Unrelated.Tests", output)
+        self.assertNotIn("Classic.Tests", output)
+
+    def test_solution_membership_excludes_unlisted_in_repository_projects(self):
+        selected = self.write("included/Billing.Tests.csproj", SDK_TEST)
+        self.write("Classic.Tests.csproj", CLASSIC_TEST)
+        for extension in ("sln", "slnx"):
+            with self.subTest(extension=extension):
+                entry = self.solution(f"Selected.{extension}", ("included/Billing.Tests.csproj",))
+                output = self.discover(entry)
+                self.assertIn(f"TEST_PROJECT:{selected}", output)
+                self.assertIn("TEST_PROJECTS:1", output)
+                self.assertIn("CLASSIC_TEST_PROJECTS:0", output)
+
+    def test_solution_filter_is_relative_to_underlying_solution_and_keeps_subset(self):
+        selected = self.write("src/Modern.Tests.csproj", SDK_TEST)
+        self.write("src/Classic.Tests.csproj", CLASSIC_TEST)
+        self.solution("src/All.slnx", ("Modern.Tests.csproj", "Classic.Tests.csproj", "Missing.Tests.csproj"))
+        entry = self.write("filters/Selected.slnf", json.dumps({
+            "solution": {"path": "../src/All.slnx", "projects": ["Modern.Tests.csproj"]},
+        }))
+        output = self.discover(entry)
+        self.assertIn(f"TEST_PROJECT:{selected}", output)
+        self.assertIn("TEST_PROJECTS:1", output)
+        self.assertIn("CLASSIC_TEST_PROJECTS:0", output)
+
+    def test_unresolvable_or_invalid_entry_graph_stops(self):
+        entry = self.solution("Missing.slnx", ("Missing.Tests.csproj",))
+        self.discover(entry, success=False)
+        self.discover(self.write("Malformed.slnx", "<broken>"), success=False)
+        self.discover(self.write("Malformed.sln", ""), success=False)
+        self.solution("All.slnx")
+        self.write("Unlisted.Tests.csproj", SDK_TEST)
+        filtered = self.write("Invalid.slnf", json.dumps({
+            "solution": {"path": "All.slnx", "projects": ["Unlisted.Tests.csproj"]},
+        }))
+        self.assertIn("not in the solution", self.discover(filtered, success=False))
 
 
 if __name__ == "__main__":

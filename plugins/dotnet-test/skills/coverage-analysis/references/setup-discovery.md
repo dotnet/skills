@@ -65,24 +65,70 @@ if ($gitRoot -and $gitRoot -ne $root) {
     $searchRoots += $gitRoot
 }
 
-$testProjects = @()
-foreach ($sr in $searchRoots) {
-    # Primary: match by .csproj content (test framework references)
-    $testProjects = @(Get-ChildItem -LiteralPath $sr -Filter "*.csproj" -File -Recurse -Depth 5 -ErrorAction Stop |
-        Where-Object { $_.FullName -notmatch '([/\\]obj[/\\]|[/\\]bin[/\\])' } |
-        Where-Object { (Select-String -LiteralPath $_.FullName -Pattern 'Microsoft\.NET\.Test\.Sdk|xunit|nunit|MSTest\.TestAdapter|"MSTest"|MSTest\.TestFramework|TUnit' -Quiet -ErrorAction Stop) })
-    if ($testProjects.Count -gt 0) {
-        if ($sr -ne $root) { Write-Host "SEARCHED:$sr" }
-        break
+function Get-SolutionProjects($solution) {
+    $text = Get-Content -LiteralPath $solution.FullName -Raw -ErrorAction Stop
+    if ($solution.Extension -eq '.slnx') {
+        $xml = [xml]$text
+        if ($xml.DocumentElement.Name -ne 'Solution') { throw "Invalid solution: $($solution.FullName)" }
+        $paths = @($xml.SelectNodes('//Project[@Path]') | ForEach-Object { $_.Path })
+    } elseif ($solution.Extension -eq '.sln') {
+        if ($text -notmatch 'Microsoft Visual Studio Solution File, Format Version') {
+            throw "Invalid solution: $($solution.FullName)"
+        }
+        $paths = @([regex]::Matches($text, '(?m)^Project\("[^"]+"\)\s*=\s*"[^"]*",\s*"([^"]+)",') |
+            ForEach-Object { $_.Groups[1].Value } |
+            Where-Object { [System.IO.Path]::GetExtension($_) -eq '.csproj' })
+    } else {
+        throw "Unsupported underlying solution: $($solution.FullName)"
+    }
+    foreach ($path in $paths) {
+        if ([System.IO.Path]::GetExtension($path) -eq '.csproj') {
+            $relative = $path.Replace('\', [System.IO.Path]::DirectorySeparatorChar)
+            [System.IO.Path]::GetFullPath((Join-Path $solution.DirectoryName $relative))
+        }
     }
 }
 
-# Fallback: match by file name convention
-if ($testProjects.Count -eq 0) {
+# Scope before reading/classifying projects: solution membership, filter membership,
+# or the single project that the selected test command actually targets.
+if ($entry) {
+    if ($entry.Extension -eq '.csproj') {
+        $projectPaths = @($entry.FullName)
+    } elseif ($entry.Extension -eq '.slnf') {
+        $filter = Get-Content -LiteralPath $entry.FullName -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+        if (-not $filter.solution.path -or $null -eq $filter.solution.projects) {
+            throw "Invalid solution filter: $($entry.FullName)"
+        }
+        $solutionPath = $filter.solution.path.Replace('\', [System.IO.Path]::DirectorySeparatorChar)
+        $solution = Get-Item -LiteralPath (Join-Path $entry.DirectoryName $solutionPath) -ErrorAction Stop
+        $members = @(Get-SolutionProjects $solution)
+        $projectPaths = @($filter.solution.projects | ForEach-Object {
+            $relative = $_.Replace('\', [System.IO.Path]::DirectorySeparatorChar)
+            $project = Get-Item -LiteralPath (Join-Path $solution.DirectoryName $relative) -ErrorAction Stop
+            if ($members -notcontains $project.FullName) { throw "Filtered project is not in the solution: $($project.FullName)" }
+            $project.FullName
+        })
+    } else {
+        $projectPaths = @(Get-SolutionProjects $entry)
+    }
+    $projects = @($projectPaths | Select-Object -Unique | ForEach-Object {
+        Get-Item -LiteralPath $_ -ErrorAction Stop
+    })
+    $testProjects = @($projects | Where-Object {
+        (Select-String -LiteralPath $_.FullName -Pattern 'Microsoft\.NET\.Test\.Sdk|xunit|nunit|MSTest\.TestAdapter|"MSTest"|MSTest\.TestFramework|TUnit' -Quiet -ErrorAction Stop) -or
+        $_.Name -match '(?i)(test|spec)'
+    })
+} else {
+    $testProjects = @()
     foreach ($sr in $searchRoots) {
-        $testProjects = @(Get-ChildItem -LiteralPath $sr -Filter "*.csproj" -File -Recurse -Depth 5 -ErrorAction Stop |
-            Where-Object { $_.FullName -notmatch '[/\\](obj|bin)[/\\]' } |
-            Where-Object { $_.Name -match '(?i)(test|spec)' })
+        $projects = @(Get-ChildItem -LiteralPath $sr -Filter "*.csproj" -File -Recurse -Depth 5 -ErrorAction Stop |
+            Where-Object { $_.FullName -notmatch '[/\\](obj|bin)[/\\]' })
+        $testProjects = @($projects | Where-Object {
+            Select-String -LiteralPath $_.FullName -Pattern 'Microsoft\.NET\.Test\.Sdk|xunit|nunit|MSTest\.TestAdapter|"MSTest"|MSTest\.TestFramework|TUnit' -Quiet -ErrorAction Stop
+        })
+        if ($testProjects.Count -eq 0) {
+            $testProjects = @($projects | Where-Object { $_.Name -match '(?i)(test|spec)' })
+        }
         if ($testProjects.Count -gt 0) {
             if ($sr -ne $root) { Write-Host "SEARCHED:$sr" }
             break
@@ -158,6 +204,11 @@ Write-Host "TEST_OUTPUT_ROOT:$testOutputRoot"
   project graph. Do not replace a selected `.csproj` or `.slnf` with every test
   project found under the containing Git root. Apply the classic-project safety
   rules below within that selected graph.
+- Selected-entry arrays contain only the projects targeted by that entry:
+  solution members, filter members, or one explicit project. Transitive build
+  dependencies are not additional test-run targets. For a generated or
+  nonstandard entry graph that these formats cannot represent, stop and use
+  the repository's evaluated target inventory rather than scanning siblings.
 - If `TEST_PROJECTS:0` and `EXISTING_COBERTURA_COUNT` > 0 (Step 2b) → continue with existing Cobertura XML analysis (no `dotnet test` run).
 - If `TEST_PROJECTS:0` and `EXISTING_COBERTURA_COUNT` == 0 → stop: `No test projects found (expected projects with 'Test' or 'Spec' in the name), and no existing Cobertura XML was provided. Add a test project or provide a Cobertura file path.`
 - If `CLASSIC_TEST_PROJECTS` is nonzero and no existing Cobertura XML is found,
