@@ -1,6 +1,16 @@
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 var assembly = Assembly.Load("TestProject");
+var source = Regex.Replace(File.ReadAllText("OwnerTests.cs"),
+    @"//[^\n]*|/\*.*?\*/", "", RegexOptions.Singleline);
+source = Regex.Replace(source, @"\s+", "");
+var assertions = new Dictionary<string, string>
+{
+    ["InheritsAlice"] = "Assert.AreEqual(4,2+2)",
+    ["DeduplicatesAlice"] = "Assert.AreEqual(6,3+3)",
+    ["InheritsClassAlice"] = "Assert.AreEqual(8,4+4)",
+};
 var expected = new HashSet<string>
 {
     "MigrationFixture.AssemblyOwnerTests.InheritsAlice",
@@ -22,6 +32,11 @@ foreach (var type in assembly.GetTypes())
             throw new InvalidOperationException("Test class is not discoverable.");
         if (!expected.Remove(type.FullName + "." + method.Name))
             throw new InvalidOperationException("Unexpected or duplicate migrated test.");
+        var signature = "void" + method.Name + "()";
+        var assertion = assertions[method.Name];
+        if (!source.Contains(signature + "=>" + assertion + ";", StringComparison.Ordinal)
+            && !source.Contains(signature + "{" + assertion + ";}", StringComparison.Ordinal))
+            throw new InvalidOperationException("Original test assertion was changed or lost.");
         var owners = method.GetCustomAttributesData()
             .Where(a => a.AttributeType.FullName == prefix + "OwnerAttribute").ToArray();
         if (owners.Length != 1 || !Equals(owners[0].ConstructorArguments.Single().Value, "alice"))

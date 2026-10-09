@@ -596,7 +596,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True,timeout=170)" --expect 8db65c0b81edba281ab84904be9c20ff0816a89058c8f1fceb68fbebd3ef4281:.eval/Contract.csproj --expect 2c0717d6a0f25bc54e2c7a894cdac9b845031ac34748269757fb36cf262ec07f:.eval/Program.cs --expect b890fa7f916232da31fc5516007c93c148cb5d3e7aba87bfa594a44611dd4f0f:global.json -- dotnet run --project .eval/Contract.csproj
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True,timeout=170)" --expect 8db65c0b81edba281ab84904be9c20ff0816a89058c8f1fceb68fbebd3ef4281:.eval/Contract.csproj --expect bc2580d2e5c645ab994eb76dda00a509b256ca8f55cb3301ba139fdf2bc016ca:.eval/Program.cs --expect b890fa7f916232da31fc5516007c93c148cb5d3e7aba87bfa594a44611dd4f0f:global.json -- dotnet run --project .eval/Contract.csproj
           expected_exit_code: 0
           stdout_matches: OWNER_CONTRACT:3 methods, one alice each
           timeout: 3m
