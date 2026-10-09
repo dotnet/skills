@@ -18,7 +18,7 @@ New APIs added to `System.Diagnostics.Process` in .NET 11 simplify process manag
 - Running or orchestrating external processes in a .NET 11 (or later) project.
 - Needing to start a process, wait for it to exit, and capture its output/error streams without risking deadlocks (`Process.RunAndCaptureText[Async]`).
 - Wanting to ensure child processes are automatically terminated when the parent process exits (`KillOnParentExit`).
-- Requiring lightweight, low-overhead process creation via `SafeProcessHandle` for better performance characteristics across all form-factors and runtimes.
+- Requiring lightweight, low-overhead process creation via `SafeProcessHandle` on supported platforms. `SafeProcessHandle.Start` is not supported on iOS or tvOS.
 - Requiring fine-grained control over handle inheritance (`InheritedHandles`) or starting detached processes (`StartDetached`).
 
 ## When Not to Use
@@ -50,7 +50,7 @@ Before using the new convenience methods, note the following types. Use the fram
 
 #### Static Methods
 
-The `ProcessStartInfo` overloads below require `UseShellExecute = false`. To open a URL or document through the operating system's shell, use `Process.Start` with `UseShellExecute = true` instead; shell launches do not guarantee a new process or a process ID.
+The `ProcessStartInfo` overloads below require `UseShellExecute = false`, which is the default for .NET.
 
 ##### `Process.Run` / `Process.RunAsync`
 Starts a process and waits for it to exit, returning the exit status. Does not capture standard output or error. Passing `silent: true` discards standard output and error by internally redirecting standard handles to the `NUL` device. On timeout or cancellation, the process is killed.
