@@ -1,0 +1,13 @@
+<button type="button" @onclick="SelectAsync">Select row</button>
+
+@code
+{
+    [Parameter]
+    public EventCallback SelectionChanged { get; set; }
+
+    private Task SelectAsync()
+    {
+        _ = SelectionChanged.InvokeAsync();
+        return Task.CompletedTask;
+    }
+}

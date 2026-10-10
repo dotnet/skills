@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "fixture_kind": "synthetic-row-evidence-map",
+  "notice": "Four fictional rows and three compact evidence records for an offline mapping test.",
+  "package_id": "Neutral.Widget",
+  "rows": [
+    {
+      "id": "RUNTIME-SUPPORT",
+      "requirement": "The supported runtime matrix is published."
+    },
+    {
+      "id": "BROWSER-SUPPORT",
+      "requirement": "The supported browser matrix is published."
+    },
+    {
+      "id": "SUPPORT-OWNERSHIP",
+      "requirement": "A named package owner, backup, and package scope are recorded."
+    },
+    {
+      "id": "DISPOSAL-BEHAVIOR",
+      "requirement": "Post-disposal listener behavior has a retained observation."
+    }
+  ],
+  "evidence": [
+    {
+      "id": "support-guide",
+      "published": true,
+      "runtime_versions": [".NET 10"],
+      "browsers": ["Chrome", "Firefox", "Safari"]
+    },
+    {
+      "id": "public-contact-directory",
+      "contacts": [
+        {"role": "general support", "address": "help@example.test"}
+      ],
+      "package_assignments": []
+    },
+    {
+      "id": "disposal-probe-plan",
+      "operation": "post-disposal-listener-check",
+      "steps": ["Create a component instance", "Dispose it", "Count remaining listeners"],
+      "observations": []
+    }
+  ],
+  "required_link_roles": [
+    "row-decisions",
+    "summary"
+  ]
+}

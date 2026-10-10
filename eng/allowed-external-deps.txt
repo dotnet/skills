@@ -20,6 +20,10 @@ invokes:android-tombstone-symbolication
 # dotnet-upgrade plugin: migrate-nullable-references skill
 script:migrate-nullable-references:scripts/Get-NullableReadiness.ps1
 
+# dotnet-blazor-component-readiness plugin: bundled validator launchers
+script:blazor-component-readiness:scripts/validator/run-validator.sh
+script:blazor-component-readiness:scripts/validator/run-validator.ps1
+
 # dotnet-msbuild plugin: msbuild agent
 tool-ref:msbuild:#tool:web/fetch
 tool-ref:msbuild:#tool:agent/runSubagent
