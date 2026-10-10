@@ -2,711 +2,6 @@
   "entries": {
     "Efficiency": [
       {
-        "commit": {
-          "id": "a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d",
-          "author": {
-            "name": "Amaury Levé",
-            "username": "AbhitejJohn"
-          },
-          "message": "Add reusable build failure analysis workflow (#1217)",
-          "timestamp": "2026-09-25T11:47:37+00:00",
-          "url": "https://github.com/dotnet/skills/commit/a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d"
-        },
-        "date": 1790421908439,
-        "benches": [
-          {
-            "unit": "seconds",
-            "value": 345.4,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/Agentic workflow with guardrails - Skilled Time",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "value": 1428325.0,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/Agentic workflow with guardrails - Skilled Tokens In",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "value": 261.4,
-            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 1099907.0,
-            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 157.7,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Time",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "value": 1069200.0,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Tokens In",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "value": 118.2,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Time",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "value": 768117.0,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Tokens In",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "value": 114.6,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 515517.0,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 250.4,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/ML.NET classification on tabular data - Skilled Time",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "value": 1543945.0,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/ML.NET classification on tabular data - Skilled Tokens In",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "value": 278.5,
-            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 1122552.0,
-            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 25.1,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Time",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "value": 31406.0,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Tokens In",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "value": 33.6,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Time",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "value": 32116.0,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Tokens In",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "value": 15.6,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 14386.0,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 30.8,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/RAG pipeline with vector search - Skilled Time",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "value": 31912.0,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/RAG pipeline with vector search - Skilled Tokens In",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "value": 31.0,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/RAG pipeline with vector search - Plugin Time",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "value": 32061.0,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/RAG pipeline with vector search - Plugin Tokens In",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "value": 34.0,
-            "name": "technology-selection/RAG pipeline with vector search - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 102164.0,
-            "name": "technology-selection/RAG pipeline with vector search - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 168.0,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Skilled Time",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "value": 1085938.0,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Skilled Tokens In",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "value": 336.8,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 1134690.0,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Vanilla Tokens In"
-          }
-        ],
-        "tool": "customSmallerIsBetter",
-        "model": "claude-haiku-4.5"
-      },
-      {
-        "commit": {
-          "id": "a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d",
-          "author": {
-            "name": "Amaury Levé",
-            "username": "AbhitejJohn"
-          },
-          "message": "Add reusable build failure analysis workflow (#1217)",
-          "timestamp": "2026-09-25T11:47:37+00:00",
-          "url": "https://github.com/dotnet/skills/commit/a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d"
-        },
-        "date": 1790421908516,
-        "benches": [
-          {
-            "unit": "seconds",
-            "value": 10.1,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/Agentic workflow with guardrails - Skilled Time",
-            "overfitting": "high"
-          },
-          {
-            "unit": "tokens",
-            "value": 27091.0,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/Agentic workflow with guardrails - Skilled Tokens In",
-            "overfitting": "high"
-          },
-          {
-            "unit": "seconds",
-            "value": 7.6,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/Agentic workflow with guardrails - Plugin Time",
-            "overfitting": "high"
-          },
-          {
-            "unit": "tokens",
-            "value": 12840.0,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/Agentic workflow with guardrails - Plugin Tokens In",
-            "overfitting": "high"
-          },
-          {
-            "unit": "seconds",
-            "value": 3.4,
-            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 11810.0,
-            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Tokens In"
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.55,
-            "unit": "seconds",
-            "value": 5.0,
-            "overfitting": "high",
-            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Time"
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.55,
-            "unit": "tokens",
-            "value": 12365.0,
-            "overfitting": "high",
-            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 2.9,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Time",
-            "overfitting": "high"
-          },
-          {
-            "unit": "tokens",
-            "value": 11999.0,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Tokens In",
-            "overfitting": "high"
-          },
-          {
-            "unit": "seconds",
-            "value": 4.5,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 11826.0,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 5.7,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/ML.NET classification on tabular data - Skilled Time",
-            "overfitting": "high"
-          },
-          {
-            "unit": "tokens",
-            "value": 55702.0,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/ML.NET classification on tabular data - Skilled Tokens In",
-            "overfitting": "high"
-          },
-          {
-            "unit": "seconds",
-            "value": 3.0,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/ML.NET classification on tabular data - Plugin Time",
-            "overfitting": "high"
-          },
-          {
-            "unit": "tokens",
-            "value": 26203.0,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/ML.NET classification on tabular data - Plugin Tokens In",
-            "overfitting": "high"
-          },
-          {
-            "unit": "seconds",
-            "value": 4.5,
-            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 11898.0,
-            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Tokens In"
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.55,
-            "unit": "seconds",
-            "value": 7.0,
-            "overfitting": "high",
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Time"
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.55,
-            "unit": "tokens",
-            "value": 12627.0,
-            "overfitting": "high",
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 6.1,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Time",
-            "overfitting": "high"
-          },
-          {
-            "unit": "tokens",
-            "value": 12519.0,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Tokens In",
-            "overfitting": "high"
-          },
-          {
-            "unit": "seconds",
-            "value": 8.9,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 12468.0,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 6.8,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/RAG pipeline with vector search - Skilled Time",
-            "overfitting": "high"
-          },
-          {
-            "unit": "tokens",
-            "value": 26608.0,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/RAG pipeline with vector search - Skilled Tokens In",
-            "overfitting": "high"
-          },
-          {
-            "unit": "seconds",
-            "value": 6.5,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/RAG pipeline with vector search - Plugin Time",
-            "overfitting": "high"
-          },
-          {
-            "unit": "tokens",
-            "value": 26618.0,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/RAG pipeline with vector search - Plugin Tokens In",
-            "overfitting": "high"
-          },
-          {
-            "unit": "seconds",
-            "value": 8.2,
-            "name": "technology-selection/RAG pipeline with vector search - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 12395.0,
-            "name": "technology-selection/RAG pipeline with vector search - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 7.7,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Skilled Time",
-            "overfitting": "high"
-          },
-          {
-            "unit": "tokens",
-            "value": 26807.0,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Skilled Tokens In",
-            "overfitting": "high"
-          },
-          {
-            "unit": "seconds",
-            "value": 6.6,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Plugin Time",
-            "overfitting": "high"
-          },
-          {
-            "unit": "tokens",
-            "value": 26704.0,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Plugin Tokens In",
-            "overfitting": "high"
-          },
-          {
-            "unit": "seconds",
-            "value": 2.8,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 11900.0,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Vanilla Tokens In"
-          }
-        ],
-        "tool": "customSmallerIsBetter",
-        "model": "gpt-5.3-codex"
-      },
-      {
-        "commit": {
-          "id": "a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d",
-          "author": {
-            "name": "Amaury Levé",
-            "username": "AbhitejJohn"
-          },
-          "message": "Add reusable build failure analysis workflow (#1217)",
-          "timestamp": "2026-09-25T11:47:37+00:00",
-          "url": "https://github.com/dotnet/skills/commit/a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d"
-        },
-        "date": 1790421908599,
-        "benches": [
-          {
-            "notActivated": true,
-            "overfittingScore": 0.46,
-            "unit": "seconds",
-            "value": 112.0,
-            "overfitting": "moderate",
-            "name": "technology-selection/Agentic workflow with guardrails - Skilled Time"
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.46,
-            "unit": "tokens",
-            "value": 307854.0,
-            "overfitting": "moderate",
-            "name": "technology-selection/Agentic workflow with guardrails - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 231.9,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/Agentic workflow with guardrails - Plugin Time",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "value": 1278951.0,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/Agentic workflow with guardrails - Plugin Tokens In",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "value": 257.6,
-            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 1150792.0,
-            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Tokens In"
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.46,
-            "unit": "seconds",
-            "value": 90.8,
-            "overfitting": "moderate",
-            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Time"
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.46,
-            "unit": "tokens",
-            "value": 412472.0,
-            "overfitting": "moderate",
-            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 54.3,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Time",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "value": 300720.0,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Tokens In",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "value": 121.1,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 581332.0,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 210.4,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/ML.NET classification on tabular data - Skilled Time",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "value": 915558.0,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/ML.NET classification on tabular data - Skilled Tokens In",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "value": 251.4,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/ML.NET classification on tabular data - Plugin Time",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "value": 1846330.0,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/ML.NET classification on tabular data - Plugin Tokens In",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "value": 202.2,
-            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 751049.0,
-            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Tokens In"
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.46,
-            "unit": "seconds",
-            "value": 6.5,
-            "overfitting": "moderate",
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Time"
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.46,
-            "unit": "tokens",
-            "value": 11864.0,
-            "overfitting": "moderate",
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 6.6,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Time",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "value": 11551.0,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Tokens In",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "value": 8.5,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 11106.0,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Tokens In"
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.46,
-            "unit": "seconds",
-            "value": 6.3,
-            "overfitting": "moderate",
-            "name": "technology-selection/RAG pipeline with vector search - Skilled Time"
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.46,
-            "unit": "tokens",
-            "value": 11799.0,
-            "overfitting": "moderate",
-            "name": "technology-selection/RAG pipeline with vector search - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 8.9,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/RAG pipeline with vector search - Plugin Time",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "value": 12172.0,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/RAG pipeline with vector search - Plugin Tokens In",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "value": 11.2,
-            "name": "technology-selection/RAG pipeline with vector search - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 12090.0,
-            "name": "technology-selection/RAG pipeline with vector search - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 306.8,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Skilled Time",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "value": 1473299.0,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Skilled Tokens In",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "value": 142.5,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Plugin Time",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "value": 486338.0,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Plugin Tokens In",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "value": 176.4,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 736752.0,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Vanilla Tokens In"
-          }
-        ],
-        "tool": "customSmallerIsBetter",
-        "model": "mai-code-1.1-flash"
-      },
-      {
         "date": 1790785693901,
         "tool": "customSmallerIsBetter",
         "commit": {
@@ -4909,942 +4204,718 @@
             "unit": "tokens"
           }
         ]
+      },
+      {
+        "model": "claude-haiku-4.5",
+        "benches": [
+          {
+            "value": 290.6,
+            "name": "technology-selection/Agentic workflow with guardrails - Skilled Time",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 1526128.0,
+            "name": "technology-selection/Agentic workflow with guardrails - Skilled Tokens In",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 342.8,
+            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 1057141.0,
+            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 98.4,
+            "overfitting": "moderate",
+            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Time",
+            "notActivated": true,
+            "unit": "seconds",
+            "overfittingScore": 0.49
+          },
+          {
+            "value": 584459.0,
+            "overfitting": "moderate",
+            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Tokens In",
+            "notActivated": true,
+            "unit": "tokens",
+            "overfittingScore": 0.49
+          },
+          {
+            "value": 70.3,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Time",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 409228.0,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Tokens In",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 88.7,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 460004.0,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 181.7,
+            "name": "technology-selection/ML.NET classification on tabular data - Skilled Time",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 1251649.0,
+            "name": "technology-selection/ML.NET classification on tabular data - Skilled Tokens In",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 307.2,
+            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 896842.0,
+            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 28.6,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Time",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 31623.0,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Tokens In",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 28.8,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Time",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 31450.0,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Tokens In",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 13.0,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 14130.0,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 30.3,
+            "overfitting": "moderate",
+            "name": "technology-selection/RAG pipeline with vector search - Skilled Time",
+            "notActivated": true,
+            "unit": "seconds",
+            "overfittingScore": 0.49
+          },
+          {
+            "value": 15956.0,
+            "overfitting": "moderate",
+            "name": "technology-selection/RAG pipeline with vector search - Skilled Tokens In",
+            "notActivated": true,
+            "unit": "tokens",
+            "overfittingScore": 0.49
+          },
+          {
+            "value": 27.9,
+            "name": "technology-selection/RAG pipeline with vector search - Plugin Time",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 31566.0,
+            "name": "technology-selection/RAG pipeline with vector search - Plugin Tokens In",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 16.0,
+            "name": "technology-selection/RAG pipeline with vector search - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 14263.0,
+            "name": "technology-selection/RAG pipeline with vector search - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 302.5,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Plugin Time",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 2376331.0,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Plugin Tokens In",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 114.1,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 506291.0,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Vanilla Tokens In",
+            "unit": "tokens"
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-10-09T22:26:57+00:00",
+          "url": "https://github.com/dotnet/skills/commit/1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "message": "Merge pull request #1290 from dotnet/abhitejjohn-dotnet11-code-owner",
+          "id": "1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb"
+        },
+        "tool": "customSmallerIsBetter",
+        "date": 1791658799270
+      },
+      {
+        "model": "gpt-5.3-codex",
+        "benches": [
+          {
+            "value": 16.5,
+            "name": "technology-selection/Agentic workflow with guardrails - Skilled Time",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 99200.0,
+            "name": "technology-selection/Agentic workflow with guardrails - Skilled Tokens In",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 10.6,
+            "name": "technology-selection/Agentic workflow with guardrails - Plugin Time",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 13148.0,
+            "name": "technology-selection/Agentic workflow with guardrails - Plugin Tokens In",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 4.1,
+            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 11660.0,
+            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 2.0,
+            "overfitting": "moderate",
+            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Time",
+            "notActivated": true,
+            "unit": "seconds",
+            "overfittingScore": 0.45
+          },
+          {
+            "value": 11839.0,
+            "overfitting": "moderate",
+            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Tokens In",
+            "notActivated": true,
+            "unit": "tokens",
+            "overfittingScore": 0.45
+          },
+          {
+            "value": 9.1,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Time",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 49758.0,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Tokens In",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 3.6,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 11615.0,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 3.7,
+            "name": "technology-selection/ML.NET classification on tabular data - Skilled Time",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 25927.0,
+            "name": "technology-selection/ML.NET classification on tabular data - Skilled Tokens In",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 3.6,
+            "name": "technology-selection/ML.NET classification on tabular data - Plugin Time",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 25896.0,
+            "name": "technology-selection/ML.NET classification on tabular data - Plugin Tokens In",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 41.6,
+            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 131565.0,
+            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 8.2,
+            "overfitting": "moderate",
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Time",
+            "notActivated": true,
+            "unit": "seconds",
+            "overfittingScore": 0.45
+          },
+          {
+            "value": 12505.0,
+            "overfitting": "moderate",
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Tokens In",
+            "notActivated": true,
+            "unit": "tokens",
+            "overfittingScore": 0.45
+          },
+          {
+            "value": 5.8,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Time",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 12256.0,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Tokens In",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 8.9,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 12190.0,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 7.1,
+            "name": "technology-selection/RAG pipeline with vector search - Skilled Time",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 26323.0,
+            "name": "technology-selection/RAG pipeline with vector search - Skilled Tokens In",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 9.5,
+            "name": "technology-selection/RAG pipeline with vector search - Plugin Time",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 26493.0,
+            "name": "technology-selection/RAG pipeline with vector search - Plugin Tokens In",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 13.0,
+            "name": "technology-selection/RAG pipeline with vector search - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 12673.0,
+            "name": "technology-selection/RAG pipeline with vector search - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 3.9,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Skilled Time",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 25904.0,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Skilled Tokens In",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 3.9,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Plugin Time",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 25878.0,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Plugin Tokens In",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 2.3,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 11700.0,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Vanilla Tokens In",
+            "unit": "tokens"
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-10-09T22:26:57+00:00",
+          "url": "https://github.com/dotnet/skills/commit/1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "message": "Merge pull request #1290 from dotnet/abhitejjohn-dotnet11-code-owner",
+          "id": "1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb"
+        },
+        "tool": "customSmallerIsBetter",
+        "date": 1791658799328
+      },
+      {
+        "model": "mai-code-1.1-flash",
+        "benches": [
+          {
+            "value": 208.0,
+            "overfitting": "moderate",
+            "name": "technology-selection/Agentic workflow with guardrails - Skilled Time",
+            "notActivated": true,
+            "unit": "seconds",
+            "overfittingScore": 0.45
+          },
+          {
+            "value": 2253694.0,
+            "overfitting": "moderate",
+            "name": "technology-selection/Agentic workflow with guardrails - Skilled Tokens In",
+            "notActivated": true,
+            "unit": "tokens",
+            "overfittingScore": 0.45
+          },
+          {
+            "value": 143.6,
+            "name": "technology-selection/Agentic workflow with guardrails - Plugin Time",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 1042491.0,
+            "name": "technology-selection/Agentic workflow with guardrails - Plugin Tokens In",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 91.1,
+            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 842321.0,
+            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 64.7,
+            "overfitting": "moderate",
+            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Time",
+            "notActivated": true,
+            "unit": "seconds",
+            "overfittingScore": 0.45
+          },
+          {
+            "value": 493512.0,
+            "overfitting": "moderate",
+            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Tokens In",
+            "notActivated": true,
+            "unit": "tokens",
+            "overfittingScore": 0.45
+          },
+          {
+            "value": 109.1,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Time",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 589371.0,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Tokens In",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 67.9,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 418095.0,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 189.0,
+            "name": "technology-selection/ML.NET classification on tabular data - Skilled Time",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 1386938.0,
+            "name": "technology-selection/ML.NET classification on tabular data - Skilled Tokens In",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 264.9,
+            "name": "technology-selection/ML.NET classification on tabular data - Plugin Time",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 1686694.0,
+            "name": "technology-selection/ML.NET classification on tabular data - Plugin Tokens In",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 76.7,
+            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 293827.0,
+            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 7.5,
+            "overfitting": "moderate",
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Time",
+            "notActivated": true,
+            "unit": "seconds",
+            "overfittingScore": 0.45
+          },
+          {
+            "value": 11549.0,
+            "overfitting": "moderate",
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Tokens In",
+            "notActivated": true,
+            "unit": "tokens",
+            "overfittingScore": 0.45
+          },
+          {
+            "value": 8.9,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Time",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 11567.0,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Tokens In",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 8.2,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 11123.0,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 7.4,
+            "overfitting": "moderate",
+            "name": "technology-selection/RAG pipeline with vector search - Skilled Time",
+            "notActivated": true,
+            "unit": "seconds",
+            "overfittingScore": 0.45
+          },
+          {
+            "value": 11277.0,
+            "overfitting": "moderate",
+            "name": "technology-selection/RAG pipeline with vector search - Skilled Tokens In",
+            "notActivated": true,
+            "unit": "tokens",
+            "overfittingScore": 0.45
+          },
+          {
+            "value": 11.9,
+            "name": "technology-selection/RAG pipeline with vector search - Plugin Time",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 12261.0,
+            "name": "technology-selection/RAG pipeline with vector search - Plugin Tokens In",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 20.7,
+            "name": "technology-selection/RAG pipeline with vector search - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 103283.0,
+            "name": "technology-selection/RAG pipeline with vector search - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 150.2,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Skilled Time",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 1148247.0,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Skilled Tokens In",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 160.9,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Plugin Time",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "value": 945660.0,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Plugin Tokens In",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "tokens"
+          },
+          {
+            "value": 189.5,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 1212591.0,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Vanilla Tokens In",
+            "unit": "tokens"
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-10-09T22:26:57+00:00",
+          "url": "https://github.com/dotnet/skills/commit/1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "message": "Merge pull request #1290 from dotnet/abhitejjohn-dotnet11-code-owner",
+          "id": "1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb"
+        },
+        "tool": "customSmallerIsBetter",
+        "date": 1791658799383
       }
     ],
     "Quality": [
-      {
-        "commit": {
-          "id": "a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d",
-          "author": {
-            "name": "Amaury Levé",
-            "username": "AbhitejJohn"
-          },
-          "message": "Add reusable build failure analysis workflow (#1217)",
-          "timestamp": "2026-09-25T11:47:37+00:00",
-          "url": "https://github.com/dotnet/skills/commit/a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d"
-        },
-        "model": "claude-haiku-4.5",
-        "date": 1790421908439,
-        "verdictEvidence": [
-          {
-            "skillName": "technology-selection",
-            "skillKind": "invocable",
-            "state": "VALID_NO_CHANGE",
-            "stateReason": {
-              "code": "no_credible_preference_change",
-              "phase": "decision"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +66.7% (5W/0T/1L over 6 preference-eligible stimulus vote(s), sign test p=0.109), mean preference +46.7% across 6 paired run(s) — not credible (sign test p=0.109 > 0.05)",
-            "gateEvidence": {
-              "stimulusVoteCount": 6,
-              "wins": 5,
-              "ties": 0,
-              "losses": 1,
-              "discordant": 6,
-              "direction": "better",
-              "pValue": 0.10937500000000008,
-              "alpha": 0.05,
-              "netWin": 0.6666666666666666,
-              "minimumNetWin": 0.2,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": true,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "Explicit dormancy expectations are evaluated independently of preference",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": true,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Agentic workflow with guardrails",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-no-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "LLM integration with MEAI abstraction",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "ML.NET classification on tabular data",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-no-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Natural-language scenario decomposition — RAG chatbot",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "RAG pipeline with vector search",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Select ML.NET for tabular churn prediction",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-no-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Agentic workflow with guardrails",
-                "direction": "better",
-                "rationale": "Both runs claim a working .NET 10 research app, but B directly addresses the key requested architecture: Microsoft.Agents.AI over Microsoft.Extensions.AI, a bounded agent loop, and tool orchestration. A appears functional and well-documented, but its Semantic Kernel implementation does not satisfy the first two explicit framework criteria and lacks an evidenced iteration cap."
-              },
-              {
-                "scenarioName": "LLM integration with MEAI abstraction",
-                "direction": "better",
-                "rationale": "Both miss the two core Microsoft.Extensions.AI/AddChatClient requirements and retry support. B is nevertheless closer to the requested LLM-backed architecture, builds successfully, configures credentials safely, and explicitly controls generation settings; however, its direct SDK use and unpinned model prevent a stronger verdict."
-              },
-              {
-                "scenarioName": "ML.NET classification on tabular data",
-                "direction": "better",
-                "rationale": "B actually presents a largely complete, inspectable implementation covering project setup, models, training, metrics, DI, and endpoint. A's final answer merely claims files were created and points to an inaccessible local path, failing the request to show the full implementation. B has some production-quality caveats (such as hard-coded score-label ordering and weak validation), but it is substantially more verifiable and useful."
-              },
-              {
-                "scenarioName": "Natural-language scenario decomposition — RAG chatbot",
-                "direction": "better",
-                "rationale": "Both are usable, appropriately plan-first RAG architectures using Blazor, PostgreSQL/pgvector, and a local PDF folder. B better satisfies the specified modern .NET AI/vector abstraction requirements and gives more actionable retrieval and attribution details, while A remains a reasonable but more generic design."
-              },
-              {
-                "scenarioName": "RAG pipeline with vector search",
-                "direction": "better",
-                "rationale": "Both are strong, code-free RAG plans with ingestion, semantic chunking, vector retrieval, grounding, citations, and operational considerations. B better matches the .NET-focused requirements through explicit Microsoft.Extensions.AI/VectorData usage and a concrete retrieval similarity filter; A is otherwise comparably thorough and more detailed in several architectural areas."
-              },
-              {
-                "scenarioName": "Select ML.NET for tabular churn prediction",
-                "direction": "worse",
-                "rationale": "A delivered and verified a working implementation in the existing .NET project, which outweighs B's stronger written technology rationale. B's code is useful but unverified and has deployment/prediction-score caveats."
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d/plugins/dotnet-ai/skills/technology-selection/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d/tests/dotnet-ai/technology-selection/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d"
-              }
-            ]
-          }
-        ],
-        "benches": [
-          {
-            "unit": "Score (0-10)",
-            "value": 2.5,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/Agentic workflow with guardrails - Skilled Quality",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 2.0,
-            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 7.083333492279053,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Quality",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 5.416666507720947,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Quality",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 5.0,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/ML.NET classification on tabular data - Skilled Quality",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 3.0,
-            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Quality",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.166666984558105,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Quality",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 5.0,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/RAG pipeline with vector search - Skilled Quality",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/RAG pipeline with vector search - Plugin Quality",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.375,
-            "name": "technology-selection/RAG pipeline with vector search - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.166666984558105,
-            "overfittingScore": 0.48,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Skilled Quality",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.166666984558105,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Vanilla Quality"
-          }
-        ],
-        "tool": "customBiggerIsBetter"
-      },
-      {
-        "commit": {
-          "id": "a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d",
-          "author": {
-            "name": "Amaury Levé",
-            "username": "AbhitejJohn"
-          },
-          "message": "Add reusable build failure analysis workflow (#1217)",
-          "timestamp": "2026-09-25T11:47:37+00:00",
-          "url": "https://github.com/dotnet/skills/commit/a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d"
-        },
-        "model": "gpt-5.3-codex",
-        "date": 1790421908516,
-        "verdictEvidence": [
-          {
-            "skillName": "technology-selection",
-            "skillKind": "invocable",
-            "state": "VALID_PASS",
-            "stateReason": {
-              "code": "credible_preference_improvement",
-              "phase": "decision"
-            },
-            "passed": true,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +100.0% (6W/0T/0L over 6 preference-eligible stimulus vote(s), sign test p=0.016), mean preference +70.0% across 6 paired run(s) — credibly better",
-            "gateEvidence": {
-              "stimulusVoteCount": 6,
-              "wins": 6,
-              "ties": 0,
-              "losses": 0,
-              "discordant": 6,
-              "direction": "better",
-              "pValue": 0.015625000000000007,
-              "alpha": 0.05,
-              "netWin": 1,
-              "minimumNetWin": 0.2,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": true,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "Explicit dormancy expectations are evaluated independently of preference",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": true,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Agentic workflow with guardrails",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-no-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "LLM integration with MEAI abstraction",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "missing-activation",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-no-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "ML.NET classification on tabular data",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 1,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Natural-language scenario decomposition — RAG chatbot",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "missing-activation",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-no-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "RAG pipeline with vector search",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Select ML.NET for tabular churn prediction",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Agentic workflow with guardrails",
-                "direction": "better",
-                "rationale": "Response A does not provide any actual solution—it merely asks for environmental clarification and offers to generate code later. Response B delivers a complete, working .NET 10 console application with proper use of Microsoft.Agents.AI, Microsoft.Extensions.AI, configuration management, tool definitions, iteration limits, and token budgets. While Response B has a minor gap in observability logging, it comprehensively addresses the task requirements with a ready-to-compile implementation. The gap between \"no solution offered\" and \"full working solution\" is substantial.\""
-              },
-              {
-                "scenarioName": "LLM integration with MEAI abstraction",
-                "direction": "better",
-                "rationale": "Both responses fail to meet the rubric requirements, which clearly expect a .NET 10 implementation using Microsoft.Extensions.AI patterns. However, Response B is slightly better in practical terms: it provides concrete, working code with proper endpoint structure (Minimal API style), request/response models, and validation—all immediately usable and testable, even though the summarization approach (extractive) is fundamentally wrong. Response A provides no implementation at all, only a request for more information. While Response B misses the mark entirely on the AI integration requirements, it at least delivers a functional baseline that could be extended. Response A delivers nothing and represents a missed opportunity to provide guidance or a template.\""
-              },
-              {
-                "scenarioName": "ML.NET classification on tabular data",
-                "direction": "better",
-                "rationale": "Both responses completely fail to deliver the requested implementation—no ML.NET code, no model training, no evaluation metrics, and no prediction endpoint. However, Response B demonstrates a significantly better problem-solving approach: it proactively explores the file system (7 tool calls), successfully locates the actual project structure at `/tmp/vally-eval-POp6hP/technology-selection/TicketClassifier/`, and correctly identifies where the data and project files exist. Response A takes a passive approach without even attempting exploration, simply asking the user to provide files. While Response B ultimately self-blocks by asking for confirmation rather than proceeding, it shows superior initiative, technical methodology, and progress toward understanding the task environment. Response A provides no investigation or forward momentum whatsoever.\""
-              },
-              {
-                "scenarioName": "Natural-language scenario decomposition — RAG chatbot",
-                "direction": "better",
-                "rationale": "Response B provides a more comprehensive plan and crucially addresses the Microsoft.Extensions.AI requirement explicitly, which is a key rubric criterion that Response A completely misses. However, Response B's hallucination of 'Microsoft.Extensions.VectorData.Abstractions' (a non-existent package) is a significant practical error that undermines its quality. Response A plays it safer with real packages but fails to mention MEAI at all. Response B's explicit acknowledgment of MEAI and more detailed structure (10 vs 8 sections) outweigh the hallucination issue, but only slightly, as the hallucination is a serious problem that could waste developer time.\""
-              },
-              {
-                "scenarioName": "RAG pipeline with vector search",
-                "direction": "better",
-                "rationale": "Response B significantly outperforms Response A by addressing the .NET-specific ecosystem requirements more directly. It explicitly references Microsoft.Extensions.VectorData.Abstractions and Microsoft.Extensions.AI libraries (scoring wins on 3 rubric criteria), while Response A uses generic terminology. Critically, Response B includes the minimum similarity threshold requirement, which Response A completely omits. Response B also provides more .NET-idiomatic guidance (DI registration, config patterns, Key Vault) and shows better alignment with modern .NET development practices. While Response A provides a solid general RAG architecture, it lacks the specificity and .NET-focused design that the task context requires.\""
-              },
-              {
-                "scenarioName": "Select ML.NET for tabular churn prediction",
-                "direction": "better",
-                "rationale": "While both responses correctly select ML.NET with solid reasoning, Response A falls critically short by not actually implementing the solution—it only promises to implement if files are provided. The task explicitly says \"Implement it.\" Response B delivers a complete, working implementation with properly structured code, all required data handling, feature engineering, model training/evaluation, and API endpoints for both training and scoring. This is a substantial difference in delivering the core deliverable requested.\""
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d/plugins/dotnet-ai/skills/technology-selection/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d/tests/dotnet-ai/technology-selection/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d"
-              }
-            ]
-          }
-        ],
-        "benches": [
-          {
-            "unit": "Score (0-10)",
-            "value": 9.0,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/Agentic workflow with guardrails - Skilled Quality",
-            "overfitting": "high"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 4.5,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/Agentic workflow with guardrails - Plugin Quality",
-            "overfitting": "high"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 2.0,
-            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Quality"
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.55,
-            "unit": "Score (0-10)",
-            "value": 5.0,
-            "overfitting": "high",
-            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 5.0,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Quality",
-            "overfitting": "high"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 5.0,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 2.0,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/ML.NET classification on tabular data - Skilled Quality",
-            "overfitting": "high"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 2.0,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/ML.NET classification on tabular data - Plugin Quality",
-            "overfitting": "high"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 2.0,
-            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Quality"
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.55,
-            "unit": "Score (0-10)",
-            "value": 8.333333015441895,
-            "overfitting": "high",
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 5.0,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Quality",
-            "overfitting": "high"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 4.166666507720947,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/RAG pipeline with vector search - Skilled Quality",
-            "overfitting": "high"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/RAG pipeline with vector search - Plugin Quality",
-            "overfitting": "high"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.75,
-            "name": "technology-selection/RAG pipeline with vector search - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Skilled Quality",
-            "overfitting": "high"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "overfittingScore": 0.55,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Plugin Quality",
-            "overfitting": "high"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 7.5,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Vanilla Quality"
-          }
-        ],
-        "tool": "customBiggerIsBetter"
-      },
-      {
-        "commit": {
-          "id": "a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d",
-          "author": {
-            "name": "Amaury Levé",
-            "username": "AbhitejJohn"
-          },
-          "message": "Add reusable build failure analysis workflow (#1217)",
-          "timestamp": "2026-09-25T11:47:37+00:00",
-          "url": "https://github.com/dotnet/skills/commit/a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d"
-        },
-        "model": "mai-code-1.1-flash",
-        "date": 1790421908599,
-        "verdictEvidence": [
-          {
-            "skillName": "technology-selection",
-            "skillKind": "invocable",
-            "state": "VALID_NO_CHANGE",
-            "stateReason": {
-              "code": "no_credible_preference_change",
-              "phase": "decision"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +33.3% (3W/2T/1L over 6 preference-eligible stimulus vote(s), sign test p=0.312), mean preference +13.3% across 6 paired run(s) — not credible — 2 of 6 preference-eligible stimulus vote(s) tied, leaving only 4 discordant preference vote(s). The sign test conditions on non-tie stimulus votes and cannot reach 0.05 below 5, so no record could have passed here — this is not a measured null. Either the skill is inert on these scenarios (make them discriminate) or the eval needs more distinct stimuli to clear the ties",
-            "gateEvidence": {
-              "stimulusVoteCount": 6,
-              "wins": 3,
-              "ties": 2,
-              "losses": 1,
-              "discordant": 4,
-              "direction": "better",
-              "pValue": 0.31249999999999994,
-              "alpha": 0.05,
-              "netWin": 0.3333333333333333,
-              "minimumNetWin": 0.2,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": true,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "Explicit dormancy expectations are evaluated independently of preference",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": true,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Agentic workflow with guardrails",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "missing-activation",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-no-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "LLM integration with MEAI abstraction",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "missing-activation",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-no-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "ML.NET classification on tabular data",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-no-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Natural-language scenario decomposition — RAG chatbot",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "missing-activation",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-no-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "RAG pipeline with vector search",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "missing-activation",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-no-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Select ML.NET for tabular churn prediction",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Agentic workflow with guardrails",
-                "direction": "worse",
-                "rationale": "A is the clear better fit for the specified Microsoft-agent architecture: it uses Microsoft.Agents.AI and Microsoft.Extensions.AI and was built and run successfully after fixing a runtime issue. B has a usable, verified fallback and likely stronger explicit raw schemas, but its hand-rolled OpenAI tool-calling loop misses the two central framework requirements."
-              },
-              {
-                "scenarioName": "LLM integration with MEAI abstraction",
-                "direction": "none",
-                "rationale": "Position-swap inconsistent (forward: B, reverse: tie). Defaulting to tie."
-              },
-              {
-                "scenarioName": "ML.NET classification on tabular data",
-                "direction": "better",
-                "rationale": "B satisfies every explicit rubric item and provides a verified, pooled prediction endpoint plus genuine held-out evaluation. A has a workable ML.NET pipeline but misses the required split and PredictionEnginePool, presents optimistic training-set metrics as evaluation, and its separately sorted class-order mapping is liable to disagree with ML.NET's label-key ordering when translating scores to category names."
-              },
-              {
-                "scenarioName": "Natural-language scenario decomposition — RAG chatbot",
-                "direction": "better",
-                "rationale": "Both satisfy the core request by presenting a sensible plan before implementation and adhering to Blazor, Postgres/pgvector, and a folder-backed PDF corpus. B is more concrete and complete, especially on the schema, operational risks, and viable PDF extraction library. However, both miss the rubric's important MEAI and Microsoft.Extensions.VectorData-specific selections, so B's advantage is modest."
-              },
-              {
-                "scenarioName": "RAG pipeline with vector search",
-                "direction": "none",
-                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
-              },
-              {
-                "scenarioName": "Select ML.NET for tabular churn prediction",
-                "direction": "better",
-                "rationale": "Both make the correct technology choice and explain it well. B is modestly stronger because its implementation is more explicitly complete and it recovered from a real metric/data-split runtime failure, though final endpoint verification remained incomplete."
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d/plugins/dotnet-ai/skills/technology-selection/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d/tests/dotnet-ai/technology-selection/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d"
-              }
-            ]
-          }
-        ],
-        "benches": [
-          {
-            "notActivated": true,
-            "overfittingScore": 0.46,
-            "unit": "Score (0-10)",
-            "value": 2.5,
-            "overfitting": "moderate",
-            "name": "technology-selection/Agentic workflow with guardrails - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 2.0,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/Agentic workflow with guardrails - Plugin Quality",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 2.5,
-            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Quality"
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.46,
-            "unit": "Score (0-10)",
-            "value": 5.0,
-            "overfitting": "moderate",
-            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 5.0,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Quality",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 5.0,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/ML.NET classification on tabular data - Skilled Quality",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.0,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/ML.NET classification on tabular data - Plugin Quality",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.5,
-            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Quality"
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.46,
-            "unit": "Score (0-10)",
-            "value": 5.833333492279053,
-            "overfitting": "moderate",
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 5.833333492279053,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Quality",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 5.0,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Quality"
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.46,
-            "unit": "Score (0-10)",
-            "value": 9.375,
-            "overfitting": "moderate",
-            "name": "technology-selection/RAG pipeline with vector search - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.375,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/RAG pipeline with vector search - Plugin Quality",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.75,
-            "name": "technology-selection/RAG pipeline with vector search - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.166666984558105,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Skilled Quality",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "overfittingScore": 0.46,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Plugin Quality",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.166666984558105,
-            "name": "technology-selection/Select ML.NET for tabular churn prediction - Vanilla Quality"
-          }
-        ],
-        "tool": "customBiggerIsBetter"
-      },
       {
         "model": "claude-sonnet-5",
         "benches": [
@@ -11432,225 +10503,948 @@
         ],
         "model": "gpt-5.6-luna",
         "date": 1791564926614
+      },
+      {
+        "benches": [
+          {
+            "value": 6.5,
+            "name": "technology-selection/Agentic workflow with guardrails - Skilled Quality",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 2.0,
+            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 5.0,
+            "overfitting": "moderate",
+            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Quality",
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.49
+          },
+          {
+            "value": 9.583333015441895,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Quality",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 5.0,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 3.5,
+            "name": "technology-selection/ML.NET classification on tabular data - Skilled Quality",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 3.0,
+            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 9.166666984558105,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Quality",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 10.0,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Quality",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 5.833333492279053,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 9.375,
+            "overfitting": "moderate",
+            "name": "technology-selection/RAG pipeline with vector search - Skilled Quality",
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.49
+          },
+          {
+            "value": 10.0,
+            "name": "technology-selection/RAG pipeline with vector search - Plugin Quality",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.75,
+            "name": "technology-selection/RAG pipeline with vector search - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 9.166666984558105,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Plugin Quality",
+            "overfittingScore": 0.49,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 10.0,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Vanilla Quality",
+            "unit": "Score (0-10)"
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-10-09T22:26:57+00:00",
+          "url": "https://github.com/dotnet/skills/commit/1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "message": "Merge pull request #1290 from dotnet/abhitejjohn-dotnet11-code-owner",
+          "id": "1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb"
+        },
+        "date": 1791658799270,
+        "verdictEvidence": [
+          {
+            "skillName": "technology-selection",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "INVALID_INCONCLUSIVE",
+            "stateReason": {
+              "code": "unmatched_trajectories",
+              "phase": "comparison_pairing"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +60.0% (4W/0T/1L over 5 preference-eligible stimulus vote(s), sign test p=0.188), mean preference +36.0% across 5 paired run(s), 1 unmatched — inconclusive (unmatched trajectories)",
+            "noChangeDiagnosis": null,
+            "gateEvidence": {
+              "stimulusVoteCount": 5,
+              "wins": 4,
+              "ties": 0,
+              "losses": 1,
+              "discordant": 5,
+              "direction": "better",
+              "pValue": 0.18750000000000003,
+              "alpha": 0.05,
+              "netWin": 0.6,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Agentic workflow with guardrails",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "LLM integration with MEAI abstraction",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "missing-activation",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "ML.NET classification on tabular data",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Natural-language scenario decomposition — RAG chatbot",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "RAG pipeline with vector search",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "missing-activation",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Select ML.NET for tabular churn prediction",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "missing-activation",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Agentic workflow with guardrails",
+                "direction": "better",
+                "rationale": "Both runs claim a successful .NET 10 research-agent deliverable and build, but B much more directly addresses the requested agentic safeguards and the rubric's MEAI/token-budget requirements. It still falls short of clearly satisfying the Microsoft Agent Framework orchestration requirement because its own evidence describes manual/raw orchestration, so the overall edge is moderate rather than decisive."
+              },
+              {
+                "scenarioName": "LLM integration with MEAI abstraction",
+                "direction": "worse",
+                "rationale": "Both miss every AI-integration requirement in the rubric. A is nevertheless slightly stronger as a delivered basic endpoint: its timeline shows a clean build and successful requests to both exposed summary routes, whereas B's attempted endpoint calls returned no response and its log showed hosting failed to start; B did not recover by successfully exercising its endpoint."
+              },
+              {
+                "scenarioName": "ML.NET classification on tabular data",
+                "direction": "better",
+                "rationale": "B directly satisfies the key reproducibility, held-out evaluation, metric reporting, and PredictionEnginePool requirements, and the timeline shows it built, trained, and served a tested endpoint. Both final messages are only summaries rather than literally showing the promised full code, but B provides substantially stronger evidence of a correct implementation."
+              },
+              {
+                "scenarioName": "Natural-language scenario decomposition — RAG chatbot",
+                "direction": "better",
+                "rationale": "B is the stronger plan because it directly adopts the requested .NET AI abstractions, gives a clearer RAG data flow and operational guardrails, and supplies a more actionable schema. Both respect the requested Blazor, PostgreSQL, and folder-based design; B's missing explicit pgvector connector and provider package selection keep the overall gap moderate."
+              },
+              {
+                "scenarioName": "RAG pipeline with vector search",
+                "direction": "better",
+                "rationale": "Both provide code-free, usable RAG plans with sound ingestion, chunking, retrieval, grounding, and operational considerations. B is more complete and concrete, notably with a data model, endpoint contracts, explicit Microsoft.Extensions.AI alignment, and clearer architecture; A has the stronger explicit threshold mention."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb/plugins/dotnet-ai/skills/technology-selection/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb/tests/dotnet-ai/technology-selection/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb"
+              }
+            ]
+          }
+        ],
+        "tool": "customBiggerIsBetter",
+        "model": "claude-haiku-4.5"
+      },
+      {
+        "benches": [
+          {
+            "value": 8.5,
+            "name": "technology-selection/Agentic workflow with guardrails - Skilled Quality",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 2.0,
+            "name": "technology-selection/Agentic workflow with guardrails - Plugin Quality",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 2.0,
+            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 5.0,
+            "overfitting": "moderate",
+            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Quality",
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.45
+          },
+          {
+            "value": 5.0,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Quality",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 5.0,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 4.0,
+            "name": "technology-selection/ML.NET classification on tabular data - Skilled Quality",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 4.0,
+            "name": "technology-selection/ML.NET classification on tabular data - Plugin Quality",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 2.5,
+            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 4.166666507720947,
+            "overfitting": "moderate",
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Quality",
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.45
+          },
+          {
+            "value": 8.333333015441895,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Quality",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 4.166666507720947,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 10.0,
+            "name": "technology-selection/RAG pipeline with vector search - Skilled Quality",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 10.0,
+            "name": "technology-selection/RAG pipeline with vector search - Plugin Quality",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.125,
+            "name": "technology-selection/RAG pipeline with vector search - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 7.5,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Skilled Quality",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 7.5,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Plugin Quality",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 7.5,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Vanilla Quality",
+            "unit": "Score (0-10)"
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-10-09T22:26:57+00:00",
+          "url": "https://github.com/dotnet/skills/commit/1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "message": "Merge pull request #1290 from dotnet/abhitejjohn-dotnet11-code-owner",
+          "id": "1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb"
+        },
+        "date": 1791658799328,
+        "verdictEvidence": [
+          {
+            "skillName": "technology-selection",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "VALID_NO_CHANGE",
+            "stateReason": {
+              "code": "no_credible_preference_change",
+              "phase": "decision"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +50.0% (4W/1T/1L over 6 preference-eligible stimulus vote(s), sign test p=0.188), mean preference +30.0% across 6 paired run(s) — not credible (sign test p=0.188 > 0.05)",
+            "noChangeDiagnosis": "positive_unproven",
+            "gateEvidence": {
+              "stimulusVoteCount": 6,
+              "wins": 4,
+              "ties": 1,
+              "losses": 1,
+              "discordant": 5,
+              "direction": "better",
+              "pValue": 0.18750000000000003,
+              "alpha": 0.05,
+              "netWin": 0.5,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Agentic workflow with guardrails",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "LLM integration with MEAI abstraction",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "missing-activation",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "ML.NET classification on tabular data",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 1,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 1,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Natural-language scenario decomposition — RAG chatbot",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "missing-activation",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "RAG pipeline with vector search",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Select ML.NET for tabular churn prediction",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 1,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 1,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Agentic workflow with guardrails",
+                "direction": "better",
+                "rationale": "Response B delivers a complete, working .NET 10 console application using the exact frameworks specified in the rubric (Microsoft.Agents.AI and Microsoft.Extensions.AI). It includes all required components: web search tool, note-taking tool, agent configuration with MaximumIterations, explicit tool schemas with descriptions, dependency injection setup, and complete setup instructions. Although it encountered file access errors during development, it recovered and still produced a runnable solution. Response A asks for clarification and provides no code or implementation, leaving the task incomplete. B fulfills 4 out of 6 rubric criteria fully, while A fulfills none.\""
+              },
+              {
+                "scenarioName": "LLM integration with MEAI abstraction",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: tie). Defaulting to tie."
+              },
+              {
+                "scenarioName": "ML.NET classification on tabular data",
+                "direction": "worse",
+                "rationale": "Response A delivered a complete, working implementation of a ticket classifier API with ML.NET multiclass classification, evaluation metrics, and a prediction endpoint that successfully compiled. Response B failed to complete the task, claiming it needed files that were already provided in the workspace (/tmp/vally-eval-l8LRAx/TicketClassifier/Data/tickets.csv was already present). Response A explored the workspace, found the files, and built a functional solution. Response B only loaded a skill doc and asked for clarification instead of investigating available resources, representing a fundamental failure to attempt the assigned work.\""
+              },
+              {
+                "scenarioName": "Natural-language scenario decomposition — RAG chatbot",
+                "direction": "better",
+                "rationale": "Response B provides a more comprehensive, mature plan for real-world implementation. It includes explicit phasing (Phase 1-4), detailed operational concerns (security, testing, deployment, telemetry), and better architectural patterns (separate Worker service, change detection, soft deletes). While both responses fail to identify Microsoft's modern AI abstraction layers (MEAI, VectorData.Abstractions), Response B's superior planning for implementation sequencing, testing strategy, and operational hardening makes it a better guide for actual development. Response A is solid but less complete on operations and testing strategy.\""
+              },
+              {
+                "scenarioName": "RAG pipeline with vector search",
+                "direction": "better",
+                "rationale": "Response B directly addresses all six rubric criteria with concrete, .NET 10-specific recommendations (Microsoft.Extensions.VectorData, IEmbeddingGenerator, IChatClient), while Response A provides a generalized architecture that meets only 2-3 criteria and omits key requirements like similarity thresholds and explicit embedding caching. Response B is tailored to the platform (including DI patterns and secrets management), whereas Response A remains platform-agnostic. For a .NET 10 Web API project, Response B delivers the targeted, actionable architecture the task demands.\""
+              },
+              {
+                "scenarioName": "Select ML.NET for tabular churn prediction",
+                "direction": "better",
+                "rationale": "Response B is clearly superior in technology selection clarity and technical justification. It makes a confident, definitive choice with substantive reasoning tied to the problem domain (tabular binary classification), uses available tools appropriately, and provides a detailed technical roadmap. Response A is passive, tentative, and lacks depth. However, the margin is 'slightly-better' rather than 'much-better' because neither response actually implements the required binary classification model—both defer pending project files—which is a significant gap on the third criterion.\""
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb/plugins/dotnet-ai/skills/technology-selection/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb/tests/dotnet-ai/technology-selection/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb"
+              }
+            ]
+          }
+        ],
+        "tool": "customBiggerIsBetter",
+        "model": "gpt-5.3-codex"
+      },
+      {
+        "benches": [
+          {
+            "value": 3.0,
+            "overfitting": "moderate",
+            "name": "technology-selection/Agentic workflow with guardrails - Skilled Quality",
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.45
+          },
+          {
+            "value": 2.5,
+            "name": "technology-selection/Agentic workflow with guardrails - Plugin Quality",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 2.5,
+            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 5.0,
+            "overfitting": "moderate",
+            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Quality",
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.45
+          },
+          {
+            "value": 5.0,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Quality",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 5.0,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 10.0,
+            "name": "technology-selection/ML.NET classification on tabular data - Skilled Quality",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 7.5,
+            "name": "technology-selection/ML.NET classification on tabular data - Plugin Quality",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 2.0,
+            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 9.166666984558105,
+            "overfitting": "moderate",
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Quality",
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.45
+          },
+          {
+            "value": 5.833333492279053,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Quality",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 5.833333492279053,
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 9.375,
+            "overfitting": "moderate",
+            "name": "technology-selection/RAG pipeline with vector search - Skilled Quality",
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.45
+          },
+          {
+            "value": 9.375,
+            "name": "technology-selection/RAG pipeline with vector search - Plugin Quality",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.75,
+            "name": "technology-selection/RAG pipeline with vector search - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 10.0,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Skilled Quality",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 10.0,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Plugin Quality",
+            "overfittingScore": 0.45,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 9.166666984558105,
+            "name": "technology-selection/Select ML.NET for tabular churn prediction - Vanilla Quality",
+            "unit": "Score (0-10)"
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-10-09T22:26:57+00:00",
+          "url": "https://github.com/dotnet/skills/commit/1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "message": "Merge pull request #1290 from dotnet/abhitejjohn-dotnet11-code-owner",
+          "id": "1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb"
+        },
+        "date": 1791658799383,
+        "verdictEvidence": [
+          {
+            "skillName": "technology-selection",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "VALID_NO_CHANGE",
+            "stateReason": {
+              "code": "no_credible_preference_change",
+              "phase": "decision"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +50.0% (4W/1T/1L over 6 preference-eligible stimulus vote(s), sign test p=0.188), mean preference +30.0% across 6 paired run(s) — not credible (sign test p=0.188 > 0.05)",
+            "noChangeDiagnosis": "positive_unproven",
+            "gateEvidence": {
+              "stimulusVoteCount": 6,
+              "wins": 4,
+              "ties": 1,
+              "losses": 1,
+              "discordant": 5,
+              "direction": "better",
+              "pValue": 0.18750000000000003,
+              "alpha": 0.05,
+              "netWin": 0.5,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Agentic workflow with guardrails",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "missing-activation",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "LLM integration with MEAI abstraction",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "missing-activation",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "ML.NET classification on tabular data",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Natural-language scenario decomposition — RAG chatbot",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "missing-activation",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "RAG pipeline with vector search",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "missing-activation",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Select ML.NET for tabular churn prediction",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Agentic workflow with guardrails",
+                "direction": "better",
+                "rationale": "B provides substantially stronger evidence of using the requested Microsoft agent-stack architecture and additionally validates a working no-key fallback that performs local web-research summarization. A builds successfully but appears to use a manual OpenAI loop and cannot perform the requested work without a key. Important safety/observability/budget requirements remain unproven for both, so the overall advantage is meaningful but not decisive."
+              },
+              {
+                "scenarioName": "LLM integration with MEAI abstraction",
+                "direction": "none",
+                "rationale": "Both runs appear to implement and validate a heuristic summarization endpoint, but neither addresses any of the specified AI integration, configuration, reliability, or model-versioning requirements. Their differing routes and validation details do not create a meaningful advantage under this rubric."
+              },
+              {
+                "scenarioName": "ML.NET classification on tabular data",
+                "direction": "better",
+                "rationale": "B fulfills every explicit rubric requirement and provides concrete, build-validated ML.NET code, held-out evaluation, and a pooled ASP.NET prediction endpoint. A appears functional as a custom classifier but misses the core specified ML.NET, seeded MLContext, train/test split, and PredictionEnginePool requirements."
+              },
+              {
+                "scenarioName": "Natural-language scenario decomposition — RAG chatbot",
+                "direction": "better",
+                "rationale": "Both are solid, appropriately scoped plans that honor the requested Blazor, Postgres, and file-folder constraints. B is stronger because it explicitly includes Microsoft.Extensions.AI, gives a somewhat more actionable ingestion/UI/operations plan, and still avoids diving into implementation before approval. Neither satisfies the VectorData.Abstractions-specific requirement."
+              },
+              {
+                "scenarioName": "RAG pipeline with vector search",
+                "direction": "worse",
+                "rationale": "Both are solid, code-free RAG architecture plans that cover ingestion, semantic chunking, vector retrieval, grounded generation, and citations. A is slightly stronger because it is more concrete about an unchanged-content embedding cache and includes a clearer API/data-contract outline. Neither satisfies the similarity-threshold or Microsoft.Extensions.AI-specific criteria."
+              },
+              {
+                "scenarioName": "Select ML.NET for tabular churn prediction",
+                "direction": "better",
+                "rationale": "Both are viable ML.NET implementations with correct technology selection and explanation. A presents a broader endpoint surface, but B is preferable overall because it validates a prediction endpoint while being more faithful and transparent about training on the supplied small dataset; A's replacement of that dataset is a meaningful data-integrity concern."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb/plugins/dotnet-ai/skills/technology-selection/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb/tests/dotnet-ai/technology-selection/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb"
+              }
+            ]
+          }
+        ],
+        "tool": "customBiggerIsBetter",
+        "model": "mai-code-1.1-flash"
       }
     ],
     "SkillValue": [
-      {
-        "commit": {
-          "id": "a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d",
-          "author": {
-            "name": "Amaury Levé",
-            "username": "AbhitejJohn"
-          },
-          "message": "Add reusable build failure analysis workflow (#1217)",
-          "timestamp": "2026-09-25T11:47:37+00:00",
-          "url": "https://github.com/dotnet/skills/commit/a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d"
-        },
-        "date": 1790421908439,
-        "judgeModel": "gpt-5.6-terra",
-        "model": "claude-haiku-4.5",
-        "skills": [
-          {
-            "treatmentFail": 2,
-            "baselineFail": 4,
-            "skill": "technology-selection",
-            "treatmentOnlyPass": 2,
-            "hasPassData": true,
-            "activationContract": {
-              "violated": 0,
-              "count": 0,
-              "passed": true,
-              "evaluated": true
-            },
-            "baseline": {
-              "cacheRead": 620491.8333333334,
-              "n": 6,
-              "tokensOut": 12817.666666666666,
-              "tokensIn": 652051.6666666666,
-              "cacheWrite": 31426.166666666668,
-              "timeMs": 173457.16666666666,
-              "tokens": 664869.3333333334
-            },
-            "pairedN": 6,
-            "baseAvailable": 6,
-            "baselineOnlyPass": 0,
-            "timedOut": false,
-            "bothFail": 2,
-            "activationFired": 6,
-            "treatAvailable": 6,
-            "treatment": {
-              "cacheRead": 822999.6666666666,
-              "n": 6,
-              "tokensOut": 12714.833333333334,
-              "tokensIn": 852406.1666666666,
-              "cacheWrite": 29253.666666666668,
-              "timeMs": 162930.16666666666,
-              "tokens": 865121.0
-            },
-            "activationExpected": 6,
-            "bothPass": 2,
-            "preference": {
-              "ties": 0,
-              "underpowered": false,
-              "direction": "better",
-              "netWin": 0.6666666666666666,
-              "alpha": 0.05,
-              "count": 6,
-              "minCredibleStimuli": 5,
-              "practicalPassed": true,
-              "wins": 5,
-              "losses": 1,
-              "conclusive": true,
-              "pValue": 0.10937500000000008
-            },
-            "passTotal": 6
-          }
-        ]
-      },
-      {
-        "commit": {
-          "id": "a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d",
-          "author": {
-            "name": "Amaury Levé",
-            "username": "AbhitejJohn"
-          },
-          "message": "Add reusable build failure analysis workflow (#1217)",
-          "timestamp": "2026-09-25T11:47:37+00:00",
-          "url": "https://github.com/dotnet/skills/commit/a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d"
-        },
-        "date": 1790421908516,
-        "judgeModel": "claude-haiku-4.5",
-        "model": "gpt-5.3-codex",
-        "skills": [
-          {
-            "treatmentFail": 2,
-            "baselineFail": 5,
-            "skill": "technology-selection",
-            "treatmentOnlyPass": 3,
-            "hasPassData": true,
-            "activationContract": {
-              "violated": 0,
-              "count": 0,
-              "passed": true,
-              "evaluated": true
-            },
-            "baseline": {
-              "cacheRead": 4608.0,
-              "n": 6,
-              "tokensOut": 315.0,
-              "tokensIn": 11734.5,
-              "cacheWrite": 0.0,
-              "timeMs": 5391.833333333333,
-              "tokens": 12049.5
-            },
-            "pairedN": 6,
-            "baseAvailable": 6,
-            "baselineOnlyPass": 0,
-            "timedOut": false,
-            "bothFail": 2,
-            "activationFired": 4,
-            "treatAvailable": 6,
-            "treatment": {
-              "cacheRead": 17066.666666666668,
-              "n": 6,
-              "tokensOut": 655.3333333333334,
-              "tokensIn": 26211.333333333332,
-              "cacheWrite": 0.0,
-              "timeMs": 7040.333333333333,
-              "tokens": 26866.666666666668
-            },
-            "activationExpected": 6,
-            "bothPass": 1,
-            "preference": {
-              "ties": 0,
-              "underpowered": false,
-              "direction": "better",
-              "netWin": 1,
-              "alpha": 0.05,
-              "count": 6,
-              "minCredibleStimuli": 5,
-              "practicalPassed": true,
-              "wins": 6,
-              "losses": 0,
-              "conclusive": true,
-              "pValue": 0.015625000000000007
-            },
-            "passTotal": 6
-          }
-        ]
-      },
-      {
-        "commit": {
-          "id": "a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d",
-          "author": {
-            "name": "Amaury Levé",
-            "username": "AbhitejJohn"
-          },
-          "message": "Add reusable build failure analysis workflow (#1217)",
-          "timestamp": "2026-09-25T11:47:37+00:00",
-          "url": "https://github.com/dotnet/skills/commit/a55fbf42c36a37b94ec07291bd79cb6b6bf3a04d"
-        },
-        "date": 1790421908599,
-        "judgeModel": "gpt-5.6-terra",
-        "model": "mai-code-1.1-flash",
-        "skills": [
-          {
-            "treatmentFail": 3,
-            "baselineFail": 4,
-            "skill": "technology-selection",
-            "treatmentOnlyPass": 1,
-            "hasPassData": true,
-            "activationContract": {
-              "violated": 0,
-              "count": 0,
-              "passed": true,
-              "evaluated": true
-            },
-            "baseline": {
-              "cacheRead": 428949.3333333333,
-              "n": 6,
-              "tokensOut": 19309.833333333332,
-              "tokensIn": 521210.3333333333,
-              "cacheWrite": 0.0,
-              "timeMs": 129495.16666666667,
-              "tokens": 540520.1666666666
-            },
-            "pairedN": 6,
-            "baseAvailable": 6,
-            "baselineOnlyPass": 0,
-            "timedOut": false,
-            "bothFail": 3,
-            "activationFired": 2,
-            "treatAvailable": 6,
-            "treatment": {
-              "cacheRead": 439317.3333333333,
-              "n": 6,
-              "tokensOut": 18665.833333333332,
-              "tokensIn": 503475.1666666667,
-              "cacheWrite": 0.0,
-              "timeMs": 122140.66666666667,
-              "tokens": 522141.0
-            },
-            "activationExpected": 6,
-            "bothPass": 2,
-            "preference": {
-              "ties": 2,
-              "underpowered": false,
-              "direction": "better",
-              "netWin": 0.3333333333333333,
-              "alpha": 0.05,
-              "count": 6,
-              "minCredibleStimuli": 5,
-              "practicalPassed": true,
-              "wins": 3,
-              "losses": 1,
-              "conclusive": true,
-              "pValue": 0.31249999999999994
-            },
-            "passTotal": 6
-          }
-        ]
-      },
       {
         "date": 1790785693901,
         "judgeModel": "gpt-5.6-terra",
@@ -12946,10 +12740,226 @@
         "model": "gpt-5.6-luna",
         "date": 1791564926614,
         "judgeModel": "claude-haiku-4.5"
+      },
+      {
+        "skills": [
+          {
+            "hasPassData": true,
+            "activationExpected": 6,
+            "treatAvailable": 5,
+            "bothFail": 3,
+            "baseAvailable": 6,
+            "treatmentFail": 3,
+            "baselineFail": 4,
+            "bothPass": 1,
+            "pairedN": 5,
+            "preference": {
+              "losses": 1,
+              "conclusive": false,
+              "practicalPassed": true,
+              "ties": 0,
+              "minCredibleStimuli": 5,
+              "count": 5,
+              "pValue": 0.18750000000000003,
+              "underpowered": false,
+              "wins": 4,
+              "direction": "better",
+              "alpha": 0.05,
+              "netWin": 0.6
+            },
+            "passTotal": 5,
+            "baseline": {
+              "tokensIn": 474425.4,
+              "timeMs": 153516.4,
+              "tokens": 488476.0,
+              "n": 5,
+              "cacheRead": 443794.8,
+              "cacheWrite": 30526.0,
+              "tokensOut": 14050.6
+            },
+            "activationFired": 3,
+            "baselineOnlyPass": 0,
+            "treatmentOnlyPass": 1,
+            "timedOut": false,
+            "activationContract": {
+              "violated": 0,
+              "count": 0,
+              "evaluated": true,
+              "passed": true
+            },
+            "skill": "technology-selection",
+            "treatment": {
+              "tokensIn": 671362.2,
+              "timeMs": 125930.4,
+              "tokens": 681963.0,
+              "n": 5,
+              "cacheRead": 643697.0,
+              "cacheWrite": 27538.2,
+              "tokensOut": 10600.8
+            }
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-10-09T22:26:57+00:00",
+          "url": "https://github.com/dotnet/skills/commit/1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "message": "Merge pull request #1290 from dotnet/abhitejjohn-dotnet11-code-owner",
+          "id": "1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb"
+        },
+        "judgeModel": "gpt-5.6-terra",
+        "model": "claude-haiku-4.5",
+        "date": 1791658799270
+      },
+      {
+        "skills": [
+          {
+            "hasPassData": true,
+            "activationExpected": 6,
+            "treatAvailable": 6,
+            "bothFail": 5,
+            "baseAvailable": 6,
+            "treatmentFail": 5,
+            "baselineFail": 6,
+            "bothPass": 0,
+            "pairedN": 6,
+            "preference": {
+              "losses": 1,
+              "conclusive": true,
+              "practicalPassed": true,
+              "ties": 1,
+              "minCredibleStimuli": 5,
+              "count": 6,
+              "pValue": 0.18750000000000003,
+              "underpowered": false,
+              "wins": 4,
+              "direction": "better",
+              "alpha": 0.05,
+              "netWin": 0.5
+            },
+            "passTotal": 6,
+            "baseline": {
+              "tokensIn": 31121.333333333332,
+              "timeMs": 12255.166666666666,
+              "tokens": 31900.5,
+              "n": 6,
+              "cacheRead": 22613.333333333332,
+              "cacheWrite": 0.0,
+              "tokensOut": 779.1666666666666
+            },
+            "activationFired": 4,
+            "baselineOnlyPass": 0,
+            "treatmentOnlyPass": 1,
+            "timedOut": false,
+            "activationContract": {
+              "violated": 0,
+              "count": 0,
+              "evaluated": true,
+              "passed": true
+            },
+            "skill": "technology-selection",
+            "treatment": {
+              "tokensIn": 33103.166666666664,
+              "timeMs": 6887.5,
+              "tokens": 33616.333333333336,
+              "n": 6,
+              "cacheRead": 23296.0,
+              "cacheWrite": 0.0,
+              "tokensOut": 513.1666666666666
+            }
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-10-09T22:26:57+00:00",
+          "url": "https://github.com/dotnet/skills/commit/1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "message": "Merge pull request #1290 from dotnet/abhitejjohn-dotnet11-code-owner",
+          "id": "1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb"
+        },
+        "judgeModel": "claude-haiku-4.5",
+        "model": "gpt-5.3-codex",
+        "date": 1791658799328
+      },
+      {
+        "skills": [
+          {
+            "hasPassData": true,
+            "activationExpected": 6,
+            "treatAvailable": 6,
+            "bothFail": 2,
+            "baseAvailable": 6,
+            "treatmentFail": 2,
+            "baselineFail": 4,
+            "bothPass": 2,
+            "pairedN": 6,
+            "preference": {
+              "losses": 1,
+              "conclusive": true,
+              "practicalPassed": true,
+              "ties": 1,
+              "minCredibleStimuli": 5,
+              "count": 6,
+              "pValue": 0.18750000000000003,
+              "underpowered": false,
+              "wins": 4,
+              "direction": "better",
+              "alpha": 0.05,
+              "netWin": 0.5
+            },
+            "passTotal": 6,
+            "baseline": {
+              "tokensIn": 468348.6666666667,
+              "timeMs": 75694.0,
+              "tokens": 480206.6666666667,
+              "n": 6,
+              "cacheRead": 401216.0,
+              "cacheWrite": 0.0,
+              "tokensOut": 11858.0
+            },
+            "activationFired": 2,
+            "baselineOnlyPass": 0,
+            "treatmentOnlyPass": 2,
+            "timedOut": false,
+            "activationContract": {
+              "violated": 0,
+              "count": 0,
+              "evaluated": true,
+              "passed": true
+            },
+            "skill": "technology-selection",
+            "treatment": {
+              "tokensIn": 871213.1666666666,
+              "timeMs": 104477.5,
+              "tokens": 884202.8333333334,
+              "n": 6,
+              "cacheRead": 755562.6666666666,
+              "cacheWrite": 0.0,
+              "tokensOut": 12989.666666666666
+            }
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-10-09T22:26:57+00:00",
+          "url": "https://github.com/dotnet/skills/commit/1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "message": "Merge pull request #1290 from dotnet/abhitejjohn-dotnet11-code-owner",
+          "id": "1d40f95ed0f2cdedfa4c9b2614b7c2035a4323cb"
+        },
+        "judgeModel": "gpt-5.6-terra",
+        "model": "mai-code-1.1-flash",
+        "date": 1791658799383
       }
     ]
   },
-  "lastUpdate": 1791564926614,
+  "lastUpdate": 1791658799383,
   "repoUrl": "",
   "schemaVersion": 2
 }
