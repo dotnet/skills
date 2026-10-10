@@ -135,7 +135,10 @@ Run the test project directly (not through `dotnet test`) to use hot reload in c
 dotnet run --project <project-path>
 ```
 
-To filter to specific failing tests, pass the filter after `--`. The syntax depends on the test framework -- see the `filter-syntax` skill for full details. Quick examples:
+To filter to specific failing tests, pass the filter after `--`. Read the
+supplied or runtime-listed `filter-syntax` catalog file only when the examples
+below do not resolve the framework's syntax; do not invoke this reference-only
+helper. Quick examples:
 
 | Framework | Filter syntax |
 |-----------|--------------|

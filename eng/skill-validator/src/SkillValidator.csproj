@@ -19,6 +19,8 @@
     <!-- Packaging -->
     <PackageId>Microsoft.DotNet.SkillValidator</PackageId>
     <PackAsTool>true</PackAsTool>
+    <!-- Preserve SDK runtime dotfiles such as plugins/computer-use/.release-target. -->
+    <NoDefaultExcludes>true</NoDefaultExcludes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <ToolCommandName>skill-validator</ToolCommandName>
     <Version>1.0.0</Version>

@@ -56,7 +56,7 @@ Choose the smallest path that satisfies the request:
 | One-time classic run without rebuilding | Keep the repository runner and invoke it against an existing built assembly; do not substitute `dotnet test`. |
 | Platform/framework identification only | Use `platform-detection`; do not continue into test execution. |
 | Explicit hot reload or a keep-running edit/re-run loop | Use `mtp-hot-reload`. |
-| Filter needed and the framework-specific syntax is not already clear | Load `filter-syntax`; do not load it for unfiltered runs. |
+| Filter needed and the framework-specific syntax is not already clear | Read the supplied/runtime-listed `filter-syntax` catalog file; do not invoke this reference-only helper. |
 
 Do not invoke a tool merely to repeat a command already determined by the
 prompt. Do not build first "just in case": `dotnet test` builds by default.
@@ -197,8 +197,9 @@ an incidental substring difference.
 
 3. **Apply platform- and framework-correct filters.**
 
-Load `filter-syntax` only when the request is filtered and the framework-specific
-syntax is not already clear. The common decisions are:
+Read the supplied or runtime-listed `filter-syntax` file only when the request
+is filtered and framework-specific syntax is unclear. It is reference-only,
+not an invocable skill; otherwise use the common decisions below:
 
 For a file-backed filtered request, resolve the framework and SDK command mode
 from the project, `global.json`, and imported props before choosing syntax.

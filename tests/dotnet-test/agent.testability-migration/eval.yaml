@@ -3,10 +3,6 @@ description: Evaluates the dotnet-test/agent.testability-migration internal spec
 type: capability
 defaults:
   timeout: 20m
-environment:
-  files:
-    - src: ../graders/authenticated_artifacts.py
-      dest: .eval/authenticated_artifacts.py
 stimuli:
   - name: "Full pipeline: detect statics and recommend migration plan"
     prompt: >
@@ -20,6 +16,8 @@ stimuli:
       journey: plan-testability-migration
     environment:
       files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: ./fixtures/full-pipeline
           dest: FullPipeline
         - src: ../agent.test-quality-auditor/graders/check_readonly.py
@@ -51,7 +49,7 @@ stimuli:
           pattern: (Console\.|console|logging|TextWriter|ILogger)
       - type: output-matches
         config:
-          pattern: (increment|step|phase|first|order|sequence)
+          pattern: (increment|step|phase|first|order|sequence|priorit|\b1\.)
       - type: run-command
         config:
           command: >-
@@ -66,18 +64,40 @@ stimuli:
       - Recommended System.IO.Abstractions or a wrapper for File/Directory calls
       - Proposed an incremental migration plan rather than changing everything at once
       - Produced clear next steps without modifying source or project configuration
+      - Identified the inconsistent trial timestamps as a correctness risk with explicit acceptance criteria, while separating a proposed correction from mechanical call replacement
+      - Bounded new abstractions to the operations that need isolation and preserved configuration fallback and failure semantics
 
   - name: "Targeted request: just migrate DateTime to TimeProvider"
     prompt: >
       I only care about making the time calls testable right now. Replace
       DateTime.UtcNow with TimeProvider in my SubscriptionManager class. I'm
       on .NET 10.
+    golden_patch:
+      path: references/timeprovider-wiring.patch
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: timeprovider-production-wiring
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Replaced all three DateTime.UtcNow calls in SubscriptionManager
+              with injected TimeProvider.GetUtcNow().UtcDateTime, preserving
+              call count, order, and UTC kind. Program.cs registers
+              TimeProvider.System. File, Directory, Environment, Console,
+              export behavior, and project configuration remain unchanged.
+              The contract grader checks injection and expiry boundaries;
+              this reference does not claim an agent-executed build.
     tags:
       capability: timeprovider-migration
       risk: untestable-static-coupling
       journey: migrate-time-dependency
     environment:
       files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: ./fixtures/full-pipeline
           dest: FullPipeline
         - src: ../agent.test-quality-auditor/graders/check_readonly.py
@@ -112,13 +132,13 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 0065ceb2aa76bac3a3bef417267e51c1b8342f4bb586a67861784a436bb108d7:.eval/check_time_scope.py --expect 70c443c393a8973de19071d890cab67074b5db552c531c6b5c993fa689b82579:.eval/baseline.json -- python .eval/check_time_scope.py
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 3b54028a0a4a08050fb84bd32f05c7c66851cb39a11dec0727de3b65d74722ac:.eval/check_time_scope.py --expect 70c443c393a8973de19071d890cab67074b5db552c531c6b5c993fa689b82579:.eval/baseline.json -- python .eval/check_time_scope.py
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 8768d99d41e0021669c2179a2415572c2c0c9177dfc1dc4e7d09f91996ace148:.eval/TimeContract/Program.cs --expect ea3bdafcaa215400ffb53b2fc21bdd0347f67a59a5dd1a7d9e9697492ebb3cb3:.eval/TimeContract/TimeContract.csproj -- dotnet run --project .eval/TimeContract
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 0d40c874860be8b746ea3568a52605d04446fedec220f6987066d460e9006978:.eval/TimeContract/Program.cs --expect ea3bdafcaa215400ffb53b2fc21bdd0347f67a59a5dd1a7d9e9697492ebb3cb3:.eval/TimeContract/TimeContract.csproj -- dotnet run --project .eval/TimeContract
           expected_exit_code: 0
           timeout: 5m
       - type: exit-success
@@ -144,6 +164,8 @@ stimuli:
       journey: migrate-and-test-time-dependency
     environment:
       files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: ./fixtures/full-pipeline
           dest: FullPipeline
         - src: ../agent.test-quality-auditor/graders/check_readonly.py
@@ -179,13 +201,13 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 0065ceb2aa76bac3a3bef417267e51c1b8342f4bb586a67861784a436bb108d7:.eval/check_time_scope.py --expect 70c443c393a8973de19071d890cab67074b5db552c531c6b5c993fa689b82579:.eval/baseline.json -- python .eval/check_time_scope.py
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 3b54028a0a4a08050fb84bd32f05c7c66851cb39a11dec0727de3b65d74722ac:.eval/check_time_scope.py --expect 70c443c393a8973de19071d890cab67074b5db552c531c6b5c993fa689b82579:.eval/baseline.json -- python .eval/check_time_scope.py
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 8768d99d41e0021669c2179a2415572c2c0c9177dfc1dc4e7d09f91996ace148:.eval/TimeContract/Program.cs --expect ea3bdafcaa215400ffb53b2fc21bdd0347f67a59a5dd1a7d9e9697492ebb3cb3:.eval/TimeContract/TimeContract.csproj -- dotnet run --project .eval/TimeContract
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 0d40c874860be8b746ea3568a52605d04446fedec220f6987066d460e9006978:.eval/TimeContract/Program.cs --expect ea3bdafcaa215400ffb53b2fc21bdd0347f67a59a5dd1a7d9e9697492ebb3cb3:.eval/TimeContract/TimeContract.csproj -- dotnet run --project .eval/TimeContract
           expected_exit_code: 0
           timeout: 5m
       - type: run-command
@@ -220,6 +242,8 @@ stimuli:
       journey: replace-filesystem-statics
     environment:
       files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: ./fixtures/full-pipeline
           dest: FullPipeline
       skills:
@@ -260,6 +284,8 @@ stimuli:
       journey: analyze-testability-blockers
     environment:
       files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: ./fixtures/full-pipeline
           dest: FullPipeline
         - src: ../agent.test-quality-auditor/graders/check_readonly.py
@@ -292,3 +318,178 @@ stimuli:
       - Identified time, filesystem, environment, and console dependencies with their affected members
       - Ranked the migration sequence based on testing value and implementation risk
       - Kept the analysis read-only and did not alter the supplied project
+
+  - name: Migrate an instance clock with manual production construction
+    prompt: |
+      Make TimestampReader's DateTime.UtcNow calls injectable in ManualClock.
+      Keep the console app working and don't add a DI container or ambient
+      global state. This is a mechanical replacement: preserve the two
+      independent reads, their order, and the UTC DateTime return values.
+    tags:
+      capability: manual-clock-composition
+      risk: broken-construction-or-coalesced-reads
+      journey: migrate-console-clock
+    golden_patch:
+      path: references/manual-clock.patch
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: manual-clock-composition
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              TimestampReader accepts TimeProvider through its constructor.
+              Program.cs supplies TimeProvider.System without a DI container.
+              ReadPair keeps two independent GetUtcNow().UtcDateTime calls in
+              source order. No ambient override or package was introduced.
+              The contract grader checks a stepping clock and UTC kinds;
+              this reference does not claim an agent-executed build.
+    environment:
+      files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+        - src: fixtures/manual-clock
+          dest: ManualClock
+        - src: ../agent.test-quality-auditor/graders/check_readonly.py
+          dest: .eval/check_readonly.py
+        - src: graders/ManualClockContract
+          dest: .eval/ManualClockContract
+      commands:
+        - python .eval/check_readonly.py snapshot ManualClock
+      skills:
+        - ../../plugins/dotnet-test/skills/migrate-static-to-wrapper
+    graders:
+      - type: file-contains
+        config:
+          path: ManualClock/Program.cs
+          value: TimeProvider.System
+      - type: file-not-contains
+        config:
+          path: ManualClock/TimestampReader.cs
+          value: DateTime.UtcNow
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 606142a930232cb26959562f7128f460defe42a82ac670a34074ace09feeb74e:.eval/check_readonly.py --expect 6b78746b0fb520843187fef7760d87f97f3ff14f6d71f650ba77cd76662c8ce5:.eval/baseline.json -- python .eval/check_readonly.py verify ManualClock --allow ManualClock/TimestampReader.cs --allow ManualClock/Program.cs
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect ba2da6d0082dfa5ce9020d3fa960225531384f79bd596ee5630a8db4cc896331:.eval/ManualClockContract/Program.cs --expect a59b8ae4a7bcac4edfad94c6220f9b5e5bdfb6bfe7534a7be845968bd010e01d:.eval/ManualClockContract/ManualClockContract.csproj -- dotnet run --project .eval/ManualClockContract
+          expected_exit_code: 0
+          stdout_matches: Manual construction and independent UTC reads passed
+          timeout: 5m
+      - type: run-command
+        config:
+          command: dotnet build ManualClock --nologo --verbosity quiet
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Injected TimeProvider into the instance class and supplied the production default at the manual construction site
+      - Preserved two independent UTC DateTime reads in order, including UTC kind
+      - Left the console app buildable without adding DI infrastructure, ambient mutable state, or unrelated dependencies
+
+  - name: Leave an already injected clock unchanged
+    prompt: |
+      Check InjectedClock and replace any remaining DateTime.UtcNow calls with
+      an injectable clock. Preserve the existing production default and avoid
+      changing code that is already correctly using the injected clock.
+    tags:
+      capability: clock-migration-noop
+      risk: unnecessary-abstraction-churn
+      journey: verify-existing-clock-seam
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: injected-clock-noop
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              No changes needed. TimestampReader already accepts TimeProvider
+              and reads GetUtcNow().UtcDateTime. Program.cs supplies
+              TimeProvider.System. There are no DateTime.UtcNow calls to replace.
+    environment:
+      files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+        - src: fixtures/injected-clock
+          dest: InjectedClock
+        - src: ../agent.test-quality-auditor/graders/check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot InjectedClock
+      skills:
+        - ../../plugins/dotnet-test/skills/migrate-static-to-wrapper
+    graders:
+      - type: output-matches
+        config:
+          pattern: (already|no.*(change|remaining|replacement)|unchanged)
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 606142a930232cb26959562f7128f460defe42a82ac670a34074ace09feeb74e:.eval/check_readonly.py --expect 621783778043935db25596012b54f3868604f7716f88c3528d35ab102b32dbb4:.eval/baseline.json -- python .eval/check_readonly.py verify InjectedClock
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Recognized the existing injectable UTC clock and its working production default
+      - Preserved every supplied source and configuration file without introducing a redundant seam
+
+  - name: Report a missing selected filesystem interface without inventing one
+    prompt: |
+      Replace DocumentReader's File.ReadAllText with our existing ITextFileStore
+      in MissingStore. Do not create an interface or add a package; if that
+      interface is not available in this project, tell me what is missing
+      without changing files.
+    tags:
+      capability: migration-prerequisite-diagnosis
+      risk: invented-or-unauthorized-seam
+      journey: adopt-selected-filesystem-interface
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: missing-filesystem-interface
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Blocked: ITextFileStore is missing from the supplied project and
+              its references. DocumentReader.Read still uses File.ReadAllText.
+              Supply the interface and production implementation/reference
+              before replacing the call. No files or packages were changed.
+    environment:
+      files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+        - src: fixtures/missing-store
+          dest: MissingStore
+        - src: ../agent.test-quality-auditor/graders/check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot MissingStore
+      skills:
+        - ../../plugins/dotnet-test/skills/migrate-static-to-wrapper
+    graders:
+      - type: output-matches
+        config:
+          pattern: ITextFileStore
+      - type: output-matches
+        config:
+          pattern: (missing|absent|not.*(available|found|present|defined)|cannot.*find)
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 606142a930232cb26959562f7128f460defe42a82ac670a34074ace09feeb74e:.eval/check_readonly.py --expect 6a2ab5e1288a281032522d37fd2fb2af2fd0c73d187172645f5c233c3240ae9c:.eval/baseline.json -- python .eval/check_readonly.py verify MissingStore
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Identified the absent selected interface and the reference or implementation needed to continue
+      - Preserved all source and configuration files instead of creating a lookalike interface, adding a package, or performing a different migration

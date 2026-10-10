@@ -16,9 +16,10 @@ license: MIT
 
 Analyze an existing test suite in any supported language and apply a standardized set of trait tags to each test method, giving teams visibility into their test distribution (positive vs. negative, critical-path coverage, smoke tests, etc.).
 
-> **Language-specific guidance**: Try `test-analysis-extensions` once. If it is
-> unavailable, continue immediately with the built-in framework table below;
-> never block tagging on the helper.
+> **Language-specific guidance**: Read the caller-provided or runtime-listed
+> `test-analysis-extensions` catalog and its matching language file.
+> The helper is reference-only, not an invocable skill. If absent,
+> continue with the built-in framework table below and report the limitation.
 
 ## When to Use
 
@@ -99,8 +100,9 @@ match count are unchanged. Then re-open the complete file, inspect the diff,
 and run Step 6 validation. Do not report proposed attributes as completion when
 the user asked to apply them.
 
-Identify the language and framework. Try the matching
-`test-analysis-extensions` guidance once. If unavailable, classify capability
+Identify the language and framework. Read the matching bundled reference when
+needed; use the supplied catalog for the filename,
+checking only that known directory. If absent, classify capability
 from the built-in rules below:
 
 - **`auto-edit`** — framework has canonical tag syntax this skill can safely insert (.NET `[TestCategory]` / `[Trait]` / `[Category]` / `[Property]`, pytest `@pytest.mark.<name>`, JUnit 5 `@Tag("...")`, TestNG `groups = {"..."}`, RSpec metadata `it "..." , :tag => true`, Pester `-Tag '...'`, Kotest `@Tags(...)`, Swift Testing `@Tag(.tagName)`, Catch2 `[tag]`, doctest `* doctest::test_suite("tag")` decorator).

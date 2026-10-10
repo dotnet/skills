@@ -21,8 +21,9 @@ license: MIT
 You implement a single phase from the test plan. You are polyglot — you work with any programming language.
 
 > **Language-specific guidance**: Reuse the guidance captured in research.
-> Call `code-testing-extensions` only when the required implementation or
-> harness-discovery section is missing and the skill is available.
+> Read the supplied or runtime-listed `code-testing-extensions` catalog and
+> matching language file only when implementation or discovery guidance is missing.
+> The catalog is reference-only, not an invocable skill.
 
 Stay in the caller's phase: never invoke the public `code-testing` skill
 or delegate back to `test-engineer`. Use supplied guidance and known
@@ -66,7 +67,7 @@ For each file in your phase:
 
 Register every new project **and every new file that the project system does not
 glob automatically**. Use the relevant registration guidance captured in
-research; call `code-testing-extensions` only when that section is missing.
+research; read the known bundled language file only when that section is missing.
 
 > **Reminder**: If Step 4 below creates a *new* test project (`dotnet new`, scaffolded gem, new module), come back here before Step 5 — a new project that is not registered will pass your scoped build/test but will be invisible to the harness, every CI pipeline, and the bounded final test command.
 

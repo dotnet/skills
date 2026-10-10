@@ -1,10 +1,11 @@
 name: migrate-xunit-to-mstest
-description: Evaluates the dotnet-test/migrate-xunit-to-mstest skill
+description: Evaluates the dotnet-test-migration/migrate-xunit-to-mstest skill
 type: capability
-config:
+defaults:
   timeout: 20m
 stimuli:
   - name: Migrate basic xUnit v2 project to MSTest v4 preserving VSTest
+    tags: {capability: xunit-v2-migration, risk: runner-change, journey: migrate-vstest-project}
     prompt: |
       Convert this test project from xUnit.net v2 to MSTest. Update package
       references, attributes, and assertions. Keep the project on the same
@@ -63,6 +64,7 @@ stimuli:
       - Converts Assert.Equal -> Assert.AreEqual and Assert.True -> Assert.IsTrue
       - Does NOT switch the project to Microsoft.Testing.Platform (no MSTest.Sdk default flip)
   - name: Migrate basic xUnit v3 project to MSTest v4 preserving VSTest
+    tags: {capability: xunit-v3-migration, risk: runner-change, journey: migrate-vstest-project}
     prompt: |
       Convert this test project from xUnit.net v3 to MSTest. Preserve the
       VSTest runner (do not switch to MTP).
@@ -106,6 +108,7 @@ stimuli:
       - 'Preserves the VSTest runner through a compatible Microsoft.NET.Test.Sdk dependency and does not switch to MSTest.Sdk default MTP'
       - Does NOT silently change TargetFramework
   - name: Stop when target framework is unsupported by MSTest v4
+    tags: {capability: unsupported-framework, risk: unrequested-retargeting, journey: assess-legacy-migration}
     prompt: |
       Convert this test project from xUnit.net v2 to MSTest (latest version).
     environment:
@@ -124,6 +127,7 @@ stimuli:
       - Stops or pauses for user confirmation -- does NOT silently retarget the TFM
       - Suggests either upgrading the TFM to net8.0/net9.0, or falling back to MSTest v3
   - name: Convert IClassFixture to ClassInitialize
+    tags: {capability: class-fixture-lifecycle, risk: changed-lifetime, journey: migrate-shared-state}
     prompt: |
       Convert this test project from xUnit.net v2 to MSTest.
     environment:
@@ -162,6 +166,7 @@ stimuli:
       - Adds a [ClassCleanup] method that disposes the fixture
       - Tests still reference the fixture instance through the static field
   - name: Handle ICollectionFixture explicitly (do not silently widen scope)
+    tags: {capability: collection-fixture-lifecycle, risk: widened-lifetime, journey: migrate-shared-state}
     prompt: |
       Convert this test project from xUnit.net v2 to MSTest. Two test classes
       share a database fixture via xUnit's collection mechanism and must NOT
@@ -201,6 +206,7 @@ stimuli:
       - Explicitly explains the scope decision (collection scope -> chosen scope) instead of silently widening
       - Removes [Collection(...)] / [CollectionDefinition(...)] attributes
   - name: Convert ITestOutputHelper to TestContext
+    tags: {capability: test-output, risk: lost-diagnostics, journey: migrate-output-capture}
     prompt: |
       Convert this test project from xUnit.net v2 to MSTest.
     environment:
@@ -240,6 +246,7 @@ stimuli:
       - Replaces _output.WriteLine(...) with _testContext.WriteLine(...) (or TestContext.WriteLine via the property)
       - Removes 'using Xunit.Abstractions;'
   - name: Map exception assertions correctly (xUnit Throws -> MSTest ThrowsExactly)
+    tags: {capability: exception-assertions, risk: weakened-type-check, journey: preserve-exception-semantics}
     prompt: |
       Convert this test project from xUnit.net v2 to MSTest. Be careful with
       exception assertions.
@@ -277,6 +284,7 @@ stimuli:
       - Maps xUnit Assert.ThrowsAsync<T> to MSTest Assert.ThrowsExactlyAsync<T>
       - Does NOT silently flip the semantic by mapping Throws -> Throws
   - name: Preserve type and sequence assertion semantics
+    tags: {capability: type-sequence-assertions, risk: weakened-equality, journey: preserve-assertion-semantics}
     prompt: |
       Convert this xUnit.net v2 project to MSTest v4 without changing its target
       framework or VSTest runner. Preserve the exact-vs-assignable type checks and
@@ -340,6 +348,7 @@ stimuli:
       - Completes the framework migration without changing the target framework or VSTest runner
       - Runs the migrated tests successfully
   - name: Convert MemberData and TheoryData to DynamicData
+    tags: {capability: data-driven-tests, risk: lost-data-rows, journey: migrate-parameterized-tests}
     prompt: |
       Convert this test project from xUnit.net v2 to MSTest.
     environment:
@@ -376,6 +385,7 @@ stimuli:
       - Preserves the existing IEnumerable<object[]> data source signature
       - Both data rows still execute -- pass count matches the pre-migration baseline
   - name: Convert Skip, Trait, and Timeout
+    tags: {capability: method-metadata, risk: lost-test-policy, journey: preserve-test-annotations}
     prompt: |
       Convert this test project from xUnit.net v2 to MSTest.
     environment:
@@ -420,6 +430,7 @@ stimuli:
       - Converts the reserved Owner trait to [Owner(value)] rather than the invalid [TestProperty("Owner", value)]
       - Converts [Fact(Timeout = N)] to [TestMethod] + [Timeout(N)]
   - name: 'Preserve xUnit parallelization default with [assembly: Parallelize]'
+    tags: {capability: parallelization-default, risk: changed-concurrency, journey: preserve-execution-policy}
     prompt: |
       Convert this test project from xUnit.net v2 to MSTest. Preserve the
       same parallelization behavior the project had under xUnit (which by
@@ -467,6 +478,7 @@ stimuli:
       - Does NOT pick ExecutionScope.MethodLevel (which is more aggressive than xUnit)
       - Mentions that MSTest's default is serial, so explicit Parallelize is required to match xUnit
   - name: Convert xUnit v3 TestContext.Current.CancellationToken
+    tags: {capability: cancellation-context, risk: disconnected-cancellation, journey: migrate-test-cancellation}
     prompt: |
       Convert this test project from xUnit.net v3 to MSTest.
     environment:
@@ -504,6 +516,7 @@ stimuli:
       - Uses MSTest's instance TestContext (constructor injection or property) rather than a static 'Current'
       - Does NOT introduce CancellationTokenSource as a fake replacement
   - name: Recognize project already on MSTest
+    tags: {capability: already-mstest, risk: unnecessary-rewrite, journey: assess-existing-project}
     prompt: |
       Convert this test project from xUnit.net to MSTest.
     environment:
@@ -538,3 +551,199 @@ stimuli:
       - Does NOT make changes (no destructive 'migration' of MSTest tests)
       - Tells the user the migration is not needed (and may optionally suggest migrate-mstest-v3-to-v4 if v4 is desired)
       - Runs dotnet test and reports that the already-MSTest project passes
+  - name: Preserve effective assembly and class owners on methods
+    prompt: |
+      Convert this xUnit.net v3 project to MSTest v4, keeping its target
+      framework and VSTest runner. Preserve the effective ownership of every
+      test, including repeated identical metadata, and run the migrated tests.
+    tags: {capability: effective-owner-scopes, risk: invalid-or-duplicated-ownership, journey: migrate-inherited-metadata}
+    environment:
+      files:
+        - src: fixtures/portable-migration/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/owner-scopes/OwnerTests.cs
+          dest: OwnerTests.cs
+        - src: fixtures/migrate-basic-xunit-v3-project-to-mstest-v4-preserving-vstest/global.json
+          dest: global.json
+        - src: graders/owner-contract/Contract.csproj
+          dest: .eval/Contract.csproj
+        - src: graders/owner-contract/Program.cs
+          dest: .eval/Program.cs
+        - src: graders/runner_contract.py
+          dest: .eval/runner_contract.py
+        - src: ../../dotnet-test/graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+    golden_patch:
+      path: goldens/owner-scopes.patch
+    graders:
+      - type: file-not-contains
+        config: {path: OwnerTests.cs, value: 'Trait('}
+      - type: file-not-contains
+        config: {path: TestProject.csproj, value: xunit}
+      - type: run-command
+        config: &preserved_vstest
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True,timeout=75)" --expect 34b876951be1dcb9a893ca8e3005a7a13e3b462ff4f3ffa49f555ccc2f5b4db7:.eval/runner_contract.py --expect b890fa7f916232da31fc5516007c93c148cb5d3e7aba87bfa594a44611dd4f0f:global.json -- python3 .eval/runner_contract.py
+          expected_exit_code: 0
+          stdout_matches: RUNNER_CONTRACT:net8.0 VSTest, no native or bridged MTP
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet test TestProject.csproj --logger "console;verbosity=normal"
+          expected_exit_code: 0
+          stdout_matches: '(?s)(Passed!\s+.*Passed:\s+3\s+.*Total:\s+3|Test Run Successful\.\s+Total tests:\s+3\s+Passed:\s+3)'
+          timeout: 3m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True,timeout=170)" --expect 8db65c0b81edba281ab84904be9c20ff0816a89058c8f1fceb68fbebd3ef4281:.eval/Contract.csproj --expect bc2580d2e5c645ab994eb76dda00a509b256ca8f55cb3301ba139fdf2bc016ca:.eval/Program.cs --expect b890fa7f916232da31fc5516007c93c148cb5d3e7aba87bfa594a44611dd4f0f:global.json -- dotnet run --project .eval/Contract.csproj
+          expected_exit_code: 0
+          stdout_matches: OWNER_CONTRACT:3 methods, one alice each
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - All three original tests remain discoverable and pass on MSTest without changing net8.0 or VSTest.
+      - Assembly and class ownership are preserved on each affected method, with exactly one alice owner per method.
+      - Owner is not emitted on a class or assembly and repeated identical values are deduplicated.
+  - name: Identify conflicting and shared inherited owners before editing
+    prompt: |
+      Assess converting this xUnit.net v3 project to MSTest v4 without editing
+      any files. Can all existing metadata be preserved automatically, and
+      would any tests need a decision from me?
+    tags: {capability: owner-conflict-restraint, risk: silent-owner-overwrite, journey: assess-shared-inherited-tests}
+    environment:
+      files:
+        - src: fixtures/portable-migration/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/owner-conflicts/OwnerTests.cs
+          dest: OwnerTests.cs
+        - src: fixtures/migrate-basic-xunit-v3-project-to-mstest-v4-preserving-vstest/global.json
+          dest: global.json
+        - src: ../../dotnet-test/graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: owner-conflict-review
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Owner values conflict: assembly alice combines with bob on
+              DirectTests.ConflictingOwners and BillingTests.Inherited, and
+              with charlie on PaymentTests.Inherited. MSTest Owner is method-only
+              and cannot represent multiple effective owners by silently choosing
+              one. Inherited is a shared base method, so assigning a derived
+              class's value there would also change the other derived test.
+              Manual review is required to choose an explicit ownership policy
+              or restructure these inherited tests without losing their scope.
+              No files need to change until you decide.
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';files={p.as_posix() for p in pathlib.Path('.').rglob('*') if p.is_file() and not {'.eval','.git','bin','obj'}.intersection(p.parts)};assert files=={'TestProject.csproj','OwnerTests.cs','global.json'};subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True,timeout=30)" --expect 383c5f38dfec494c7d38601f7c81a11c62ea431077df254ef7a17b3351a681c2:TestProject.csproj --expect ba38330b97f700eefdcb62fb9cbb88f7854e37c1a7c023f14b7ae64d624dd6a7:OwnerTests.cs --expect b890fa7f916232da31fc5516007c93c148cb5d3e7aba87bfa594a44611dd4f0f:global.json
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config: {pattern: '(?i)(conflict|multiple).*(owner|alice|bob)'}
+      - type: output-matches
+        config: {pattern: '(?is)(?=.*\balice\b)(?=.*\bbob\b)(?=.*\bcharlie\b)'}
+      - type: output-matches
+        config: {pattern: '(?is)(Inherited.*(shared|base)|(shared|base).*Inherited)'}
+      - type: output-matches
+        config: {pattern: '(?i)(manual review|decision|policy)'}
+      - type: prompt
+    rubric:
+      - Identifies conflicting effective owners rather than choosing or overwriting one.
+      - Identifies shared Inherited methods under BillingTests and PaymentTests and the different bob and charlie mappings combined with assembly alice.
+      - Explains the method-only Owner limitation and asks for an explicit policy or restructuring decision.
+      - Preserves the complete supplied project without edits while assessing the blockers.
+  - name: Preserve AwesomeAssertions package and every import form
+    prompt: |
+      Convert this xUnit.net v3 project to MSTest v4 while preserving net8.0
+      and VSTest. Keep the existing assertion library, its package version and
+      imports, and the assertions themselves; run both migrated tests.
+    tags: {capability: independent-assertion-library, risk: wrong-namespace-or-package-swap, journey: migrate-framework-with-existing-assertions}
+    environment:
+      files:
+        - src: fixtures/awesome-imports
+          dest: .
+        - src: fixtures/migrate-basic-xunit-v3-project-to-mstest-v4-preserving-vstest/global.json
+          dest: global.json
+        - src: graders/assertion_contract.py
+          dest: .eval/assertion_contract.py
+        - src: graders/runner_contract.py
+          dest: .eval/runner_contract.py
+        - src: ../../dotnet-test/graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+    golden_patch:
+      path: goldens/awesome-imports.patch
+    graders:
+      - type: run-command
+        config: *preserved_vstest
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True,timeout=30)" --expect 04253f14f6c13c64218ccad26d236e09a3fd576643d87f3d0338b2f25336982e:.eval/assertion_contract.py --expect b890fa7f916232da31fc5516007c93c148cb5d3e7aba87bfa594a44611dd4f0f:global.json -- python3 .eval/assertion_contract.py
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet test TestProject.csproj --logger "console;verbosity=normal"
+          expected_exit_code: 0
+          stdout_matches: '(?s)(Passed!\s+.*Passed:\s+2\s+.*Total:\s+2|Test Run Successful\.\s+Total tests:\s+2\s+Passed:\s+2)'
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Migrates both tests to MSTest without changing net8.0, VSTest, the AwesomeAssertions 9.6.0 package, or the existing assertions.
+      - Preserves the local using, global using, and project Using import of AwesomeAssertions rather than changing any of them to FluentAssertions.
+      - Both original tests remain discoverable and pass after migration.
+  - name: Advise on xUnit v2 to v3 without framework conversion
+    prompt: |
+      How do I upgrade the tests in this xUnit v2 project to xUnit v3?
+      Explain the migration route and runner compatibility without editing
+      any files.
+    expect_activation: false
+    tags: {capability: xunit-version-boundary, risk: unrelated-framework-conversion, journey: assess-framework-version-upgrade}
+    environment:
+      files:
+        - src: fixtures/migrate-basic-xunit-v2-project-to-mstest-v4-preserving-vstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/migrate-basic-xunit-v2-project-to-mstest-v4-preserving-vstest/CalculatorTests.cs
+          dest: CalculatorTests.cs
+        - src: fixtures/migrate-basic-xunit-v2-project-to-mstest-v4-preserving-vstest/global.json
+          dest: global.json
+        - src: ../../dotnet-test/graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: xunit-version-boundary
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Use the xUnit v2-to-v3 migration path, not a framework conversion.
+              For this net8.0 VSTest project, replace the xunit package with
+              xunit.v3, configure executable output, and update the Visual Studio
+              adapter to a v3-compatible version. Review lifecycle and API
+              differences before implementing, preserving the two existing
+              tests and VSTest runner. No files need to change for this advice.
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';files={p.as_posix() for p in pathlib.Path('.').rglob('*') if p.is_file() and not {'.eval','.git','bin','obj'}.intersection(p.parts)};assert files=={'TestProject.csproj','CalculatorTests.cs','global.json'};subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True,timeout=30)" --expect a05bee1eeb5d20146fc7f3de43bd43a3cbf39defcc65a774f10dc9c75e7b89a6:TestProject.csproj --expect f58840ba98cfb3238db4eefcd374f3660ad2df48f9c760bb2993e1c3cc55fe43:CalculatorTests.cs --expect b890fa7f916232da31fc5516007c93c148cb5d3e7aba87bfa594a44611dd4f0f:global.json
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config: {pattern: '(?i)(xunit(?:\.net)?\s*v?3|xunit\.v3)'}
+      - type: prompt
+    rubric:
+      - Gives the xUnit v2-to-v3 migration route rather than converting the project to MSTest.
+      - Explains v3 package, executable output, adapter and API compatibility while preserving VSTest.
+      - Keeps every supplied project/source/configuration file unchanged as requested.
+      - Does not invoke the xUnit-to-MSTest skill or hijack the version-upgrade request.

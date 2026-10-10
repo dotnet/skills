@@ -999,6 +999,29 @@ def replace_fixture_mapping(d, old, new):
         f.write(raw.replace(old, new, 1))
 
 
+def move_fixture_mapping_to_suite(d):
+    path = EV(d)
+    with open(path) as f:
+        raw = f.read()
+    stimulus_environment = (
+        "    environment:\n"
+        "      files:\n"
+        "        - src: fixtures/sample\n"
+        "          dest: sample\n"
+    )
+    suite_environment = (
+        "environment:\n"
+        "  files:\n"
+        "    - src: fixtures/sample\n"
+        "      dest: sample\n"
+    )
+    with open(path, "w") as f:
+        f.write(
+            raw.replace("stimuli:\n", suite_environment + "stimuli:\n", 1)
+            .replace(stimulus_environment, "", 1)
+        )
+
+
 def absolute_fixture_source(d):
     source = os.path.abspath(
         os.path.join(d, "tests", "demo", "widget", "fixtures", "sample"))
@@ -1027,6 +1050,24 @@ def sibling_fixture_source(d):
 def absolute_fixture_destination(d):
     destination = os.path.abspath(os.path.join(d, "escaped"))
     replace_fixture_mapping(d, "dest: sample", f"dest: {destination}")
+
+
+def missing_fixture_destination(d):
+    replace_fixture_mapping(d, "          dest: sample\n", "")
+
+
+def empty_fixture_destination(d):
+    replace_fixture_mapping(d, "dest: sample", 'dest: ""')
+
+
+def missing_suite_fixture_destination(d):
+    move_fixture_mapping_to_suite(d)
+    replace_fixture_mapping(d, "      dest: sample\n", "")
+
+
+def empty_suite_fixture_destination(d):
+    move_fixture_mapping_to_suite(d)
+    replace_fixture_mapping(d, "dest: sample", 'dest: ""')
 
 
 def traversing_fixture_destination(d):
@@ -1811,6 +1852,18 @@ results = [
          expect_fail=False),
     case("absolute fixture destination cannot escape workspace",
          absolute_fixture_destination, expect_fail=True),
+    failing_output_case("fixture mapping requires destination",
+                        missing_fixture_destination,
+                        "requires a non-empty string dest"),
+    failing_output_case("fixture mapping rejects empty destination",
+                        empty_fixture_destination,
+                        "requires a non-empty string dest"),
+    failing_output_case("suite fixture mapping requires destination",
+                        missing_suite_fixture_destination,
+                        "suite environment.files mapping requires a non-empty string dest"),
+    failing_output_case("suite fixture mapping rejects empty destination",
+                        empty_suite_fixture_destination,
+                        "suite environment.files mapping requires a non-empty string dest"),
     case("traversing fixture destination cannot escape workspace",
          traversing_fixture_destination, expect_fail=True),
     case("Windows-style fixture destination cannot escape workspace",

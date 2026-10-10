@@ -260,7 +260,7 @@ class TestCalculator:
   changed tests. Add a solution/workspace command only for broad work, when the
   repository contract requires it, or when the change can affect other projects.
 - **API signature verification**: Before calling any method in test code, verify the exact parameter types, count, and order by reading the source code
-- **Project reference validation**: Before writing test code, verify the test project references all source projects the tests will use. Call the `code-testing-extensions` skill and read the language-specific extension file for guidance (e.g., `dotnet.md` for .NET)
+- **Project reference validation**: Before writing test code, verify the test project references all source projects the tests will use. Read the matching language file relative to the supplied `code-testing-extensions` catalog (e.g., `dotnet.md` for .NET); do not invoke the reference-only catalog.
 
 ## Test Scope Guidelines
 

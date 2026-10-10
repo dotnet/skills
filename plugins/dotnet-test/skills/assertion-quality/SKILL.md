@@ -8,7 +8,12 @@ license: MIT
 
 Analyze test code in any supported language to measure how varied and meaningful the assertions are. Produce a metrics report that reveals whether tests verify different facets of correctness — not just "output equals X" but also structure, exceptions, state transitions, side effects, and invariants.
 
-> **Language-specific guidance**: Call the `test-analysis-extensions` skill to discover available extension files, then read the file matching the target codebase's language and framework (e.g., `dotnet.md` for .NET, `python.md` for pytest, `typescript.md` for Jest, `go.md` for the standard `testing` package). You MUST read the relevant extension file before classifying assertions, because assertion APIs differ significantly across frameworks.
+> **Language-specific guidance**: Read the caller-provided or runtime-listed
+> `test-analysis-extensions` catalog, then its matching language file
+> (`dotnet.md`, `python.md`, `typescript.md`, `go.md`, etc.).
+> `test-analysis-extensions` is reference-only; do not invoke it as a skill.
+> If the bundle is absent, use the pinned framework and this skill's rules,
+> report the missing reference, and do not search installation directories.
 
 ## Why Assertion Diversity Matters
 
@@ -50,7 +55,11 @@ Low assertion diversity signals shallow testing. Tests may pass while bugs hide 
 
 ### Step 1: Detect language and load extension
 
-Identify the target codebase's language and test framework. Call the `test-analysis-extensions` skill and read the matching extension file (e.g., `extensions/dotnet.md` for .NET, `extensions/python.md` for pytest, `extensions/typescript.md` for Jest/Vitest, `extensions/go.md` for Go). The extension file lists the framework-specific assertion APIs you will classify in Step 3.
+Identify the language and test framework. Read the corresponding file in
+`extensions/` relative to the supplied `test-analysis-extensions` catalog.
+Use that catalog for other language filenames. Check only that known
+directory when necessary; an unavailable reference changes the evidence limit,
+not the workspace root or the requested review.
 
 ### Step 2: Gather the test code
 

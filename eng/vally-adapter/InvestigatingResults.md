@@ -23,6 +23,19 @@ package-manifest/eval source links.
 
 Every target runs in up to three variants — **baseline** (no target), **isolated** (only the target plus declared dependencies), and **plugin** (the production plugin surface). Skill evals run through Vally (`@microsoft/vally-cli`). Agent evals run through `skill-validator evaluate`, which registers `CustomAgents` directly and retains target activation, nested delegation, invoked skills, tool calls, completion, tokens, and wall time. Both adapters write one `results.json` per expected target, including an explicit invalid result when required evidence is missing.
 
+The native agent parser stages `stimuli[].environment.files`, not a shared
+suite-level `environment.files` block. Declare required authentication helpers
+and other shared inputs in every stimulus that uses them. A missing
+`.eval/authenticated_artifacts.py` in a command grader is a spec-staging defect,
+not evidence of an agent content or preservation failure.
+
+Native executor sessions now supply the exact project workspace and staged
+reference-only catalog files. Consumers read those resources, not hidden
+skill-tool names, and normal shell hooks defer to typed SDK permissions rather
+than manufacturing an unsupported custom approval prompt. Explicit shell
+denial remains enforced. Baseline identity includes this execution contract:
+do not reuse recordings from the older workspace/permission behavior.
+
 Native agent stimuli may opt in to `deny_shell: true`. Unlike the post-run
 `reject_tools` constraint, this rejects actual shell execution in all arms
 without changing file-tool permissions or the existing sandbox. Setup and

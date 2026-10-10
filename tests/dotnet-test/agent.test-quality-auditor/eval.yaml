@@ -3,22 +3,52 @@ description: Evaluates the dotnet-test/agent.test-quality-auditor internal speci
 type: capability
 defaults:
   timeout: 5m
-environment:
-  files:
-    - src: ../graders/authenticated_artifacts.py
-      dest: .eval/authenticated_artifacts.py
 stimuli:
   - name: Comprehensive test quality audit of weak test suite
     prompt: |
       I'm worried our tests might be giving us false confidence. Can you audit
       the test suite in the WeakTests project and tell me how good our tests
       really are?
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: bounded-test-health-audit
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Static audit: four of six tests provide false confidence; two
+              contain meaningful checks. Execution and coverage were not measured.
+
+              | Test / behavior | Finding and risk | Evidence | Repair |
+              | --- | --- | --- | --- |
+              | AddItem_Works | P0 assertion-free | No assertion rejects a no-op AddItem | Assert item identity, quantity, price and count |
+              | AddItem_ItemIsAdded | P0 presence-only | Items is non-null even when empty | Assert the added item and its fields |
+              | GetTotal_ReturnsValue | P0 tautology | AreEqual(total, total) accepts an incorrect total | Assert 20.00 for two items at 10.00 |
+              | AddItem_NegativePrice_Throws | P0 catch-and-swallow | Passes with no exception or any Exception | Assert the expected ArgumentException |
+              | ItemCount_AfterAdd | Meaningful count check | AreEqual(1, ItemCount) pins one added entry | Retain; test item fields separately |
+              | GetTotal_WithMultipleItems | Meaningful total check; unnecessary delay | AreEqual(25.00, GetTotal()) pins the total; Thread.Sleep adds no evidence | Retain assertion and remove sleep |
+
+              Repair priority: restore trust in the four ineffective
+              checks first. Next protect
+              P1 validation (null/empty/whitespace IDs, zero/negative quantities,
+              negative prices), duplicate-ID quantity merging and original-price
+              retention, and GetTotalWithDiscount normal/0%/100%/invalid inputs.
+              Mutations removing validation, overwriting merged quantity, or
+              changing discount arithmetic currently escape detection. Add
+              concrete exception, field and result assertions for those cases.
+              Then protect RemoveItem existing/missing IDs and empty-cart totals:
+              a no-op removal or nonzero empty total currently passes. Address
+              maintainability last. No source or test changes were made.
     tags:
       capability: comprehensive-test-audit
       risk: false-confidence-in-tests
       journey: audit-test-suite-health
     environment:
       files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: fixtures/weak-tests/WeakTests.csproj
           dest: WeakTests/WeakTests.csproj
         - src: fixtures/weak-tests/ShoppingCart.cs
@@ -33,7 +63,7 @@ stimuli:
         - ../../plugins/dotnet-test/skills/test-anti-patterns
         - ../../plugins/dotnet-test/skills/assertion-quality
         - ../../plugins/dotnet-test/skills/test-gap-analysis
-        - ../../plugins/dotnet-test/skills/grade-tests
+        - ../../plugins/dotnet-test/skills/test-analysis-extensions
     graders:
       - type: output-matches
         config:
@@ -43,13 +73,13 @@ stimuli:
           pattern: (tautolog|self.compar|same.*value|trivial)
       - type: output-matches
         config:
-          pattern: (catch.*swallow|try.*catch|exception.*handling)
+          pattern: (catch.*swallow|try.*catch|exception.*handling|swallow.*exception|any exception|wrong exception|no exception)
       - type: output-matches
         config:
           pattern: (RemoveItem|GetTotalWithDiscount|untest|not.*cover|missing.*test|gap)
       - type: output-matches
         config:
-          pattern: (summary|priorit|rank|critical|sever)
+          pattern: (summary|priorit|rank|critical|sever|\bP[012]\b)
       - type: output-matches
         config:
           pattern: (AddItem_Works|cart\.AddItem)
@@ -62,9 +92,37 @@ stimuli:
       - type: output-matches
         config:
           pattern: (GetTotalWithDiscount|discount)
+      - type: output-matches
+        config:
+          pattern: &assertion_free_finding '(?i)\bAddItem_Works\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,400}(?:assertion.free|no\s+(?:\w+\s+){0,2}assertions?|without\s+(?:any\s+)?assertions?)'
+      - type: output-matches
+        config:
+          pattern: &presence_only_finding '(?i)\bAddItem_ItemIsAdded\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,400}(?:presence.only|trivial|only\s+(?:\w+\s+){0,2}(?:checks?|asserts?)|(?:empty|wrong)\s+(?:cart|collection|item)\s+passes?|(?:IsNotNull|non.?null|presence)[^\r\n]*(?:empty|wrong|does\s+not\s+verify))'
+      - type: output-matches
+        config:
+          pattern: &tautological_finding '(?i)\bGetTotal_ReturnsValue\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,400}(?:tautolog\w*|self.compar\w*|compares?[^\r\n]*itself|AreEqual\s*\(\s*total\s*,\s*total)'
+      - type: output-matches
+        config:
+          pattern: &swallowed_exception_finding '(?i)\bAddItem_NegativePrice_Throws\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,400}(?:catch.and.swallow|swallow\w*|passes?[^\r\n]*(?:no|any|wrong)\s+exception|no\s+(?:\w+\s+){0,2}exception\s+assertion)'
+      - type: output-matches
+        config:
+          pattern: &meaningful_count_finding '(?i)\bItemCount_AfterAdd\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,200}\b(?:meaningful(?:ly)?|valid|sound|useful|pins?|protects?|verifies)\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,200}\b(?:count|ItemCount|1)\b'
+      - type: output-matches
+        config:
+          pattern: &meaningful_total_finding '(?i)\bGetTotal_WithMultipleItems\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,200}\b(?:meaningful(?:ly)?|valid|sound|useful|pins?|protects?|verifies)\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,200}\b(?:total|25(?:\.00)?)\b'
       - type: output-not-matches
         config:
-          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
+          pattern: &invalid_meaningful_finding '(?i)\b(?:ItemCount_AfterAdd|GetTotal_WithMultipleItems)\b[^\r\n]*(?:meaningless|tautolog\w*|assertion.free|no\s+assertions?|not\s+(?:a\s+)?meaningful)'
+      - type: output-not-matches
+        config:
+          # Do not rematch denominators or turn negations, valid bounds or proposed tests into exact counts.
+          pattern: &contradictory_summary '(?i)(?:^|[^\w\s/]|\b(?!(?:not|no|of|in|the|all|every|most|half|at|least|than|add|write|create|generate|need|want|recommend)\b)\w+\s+)\s*(?:the\s+)?\b(?!(?:two|2)\b)(?:\d+|zero|one|single|three|four|five|six|seven|eight|nine|ten|none|no|all|every|most|half|majority|(?:at\s+least|no\s+(?:fewer|less)\s+than)\s+(?:[3-9]|[1-9]\d+|three|four|five|six|seven|eight|nine|ten)|(?:at\s+most|no\s+more\s+than)\s+(?:[01]|zero|one)|more\s+than\s+(?:[2-9]|[1-9]\d+|two|three|four|five|six|seven|eight|nine|ten)|(?:fewer|less)\s+than\s+(?:[012]|zero|one|two))(?:\s*/\s*6\s+|(?:\s+(?:out\s+of|of|in))?\s+(?:the\s+)?(?:(?:six|6)\s+)?)(?:(?:meaningful|concrete)\s+tests?\b|tests?\s+(?:(?:have|has|contains?|includes?|provides?|protects?|pins?)\s+(?:(?:a|any|some)\s+)?(?:meaningful|concrete)\s+(?:behavior|checks?|assertions?)\b|(?:are|is)\s+(?:meaningful|concrete)\b|meaningfully\s+(?:protects?|checks?|verif(?:y|ies)|pins?)\s+behavior\b))'
+      - type: output-not-matches
+        config:
+          pattern: &contradictory_summary_reversed '(?i)\b(?:(?:meaningful|concrete)\s+tests?|tests?\s+(?:with|having)\s+(?:meaningful|concrete)\s+(?:checks?|assertions?))\s*[:=|]\s*(?!(?:two|2)\b)(?:\d+|zero|one|single|three|four|five|six|seven|eight|nine|ten|none|no|all|every|most|half|majority)\b|\b(?:meaningful|concrete)\s+(?:checks?|assertions?)\s+in\s+(?!(?:two|2)\b)(?:\d+|zero|one|single|three|four|five|six|seven|eight|nine|ten|none|no|all|every|most|half|majority)\s+tests?\b'
+      - type: output-not-matches
+        config:
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|(?:\s*How to improve\s*\|)?
       - type: run-command
         config:
           command: >-
@@ -77,6 +135,8 @@ stimuli:
       - Detected the catch-and-swallow exception test pattern
       - Identified untested production code (RemoveItem, GetTotalWithDiscount, boundary conditions)
       - Produced a summary or prioritized list of findings
+      - Accounted for each supplied test, credited meaningful checks, and kept the opening verdict consistent with the detailed findings
+      - Gave explicit risk priorities and concrete repairs rather than only summarizing audit dimensions
       - Did not replace the broad audit with a per-test Pass, Failed, Uncertain, or Not applicable report
 
   - name: Targeted anti-pattern review
@@ -89,6 +149,8 @@ stimuli:
       journey: quick-test-review
     environment:
       files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: fixtures/weak-tests/WeakTests.csproj
           dest: WeakTests/WeakTests.csproj
         - src: fixtures/weak-tests/ShoppingCart.cs
@@ -101,6 +163,7 @@ stimuli:
         - python .eval/check_readonly.py snapshot WeakTests
       skills:
         - ../../plugins/dotnet-test/skills/test-anti-patterns
+        - ../../plugins/dotnet-test/skills/test-analysis-extensions
     graders:
       - type: output-matches
         config:
@@ -113,10 +176,10 @@ stimuli:
           pattern: (tautolog|self.compar|same.*value|trivial)
       - type: output-matches
         config:
-          pattern: (catch.*swallow|try.*catch|exception.*handling)
+          pattern: (catch.*swallow|try.*catch|exception.*handling|swallow.*exception|any exception|wrong exception|no exception)
       - type: output-matches
         config:
-          pattern: (priorit|rank|critical|sever)
+          pattern: (priorit|rank|critical|sever|\bP[012]\b)
       - type: output-matches
         config:
           pattern: (Throws|expected.*(value|total|exception)|assert.*(count|item|total)|verif.*(count|item|total))
@@ -135,12 +198,43 @@ stimuli:
     prompt: |
       Are the assertions in my ShoppingCartTests actually testing anything
       meaningful? I want to understand if we have enough assertion variety.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: reconciled-assertion-review
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Assertion variety is limited, but the primary issue is false
+              confidence: two of six tests meaningfully protect behavior.
+              Static review found four assertion calls, two assertion-free
+              tests, one presence-only test, and one tautological test.
+
+              | Test | Assessment |
+              | --- | --- |
+              | AddItem_Works | No assertion; a no-op AddItem passes |
+              | AddItem_ItemIsAdded | IsNotNull accepts an empty Items collection |
+              | GetTotal_ReturnsValue | AreEqual(total, total) accepts any total |
+              | AddItem_NegativePrice_Throws | Catch-and-swallow passes with no exception or the wrong exception |
+              | ItemCount_AfterAdd | Meaningful equality/state assertion pins ItemCount to 1 after adding |
+              | GetTotal_WithMultipleItems | Meaningful equality assertion pins the computed total to 25.00; Thread.Sleep is unnecessary |
+
+              Retain the two useful checks. Replace the tautology with an exact
+              expected total and use an exception assertion for negative price.
+              Add collection contents and ProductId/Quantity/UnitPrice assertions,
+              duplicate merge, RemoveItem, and discount validation/boundaries.
+              Prefer checks that catch concrete defects, not variety for its
+              own sake. Execution and line coverage were not measured.
     tags:
       capability: assertion-diversity-analysis
       risk: shallow-assertions
       journey: assess-assertion-quality
     environment:
       files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: fixtures/weak-tests/WeakTests.csproj
           dest: WeakTests/WeakTests.csproj
         - src: fixtures/weak-tests/ShoppingCart.cs
@@ -153,6 +247,7 @@ stimuli:
         - python .eval/check_readonly.py snapshot WeakTests
       skills:
         - ../../plugins/dotnet-test/skills/assertion-quality
+        - ../../plugins/dotnet-test/skills/test-analysis-extensions
     graders:
       - type: output-matches
         config:
@@ -175,6 +270,33 @@ stimuli:
       - type: output-matches
         config:
           pattern: (collection|state|structural|quantity|product.?id)
+      - type: output-matches
+        config:
+          pattern: *assertion_free_finding
+      - type: output-matches
+        config:
+          pattern: *presence_only_finding
+      - type: output-matches
+        config:
+          pattern: *tautological_finding
+      - type: output-matches
+        config:
+          pattern: *swallowed_exception_finding
+      - type: output-matches
+        config:
+          pattern: *meaningful_count_finding
+      - type: output-matches
+        config:
+          pattern: *meaningful_total_finding
+      - type: output-not-matches
+        config:
+          pattern: *invalid_meaningful_finding
+      - type: output-not-matches
+        config:
+          pattern: *contradictory_summary
+      - type: output-not-matches
+        config:
+          pattern: *contradictory_summary_reversed
       - type: run-command
         config:
           command: >-
@@ -185,6 +307,7 @@ stimuli:
       - Identified low assertion diversity — tests primarily use equality and null checks
       - Flagged tests with no assertions or meaningless assertions
       - Pointed out missing assertion types (exception assertions, collection/state checks, structural verification)
+      - Credited the meaningful count and total assertions without contradicting the per-test findings in the summary or metrics
 
   - name: Identify behavior gaps that existing tests would miss
     prompt: |
@@ -197,6 +320,8 @@ stimuli:
       journey: audit-test-suite-health
     environment:
       files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: fixtures/weak-tests/WeakTests.csproj
           dest: WeakTests/WeakTests.csproj
         - src: fixtures/weak-tests/ShoppingCart.cs
@@ -209,13 +334,14 @@ stimuli:
         - python .eval/check_readonly.py snapshot WeakTests
       skills:
         - ../../plugins/dotnet-test/skills/test-gap-analysis
+        - ../../plugins/dotnet-test/skills/test-analysis-extensions
     graders:
       - type: output-matches
         config:
           pattern: (RemoveItem|GetTotalWithDiscount|boundary|negative|empty)
       - type: output-matches
         config:
-          pattern: (mutation|would.*pass|would.*miss|gap|not.*detect)
+          pattern: (mutation|mutant|surviv|would.*pass|would.*miss|gap|not.*detect|regression|unprotected|[Nn]o coverage)
       - type: run-command
         config:
           command: >-
@@ -226,6 +352,7 @@ stimuli:
       - Identified concrete production behaviors that the current tests do not protect
       - Explained at least one plausible bug that would survive the current suite
       - Prioritized missing tests by risk rather than proposing generic coverage increases
+      - Distinguished validation partitions, duplicate-item state transitions, removal, empty totals, and discount boundaries with specific missed defects and proposed checks
 
   - name: Diagnose test smells and propose a repair order
     prompt: |
@@ -238,6 +365,8 @@ stimuli:
       journey: audit-test-suite-health
     environment:
       files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: fixtures/weak-tests/WeakTests.csproj
           dest: WeakTests/WeakTests.csproj
         - src: fixtures/weak-tests/ShoppingCart.cs
@@ -250,6 +379,7 @@ stimuli:
         - python .eval/check_readonly.py snapshot WeakTests
       skills:
         - ../../plugins/dotnet-test/skills/test-smell-detection
+        - ../../plugins/dotnet-test/skills/test-analysis-extensions
     graders:
       - type: output-matches
         config:
@@ -267,6 +397,7 @@ stimuli:
       - Identified multiple concrete maintainability or reliability problems in the supplied tests
       - Explained the behavioral risk of the findings instead of listing labels only
       - Proposed a prioritized repair sequence that keeps production code unchanged
+      - Restored trust in ineffective tests before expanding missing behavior and addressing maintainability, without downgrading valid assertions
 
   - name: Route a curated test list to per-test decisions
     prompt: |
@@ -285,6 +416,8 @@ stimuli:
       journey: assess-pr-test-quality
     environment:
       files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: fixtures/weak-tests/WeakTests.csproj
           dest: WeakTests/WeakTests.csproj
         - src: fixtures/weak-tests/ShoppingCart.cs
@@ -297,10 +430,12 @@ stimuli:
         - python .eval/check_readonly.py snapshot WeakTests
       skills:
         - ../../plugins/dotnet-test/skills/grade-tests
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+        - ../../plugins/dotnet-test/skills/test-analysis-extensions
     graders:
       - type: output-matches
         config:
-          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|
+          pattern: \|\s*Test\s*\|\s*Result\s*\|\s*Quality\s*\|\s*Notes\s*\|\s*How to improve\s*\|
       - type: output-matches
         config:
           pattern: (?i)ItemCount_AfterAdd.*Pass.*B\s*\(80.?89\)
@@ -318,6 +453,7 @@ stimuli:
       - ItemCount_AfterAdd is Pass with B quality because its focused equality assertion completely verifies the stated behavior
       - AddItem_Works is Failed with F quality because it executes the behavior without any assertion
       - Used the primary decision result for follow-up and retained the quality grade only as supporting detail
+      - Kept the assessment read-only, included concrete improvements for Failed tests, and composed per-test mutation evidence without execution or delegation
 
   - name: Decline request to generate new tests
     prompt: |
@@ -330,6 +466,8 @@ stimuli:
       journey: audit-test-suite-health
     environment:
       files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: fixtures/weak-tests/WeakTests.csproj
           dest: WeakTests/WeakTests.csproj
         - src: fixtures/weak-tests/ShoppingCart.cs
@@ -346,7 +484,7 @@ stimuli:
           pattern: (out.*scope|not.*(role|job|audit)|cannot|does not|different.*(job|task|workflow)|diagnostic)
       - type: output-matches
         config:
-          pattern: (code.testing.(agent|generator)|test.generat|generat.*(agent|workflow))
+          pattern: (test.engineer|code.testing|test.generat|generat.*(agent|workflow))
       - type: run-command
         config:
           command: >-

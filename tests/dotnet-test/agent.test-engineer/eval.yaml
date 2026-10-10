@@ -62,7 +62,10 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md"
+          command: >-
+            python3 -c "import pathlib,subprocess;
+            root=pathlib.Path(subprocess.check_output(['git','rev-parse','--path-format=absolute','--git-path','testagent'],text=True).strip());
+            assert all((root/name).is_file() for name in ['research.md','plan.md','status.md'])"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -98,7 +101,12 @@ stimuli:
         - src: graders/check_classic_behavior.py
           dest: .eval/check_classic_behavior.py
       commands:
-        - rm -f fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs && cp fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine fixtures/classic-mstest/tests/Discounts.Tests.csproj && rm fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine
+        - >-
+          python3 -c "import pathlib,shutil;
+          root=pathlib.Path('fixtures/classic-mstest/tests');
+          [(root/name).unlink(missing_ok=True) for name in ['DiscountServiceBoundaryTests.cs','TieredDiscountPolicyTests.cs']];
+          shutil.copyfile(root/'Discounts.Tests.csproj.pristine',root/'Discounts.Tests.csproj');
+          (root/'Discounts.Tests.csproj.pristine').unlink()"
         - git init -q
         - python3 .eval/check_production.py snapshot fixtures/classic-mstest/src
         - python3 .eval/check_classic_preservation.py snapshot fixtures/classic-mstest
@@ -117,7 +125,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 320bc198285f61c60decdfa558da696d1778644cfee7b97a1b085c13c3188e4c:.eval/check_classic_preservation.py --expect 1caa319ee11037343f5d71682ca78c4e85db08898b8ec7bb2fc528e27f2e5860:.eval/classic-preservation.json -- python .eval/check_classic_preservation.py verify fixtures/classic-mstest
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 88e7e3d004f080a6228977dabe9daa9050064dbf8db0693d1c55561139b102e3:.eval/check_classic_preservation.py --expect 1caa319ee11037343f5d71682ca78c4e85db08898b8ec7bb2fc528e27f2e5860:.eval/classic-preservation.json -- python .eval/check_classic_preservation.py verify fixtures/classic-mstest
           expected_exit_code: 0
           timeout: 1m
       - type: file-exists
@@ -280,7 +288,7 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 772c6a273ad1ee22419137b3847b0a1bdd5e9ef3d3b6250d86a4601d6273d5ca:.eval/check_cart_tests.py --expect c4c50ad6467a80cae123666a9e7d949d01c5e45a3ce66868e6aade6391b8fcb0:.eval/cart-baseline.json -- python .eval/check_cart_tests.py verify fixtures/typescript-vitest-cart .eval/cart-baseline.json
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 772c6a273ad1ee22419137b3847b0a1bdd5e9ef3d3b6250d86a4601d6273d5ca:.eval/check_cart_tests.py --expect 05c5767d8895ddaf52f0f156481c171e0f782b1e06a14b9a2d3624874cb59f5a:.eval/cart-baseline.json -- python .eval/check_cart_tests.py verify fixtures/typescript-vitest-cart .eval/cart-baseline.json
           expected_exit_code: 0
           timeout: 10m
       - type: output-matches
@@ -591,8 +599,10 @@ stimuli:
           dest: .eval/authenticated_artifacts.py
         - src: ../agent.test-quality-auditor/fixtures/weak-tests
           dest: WeakTests
+        - src: ../agent.test-quality-auditor/graders/check_readonly.py
+          dest: .eval/check_readonly.py
       commands:
-        - mkdir -p .eval-baseline && cp -R WeakTests .eval-baseline/WeakTests
+        - python .eval/check_readonly.py snapshot WeakTests
       skills:
         - ../../plugins/dotnet-test/skills/test-anti-patterns
         - ../../plugins/dotnet-test/skills/assertion-quality
@@ -609,7 +619,8 @@ stimuli:
           pattern: (RemoveItem|GetTotalWithDiscount|coverage gap|untested)
       - type: run-command
         config:
-          command: diff -ru .eval-baseline/WeakTests WeakTests
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 606142a930232cb26959562f7128f460defe42a82ac670a34074ace09feeb74e:.eval/check_readonly.py --expect d3a060f87da0f4ec8d561fb5855a2ce0cde1753d4fe7914ea99fb6febd55ca9a:.eval/baseline.json -- python .eval/check_readonly.py verify WeakTests
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -618,3 +629,87 @@ stimuli:
       - Identified meaningful untested ShoppingCart behavior
       - Prioritized findings and suggested concrete corrections
       - Respected the analysis-only request and left the supplied test file unchanged
+
+  - name: Review focused assertions without a second audit agent
+    prompt: |
+      Are the assertions in WeakTests/ShoppingCartTests.cs meaningful?
+      Review just their behavioral protection and explain what needs fixing.
+      Do not edit files or expand this into a general project health audit.
+    tags:
+      capability: focused-public-assertion-review
+      risk: redundant-audit-orchestration
+      journey: assess-assertions-through-public-entry
+    constraints:
+      reject_agents: [test-engineer, test-quality-auditor]
+    environment:
+      files:
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+        - src: ../agent.test-quality-auditor/fixtures/weak-tests
+          dest: WeakTests
+        - src: ../agent.test-quality-auditor/graders/check_readonly.py
+          dest: .eval/check_readonly.py
+      commands:
+        - python .eval/check_readonly.py snapshot WeakTests
+      skills:
+        - ../../plugins/dotnet-test/skills/assertion-quality
+        - ../../plugins/dotnet-test/skills/test-analysis-extensions
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: public-focused-assertion-review
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Static assertion review: two of six tests protect meaningful behavior.
+              AddItem_Works is assertion-free. AddItem_ItemIsAdded only checks
+              that Items is non-null, which also holds for an empty cart.
+              GetTotal_ReturnsValue compares total with itself and is tautological.
+              AddItem_NegativePrice_Throws passes with no exception or any exception.
+              ItemCount_AfterAdd meaningfully pins count to 1; retain it.
+              GetTotal_WithMultipleItems meaningfully pins total to 25.00; retain
+              the assertion and remove the unnecessary sleep. Fix the four hollow
+              checks with exact item fields, an expected total, and the expected
+              exception type. No files were changed; execution was not measured.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)\bAddItem_Works\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,400}(?:assertion.free|no\s+(?:\w+\s+){0,2}assertions?|without\s+(?:any\s+)?assertions?)'
+      - type: output-matches
+        config:
+          pattern: '(?i)\bAddItem_ItemIsAdded\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,400}(?:presence.only|trivial|only\s+(?:\w+\s+){0,2}(?:checks?|asserts?)|(?:empty|wrong)\s+(?:cart|collection|item)\s+passes?|(?:IsNotNull|non.?null|presence)[^\r\n]*(?:empty|wrong|does\s+not\s+verify))'
+      - type: output-matches
+        config:
+          pattern: '(?i)\bGetTotal_ReturnsValue\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,400}(?:tautolog\w*|self.compar\w*|compares?[^\r\n]*itself|AreEqual\s*\(\s*total\s*,\s*total)'
+      - type: output-matches
+        config:
+          pattern: '(?i)\bAddItem_NegativePrice_Throws\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,400}(?:catch.and.swallow|swallow\w*|passes?[^\r\n]*(?:no|any|wrong)\s+exception|no\s+(?:\w+\s+){0,2}exception\s+assertion)'
+      - type: output-matches
+        config:
+          pattern: '(?i)\bItemCount_AfterAdd\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,200}\b(?:meaningful(?:ly)?|valid|sound|useful|pins?|protects?|verifies)\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,200}\b(?:count|ItemCount|1)\b'
+      - type: output-matches
+        config:
+          pattern: '(?i)\bGetTotal_WithMultipleItems\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,200}\b(?:meaningful(?:ly)?|valid|sound|useful|pins?|protects?|verifies)\b(?:(?!\b(?:AddItem_|GetTotal_|ItemCount_))[^\r\n]){0,200}\b(?:total|25(?:\.00)?)\b'
+      - type: output-not-matches
+        config:
+          pattern: '(?i)\b(?:ItemCount_AfterAdd|GetTotal_WithMultipleItems)\b[^\r\n]*(?:meaningless|tautolog\w*|assertion.free|no\s+assertions?|not\s+(?:a\s+)?meaningful)'
+      - type: output-not-matches
+        config:
+          # Do not rematch denominators or turn negations, valid bounds or proposed tests into exact counts.
+          pattern: '(?i)(?:^|[^\w\s/]|\b(?!(?:not|no|of|in|the|all|every|most|half|at|least|than|add|write|create|generate|need|want|recommend)\b)\w+\s+)\s*(?:the\s+)?\b(?!(?:two|2)\b)(?:\d+|zero|one|single|three|four|five|six|seven|eight|nine|ten|none|no|all|every|most|half|majority|(?:at\s+least|no\s+(?:fewer|less)\s+than)\s+(?:[3-9]|[1-9]\d+|three|four|five|six|seven|eight|nine|ten)|(?:at\s+most|no\s+more\s+than)\s+(?:[01]|zero|one)|more\s+than\s+(?:[2-9]|[1-9]\d+|two|three|four|five|six|seven|eight|nine|ten)|(?:fewer|less)\s+than\s+(?:[012]|zero|one|two))(?:\s*/\s*6\s+|(?:\s+(?:out\s+of|of|in))?\s+(?:the\s+)?(?:(?:six|6)\s+)?)(?:(?:meaningful|concrete)\s+tests?\b|tests?\s+(?:(?:have|has|contains?|includes?|provides?|protects?|pins?)\s+(?:(?:a|any|some)\s+)?(?:meaningful|concrete)\s+(?:behavior|checks?|assertions?)\b|(?:are|is)\s+(?:meaningful|concrete)\b|meaningfully\s+(?:protects?|checks?|verif(?:y|ies)|pins?)\s+behavior\b))'
+      - type: output-not-matches
+        config:
+          pattern: '(?i)\b(?:(?:meaningful|concrete)\s+tests?|tests?\s+(?:with|having)\s+(?:meaningful|concrete)\s+(?:checks?|assertions?))\s*[:=|]\s*(?!(?:two|2)\b)(?:\d+|zero|one|single|three|four|five|six|seven|eight|nine|ten|none|no|all|every|most|half|majority)\b|\b(?:meaningful|concrete)\s+(?:checks?|assertions?)\s+in\s+(?!(?:two|2)\b)(?:\d+|zero|one|single|three|four|five|six|seven|eight|nine|ten|none|no|all|every|most|half|majority)\s+tests?\b'
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/authenticated_artifacts.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7';subprocess.run([sys.executable,str(p),*sys.argv[1:]],check=True)" --expect 606142a930232cb26959562f7128f460defe42a82ac670a34074ace09feeb74e:.eval/check_readonly.py --expect d3a060f87da0f4ec8d561fb5855a2ce0cde1753d4fe7914ea99fb6febd55ca9a:.eval/baseline.json -- python .eval/check_readonly.py verify WeakTests
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Correctly distinguished hollow checks from the meaningful item count and computed total assertions
+      - Explained specific assertion repairs without adding unrelated audit dimensions
+      - Preserved all production and test files and kept the small review direct rather than launching another audit workflow

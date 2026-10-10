@@ -50,9 +50,40 @@ These six skills are all polyglot. They work across all supported languages by l
 | **test-anti-patterns** | Quick pragmatic scan for common test quality issues with severity ranking (any language) |
 | **test-smell-detection** | Deep formal audit using academic test smell taxonomy (19 smell types, any language) |
 | **assertion-quality** | Measure assertion variety and depth — find shallow tests that barely verify anything (any language) |
-| **test-gap-analysis** | Verify test blind spots through pseudo-mutations and optionally add focused tests that kill them (any language) |
+| **test-gap-analysis** | Analyze test blind spots through pseudo-mutations, expose read-only per-test evidence for grading, and verify or close gaps only when requested (any language) |
 | **test-tagging** | Tag tests with standardized traits (smoke, regression, boundary, critical-path, etc.); auto-edits where the framework has canonical syntax, report-only otherwise |
-| **grade-tests** | Assess a curated list of test methods and produce a compact PR-ready table with Pass, Failed, or Uncertain decisions, A-F quality detail for resolved tests, and one-line notes; unresolved or empty scopes omit the grade, and a valid scope with no tests returns Not applicable (any language) |
+| **grade-tests** | Assess curated tests with Pass, Failed, or Uncertain decisions, A-F quality detail, notes, and concrete improvement actions; unresolved or empty scopes omit the grade, and a valid empty scope returns Not applicable (any language) |
+
+Grading composes `test-gap-analysis` in explicit `per-test-read-only` mode:
+no test runs, production edits, mutation execution, suite audit, or agent
+recursion. Mutation methodology stays in that skill's bundled reference;
+grading retains its own scoring weights and ceilings. Each test owns only its
+claimed behavior, not its siblings' assertions or unrelated scenarios.
+Static evidence uses inferred likely kills or unverified candidate survivors,
+not executed mutation counts. Missing production context is N/A / unverified,
+not a deduction. The existing result and quality fields remain independent:
+a focused B can Pass without improvements, and an A can Fail for actionable
+debug output.
+
+Focused grading checks can run without an evaluation matrix:
+
+```powershell
+python -B tests\dotnet-test\grade-tests\test_regressions.py -v
+python -B tests\dotnet-test\grade-tests\test_composition.py --cli <copilot-executable> --model <model-id> --results-dir <scratch-results>
+```
+
+The first command replays goldens and rejects malformed actions, extra test
+rows, and misleading mutation evidence. The second uses the shipping Copilot
+CLI, a copy of the production plugin, isolated configuration, and a
+host-supplied path to the actual bundled Python assertion reference. It requires
+successful grading and gap-analysis loads plus the owned read-only reference
+read and their completions before the final grading report. It verifies the
+target row's concrete improvement, rejects standalone execution/delegation and
+N/A fallbacks, and checks that every fixture and plugin file is unchanged.
+Generation/repair dormancy cases replay golden patches and prove that the
+requested assertions reject wrong costs/flags while production stays
+byte-for-byte unchanged. The CLI integration needs Copilot access via
+an existing token or authenticated GitHub CLI; it does not change user settings.
 
 ### Coverage & risk *(.NET only)*
 
@@ -83,7 +114,9 @@ For non-.NET languages, use the native coverage tool: `coverage.py`/`pytest-cov`
 
 Three reference skills (`code-testing-extensions`, `test-analysis-extensions`,
 and `filter-syntax`) set `disable-model-invocation: true`, so the CLI keeps them
-out of the model-facing skill menu and a consumer loads them by name. They
+out of model invocation. Consumers read their bundled files directly from
+supplied/runtime-listed catalog paths, resolving language files relative to
+that catalog rather than the project workspace. They
 deliberately have no direct `tests/dotnet-test/<skill>/eval.yaml`: the
 experiment's skilled arm loads a single skill, which the model could never
 invoke here, so such an eval would compare two identical arms and score judge
@@ -112,6 +145,14 @@ Use this single entry-point agent for end-to-end test work:
 | Agent | Purpose |
 |---|---|
 | **test-engineer** | Generates, repairs, runs, audits, and improves tests while coordinating the internal specialists below |
+
+Focused quality reviews use one matching skill directly. Broad audits retain
+per-test/behavior evidence, reconcile summary counts, and give a risk-ranked
+repair order without automatically grading every test. Dependency migrations
+include the real production construction/DI wiring; a compiling injectable
+class alone is not a complete migration. Mechanical clock replacements preserve
+read count and UTC/local semantics, with consistency corrections planned
+separately.
 
 > **Test framework/platform migration** is handled by the `test-migration` agent in the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin.
 

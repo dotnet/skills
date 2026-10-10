@@ -117,15 +117,19 @@ Then:
    behavior-named test file rather than repurposing the template filename; and
 4. omit package versions when central package management supplies them.
 
-For xUnit v3 projects that run through `dotnet test`, preserve or add:
+For xUnit v3 projects using MTP, preserve or add the executable output and runner
+selection (or the equivalent supplied by the resolved package):
 
 ```xml
 <OutputType>Exe</OutputType>
-<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
 ```
 
-`OutputType=Exe` alone proves only the self-hosted runner path, not discovery by
-the repository's `dotnet test` command.
+Add `TestingPlatformDotnetTestSupport=true` only for the VSTest-command-mode
+bridge to MTP. It is not required for SDK 10+ native MTP mode selected by
+`global.json` `test.runner: Microsoft.Testing.Platform`. Use
+`platform-detection` to distinguish command mode from the executed runner;
+neither SDK version nor `OutputType=Exe` alone proves harness discovery.
 
 ### 3. Repair only the missing edge when the project exists
 
@@ -160,9 +164,20 @@ and test authoring are separate operations.
 
 Run the narrowest commands that prove the chosen route:
 
+Choose command forms from the actual repository mode: native MTP uses
+`dotnet test --project <test-project>` and `dotnet test --solution <entry-point>`;
+VSTest command mode uses positional project/solution paths, including when it
+bridges to MTP. Apply this distinction to every direct-project and entry-point
+test below. Preserve the exact CI command and its supported `.slnf` invocation;
+do not substitute a solution or invent unsupported switches.
+For classic non-SDK projects, use the repository's documented MSBuild and
+native test-runner commands instead of any `dotnet test` example below.
+If that toolchain is unavailable, report the blocker without migrating the
+project or claiming successful discovery.
+
 | Route | Required evidence |
 |---|---|
-| Newly created project | `dotnet test <test-project>`, the exact entry-point command CI uses, and registration listing. If the entry point is a `.slnf`/`.slnx` containing tests, run `dotnet test` on that artifact rather than proving only that it builds. |
+| Newly created project | Mode-aware direct-project test, the exact entry-point command CI uses, and registration listing. If the entry point is a `.slnf`/`.slnx` containing tests, run the repository's test command on that artifact rather than proving only that it builds. |
 | Missing reference | Targeted project test plus the exact solution/root test command requested |
 | Missing `.sln`/`.slnx` registration | Listing and `dotnet test` for that exact artifact; never use another solution as a fallback |
 | Missing `.slnf` entry | Inspect the filter entry and run the exact CI filter build command; do not prepend a deliberately failing alternate command |
