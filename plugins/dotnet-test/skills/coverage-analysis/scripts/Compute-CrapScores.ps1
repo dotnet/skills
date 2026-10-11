@@ -6,6 +6,7 @@ Missing complexity or executable lines yield unknown, never complexity=1/coverag
 Legacy output retains OVERALL_*, TOTAL_METHODS, FLAGGED_METHODS and HOTSPOTS markers
 only when all requested measurements are representable. -OutputFormat json-v1
 emits one provenance-bearing JSON document. Diagnostics go to stderr.
+Thresholds and hotspot ordering use raw scores; only displayed scores are rounded.
 Exit codes: 0 complete, 2 invalid input, 3 incomplete/unrepresentable evidence.
 #>
 param(
@@ -39,7 +40,7 @@ try {
 }
 foreach ($method in $coverage.Methods) {
     $score = if ($null -ne $method.Complexity -and $method.LineCoverageStatus -eq 'exact') {
-        [math]::Round([math]::Pow($method.Complexity, 2) * [math]::Pow(1 - $method.CoveredLines / [double]$method.TotalLines, 3) + $method.Complexity, 2)
+        [math]::Pow($method.Complexity, 2) * [math]::Pow(1 - $method.CoveredLines / [double]$method.TotalLines, 3) + $method.Complexity
     } else { $null }
     $method | Add-Member -NotePropertyName CrapScore -NotePropertyValue $score
 }
@@ -49,6 +50,9 @@ $hotspots = @($ranked | Select-Object -First $TopN)
 $unknown = @($coverage.Methods | Where-Object { $null -eq $_.CrapScore }).Count
 $coverage.Summary.flagged_methods = @($ranked | Where-Object { $_.CrapScore -gt $CrapThreshold }).Count
 $coverage.Summary.unknown_crap_methods = $unknown
+foreach ($method in $ranked) {
+    $method.CrapScore = [math]::Round($method.CrapScore, 2)
+}
 foreach ($metric in @('line', 'branch')) {
     if ($coverage.Summary["overall_${metric}_coverage_status"] -in @('unknown', 'bounded')) {
         Add-CoverageDiagnostic $coverage.Diagnostics 'AGGREGATE_UNKNOWN' "Overall $metric coverage cannot be derived from overlapping report counters." ''

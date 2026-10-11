@@ -208,6 +208,33 @@ class CoverageHelperTests(unittest.TestCase):
         self.assertEqual(len(output["data"]["methods"]), 1)
         self.assertEqual(output["data"]["methods"][0]["BranchCoverage"], 70)
 
+    def test_crap_threshold_uses_raw_score_but_displays_rounded_value(self):
+        cases = (
+            ("above.xml", (1,) * 23 + (0,) * 159, "6", 1),
+            ("equal.xml", (0,), "5", 0),
+        )
+        for name, hits, complexity, flagged in cases:
+            with self.subTest(name=name):
+                path = self.report(name, hits=hits, complexity=complexity)
+                result, output = self.run_helper([path], script="Compute-CrapScores.ps1")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(output["data"]["methods"][0]["CrapScore"], 30)
+                self.assertEqual(output["data"]["summary"]["flagged_methods"], flagged)
+                result, _ = self.run_helper([path], script="Compute-CrapScores.ps1", legacy=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                markers = dict(line.split(":", 1) for line in result.stdout.splitlines())
+                self.assertEqual(markers["FLAGGED_METHODS"], str(flagged))
+                self.assertEqual(json.loads(markers["HOTSPOTS"])[0]["CrapScore"], 30)
+
+    def test_crap_hotspots_rank_raw_scores_before_truncating(self):
+        exact = self.report("exact.xml", hits=(0,), complexity="5", signature="(a)")
+        above = self.report("above.xml", hits=(1,) * 23 + (0,) * 159, complexity="6", signature="(z)")
+        _, output = self.run_helper([exact, above], script="Compute-CrapScores.ps1", extra="-TopN 1")
+        self.assertEqual(output["data"]["summary"]["flagged_methods"], 1)
+        self.assertEqual(len(output["data"]["hotspots"]), 1)
+        self.assertEqual(output["data"]["hotspots"][0]["Signature"], "(z)")
+        self.assertEqual(output["data"]["hotspots"][0]["CrapScore"], 30)
+
     def test_legacy_empty_single_and_multiple_arrays_are_json_only(self):
         complete = self.report("complete.xml", hits=(1, 1))
         result, _ = self.run_helper([complete], legacy=True, extra="-Filter uncovered")
