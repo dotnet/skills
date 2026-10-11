@@ -242,6 +242,24 @@ class CoverageHelperTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("ambiguous", output["diagnostics"][0]["message"])
 
+    def test_missing_or_invalid_adjacent_helper_is_dependency_error(self):
+        installed = self.workspace / "incomplete install"
+        installed.mkdir()
+        for name in ("Extract-MethodCoverage.ps1", "Compute-CrapScores.ps1"):
+            script = installed / name
+            shutil.copyfile(SCRIPTS / name, script)
+            for corrupt in (False, True):
+                with self.subTest(script=name, corrupt=corrupt):
+                    dependency = installed / "CoverageData.ps1"
+                    if corrupt:
+                        dependency.write_text("function Broken {", encoding="utf-8")
+                    result, output = self.run_helper([EXISTING], script=str(script))
+                    self.assertEqual(result.returncode, 2)
+                    self.assertEqual(output["diagnostics"][0]["code"], "DEPENDENCY_UNAVAILABLE")
+                    self.assertIn("DEPENDENCY_UNAVAILABLE", result.stderr)
+                    if corrupt:
+                        dependency.unlink()
+
 
 if __name__ == "__main__":
     unittest.main()

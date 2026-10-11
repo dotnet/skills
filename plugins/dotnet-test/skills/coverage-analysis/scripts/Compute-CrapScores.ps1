@@ -15,7 +15,19 @@ param(
     [ValidateSet('legacy', 'json-v1')][string]$OutputFormat = 'legacy'
 )
 
-. "$PSScriptRoot\CoverageData.ps1"
+try {
+    . "$PSScriptRoot\CoverageData.ps1"
+} catch {
+    $diagnostic = @{ code = 'DEPENDENCY_UNAVAILABLE'; severity = 'error'; message = $_.Exception.Message; path = "$PSScriptRoot\CoverageData.ps1" }
+    [Console]::Error.WriteLine("$($diagnostic.code): $($diagnostic.message)")
+    if ($OutputFormat -eq 'json-v1') {
+        @{
+            schema_version = '1'; tool = 'Compute-CrapScores'; tool_version = '1.0'; status = 'error'
+            scope = @{}; inputs = @(); diagnostics = @($diagnostic); data = @{}
+        } | ConvertTo-Json -Depth 5
+    }
+    exit 2
+}
 $scope = @{ identity = 'reported-module-file-class-signature'; source_revision = $null; top = $TopN; crap_threshold = $CrapThreshold }
 try {
     $coverage = Get-CoverageData $CoberturaPath
