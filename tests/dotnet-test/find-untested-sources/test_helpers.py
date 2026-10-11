@@ -196,6 +196,16 @@ pub fn calculate_total() -> i32 { 42 }
         self.assertEqual(result.returncode, 2)
         self.assertEqual(output["status"], "error")
 
+    def test_negative_limit_is_a_structured_v1_error(self):
+        result, output = self.run_helper(extra=("--limit-untested", "-1"))
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(output["diagnostics"][0]["code"], "INVALID_INPUT")
+        self.assertEqual(output["data"], {})
+        result, output = self.run_helper(legacy=True, extra=("--limit-untested", "-1"))
+        self.assertEqual(result.returncode, 2)
+        self.assertIsNone(output)
+        self.assertIn("must be nonnegative", result.stderr)
+
 
 class RoslynHelperTests(WorkspaceCase):
     @classmethod
@@ -262,6 +272,42 @@ class RoslynHelperTests(WorkspaceCase):
         self.assertEqual(result.returncode, 3)
         self.assertTrue(any(item["code"] == "READ_FAILED" for item in output["diagnostics"]))
         self.assertEqual(output["data"]["untested_sources"], [])
+
+    def test_ambiguous_nearest_projects_leave_sources_unassessed(self):
+        self.fixture()
+        for name in ("A.Tests.csproj", "Z.Tests.csproj"):
+            with self.subTest(name=name):
+                extra = self.write("src/" + name, '<Project Sdk="Microsoft.NET.Sdk" />')
+                result, output = self.run_helper()
+                self.assertEqual(result.returncode, 3)
+                self.assertEqual(output["data"]["summary"]["source_files"], 0)
+                self.assertEqual(output["data"]["untested_sources"], [])
+                self.assertEqual(output["data"]["tested_sources"], [])
+                self.assertEqual(output["data"]["unassessed_files"], [{"path": "src/Widget.cs", "language": "csharp"}])
+                self.assertTrue(any(item["code"] == "PROJECT_AMBIGUOUS" for item in output["diagnostics"]))
+                extra.unlink()
+
+    def test_unreadable_project_leaves_its_files_unassessed(self):
+        self.fixture()
+        project = self.workspace / "src/App.csproj"
+        project.write_bytes(b"\xff")
+        result, output = self.run_helper()
+        self.assertEqual(result.returncode, 3)
+        self.assertEqual(output["data"]["summary"]["source_files"], 0)
+        self.assertEqual(output["data"]["untested_sources"], [])
+        self.assertEqual(output["data"]["tested_sources"], [])
+        self.assertEqual(output["data"]["unassessed_files"], [{"path": "src/Widget.cs", "language": "csharp"}])
+        self.assertTrue(any(item["code"] == "PROJECT_READ_FAILED" for item in output["diagnostics"]))
+
+    def test_test_project_name_does_not_override_unreadable_metadata(self):
+        self.fixture()
+        (self.workspace / "tests/App.Tests.csproj").write_bytes(b"\xff")
+        result, output = self.run_helper()
+        self.assertEqual(result.returncode, 3)
+        self.assertEqual(output["data"]["summary"]["test_files"], 0)
+        self.assertEqual(output["data"]["tested_sources"], [])
+        self.assertEqual(output["data"]["orphan_tests"], [])
+        self.assertEqual(output["data"]["unassessed_files"], [{"path": "tests/WidgetTests.cs", "language": "csharp"}])
 
     def test_invalid_root_and_arguments_are_explicit(self):
         result, output = self.run_helper(self.workspace / "missing")

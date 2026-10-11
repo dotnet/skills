@@ -91,10 +91,10 @@ foreach (var f in EnumerateSourceFiles(root, "*.cs"))
 Log($"Discovered {allCs.Count} .cs files");
 
 // 2. Classify by walking up to nearest .csproj
-var projectForDir = new ConcurrentDictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-var isTestProject = new ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+var projectForDir = new ConcurrentDictionary<string, ProjectLookup>(StringComparer.OrdinalIgnoreCase);
+var isTestProject = new ConcurrentDictionary<string, bool?>(StringComparer.OrdinalIgnoreCase);
 
-string? ProjectFor(string filePath)
+ProjectLookup ProjectFor(string filePath)
 {
     var dir = Path.GetDirectoryName(filePath)!;
     return projectForDir.GetOrAdd(dir, d =>
@@ -107,40 +107,48 @@ string? ProjectFor(string filePath)
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 Report("PROJECT_DISCOVERY_FAILED", cur, ex.Message);
-                csprojs = Array.Empty<string>();
+                return new ProjectLookup(null, false);
             }
             if (csprojs.Length > 0)
             {
-                // Sort to keep selection deterministic when multiple .csproj
-                // files coexist in the same directory.
-                Array.Sort(csprojs, StringComparer.Ordinal);
                 if (csprojs.Length > 1)
                 {
                     Report("PROJECT_AMBIGUOUS", cur, "Multiple nearest project files; classification is unresolved.");
+                    return new ProjectLookup(null, false);
                 }
-                return csprojs[0];
+                return new ProjectLookup(csprojs[0], true);
             }
             cur = Path.GetDirectoryName(cur);
         }
-        return null;
+        return new ProjectLookup(null, true);
     });
 }
 
-bool IsTest(string filePath)
+bool? IsTest(string filePath)
 {
-    var proj = ProjectFor(filePath);
-    if (proj is null)
+    var lookup = ProjectFor(filePath);
+    if (!lookup.IsResolved)
+    {
+        return null;
+    }
+    if (lookup.Path is null)
     {
         return false;
     }
-    return isTestProject.GetOrAdd(proj, ClassifyProjectAsTest);
+    return isTestProject.GetOrAdd(lookup.Path, ClassifyProjectAsTest);
 }
 
 var sourceFiles = new List<string>();
 var testFiles = new List<string>();
 foreach (var f in allCs)
 {
-    if (IsTest(f))
+    var classification = IsTest(f);
+    if (classification is null)
+    {
+        Report("CLASSIFICATION_UNKNOWN", f, "Nearest project discovery or classification could not be completed.");
+        continue;
+    }
+    if (classification.Value)
     {
         testFiles.Add(f);
     }
@@ -278,8 +286,9 @@ var testProjectsByProductionProject = BuildProductionToTestProjectMap(root);
 
 string? SuggestTestPath(string srcFile)
 {
-    var proj = ProjectFor(srcFile);
-    if (proj is null)
+    var lookup = ProjectFor(srcFile);
+    var proj = lookup.Path;
+    if (!lookup.IsResolved || proj is null)
     {
         return null;
     }
@@ -353,8 +362,8 @@ if (jsonV1)
     var pairedTests = pairedReport.Values.SelectMany(tests => tests).ToHashSet(StringComparer.Ordinal);
     var orphanTests = testFiles.Where(file => !AnalysisState.FailedFiles.ContainsKey(file) && !pairedTests.Contains(ToRel(root, file)))
         .Order(StringComparer.Ordinal).Select(file => new { path = ToRel(root, file), language = "csharp" }).ToArray();
-    var unassessed = AnalysisState.FailedFiles.Keys.Order(StringComparer.Ordinal)
-        .Select(file => new { path = ToRel(root, file), language = file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) ? "csharp" : "project" }).ToArray();
+    var unassessed = allCs.Where(AnalysisState.FailedFiles.ContainsKey).Order(StringComparer.Ordinal)
+        .Select(file => new { path = ToRel(root, file), language = "csharp" }).ToArray();
     var data = new Dictionary<string, object?>
     {
         ["repo_root"] = root,
@@ -486,20 +495,14 @@ static bool IsSkippedFile(string path)
     return false;
 }
 
-static bool ClassifyProjectAsTest(string csproj)
+static bool? ClassifyProjectAsTest(string csproj)
 {
-    var name = Path.GetFileNameWithoutExtension(csproj);
-    string[] testSuffixes = { ".Tests", ".Test", ".UnitTests", ".IntegrationTests", ".E2E", ".EndToEnd", ".Spec", ".Specs" };
-    foreach (var suf in testSuffixes)
-    {
-        if (name.EndsWith(suf, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-    }
     try
     {
         var content = ReadSnapshot(csproj);
+        var name = Path.GetFileNameWithoutExtension(csproj);
+        string[] testSuffixes = { ".Tests", ".Test", ".UnitTests", ".IntegrationTests", ".E2E", ".EndToEnd", ".Spec", ".Specs" };
+        if (testSuffixes.Any(suffix => name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))) { return true; }
         if (content.Contains("Microsoft.NET.Test.Sdk", StringComparison.OrdinalIgnoreCase)) { return true; }
         if (content.Contains("MSTest.Sdk", StringComparison.OrdinalIgnoreCase)) { return true; }
         if (content.Contains("Microsoft.Testing.Platform", StringComparison.OrdinalIgnoreCase)) { return true; }
@@ -511,6 +514,7 @@ static bool ClassifyProjectAsTest(string csproj)
     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DecoderFallbackException)
     {
         Report("PROJECT_READ_FAILED", csproj, ex.Message);
+        return null;
     }
     return false;
 }
@@ -559,7 +563,7 @@ static Dictionary<string, string> BuildProductionToTestProjectMap(string root)
     allCsproj.Sort(StringComparer.Ordinal);
     foreach (var testProj in allCsproj)
     {
-        if (!ClassifyProjectAsTest(testProj))
+        if (ClassifyProjectAsTest(testProj) != true)
         {
             continue;
         }
@@ -659,6 +663,7 @@ static SyntaxNode? ReadSyntax(string path)
 }
 
 internal readonly record struct Decl(string ShortName, string Namespace, string File);
+internal readonly record struct ProjectLookup(string? Path, bool IsResolved);
 internal sealed record DiagnosticRecord(string code, string severity, string path, string message);
 internal static class AnalysisState
 {

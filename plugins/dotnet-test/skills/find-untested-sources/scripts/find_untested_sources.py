@@ -909,6 +909,11 @@ def main() -> int:
             return 2
         return 1
     if args.limit_untested < 0:
+        if args.output_format == "json-v1":
+            message = "--limit-untested must be nonnegative"
+            print(f"INVALID_INPUT: {message}", file=sys.stderr)
+            print(json.dumps(error_report("INVALID_INPUT", message)))
+            return 2
         parser.error("--limit-untested must be nonnegative")
 
     lang_filter = set(args.lang) if args.lang else None
