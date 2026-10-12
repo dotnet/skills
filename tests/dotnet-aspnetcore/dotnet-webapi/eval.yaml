@@ -1,162 +1,451 @@
 name: dotnet-webapi
 description: Evaluates the dotnet-aspnetcore/dotnet-webapi skill
 type: capability
-config:
+defaults:
   timeout: 15m
+  runs: 1
 stimuli:
-  - name: Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics
+  - name: Implement a new minimal product API
+    tags:
+      feature: minimal-api-crud
+      capability: minimal-api-crud
+      risk: high
+      journey: build-http-api
     prompt: |
-      Create an ASP.NET Core Web API (.NET 10) project for managing products.
-      Each product has a name, price, category (an enum: Electronics, Clothing,
-      Food, Books), and a createdAt timestamp.
-
-      The API should have these endpoints:
-      - GET /api/products (list all)
-      - GET /api/products/{id} (get by ID)
-      - POST /api/products (create a product)
-
-      Use an in-memory service behind an interface for data storage.
-      Add OpenAPI documentation with rich metadata on each endpoint.
+      Complete the supplied .NET 10 starter project as a product API. Products
+      have a name, price, category (Electronics, Clothing, Food, or Books), and
+      creation timestamp. Add GET collection, GET-by-ID, and POST endpoints under
+      /api/products. Keep storage in memory behind an interface. The POST must
+      return 201 with a usable Location header. Generate built-in OpenAPI
+      documentation with useful endpoint metadata, serialize categories as
+      strings, and honor request cancellation. Work in the supplied project and
+      verify that it builds.
+    environment:
+      files:
+        - src: fixtures/global.json
+          dest: global.json
+        - src: fixtures/minimal-products/ProductApi.csproj
+          dest: ProductApi.csproj
+        - src: fixtures/minimal-products/Program.cs
+          dest: Program.cs
     graders:
-      - type: output-matches
+      - type: run-command
         config:
-          pattern: (MapGet|MapPost)
-      - type: output-matches
+          command: dotnet build ProductApi.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
         config:
-          pattern: (TypedResults|Results<)
-      - type: output-matches
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=[p for p in Path('.').rglob('*.cs') if not {'bin','obj'} & set(p.parts)];
+            text='\n'.join(p.read_text() for p in files);
+            routes=['/api/products','/api/products/{id'];
+            ok=all(route in text for route in routes)
+            and 'MapGet' in text and 'MapPost' in text
+            and re.search(r'\binterface\s+I\w*Product\w*\b', text)
+            and 'CancellationToken' in text
+            and re.search(r'\b(?:Typed)?Results\.Created', text)
+            and 'AddOpenApi' in text and 'MapOpenApi' in text
+            and 'JsonStringEnumConverter' in text;
+            sys.exit(0 if ok else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-not-contains
         config:
-          pattern: sealed
-      - type: output-contains
-        config:
-          substring: DateTimeOffset
-      - type: output-matches
-        config:
-          pattern: '/// <summary>'
-      - type: output-contains
-        config:
-          substring: AddOpenApi
-      - type: output-contains
-        config:
-          substring: MapOpenApi
-      - type: output-matches
-        config:
-          pattern: (WithName|WithSummary|WithDescription)
-      - type: output-not-contains
-        config:
-          substring: Swashbuckle
-      - type: output-not-matches
-        config:
-          pattern: (UseSwagger|UseSwaggerUI)
-      - type: output-contains
-        config:
-          substring: JsonStringEnumConverter
-      - type: output-contains
-        config:
-          substring: CancellationToken
+          path: ProductApi.csproj
+          value: Swashbuckle
+      - type: exit-success
       - type: prompt
     rubric:
-      - Uses minimal APIs (MapGet, MapPost, etc.) rather than controllers for new projects
-      - POST endpoint returns 201 Created with a Location header, not 200 OK
-      - Uses TypedResults with explicit Results<T1, T2> return types for compile-time type safety
-      - DTOs are sealed records, not mutable classes
-      - Uses a service layer with interfaces instead of injecting a data store directly into endpoints
-      - CancellationToken is accepted in endpoint signatures and forwarded through all async calls
-      - Date/time properties use DateTimeOffset, not DateTime
-      - All request and response DTOs include XML doc summary comments
-      - Enum properties serialize as strings by default using JsonStringEnumConverter
-      - Uses builder.Services.AddOpenApi() and app.MapOpenApi() (built-in .NET 9+ support)
-      - Does NOT add any Swashbuckle NuGet packages
-      - Chains .WithName(), .WithSummary(), and .WithDescription() on endpoints for OpenAPI metadata
+      - The supplied project builds as a .NET 10 API with working collection, by-ID, and create route definitions
+      - Creating a product returns 201 Created and a Location value that points to the new resource
+      - Endpoint work is cancellation-aware and delegates storage operations through an interface
+      - The generated OpenAPI contract describes the endpoints and represents category values as readable strings
+      - The implementation uses the framework OpenAPI support instead of adding an incompatible documentation package
 
-  - name: Add error handling with ProblemDetails and IExceptionHandler
+  - name: Add centralized exception-to-problem-details handling
+    tags:
+      feature: exception-handling
+      capability: exception-handling
+      risk: high
+      journey: build-http-api
     prompt: |
-      I have an existing ASP.NET Core minimal API project. I need to add
-      global error handling so that:
-      - All error responses use RFC 7807 Problem Details format
-      - KeyNotFoundException maps to 404
-      - ArgumentException maps to 400
-      - InvalidOperationException maps to 409
-      - Unhandled exceptions return 500 with no sensitive details
-
-      Show me how to implement this without adding try-catch blocks in
-      every endpoint.
+      Add centralized error handling to the supplied .NET 10 minimal API.
+      KeyNotFoundException must produce 404, ArgumentException 400,
+      InvalidOperationException 409, and unexpected failures 500. Every response
+      must use Problem Details, and a 500 response must not disclose exception
+      messages or stack traces. Do not add try-catch blocks to individual
+      endpoints. Build the project after the change.
+    environment:
+      files:
+        - src: fixtures/global.json
+          dest: global.json
+        - src: fixtures/exception-handler/ExceptionApi.csproj
+          dest: ExceptionApi.csproj
+        - src: fixtures/exception-handler/Program.cs
+          dest: Program.cs
     graders:
-      - type: output-contains
+      - type: run-command
         config:
-          substring: IExceptionHandler
-      - type: output-contains
+          command: dotnet build ExceptionApi.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
         config:
-          substring: ProblemDetails
-      - type: output-contains
-        config:
-          substring: AddProblemDetails
-      - type: output-contains
-        config:
-          substring: UseExceptionHandler
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=[p for p in Path('.').rglob('*.cs') if not {'bin','obj'} & set(p.parts)];
+            text='\n'.join(p.read_text() for p in files);
+            required=['KeyNotFoundException','ArgumentException',
+            'InvalidOperationException','AddProblemDetails','UseExceptionHandler'];
+            statuses=[r'(?:Status404NotFound|\b404\b)',r'(?:Status400BadRequest|\b400\b)',
+            r'(?:Status409Conflict|\b409\b)',r'(?:Status500InternalServerError|\b500\b)'];
+            sys.exit(0 if all(value in text for value in required)
+            and all(re.search(pattern, text) for pattern in statuses) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: exit-success
       - type: prompt
     rubric:
-      - Implements IExceptionHandler (the modern .NET 8+ approach) rather than convention-based middleware
-      - Returns ProblemDetails for all error responses (RFC 7807)
-      - Maps exception types to appropriate HTTP status codes (404, 400, 409)
-      - Does not expose internal exception details in production error responses
-      - Registers the handler with AddExceptionHandler<T>() and AddProblemDetails()
-      - Exception handler class is sealed
-      - Exception handler is placed in a Middleware/ folder
+      - The project builds with one global exception path rather than duplicated endpoint handlers
+      - The four exception categories produce the requested 404, 400, 409, and 500 status codes
+      - Error bodies use the standard Problem Details shape
+      - Unexpected-error responses do not reveal internal exception text or stack traces
+      - Handled exceptions remain observable through appropriate logging
 
-  - name: Add a new API endpoint to an existing controller-based project
+  - name: Extend an existing controller API with order endpoints
+    tags:
+      feature: controller-extension
+      capability: controller-extension
+      risk: high
+      journey: build-http-api
     prompt: |
-      I have an existing ASP.NET Core Web API that uses controllers. Here is
-      one of the existing controllers:
-
-      ```csharp
-      [ApiController]
-      [Route("api/[controller]")]
-      public class CustomersController : ControllerBase
-      {
-          private readonly ICustomerService _service;
-
-          public CustomersController(ICustomerService service)
-          {
-              _service = service;
-          }
-
-          [HttpGet]
-          public async Task<ActionResult<List<CustomerResponse>>> GetAll()
-          {
-              return Ok(await _service.GetAllAsync());
-          }
-      }
-      ```
-
-      Add a new OrdersController with a GET endpoint to list orders and a
-      POST endpoint to create an order. Each order has a customer ID, a
-      placedAt timestamp, a total amount, and an OrderStatus (Pending,
-      Processing, Shipped, Delivered, Cancelled).
+      Extend the supplied controller-based API with an OrdersController. Add GET
+      collection, GET-by-ID, and POST endpoints. An order has a customer ID,
+      placed-at timestamp, total amount, and status (Pending, Processing, Shipped,
+      Delivered, or Cancelled). Follow the existing service abstraction and
+      controller style. The create action must return 201 with a route to the new
+      order, and asynchronous work must stop when the request is cancelled. Do
+      not introduce minimal API routes. Build the project.
+    environment:
+      files:
+        - src: fixtures/global.json
+          dest: global.json
+        - src: fixtures/controller-orders/OrdersApi.csproj
+          dest: OrdersApi.csproj
+        - src: fixtures/controller-orders/Program.cs
+          dest: Program.cs
+        - src: fixtures/controller-orders/Controllers/CustomersController.cs
+          dest: Controllers/CustomersController.cs
+        - src: fixtures/controller-orders/Contracts/CustomerResponse.cs
+          dest: Contracts/CustomerResponse.cs
+        - src: fixtures/controller-orders/Services/ICustomerService.cs
+          dest: Services/ICustomerService.cs
+        - src: fixtures/controller-orders/Services/CustomerService.cs
+          dest: Services/CustomerService.cs
     graders:
-      - type: output-contains
+      - type: run-command
         config:
-          substring: ControllerBase
-      - type: output-contains
+          command: dotnet build OrdersApi.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
         config:
-          substring: '[ApiController]'
-      - type: output-contains
-        config:
-          substring: CancellationToken
-      - type: output-not-matches
-        config:
-          pattern: 'app\.(MapGet|MapPost|MapPut|MapDelete|MapPatch)|\b(MapGet|MapPost|MapPut|MapDelete|MapPatch)\b'
-      - type: output-contains
-        config:
-          substring: DateTimeOffset
-      - type: output-matches
-        config:
-          pattern: '/// <summary>'
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=[p for p in Path('.').rglob('*.cs') if not {'bin','obj'} & set(p.parts)];
+            text='\n'.join(p.read_text() for p in files);
+            orders='\n'.join(p.read_text() for p in files if 'Order' in p.name);
+            ok='OrdersController' in orders and 'ControllerBase' in orders
+            and '[ApiController]' in orders and 'HttpGet' in orders
+            and 'HttpPost' in orders and 'CreatedAtAction' in orders
+            and 'CancellationToken' in orders and 'DateTimeOffset' in orders
+            and re.search(r'\binterface\s+I\w*Order\w*\b', text)
+            and not re.search(r'\bMap(?:Get|Post|Put|Delete|Patch)\s*\(', text);
+            sys.exit(0 if ok else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: exit-success
       - type: prompt
     rubric:
-      - Continues with the controller pattern since the existing project uses controllers (does not mix minimal APIs)
-      - Includes CancellationToken in all endpoint signatures
-      - POST create returns CreatedAtAction with 201 status, not Ok with 200
-      - Uses sealed record DTOs with proper naming (CreateOrderRequest, OrderResponse)
-      - Date/time properties use DateTimeOffset, not DateTime
-      - All request and response DTOs include XML doc summary comments
+      - The new resource follows the established controller architecture without adding a second endpoint style
+      - The project builds with list, by-ID, and create order actions backed by a service abstraction
+      - The create action returns 201 and identifies the newly created order route
+      - Order timestamps preserve offset information, and cancellation reaches asynchronous service calls
+
+  - name: Repair a TypedResults handler that does not compile
+    tags:
+      feature: typed-results
+      capability: typed-results
+      risk: high
+      journey: build-http-api
+    prompt: |
+      The supplied minimal API fails to compile with CS1593 on its GET-by-ID
+      endpoint. Fix the handler while keeping typed 200 and 404 results and the
+      existing route, service contract, and cancellation behavior. Do not weaken
+      the endpoint to an untyped catch-all result. Build the project to prove the
+      fix.
+    environment:
+      files:
+        - src: fixtures/global.json
+          dest: global.json
+        - src: fixtures/typed-results/TypedResultsApi.csproj
+          dest: TypedResultsApi.csproj
+        - src: fixtures/typed-results/Program.cs
+          dest: Program.cs
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build TypedResultsApi.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            text=Path('Program.cs').read_text();
+            ok='TypedResults.Ok' in text and 'TypedResults.NotFound' in text
+            and re.search(r'(?:Task\s*<\s*)?Results\s*<\s*(?:Ok\s*<\s*ProductResponse\s*>\s*,\s*NotFound|NotFound\s*,\s*Ok\s*<\s*ProductResponse\s*>)\s*>', text)
+            and 'CancellationToken' in text and '/api/products/{id:int}' in text;
+            sys.exit(0 if ok else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The original CS1593 failure is gone and the supplied project builds
+      - The endpoint still has distinct typed success and not-found outcomes that OpenAPI can infer
+      - The route, injected service, and cancellation flow remain intact
+      - The fix addresses return-type inference instead of replacing the handler with an untyped workaround
+
+  - name: Enable automatic validation for a minimal API request
+    tags:
+      feature: minimal-api-validation
+      capability: minimal-api-validation
+      risk: high
+      journey: build-http-api
+    prompt: |
+      The supplied .NET 10 minimal API has data annotations on
+      CreateContactRequest, but invalid requests are not rejected before the
+      handler runs. Enable the framework's automatic minimal-API validation so
+      validation failures return the standard 400 response. Keep the endpoint and
+      annotations; do not add manual validation branches or a third-party
+      validation package. Build the project.
+    environment:
+      files:
+        - src: fixtures/global.json
+          dest: global.json
+        - src: fixtures/minimal-validation/ValidationApi.csproj
+          dest: ValidationApi.csproj
+        - src: fixtures/minimal-validation/Program.cs
+          dest: Program.cs
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build ValidationApi.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: file-contains
+        config:
+          path: Program.cs
+          value: AddValidation()
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import sys;
+            text='\n'.join(p.read_text() for p in Path('.').rglob('*.cs') if not {'bin','obj'} & set(p.parts));
+            sys.exit(0 if '[Required' in text else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-not-contains
+        config:
+          path: ValidationApi.csproj
+          value: FluentValidation
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The project builds with the .NET 10 framework validation service enabled
+      - Existing data annotations are enforced before the endpoint handler executes
+      - Invalid request bodies receive the framework validation problem response with status 400
+      - The solution does not duplicate validation logic or add an unnecessary package
+
+  - name: Preserve an existing JSON contract while adding string enums
+    tags:
+      feature: json-contract
+      capability: json-contract
+      risk: high
+      journey: build-http-api
+    prompt: |
+      Configure the supplied controller API so ShipmentStatus values are written
+      and read as enum names instead of integers. Preserve the API's existing
+      case-insensitive property matching and other serializer behavior; current
+      clients depend on it. Do not introduce stricter number or casing rules.
+      Build the project.
+    environment:
+      files:
+        - src: fixtures/global.json
+          dest: global.json
+        - src: fixtures/json-contract/JsonContractApi.csproj
+          dest: JsonContractApi.csproj
+        - src: fixtures/json-contract/Program.cs
+          dest: Program.cs
+        - src: fixtures/json-contract/Controllers/ShipmentsController.cs
+          dest: Controllers/ShipmentsController.cs
+        - src: fixtures/json-contract/Contracts/ShipmentResponse.cs
+          dest: Contracts/ShipmentResponse.cs
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build JsonContractApi.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import sys;
+            text='\n'.join(p.read_text() for p in Path('.').rglob('*.cs') if not {'bin','obj'} & set(p.parts));
+            sys.exit(0 if 'JsonStringEnumConverter' in text else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-contains
+        config:
+          path: Program.cs
+          value: PropertyNameCaseInsensitive = true
+      - type: file-contains
+        config:
+          path: Program.cs
+          value: WriteIndented = false
+      - type: file-not-contains
+        config:
+          path: Program.cs
+          value: PropertyNameCaseInsensitive = false
+      - type: file-not-contains
+        config:
+          path: Program.cs
+          value: JsonNumberHandling.Strict
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Shipment status values use stable readable names in request and response JSON
+      - The existing case-insensitive property contract and formatting behavior remain unchanged
+      - The project builds without imposing unrelated strict serializer settings on existing clients
+
+  - name: Create an HTTP request file for every catalog route
+    tags:
+      feature: http-request-file
+      capability: http-request-file
+      risk: high
+      journey: build-http-api
+    prompt: |
+      Add a .http request file for the supplied catalog API. Include runnable
+      requests for list, get-by-ID, create, and delete, with a realistic JSON
+      body for create. Also include at least one missing-ID request that exercises
+      a 404 path. Use one reusable base URL variable. Do not change the API source
+      or project file.
+    environment:
+      files:
+        - src: fixtures/global.json
+          dest: global.json
+        - src: fixtures/http-file/CatalogApi.csproj
+          dest: CatalogApi.csproj
+        - src: fixtures/http-file/Program.cs
+          dest: Program.cs
+        - src: fixtures/http-file/Program.cs
+          dest: .eval-baseline/Program.cs
+        - src: fixtures/http-file/CatalogApi.csproj
+          dest: .eval-baseline/CatalogApi.csproj
+      commands:
+        - >-
+          python3 -c "from pathlib import Path; import hashlib, json, stat;
+          root=Path('.');
+          skipped=lambda p: p.parts and (p.parts[0] in ('.eval-baseline','bin','obj') or p.suffix=='.http');
+          files=[p for p in root.rglob('*') if not skipped(p) and (p.is_file() or p.is_symlink())];
+          assert not any(p.is_symlink() for p in files);
+          manifest={p.relative_to(root).as_posix(): {'sha256': hashlib.sha256(p.read_bytes()).hexdigest(),
+          'inode': p.stat().st_ino, 'mode': stat.S_IMODE(p.stat().st_mode), 'size': p.stat().st_size,
+          'mtime_ns': p.stat().st_mtime_ns, 'ctime_ns': p.stat().st_ctime_ns} for p in files};
+          baseline=Path('.eval-baseline'); baseline.mkdir(exist_ok=True);
+          baseline.joinpath('manifest.json').write_text(json.dumps(manifest, sort_keys=True))"
+    graders:
+      - type: file-exists
+        config:
+          path: "*.http"
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=list(Path('.').glob('*.http'));
+            text='\n'.join(p.read_text() for p in files);
+            ids=re.findall(r'(?im)^(?:GET|DELETE)\s+\{\{[^}]+\}\}/api/catalog/(\d+)\s*$', text);
+            checks=[re.search(r'(?im)^@(?:baseUrl|host)\s*=', text),
+            re.search(r'(?im)^GET\s+\{\{[^}]+\}\}/api/catalog\s*$', text),
+            re.search(r'(?im)^GET\s+\{\{[^}]+\}\}/api/catalog/\d+\s*$', text),
+            re.search(r'(?im)^POST\s+\{\{[^}]+\}\}/api/catalog\s*$', text),
+            re.search(r'(?im)^DELETE\s+\{\{[^}]+\}\}/api/catalog/\d+\s*$', text),
+            re.search(r'(?i)Content-Type:\s*application/json', text),
+            re.search(r'(?i)\"name\"\s*:', text),
+            re.search(r'(?i)\"price\"\s*:', text),
+            any(value != '1' for value in ids)];
+            sys.exit(0 if files and all(checks) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import hashlib, json, stat, sys;
+            root=Path('.');
+            skipped=lambda p: p.parts and (p.parts[0] in ('.eval-baseline','bin','obj') or p.suffix=='.http');
+            files=[p for p in root.rglob('*') if not skipped(p) and (p.is_file() or p.is_symlink())];
+            expected=json.loads(Path('.eval-baseline/manifest.json').read_text());
+            actual={p.relative_to(root).as_posix(): {'sha256': hashlib.sha256(p.read_bytes()).hexdigest(),
+            'inode': p.stat().st_ino, 'mode': stat.S_IMODE(p.stat().st_mode), 'size': p.stat().st_size,
+            'mtime_ns': p.stat().st_mtime_ns, 'ctime_ns': p.stat().st_ctime_ns} for p in files if not p.is_symlink()};
+            sys.exit(0 if not any(p.is_symlink() for p in files) and actual==expected else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The request file can be run directly after setting one base URL
+      - Every supplied catalog route has a representative request with the correct HTTP method
+      - The create request contains a realistic JSON body and content type
+      - A missing-resource request documents how to exercise the API's 404 behavior
+      - Every supplied source, project, and config file remains untouched and byte-for-byte unchanged, with no added, removed, renamed, recreated, or symlinked file
+
+  - name: Keep Web API guidance dormant for a Blazor form
+    tags:
+      feature: dormancy-blazor
+      capability: dormancy-blazor
+      risk: routing
+      journey: decline-off-target
+    prompt: |
+      Build a Blazor component with an EditForm for editing a customer profile.
+      Add validation messages, disable the submit button while saving, and show a
+      success banner after the component's injected profile client completes.
+    expect_activation: false
+    graders:
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Answers the requested component and form task without turning it into an HTTP API redesign
+      - Does not add controllers, minimal API routes, OpenAPI setup, or server error middleware
+      - The specialized Web API workflow stayed dormant for a frontend-only request
+
+  - name: Keep Web API guidance dormant for a SignalR hub
+    tags:
+      feature: dormancy-signalr
+      capability: dormancy-signalr
+      risk: routing
+      journey: decline-off-target
+    prompt: |
+      Add a SignalR ChatHub with a SendMessage method that broadcasts the user
+      and message to connected clients. Register and map the hub at /chatHub.
+    expect_activation: false
+    graders:
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recognizes the request as real-time hub messaging rather than request/response HTTP API work
+      - Does not add controller or minimal API conventions, OpenAPI metadata, or Problem Details work
+      - Gives focused hub guidance or asks for project context and does not activate the specialized request/response Web API workflow

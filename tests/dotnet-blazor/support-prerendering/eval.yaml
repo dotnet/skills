@@ -1,10 +1,18 @@
 name: support-prerendering
 description: Evaluates the dotnet-blazor/support-prerendering skill
 type: capability
-config:
+tags:
+  executionShard: runtime
+defaults:
   timeout: 10m
+  runs: 1
 stimuli:
   - name: Equipment inventory loaded once
+    tags:
+      feature: persistent-initial-data
+      capability: persistent-initial-data
+      risk: medium
+      journey: preserve-prerender-state
     prompt: |
       I have an existing Blazor Web App with Interactive Server (per-page).
 
@@ -17,14 +25,25 @@ stimuli:
       instantly (fast initial paint), but the equipment data should NOT be fetched
       twice — once during the initial server render and again when the page becomes
       interactive. It should only call the service once and carry that data across.
+    environment: &interactive-server-project
+      files:
+        - src: ../fixtures/global.json
+          dest: global.json
+      commands:
+        - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor --interactivity server --no-https --force
     graders:
       - type: file-exists
         config:
           path: '**/Inventory.razor'
-      - type: file-contains
+      - type: run-command
         config:
-          path: '**/Inventory.razor'
-          value: PersistentState
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=list(Path('.').glob('**/Inventory.razor'));
+            text='\n'.join(p.read_text() for p in files);
+            sys.exit(0 if files and re.search(r'Persistent(?:Component)?State', text) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: file-contains
         config:
           path: '**/Inventory.razor'
@@ -33,6 +52,11 @@ stimuli:
         config:
           path: '**/Inventory.razor'
           value: '??='
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
       - type: prompt
     rubric:
       - Data persists across the prerender-to-interactive handoff — uses state persistence ([PersistentState] or PersistentComponentState) with ??= pattern to avoid duplicate data fetches
@@ -40,6 +64,11 @@ stimuli:
       - Does NOT disable prerendering — preserves the fast initial HTML response while avoiding duplicate loads
       - Creates a proper EquipmentService registered in DI, not inline data generation
   - name: Notifications page with live polling
+    tags:
+      feature: interactive-only-background-work
+      capability: interactive-only-background-work
+      risk: medium
+      journey: preserve-prerender-state
     prompt: |
       I have an existing Blazor Web App with Interactive Server (per-page).
 
@@ -55,6 +84,7 @@ stimuli:
       - The polling loop must not run during the initial server render — only after
         the page is live and interactive in the browser
       - When the user navigates away, the polling should stop cleanly (no leaked tasks)
+    environment: *interactive-server-project
     graders:
       - type: file-exists
         config:
@@ -63,17 +93,326 @@ stimuli:
         config:
           path: '**/Notifications.razor'
           value: RendererInfo.IsInteractive
-      - type: file-contains
+      - type: run-command
         config:
-          path: '**/Notifications.razor'
-          value: PersistentState
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=list(Path('.').glob('**/Notifications.razor'));
+            text='\n'.join(p.read_text() for p in files);
+            sys.exit(0 if files and re.search(r'Persistent(?:Component)?State', text) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: file-contains
         config:
           path: '**/Notifications.razor'
           value: InteractiveServer
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
       - type: prompt
     rubric:
       - Guards the polling loop so it only runs when the component is interactive — not during prerendering
       - Persists initial notification data across the prerender-to-interactive handoff so the service is not called twice
       - Polling uses an async loop with CancellationTokenSource, cancelled in DisposeAsync — not System.Threading.Timer
       - Component implements IAsyncDisposable and cancels the polling token in DisposeAsync to prevent resource leaks
+  - name: Disable prerendering for a browser-only chart
+    tags:
+      feature: disable-prerendering
+      capability: disable-prerendering
+      risk: medium
+      journey: preserve-prerender-state
+    prompt: |
+      Add an interactive /floor-map page containing a FloorMap component whose
+      third-party chart library requires a real browser DOM during its first
+      render and has no meaningful server-rendered fallback. Disable prerendering
+      only for this component, keep the rest of the app's prerendering behavior,
+      and initialize the chart after the browser render.
+    environment: *interactive-server-project
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=list(Path('.').glob('**/*FloorMap*.razor'));
+            text='\n'.join(p.read_text() for p in files);
+            sys.exit(0 if files and re.search(r'prerender\s*:\s*false', text) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-contains
+        config:
+          path: '**/*FloorMap*.razor'
+          value: OnAfterRenderAsync
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Disables prerendering at the narrow component boundary instead of globally
+      - Initializes browser-only work after an interactive render
+      - Does not claim the component can re-enable prerendering under a parent that disabled it
+      - Explains the lost initial HTML trade-off for this component
+  - name: Exclude an HttpContext page from global interactive routing
+    tags:
+      feature: static-routing-exclusion
+      capability: static-routing-exclusion
+      risk: medium
+      journey: preserve-prerender-state
+    prompt: |
+      This Blazor Web App applies Interactive Server globally. Add a /download
+      page that inspects request headers and writes a file response using
+      HttpContext. Navigating to it must leave the interactive circuit and perform
+      a full static request, while all normal pages remain globally interactive.
+    environment:
+      files:
+        - src: ../fixtures/global.json
+          dest: global.json
+      commands:
+        - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor --interactivity server --all-interactive --no-https --force
+    graders:
+      - type: file-contains
+        config:
+          path: '**/*ownload*.razor'
+          value: ExcludeFromInteractiveRouting
+      - type: file-contains
+        config:
+          path: '**/App.razor'
+          value: AcceptsInteractiveRouting
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Marks the request-bound page for exclusion from interactive routing
+      - Conditionally applies the global render mode so excluded routes render statically
+      - Preserves global interactivity on ordinary pages
+      - Does not access HttpContext during the interactive circuit lifetime
+  - name: Supply a client service during WebAssembly prerendering
+    tags:
+      feature: prerender-service-availability
+      capability: prerender-service-availability
+      risk: medium
+      journey: preserve-prerender-state
+    prompt: |
+      In this per-page Interactive WebAssembly app, add a Client-project
+      ExchangeRates component that injects IExchangeRateService. The client
+      implementation uses HttpClient, but the component must also prerender on the
+      server without a missing-service exception. Provide compatible server and
+      client registrations and keep the initial rates from being fetched twice.
+    environment:
+      files:
+        - src: ../fixtures/global.json
+          dest: global.json
+      commands:
+        - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor --interactivity webassembly --no-https --force
+    graders:
+      - type: file-contains
+        config:
+          path: '**/Program.cs'
+          value: IExchangeRateService
+      - type: file-contains
+        config:
+          path: '**/*.Client/**/Program.cs'
+          value: IExchangeRateService
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=[p for p in Path('.').glob('**/*.razor') if '.Client' in str(p)];
+            text='\n'.join(p.read_text() for p in files);
+            sys.exit(0 if files and re.search(r'Persistent(?:Component)?State', text) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Makes the injected contract available in both the prerendering server and browser hosts
+      - Uses environment-appropriate implementations without server-only dependencies in the Client project
+      - Persists the initial result across activation so the browser does not repeat the fetch
+  - name: Persist repeated component instances independently
+    tags:
+      feature: keyed-persistent-state
+      capability: keyed-persistent-state
+      risk: medium
+      journey: preserve-prerender-state
+    prompt: |
+      Add an interactive /stores page that renders StoreSummary for several
+      store ids. Each StoreSummary loads its own summary during prerendering and
+      must reuse the correct result after activation without fetching twice or
+      restoring another store's state. The list can be reordered between renders.
+      Create the minimal summary model, service stub, and DI registration needed to build.
+    environment: *interactive-server-project
+    graders:
+      - type: file-contains
+        config:
+          path: '**/*.razor'
+          value: '@key'
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=list(Path('.').glob('**/*StoreSummary*.razor'));
+            text='\n'.join(p.read_text() for p in files);
+            sys.exit(0 if files and re.search(r'Persistent(?:Component)?State', text) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Gives each repeated component instance stable identity tied to its store id
+      - Persists and restores each summary independently across the handoff
+      - Avoids a second service call when restored state is present
+      - Remains correct when the parent reorders stores
+  - name: Preserve Auto profile data across activation
+    tags:
+      feature: auto-persistent-state
+      capability: auto-persistent-state
+      risk: medium
+      journey: preserve-prerender-state
+    prompt: |
+      In this Interactive Auto app, add a Client-project /profile/{UserId:int}
+      component. It loads a ProfileDto through IProfileService during prerendering,
+      displays the profile in the initial HTML, and must not issue the same load
+      again when the interactive runtime attaches. Navigating to a different
+      UserId must load the new profile rather than reuse stale state.
+      Create compatible service implementations and registrations in both hosts.
+    environment:
+      files:
+        - src: ../fixtures/global.json
+          dest: global.json
+      commands:
+        - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor --interactivity auto --no-https --force
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=[p for p in Path('.').glob('**/*.razor') if '.Client' in str(p)];
+            text='\n'.join(p.read_text() for p in files);
+            sys.exit(0 if files and re.search(r'Persistent(?:Component)?State', text) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-contains
+        config:
+          path: '**/*.Client/**/*.razor'
+          value: OnParametersSetAsync
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Carries the prerendered profile into the interactive instance without a duplicate load
+      - Associates restored state with the requested user and refreshes when the route id changes
+      - Keeps the interactive component and portable contract in the Client project
+  - name: Start a live connection only after activation
+    tags:
+      feature: renderer-interactivity-detection
+      capability: renderer-interactivity-detection
+      risk: medium
+      journey: preserve-prerender-state
+    prompt: |
+      Add an interactive /live-orders page. It prerenders an initial order list
+      from OrderService, then starts an injected LiveOrderConnection only after
+      the component is interactive. The connection must not start during the
+      static render, the initial list must not reload at activation, and the
+      connection must stop when the page is disposed.
+      Create minimal service and connection stubs and register them so the project builds.
+    environment: *interactive-server-project
+    graders:
+      - type: file-contains
+        config:
+          path: '**/LiveOrders.razor'
+          value: RendererInfo.IsInteractive
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=list(Path('.').glob('**/LiveOrders.razor'));
+            text='\n'.join(p.read_text() for p in files);
+            sys.exit(0 if files and re.search(r'Persistent(?:Component)?State', text) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-contains
+        config:
+          path: '**/LiveOrders.razor'
+          value: IAsyncDisposable
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Separates initial prerendered data loading from interactive-only connection startup
+      - Guards connection startup with the renderer's interactivity state
+      - Reuses persisted initial data and disposes the live connection
+  - name: Keep a client-only service optional during prerender
+    tags:
+      feature: optional-prerender-service
+      capability: optional-prerender-service
+      risk: medium
+      journey: preserve-prerender-state
+    prompt: |
+      A Client-project DeviceStatus component injects IBrowserBatteryService,
+      which only has a WebAssembly implementation. Keep prerendering enabled for
+      the surrounding page, render a neutral "Battery status unavailable" value
+      on the server, and start the browser service after activation. Do not
+      invent a fake server battery reading.
+      Create the portable contract and browser implementation needed by the Client project.
+    environment:
+      files:
+        - src: ../fixtures/global.json
+          dest: global.json
+      commands:
+        - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor --interactivity webassembly --no-https --force
+    graders:
+      - type: file-exists
+        config:
+          path: '**/*.Client/**/*DeviceStatus*.razor'
+      - type: file-contains
+        config:
+          path: '**/*.Client/**/*DeviceStatus*.razor'
+          value: RendererInfo.IsInteractive
+      - type: run-command
+        config:
+          command: dotnet build --no-restore
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Allows prerendering to complete without resolving a browser-only service
+      - Shows an honest neutral server-rendered fallback rather than fabricated browser data
+      - Uses the service only after interactive WebAssembly activation
+      - Keeps prerendering enabled for the rest of the page
+  - name: Stay dormant for a static SSR page
+    tags:
+      feature: routing-boundary
+      capability: routing-boundary
+      risk: routing
+      journey: decline-off-target
+    prompt: |
+      Add a static SSR /about page that reads company information from a
+      server-side service and renders it once. The app has no interactive render
+      mode and there is no prerender-to-interactive handoff.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Recognizes that no prerender-to-interactive handoff exists for this static-only request
+      - Does not prescribe persistent component state, renderer interactivity checks, or prerender configuration
+      - Gives focused static-server guidance or asks for project context and does not activate the interactive handoff workflow
