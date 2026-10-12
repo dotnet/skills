@@ -59,6 +59,32 @@ def provenance_graders():
 
 
 class EvidenceCalibration(unittest.TestCase):
+    def test_path_guard_rejects_windows_drive_relative_and_rooted_paths(self):
+        helper_spec = importlib.util.spec_from_file_location(
+            "evidence_workspace", SUITE / "graders" / "check_workspace.py"
+        )
+        helper = importlib.util.module_from_spec(helper_spec)
+        helper_spec.loader.exec_module(helper)
+        for raw in (
+            "D:foo", "D:", "D:boundary.py", r"D:\foo", r"\foo",
+            r"\\server\share\foo", r"\\?\D:\foo", "/foo",
+            "../foo", r"..\foo", r"folder\..\foo",
+        ):
+            with self.subTest(path=raw):
+                with self.assertRaisesRegex(ValueError, "Unsafe path"):
+                    helper.safe_relative(raw)
+                for option in ("--source", "--tests"):
+                    with self.subTest(option=option):
+                        config = self.recorder_config(b"not read")
+                        config["args"][config["args"].index(option) + 1] = raw
+                        result = self.run_command(self.materialize(), config)
+                        self.assertNotEqual(0, result.returncode)
+                        self.assertIn("Unsafe path", result.stderr)
+                        self.assertNotIn("executor-test-evidence", result.stdout)
+        for raw in ("boundary.py", "folder/file.py", r"folder\file.py"):
+            with self.subTest(relative=raw):
+                self.assertEqual(Path(raw), helper.safe_relative(raw))
+
     def materialize(self):
         directory = tempfile.TemporaryDirectory(prefix=".calibration-", dir=SUITE)
         self.addCleanup(directory.cleanup)

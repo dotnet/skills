@@ -13,7 +13,7 @@ import base64
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import re
 import subprocess
 import sys
@@ -27,7 +27,10 @@ def require(condition, message):
 
 def safe_relative(raw):
     path = Path(raw)
-    require(not path.is_absolute() and ".." not in path.parts, f"Unsafe path: {raw}")
+    windows_path = PureWindowsPath(raw)
+    require(not path.anchor and not windows_path.anchor
+            and ".." not in path.parts and ".." not in windows_path.parts,
+            f"Unsafe path: {raw}")
     return path
 
 

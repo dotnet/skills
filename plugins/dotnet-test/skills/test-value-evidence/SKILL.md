@@ -142,7 +142,7 @@ sibling skills are optional routing destinations, not required dependencies.
    Use **executed: detected**, **executed: survived**, **static: predicts
    detection**, **static: predicts survival**, **unverified**, **equivalent**,
    or **not applicable** accurately. Missing red/green or incomplete selection
-   leaves paired proof unverified. Report survival only for an executed,
+   leaves paired proof unverified. Report **executed: survived** only for an executed,
    non-equivalent fault; do not count equivalent edits as gaps. Preservation
    passes for a refactor are valid evidence, not missing-red defects.
 
