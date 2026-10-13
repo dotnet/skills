@@ -25,13 +25,13 @@ description: >
 1. **Verify the target framework first.** `Syncfusion.Blazor.Toolkit` 2.0.0 targets `net8.0`, `net9.0`, and `net10.0`. Always check the project's `<TargetFramework>` before installation. On `net6.0`, `net7.0`, or older frameworks, NuGet restore fails with an incompatibility such as `NU1202` because the package has no compatible assets for those TFMs. Do not expect a later `CS0246` as the primary signal—fix the framework mismatch first. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first (for example with the `dotnet-upgrade` plugin), then continue with the installation steps. If the `<TargetFramework>` is unknown, read it before doing anything else. Never edit the TFM just to make the package install.
 2. Use the exact package ID `Syncfusion.Blazor.Toolkit`. Prefer the latest 2.x stable release (2.0.0 or newer). Version 2.0.0 is **not source-compatible** with 1.0.2.
 3. In every `Program.cs` that calls `AddSyncfusionBlazorToolkit()`, add `using Syncfusion.Blazor.Toolkit;` so the extension method is in scope. Call it before `builder.Build()`.
-4. **Namespace consolidation (2.0 breaking change).** All public types live under the single root namespace `Syncfusion.Blazor.Toolkit`. Domain-specific namespaces (`Syncfusion.Blazor.Toolkit.Buttons`, `.Calendars`, `.Charts`, `.Inputs`, `.Popups`, `.Spinner`, etc.) were removed. Add only:
+4. **Namespace consolidation (2.0 breaking change).** All public types—including `SfButton`, `SfTextBox`, `SfChart`, calendars, dialogs, and spinner—live under the single root namespace `Syncfusion.Blazor.Toolkit`. Domain-specific namespaces (`Syncfusion.Blazor.Toolkit.Buttons`, `.Calendars`, `.Charts`, `.Inputs`, `.Popups`, `.Spinner`, etc.) were **removed** in 2.0. Add only:
    ```razor
    @using Syncfusion.Blazor.Toolkit
    ```
-   to `_Imports.razor` (and the equivalent `using` in C# files). A missing namespace produces Razor warning `RZ10012` and renders the tag as an unknown HTML element. `_Imports.razor` does not affect `Program.cs`.
+   to `_Imports.razor` (and the equivalent `using` in C# files). That single import is enough for every public component type. A missing namespace produces Razor warning `RZ10012` and renders the tag as an unknown HTML element. `_Imports.razor` does not affect `Program.cs`.
 5. **Theming (2.0 — no host theme stylesheet).** Do **not** link `fluent.min.css`, `highcontrast.min.css`, or per-component stylesheets under `_content/Syncfusion.Blazor.Toolkit/styles/`. Component styles use Blazor CSS isolation; the shared theme layer (`:root` tokens, base/utility styles, icon font, keyframes, dark/high-contrast/forced-colors) is emitted at render time by `SfThemeRoot`. Every consumer-facing root component renders `<SfThemeRoot />` as its previous sibling automatically—no extra consumer configuration is required when Toolkit components are present. Place an explicit `<SfThemeRoot />` only when theme emission is needed without a Toolkit component in the tree. Keep the template's own `app.css` / `{Project}.styles.css` links; do not replace the host file.
-6. Use `@rendermode` only in a Blazor Web App. Legacy Blazor Server and standalone WebAssembly are already interactive and do not use render modes. In a Web App, **`-int Server`, `-int WebAssembly` and `-int Auto` are per-page**: `<Routes />` has no directive unless you used `-ai`. Only `-ai` (`--all-interactive`) is global. Any Toolkit component that uses events, bindings, dialogs, calendar navigation, or button clicks must sit inside an **interactive boundary**: the page's `@rendermode`, an interactive **wrapper component** on an otherwise static SSR page, or the inherited `Routes` mode in a global (`-ai`) app. The page itself does not have to be interactive.
+6. Use `@rendermode` only in a Blazor Web App. Legacy Blazor Server and standalone WebAssembly are already interactive and do not use render modes. In a Web App, **`-int Server`, `-int WebAssembly` and `-int Auto` are per-page** by default: `<Routes />` has **no** directive unless you passed `-ai`. Only `-ai` (`--all-interactive`) is global (mode on `Routes` / `HeadOutlet`). Any Toolkit component that uses events, bindings, dialogs, calendar navigation, or button clicks must sit inside an **interactive boundary**: (a) the page's `@rendermode`, (b) an interactive **wrapper component** on an otherwise static SSR page, or (c) the inherited `Routes` mode in a global (`-ai`) app. The page itself does **not** have to be interactive—Blazor allows interactive children on a static page.
 7. Toolkit components need `AddSyncfusionBlazorToolkit()` on **every host that renders them, including static SSR**. Without it the page returns HTTP 500 with `There is no registered service of type 'Syncfusion.Blazor.Toolkit.SyncfusionBlazorToolkitService'`. In a split Blazor Web App, register on the server and in `.Client`: prerendering runs `.Client` components on the server, so client-only registration still returns 500.
 8. In a split Blazor Web App, the `.Client` project is not a standalone WASM app. Do not call `RootComponents.Add<App>("#app")` there. Keep the `.AddAdditionalAssemblies(typeof(<App>.Client._Imports).Assembly)` call the template puts on `MapRazorComponents<App>()`; the server needs it to see `.Client` pages. It is unrelated to Toolkit, so never add, remove, or move it.
 9. Do not add a commercial `Syncfusion.Blazor*` package to satisfy a Toolkit request. If the app already uses commercial components, leave those packages and `Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense(...)` in place.
@@ -44,7 +44,7 @@ description: >
 - Don't install the Toolkit on a .NET 6 or .NET 7 project, or when the `<TargetFramework>` has not been checked. Recommend upgrading to .NET 8 or later first.
 - Don't treat `Syncfusion.Blazor` or component-specific commercial packages as Toolkit dependencies.
 - Don't add external script tags or commercial Syncfusion license scripts; Toolkit JS is bundled with the package.
-- Don't leave an interactive Toolkit control outside any interactive boundary (page mode, wrapper mode, or inherited `Routes` mode). A static SSR page is fine if a child wrapper owns the control and its handlers.
+- Don't leave an interactive Toolkit control outside any interactive boundary (page `@rendermode`, interactive wrapper, or inherited `Routes` mode). A static SSR page is fine if a child wrapper owns the control and its handlers.
 - Don't use this skill as a component API reference; consult the official Syncfusion Blazor Toolkit demos or documentation for API details.
 - Don't use domain-specific `@using` directives from Toolkit 1.x (`Syncfusion.Blazor.Toolkit.Buttons`, `.Calendars`, etc.). They no longer exist in 2.0.
 - Don't link `fluent.min.css`, `highcontrast.min.css`, or other `_content/Syncfusion.Blazor.Toolkit/styles/*.css` files in the host; 2.0 theming uses `SfThemeRoot` and CSS isolation.
@@ -58,11 +58,11 @@ Pick the **single** row that matches the app the user is on. The "Program.cs" co
 | --- | --- | --- | --- | --- |
 | Legacy Blazor Server (`_Host.cshtml`, net8.0+ only for Toolkit) | Yes | n/a | `_Host.cshtml` | Anywhere; already interactive, no `@rendermode` |
 | Standalone Blazor WebAssembly | n/a | Yes, in the standalone `Program.cs`; it keeps its own `RootComponents.Add<App>("#app")` | `wwwroot/index.html` | Anywhere; already interactive, no `@rendermode` |
-| Web App `-int Server` (**per-page**) | Yes | n/a (no `.Client` project) | `Components/App.razor` | Interactive boundary: page `@rendermode InteractiveServer` **or** interactive wrapper; pure static = display-only |
-| Web App `-int Server -ai` (**global**) | Yes | n/a | `Components/App.razor` | Anywhere; inherited from `Routes`. Do not add a different mode |
-| Web App `-int WebAssembly` (**per-page**) | Yes | Yes; **no** `RootComponents.Add` | `Components/App.razor` | Interactive boundary in `.Client` (page **or** wrapper with `@rendermode InteractiveWebAssembly`); server-project pages prerender then fail in the browser |
+| Web App `-int Server` (**per-page**, not global) | Yes | n/a (no `.Client` project) | `Components/App.razor` | Interactive boundary: page `@rendermode InteractiveServer` **or** interactive wrapper; pure static pages are display-only |
+| Web App `-int Server -ai` (**global**) | Yes | n/a | `Components/App.razor` | Anywhere; inherits `InteractiveServer` from `Routes`. Do not add a different mode |
+| Web App `-int WebAssembly` (**per-page**, not global) | Yes | Yes; **no** `RootComponents.Add` | `Components/App.razor` | Interactive boundary in `.Client` (page **or** wrapper with `@rendermode InteractiveWebAssembly`); server-project pages prerender then fail in the browser |
 | Web App `-int WebAssembly -ai` (**global**) | Yes | Yes | `Components/App.razor` | Anywhere; inherited from `Routes` |
-| Web App `-int Auto` (**per-page**) | Yes | Yes; **no** `RootComponents.Add` | `Components/App.razor` | Interactive boundary in `.Client` (page **or** wrapper with `@rendermode InteractiveAuto`); server-project pages prerender then fail in the browser. First visit server, later cached WASM; a running component does not switch |
+| Web App `-int Auto` (**per-page**, not global) | Yes | Yes; **no** `RootComponents.Add` | `Components/App.razor` | Interactive boundary in `.Client` (page **or** wrapper with `@rendermode InteractiveAuto`); server-project pages prerender then fail in the browser. First visit server, later cached WASM; a running component does not switch |
 | Web App `-int Auto -ai` (**global**) | Yes | Yes | `Components/App.razor` | Anywhere; inherited from `Routes` |
 | Web App `-int None` / static SSR page | Yes, if any Toolkit markup renders | n/a | `Components/App.razor` | Display-only Toolkit markup only; **never** components that use events, bindings, dialogs, or clicks |
 | .NET MAUI Blazor Hybrid | **Out of scope** (see below) | n/a | n/a | n/a |
@@ -81,7 +81,7 @@ Prefer the latest 2.x version (2.0.0 or newer).
 
 ### Program.cs: make only these additions
 
-Every template (`-int Server`, `-int WebAssembly`, `-int Auto`) already generates its own `AddRazorComponents()`, `Map*` and `AddAdditionalAssemblies(...)` calls. **Do not retype or replace them.** Pasting a trimmed `Program.cs` drops `using <App>.Components;` (so `App` stops resolving, `CS0246`) and removes `UseExceptionHandler`, `UseHsts`, `UseHttpsRedirection`, the static-asset mapping (`MapStaticAssets` on .NET 9+, `UseStaticFiles` on .NET 8) and `app.Run()`.
+Every template (`-int Server`, `-int WebAssembly`, `-int Auto`) already generates its own `AddRazorComponents()`, `Map*` and `AddAdditionalAssemblies(...)` calls. **Do not retype or replace them.** Add **only** `using Syncfusion.Blazor.Toolkit;` and `builder.Services.AddSyncfusionBlazorToolkit();` (plus the same registration on `.Client` when the template has a Client project). Pasting a full sample `Program.cs` from docs is a common failure: it can drop `using <App>.Components;` (`CS0246` on `App`), remove `UseExceptionHandler` / `UseHsts` / `UseHttpsRedirection`, drop static-asset mapping (`MapStaticAssets` on .NET 9+, `UseStaticFiles` on .NET 8), remove `.AddAdditionalAssemblies(...)` on WebAssembly/Auto hosts (Client routes stop resolving), or add Interactive Server services to a WebAssembly-only template.
 
 **Server `Program.cs`** (all three Web App templates and legacy Server). Add one `using` at the top and one line before `var app = builder.Build();`:
 
@@ -138,7 +138,7 @@ Add the single root namespace. In a split Web App add it to the `_Imports.razor`
 @using Syncfusion.Blazor.Toolkit
 ```
 
-Do **not** add domain-specific usings such as `@using Syncfusion.Blazor.Toolkit.Buttons` — those namespaces were removed in 2.0.
+Do **not** add domain-specific usings such as `@using Syncfusion.Blazor.Toolkit.Buttons` — those namespaces were removed in 2.0. Components such as `SfButton` resolve from the root `@using Syncfusion.Blazor.Toolkit` alone.
 
 ### Host file and theming
 
@@ -195,7 +195,7 @@ This skill does not cover .NET MAUI Blazor Hybrid. When a user asks, explain the
 
 - **Unstyled components**: missing package/registration/root `@using`; no Toolkit component (and no explicit `<SfThemeRoot />`) in the tree; custom overrides need isolation adjustment; or residual 1.x expectations about `fluent.min.css`. See [Theme and host files](./references/theme-and-host-files.md).
 - **HTTP 500 mentioning `SyncfusionBlazorToolkitService`**: `AddSyncfusionBlazorToolkit()` is missing on a host that renders Toolkit. See [Troubleshooting guide](./references/troubleshooting.md).
-- **Clicks or inputs do nothing**: check for an inherited render mode before editing the page. If none exists, the page is static SSR. See [Render modes explained](./references/render-modes.md).
+- **Clicks or inputs do nothing**: check for an inherited `Routes` mode first; if none, ensure an interactive boundary (page `@rendermode` or interactive wrapper). See [Render modes explained](./references/render-modes.md).
 - **Only one half of a split app works**: register Toolkit on both hosts. See [Split Blazor Web App registration](./references/split-webapp-registration.md).
 - **License prompt after installing `Syncfusion.Blazor`**: that is the commercial package. See [Package identity](./references/package-identity.md) before removing anything the app still uses.
 - **Unresolved types after upgrading from 1.x**: domain namespaces were removed; use only `@using Syncfusion.Blazor.Toolkit`.
