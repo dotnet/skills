@@ -15,8 +15,8 @@ stimuli:
       journey: install-legacy-server
     prompt: |
       I'm setting up a legacy-style Blazor Server project that targets net8.0 and uses _Host.cshtml.
-      I want to install the open-source Syncfusion Blazor Toolkit.
-      What are the steps I need to follow to get it working?
+      I want the free/open-source Syncfusion UI components for Blazor (not the commercial paid package).
+      What package and host setup do I need so buttons and inputs work on the page?
     graders:
       - type: output-matches
         config:
@@ -54,8 +54,8 @@ stimuli:
       risk: wrong-wasm-host
       journey: install-standalone-wasm
     prompt: |
-      I'm building a standalone Blazor WebAssembly application that targets net9.0 and want to add
-      the Syncfusion Blazor Toolkit. Can you guide me through installation and setup?
+      I'm building a standalone Blazor WebAssembly app that targets net9.0. I want free/open-source
+      Syncfusion UI components (not the commercial package). What package and Program/host setup do I need?
     graders:
       - type: output-matches
         config:
@@ -65,10 +65,13 @@ stimuli:
           pattern: (?i)AddSyncfusionBlazorToolkit
       - type: output-matches
         config:
+          pattern: (?i)(?:@using\s+Syncfusion\.Blazor\.Toolkit|using\s+Syncfusion\.Blazor\.Toolkit)
+      - type: output-matches
+        config:
           pattern: (?i)wwwroot[/\\]index\.html|index\.html
       - type: output-matches
         config:
-          pattern: (?i)RootComponents\.Add<App>\("#app"\)
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|without)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?RootComponents\.Add<App>\("#app"\)'
       # Affirmative "add @rendermode" only — "do not add @rendermode" must pass
       - type: output-not-matches
         config:
@@ -87,12 +90,15 @@ stimuli:
       risk: server-only-registration
       journey: configure-split-web-app
     prompt: |
-      We have a split Blazor Web App targeting net8.0 with Server and Client projects. Both Server and
-      Client components need to use the Syncfusion Blazor Toolkit. What configuration is required?
+      We have a split Blazor Web App targeting net8.0 with Server and Client projects. Both halves need free/open-source Syncfusion UI components. What must be configured on each host so
+      prerendered Client pages do not fail?
     graders:
       - type: output-matches
         config:
           pattern: (?i)AddSyncfusionBlazorToolkit
+      - type: output-matches
+        config:
+          pattern: (?i)(?:@using\s+Syncfusion\.Blazor\.Toolkit|using\s+Syncfusion\.Blazor\.Toolkit)
       - type: output-matches
         config:
           pattern: (?i)(both|server and client|client and server)
@@ -121,8 +127,8 @@ stimuli:
       risk: unstyled-components
       journey: diagnose-unstyled-components
     prompt: |
-      My net8.0 Blazor Web App has Syncfusion Blazor Toolkit 2.0 installed and registered, but
-      the components render with no theme styling. What should I check?
+      My net8.0 Blazor Web App already references the open-source Syncfusion Blazor package 2.x
+      and services are registered, but components still render with no theme styling. What should I check?
     graders:
       - type: output-matches
         config:
@@ -141,7 +147,7 @@ stimuli:
       risk: obsolete-theme-link
       journey: remove-1x-stylesheet
     prompt: |
-      After upgrading my net8.0 app to Toolkit 2.0 I still have this link in Components/App.razor:
+      After upgrading my net8.0 Blazor Web App to Syncfusion open-source components 2.x I still have:
       <link href="_content/Syncfusion.Blazor.Toolkit/themes/bootstrap5.css" rel="stylesheet" />
       Components look wrong. What should I do?
     graders:
@@ -162,7 +168,7 @@ stimuli:
       risk: obsolete-theme-link
       journey: remove-1x-stylesheet-404
     prompt: |
-      On Toolkit 2.0 my net8.0 app gets 404s for:
+      On Syncfusion open-source Blazor 2.x my net8.0 app gets 404s for:
       <link href="_content/Syncfusion.Blazor.Toolkit/themes/fluent.css" rel="stylesheet" />
       Should I change the path to styles/fluent.min.css?
     graders:
@@ -183,8 +189,8 @@ stimuli:
       risk: per-component-css
       journey: diagnose-isolation
     prompt: |
-      My net9.0 Blazor Web App has Toolkit 2.0 registered, but SfNumericTextBox renders unstyled.
-      What should I check?
+      My net9.0 Blazor Web App has open-source Syncfusion 2.x registered, but a numeric text box
+      component renders unstyled. What should I check for theming in 2.x?
     graders:
       - type: output-matches
         config:
@@ -206,8 +212,8 @@ stimuli:
       risk: static-ssr
       journey: enable-interactivity
     prompt: |
-      I created a net8.0 app with `dotnet new blazor -int Server` (no -ai). My SfButton OnClick
-      does nothing. The page has no @rendermode. What is wrong?
+      I created a net8.0 app with `dotnet new blazor -int Server` (no -ai). A button component's
+      OnClick does nothing. The page has no @rendermode. What is wrong?
     graders:
       - type: output-matches
         config:
@@ -227,8 +233,8 @@ stimuli:
       journey: configure-auto
     prompt: |
       I created a net10.0 app with dotnet new blazor -int Auto. I want the first visit interactive
-      on the server, and later visits to use WebAssembly after the runtime is cached. What setup
-      does the template need for the Syncfusion Blazor Toolkit?
+      on the server, and later visits to use WebAssembly after the runtime is cached. What host
+      and service setup does that template need for open-source Syncfusion UI components?
     graders:
       - type: output-matches
         config:
@@ -242,6 +248,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)AddSyncfusionBlazorToolkit
+      - type: output-matches
+        config:
+          pattern: (?i)(?:@using\s+Syncfusion\.Blazor\.Toolkit|using\s+Syncfusion\.Blazor\.Toolkit)
       # Affirmative live mid-run switch only
       - type: output-not-matches
         config:
@@ -262,7 +271,7 @@ stimuli:
     prompt: |
       On a net8.0 hobby project with no other Syncfusion components, I ran
       `dotnet add package Syncfusion.Blazor` and now see AddSyncfusionLicense() and license keys.
-      I need the open-source Toolkit. Did I install the wrong package?
+      I only want the free/open-source components. Did I install the wrong package, and what should I use instead?
     graders:
       - type: output-matches
         config:
@@ -272,7 +281,7 @@ stimuli:
           pattern: (?i)(license key|RegisterLicense|SyncfusionLicenseProvider)
       - type: output-matches
         config:
-          pattern: (?i)\b(no|not|n[''’]t|without|free)\b[^\n]{0,50}\blicense
+          pattern: (?i)(?:\b(?:no|not|n[''’]t|without|free)\b[^\n]{0,50}\blicense\b|\blicense\b[^\n]{0,50}\b(?:not|required|unneeded|unnecessary|free)\b)
       # Affirmative "call AddSyncfusionLicense()" — explaining it does not exist must pass
       - type: output-not-matches
         config:
@@ -288,8 +297,8 @@ stimuli:
       risk: client-unregistered
       journey: fix-split-registration
     prompt: |
-      My net8.0 split Blazor Web App registers AddSyncfusionBlazorToolkit() only in Server Program.cs.
-      Server components work; Client components throw. Both halves need Toolkit. What is missing?
+      My net8.0 split Blazor Web App registers the open-source Syncfusion services only in Server Program.cs.
+      Server components work; Client components throw. Both halves need those components. What is missing?
     graders:
       - type: output-matches
         config:
@@ -297,9 +306,19 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)AddSyncfusionBlazorToolkit
+      - type: output-matches
+        config:
+          pattern: (?i)(?:@using\s+Syncfusion\.Blazor\.Toolkit|using\s+Syncfusion\.Blazor\.Toolkit)
+      - type: output-matches
+        config:
+          pattern: (?i)(?:keep|still|also|both|remain).{0,40}server|server.{0,40}(?:keep|still|also|both|remain)|both (?:hosts|projects|sides)
       - type: output-not-matches
         config:
           pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|wrong|mistake|incorrect|false)\b|\w+n[''’]t\b|\bcannot\b))(?:(?![.:;!?](?:\s|$))[^\n])*?only (?:the )?server needs'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|without|instead of|rather than)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?RootComponents\.Add<App>\("#app"\)'
+
       - type: prompt
     rubric:
       - Adds the missing Client registration without removing the server registration.
@@ -311,7 +330,8 @@ stimuli:
       risk: missing-registration
       journey: diagnose-http-500
     prompt: |
-      My net8.0 Blazor Web App references Syncfusion.Blazor.Toolkit. Pages that use SfButton return
+      My net8.0 Blazor Web App references the open-source Syncfusion Blazor package. Pages that use
+      its button component return
       HTTP 500 with: There is no registered service of type
       'Syncfusion.Blazor.Toolkit.SyncfusionBlazorToolkitService'. What is wrong?
     graders:
@@ -328,7 +348,7 @@ stimuli:
       risk: namespace-1x
       journey: migrate-namespace
     prompt: |
-      After upgrading to Toolkit 2.0 on net8.0, my pages still have
+      After upgrading to Syncfusion open-source Blazor 2.x on net8.0, my pages still have
       @using Syncfusion.Blazor.Toolkit.Buttons and the build fails with CS0234. How do I fix it?
     graders:
       - type: output-matches
@@ -350,15 +370,17 @@ stimuli:
       risk: js-error
       journey: diagnose-js-error
     prompt: |
-      On net8.0 with Toolkit installed, the browser console shows Syncfusion-related JavaScript
-      errors and components do not respond to clicks. What should I check?
+      On net8.0 with open-source Syncfusion Blazor installed and configured, the browser console
+      shows Syncfusion-related JavaScript errors and components do not respond to clicks.
+      What should I check?
     graders:
       - type: output-matches
         config:
           pattern: (?i)(JavaScript|script|console|network|404|_content)
       - type: output-matches
         config:
-          pattern: (?i)AddSyncfusionBlazorToolkit
+          pattern: (?i)(AddSyncfusionBlazorToolkit|registration|static asset|bundled|_content|interactive)
+
       - type: prompt
     rubric:
       - Looks at registration, interactive boundary, and static web assets — not commercial CDN scripts.
@@ -369,9 +391,9 @@ stimuli:
       risk: commercial-cdn
       journey: remove-cdn-script
     prompt: |
-      My net8.0 Toolkit app still has this in the host:
+      My net8.0 open-source Syncfusion Blazor app still has this in the host:
       <script src="https://cdn.syncfusion.com/blazor/..."></script>
-      Should I keep the CDN script for Toolkit 2.0?
+      Should I keep that commercial CDN script for 2.x?
     graders:
       - type: output-matches
         config:
@@ -389,8 +411,8 @@ stimuli:
       risk: unsupported-tfm
       journey: upgrade-before-install
     prompt: |
-      My Blazor Server app still targets net7.0 and uses _Host.cshtml. Can I install
-      Syncfusion.Blazor.Toolkit 2.0 as-is?
+      My Blazor Server app still targets net7.0 and uses _Host.cshtml. Can I install the
+      open-source Syncfusion Blazor 2.x package as-is?
     graders:
       - type: output-matches
         config:
@@ -408,8 +430,8 @@ stimuli:
       risk: unknown-tfm
       journey: read-tfm-first
     prompt: |
-      Please install the Syncfusion Blazor Toolkit in my Blazor app. I have not told you the
-      target framework yet.
+      Please set up open-source Syncfusion UI components in my Blazor app. I have not told you
+      the target framework yet.
     graders:
       - type: output-matches
         config:
@@ -427,7 +449,7 @@ stimuli:
       risk: api-hijack
       journey: defer-component-api
     prompt: |
-      How do I bind SfGrid columns and handle the RowSelected event with the Syncfusion Blazor Toolkit?
+      How do I bind grid columns and handle a row-selected event with open-source Syncfusion Blazor components?
     expect_activation: false
     graders:
       - type: prompt
@@ -454,7 +476,7 @@ stimuli:
       journey: hybrid-boundary
     prompt: |
       I have a .NET MAUI Blazor Hybrid app that hosts UI in a BlazorWebView. I want open-source
-      Syncfusion Blazor Toolkit buttons. Where do I put the stylesheet and how do I wire it up?
+      Syncfusion Blazor buttons. Where do I put stylesheets and how do I wire services for Hybrid?
     expect_activation: false
     graders:
       # Positive recognition of Hybrid/MAUI boundary

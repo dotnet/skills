@@ -61,9 +61,9 @@ Pick the **single** row that matches the app the user is on. The "Program.cs" co
 | Web App `-int Server` (**per-page**, not global) | Yes | n/a (no `.Client` project) | `Components/App.razor` | Interactive boundary: page `@rendermode InteractiveServer` **or** interactive wrapper; pure static pages are display-only |
 | Web App `-int Server -ai` (**global**) | Yes | n/a | `Components/App.razor` | Anywhere; inherits `InteractiveServer` from `Routes`. Do not add a different mode |
 | Web App `-int WebAssembly` (**per-page**, not global) | Yes | Yes; **no** `RootComponents.Add` | `Components/App.razor` | Interactive boundary in `.Client` (page **or** wrapper with `@rendermode InteractiveWebAssembly`); server-project pages prerender then fail in the browser |
-| Web App `-int WebAssembly -ai` (**global**) | Yes | Yes | `Components/App.razor` | Anywhere; inherited from `Routes` |
+| Web App `-int WebAssembly -ai` (**global**) | Yes | Yes | `Components/App.razor` | In `.Client` only (inherits from `Routes`); server-project pages prerender then fail in the browser |
 | Web App `-int Auto` (**per-page**, not global) | Yes | Yes; **no** `RootComponents.Add` | `Components/App.razor` | Interactive boundary in `.Client` (page **or** wrapper with `@rendermode InteractiveAuto`); server-project pages prerender then fail in the browser. First visit server, later cached WASM; a running component does not switch |
-| Web App `-int Auto -ai` (**global**) | Yes | Yes | `Components/App.razor` | Anywhere; inherited from `Routes` |
+| Web App `-int Auto -ai` (**global**) | Yes | Yes | `Components/App.razor` | In `.Client` only (inherits from `Routes`); server-project pages prerender then fail in the browser |
 | Web App `-int None` / static SSR page | Yes, if any Toolkit markup renders | n/a | `Components/App.razor` | Display-only Toolkit markup only; **never** components that use events, bindings, dialogs, or clicks |
 | .NET MAUI Blazor Hybrid | **Out of scope** (see below) | n/a | n/a | n/a |
 

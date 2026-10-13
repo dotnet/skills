@@ -79,7 +79,7 @@ Interactive pages live in the `.Client` project. Default prerendering still runs
 }
 ```
 
-**Global (`-int WebAssembly -ai`)**: `Routes` already carries `@rendermode="InteractiveWebAssembly"`. Omit the page directive.
+**Global (`-int WebAssembly -ai`)**: `Routes` already carries `@rendermode="InteractiveWebAssembly"`. Omit the page directive. Interactive pages and Toolkit components still live in the **`.Client` project** (the generated template puts `Routes` and pages there); do not put interactive Toolkit pages under the server project.
 
 **`Program.cs`** (server and `.Client`): the template registers WebAssembly endpoints only. Keep them and `AddAdditionalAssemblies(...)` on `MapRazorComponents<App>()`. Add `using Syncfusion.Blazor.Toolkit;` and `builder.Services.AddSyncfusionBlazorToolkit();` to **both** the server and `.Client/Program.cs`. Do not add `RootComponents.Add<App>("#app")` to `.Client`. See [Split Blazor Web App registration](./split-webapp-registration.md).
 
@@ -91,7 +91,7 @@ Standalone Blazor WebAssembly is a different app (no Web App host, no `.Client` 
 
 First visit uses server interactivity; later visits use the cached WebAssembly bundle once it has downloaded. A **running** component does **not** switch runtimes mid-session. As with WebAssembly, interactive Auto pages and components must live in the `.Client` project. Verified: an `@rendermode InteractiveAuto` page in the server project prerenders then fails in the browser with `Root component type '...' could not be found in the assembly '<ServerApp>'`. See https://learn.microsoft.com/aspnet/core/blazor/components/render-modes
 
-**Per-page / global**: same boundary rules as WebAssembly, with `@rendermode InteractiveAuto` (or inherited from `Routes` when using `-ai`).
+**Per-page / global**: same boundary rules as WebAssembly, with `@rendermode InteractiveAuto` (or inherited from `Routes` when using `-ai`). Interactive pages and Toolkit components must live in **`.Client`** for both per-page and global Auto.
 
 **`Program.cs`** (server and `.Client`): the template registers **both** Interactive Server and Interactive WebAssembly, plus `AddAdditionalAssemblies(...)`. Keep all of it. Add the Toolkit `using` and `AddSyncfusionBlazorToolkit()` to **both** hosts. Do not add `RootComponents.Add<App>("#app")` to `.Client`.
 
