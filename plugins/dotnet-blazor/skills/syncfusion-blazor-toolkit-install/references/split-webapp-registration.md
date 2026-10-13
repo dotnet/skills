@@ -71,10 +71,6 @@ The first visit runs on the server; later visits use the cached WebAssembly bund
 
 Add the single root namespace `@using Syncfusion.Blazor.Toolkit` to the `_Imports.razor` of every project that renders Toolkit components. Domain-specific namespaces from Toolkit 1.x (for example `Syncfusion.Blazor.Toolkit.Buttons`) were removed in 2.0. A missing root namespace only warns (`RZ10012`) and renders an unstyled unknown element.
 
-## Theme CSS in a Split Web App
+## Theming in a Split Web App
 
-Add the stylesheet link to the existing `<head>` in `Components/App.razor`; do not replace the file. Both Server and Client components use it. Fluent is the default; `highcontrast.min.css` is also valid. From 2.0, `SfThemeRoot` emits the shared theme layer when Toolkit components render.
-
-```html
-<link href="_content/Syncfusion.Blazor.Toolkit/styles/fluent.min.css" rel="stylesheet" />
-```
+Do **not** add a Toolkit theme stylesheet link. From 2.0, `SfThemeRoot` emits the shared theme layer when Toolkit components render, and component styles use CSS isolation. Keep the template's own stylesheet links in `Components/App.razor` (`app.css`, `{Project}.styles.css`, etc.). When migrating from 1.x, remove any `_content/Syncfusion.Blazor.Toolkit/styles/*.css` links.

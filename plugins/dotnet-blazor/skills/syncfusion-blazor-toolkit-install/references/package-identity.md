@@ -11,7 +11,7 @@
 - **Repository**: https://github.com/syncfusion/blazor-toolkit
 - **Components included**: Refer to the official Syncfusion Blazor Toolkit documentation for the authoritative and current component list. This skill is not a component reference.
 - **No license key required**: Toolkit is free to use without registration
-- **Breaking changes in 2.0**: Namespace consolidation (single root `Syncfusion.Blazor.Toolkit`), CSS isolation, and `SfThemeRoot` theme delivery. Not source-compatible with 1.0.2.
+- **Breaking changes in 2.0**: Namespace consolidation (single root `Syncfusion.Blazor.Toolkit`), CSS isolation, and `SfThemeRoot` theme delivery. Host links to `fluent.min.css` / `highcontrast.min.css` are **no longer required**. Not source-compatible with 1.0.2.
 
 ### Commercial Syncfusion.Blazor* Packages
 

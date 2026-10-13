@@ -27,9 +27,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)_Host\.cshtml
-      - type: output-matches
+      - type: output-not-matches
         config:
-          pattern: (?i)_content/Syncfusion\.Blazor\.Toolkit/styles/fluent\.min\.css
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|remove|without|no longer|unnecessary|instead of|rather than)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:link|add)[^\n]{0,60}fluent\.min\.css'
       - type: output-not-matches
         config:
           pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|without|instead of|rather than|no need|unlike|cannot)\b|\w+n[''’]t\b)(?:(?![.:;!?](?:\s|$))[^\n])*?(?:dotnet add package|PackageReference Include=)\s*"?Syncfusion\.Blazor(?!\.Toolkit)\b)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:dotnet add package|PackageReference Include=)\s*"?Syncfusion\.Blazor(?!\.Toolkit)\b(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:wrong|commercial|incorrect|mistake|deprecated)\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:dotnet add package|PackageReference Include=)\s*"?Syncfusion\.Blazor(?!\.Toolkit)\b'
@@ -39,7 +39,7 @@ stimuli:
       - type: prompt
     rubric:
       - Installs the open-source Toolkit package and registers its extension method with the namespace in scope.
-      - Links the Fluent stylesheet from the package's styles directory in the legacy Server host file.
+      - Does not instruct linking fluent.min.css or other Toolkit theme stylesheets (2.0 uses SfThemeRoot + CSS isolation).
       - Does not ask the user to enter or register a license key.
 
   - name: webassembly-install-success
@@ -101,30 +101,24 @@ stimuli:
 
   - name: missing-theme-css-failure
     tags:
-      capability: theme-linking
+      capability: theme-model
       risk: unstyled-components
-      journey: fix-missing-stylesheet
+      journey: diagnose-unstyled-components
     prompt: |
-      I've installed the Syncfusion Blazor Toolkit and added AddSyncfusionBlazorToolkit()
+      I've installed Syncfusion.Blazor.Toolkit 2.0 and added AddSyncfusionBlazorToolkit()
       to Program.cs, but my components render without any styling—they look plain and basic.
       The components are there, but no colors or borders. What's wrong?
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(stylesheet|css)
-      - type: output-matches
-        config:
-          pattern: _content/Syncfusion\.Blazor\.Toolkit/styles/(fluent|highcontrast)\.min\.css
-      - type: output-matches
-        config:
-          pattern: '(?i)<head|<link[^>]*styles/(?:fluent|highcontrast)\.min\.css'
+          pattern: (?i)SfThemeRoot
       - type: output-not-matches
         config:
-          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|instead of|rather than|wrong)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:(?:\.csproj|appsettings|Program\.cs)[^\n]{0,80}(?:<link|fluent\.min\.css)|(?:<link|fluent\.min\.css)[^\n]{0,80}(?:in|to) (?:the |your )?(?:\.csproj|appsettings|Program\.cs))'
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|remove|without|no longer|unnecessary|instead of|rather than)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:link|add)[^\n]{0,60}fluent\.min\.css'
       - type: prompt
     rubric:
-      - Diagnoses a missing or misplaced stylesheet rather than a package problem.
-      - Gives a package stylesheet path and a host file that matches the app type.
+      - Explains 2.0 theming via SfThemeRoot and CSS isolation rather than instructing a fluent.min.css host link.
+      - Checks registration, root namespace, and that a Toolkit component (or explicit SfThemeRoot) is in the tree.
 
   - name: static-ssr-insufficient
     tags:
@@ -260,41 +254,47 @@ stimuli:
 
   - name: wrong-theme-name-failure
     tags:
-      capability: theme-linking
-      risk: unsupported-theme
-      journey: fix-stylesheet-name
+      capability: theme-model
+      risk: obsolete-theme-link
+      journey: remove-1x-stylesheet
     prompt: |
-      I linked this stylesheet in Components/App.razor:
+      I linked this stylesheet in Components/App.razor after upgrading to Toolkit 2.0:
       <link href="_content/Syncfusion.Blazor.Toolkit/themes/bootstrap5.css" rel="stylesheet" />
 
-      The components render but they're completely unstyled. Browser DevTools shows no 404 errors on the CSS.
-      What's the issue?
+      The components render but they're completely unstyled. What's the issue?
     graders:
       - type: output-matches
         config:
-          pattern: (?i)styles/(fluent|highcontrast)\.min\.css
+          pattern: (?i)SfThemeRoot|CSS isolation|no longer (need|required)|remove
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|remove|without|no longer|unnecessary)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:link|add)[^\n]{0,60}fluent\.min\.css'
       - type: prompt
     rubric:
-      - Replaces the unsupported stylesheet with the default Fluent file or the high-contrast file.
-      - Does not recommend the bootstrap5 path as the fix.
+      - Explains that Toolkit 2.0 does not require host theme stylesheet links; remove the bootstrap5 (and any fluent.min.css) link and rely on SfThemeRoot + CSS isolation.
+      - Does not recommend bootstrap5 or a replacement fluent.min.css path as the fix.
 
   - name: wrong-stylesheet-path-failure
     tags:
-      capability: theme-linking
-      risk: stylesheet-404
-      journey: fix-stylesheet-path
+      capability: theme-model
+      risk: obsolete-theme-link
+      journey: remove-1x-stylesheet-404
     prompt: |
-      I'm getting 404 errors for the Toolkit stylesheet. I'm using this path:
+      I'm getting 404 errors for the Toolkit stylesheet after upgrading to 2.0. I'm using this path:
       <link href="_content/Syncfusion.Blazor.Toolkit/themes/fluent.css" rel="stylesheet" />
 
-      The browser DevTools Network tab shows a 404. What's the correct path?
+      The browser DevTools Network tab shows a 404. What should I do?
     graders:
       - type: output-matches
         config:
-          pattern: _content/Syncfusion\.Blazor\.Toolkit/styles/fluent\.min\.css
+          pattern: (?i)(remove|SfThemeRoot|no longer|not required|CSS isolation)
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|remove|without|no longer|unnecessary)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:use|link|add)[^\n]{0,40}styles/fluent\.min\.css'
       - type: prompt
     rubric:
-      - Corrects both the directory and the filename, including the minified extension.
+      - Directs the user to remove the obsolete host theme link rather than correcting it to styles/fluent.min.css.
+      - Points at SfThemeRoot and CSS isolation as the 2.0 model.
 
   - name: script-file-loading-failure
     tags:
@@ -436,20 +436,20 @@ stimuli:
 
   - name: numeric-textbox-unstyled
     tags:
-      capability: theme-linking
-      risk: bundle-gap
-      journey: link-component-stylesheet
+      capability: theme-model
+      risk: isolation-or-registration
+      journey: diagnose-component-unstyled
     prompt: |
-      I linked fluent.min.css from Syncfusion.Blazor.Toolkit and my SfButton and SfTextBox look fine,
-      but SfNumericTextBox renders unstyled. What should I add?
+      I upgraded to Syncfusion.Blazor.Toolkit 2.0. SfButton and SfTextBox look fine,
+      but SfNumericTextBox renders unstyled. What should I check?
     graders:
-      - type: output-matches
+      - type: output-not-matches
         config:
-          pattern: _content/Syncfusion\.Blazor\.Toolkit/styles/numerictextbox\.min\.css
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|remove|without|no longer|unnecessary)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:link|add)[^\n]{0,60}numerictextbox\.min\.css'
       - type: prompt
     rubric:
-      - Adds numerictextbox.min.css alongside fluent.min.css, because the Fluent bundle does not contain the numeric textbox selectors.
-      - Keeps the fluent.min.css link rather than replacing it.
+      - Does not recommend adding numerictextbox.min.css or fluent.min.css host links.
+      - Points at CSS isolation, package version 2.0+, registration, and SfThemeRoot rather than per-component stylesheets.
 
   - name: out-of-scope-component-api
     tags:

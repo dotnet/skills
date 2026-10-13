@@ -3,15 +3,16 @@ license: MIT
 name: syncfusion-blazor-toolkit-install
 description: >
   Install and register the open-source Syncfusion Blazor Toolkit package
-  (v2.0+), configure AddSyncfusionBlazorToolkit(), link the Fluent or High
-  Contrast stylesheet, apply the interactive render mode that matches the app
-  topology (legacy Server, standalone WASM, or a Blazor Web App), and account
-  for namespace consolidation and CSS isolation.
+  (v2.0+), configure AddSyncfusionBlazorToolkit(), rely on SfThemeRoot and CSS
+  isolation for theming (no host fluent.min.css link), apply the interactive
+  render mode that matches the app topology (legacy Server, standalone WASM,
+  or a Blazor Web App), and account for namespace consolidation.
 
-  USE FOR: Toolkit setup, package verification, stylesheet linking, split-app
-  registration, render-mode troubleshooting, diagnosing an accidental
-  commercial Syncfusion.Blazor install or license-key prompt when the user
-  wanted the open-source Toolkit, and migrating from Toolkit 1.x to 2.0.
+  USE FOR: Toolkit setup, package verification, theme model (SfThemeRoot /
+  CSS isolation), split-app registration, render-mode troubleshooting,
+  diagnosing an accidental commercial Syncfusion.Blazor install or license-key
+  prompt when the user wanted the open-source Toolkit, and migrating from
+  Toolkit 1.x to 2.0.
   DO NOT USE FOR: component API details (use author-component), Blazor project
   creation (use create-blazor-project), configuring commercial Syncfusion
   components that the app actually uses, Hybrid/MAUI.
@@ -29,7 +30,7 @@ description: >
    @using Syncfusion.Blazor.Toolkit
    ```
    to `_Imports.razor` (and the equivalent `using` in C# files). A missing namespace produces Razor warning `RZ10012` and renders the tag as an unknown HTML element. `_Imports.razor` does not affect `Program.cs`.
-5. Link `_content/Syncfusion.Blazor.Toolkit/styles/fluent.min.css` (or `highcontrast.min.css`) in the app host file. Fluent is the default. Add the link to the host file's `<head>`; do not replace the whole host file. Component styles use Blazor CSS isolation (scoped bundle); the shared theme layer (`:root` tokens, base/utility styles, icon font, keyframes, dark/high-contrast/forced-colors) is emitted at render time by `SfThemeRoot`. Every consumer-facing root component renders `<SfThemeRoot />` as its previous sibling automatically—no extra consumer configuration is required when Toolkit components are present. Place an explicit `<SfThemeRoot />` only when theme emission is needed without a Toolkit component in the tree.
+5. **Theming (2.0 — no host theme stylesheet).** Do **not** link `fluent.min.css`, `highcontrast.min.css`, or per-component stylesheets under `_content/Syncfusion.Blazor.Toolkit/styles/`. Component styles use Blazor CSS isolation; the shared theme layer (`:root` tokens, base/utility styles, icon font, keyframes, dark/high-contrast/forced-colors) is emitted at render time by `SfThemeRoot`. Every consumer-facing root component renders `<SfThemeRoot />` as its previous sibling automatically—no extra consumer configuration is required when Toolkit components are present. Place an explicit `<SfThemeRoot />` only when theme emission is needed without a Toolkit component in the tree. Keep the template's own `app.css` / `{Project}.styles.css` links; do not replace the host file.
 6. Use `@rendermode` only in a Blazor Web App. Legacy Blazor Server and standalone WebAssembly are already interactive and do not use render modes. In a Web App, **`-int Server`, `-int WebAssembly` and `-int Auto` are per-page**: `<Routes />` has no directive and only pages with their own `@rendermode` are interactive. Only `-ai` (`--all-interactive`) is global. Any Toolkit component that uses events, bindings, dialogs, calendar navigation, or button clicks must sit under an interactive mode (a page directive in a per-page app, or the inherited `Routes` mode in a global app). Never leave it on a static page.
 7. Toolkit components need `AddSyncfusionBlazorToolkit()` on **every host that renders them, including static SSR**. Without it the page returns HTTP 500 with `There is no registered service of type 'Syncfusion.Blazor.Toolkit.SyncfusionBlazorToolkitService'`. In a split Blazor Web App, register on the server and in `.Client`: prerendering runs `.Client` components on the server, so client-only registration still returns 500.
 8. In a split Blazor Web App, the `.Client` project is not a standalone WASM app. Do not call `RootComponents.Add<App>("#app")` there. Keep the `.AddAdditionalAssemblies(typeof(<App>.Client._Imports).Assembly)` call the template puts on `MapRazorComponents<App>()`; the server needs it to see `.Client` pages. It is unrelated to Toolkit, so never add, remove, or move it.
@@ -46,13 +47,14 @@ description: >
 - Don't rely on static SSR when the component must respond to clicks, binding, or dynamic updates.
 - Don't use this skill as a component API reference; consult the official Syncfusion Blazor Toolkit demos or documentation for API details.
 - Don't use domain-specific `@using` directives from Toolkit 1.x (`Syncfusion.Blazor.Toolkit.Buttons`, `.Calendars`, etc.). They no longer exist in 2.0.
+- Don't link `fluent.min.css`, `highcontrast.min.css`, or other `_content/Syncfusion.Blazor.Toolkit/styles/*.css` files in the host; 2.0 theming uses `SfThemeRoot` and CSS isolation.
 - Don't replace or retype `Program.cs`, `App.razor`, `_Host.cshtml`, or `wwwroot/index.html`. Make only the additions shown below and leave every other template line (`UseExceptionHandler`, `UseHsts`, `MapStaticAssets`, `HeadOutlet`, `Routes`, render-mode directives, script tags) untouched.
 
 ## Quick Decision Table
 
 Pick the **single** row that matches the app the user is on. The "Program.cs" columns say where `AddSyncfusionBlazorToolkit()` goes; the template's own endpoint calls stay as generated.
 
-| Scenario | Register in server `Program.cs` | Register in `.Client/Program.cs` | Host file for CSS | Where interactive Toolkit components go |
+| Scenario | Register in server `Program.cs` | Register in `.Client/Program.cs` | Host file (keep template CSS only) | Where interactive Toolkit components go |
 | --- | --- | --- | --- | --- |
 | Legacy Blazor Server (`_Host.cshtml`, net8.0+ only for Toolkit) | Yes | n/a | `_Host.cshtml` | Anywhere; already interactive, no `@rendermode` |
 | Standalone Blazor WebAssembly | n/a | Yes, in the standalone `Program.cs`; it keeps its own `RootComponents.Add<App>("#app")` | `wwwroot/index.html` | Anywhere; already interactive, no `@rendermode` |
@@ -138,17 +140,14 @@ Add the single root namespace. In a split Web App add it to the `_Imports.razor`
 
 Do **not** add domain-specific usings such as `@using Syncfusion.Blazor.Toolkit.Buttons` — those namespaces were removed in 2.0.
 
-### Host file CSS
+### Host file and theming
 
-Add this single line to the `<head>` of the existing host file. **Do not replace the rest of the file**: keep `HeadOutlet`, `Routes` and its render-mode directive, and the existing script tag (`_framework/blazor.web.js`, `_framework/blazor.webassembly.js`, or `blazor.server.js`) exactly as the template generated them.
+**Do not** add a Toolkit theme stylesheet link. In 2.0, styling comes from:
 
-```html
-<link href="_content/Syncfusion.Blazor.Toolkit/styles/fluent.min.css" rel="stylesheet" />
-```
+1. **CSS isolation** — component scoped styles from the package.
+2. **`SfThemeRoot`** — shared theme layer emitted automatically when a Toolkit component is in the tree (or place an explicit `<SfThemeRoot />` if you need theme tokens with no Toolkit component present).
 
-Pick the host file from the Quick Decision Table. Use `highcontrast.min.css` only when the user asks for high contrast. See [Theme and host files](./references/theme-and-host-files.md).
-
-`SfThemeRoot` emits the shared theme layer automatically when any Toolkit component renders. An explicit `<SfThemeRoot />` is only needed if the app requires theme tokens without a Toolkit component in the tree.
+Keep the template-generated host file intact: `HeadOutlet`, `Routes` and its render-mode directive, `app.css` / `{Project}.styles.css`, and the framework script tag. When upgrading from 1.x, **remove** any `<link href="_content/Syncfusion.Blazor.Toolkit/styles/fluent.min.css" ...>` (or `highcontrast.min.css` / per-component `.min.css`) entries. See [Theme and host files](./references/theme-and-host-files.md).
 
 
 ## Migrating from Toolkit 1.x to 2.0
@@ -156,7 +155,7 @@ Pick the host file from the Quick Decision Table. Use `highcontrast.min.css` onl
 1. Update the package to 2.0.0 or newer.
 2. Replace every domain-specific `@using Syncfusion.Blazor.Toolkit.<Domain>` with the single `@using Syncfusion.Blazor.Toolkit`.
 3. Update any fully qualified type names that used the old child namespaces.
-4. Keep the Fluent (or High Contrast) stylesheet link; component styles are now CSS-isolated and the shared theme is delivered by `SfThemeRoot`.
+4. **Remove** any 1.x Toolkit theme `<link>` tags (`fluent.min.css`, `highcontrast.min.css`, per-component stylesheets). Component styles are CSS-isolated; the shared theme is delivered by `SfThemeRoot`.
 5. Review custom CSS overrides that targeted unscoped toolkit class names; isolation may require `::deep` or scope adjustments.
 6. If subclasses of `DataAdaptor<T>` exist, add `where T : notnull`.
 7. Collection return types that were `List<T>` may now be `IList<T>`; avoid casting to `List<T>`.
@@ -176,9 +175,9 @@ This skill does not cover .NET MAUI Blazor Hybrid. When a user asks, explain the
 | --- | --- | --- |
 | Toolkit installed on .NET 6, .NET 7, or older | The package may restore, but Toolkit assemblies are not available to the application, so the build fails with `CS0246: ... 'Syncfusion' could not be found` | Upgrade the app to .NET 8 or later first. Never change the TFM just to make the package install |
 | `AddSyncfusionBlazorToolkit()` missing on a host that renders Toolkit | HTTP 500: `no registered service of type ...SyncfusionBlazorToolkitService` | Register on every rendering host, including the server for `.Client` components and for static SSR |
-| CSS path uses `themes/` or omits `.min` | Components are unstyled (404 in browser DevTools) | Use `_content/Syncfusion.Blazor.Toolkit/styles/fluent.min.css` |
-| CSS linked in a component file instead of the host file | Styling doesn't apply consistently | Move the `<link>` to the host file `<head>` |
-| Host file replaced wholesale instead of adding the link | `HeadOutlet`, `Routes`, or the render-mode directive is lost; events stop firing | Restore the template-generated file, then add only the `<link>` line |
+| Adding a 1.x Toolkit theme `<link>` (`fluent.min.css` / `highcontrast.min.css`) | Unnecessary; may confuse troubleshooting | Remove it; rely on `SfThemeRoot` + CSS isolation |
+| Host file replaced wholesale while adjusting theming | `HeadOutlet`, `Routes`, or the render-mode directive is lost; events stop firing | Restore the template-generated file; do not add Toolkit theme links |
+| App `{Project}.styles.css` / `app.css` link removed | App or scoped styles missing | Keep the template stylesheet links |
 | `Program.cs` retyped from a trimmed sample | `CS0246` on `App`, and `UseExceptionHandler`, `UseHsts`, `MapStaticAssets` and `app.Run()` are lost | Restore the template file, then add only the `using` and the registration line |
 | Template's `AddAdditionalAssemblies(typeof(<App>.Client._Imports).Assembly)` deleted from `MapRazorComponents<App>()` | Routable pages in `.Client` return 404 | Restore the call exactly as the template generated it |
 | Commercial package added for a Toolkit-only app | License prompt, missing Toolkit components | Replace that package with `Syncfusion.Blazor.Toolkit`. If other pages still use commercial components, keep those packages and `SyncfusionLicenseProvider.RegisterLicense(...)` |
@@ -195,7 +194,7 @@ This skill does not cover .NET MAUI Blazor Hybrid. When a user asks, explain the
 
 ## Top Failure Symptoms
 
-- **Unstyled components**: the stylesheet link is missing, wrong, or in the wrong host file; or the root namespace is missing (`RZ10012`); or custom overrides need isolation adjustment. See [Theme and host files](./references/theme-and-host-files.md).
+- **Unstyled components**: missing package/registration/root `@using`; no Toolkit component (and no explicit `<SfThemeRoot />`) in the tree; custom overrides need isolation adjustment; or residual 1.x expectations about `fluent.min.css`. See [Theme and host files](./references/theme-and-host-files.md).
 - **HTTP 500 mentioning `SyncfusionBlazorToolkitService`**: `AddSyncfusionBlazorToolkit()` is missing on a host that renders Toolkit. See [Troubleshooting guide](./references/troubleshooting.md).
 - **Clicks or inputs do nothing**: check for an inherited render mode before editing the page. If none exists, the page is static SSR. See [Render modes explained](./references/render-modes.md).
 - **Only one half of a split app works**: register Toolkit on both hosts. See [Split Blazor Web App registration](./references/split-webapp-registration.md).
