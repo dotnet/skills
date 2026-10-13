@@ -454,7 +454,8 @@ stimuli:
     graders:
       - type: prompt
     rubric:
-      - Install skill stays dormant; defers component API to other skills or docs.
+      - Install skill stays dormant; it does not propose package installation, registration, stylesheet, or host edits.
+      - Redirects component API questions to the appropriate component guidance or docs.
 
   - name: out-of-scope-project-creation
     tags:
@@ -467,7 +468,8 @@ stimuli:
     graders:
       - type: prompt
     rubric:
-      - Install skill stays dormant for project creation; defers package choices.
+      - Install skill stays dormant; it does not create or configure project files and does not install packages.
+      - Defers project creation to the project-creation guidance instead of choosing UI packages.
 
   - name: out-of-scope-hybrid-maui
     tags:
