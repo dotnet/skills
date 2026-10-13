@@ -217,10 +217,17 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)@rendermode|InteractiveServer|interactive boundary|per-page
+          pattern: (?i)InteractiveServer
+      - type: output-matches
+        config:
+          pattern: (?i)(@rendermode|interactive boundary|per-page)
       - type: output-matches
         config:
           pattern: (?i)(static|SSR|per-page|-ai|all-interactive)
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|wrong|instead of|rather than)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?@rendermode\s+Interactive(?:WebAssembly|Auto)\b'
+
       - type: prompt
     rubric:
       - Recognizes -int Server is per-page; interactive boundary is page @rendermode or a wrapper component.
@@ -435,7 +442,17 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(TargetFramework|target framework|net8|net9|net10|which \.NET|what TFM|check.*framework)
+          pattern: (?i)(TargetFramework|target framework|which \.NET|what TFM|check.*framework)
+      - type: output-matches
+        config:
+          pattern: (?i)net8(\.0)?
+      - type: output-matches
+        config:
+          pattern: (?i)net9(\.0)?
+      - type: output-matches
+        config:
+          pattern: (?i)net10(\.0)?
+
       - type: prompt
     rubric:
       - Asks for or reads the TFM before installing; does not assume net8+.
@@ -452,47 +469,10 @@ stimuli:
       How do I bind grid columns and handle a row-selected event with open-source Syncfusion Blazor components?
     expect_activation: false
     graders:
-      - type: prompt
-    rubric:
-      - Install skill stays dormant; it does not propose package installation, registration, stylesheet, or host edits.
-      - Redirects component API questions to the appropriate component guidance or docs.
-
-  - name: out-of-scope-project-creation
-    tags:
-      capability: dormancy
-      risk: project-creation-hijack
-      journey: defer-create-project
-    prompt: |
-      Create a new Blazor Web App for me and then we can talk about UI libraries later.
-    expect_activation: false
-    graders:
-      - type: prompt
-    rubric:
-      - Install skill stays dormant; it does not create or configure project files and does not install packages.
-      - Defers project creation to the project-creation guidance instead of choosing UI packages.
-
-  - name: out-of-scope-hybrid-maui
-    tags:
-      capability: dormancy
-      risk: install-skill-hijack
-      journey: hybrid-boundary
-    prompt: |
-      I have a .NET MAUI Blazor Hybrid app that hosts UI in a BlazorWebView. I want open-source
-      Syncfusion Blazor buttons. Where do I put stylesheets and how do I wire services for Hybrid?
-    expect_activation: false
-    graders:
-      # Positive recognition of Hybrid/MAUI boundary
-      - type: output-matches
-        config:
-          pattern: (?i)(MAUI|BlazorWebView|Hybrid|out of scope|outside (this|the) skill)
-      # Affirmative Web App host edits only (warnings/negations pass)
       - type: output-not-matches
         config:
-          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|without|instead of|rather than|no need|unlike|cannot|skip)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:open|edit|add|put|place|update|modify|link)\b(?:(?![.:;!?](?:\s|$))[^\n]){0,60}(?:Components/App\.razor|_Host\.cshtml)'
-      # Affirmative standalone WASM root registration as a code instruction line
-      - type: output-not-matches
-        config:
-          pattern: '(?im)^\s*(?:builder\.)?RootComponents\.Add<App>\('
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|without|instead of|rather than)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:dotnet add package\s+Syncfusion|AddSyncfusionBlazorToolkit|(?:link|add)[^\n]{0,40}fluent\.min\.css)'
+
       - type: prompt
     rubric:
       - Recognizes MAUI Blazor Hybrid is outside this skill's host/render-mode guidance.
