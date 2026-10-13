@@ -4,13 +4,14 @@
 
 ### The open-source Toolkit: Syncfusion.Blazor.Toolkit
 
-- **NuGet package name**: `Syncfusion.Blazor.Toolkit` (verified at version 1.0.2)
+- **NuGet package name**: `Syncfusion.Blazor.Toolkit` (verified at version 2.0.0)
 - **License**: MIT
 - **Target frameworks**: `net8.0`, `net9.0`, `net10.0`
 - **Scope**: Open-source Blazor toolkit for the current published component set
 - **Repository**: https://github.com/syncfusion/blazor-toolkit
 - **Components included**: Refer to the official Syncfusion Blazor Toolkit documentation for the authoritative and current component list. This skill is not a component reference.
 - **No license key required**: Toolkit is free to use without registration
+- **Breaking changes in 2.0**: Namespace consolidation (single root `Syncfusion.Blazor.Toolkit`), CSS isolation, and `SfThemeRoot` theme delivery. Not source-compatible with 1.0.2.
 
 ### Commercial Syncfusion.Blazor* Packages
 
@@ -24,7 +25,7 @@
 ## Install the Toolkit (and ONLY the Toolkit for this skill)
 
 ```bash
-# Correct: Install Toolkit
+# Correct: Install Toolkit (prefer latest 2.x)
 dotnet add package Syncfusion.Blazor.Toolkit
 
 # Wrong: Do NOT install commercial packages for Toolkit tasks
@@ -39,8 +40,8 @@ Check the `.csproj` file:
 
 ```xml
 <!-- Correct for Toolkit -->
-<PackageReference Include="Syncfusion.Blazor.Toolkit" Version="x.y.z" />
-<!-- Example only: replace with the latest stable version from NuGet (check nuget.org) -->
+<PackageReference Include="Syncfusion.Blazor.Toolkit" Version="2.0.0" />
+<!-- Example only: replace with the latest stable 2.x version from NuGet (check nuget.org) -->
 
 <!-- Wrong for Toolkit (these are commercial) -->
 <!-- <PackageReference Include="Syncfusion.Blazor" Version="26.1.35" /> -->

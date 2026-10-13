@@ -1,6 +1,6 @@
-﻿# Split Blazor Web App Service Registration
+# Split Blazor Web App Service Registration
 
-> **Framework support.** `Syncfusion.Blazor.Toolkit` 1.0.2 targets `net8.0`, `net9.0`, and `net10.0`. Always check the `<TargetFramework>` of **both** projects before installation. On `net6.0`, `net7.0`, or older frameworks, the package may restore successfully, but Toolkit assemblies are not available to the application, so the build later fails with errors such as `CS0246: The type or namespace name 'Syncfusion' could not be found`. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first, then continue with the installation steps.
+> **Framework support.** `Syncfusion.Blazor.Toolkit` 2.0.0 targets `net8.0`, `net9.0`, and `net10.0`. Always check the `<TargetFramework>` of **both** projects before installation. On `net6.0`, `net7.0`, or older frameworks, the package may restore successfully, but Toolkit assemblies are not available to the application, so the build later fails with errors such as `CS0246: The type or namespace name 'Syncfusion' could not be found`. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first, then continue with the installation steps.
 
 A generated `.Client` project is not a standalone WebAssembly app. The server owns `App.razor`, and the host markup has no `#app` element. Never call `RootComponents.Add<App>("#app")` in `.Client/Program.cs`.
 
@@ -10,7 +10,7 @@ Default prerendering runs WebAssembly and Auto components on the server first. V
 
 ```text
 System.InvalidOperationException: Cannot provide a value for property 'SyncfusionService' on type
-'Syncfusion.Blazor.Toolkit.Buttons.SfButton'. There is no registered service of type
+'Syncfusion.Blazor.Toolkit.SfButton'. There is no registered service of type
 'Syncfusion.Blazor.Toolkit.SyncfusionBlazorToolkitService'.
 ```
 
@@ -69,11 +69,11 @@ The first visit runs on the server; later visits use the cached WebAssembly bund
 
 ## Component namespaces in both projects
 
-Add the child namespace (for example `@using Syncfusion.Blazor.Toolkit.Buttons`) to the `_Imports.razor` of every project that renders that component. A missing namespace only warns (`RZ10012`) and renders an unstyled unknown element.
+Add the single root namespace `@using Syncfusion.Blazor.Toolkit` to the `_Imports.razor` of every project that renders Toolkit components. Domain-specific namespaces from Toolkit 1.x (for example `Syncfusion.Blazor.Toolkit.Buttons`) were removed in 2.0. A missing root namespace only warns (`RZ10012`) and renders an unstyled unknown element.
 
 ## Theme CSS in a Split Web App
 
-Add the stylesheet link to the existing `<head>` in `Components/App.razor`; do not replace the file. Both Server and Client components use it. Fluent is the default; `highcontrast.min.css` is also valid.
+Add the stylesheet link to the existing `<head>` in `Components/App.razor`; do not replace the file. Both Server and Client components use it. Fluent is the default; `highcontrast.min.css` is also valid. From 2.0, `SfThemeRoot` emits the shared theme layer when Toolkit components render.
 
 ```html
 <link href="_content/Syncfusion.Blazor.Toolkit/styles/fluent.min.css" rel="stylesheet" />

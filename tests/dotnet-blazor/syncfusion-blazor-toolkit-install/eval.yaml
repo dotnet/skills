@@ -394,16 +394,20 @@ stimuli:
       risk: missing-component-namespace
       journey: fix-sfbutton-not-found
     prompt: |
-      I installed Syncfusion.Blazor.Toolkit and added `@using Syncfusion.Blazor.Toolkit` to
-      _Imports.razor, but `<SfButton>` says the type or namespace could not be found. Why?
+      I upgraded Syncfusion.Blazor.Toolkit from 1.0.2 to 2.0.0. My _Imports.razor still has
+      `@using Syncfusion.Blazor.Toolkit.Buttons` and the build fails with CS0234 saying the
+      type or namespace name 'Buttons' does not exist. How do I fix component imports for 2.0?
     graders:
       - type: output-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|wrong)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?@using\s+Syncfusion\.Blazor\.Toolkit(?!\.)'
+      - type: output-not-matches
         config:
           pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|wrong)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?@using\s+Syncfusion\.Blazor\.Toolkit\.Buttons'
       - type: prompt
     rubric:
-      - Explains that SfButton is in the child namespace Syncfusion.Blazor.Toolkit.Buttons, not the root namespace.
-      - Adds the child namespace using to _Imports.razor rather than changing the package.
+      - Explains that Toolkit 2.0 consolidated all public types under the single root namespace Syncfusion.Blazor.Toolkit and removed domain namespaces such as .Buttons.
+      - Instructs replacing domain-specific @using directives with the single root @using Syncfusion.Blazor.Toolkit (in every project that renders Toolkit components).
 
   - name: missing-registration-http-500
     tags:

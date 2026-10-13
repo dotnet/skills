@@ -1,8 +1,8 @@
-﻿# Theme and Host Files Reference
+# Theme and Host Files Reference
 
-Toolkit components require CSS theming. Use the host file for your app type and link the Fluent stylesheet there.
+Toolkit components require CSS theming. Use the host file for your app type and link the Fluent stylesheet there. From Toolkit 2.0, component styles use Blazor CSS isolation and the shared theme layer is emitted at render time by `SfThemeRoot`.
 
-> **Framework support.** `Syncfusion.Blazor.Toolkit` 1.0.2 targets `net8.0`, `net9.0`, and `net10.0`. Always check the project's `<TargetFramework>` before installation. On `net6.0`, `net7.0`, or older frameworks, the package may restore successfully, but Toolkit assemblies are not available to the application, so the build later fails with errors such as `CS0246: The type or namespace name 'Syncfusion' could not be found`. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first, then continue with the installation steps.
+> **Framework support.** `Syncfusion.Blazor.Toolkit` 2.0.0 targets `net8.0`, `net9.0`, and `net10.0`. Always check the project's `<TargetFramework>` before installation. On `net6.0`, `net7.0`, or older frameworks, the package may restore successfully, but Toolkit assemblies are not available to the application, so the build later fails with errors such as `CS0246: The type or namespace name 'Syncfusion' could not be found`. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first, then continue with the installation steps.
 
 > **Never replace the whole host file.** The examples below show only the lines to add to the template-generated host file. Keep `HeadOutlet`, `Routes`, the render-mode directive on `Routes`, and the existing script tags (`_framework/blazor.web.js`, `_framework/blazor.webassembly.js`, or `blazor.server.js`) exactly as the template generated them.
 
@@ -30,17 +30,20 @@ Toolkit components require CSS theming. Use the host file for your app type and 
 <link href="_content/Syncfusion.Blazor.Toolkit/styles/fluent.min.css" rel="stylesheet" />
 ```
 
+## Theme delivery model (2.0)
+
+- **Host stylesheet** (`fluent.min.css` / `highcontrast.min.css`): still linked in the host file as above.
+- **Shared theme layer**: `SfThemeRoot` writes a single `<style id="sf-theme-root">` element containing `:root` design tokens, base/utility styles, the icon font, keyframes, and dark / high-contrast / forced-colors rules. Every consumer-facing root Toolkit component renders `<SfThemeRoot />` as the previous sibling of its root element. Only one owner per Blazor renderer emits the style; ownership recovers on dispose. No consumer configuration is required when Toolkit components are present. Place an explicit `<SfThemeRoot />` only when theme emission is needed without a Toolkit component in the tree.
+- **Component styles**: migrated to Blazor CSS isolation (`.razor.css` → scoped bundle). Selectors and cascade may differ from the 1.x global stylesheet. App-level overrides that targeted unscoped toolkit class names may need the `::deep` combinator or other isolation-aware adjustments.
+
 ## Available stylesheets
 
-The stylesheets live under `_content/Syncfusion.Blazor.Toolkit/styles/`. Verified against package version 1.0.2:
+The stylesheets live under `_content/Syncfusion.Blazor.Toolkit/styles/`. Verified against package version 2.0.0:
 
 - `fluent.min.css` — default Fluent stylesheet. Use this unless the user asks for something else.
 - `highcontrast.min.css` — high-contrast stylesheet.
-- Per-component files: `button`, `buttongroup`, `calendar`, `chart`, `checkbox`, `datepicker`, `datetimepicker`, `dialog`, `input`, `numerictextbox`, `popup`, `radio-button`, `spinner`, `switch`, `textarea`, `textbox`, `timepicker`, `tooltip`, `uploader` (each with the `.min.css` suffix).
 
-There is no `dropdown.min.css`. Prefer `fluent.min.css`, which styles every component **except** `SfNumericTextBox`: its `.e-numerictextbox` selectors are in neither `fluent.min.css` nor `highcontrast.min.css`, so also link `numerictextbox.min.css` when that component is used. If a per-component file is linked, confirm it exists in the installed version's `styles/` folder.
-
-Do not link commercial theme files (`bootstrap5`, `tailwind`, `material`, and similar). They are not part of this package and will not style Toolkit components.
+Prefer `fluent.min.css` for all components. Do not link commercial theme files (`bootstrap5`, `tailwind`, `material`, and similar). They are not part of this package and will not style Toolkit components.
 
 ## Local References
 
@@ -62,5 +65,4 @@ Local references are preferred because they:
 4. **Wrong stylesheet name**: `bootstrap5`, `tailwind`, and `material` files are not in this package. Use `fluent.min.css` or `highcontrast.min.css`.
 5. **Missing `.min` extension**: The filenames are `fluent.min.css` and `highcontrast.min.css`, not `fluent.css`.
 6. **Missing link entirely**: Without the theme, components render unstyled and may be hard to see.
-7. **Per-component stylesheet only**: If you link only individual component stylesheets (e.g., just `button.min.css`), components not included will be unstyled. Use `fluent.min.css` for all components unless performance optimization is needed, and verify any per-component file you link actually exists in the package's `styles/` directory for the installed version.
-
+7. **1.x custom CSS no longer applies**: After CSS isolation, overrides that targeted unscoped class names may need `::deep` or scope adjustments.
