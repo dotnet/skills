@@ -149,7 +149,6 @@ Do **not** add domain-specific usings such as `@using Syncfusion.Blazor.Toolkit.
 
 Keep the template-generated host file intact: `HeadOutlet`, `Routes` and its render-mode directive, `app.css` / `{Project}.styles.css`, and the framework script tag. When upgrading from 1.x, **remove** any `<link href="_content/Syncfusion.Blazor.Toolkit/styles/fluent.min.css" ...>` (or `highcontrast.min.css` / per-component `.min.css`) entries. See [Theme and host files](./references/theme-and-host-files.md).
 
-
 ## Migrating from Toolkit 1.x to 2.0
 
 1. Update the package to 2.0.0 or newer.
