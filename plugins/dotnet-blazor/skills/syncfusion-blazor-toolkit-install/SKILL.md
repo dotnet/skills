@@ -22,7 +22,7 @@ description: >
 
 ## Core Rules
 
-1. **Verify the target framework first.** `Syncfusion.Blazor.Toolkit` 2.0.0 targets `net8.0`, `net9.0`, and `net10.0`. Always check the project's `<TargetFramework>` before installation. On `net6.0`, `net7.0`, or older frameworks, the package may restore successfully, but Toolkit assemblies are not available to the application, so the build later fails with errors such as `CS0246: The type or namespace name 'Syncfusion' could not be found`. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first (for example with the `dotnet-upgrade` plugin), then continue with the installation steps. If the `<TargetFramework>` is unknown, read it before doing anything else. Never edit the TFM just to make the package install.
+1. **Verify the target framework first.** `Syncfusion.Blazor.Toolkit` 2.0.0 targets `net8.0`, `net9.0`, and `net10.0`. Always check the project's `<TargetFramework>` before installation. On `net6.0`, `net7.0`, or older frameworks, NuGet restore fails with an incompatibility such as `NU1202` because the package has no compatible assets for those TFMs. Do not expect a later `CS0246` as the primary signal—fix the framework mismatch first. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first (for example with the `dotnet-upgrade` plugin), then continue with the installation steps. If the `<TargetFramework>` is unknown, read it before doing anything else. Never edit the TFM just to make the package install.
 2. Use the exact package ID `Syncfusion.Blazor.Toolkit`. Prefer the latest 2.x stable release (2.0.0 or newer). Version 2.0.0 is **not source-compatible** with 1.0.2.
 3. In every `Program.cs` that calls `AddSyncfusionBlazorToolkit()`, add `using Syncfusion.Blazor.Toolkit;` so the extension method is in scope. Call it before `builder.Build()`.
 4. **Namespace consolidation (2.0 breaking change).** All public types live under the single root namespace `Syncfusion.Blazor.Toolkit`. Domain-specific namespaces (`Syncfusion.Blazor.Toolkit.Buttons`, `.Calendars`, `.Charts`, `.Inputs`, `.Popups`, `.Spinner`, etc.) were removed. Add only:
@@ -172,7 +172,7 @@ This skill does not cover .NET MAUI Blazor Hybrid. When a user asks, explain the
 
 | Mistake | Symptom | Fix |
 | --- | --- | --- |
-| Toolkit installed on .NET 6, .NET 7, or older | The package may restore, but Toolkit assemblies are not available to the application, so the build fails with `CS0246: ... 'Syncfusion' could not be found` | Upgrade the app to .NET 8 or later first. Never change the TFM just to make the package install |
+| Toolkit installed on .NET 6, .NET 7, or older | NuGet restore fails (`NU1202` / no compatible assets for the TFM) | Upgrade the app to .NET 8 or later first. Never change the TFM just to make the package install |
 | `AddSyncfusionBlazorToolkit()` missing on a host that renders Toolkit | HTTP 500: `no registered service of type ...SyncfusionBlazorToolkitService` | Register on every rendering host, including the server for `.Client` components and for static SSR |
 | Adding a 1.x Toolkit theme `<link>` (`fluent.min.css` / `highcontrast.min.css`) | Unnecessary; may confuse troubleshooting | Remove it; rely on `SfThemeRoot` + CSS isolation |
 | Host file replaced wholesale while adjusting theming | `HeadOutlet`, `Routes`, or the render-mode directive is lost; events stop firing | Restore the template-generated file; do not add Toolkit theme links |

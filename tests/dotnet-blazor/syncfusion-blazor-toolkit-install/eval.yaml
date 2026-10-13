@@ -59,16 +59,19 @@ stimuli:
           pattern: (?i)AddSyncfusionBlazorToolkit
       - type: output-matches
         config:
-          pattern: '(?i)wwwroot[/\\]index\.html|index\.html[^\n]{0,60}(?:<link|stylesheet|head)|(?:<link|stylesheet|head)[^\n]{0,60}index\.html'
+          pattern: (?i)wwwroot[/\\]index\.html|index\.html
       - type: output-matches
         config:
           pattern: (?i)RootComponents\.Add<App>\("#app"\)
       - type: output-not-matches
         config:
           pattern: (?im)^\s*@rendermode\s+Interactive
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|remove|without|no longer|unnecessary|instead of|rather than)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:link|add)[^\n]{0,60}fluent\.min\.css'
       - type: prompt
     rubric:
-      - Uses index.html as the stylesheet host for a standalone WebAssembly app.
+      - Mentions the standalone WASM host (`wwwroot/index.html`) when relevant, without requiring a Toolkit theme stylesheet link (2.0 uses SfThemeRoot + CSS isolation).
       - Registers the root component only because this is a standalone app, not a Web App Client project.
       - Does not add a render-mode directive to an app that is already interactive.
 

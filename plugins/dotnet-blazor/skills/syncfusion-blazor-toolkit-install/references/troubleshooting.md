@@ -1,6 +1,6 @@
 # Troubleshooting Toolkit Installation
 
-> **Framework support.** `Syncfusion.Blazor.Toolkit` 2.0.0 targets `net8.0`, `net9.0`, and `net10.0`. Always check the project's `<TargetFramework>` before installation. On `net6.0`, `net7.0`, or older frameworks, the package may restore successfully, but Toolkit assemblies are not available to the application, so the build later fails with errors such as `CS0246: The type or namespace name 'Syncfusion' could not be found`. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first, then continue with the installation steps.
+> **Framework support.** `Syncfusion.Blazor.Toolkit` 2.0.0 targets `net8.0`, `net9.0`, and `net10.0`. Always check the project's `<TargetFramework>` before installation. On `net6.0`, `net7.0`, or older frameworks, NuGet restore fails with an incompatibility such as `NU1202` because the package has no compatible assets for those TFMs. Do not expect a later `CS0246` as the primary signal—fix the framework mismatch first. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first, then continue with the installation steps.
 
 ## Problem: Components unstyled
 
@@ -108,7 +108,7 @@ Or, for a per-page Blazor Web App created with `dotnet new blazor -int WebAssemb
 
 **Root cause** (check in this order):
 1. The package is not referenced in **that project's** `.csproj`. In a split Web App both the server and `.Client` projects need the `PackageReference`.
-2. The project targets `net6.0`, `net7.0`, or older. The package may restore, but Toolkit assemblies are not available to the application, so this error appears at build time. Upgrade to .NET 8 or later first.
+2. The project targets `net6.0`, `net7.0`, or older. NuGet restore fails (for example `NU1202`) because no compatible Toolkit assets exist for that TFM. Upgrade to .NET 8 or later first, then restore again.
 
 **Diagnosis**:
 1. Check the `.csproj` file for:

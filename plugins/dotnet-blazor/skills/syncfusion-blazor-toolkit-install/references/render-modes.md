@@ -2,7 +2,7 @@
 
 Toolkit components need an interactive render mode whenever they handle clicks, bindings, dialogs, calendar navigation, or any other client interaction. A Toolkit component rendered in static SSR is display-only.
 
-> **Framework support.** `Syncfusion.Blazor.Toolkit` 2.0.0 targets `net8.0`, `net9.0`, and `net10.0`. Always check the project's `<TargetFramework>` before installation. On `net6.0`, `net7.0`, or older frameworks, the package may restore successfully, but Toolkit assemblies are not available to the application, so the build later fails with errors such as `CS0246: The type or namespace name 'Syncfusion' could not be found`. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first, then continue with the installation steps.
+> **Framework support.** `Syncfusion.Blazor.Toolkit` 2.0.0 targets `net8.0`, `net9.0`, and `net10.0`. Always check the project's `<TargetFramework>` before installation. On `net6.0`, `net7.0`, or older frameworks, NuGet restore fails with an incompatibility such as `NU1202` because the package has no compatible assets for those TFMs. Do not expect a later `CS0246` as the primary signal—fix the framework mismatch first. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first, then continue with the installation steps.
 
 > **Namespaces (2.0).** All public component types live in the single root namespace `Syncfusion.Blazor.Toolkit`. Domain-specific namespaces from 1.x were removed. Each sample below includes `@using Syncfusion.Blazor.Toolkit`. If it is already in `_Imports.razor`, the per-page line can be dropped.
 

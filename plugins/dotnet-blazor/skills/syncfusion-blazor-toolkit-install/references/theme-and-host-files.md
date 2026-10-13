@@ -2,7 +2,7 @@
 
 From Toolkit **2.0**, theming no longer requires linking `fluent.min.css` or `highcontrast.min.css` in the host file. Component styles use Blazor CSS isolation; the shared theme layer is emitted at render time by `SfThemeRoot`.
 
-> **Framework support.** `Syncfusion.Blazor.Toolkit` 2.0.0 targets `net8.0`, `net9.0`, and `net10.0`. Always check the project's `<TargetFramework>` before installation. On `net6.0`, `net7.0`, or older frameworks, the package may restore successfully, but Toolkit assemblies are not available to the application, so the build later fails with errors such as `CS0246: The type or namespace name 'Syncfusion' could not be found`. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first, then continue with the installation steps.
+> **Framework support.** `Syncfusion.Blazor.Toolkit` 2.0.0 targets `net8.0`, `net9.0`, and `net10.0`. Always check the project's `<TargetFramework>` before installation. On `net6.0`, `net7.0`, or older frameworks, NuGet restore fails with an incompatibility such as `NU1202` because the package has no compatible assets for those TFMs. Do not expect a later `CS0246` as the primary signal—fix the framework mismatch first. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first, then continue with the installation steps.
 
 > **Do not replace the host file.** Keep `HeadOutlet`, `Routes`, the render-mode directive on `Routes`, the app's own styles link (`app.css` / `{Project}.styles.css`), and the framework script tags exactly as the template generated them.
 
