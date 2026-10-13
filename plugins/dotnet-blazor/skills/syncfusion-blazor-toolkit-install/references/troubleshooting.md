@@ -32,7 +32,7 @@ Use the host that matches the app. Do not send every user to `Components/App.raz
 ```html
 <link href="_content/Syncfusion.Blazor.Toolkit/styles/fluent.min.css" rel="stylesheet" />
 ```
-remove it on a 2.0 upgrade; it is not part of the required setup. A 404 on that path after removal is expected and is not a failure.
+remove it on a 2.0 upgrade; it is not part of the required setup. A 404 while the obsolete link is still present confirms the stale path; once the link is removed (and the browser cache is cleared), the browser should no longer request it.
 
 **Fix**: Install/register/import as above; ensure a Toolkit component or `<SfThemeRoot />` is rendered; keep template CSS links in the correct host; adjust custom overrides for isolation if needed.
 
@@ -143,7 +143,7 @@ Page-level example (`InteractiveServer` for `-int Server`; use `InteractiveWebAs
 **Diagnosis**:
 1. Confirm `AddSyncfusionBlazorToolkit()` runs before the host is built.
 2. Confirm an interactive boundary exists in a Blazor Web App (see above).
-3. In DevTools Network, filter `_content/Syncfusion.Blazor.Toolkit/` and note unexpected 404s (a 404 on a removed 1.x `fluent.min.css` path is fine).
+3. In DevTools Network, filter `_content/Syncfusion.Blazor.Toolkit/` and note 404s on theme paths: a 404 means a host still has (or the browser still caches) an obsolete 1.x stylesheet request—remove the `<link>` and hard-refresh so the request stops.
 4. Do **not** add commercial CDN script tags for the Toolkit; JS is embedded in the package.
 
 **Fix (server example only — keep the template's interactive chain)**:
@@ -179,5 +179,5 @@ For split Web Apps, register on **both** Server and Client `Program.cs`. Rebuild
 7. ✓ Blazor Web App interactivity uses an interactive boundary (inherited `Routes`, page `@rendermode`, or wrapper). Do not add `@rendermode` to legacy Server or standalone WebAssembly.
 8. ✓ Commercial packages and `RegisterLicense` remain only where commercial components are still used.
 9. ✓ `dotnet build` succeeds.
-10. ✓ Browser console has no unexpected 404/JS errors (404 on a removed 1.x theme path is fine).
+10. ✓ Browser console has no unexpected JS errors; remaining 404s on `styles/fluent.min.css` (or similar) mean a stale `<link>` or cache—remove the link and hard-refresh until the request disappears.
 11. ✓ After 1.x → 2.0, custom CSS accounts for isolation if needed.
