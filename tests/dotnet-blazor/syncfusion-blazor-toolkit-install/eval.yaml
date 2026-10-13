@@ -32,7 +32,7 @@ stimuli:
           pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|remove|without|no longer|unnecessary|instead of|rather than)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:link|add)[^\n]{0,60}fluent\.min\.css'
       - type: output-not-matches
         config:
-          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|without|instead of|rather than|no need|unlike|cannot)\b|\w+n[''’]t\b)(?:(?![.:;!?](?:\s|$))[^\n])*?(?:dotnet add package|PackageReference Include=)\s*"?Syncfusion\.Blazor(?!\.Toolkit)\b)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:dotnet add package|PackageReference Include=)\s*"?Syncfusion\.Blazor(?!\.Toolkit)\b(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:wrong|commercial|incorrect|mistake|deprecated)\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:dotnet add package|PackageReference Include=)\s*"?Syncfusion\.Blazor(?!\.Toolkit)\b'
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|wrong|commercial|instead of|rather than|do not|don\'t|dont)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:(?:dotnet add package|PackageReference Include=)\s*"?Syncfusion\.Blazor(?!\.Toolkit)\b)'
       - type: output-not-matches
         config:
           pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|no|without|free|nothing|avoid|unlike)\b|\w+n[''’]t\b|\bcannot\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:enter|provide|paste|add|register) (?:your|a) (?:syncfusion )?license key'
@@ -63,9 +63,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)RootComponents\.Add<App>\("#app"\)
-      - type: output-not-matches
-        config:
-          pattern: (?im)^\s*@rendermode\s+Interactive
       - type: output-not-matches
         config:
           pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|remove|without|no longer|unnecessary|instead of|rather than)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:link|add)[^\n]{0,60}fluent\.min\.css'

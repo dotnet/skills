@@ -129,14 +129,16 @@ First visit runs on the server; later visits use the cached WebAssembly bundle. 
    - **Blazor Web App** → Continue.
 3. **Is `Routes` in `App.razor` already carrying `@rendermode`?**
    - **Yes (global, `-ai`)** → Inherit it. Do not add a different mode.
-   - **No (per-page)** → Add exactly one directive on the page that hosts the component, matching the template: `InteractiveServer`, `InteractiveWebAssembly`, or `InteractiveAuto`.
+   - **No (per-page)** → The Toolkit control (and its event handlers) must sit inside an **interactive boundary**. Either:
+     - put `@rendermode InteractiveServer` / `InteractiveWebAssembly` / `InteractiveAuto` (matching the template) on the **page**, or
+     - keep the page static SSR and wrap the Toolkit control in a **child component** that declares the same `@rendermode` (Blazor allows interactive children on a static page).
 
-An interactive Toolkit component must never be left on a page with no `@rendermode` in a per-page app.
+Do **not** leave an interactive Toolkit control with no interactive ancestor (neither the page nor a wrapper). The page itself does not have to be interactive.
 
 ## Common Mistakes
 
 1. **Assuming `-int Server` is global**: it is per-page. Only `-ai` is global. A page without `@rendermode` is static SSR in a per-page app.
-2. **Leaving an interactive Toolkit component on a static page**: clicks, bindings, and dialogs do nothing. Add the template's `@rendermode` to the page.
+2. **Leaving an interactive Toolkit component outside any interactive boundary**: clicks, bindings, and dialogs do nothing. In a per-page app, either add the template's `@rendermode` on the page **or** wrap the control in a child component that declares that mode so the page can stay static SSR.
 3. **Adding `@rendermode` under an inherited mode**: if `Routes` already has one (global), a child that names a different mode fails. Match the parent or move the component.
 4. **Treating standalone WebAssembly or legacy Server as needing `@rendermode`**: they have no render modes.
 5. **Adding WebAssembly endpoints to a server-only project**: Toolkit does not need them.
