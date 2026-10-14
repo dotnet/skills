@@ -500,7 +500,7 @@ stimuli:
     graders:
       - type: output-not-matches
         config:
-          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|without|instead of|rather than|outside|doesn)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:open|edit|add to|modify)\b[^\n]{0,40}(?:Components/App\.razor|_Host\.cshtml)'
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|without|instead of|rather than|outside|out of scope|doesn)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:open|edit|add to|modify)\b[^\n]{0,40}(?:Components/App\.razor|_Host\.cshtml)|\b(?:install|add|use)\b[^\n]{0,40}Syncfusion\.Blazor\.Toolkit|AddSyncfusionBlazorToolkit'
       - type: prompt
     rubric:
       - Recognizes MAUI Blazor Hybrid is outside this skill's host/render-mode guidance.
