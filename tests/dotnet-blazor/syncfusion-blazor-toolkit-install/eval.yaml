@@ -443,16 +443,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)(TargetFramework|target framework|which \.NET|what TFM|check.*framework)
-      - type: output-matches
-        config:
-          pattern: (?i)net8(\.0)?
-      - type: output-matches
-        config:
-          pattern: (?i)net9(\.0)?
-      - type: output-matches
-        config:
-          pattern: (?i)net10(\.0)?
-
       - type: prompt
     rubric:
       - Asks for or reads the TFM before installing; does not assume net8+.
@@ -475,6 +465,41 @@ stimuli:
 
       - type: prompt
     rubric:
+      - Treats grid column binding and row-selection events as component API usage outside install/registration guidance.
+      - Does not install packages, register Toolkit services, or add theme links as the answer.
+
+  - name: out-of-scope-project-creation
+    tags:
+      capability: dormancy
+      risk: project-creation-hijack
+      journey: defer-project-creation
+    prompt: |
+      Create a brand new Blazor Web App for me from scratch with the right template options,
+      solution layout, and a sensible folder structure.
+    expect_activation: false
+    graders:
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|without|instead of|rather than)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:dotnet add package\s+Syncfusion|AddSyncfusionBlazorToolkit|(?:link|add)[^\n]{0,40}fluent\.min\.css)'
+      - type: prompt
+    rubric:
+      - Handles project creation with the standard Blazor template guidance (dotnet new blazor and its options).
+      - Does not install Syncfusion packages or register Toolkit services, since none were requested.
+
+  - name: out-of-scope-maui-blazor-hybrid
+    tags:
+      capability: dormancy
+      risk: maui-hybrid-hijack
+      journey: defer-maui-hybrid
+    prompt: |
+      I have a .NET MAUI Blazor Hybrid app on net10.0 and want to use open-source Syncfusion
+      Blazor components in it. Where do I register the services and which file hosts the page?
+    expect_activation: false
+    graders:
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|without|instead of|rather than|outside|doesn)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:open|edit|add to|modify)\b[^\n]{0,40}(?:Components/App\.razor|_Host\.cshtml)'
+      - type: prompt
+    rubric:
       - Recognizes MAUI Blazor Hybrid is outside this skill's host/render-mode guidance.
-      - May name Web App files or AddSyncfusionBlazorToolkit when explaining why they do not apply.
       - Does not instruct opening Components/App.razor or _Host.cshtml as the Hybrid setup path.
