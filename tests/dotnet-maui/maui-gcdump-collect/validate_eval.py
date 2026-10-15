@@ -24,7 +24,7 @@ BROKEN_ADVICE = {
     "ios-release-component": (
         "Require libmono-component-diagnostics_tracing.so on the physical iPhone."
     ),
-    "ios-device-selection": "The mlaunch UDID automatically selects A for dsrouter too.",
+    "ios-device-selection": "The dotnet run --device UDID automatically selects A for --dsrouter ios too.",
     "android-transport-diagnosis": "Bind the host router to 0.0.0.0 to fix the timeout.",
     "artifact-integrity": "The artifact is ready despite the heap completion error.",
     "resource-pressure-restraint": "Keep retrying collection until the OS permits it.",
@@ -129,16 +129,19 @@ def main():
                 original = plan_path.read_text()
                 plan = json.loads(original)
                 mutations = []
-                if (stimulus["tags"]["capability"] == "android-usb-route"
-                        and len(plan["commands"]["route"]) > 1):
-                    # A plan that runs the device-side adb reverse/setprop steps
-                    # before starting the host dotnet-dsrouter still contains every
-                    # required command, so only an index-ordering check (not plain
-                    # substring containment) can reject it.
-                    reordered_route = copy.deepcopy(plan)
-                    reordered_route["commands"]["route"] = list(
-                        reversed(plan["commands"]["route"]))
-                    mutations.append(reordered_route)
+                if stimulus["tags"]["capability"] == "android-usb-route":
+                    # route and collect now record the same single
+                    # self-managing --dsrouter invocation; a plan that quietly
+                    # targets a different dsrouter mode in route than in
+                    # collect (e.g. the emulator-only "android-emu" mode) must
+                    # still be rejected by the route/collect mode-consistency
+                    # check even though every required substring is present.
+                    mismatched_route_mode = copy.deepcopy(plan)
+                    mismatched_route_mode["commands"]["route"] = [
+                        cmd.replace("--dsrouter android", "--dsrouter android-emu")
+                        for cmd in plan["commands"]["route"]
+                    ]
+                    mutations.append(mismatched_route_mode)
                 bad_route = copy.deepcopy(plan)
                 bad_route["commands"]["route"] = ["dotnet-dsrouter ios-sim"]
                 mutations.append(bad_route)

@@ -13,11 +13,14 @@ stimuli:
       or collect anything. The JSON must have status "planned", device_id,
       physical_capture_verified (boolean), and a nested "commands" object
       containing route, collect, validate, cleanup arrays of shell command
-      strings. Use the reserved ports and artifact name. The diagnostics router
-      (dsrouter) belongs in the route array, started before the device-side
-      reverse/setprop steps; it is not the heap collector. Include selected-device routing, a host collector,
-      an executable no-overwrite check before invoking the collector, file-format
-      validation, and restoration of only our temporary settings.
+      strings. Use the reserved artifact name; the reserved host port and IPC
+      path are only needed if a separately-started finer-control router is
+      used instead of the default self-managing route. Record the single
+      dsrouter-switch command that establishes the device route in the route
+      array, and guard its collect-array counterpart with an executable
+      no-overwrite check before invoking the collector. Include
+      selected-device routing, file-format validation, and only the cleanup
+      this route actually requires.
       Explain the approval/relaunch checkpoint and any remaining verification.
     tags:
       capability: android-usb-route
@@ -38,20 +41,15 @@ stimuli:
             assert p["status"]=="planned" and p["device_id"]=="R58M123" and p["physical_capture_verified"] is False;
             c=p["commands"]; assert all(isinstance(c[k],list) and c[k] and all(isinstance(s,str) for s in c[k]) for k in ("route","collect","validate","cleanup"));
             r="\n".join(c["route"]); q="\n".join(c["collect"]); v="\n".join(c["validate"]); x="\n".join(c["cleanup"]);
-            q1=chr(39); q2=chr(34); bal="(?:R58M123|"+q1+"R58M123"+q1+"|"+q2+"R58M123"+q2+")"; m=re.search("(\\w+)="+bal, r); sid=m.group(1) if m else None;
-            has=lambda text,lit: (re.search(re.escape(lit).replace(re.escape("R58M123"), bal), text) is not None) or (sid is not None and (lit.replace("R58M123", q2+"$"+sid+q2) in text or lit.replace("R58M123", "$"+sid) in text));
-            assert "server-server" in r and "127.0.0.1:9001" in r and "capture-diag.sock" in r;
-            assert has(r, "adb -s R58M123 reverse tcp:9000 tcp:9001") and "127.0.0.1:9000,nosuspend,connect" in r;
-            tok=[p.strip() for s in c["route"] for p in s.split("&&")];
-            router_i=next(i for i,s in enumerate(tok) if "dotnet-dsrouter" in s and "server-server" in s);
-            reverse_i=next(i for i,s in enumerate(tok) if has(s, "adb -s R58M123 reverse tcp:9000 tcp:9001"));
-            setprop_i=next(i for i,s in enumerate(tok) if "setprop debug.mono.profile" in s);
-            assert router_i < reverse_i < setprop_i;
-            assert "dotnet-gcdump collect" in q and "--diagnostic-port" in q and "capture-diag.sock,connect" in q and "after-navigation.gcdump" in q;
+            route_mode=re.search(r"--dsrouter\s+(\S+)", r); collect_mode=re.search(r"--dsrouter\s+(\S+)", q);
+            assert route_mode and collect_mode and route_mode.group(1)==collect_mode.group(1)=="android";
+            assert "after-navigation.gcdump" in r and "after-navigation.gcdump" in q;
+            assert "dotnet-gcdump collect" in q and "--timeout" in q;
             assert "dotnet-gcdump report" in v and "after-navigation.gcdump" in v and "-p " not in v and "|| true" not in v and "|| :" not in v;
-            assert has(x, "adb -s R58M123 reverse --remove tcp:9000") and has(x, "adb -s R58M123 shell setprop debug.mono.profile");
-            a=r+q+v+x; assert "0.0.0.0" not in a and "--remove-all" not in a and "-p 2841" not in a and "adb pull" not in a;
-            assert pathlib.Path("android-session.txt").read_text()=="""Operator-supplied facts for a planning exercise; no device is attached to the eval worker.\nHost: macOS, .NET SDK 10.0.102; installed Android workload matches the project.\nProject: App.csproj, net10.0-android, Mono, Release.\nProfiling APK includes libmono-component-diagnostics_tracing.so for arm64-v8a.\nDevice: physical serial R58M123, USB debugging authorized; other serials may be present.\nPackage: com.example.catalog; device PID 2841 is identity information, not a host PID.\ndotnet-gcdump and dotnet-dsrouter: 9.0.621003, installed on host.\nNo diagnostic route is configured yet; a controlled relaunch is acceptable after operator approval.\nPrevious debug.mono.profile: empty. Device port 9000 reverse rule: absent.\nReserved host TCP port: 9001. Reserved host IPC path: capture-diag.sock in workspace.\nArtifact requested: after-navigation.gcdump in host workspace.\n""";
+            a=r+q+v+x;
+            assert not any(t in a for t in ("server-server","adb reverse","adb -s","setprop debug.mono.profile","-ipcs","-tcps","AndroidEnableProfiler"));
+            assert "0.0.0.0" not in a and "--remove-all" not in a and "-p 2841" not in a and "adb pull" not in a;
+            assert pathlib.Path("android-session.txt").read_text()=="""Operator-supplied facts for a planning exercise; no device is attached to the eval worker.\nHost: macOS, .NET SDK 10.0.102; installed Android workload matches the project.\nProject: App.csproj, net10.0-android, Mono, Release.\nProfiling APK includes libmono-component-diagnostics_tracing.so for arm64-v8a.\nDevice: physical serial R58M123, USB debugging authorized; other serials may be present.\nPackage: com.example.catalog; device PID 2841 is identity information, not a host PID.\ndotnet-gcdump and dotnet-dsrouter: 10.0.750501, installed on host; the --dsrouter switch is present.\nNo diagnostic route is configured yet; a controlled relaunch is acceptable after operator approval.\nReserved host TCP port: 9001. Reserved host IPC path: capture-diag.sock in workspace.\nArtifact requested: after-navigation.gcdump in host workspace.\n""";
             print("Android plan and input preservation valid")'
       - type: output-matches
         config:
@@ -214,30 +212,26 @@ stimuli:
       - Provides a coherent selected-serial USB connection between the Mono app and host collector, not a host attach to the phone PID.
       - Accounts for diagnostics starting at app launch and reproduction after an approved restart, without claiming the current heap can survive that restart.
       - Identifies managed GC pause and confidentiality risks without performing capture or exposing a network listener.
-      - Validates a host-side gcdump and restores only the session-created forwarding and prior property value.
+      - Validates a host-side gcdump and confirms --dsrouter android leaves no router process, port forward, or device property requiring manual cleanup.
     golden_patch:
       inline: |
         diff --git a/capture-plan.json b/capture-plan.json
         new file mode 100644
         --- /dev/null
         +++ b/capture-plan.json
-        @@ -0,0 +1,19 @@
+        @@ -0,0 +1,15 @@
         +{
         +  "status": "planned",
         +  "device_id": "R58M123",
         +  "physical_capture_verified": false,
         +  "commands": {
         +    "route": [
-        +      "dotnet-dsrouter server-server -ipcs \"$PWD/capture-diag.sock\" -tcps 127.0.0.1:9001",
-        +      "adb -s R58M123 reverse tcp:9000 tcp:9001",
-        +      "adb -s R58M123 shell setprop debug.mono.profile '127.0.0.1:9000,nosuspend,connect'"
+        +      "dotnet-gcdump collect --dsrouter android --output \"$PWD/after-navigation.gcdump\" --timeout 60"
         +    ],
-        +    "collect": ["test ! -e \"$PWD/after-navigation.gcdump\" && dotnet-gcdump collect --diagnostic-port \"$PWD/capture-diag.sock,connect\" --output \"$PWD/after-navigation.gcdump\" --timeout 60"],
+        +    "collect": ["test ! -e \"$PWD/after-navigation.gcdump\" && dotnet-gcdump collect --dsrouter android --output \"$PWD/after-navigation.gcdump\" --timeout 60"],
         +    "validate": ["dotnet-gcdump report \"$PWD/after-navigation.gcdump\""],
         +    "cleanup": [
-        +      "kill ROUTER_PID",
-        +      "adb -s R58M123 shell setprop debug.mono.profile ''",
-        +      "adb -s R58M123 reverse --remove tcp:9000"
+        +      "echo \"--dsrouter android owns its own port forward and router process for this single capture and tears both down on exit; no manual process or property to restore\""
         +    ]
         +  }
         +}
@@ -254,17 +248,20 @@ stimuli:
               before creating the route or relaunching. The configured component
               alone does not add a port to the running app; apply the launch
               setting to an approved restart, then repeat the navigation.
-              Start the host router in a separate terminal. Verify its connection
-              belongs to com.example.catalog on R58M123 before collecting via
-              the unique IPC path. PID 2841 is the phone app, not a host attach.
+              The single dotnet-gcdump collect --dsrouter android command starts
+              its own adb-reverse route and dsrouter process for this one
+              capture; no separate router or manual adb step is needed. Verify
+              its connection belongs to com.example.catalog on R58M123 before
+              collecting. PID 2841 is the phone app, not a host attach.
               Collection induces a full GC and may pause/OOM the app. Keep
               diagnostic TCP on loopback and keep the dump private. The collector
               writes after-navigation.gcdump on the host; require successful exit,
               a new nonempty file and readable type statistics from file report.
               The collect command short-circuits if the output path already exists;
               choose a new name rather than overwriting an earlier capture.
-              Stop only this router, clear the originally empty property and
-              remove only this reverse mapping. Physical-device capture not verified.
+              --dsrouter android tears down its router and reverse mapping when
+              the capture finishes, so there is no separate process or property
+              to restore. Physical-device capture not verified.
 
   - name: Use physical iOS listener without restarting a prepared app
     prompt: |
@@ -274,8 +271,10 @@ stimuli:
       or device commands are authorized here. Preserve inputs. The JSON must
       have status "planned", device_id, physical_capture_verified (boolean), and
       a nested "commands" object containing route, collect, validate, cleanup
-      arrays of shell strings. Use the reserved IPC path and output name, with
-      an executable no-overwrite check before collection. Explain how the host reaches
+      arrays of shell strings. Use the reserved artifact name; the reserved host
+      IPC path is only needed if a separately-started finer-control router is
+      used instead of the default self-managing route. Include an executable
+      no-overwrite check before collection. Explain how the host reaches
       this device rather than a simulator, and what still needs verification.
     tags:
       capability: ios-live-usb-route
@@ -292,15 +291,17 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python3 -c 'import json,pathlib; p=json.loads(pathlib.Path("capture-plan.json").read_text());
+            python3 -c 'import json,pathlib,re; p=json.loads(pathlib.Path("capture-plan.json").read_text());
             assert p["status"]=="planned" and p["device_id"]=="00008110-001234567890001E" and p["physical_capture_verified"] is False;
             c=p["commands"]; assert all(isinstance(c[k],list) and c[k] and all(isinstance(s,str) for s in c[k]) for k in ("route","collect","validate","cleanup"));
             r="\n".join(c["route"]); q="\n".join(c["collect"]); v="\n".join(c["validate"]); a=r+q+v+"\n".join(c["cleanup"]);
-            assert "server-client" in r and "127.0.0.1:9001" in r and "--forward-port iOS" in r and "capture-diag.sock" in r;
-            assert "dotnet-gcdump collect" in q and "--diagnostic-port" in q and "capture-diag.sock,connect" in q and "after-navigation.gcdump" in q;
+            route_mode=re.search(r"--dsrouter\s+(\S+)", r); collect_mode=re.search(r"--dsrouter\s+(\S+)", q);
+            assert route_mode and collect_mode and route_mode.group(1)==collect_mode.group(1)=="ios";
+            assert "after-navigation.gcdump" in r and "after-navigation.gcdump" in q;
+            assert "dotnet-gcdump collect" in q and "--timeout" in q;
             assert "dotnet-gcdump report" in v and "after-navigation.gcdump" in v and "-p " not in v and "|| true" not in v and "|| :" not in v;
-            assert all(t not in a for t in ("--launchdev","--installdev","--launchsim","ios-sim","simctl","adb ","0.0.0.0","-p 519"));
-            assert pathlib.Path("ios-session.txt").read_text()=="""Operator-supplied facts for a planning exercise; no device is attached to the eval worker.\nHost: macOS, .NET SDK 9.0.300, matching iOS workload/Xcode and tools 9.0.621003.\nProject: Catalog.csproj, net9.0-ios, ios-arm64, Mono AOT (PublishAot=false), Release.\nSigned development .app has the real static diagnostics_tracing component, not the stub.\nOne physical USB iPhone: UDID 00008110-001234567890001E; trusted, unlocked, Developer Mode enabled.\nBundle: com.example.catalog; device PID 519 is not a host diagnostics PID.\nmlaunch path is already known to the operator from MlaunchPath.\nThe app is already running with DOTNET_DiagnosticPorts=127.0.0.1:9001,nosuspend,listen.\nNo host router is currently running; no app restart or install is permitted.\nReserved host IPC path: capture-diag.sock in workspace.\nArtifact requested: after-navigation.gcdump in host workspace.\n""";
+            assert all(t not in a for t in ("server-client","-tcpc","--forward-port","mlaunch","--launchdev","--installdev","--launchsim","ios-sim","simctl","adb ","0.0.0.0","-p 519"));
+            assert pathlib.Path("ios-session.txt").read_text()=="""Operator-supplied facts for a planning exercise; no device is attached to the eval worker.\nHost: macOS, .NET SDK 10.0.102, matching iOS workload/Xcode; dotnet-gcdump and dotnet-dsrouter 10.0.750501 (the --dsrouter switch is present).\nProject: Catalog.csproj, net10.0-ios, ios-arm64, Mono AOT (PublishAot=false), Release.\nSigned development .app has the real static diagnostics_tracing component, not the stub.\nOne physical USB iPhone: UDID 00008110-001234567890001E; trusted, unlocked, Developer Mode enabled.\nBundle: com.example.catalog; device PID 519 is not a host diagnostics PID.\nThe app is already running with DiagnosticConfiguration=127.0.0.1:9001,nosuspend,listen from its last approved dotnet run launch.\nNo host router is currently running; no app restart or install is permitted.\nReserved host IPC path: capture-diag.sock in workspace.\nArtifact requested: after-navigation.gcdump in host workspace.\n""";
             print("iOS live plan and input preservation valid")'
       - type: output-matches
         config:
@@ -322,18 +323,22 @@ stimuli:
         new file mode 100644
         --- /dev/null
         +++ b/capture-plan.json
-        @@ -0,0 +1,12 @@
+        @@ -0,0 +1,16 @@
         +{
         +  "status": "planned",
         +  "device_id": "00008110-001234567890001E",
         +  "physical_capture_verified": false,
         +  "commands": {
-        +    "route": ["dotnet-dsrouter server-client -ipcs \"$PWD/capture-diag.sock\" -tcpc 127.0.0.1:9001 --forward-port iOS"],
-        +    "collect": ["test ! -e \"$PWD/after-navigation.gcdump\" && dotnet-gcdump collect --diagnostic-port \"$PWD/capture-diag.sock,connect\" --output \"$PWD/after-navigation.gcdump\" --timeout 60"],
+        +    "route": [
+        +      "dotnet-gcdump collect --dsrouter ios --output \"$PWD/after-navigation.gcdump\" --timeout 60"
+        +    ],
+        +    "collect": ["test ! -e \"$PWD/after-navigation.gcdump\" && dotnet-gcdump collect --dsrouter ios --output \"$PWD/after-navigation.gcdump\" --timeout 60"],
         +    "validate": ["dotnet-gcdump report \"$PWD/after-navigation.gcdump\""],
-        +    "cleanup": ["kill ROUTER_PID"]
+        +    "cleanup": [
+        +      "echo \"--dsrouter ios owns its usbmux route and router process for this single capture and tears both down on exit; no app restart needed\""
+        +    ]
         +  },
-        +  "note": "Replace ROUTER_PID only with this session router; no app restart."
+        +  "note": "The running app and its launch-time listener are preserved; no reinstall or relaunch."
         +}
     golden_trajectory:
       inline:
@@ -348,17 +353,21 @@ stimuli:
               The supplied real static diagnostic component and launch-time
               listener satisfy build/launch prerequisites; preserve this session.
               Obtain approval before starting the router and triggering GC.
-              Mac usbmux forwarding reaches the physical iPhone loopback listener;
-              no simulator or adb is involved. One attached USB iPhone avoids
-              router selection ambiguity; confirm bundle/build and router logs
-              before collecting via host IPC. PID 519 is not a host attach.
+              The single dotnet-gcdump collect --dsrouter ios command starts its
+              own Mac usbmux route to the physical iPhone's loopback listener,
+              without relaunching the app; no simulator or adb is involved. One
+              attached USB iPhone avoids router selection ambiguity; confirm
+              bundle/build and router logs before collecting. PID 519 is not a
+              host attach.
               The dump is written on the Mac. Require successful collector exit,
               a new nonempty file and a readable file report. Collection can pause
               or OOM the app, and managed graph data must stay private. Protect
               existing output with the collect command's short-circuit guard;
-              choose another name if a prior file exists. Stop only this router;
-              remove launch diagnostics on the next authorized ordinary
-              launch, not by restarting now. Physical-device capture not verified.
+              choose another name if a prior file exists. --dsrouter ios tears
+              down its own router when the capture finishes; the launch-time
+              diagnostics listener stays in place until the next ordinary
+              launch, so there is nothing else to stop now. Physical-device
+              capture not verified.
 
   - name: Preserve an unprepared running heap
     prompt: |
@@ -405,7 +414,7 @@ stimuli:
               server into an already running app. A launch-time port alone cannot
               replace the omitted component. Preserve the process and perform no
               changes today. The next opportunity needs approval for a profiling
-              build with AndroidEnableProfiler=true, a selected-serial USB route,
+              build with -p:EnableDiagnostics=true, a selected-serial USB route,
               nosuspend diagnostics at launch, and a fresh reproduction; that
               produces a different heap, not this incident's current state.
               Physical-device capture not verified.
@@ -432,19 +441,25 @@ stimuli:
           pattern: (?is)(static|link).*(component|diagnostic)|(component|diagnostic).*(static|link)
       - type: output-matches
         config:
-          pattern: nosuspend,listen
-      - type: output-matches
+          pattern: nosuspend%2clisten
+      - type: output-contains
         config:
-          pattern: --launchdev|--setenv
+          substring: --device
+      - type: output-contains
+        config:
+          substring: DiagnosticConfiguration
       - *false-verification
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[-*+]\s+|\d+[.)]\s+)?(?:Use|Require|Verify|Load)[^\n]*libmono-component-diagnostics_tracing\.so
+      - type: output-not-matches
+        config:
+          pattern: (?i)\bmlaunch\b|--launchdev|--installdev
       - type: prompt
     rubric:
       - Treats the diagnostics stub as a blocker and proposes a separate diagnostic test build with version-specific verification, not a shipping edit.
       - Identifies a real static diagnostic component for physical iOS rather than looking for an Android-style shared library.
-      - Uses device launch environment delivery and a matching physical USB route without substituting a simulator.
+      - Uses dotnet run's device launch environment delivery and a matching physical USB route without substituting a simulator or stale mlaunch commands.
       - Recognizes Mono AOT as distinct from NativeAOT and accounts for signing, trust and Developer Mode.
     golden_trajectory:
       inline:
@@ -458,27 +473,30 @@ stimuli:
               Blocked until the test build links the real static diagnostics_tracing
               component rather than its stub. For this Mono Release lane,
               investigate -p:EnableDiagnostics=true on an ios-arm64 test build; this
-              is the documented, version-independent switch (the older
-              _BundlerDebug=true recipe only gates an unrelated debugger
-              component), so inspect actual link evidence.
+              is the documented, version-independent switch that gates linking the
+              component, so inspect actual link evidence.
               Keep shipping configuration untouched. Mono AOT is not NativeAOT.
               On the Mac verify matching workload/Xcode, signed provisioning for
               the selected UDID, trust/unlock and Developer Mode as required.
-              Discover MlaunchPath via MSBuild and select the device with --listdev.
-              After approval launch the exact test .app with --launchdev,
-              --devname=UDID and
-              '--setenv:DOTNET_DiagnosticPorts=127.0.0.1:9001,nosuspend,listen'.
-              Match a server-client router using --forward-port iOS on 9001 and
-              collect via its IPC endpoint after reproduction. No store-build
-              access is promised. Physical-device capture not verified.
+              Discover the device UDID with the SDK's own
+              --list-devices output rather than assuming one device.
+              After approval launch the exact test build with dotnet run
+              --project App.csproj -f net9.0-ios -c Release --device UDID -e
+              DiagnosticConfiguration=127.0.0.1:9001%2cnosuspend%2clisten (the
+              comma is escaped as %2c because dotnet run's own argument parser
+              treats an unescaped comma as a separator, and -e forwards the
+              value to the device app, not the local process).
+              Then collect with dotnet-gcdump collect --dsrouter ios after
+              reproduction. No store-build access is promised. Physical-device
+              capture not verified.
 
   - name: Disambiguate two iPhones before GC
     prompt: |
       Two physical USB iPhones are plugged into our Mac. The test app on phone A
       has a Mono diagnostic listener at 127.0.0.1:9001. Phone B runs another test
-      build with the same port. We launched A using its UDID in mlaunch and want
-      its heap only. Does that make dotnet-dsrouter server-client with
-      --forward-port iOS select A too? If not, give a safe action before any
+      build with the same port. We launched A using its UDID with dotnet run
+      --device and want its heap only. Does dotnet-gcdump's --dsrouter ios
+      select A too? If not, give a safe action before any
       collection. Do not perform device or collection actions.
     tags:
       capability: ios-device-selection
@@ -490,14 +508,14 @@ stimuli:
           pattern: (?i)(disconnect|only.*device|one.*device|single.*device)
       - type: output-not-matches
         config:
-          pattern: dotnet-dsrouter[^\n]*(--udid|--devname|--device-id)
+          pattern: (?:dotnet-dsrouter\s+\w+|--dsrouter)[^\n]*(--udid|--devname|--device-id)
       - *false-verification
       - type: output-not-matches
         config:
-          pattern: (?i)mlaunch(?:'s)?\s+UDID\s+(?:guarantees|automatically selects|also selects)
+          pattern: (?i)\bUDID\s+(?:guarantees|automatically selects|also selects)
       - type: prompt
     rubric:
-      - Does not assume mlaunch device selection controls the separate USB router.
+      - Does not assume dotnet run's --device selection controls the separate --dsrouter USB device selection.
       - Prevents wrong-phone capture by isolating the intended USB device and verifying app identity before triggering GC.
       - Avoids an invented router UDID flag or collecting both heaps to discover the target afterwards.
     golden_trajectory:
@@ -509,9 +527,10 @@ stimuli:
           - step_id: 1
             source: agent
             message: |
-              No. The mlaunch UDID selects its launch target, not the separate
-              dsrouter USB device. This forwarding implementation has no router
-              UDID selector. Coordinate with the lab operator to disconnect B
+              No. The dotnet run --device UDID selects its launch target, not
+              the separate --dsrouter ios USB device. This forwarding
+              implementation has no router UDID selector. Coordinate with the
+              lab operator to disconnect B
               temporarily so only A is connected over USB. Confirm A's bundle,
               build and listener and correlate the router connection before any
               approved GC collection. Do not capture both phones to identify them.

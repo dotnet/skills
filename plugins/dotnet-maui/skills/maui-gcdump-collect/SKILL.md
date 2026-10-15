@@ -48,7 +48,9 @@ structure may be sensitive. Agree storage/access/retention before capture.
 ## Step 2: Prepare the host and a compatible test build
 
 - Use host `dotnet-gcdump` and `dotnet-dsrouter`; matched versions at least
-  **9.0.621003** cover the documented profile workflow. Check the selected package's
+  **9.0.621003** cover the documented explicit-IPC-endpoint workflow, and
+  **9.0.652701+** adds the `--dsrouter` switch this skill now uses as the default
+  route (confirmed present in current 10.0.750501). Check the selected package's
   host runtime requirements, `--version`, `collect --help`, and router mode help.
   If absent, propose an approved local tool manifest or dedicated `--tool-path`
   install with pinned versions, not a global install or automatic workload update.
@@ -65,28 +67,37 @@ structure may be sensitive. Agree storage/access/retention before capture.
 ## Step 3: Bind one device and one application to the router
 
 The device uses TCP diagnostics; the host collector uses IPC through the router.
-Do **not** pass an `adb pidof`/iOS PID to host `dotnet-gcdump -p`. `dotnet-gcdump ps`
-can list the **host router PID**, which is a valid alternate target only after
-correlating its endpoint/log with the selected app. Prefer an explicit unique IPC
-endpoint to disambiguate concurrent host apps/routers.
+Do **not** pass an `adb pidof`/iOS PID to host `dotnet-gcdump -p`. By default
+`dotnet-gcdump collect --dsrouter <android|ios>` starts and owns its own router
+and device port-forward for the single collection, so no separate PID or IPC
+endpoint needs to be tracked. If the router is instead started separately for
+finer-grained control, `dotnet-gcdump ps` can list the **host router PID**, which
+is a valid alternate target only after correlating its endpoint/log with the
+selected app; prefer an explicit unique IPC endpoint to disambiguate concurrent
+host apps/routers in that case.
 
 Keep both TCP ends on loopback and transport over USB. Router TCP diagnostics
 are unauthenticated and unencrypted; never solve connectivity by listening on
 `0.0.0.0`, opening a public firewall port, rooting, or weakening signing.
-Confirm the device, bundle/package, runtime connection, and selected IPC endpoint
-before triggering GC. The router represents one application at a time.
+Confirm the device, bundle/package, and runtime connection before triggering GC.
+The router represents one application at a time.
 
 ## Step 4: Capture, validate, and clean up
 
 Once the approved app is running at the requested reproduction point:
 
 ```sh
-# POSIX example; use the platform reference's matching IPC endpoint.
+# POSIX example; replace <android|ios> with the platform reference's target.
 test ! -e "$PWD/after-navigation.gcdump" &&
-dotnet-gcdump collect --diagnostic-port "$PWD/capture-diag.sock,connect" \
+dotnet-gcdump collect --dsrouter <android|ios> \
   --output "$PWD/after-navigation.gcdump" --timeout 60 &&
 dotnet-gcdump report "$PWD/after-navigation.gcdump"
 ```
+
+If the router is already running separately for finer-grained control (see the
+platform reference), replace `--dsrouter <android|ios>` with either
+`--diagnostic-port "$PWD/capture-diag.sock,connect"` targeting that explicit IPC
+endpoint, or `-p <router-pid>` from `dotnet-gcdump ps`.
 
 On Windows use a unique named pipe, not a Unix socket path. The file is written
 **on the host**: no `adb pull` or iOS sandbox extraction is needed for this workflow.

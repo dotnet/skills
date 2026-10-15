@@ -2,8 +2,8 @@
 
 Sources: [MAUI Memory Leaks](https://github.com/dotnet/maui/wiki/Memory-Leaks#ios),
 [macios device profiling](https://github.com/dotnet/macios/wiki/Profiling#device),
+[macios build properties](https://github.com/dotnet/macios/blob/85f8963dc94f8833d0cf6165ac991a0c791c1035/docs/building-apps/build-properties.md),
 and the [Mono component design](https://github.com/dotnet/runtime/blob/release/10.0/docs/design/mono/diagnostics-tracing.md).
-The MAUI wiki has a .NET 9 Release preparation example and direct gcdump example.
 This is a development/testing recipe, **not** a guarantee for App Store/TestFlight
 or arbitrary already-installed binaries.
 
@@ -15,74 +15,80 @@ pairing/trust and Developer Mode where the iOS version requires it. Keep the
 device unlocked for launch. No simulator, `iossimulator-*`, `simctl`, `ios-sim`,
 or `--launchsim` is a physical-device substitute.
 
-Discover mlaunch from the installed workload, substituting the real project/TFM:
+List candidate devices with the installed SDK's own device discovery, substituting
+the real project/TFM, rather than assuming a single attached device:
 
 ```sh
-dotnet build App.csproj -f net10.0-ios -getProperty:MlaunchPath
+dotnet run --project App.csproj -f net10.0-ios --list-devices
 ```
 
-Use the returned full path and its `--help` / `--listdev` to identify the selected
-UDID. Discovery does not authorize deployment.
+Use the printed UDID. Discovery does not authorize deployment.
 
 Debug builds normally include profiling support (diagnostics is on by default when
 `MtouchDebug`/`MmpDebug` is enabled). For Mono Release test builds, the officially
 documented, version-independent property across current .NET SDKs is
-**`EnableDiagnostics=true`** (see `docs/building-apps/build-properties.md` in
-`dotnet/macios`); it is what actually gates linking the `diagnostics_tracing`
-Mono component into the build:
+**`EnableDiagnostics=true`** (`dotnet/macios`'s `build-properties.md`); it is what
+actually gates linking the `diagnostics_tracing` Mono component into the build,
+and it implicitly underlies each `Diagnostic*` property used below:
 
 ```sh
 dotnet build App.csproj -f net10.0-ios -r ios-arm64 -c Release -p:EnableDiagnostics=true
 ```
 
-The MAUI wiki's older Release-preparation example instead sets `_BundlerDebug=true`.
-Treat that as stale: `_BundlerDebug` only gates a separate, unrelated `debugger`
-Mono component, not `diagnostics_tracing` — do not rely on it to include
-diagnostics support. If `EnableDiagnostics` is ever unavailable on the installed
-workload, fall back to setting one of the `Diagnostic*` MSBuild properties
-(for example `DiagnosticPort`), which implicitly enables it.
+If `EnableDiagnostics` is ever unavailable on the installed workload, fall back to
+setting one of the `Diagnostic*` MSBuild properties directly (for example
+`DiagnosticPort`), which implicitly enables it.
 
 Verify the installed workload honors it and links the **real static**
-`diagnostics_tracing` component rather than its stub. The wiki's `.so` description
-must not be interpreted as a physical-iOS dynamic library requirement.
-If current build/link evidence cannot establish component inclusion, stop before
-claiming capture-ready; do not assume Release contains it or ship this setting.
-`PublishAot=true` (NativeAOT) is excluded — CoreCLR always supports diagnostics,
-NativeAOT never does; ordinary Mono AOT is compatible in principle.
+`diagnostics_tracing` component rather than its stub. If current build/link
+evidence cannot establish component inclusion, stop before claiming
+capture-ready; do not assume Release contains it or ship this setting. `PublishAot=true` (NativeAOT) is excluded
+— CoreCLR always supports diagnostics, NativeAOT never does; ordinary Mono AOT is
+compatible in principle.
 
 ## Route and approved launch
 
-This route is the documented device server-client/usbmux pattern. Unlike the
-simulator, the runtime **listens** on device loopback and the router connects over
-USB using Apple's MobileDevice framework. This tool's forwarding does not provide
-a UDID selector: leave only the intended USB iOS device connected for unambiguous
-selection; an mlaunch UDID alone does not select the router's USB device.
+`dotnet-gcdump`'s own `--dsrouter` switch is the default route: it starts an
+iOS-mode router over Apple's MobileDevice/usbmux framework itself, replacing the
+previously-documented manual `dotnet-dsrouter server-client -ipcs ... -tcpc ...
+--forward-port iOS` invocation. Confirmed locally with the installed
+`dotnet-gcdump`/`dotnet-dsrouter` 10.0.750501 (no device attached, so no
+device-success claim is made): `dotnet-gcdump collect --dsrouter ios` prints the
+exact build/launch properties to use and then honestly reports
+`Failed to connect device over USB, no device currently connected`. This tool's
+forwarding does not provide its own UDID selector: leave only the intended USB
+iOS device connected for unambiguous selection — a `dotnet run --device` UDID
+only selects the launch target below, not the router's USB device.
 
-After approval, in a dedicated host terminal:
-
-```sh
-dotnet-dsrouter server-client -ipcs "$PWD/capture-diag.sock" \
-  -tcpc 127.0.0.1:9001 --forward-port iOS
-```
-
-An app already running with the component and this port can be collected without
-relaunching it. Otherwise agree the loss of current heap state and relaunch a
-profiling build. Use the discovered mlaunch path, **one exact `.app` path** and
-**the chosen UDID**, not a wildcard matching multiple app bundles:
+An app already running with the component and the default diagnostic port can be
+collected without relaunching it:
 
 ```sh
-# Only if installation/relaunch has been approved:
-mlaunch --installdev='bin/Release/net10.0-ios/ios-arm64/App.app' --devname='DEVICE-UDID'
-mlaunch --launchdev='bin/Release/net10.0-ios/ios-arm64/App.app' --devname='DEVICE-UDID' \
-  --wait-for-exit --argument --connection-mode --argument none \
-  '--setenv:DOTNET_DiagnosticPorts=127.0.0.1:9001,nosuspend,listen'
+dotnet-gcdump collect --dsrouter ios \
+  --output "$PWD/after-navigation.gcdump" --timeout 60
 ```
 
-Replace `mlaunch` with the discovered executable. Do not set the environment
-variable merely in the Mac shell: it must reach the **device app at launch**.
-Keep `nosuspend` for post-navigation capture. Verify app/build identity and
-router/runtime connectivity, reproduce the scenario, then use the main skill's
-IPC collection command. The host router PID is an alternative, never the iOS PID.
+Otherwise agree the loss of current heap state and relaunch a profiling build.
+Use the project's own run command with the chosen UDID, **not** a wildcard
+matching multiple app bundles. The current .NET SDK's `dotnet run` replaces the
+previously-documented `mlaunch --installdev`/`--launchdev` sequence; per
+`dotnet/macios` guidance, pass the device-side diagnostic string as an
+environment variable with its comma escaped as `%2c` (required because `dotnet
+run` itself parses an unescaped `,` as an argument separator):
+
+```sh
+# Only if installation/relaunch has been approved. Replace DEVICE-UDID.
+dotnet run --project App.csproj -f net10.0-ios -c Release --device DEVICE-UDID \
+  -e DiagnosticConfiguration=127.0.0.1:9001%2cnosuspend%2clisten
+```
+
+Do not set the environment variable merely in the Mac shell: `-e` here forwards it
+to the **device app at launch**, not the local `dotnet run` process. Keep
+`nosuspend` for post-navigation capture. Verify app/build identity and
+router/runtime connectivity, reproduce the scenario, then run the capture command
+above (or attach to a separately-started router's PID for finer control, the same
+way as the Android reference). The host router PID is an alternative, never the
+iOS PID.
 
 No HTTP server or custom in-app dump writer is required: the Mono diagnostics
 component is the endpoint. No `adb` or LAN/public listener is involved.
@@ -92,9 +98,9 @@ Do not bypass trust, Developer Mode, entitlements or app signing to force access
 
 No connection: confirm USB trust/unlock, only the chosen device connected,
 correct signed app/build, actual component (not stub), device listener port and
-complementary `server-client` mode. A working simulator capture proves none of
-these device requirements. Diagnose missing frameworks/host support on the Mac;
-do not promise this USB implementation on Windows or Linux.
+`--dsrouter ios` mode. A working simulator capture proves none of these device
+requirements. Diagnose missing frameworks/host support on the Mac; do not promise
+this USB implementation on Windows or Linux.
 
 Stop the router and the approved diagnostic app launch after capture. The launch
 environment is session-specific: remove it from any persisted launch configuration
