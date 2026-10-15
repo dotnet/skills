@@ -7,10 +7,148 @@ import os
 from pathlib import Path
 import re
 import shutil
+import signal
 import subprocess
+import sys
 import tempfile
+import time
 
-import yaml
+
+class WindowsJob:
+    """Contain descendants before allowing the bootstrap to launch grader code."""
+
+    def __init__(self):
+        import ctypes
+        from ctypes import wintypes
+
+        class Limits(ctypes.Structure):
+            _fields_ = [
+                ("per_process", ctypes.c_int64), ("per_job", ctypes.c_int64),
+                ("flags", wintypes.DWORD), ("min_working", ctypes.c_size_t),
+                ("max_working", ctypes.c_size_t), ("active_limit", wintypes.DWORD),
+                ("affinity", ctypes.c_size_t), ("priority", wintypes.DWORD),
+                ("scheduling", wintypes.DWORD),
+            ]
+
+        class ExtendedLimits(ctypes.Structure):
+            _fields_ = [
+                ("basic", Limits), ("io", ctypes.c_uint64 * 6),
+                ("process_memory", ctypes.c_size_t), ("job_memory", ctypes.c_size_t),
+                ("peak_process", ctypes.c_size_t), ("peak_job", ctypes.c_size_t),
+            ]
+
+        class Accounting(ctypes.Structure):
+            _fields_ = [
+                ("times", ctypes.c_int64 * 4), ("faults", wintypes.DWORD),
+                ("total", wintypes.DWORD), ("active", wintypes.DWORD),
+                ("terminated", wintypes.DWORD),
+            ]
+
+        self.ctypes = ctypes
+        self.accounting = Accounting
+        self.api = ctypes.WinDLL("kernel32", use_last_error=True)
+        for name, restype, args in (
+            ("CreateJobObjectW", wintypes.HANDLE, [ctypes.c_void_p, wintypes.LPCWSTR]),
+            ("SetInformationJobObject", wintypes.BOOL, [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]),
+            ("AssignProcessToJobObject", wintypes.BOOL, [wintypes.HANDLE, wintypes.HANDLE]),
+            ("TerminateJobObject", wintypes.BOOL, [wintypes.HANDLE, wintypes.UINT]),
+            ("QueryInformationJobObject", wintypes.BOOL, [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD, ctypes.c_void_p]),
+            ("CloseHandle", wintypes.BOOL, [wintypes.HANDLE]),
+        ):
+            function = getattr(self.api, name)
+            function.restype, function.argtypes = restype, args
+        self.handle = self.api.CreateJobObjectW(None, None)
+        self.check(self.handle)
+        limits = ExtendedLimits()
+        limits.basic.flags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        try:
+            self.check(self.api.SetInformationJobObject(
+                self.handle, 9, ctypes.byref(limits), ctypes.sizeof(limits),
+            ))
+        except BaseException:
+            self.close()
+            raise
+
+    def check(self, result):
+        if not result:
+            raise self.ctypes.WinError(self.ctypes.get_last_error())
+
+    def assign(self, process):
+        self.check(self.api.AssignProcessToJobObject(self.handle, int(process._handle)))
+
+    def terminate(self):
+        self.check(self.api.TerminateJobObject(self.handle, 1))
+        deadline = time.monotonic() + 5
+        while True:
+            info = self.accounting()
+            self.check(self.api.QueryInformationJobObject(
+                self.handle, 1, self.ctypes.byref(info), self.ctypes.sizeof(info), None,
+            ))
+            if info.active == 0:
+                return
+            if time.monotonic() >= deadline:
+                raise RuntimeError("Timed-out grader job still has active descendants")
+            time.sleep(0.01)
+
+    def close(self):
+        self.check(self.api.CloseHandle(self.handle))
+
+
+def run_command(args, *, timeout, shell=False, **kwargs):
+    job = WindowsJob() if os.name == "nt" else None
+    process = None
+    assigned = False
+    launch = args
+    if job:
+        # No grader code can execute until its process has joined the job.
+        launch = [
+            sys.executable, "-c",
+            "import json,subprocess,sys;"
+            "assert sys.stdin.read(1)=='1';"
+            "sys.exit(subprocess.call(json.loads(sys.argv[1]),shell=sys.argv[2]=='1'))",
+            json.dumps(args), "1" if shell else "0",
+        ]
+    kwargs.pop("capture_output", None)
+    try:
+        process = subprocess.Popen(
+            launch, shell=shell if not job else False,
+            stdin=subprocess.PIPE if job else subprocess.DEVNULL,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            start_new_session=not job, **kwargs,
+        )
+        if job:
+            job.assign(process)
+            assigned = True
+        try:
+            stdout, stderr = process.communicate("1" if job else None, timeout=timeout)
+        except BaseException:
+            if job and assigned:
+                job.terminate()
+            elif job:
+                process.kill()
+            else:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            process.communicate()
+            raise
+        return subprocess.CompletedProcess(args, process.returncode, stdout, stderr)
+    finally:
+        if job:
+            try:
+                if assigned:
+                    job.terminate()
+                elif process is not None:
+                    process.kill()
+                    process.communicate()
+            finally:
+                job.close()
+        elif process is not None:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
 
 
 def grader_timeout(config, default_seconds):
@@ -31,7 +169,11 @@ def grader_timeout(config, default_seconds):
 
 
 def materialize(spec, stimulus, workspace):
-    for item in stimulus.get("environment", {}).get("files", []):
+    import yaml
+
+    document = yaml.safe_load(spec.read_text(encoding="utf-8"))
+    files = document.get("environment", {}).get("files", []) + stimulus.get("environment", {}).get("files", [])
+    for item in files:
         source = (spec.parent / item["src"]).resolve()
         target = workspace / item["dest"]
         if source.is_dir():
@@ -48,6 +190,7 @@ def materialize(spec, stimulus, workspace):
         subprocess.run(
             ["git", "apply", "--whitespace=nowarn", "-"], cwd=workspace,
             input=patch.read_bytes().replace(b"\r\n", b"\n"), check=True,
+            env=dict(os.environ, GIT_CEILING_DIRECTORIES=str(workspace.parent.resolve())),
         )
 
 
@@ -86,7 +229,7 @@ def run_graders(stimulus, workspace, response=None):
                 input_path.write_text(json.dumps({
                     "trajectory": {"workDir": str(workspace), "output": response},
                 }), encoding="utf-8")
-                result = subprocess.run(
+                result = run_command(
                     [config["program"], *config.get("args", [])],
                     cwd=workspace, capture_output=True, text=True,
                     encoding="utf-8", errors="replace", timeout=grader_timeout(config, 60),
@@ -99,7 +242,7 @@ def run_graders(stimulus, workspace, response=None):
                     assert verdict["passed"], verdict
             continue
         assert kind == "run-command", f"Unsupported deterministic grader: {kind}"
-        result = subprocess.run(
+        result = run_command(
             config["command"], cwd=workspace, shell=True, capture_output=True,
             text=True, encoding="utf-8", errors="replace", timeout=grader_timeout(config, 30),
         )
@@ -113,6 +256,8 @@ def run_graders(stimulus, workspace, response=None):
 
 
 def main():
+    import yaml
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("spec", type=Path)
     parser.add_argument("--name", required=True, action="append")

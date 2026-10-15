@@ -59,6 +59,30 @@ python -B tests\dotnet-test\agent.test-engineer\graders\test_composition.py -v
 This deterministic replay is not model-execution or improvement evidence; the
 native `test-engineer` evaluation lane supplies that separately.
 
+Focused operation-eval contracts verify Python repairs and valid failing regressions,
+Rust inline-test boundaries, and Go HTTP/filesystem behavior. They authenticate the
+complete workspace and staged support files before and after execution; allowed edits
+and generated outputs stay within each operation's `work` directory. The healthy
+repair no-op remains a single inspection-only case, not evidence of agent test execution.
+
+The Go case instruments a separate replay copy with an authenticated standard-library
+AST probe. It registers ownership checks at test/subtest entry, verifies server cleanup
+and destinations inside owned temporary directories, and accepts cleanup registered
+before resource creation. Single-function table-driven tests are judged by behavioral
+mutations, not a minimum function count. Helpers need a standard `testing.T`/`testing.TB`
+owner for this fixture probe; unsupported ownership is reported rather than guessed.
+The probe does not change delivered tests or add a public analysis tool.
+
+The fixture-only migration replay helper contains child processes in POSIX process
+groups or a Windows job assigned before grader code starts, and cleans up descendants
+on timeout/interruption. This does not implement Vally comparison recovery or native
+agent trace grading. Focused offline checks:
+
+```powershell
+python -B tests\dotnet-test\code-testing\graders\test_operation_contract.py -v
+python -B tests\dotnet-test-migration\graders\test_replay_timeouts.py -v
+```
+
 ### Test migration
 
 Moved to the [`dotnet-test-migration`](../dotnet-test-migration/) plugin (`migrate-mstest-v1v2-to-v3`, `migrate-mstest-v3-to-v4`, `migrate-xunit-to-xunit-v3`, `migrate-xunit-to-mstest`, `migrate-vstest-to-mtp`, and the `test-migration` orchestrator agent).

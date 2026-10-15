@@ -66,7 +66,7 @@ stimuli:
             - >-
               import hashlib,pathlib;
               p=pathlib.Path('.eval/async_collection_report.py');data=p.read_bytes();
-              assert hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()=='3d3308fe92223281d0d71597fe23b482e8862fcd83dd17f140acb2301f865b03','Async verifier changed';
+              assert hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()=='ff28bae7bf65101a0012115536047943c62ad89f6ed5b892496a8b5e0cc888f1','Async verifier changed';
               exec(compile(data,str(p),'exec'),{'__name__':'__main__','__file__':str(p)})
           timeout: 6m
       - type: prompt
@@ -259,7 +259,7 @@ stimuli:
             - >-
               import hashlib,pathlib;
               p=pathlib.Path('.eval/collection_report.py');data=p.read_bytes();
-              assert hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()=='779ef768bd0779294fe48e73052052a47fc0953ffde41bc30568abf5f87f070e','Report verifier changed';
+              assert hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()=='f05dd41c81bce127a8e9d5301148e2b893a1ddc8b949cfbe3addbb279d8e8107','Report verifier changed';
               exec(compile(data,str(p),'exec'),{'__name__':'__main__','__file__':str(p)})
           timeout: 4m
       - type: output-matches

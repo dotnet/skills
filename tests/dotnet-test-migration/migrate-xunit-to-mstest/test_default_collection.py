@@ -32,12 +32,48 @@ RESOURCE_REPORT = (
     "broader assembly serialization; lifecycle remains assembly-wide for this fixture."
 )
 DEFERRED_REPORT = (
-    "Unrelated classes may run in parallel with each other, but cannot overlap "
-    "these deferred members. This is coarser scheduling than xUnit collections."
+    "Unrelated classes may run in parallel with each other, but not with "
+    "FirstMember or SecondMember. This is coarser scheduling than xUnit collections."
 )
 
 
 class DefaultCollectionTests(unittest.TestCase):
+    def test_omitted_predicate_preserves_negation_and_targets(self):
+        for text in (
+            "Unrelated classes can run in parallel with each other, but not with FirstMember or SecondMember.",
+            "Unrelated classes can overlap each other, but not these deferred members.",
+            "Unrelated classes can run in parallel with each other, but they cannot with FirstMember or SecondMember.",
+        ):
+            with self.subTest(text=text):
+                report.validate_report("deferred-members", text)
+        for text in (
+            "Unrelated classes can run in parallel with each other, but also with FirstMember or SecondMember.",
+            "Unrelated classes cannot run in parallel with each other, but can with FirstMember or SecondMember.",
+        ):
+            with self.subTest(text=text), self.assertRaisesRegex(AssertionError, "Scheduling disclosure"):
+                report.validate_report("deferred-members", text)
+        with self.assertRaisesRegex(AssertionError, "Scheduling disclosure"):
+            report.validate_report(
+                "assembly-serial",
+                "Unrelated classes cannot run in parallel with each other, but can with these members.",
+            )
+
+    def test_pronouns_and_named_members_keep_scheduling_subject(self):
+        for text in (
+            "Unrelated classes may run in parallel with each other, but they cannot overlap these deferred members.",
+            "Unrelated classes may run in parallel with each other, but cannot overlap FirstMember or SecondMember.",
+            "Unrelated classes may run in parallel with each other. They cannot overlap FirstMember or SecondMember.",
+        ):
+            with self.subTest(report=text):
+                report.validate_report("deferred-members", text)
+        for text in (
+            "Unrelated classes cannot overlap each other, but they may overlap these members.",
+            "Unrelated classes cannot overlap each other. They may overlap FirstMember or SecondMember.",
+            "Unrelated classes cannot overlap each other, and they may overlap these members.",
+        ):
+            with self.subTest(report=text), self.assertRaisesRegex(AssertionError, "Scheduling disclosure"):
+                report.validate_report("assembly-serial", text)
+
     def workspace(self, parent):
         root = Path(tempfile.mkdtemp(prefix="default-collection-", dir=parent))
         replay.materialize(SPEC, CASE, root)
