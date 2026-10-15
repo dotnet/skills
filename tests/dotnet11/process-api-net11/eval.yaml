@@ -56,10 +56,10 @@ stimuli:
           pattern: net11\.0
       - type: output-matches
         config:
-          pattern: &printed-stdout 'Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*(?:\$"(?:[^"\\]|\\.)*?\{\s*|"(?:[^"\\]|\\.)*\{0(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*)?\w+\.(?:StandardOutput|Item1)\b|\(\s*(?:string\s+)?(\w+)\s*,\s*(?:string\s+)?\w+\s*\)\s*=\s*(?:await\s+)?\w+\.ReadAllText(?:Async)?\s*\([^;]*\)\s*;[\s\S]*?Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*(?:\$"(?:[^"\\]|\\.)*?\{\s*|"(?:[^"\\]|\\.)*\{0(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*)?\1(?=\s*[,)}:])'
+          pattern: &printed-stdout 'Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*(?:\$"(?:[^"\\]|\\.)*?\{\s*|"(?:[^"\\]|\\.)*\{0(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*|"(?:[^"\\]|\\.)*\{1(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*[^,;()]+,\s*)?\w+\.(?:StandardOutput|Item1)\b|\(\s*(?:string\s+)?(\w+)\s*,\s*(?:string\s+)?\w+\s*\)\s*=\s*(?:await\s+)?\w+\.ReadAllText(?:Async)?\s*\([^;]*\)\s*;[\s\S]*?Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*(?:\$"(?:[^"\\]|\\.)*?\{\s*|"(?:[^"\\]|\\.)*\{0(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*|"(?:[^"\\]|\\.)*\{1(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*[^,;()]+,\s*)?\1(?=\s*[,)}:])'
       - type: output-matches
         config:
-          pattern: &printed-stderr 'Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*(?:\$"(?:[^"\\]|\\.)*?\{\s*|"(?:[^"\\]|\\.)*\{0(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*)?\w+\.(?:StandardError|Item2)\b|\(\s*(?:string\s+)?\w+\s*,\s*(?:string\s+)?(\w+)\s*\)\s*=\s*(?:await\s+)?\w+\.ReadAllText(?:Async)?\s*\([^;]*\)\s*;[\s\S]*?Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*(?:\$"(?:[^"\\]|\\.)*?\{\s*|"(?:[^"\\]|\\.)*\{0(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*)?\1(?=\s*[,)}:])'
+          pattern: &printed-stderr 'Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*(?:\$"(?:[^"\\]|\\.)*?\{\s*|"(?:[^"\\]|\\.)*\{0(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*|"(?:[^"\\]|\\.)*\{1(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*[^,;()]+,\s*)?\w+\.(?:StandardError|Item2)\b|\(\s*(?:string\s+)?\w+\s*,\s*(?:string\s+)?(\w+)\s*\)\s*=\s*(?:await\s+)?\w+\.ReadAllText(?:Async)?\s*\([^;]*\)\s*;[\s\S]*?Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*(?:\$"(?:[^"\\]|\\.)*?\{\s*|"(?:[^"\\]|\\.)*\{0(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*|"(?:[^"\\]|\\.)*\{1(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*[^,;()]+,\s*)?\1(?=\s*[,)}:])'
       - type: output-not-matches
         config:
           pattern: \.\s*Begin(Output|Error)ReadLine\s*\(|\.\s*(Output|Error)DataReceived\s*\+=
@@ -726,9 +726,12 @@ stimuli:
               Drain stdout and stderr concurrently using fixed-size byte buffers. Enforce one shared
               1 MiB (1,048,576 bytes) retention budget across both streams, limiting each retained chunk
               to the remaining budget rather than checking only after an unbounded allocation.
-              When the combined limit is exceeded, terminate the plugin and wait for termination.
-              Give output draining its own cancellation or timeout policy because descendants may
-              retain pipe writers. Report truncation or the limit violation explicitly.
+              When the combined limit is exceeded, either terminate the plugin and wait for termination,
+              or retain only the bounded prefix and continue draining both streams while discarding excess
+              bytes until EOF. Report the limit violation or truncation explicitly. Do not merely stop
+              reading and leave a live child blocked on full pipes. Give output draining its own
+              cancellation or timeout policy because descendants may retain pipe writers even after
+              the immediate child terminates.
     graders:
       - type: exit-success
       - type: output-matches
@@ -741,7 +744,8 @@ stimuli:
     rubric:
       - Rejects timeout-based full capture as a memory guarantee and identifies an arbitrarily long line as a remaining risk for line readers
       - Drains both streams concurrently with bounded byte buffers and one combined retention budget of at most 1 MiB
-      - Terminates and waits for the offending child, reports the limit violation, and does not assume termination guarantees output EOF
+      - Handles excess output by either terminating and waiting for the child or continuing concurrent bounded draining while discarding excess bytes; reports truncation or the limit violation rather than silently dropping output
+      - Does not leave a live child blocked on unread pipes or assume that immediate-child termination guarantees output EOF; treats execution and output-reader lifetimes separately
 
   - name: Retain a process handle in a size-sensitive NativeAOT supervisor
     prompt: |

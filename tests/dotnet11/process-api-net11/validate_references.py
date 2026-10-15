@@ -110,6 +110,24 @@ def main():
             outputs[11].replace("concurrently", "in parallel"),
             "parallel-draining paraphrase",
         ),
+        (
+            11,
+            outputs[11].split("When the combined limit is exceeded,")[0]
+            + "When the limit is exceeded, retain the bounded prefix and continue draining both streams "
+            "concurrently with fixed-size buffers, discarding all excess bytes until EOF. Report truncation. "
+            "Use a separate execution deadline for a plugin that never exits and an output-reader deadline "
+            "for descendants that retain pipe writers; immediate-child termination need not produce EOF.",
+            "bounded retention with continued discard-draining",
+        ),
+        (
+            11,
+            outputs[11].split("When the combined limit is exceeded,")[0]
+            + "When the limit is exceeded, terminate the plugin and wait for termination. Keep concurrent "
+            "bounded draining active while it terminates, discarding excess output, and report the limit "
+            "violation. Apply a separate output-reader deadline because descendants may keep pipes open "
+            "after the immediate child exits.",
+            "termination on output limit",
+        ),
     )
     for stimulus_index, output, label in alternatives:
         reference = copy.deepcopy(stimuli[stimulus_index]["golden_trajectory"]["inline"])
@@ -132,6 +150,8 @@ def main():
 
     formatted_cases = 0
     formatted_mutations = 0
+    combined_cases = 0
+    combined_mutations = 0
     capture_forms = (
         (outputs[0], "output.StandardOutput", "output.StandardError"),
         (outputs[2], "output.StandardOutput", "output.StandardError"),
@@ -171,6 +191,31 @@ def main():
                     if gate["vally_regex_found"](pattern, mutated):
                         raise AssertionError("Formatted output accepted missing or repeated stderr.")
                     formatted_mutations += 1
+            for reversed_arguments in (False, True):
+                arguments = f"{stderr}, {stdout}" if reversed_arguments else f"{stdout}, {stderr}"
+                stdout_index, stderr_index = (1, 0) if reversed_arguments else (0, 1)
+                template = f"stdout: {{{stdout_index}}}\\nstderr: {{{stderr_index}}}"
+                combined_write = f'Console.WriteLine("{template}", {arguments});'
+                combined = output.replace(f"Console.Out.Write({stdout});", combined_write).replace(
+                    f"Console.Error.Write({stderr});", ""
+                )
+                reference = copy.deepcopy(stimuli[stimulus_index]["golden_trajectory"]["inline"])
+                reference["steps"][-1]["message"] = combined
+                gate["check_trajectory_output_graders"](str(spec), stimuli[stimulus_index], reference, "combined output")
+                combined_cases += 1
+                broken_writes = (
+                    (combined_write.replace(stderr, stdout), 4),
+                    (combined_write.replace(stdout, stderr), 3),
+                    (combined_write.replace(f"{{{stderr_index}}}", ""), 4),
+                    (combined_write.replace(f"{{{stdout_index}}}", ""), 3),
+                    (combined_write.replace(f"{{{stderr_index}}}", f"{{{stdout_index}}}"), 4),
+                )
+                for broken_write, grader_index in broken_writes:
+                    mutated = combined.replace(combined_write, broken_write)
+                    pattern = stimuli[stimulus_index]["graders"][grader_index]["config"]["pattern"]
+                    if gate["vally_regex_found"](pattern, mutated):
+                        raise AssertionError("Combined output accepted a missing or repeated stream.")
+                    combined_mutations += 1
     if gate["errors"]:
         raise AssertionError("\n".join(gate["errors"]))
 
@@ -185,6 +230,8 @@ def main():
     print("PASS: all 6 deconstructed-output mutations fail the intended grader.")
     print(f"PASS: all {formatted_cases} formatted-output alternatives satisfy their deterministic output graders.")
     print(f"PASS: all {formatted_mutations} formatted-output mutations fail the intended grader.")
+    print(f"PASS: all {combined_cases} combined-write alternatives satisfy their deterministic output graders.")
+    print(f"PASS: all {combined_mutations} combined-write mutations fail the intended grader.")
     print("PASS: inheritance grader permits prose explaining the unsafe default.")
 
 
