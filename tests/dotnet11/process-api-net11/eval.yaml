@@ -56,10 +56,10 @@ stimuli:
           pattern: net11\.0
       - type: output-matches
         config:
-          pattern: \.(StandardOutput|Item1)\b|\)\s*=\s*(await\s+)?\w+\.ReadAllText(Async)?\s*\(
+          pattern: &printed-stdout 'Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*\w+\.(?:StandardOutput|Item1)\b|\(\s*(?:string\s+)?(\w+)\s*,\s*(?:string\s+)?\w+\s*\)\s*=\s*(?:await\s+)?\w+\.ReadAllText(?:Async)?\s*\([^;]*\)\s*;[\s\S]*?Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*\1\s*\)'
       - type: output-matches
         config:
-          pattern: \.(StandardError|Item2)\b|\)\s*=\s*(await\s+)?\w+\.ReadAllText(Async)?\s*\(
+          pattern: &printed-stderr 'Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*\w+\.(?:StandardError|Item2)\b|\(\s*(?:string\s+)?\w+\s*,\s*(?:string\s+)?(\w+)\s*\)\s*=\s*(?:await\s+)?\w+\.ReadAllText(?:Async)?\s*\([^;]*\)\s*;[\s\S]*?Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*\1\s*\)'
       - type: output-not-matches
         config:
           pattern: \.\s*Begin(Output|Error)ReadLine\s*\(|\.\s*(Output|Error)DataReceived\s*\+=
@@ -194,10 +194,10 @@ stimuli:
           pattern: ReadAllText(Async)?\s*\(
       - type: output-matches
         config:
-          pattern: \)\s*=\s*(await\s+)?\w+\.ReadAllText(Async)?\s*\(|\.(StandardOutput|Item1)\b
+          pattern: *printed-stdout
       - type: output-matches
         config:
-          pattern: \)\s*=\s*(await\s+)?\w+\.ReadAllText(Async)?\s*\(|\.(StandardError|Item2)\b
+          pattern: *printed-stderr
       - type: output-not-matches
         config:
           pattern: string\s+\w+\s*=\s*(await\s+)?\w+\.ReadAllText(Async)?\s*\(
@@ -592,7 +592,7 @@ stimuli:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: 'await\s+process\.(WaitForExitStatusAsync|SafeHandle\.WaitForExitAsync)\s*\('
+          pattern: 'await\s+process\.(?:WaitForExitStatusAsync|SafeHandle\.WaitForExitAsync)\s*\(|\b(?:SafeProcessHandle|var)\s+(\w+)\s*=\s*process\.SafeHandle\s*;[\s\S]*?\bawait\s+\1\.WaitForExitAsync\s*\('
       - type: output-matches
         config:
           pattern: '(?i)\bEOF\b|end.of.(?:file|stream)'

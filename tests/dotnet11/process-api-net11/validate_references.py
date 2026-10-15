@@ -55,6 +55,10 @@ def main():
         if passed:
             raise AssertionError(f"Mutation was accepted: {stimuli[stimulus_index]['name']}")
 
+    deconstructed = outputs[2].replace(
+        "(string StandardOutput, string StandardError) output",
+        "(string stdout, string stderr)",
+    ).replace("output.StandardOutput", "stdout").replace("output.StandardError", "stderr")
     alternatives = (
         (
             0,
@@ -65,6 +69,31 @@ def main():
             8,
             outputs[8].replace("process.WaitForExitStatusAsync()", "process.SafeHandle.WaitForExitAsync()"),
             "termination-only handle wait",
+        ),
+        (
+            8,
+            outputs[8].replace(
+                "ProcessExitStatus status = await process.WaitForExitStatusAsync();",
+                "Microsoft.Win32.SafeHandles.SafeProcessHandle handle = process.SafeHandle;\n"
+                "ProcessExitStatus status = await handle.WaitForExitAsync();",
+            ),
+            "termination-only local handle wait",
+        ),
+        (
+            8,
+            outputs[8].replace(
+                "ProcessExitStatus status = await process.WaitForExitStatusAsync();",
+                "var childHandle = process.SafeHandle;\n"
+                "ProcessExitStatus status = await childHandle.WaitForExitAsync();",
+            ),
+            "termination-only inferred local handle wait",
+        ),
+        (0, deconstructed, "printed deconstructed capture"),
+        (2, deconstructed, "printed deconstructed instance read"),
+        (
+            0,
+            deconstructed.replace("(string stdout, string stderr)", "var (stdout, stderr)"),
+            "printed inferred deconstructed capture",
         ),
         (
             10,
@@ -89,6 +118,18 @@ def main():
     if gate["errors"]:
         raise AssertionError("\n".join(gate["errors"]))
 
+    deconstruction_mutations = (
+        ("stderr printed as stdout", "Console.Error.Write(stderr);", "Console.Error.Write(stdout);", 4),
+        ("stderr not printed", "Console.Error.Write(stderr);", "", 4),
+        ("stdout printed as stderr", "Console.Out.Write(stdout);", "Console.Out.Write(stderr);", 3),
+    )
+    for stimulus_index in (0, 2):
+        for label, original, replacement, grader_index in deconstruction_mutations:
+            mutated = deconstructed.replace(original, replacement)
+            grader = stimuli[stimulus_index]["graders"][grader_index]
+            if gate["vally_regex_found"](grader["config"]["pattern"], mutated):
+                raise AssertionError(f"Deconstruction mutation was accepted: {label}")
+
     inheritance_pattern = stimuli[5]["graders"][3]["config"]["pattern"]
     explanatory_output = outputs[5] + "\nAvoid `InheritedHandles = null` because it preserves unrestricted inheritance."
     if gate["vally_regex_found"](inheritance_pattern, explanatory_output):
@@ -97,6 +138,7 @@ def main():
     print(f"PASS: all {len(stimuli)} ATIF golden responses satisfy their deterministic output graders.")
     print(f"PASS: all {len(mutations)} realistic mutations fail the intended grader.")
     print(f"PASS: all {len(alternatives)} equivalent solutions satisfy their deterministic output graders.")
+    print("PASS: all 6 deconstructed-output mutations fail the intended grader.")
     print("PASS: inheritance grader permits prose explaining the unsafe default.")
 
 
