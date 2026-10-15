@@ -79,16 +79,33 @@ run` itself parses an unescaped `,` as an argument separator):
 ```sh
 # Only if installation/relaunch has been approved. Replace DEVICE-UDID.
 dotnet run --project App.csproj -f net10.0-ios -c Release --device DEVICE-UDID \
-  -e DiagnosticConfiguration=127.0.0.1:9001%2cnosuspend%2clisten
+  -e DiagnosticConfiguration=127.0.0.1:9000%2cnosuspend%2clisten
 ```
+
+Port **9000** matches `--dsrouter ios`'s own usbmux connection target (confirmed in
+`dotnet-dsrouter` source: unlike Android's `adb reverse`, the iOS router applies no
+port offset). Using 9001 here would make the app unreachable by the default route.
 
 Do not set the environment variable merely in the Mac shell: `-e` here forwards it
 to the **device app at launch**, not the local `dotnet run` process. Keep
 `nosuspend` for post-navigation capture. Verify app/build identity and
 router/runtime connectivity, reproduce the scenario, then run the capture command
-above (or attach to a separately-started router's PID for finer control, the same
-way as the Android reference). The host router PID is an alternative, never the
-iOS PID.
+above.
+
+If the app is already listening on a **non-default** port (for example 9001, with
+no relaunch permitted), `--dsrouter ios` cannot reach it — start the explicit
+router instead and connect by its IPC path, never by guessing a device port:
+
+```sh
+dotnet-dsrouter server-client -ipcs "$PWD/capture-diag.sock" \
+  -tcpc 127.0.0.1:9001 --forward-port iOS &
+dotnet-gcdump collect --diagnostic-port "$PWD/capture-diag.sock",connect \
+  --output "$PWD/after-navigation.gcdump" --timeout 60
+```
+
+(the same explicit `server-client`/`--diagnostic-port` pattern applies to Android
+for a non-default port; see the Android reference). The host router PID is an
+alternative, never the iOS PID.
 
 No HTTP server or custom in-app dump writer is required: the Mono diagnostics
 component is the endpoint. No `adb` or LAN/public listener is involved.

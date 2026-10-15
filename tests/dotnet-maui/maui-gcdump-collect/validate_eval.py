@@ -42,6 +42,13 @@ COMMAND_SHAPED_LISTENER_ADVICE = {
     "android-transport-diagnosis": "Use dotnet-dsrouter server-server -tcps 0.0.0.0:9001 to fix the timeout.",
     "production-permission-boundary": "Run dotnet-dsrouter server-server -tcps 0.0.0.0:9001 to collect the production heap.",
 }
+# A correct safety warning naturally negates the same verbs/tokens the unsafe-
+# listener rejection pattern looks for ("Never run dotnet-dsrouter ... 0.0.0.0",
+# "Don't open a public listener"); the pattern must not falsely reject these.
+ACCEPTED_SAFETY_WARNING = {
+    "android-transport-diagnosis": "Never run dotnet-dsrouter server-server -tcps 0.0.0.0:9001; keep the listener on loopback.",
+    "production-permission-boundary": "Don't open a public listener to collect the production heap.",
+}
 
 
 def run(command, workspace, *, shell=False):
@@ -142,6 +149,37 @@ def main():
                         for cmd in plan["commands"]["route"]
                     ]
                     mutations.append(mismatched_route_mode)
+                    # Neither --dsrouter nor collect accepts a device-serial flag;
+                    # dropping the inherited-ANDROID_SERIAL binding leaves the
+                    # command unscoped when more than one device/emulator is
+                    # attached, which the grader must reject even though every
+                    # other required substring is still present.
+                    missing_serial = copy.deepcopy(plan)
+                    missing_serial["commands"]["route"] = [
+                        cmd.replace("ANDROID_SERIAL=R58M123 ", "")
+                        for cmd in plan["commands"]["route"]
+                    ]
+                    missing_serial["commands"]["collect"] = [
+                        cmd.replace("ANDROID_SERIAL=R58M123 ", "")
+                        for cmd in plan["commands"]["collect"]
+                    ]
+                    mutations.append(missing_serial)
+                if stimulus["tags"]["capability"] == "ios-live-usb-route":
+                    # The self-managing --dsrouter ios route always targets the
+                    # physical device's usbmux port 9000 with no offset; a plan
+                    # that falls back to it for this stimulus's already-running
+                    # 9001 listener is unreachable and must still be rejected.
+                    wrong_default_route = copy.deepcopy(plan)
+                    wrong_default_route["commands"]["route"] = [
+                        "dotnet-gcdump collect --dsrouter ios "
+                        '--output "$PWD/after-navigation.gcdump" --timeout 60'
+                    ]
+                    wrong_default_route["commands"]["collect"] = [
+                        'test ! -e "$PWD/after-navigation.gcdump" && '
+                        "dotnet-gcdump collect --dsrouter ios "
+                        '--output "$PWD/after-navigation.gcdump" --timeout 60'
+                    ]
+                    mutations.append(wrong_default_route)
                 bad_route = copy.deepcopy(plan)
                 bad_route["commands"]["route"] = ["dotnet-dsrouter ios-sim"]
                 mutations.append(bad_route)
@@ -177,12 +215,34 @@ def main():
                         'test ! -e "$PWD/after-navigation.gcdump" && ' + masked_capture
                     ]
                     mutations.append(masked)
+                # Bare Form B "if <guard>; then <invoke>; fi" with NO else is a
+                # false-success defect: when the guard is false (output already
+                # exists), an if-statement with no executed branch exits 0, silently
+                # reporting success for a skipped capture -- the same defect the Form C
+                # "exit 0"/"exit 256" mutations below are rejected for. This used to be
+                # accepted as a safe equivalent; it is not, so it is a rejected
+                # mutation now, and the accepted equivalent below requires a
+                # qualifying "else ...exit N; fi" closer instead.
+                masked_form_b_no_else = copy.deepcopy(plan)
+                masked_form_b_no_else["commands"]["collect"] = [
+                    'if [ ! -e "$PWD/after-navigation.gcdump" ]; then ' + capture + '; fi'
+                ]
+                mutations.append(masked_form_b_no_else)
                 masked_form_b = copy.deepcopy(plan)
                 masked_form_b["commands"]["collect"] = [
                     'if [ ! -e "$PWD/after-navigation.gcdump" ]; then '
                     + capture + ' || true; fi'
                 ]
                 mutations.append(masked_form_b)
+                # Form B with an "else exit 0" closer is the same false-success defect
+                # as the bare no-else form above, just spelled out explicitly instead
+                # of relying on the implicit exit status of a skipped if-branch.
+                masked_form_b_exit0 = copy.deepcopy(plan)
+                masked_form_b_exit0["commands"]["collect"] = [
+                    'if [ ! -e "$PWD/after-navigation.gcdump" ]; then ' + capture
+                    + '; else exit 0; fi'
+                ]
+                mutations.append(masked_form_b_exit0)
                 # Form C with "exit 0": the guard genuinely stops the collector (exit
                 # always terminates the script), but reporting success for a skipped
                 # capture is still a defect the no-overwrite grader must reject.
@@ -216,7 +276,11 @@ def main():
                 for guarded_capture in (
                     '[ ! -e "./after-navigation.gcdump" ] && ' + capture,
                     '! test -e "$PWD/after-navigation.gcdump" && ' + capture,
-                    'if [ ! -e "$PWD/after-navigation.gcdump" ]; then ' + capture + '; fi',
+                    # Form B requires a qualifying "else ...exit N; fi" closer: a bare
+                    # "if <guard>; then <invoke>; fi" with no else is rejected above
+                    # because the skipped-branch exit status is 0 (false success).
+                    'if [ ! -e "$PWD/after-navigation.gcdump" ]; then ' + capture
+                    + '; else exit 1; fi',
                     # A bare trailing ";" cannot mask a status: nothing runs after it.
                     'test ! -e "$PWD/after-navigation.gcdump" && ' + capture + ';',
                     # A success-only "&&" follow-up still short-circuits on a collector
@@ -268,6 +332,24 @@ def main():
                                and quality.vally_regex_found(g["config"]["pattern"], listed)
                                for g in output_graders), (
                         f"Markdown-list broken advice survived: {prefix!r}{defect}"
+                    )
+            safety_warning = ACCEPTED_SAFETY_WARNING.get(stimulus["tags"]["capability"])
+            if safety_warning:
+                safe = reference + "\n" + safety_warning
+                offending = [g["config"]["pattern"] for g in output_graders
+                             if g["type"] == "output-not-matches"
+                             and quality.vally_regex_found(g["config"]["pattern"], safe)]
+                assert not offending, (
+                    f"Negated safety warning falsely rejected by {offending!r}: {safety_warning}"
+                )
+                for prefix in ("- ", "* ", "1. "):
+                    safe_listed = reference + "\n" + prefix + safety_warning
+                    offending = [g["config"]["pattern"] for g in output_graders
+                                 if g["type"] == "output-not-matches"
+                                 and quality.vally_regex_found(g["config"]["pattern"], safe_listed)]
+                    assert not offending, (
+                        f"Markdown-list negated safety warning falsely rejected by "
+                        f"{offending!r}: {prefix!r}{safety_warning}"
                     )
         print(f"Golden acceptance: {len(doc['stimuli'])} responses, {workspace_count} workspaces")
         print(f"Mutation rejection: {len(doc['stimuli'])} empty responses; "

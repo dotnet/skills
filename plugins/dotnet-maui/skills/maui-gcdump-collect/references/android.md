@@ -3,10 +3,12 @@
 Sources: [.NET 10 Android tracing guide](https://github.com/dotnet/android/blob/release/10.0.1xx/Documentation/guides/tracing.md)
 (“Memory Dumps for Android in .NET 8+”) and the current `main`-branch guide pinned at
 [`e2230e9d`](https://github.com/dotnet/android/blob/e2230e9d5d3e6b1f1f8c25faca1bc2612b8bf116/Documentation/guides/tracing.md)
-(.NET 11+ CoreCLR lane; its recipe is otherwise out of scope for this Mono skill,
-but its `Microsoft.Android.Sdk.DefaultProperties.targets` confirms `$(EnableDiagnostics)`
-is the version-independent switch: it sets `AndroidEnableProfiler=true` internally,
-so it is safe on this Mono range too — it is not CoreCLR-only).
+(.NET 11+ CoreCLR lane; its recipe is otherwise out of scope for this Mono skill).
+`$(EnableDiagnostics)` aliasing to `AndroidEnableProfiler=true` is confirmed in
+`Microsoft.Android.Sdk.DefaultProperties.targets` from `release/9.0.1xx` onward
+(and present on `main`/11+), but **not** on `release/8.0.1xx` — that branch has no
+`$(EnableDiagnostics)` reference at all. On .NET 8 set `-p:AndroidEnableProfiler=true`
+directly; do not rely on `$(EnableDiagnostics)` there.
 
 ## Preflight
 
@@ -14,16 +16,23 @@ Use a development host with the compatible SDK/workload and Android SDK
 platform-tools (`adb`). `adb devices -l` must show the selected device in `device`
 state, not `unauthorized` or `offline`; a USB cable, wireless `adb` debugging, and
 an attached emulator all reach that same state the same way — `adb` does not
-record which transport was used, so do not assume or require a USB cable. Every
-device command below uses that selected serial. No root or blanket permission
+record which transport was used, so do not assume or require a USB cable. Neither
+`dotnet-dsrouter`'s Android router nor `dotnet-gcdump collect --dsrouter android`
+accepts a device-serial flag — both shell out to plain `adb` and rely on the
+inherited `ANDROID_SERIAL` environment variable to select one device when more
+than one is attached. Export `ANDROID_SERIAL=<selected serial>` (or prefix each
+command below with it) before running them if multiple devices/emulators are
+attached. No root or blanket permission
 changes. (An emulator-only request is still out of this skill's scope — see
 `SKILL.md` — because this recipe is only verified against a physical device.)
 
 The app must include `libmono-component-diagnostics_tracing.so` beside the Mono
 runtime for its target ABI. Inspect the profiling APK/build packaging evidence;
 successful build alone does not prove the installed binary is that build.
-`-p:EnableDiagnostics=true` retains the component for the documented Mono SDKs.
-Use the project's actual TFM, not a fixed historical framework copied from a wiki.
+`-p:EnableDiagnostics=true` retains the component on `net9.0-android`/`net10.0-android`
+and later; on `net8.0-android` use `-p:AndroidEnableProfiler=true` instead, since
+`$(EnableDiagnostics)` is not aliased there (see Sources above). Use the project's
+actual TFM, not a fixed historical framework copied from a wiki.
 
 ## Route and approved preparation
 
@@ -39,10 +48,12 @@ absent from 9.0.621003 (the version this skill's earlier Android fixture text
 cites) and confirmed present from 9.0.652701 onward; check the installed
 `collect --help` before relying on it.
 
-After approval, the capture command (Step 4 of the main skill) becomes:
+After approval, the capture command (Step 4 of the main skill) becomes (prefix with
+`ANDROID_SERIAL=<selected serial>` whenever more than one device/emulator is
+attached, since this command has no serial flag of its own):
 
 ```sh
-dotnet-gcdump collect --dsrouter android \
+ANDROID_SERIAL=<selected serial> dotnet-gcdump collect --dsrouter android \
   --output "$PWD/after-navigation.gcdump" --timeout 60
 ```
 
