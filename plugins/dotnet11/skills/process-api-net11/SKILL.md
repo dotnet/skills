@@ -561,6 +561,8 @@ To make it easier to start a process without the need to worry about disposing i
 
 `StartAndForget` throws `InvalidOperationException` if any `RedirectStandardInput`, `RedirectStandardOutput`, or `RedirectStandardError` flag is true. Use a capture or streaming API if output needs to be read.
 
+`StartAndForget` also throws `InvalidOperationException` when `UseShellExecute` is `true`. It launches executables, not URLs or documents through shell associations. For shell opening, use ordinary `Process.Start` with `UseShellExecute = true`; do not substitute `StartAndForget` merely because the caller should continue immediately. `Process.Start` does not wait for the launched application to exit.
+
 ```csharp
 public static int StartAndForget(string fileName, IEnumerable<string>? arguments = null)
 public static int StartAndForget(ProcessStartInfo startInfo)
