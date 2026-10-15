@@ -3,6 +3,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import py_compile
 import re
 import shlex
 import shutil
@@ -148,6 +149,143 @@ class CompositionTests(unittest.TestCase):
                 _, result = self.command_result(case, root)
                 self.assertNotEqual(0, result.returncode)
 
+    def test_all_cases_preserve_files_outside_the_project(self):
+        for case in CASES:
+            with self.subTest(case=case["name"]):
+                root = self.materialize(case)
+                for name in ("extra.py", ".eval/extra.py", ".agents/extra.py"):
+                    with self.subTest(addition=name):
+                        extra = root / name
+                        extra.parent.mkdir(parents=True, exist_ok=True)
+                        extra.write_text("unauthorized = True\n", encoding="utf-8")
+                        _, result = self.command_result(case, root)
+                        self.assertNotEqual(0, result.returncode)
+                        self.assertIn("Added or removed in-scope files", result.stderr)
+                        extra.unlink()
+                helper = root / ".eval/authenticated_artifacts.py"
+                original = helper.read_bytes()
+                for remove in (False, True):
+                    with self.subTest(helper_removed=remove):
+                        if remove:
+                            helper.unlink()
+                        else:
+                            helper.write_bytes(original + b"\n# unauthorized edit\n")
+                        _, result = self.command_result(case, root)
+                        self.assertNotEqual(0, result.returncode)
+                        self.assertIn(".eval/authenticated_artifacts.py", result.stderr)
+                        helper.write_bytes(original)
+
+    def test_cache_exclusion_does_not_hide_non_bytecode_additions(self):
+        for case in CASES:
+            with self.subTest(case=case["name"]):
+                root = self.materialize(case)
+                project = root / ("dispatch" if (root / "dispatch").exists() else "parcel")
+                cache = project / "__pycache__"
+                cache.mkdir(exist_ok=True)
+                for name in ("hidden.py", "config.json", "notes.txt", "hidden.pyc"):
+                    with self.subTest(addition=name):
+                        path = cache / name
+                        path.write_text("unauthorized = True\n", encoding="utf-8")
+                        _, result = self.command_result(case, root)
+                        self.assertNotEqual(0, result.returncode)
+                        self.assertIn("Added or removed in-scope files", result.stderr)
+                        path.unlink()
+        case = CASES[5]
+        root = self.materialize(case)
+        for optimize in (0, 1, 2):
+            py_compile.compile(str(root / "parcel/shipping.py"), doraise=True, optimize=optimize)
+        _, result = self.command_result(case, root)
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
+    def test_quality_repair_preserves_existing_validation_assertions(self):
+        case = CASES[4]
+        for name, original, replacement, survivor in (
+            (
+                "test_shipping.py", "        self.assertEqual(5, quote(25))", "        pass",
+                "domestic-paid-fee",
+            ),
+            (
+                "test_shipping.py", "        self.assertEqual(0, quote(100))", "        pass",
+                "domestic-threshold",
+            ),
+            (
+                "test_shipping.py",
+                "        with self.assertRaises(ValueError):\n            quote(-1)",
+                "        pass",
+                "negative-subtotal",
+            ),
+            (
+                "test_stock.py",
+                "        with self.assertRaises(ValueError):\n            Stock(-1)\n"
+                "        for count in (0, -1):\n            with self.assertRaises(ValueError):\n"
+                "                Stock(4).reserve(count)",
+                "        pass",
+                "negative-quantity",
+            ),
+            ("test_stock.py", "(0, -1)", "(-1,)", "zero-reservation"),
+            ("test_stock.py", "(0, -1)", "(0,)", "negative-reservation"),
+        ):
+            with self.subTest(contract=survivor):
+                root = self.materialize(case)
+                path = root / "parcel" / name
+                text = path.read_text(encoding="utf-8")
+                self.assertIn(original, text)
+                path.write_text(text.replace(original, replacement), encoding="utf-8")
+                self.assertFalse(checks.run_suite(root / "parcel")["failures"])
+                _, result = self.command_result(case, root)
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn(f"Survived: {survivor}", result.stderr)
+
+    def test_native_repair_preserves_existing_validation_assertions(self):
+        case = CASES[2]
+        root = self.materialize(case)
+        path = root / "parcel/test_stock.py"
+        original = path.read_text(encoding="utf-8")
+        path.write_text(original[:original.index("    def test_invalid(self):")] +
+                        "    def test_invalid(self):\n        pass\n", encoding="utf-8")
+        self.assertFalse(checks.run_suite(root / "parcel")["failures"])
+        _, result = self.command_result(case, root)
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("Survived: negative-quantity", result.stderr)
+
+    def test_runtime_writes_are_rejected_after_the_baseline_suite(self):
+        case = CASES[2]
+        for name in ("README.md", "../extra.py", "../.eval/authenticated_artifacts.py",
+                     "test_stock.py"):
+            with self.subTest(runtime_write=name):
+                root = self.materialize(case)
+                path = root / "parcel/test_stock.py"
+                text = path.read_text(encoding="utf-8")
+                path.write_text(text.replace(
+                    "    def test_shortage(self):",
+                    "    def test_shortage(self):\n"
+                    "        from pathlib import Path\n"
+                    f"        with Path({name!r}).open('a') as target:\n"
+                    "            target.write('\\n# unauthorized runtime edit\\n')",
+                ), encoding="utf-8")
+                _, result = self.command_result(case, root)
+                self.assertNotEqual(0, result.returncode)
+                self.assertRegex(result.stderr, "Out-of-scope edit|Added or removed in-scope files")
+
+    def test_runtime_writes_are_rejected_during_mutation_replay(self):
+        case = CASES[2]
+        for original_workspace in (False, True):
+            with self.subTest(original_workspace=original_workspace):
+                root = self.materialize(case)
+                target = str(root / "parcel/README.md") if original_workspace else "README.md"
+                path = root / "parcel/test_stock.py"
+                text = path.read_text(encoding="utf-8")
+                path.write_text(text.replace(
+                    "    def test_shortage(self):",
+                    "    def test_shortage(self):\n"
+                    "        if Stock(4).reserve(5) is True:\n"
+                    "            from pathlib import Path\n"
+                    f"            Path({target!r}).write_text('unauthorized runtime edit')",
+                ), encoding="utf-8")
+                _, result = self.command_result(case, root)
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn("Out-of-scope edit: parcel/README.md", result.stderr)
+
     def test_quality_repair_rejects_reintroduced_shallow_oracle(self):
         case = CASES[4]
         root = self.materialize(case)
@@ -194,7 +332,7 @@ class CompositionTests(unittest.TestCase):
         path.write_bytes(path.read_bytes() + b"\n# unnecessary rewrite\n")
         _, result = self.command_result(case, root)
         self.assertNotEqual(0, result.returncode)
-        self.assertIn("Out-of-scope edit: test_shipping.py", result.stderr)
+        self.assertIn("Out-of-scope edit: parcel/test_shipping.py", result.stderr)
 
     def test_evaluator_inputs_are_authenticated(self):
         case = CASES[2]

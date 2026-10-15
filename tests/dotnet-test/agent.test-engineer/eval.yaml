@@ -742,6 +742,8 @@ stimuli:
           dest: dispatch/baseline.cobertura.xml
         - src: fixtures/composition-dotnet/evidence.txt
           dest: dispatch/evidence.txt
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: graders/check_composition.py
           dest: .eval/check_composition.py
       commands:
@@ -788,10 +790,10 @@ stimuli:
             - >-
               import hashlib,pathlib,subprocess,sys;
               h=lambda p:hashlib.sha256(pathlib.Path(p).read_bytes().replace(b'\r\n',b'\n')).hexdigest();
-              assert h('.eval/check_composition.py')=='41315036145ac167fd2fc98a02d155a9c05f44297a136b613d3d9a245a70e2cb';
+              assert h('.eval/check_composition.py')=='ccc8c37f76bd1a89772fbeef0cf1f852331f17de7301476bb1e1198c208ff7e1';
               assert h('.eval/composition-inputs.json')==sys.argv[1];
               subprocess.run([sys.executable,'-B','.eval/check_composition.py','verify',*sys.argv[2:]],check=True)
-            - adcbca968328816ddd9ce7ff98875a768c6075945a316f8ec8b0eae9eb95f1de
+            - a424016c615f73234a693d1c158ba66e7c595786d65f349d1ca3f8ccc8f7a7a7
             - dispatch
             - readonly
           expected_exit_code: 0
@@ -828,6 +830,8 @@ stimuli:
           dest: dispatch/baseline.cobertura.xml
         - src: fixtures/composition-dotnet/evidence.txt
           dest: dispatch/evidence.txt
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: graders/check_composition.py
           dest: .eval/check_composition.py
       commands:
@@ -872,10 +876,10 @@ stimuli:
             - >-
               import hashlib,pathlib,subprocess,sys;
               h=lambda p:hashlib.sha256(pathlib.Path(p).read_bytes().replace(b'\r\n',b'\n')).hexdigest();
-              assert h('.eval/check_composition.py')=='41315036145ac167fd2fc98a02d155a9c05f44297a136b613d3d9a245a70e2cb';
+              assert h('.eval/check_composition.py')=='ccc8c37f76bd1a89772fbeef0cf1f852331f17de7301476bb1e1198c208ff7e1';
               assert h('.eval/composition-inputs.json')==sys.argv[1];
               subprocess.run([sys.executable,'-B','.eval/check_composition.py','verify',*sys.argv[2:]],check=True)
-            - adcbca968328816ddd9ce7ff98875a768c6075945a316f8ec8b0eae9eb95f1de
+            - a424016c615f73234a693d1c158ba66e7c595786d65f349d1ca3f8ccc8f7a7a7
             - dispatch
             - readonly
           expected_exit_code: 0
@@ -908,6 +912,8 @@ stimuli:
           dest: parcel/native.json
         - src: fixtures/composition-evidence/native.txt
           dest: parcel/native.txt
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: graders/check_composition.py
           dest: .eval/check_composition.py
       commands:
@@ -953,14 +959,14 @@ stimuli:
             - >-
               import hashlib,pathlib,subprocess,sys;
               h=lambda p:hashlib.sha256(pathlib.Path(p).read_bytes().replace(b'\r\n',b'\n')).hexdigest();
-              assert h('.eval/check_composition.py')=='41315036145ac167fd2fc98a02d155a9c05f44297a136b613d3d9a245a70e2cb';
+              assert h('.eval/check_composition.py')=='ccc8c37f76bd1a89772fbeef0cf1f852331f17de7301476bb1e1198c208ff7e1';
               assert h('.eval/composition-inputs.json')==sys.argv[1];
               subprocess.run([sys.executable,'-B','.eval/check_composition.py','verify',*sys.argv[2:]],check=True)
-            - 484e58eef9992358cf2d7cfa18d19c9ef32e18377c72c9fbade7da856cd980e0
+            - 9b0f4441179f2d35ad2a25271f70ab2e5e3b07783c49f0acb3fe60f45497c83e
             - parcel
             - native
           expected_exit_code: 0
-          stdout_matches: 'Composition verified: [1-9][0-9]* tests, 2 rejected mutations'
+          stdout_matches: 'Composition verified: [1-9][0-9]* tests, 5 rejected mutations'
           timeout: 2m
       - type: prompt
     rubric:
@@ -989,6 +995,8 @@ stimuli:
           dest: parcel
         - src: fixtures/composition-evidence/stale.json
           dest: parcel/stale.json
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: graders/check_composition.py
           dest: .eval/check_composition.py
       commands:
@@ -1037,10 +1045,10 @@ stimuli:
             - >-
               import hashlib,pathlib,subprocess,sys;
               h=lambda p:hashlib.sha256(pathlib.Path(p).read_bytes().replace(b'\r\n',b'\n')).hexdigest();
-              assert h('.eval/check_composition.py')=='41315036145ac167fd2fc98a02d155a9c05f44297a136b613d3d9a245a70e2cb';
+              assert h('.eval/check_composition.py')=='ccc8c37f76bd1a89772fbeef0cf1f852331f17de7301476bb1e1198c208ff7e1';
               assert h('.eval/composition-inputs.json')==sys.argv[1];
               subprocess.run([sys.executable,'-B','.eval/check_composition.py','verify',*sys.argv[2:]],check=True)
-            - 660ca91cf27a618d06264ee3b151b8268580d93a8c1f21500cfc0ac7ae3703a0
+            - 91fb2c556b0c1c0e3cdafda54748957dc334d326c9c765ef1561f94887afcf5b
             - parcel
             - readonly
           expected_exit_code: 0
@@ -1070,6 +1078,8 @@ stimuli:
           dest: parcel
         - src: fixtures/composition-evidence/review.txt
           dest: parcel/review.txt
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: graders/check_composition.py
           dest: .eval/check_composition.py
       commands:
@@ -1123,14 +1133,14 @@ stimuli:
             - >-
               import hashlib,pathlib,subprocess,sys;
               h=lambda p:hashlib.sha256(pathlib.Path(p).read_bytes().replace(b'\r\n',b'\n')).hexdigest();
-              assert h('.eval/check_composition.py')=='41315036145ac167fd2fc98a02d155a9c05f44297a136b613d3d9a245a70e2cb';
+              assert h('.eval/check_composition.py')=='ccc8c37f76bd1a89772fbeef0cf1f852331f17de7301476bb1e1198c208ff7e1';
               assert h('.eval/composition-inputs.json')==sys.argv[1];
               subprocess.run([sys.executable,'-B','.eval/check_composition.py','verify',*sys.argv[2:]],check=True)
-            - 02257e1b895ed5b36e5b8310f9974d05671bc34359614a306a35f804bc55aa2d
+            - 48d403ddbeead3eaaac97404a07dd6d34e4b2fef9ce878716a9eb09d3a8695c5
             - parcel
             - quality
           expected_exit_code: 0
-          stdout_matches: 'Composition verified: [1-9][0-9]* tests, 8 rejected mutations'
+          stdout_matches: 'Composition verified: [1-9][0-9]* tests, 14 rejected mutations'
           timeout: 2m
       - type: prompt
     rubric:
@@ -1158,6 +1168,8 @@ stimuli:
           dest: parcel
         - src: fixtures/composition-evidence/test_shipping_complete.py
           dest: parcel/test_shipping.py
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
         - src: graders/check_composition.py
           dest: .eval/check_composition.py
       commands:
@@ -1199,10 +1211,10 @@ stimuli:
             - >-
               import hashlib,pathlib,subprocess,sys;
               h=lambda p:hashlib.sha256(pathlib.Path(p).read_bytes().replace(b'\r\n',b'\n')).hexdigest();
-              assert h('.eval/check_composition.py')=='41315036145ac167fd2fc98a02d155a9c05f44297a136b613d3d9a245a70e2cb';
+              assert h('.eval/check_composition.py')=='ccc8c37f76bd1a89772fbeef0cf1f852331f17de7301476bb1e1198c208ff7e1';
               assert h('.eval/composition-inputs.json')==sys.argv[1];
               subprocess.run([sys.executable,'-B','.eval/check_composition.py','verify',*sys.argv[2:]],check=True)
-            - 635224408c016ecf69371b259aca5a5bb4017c330a8b51e23e1baf3a1d46cb3b
+            - c5c3b63bb7b124de59f92ad5249f6ba1d349053b5fc2f446414d6dd7c8e7fbce
             - parcel
             - noop
           expected_exit_code: 0

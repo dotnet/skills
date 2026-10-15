@@ -1,4 +1,4 @@
-"""Verify complete composition workspaces and test strength, not narrated edits."""
+"""Verify staged workspace preservation and assertion strength before and after execution."""
 
 import argparse
 import ast
@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -36,10 +37,25 @@ MUTATIONS = {
     "reserve-state": ("stock.py", "self.quantity -= count", "self.quantity -= count if count == self.quantity else 0"),
     "shortage-result": ("stock.py", "\n            return False", "\n            return True"),
     "shortage-state": ("stock.py", "\n            return False", "\n            self.quantity -= count\n            return False"),
+    "negative-subtotal": ("shipping.py", "if subtotal < 0:", "if False:"),
+    "negative-quantity": ("stock.py", "if quantity < 0:", "if False:"),
+    "zero-reservation": ("stock.py", "if count <= 0:", "if count < 0:"),
+    "negative-reservation": ("stock.py", "if count <= 0:", "if count == 0:"),
+    "domestic-paid-fee": (
+        "shipping.py", "return base + (8 if remote else 0)",
+        "return base + (8 if remote else (1 if subtotal < 100 else 0))",
+    ),
+    "domestic-threshold": (
+        "shipping.py", "return base + (8 if remote else 0)",
+        "return base + (8 if remote else (5 if subtotal == 100 else 0))",
+    ),
 }
 MODES = {
     "quality": ({"test_shipping.py", "test_stock.py"}, list(MUTATIONS)),
-    "native": ({"test_stock.py"}, ["shortage-result", "shortage-state"]),
+    "native": ({"test_stock.py"}, [
+        "shortage-result", "shortage-state",
+        "negative-quantity", "zero-reservation", "negative-reservation",
+    ]),
     "noop": (set(), ["remote-fee", "threshold"]),
     "readonly": (set(), []),
 }
@@ -52,12 +68,21 @@ def digest(path):
 def inventory(root):
     result = {}
     for path in sorted(root.rglob("*")):
+        relative = path.relative_to(root)
+        if relative.parts[0] == ".git":
+            continue
         if path.is_symlink():
             raise AssertionError(f"Unexpected symlink: {path}")
-        if "__pycache__" in path.parts:
+        bytecode = re.fullmatch(
+            r"(.+)\.(?:cpython-\d+|pypy[\w-]+)(?:\.opt-[12])?\.pyc", path.name
+        )
+        if (
+            path.is_file() and path.parent.name == "__pycache__" and bytecode
+            and (path.parent.parent / (bytecode[1] + ".py")).is_file()
+        ):
             continue
         if path.is_file():
-            result[path.relative_to(root).as_posix()] = digest(path)
+            result[relative.as_posix()] = digest(path)
     return result
 
 
@@ -72,9 +97,17 @@ def test_names(path):
 
 
 def snapshot(root):
+    workspace = Path.cwd().resolve()
+    project = root.resolve().relative_to(workspace)
+    files = inventory(workspace)
+    files.pop(SNAPSHOT.as_posix(), None)
     document = {
-        "files": inventory(root),
-        "tests": {path.name: test_names(path) for path in sorted(root.glob("test_*.py"))},
+        "root": project.as_posix(),
+        "files": files,
+        "tests": {
+            (project / path.name).as_posix(): test_names(path)
+            for path in sorted(root.glob("test_*.py"))
+        },
     }
     SNAPSHOT.parent.mkdir(parents=True, exist_ok=True)
     SNAPSHOT.write_text(json.dumps(document, sort_keys=True), encoding="utf-8")
@@ -99,33 +132,52 @@ def run_suite(root):
     return evidence
 
 
-def verify(root, mode):
-    expected = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
-    allowed, mutations = MODES[mode]
-    actual = inventory(root)
-    assert actual.keys() == expected["files"].keys(), "Added or removed in-scope files"
-    for name, original in expected["files"].items():
+def verify_files(workspace, expected, allowed=()):
+    actual = inventory(workspace)
+    assert actual.keys() == expected.keys(), (
+        "Added or removed in-scope files: " + str(sorted(actual.keys() ^ expected.keys()))
+    )
+    for name, original in expected.items():
         if name not in allowed:
             assert actual[name] == original, f"Out-of-scope edit: {name}"
+    return actual
+
+
+def verify(root, mode):
+    workspace = Path.cwd().resolve()
+    project = root.resolve().relative_to(workspace)
+    expected = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+    assert project.as_posix() == expected["root"], "Changed composition project root"
+    expected["files"][SNAPSHOT.as_posix()] = digest(SNAPSHOT)
+    allowed, mutations = MODES[mode]
+    allowed = {(project / name).as_posix() for name in allowed}
+    submitted = verify_files(workspace, expected["files"], allowed)
     for name, original in expected["tests"].items():
-        assert set(original) <= set(test_names(root / name)), f"Deleted existing test: {name}"
+        assert set(original) <= set(test_names(workspace / name)), f"Deleted existing test: {name}"
 
     if mode == "readonly":
         print("Complete read-only workspace preserved")
         return
 
     baseline = run_suite(root)
+    verify_files(workspace, submitted)
     assert not baseline["failures"], baseline
     for name in mutations:
         filename, before, after = MUTATIONS[name]
         with tempfile.TemporaryDirectory(prefix="generation-mutation-") as directory:
             target = Path(directory)
-            shutil.copytree(root, target, dirs_exist_ok=True)
-            source = target / filename
+            shutil.copytree(
+                workspace, target, dirs_exist_ok=True,
+                ignore=lambda directory, names: {".git"} if Path(directory) == workspace else set(),
+            )
+            source = target / project / filename
             text = source.read_text(encoding="utf-8")
             assert text.count(before) == 1, f"Mutation no longer maps: {name}"
             source.write_text(text.replace(before, after), encoding="utf-8")
-            result = run_suite(target)
+            mutated = {**submitted, (project / filename).as_posix(): digest(source)}
+            result = run_suite(target / project)
+            verify_files(target, mutated)
+            verify_files(workspace, submitted)
             assert result["count"] == baseline["count"], "Mutation changed test discovery"
             assert result["failures"], f"Survived: {name}"
             module = "test_" + source.stem + "."
