@@ -1,12 +1,14 @@
 ---
 name: process-api-net11
 description: >
-  Choose System.Diagnostics.Process APIs for .NET 11 or later, including improving existing Process.Start code.
+  Launch and supervise executable child processes on .NET 11 or later with System.Diagnostics.Process or SafeProcessHandle.
+  DO NOT USE FOR: opening URLs in the default browser or documents in their associated application.
+  Those are operating-system shell-association requests, not executable child-process management, even on .NET 11.
+  DO NOT USE FOR: projects that must remain on .NET 10 or earlier.
   USE FOR: launching executables; preventing redirected stdout/stderr pipe deadlocks; capturing text, bytes, or interleaved lines;
   waiting for exit status; cancellation and timeouts; redirecting standard handles to files, pipes, or the null device;
   restricting handle inheritance; custom native process creation; fire-and-forget starts; parent-exit termination; terminal detachment;
   SafeProcessHandle and trimmer-friendly process management for NativeAOT applications.
-  DO NOT USE FOR: projects that must remain on .NET 10 or earlier, or opening URLs and documents through the operating system's shell.
 license: MIT
 ---
 
@@ -39,7 +41,14 @@ Inspect the project's actual `TargetFramework` or `TargetFrameworks` before intr
 
 When starting a process with the APIs or `ProcessStartInfo` features described in this skill, keep `UseShellExecute` at its default value of `false`. Leave the property unset rather than explicitly assigning `false`: when the application never sets it, the AOT compiler can eliminate the unused shell-execution code.
 
-Although `Process.Start` returns `Process?`, it can return `null` only when `UseShellExecute` is `true`. With shell execution disabled, it returns a `Process` on success or throws on failure. Do not add redundant null checks or `?? throw` after `Process.Start` in this case; use `Process.Start(startInfo)!` to express the guarantee.
+The nullability of static `Process.Start` depends on the launch mode:
+
+| Launch mode | Return value and handling |
+|-------------|---------------------------|
+| Direct executable launch: `UseShellExecute = false` (the default) | Returns a `Process` on success or throws. Use `Process.Start(startInfo)!`; no redundant null check or `?? throw` is needed. |
+| Shell association: `UseShellExecute = true` | May return `null` after successfully opening a URL or document without creating a new process. Preserve the nullable result; do not apply the direct-launch non-null guarantee or treat `null` alone as a launch failure. |
+
+The `!` assertions in the executable examples below apply only with shell execution disabled. If a shell-opening request brought you here, do not replace it with these executable-management APIs. Ordinary `Process.Start` with `UseShellExecute = true` returns without waiting; use `Process?` or null-conditional disposal for any returned wrapper, without waiting for or terminating the browser or document application.
 
 ## Choosing Synchronous or Asynchronous APIs
 
@@ -112,7 +121,9 @@ public (byte[] StandardOutput, byte[] StandardError) ReadAllBytes(TimeSpan? time
 public Task<(byte[] StandardOutput, byte[] StandardError)> ReadAllBytesAsync(CancellationToken cancellationToken = default)
 ```
 
-**Use full-output capture only when the output size is trusted and bounded.** `ReadAllText[Async]` and `ReadAllBytes[Async]` read until EOF and buffer all captured output in the parent process's memory, without an output-size limit. An untrusted child can produce unlimited output and exhaust the parent's memory, causing an out-of-memory failure. A timeout or cancellation token is not a memory limit. For untrusted output, use a bounded capture strategy that drains both streams concurrently, enforces an explicit byte limit, and terminates the child when that limit is exceeded.
+**Use full-output capture only when the output size is trusted and bounded.** `ReadAllText[Async]` and `ReadAllBytes[Async]` read until EOF and buffer all captured output in the parent process's memory, without an output-size limit. An untrusted child can produce unlimited output and exhaust the parent's memory, causing an out-of-memory failure. A timeout or cancellation token is not a memory limit.
+
+For untrusted output, drain both streams concurrently with fixed-size byte buffers and enforce one shared retention budget across stdout and stderr before retaining each chunk. On overflow, either terminate the child and wait for termination, or keep only the bounded prefix and continue draining and discarding excess bytes. Report truncation or the limit violation. Do not simply stop reading a still-running child: it can block on full pipes. Give execution and output draining separate lifetime policies because descendants can keep writers open after the immediate child exits.
 
 ```csharp
 ProcessStartInfo startInfo = new("dotnet", "--help")
@@ -571,6 +582,8 @@ public static int StartAndForget(ProcessStartInfo startInfo)
 ## Terminating Child Processes When the Parent Exits
 
 `ProcessStartInfo.KillOnParentExit` ensures that the spawned child process is terminated when the current (parent) process exits (including fatal crash and being force killed). It's supported on Windows, Linux, and Android.
+
+When the caller's operating system is unspecified, state this supported-platform scope or guard it before starting the child. Reject unsupported platforms rather than silently launching a child without the requested protection.
 
 ```csharp
 public class ProcessStartInfo
