@@ -360,7 +360,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)@using\s+Syncfusion\.Blazor\.Toolkit\b
+          pattern: (?i)@using\s+Syncfusion\.Blazor\.Toolkit(?:\.Data)?(?![A-Za-z0-9_]|\.[A-Z])
       - type: output-matches
         config:
           pattern: (?i)(single root|namespace consolidation|removed|no longer|2\.0)

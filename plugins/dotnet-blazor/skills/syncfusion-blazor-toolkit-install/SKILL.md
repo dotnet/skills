@@ -77,7 +77,7 @@ Verified with `dotnet new blazor`: without `-ai`, `<Routes />` carries no direct
 dotnet add package Syncfusion.Blazor.Toolkit
 ```
 
-Prefer the latest 2.x version (2.0.0 or newer).
+Prefer the latest 2.x version (2.0.0 or newer). In a split Blazor Web App, install into the `.Client` project — the reference flows transitively to Server — by passing the project: `dotnet add .Client package Syncfusion.Blazor.Toolkit` (or the full project path). Installing only into Server leaves `.Client` without the package, so `@using Syncfusion.Blazor.Toolkit` and `AddSyncfusionBlazorToolkit()` there will fail to compile.
 
 ### Program.cs: make only these additions
 
@@ -152,8 +152,8 @@ Keep the template-generated host file intact: `HeadOutlet`, `Routes` and its ren
 ## Migrating from Toolkit 1.x to 2.0
 
 1. Update the package to 2.0.0 or newer.
-2. Replace every domain-specific `@using Syncfusion.Blazor.Toolkit.<Domain>` with the single `@using Syncfusion.Blazor.Toolkit`.
-3. Update any fully qualified type names that used the old child namespaces.
+2. Replace domain-specific usings for the namespaces that actually moved — `.Buttons`, `.Calendars`, `.Charts`, `.Inputs`, `.Popups`, `.Spinner`, and similar — with the single `@using Syncfusion.Blazor.Toolkit`. **Do not remove `@using Syncfusion.Blazor.Toolkit.Data`** (or fully qualified `.Data.*` references): the 2.0 package still ships `DataAdaptor<T>`, `DataManager`, `Query`, and the `.Data` namespace there.
+3. Update fully qualified type names that used the removed child namespaces (`.Buttons`, `.Calendars`, etc.) to the root namespace. Leave any `.Data.*` names alone — those APIs still live under `.Data`.
 4. **Remove** any 1.x Toolkit theme `<link>` tags (`fluent.min.css`, `highcontrast.min.css`, per-component stylesheets). Component styles are CSS-isolated; the shared theme is delivered by `SfThemeRoot`.
 5. Review custom CSS overrides that targeted unscoped toolkit class names; isolation may require `::deep` or scope adjustments.
 6. If subclasses of `DataAdaptor<T>` exist, add `where T : notnull`.
