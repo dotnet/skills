@@ -1,36 +1,94 @@
 // Instrument a replay copy, never the delivered Go fixture.
+// Function-valued httptest factories are rejected rather than left unverified.
 package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"go/ast"
 	"go/format"
 	"go/parser"
 	"go/scanner"
 	"go/token"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 )
 
 type rewriter struct {
-	owner    *ast.Ident
-	imports  map[string]string
-	seen     map[*ast.CallExpr]bool
-	files    *token.FileSet
-	count    *int
-	problems *[]error
+	owner           *ast.Ident
+	imports         map[string]string
+	downloadPackage string
+	localDownload   bool
+	seen            map[*ast.CallExpr]bool
+	files           *token.FileSet
+	count           *int
+	problems        *[]error
+}
+
+func unparen(expr ast.Expr) ast.Expr {
+	for {
+		parenthesized, ok := expr.(*ast.ParenExpr)
+		if !ok {
+			return expr
+		}
+		expr = parenthesized.X
+	}
 }
 
 func (v rewriter) packageMember(expr ast.Expr, pkg, member string) bool {
+	expr = unparen(expr)
 	if selector, ok := expr.(*ast.SelectorExpr); ok {
 		id, ok := selector.X.(*ast.Ident)
 		return ok && id.Obj == nil && v.imports[id.Name] == pkg && selector.Sel.Name == member
 	}
 	id, ok := expr.(*ast.Ident)
 	return ok && id.Obj == nil && v.imports["."] == pkg && id.Name == member
+}
+
+func (v rewriter) serverFactory(expr ast.Expr) string {
+	for _, factory := range []string{"NewServer", "NewTLSServer", "NewUnstartedServer"} {
+		if v.packageMember(expr, "net/http/httptest", factory) {
+			return factory
+		}
+	}
+	return ""
+}
+
+func (v rewriter) validateFactoryReferences(tree *ast.File) error {
+	called := map[ast.Expr]bool{}
+	selectedNames := map[*ast.Ident]bool{}
+	var problem error
+	ast.Inspect(tree, func(node ast.Node) bool {
+		if problem != nil {
+			return false
+		}
+		var expr ast.Expr
+		switch node := node.(type) {
+		case *ast.CallExpr:
+			called[unparen(node.Fun)] = true
+		case *ast.SelectorExpr:
+			selectedNames[node.Sel] = true
+			expr = node
+		case *ast.Ident:
+			if !selectedNames[node] {
+				expr = node
+			}
+		}
+		if expr != nil && !called[expr] {
+			if factory := v.serverFactory(expr); factory != "" {
+				problem = fmt.Errorf(
+					"%s: unsupported httptest factory reference %s; call the factory directly in an owned test or helper",
+					v.files.Position(expr.Pos()), factory)
+			}
+		}
+		return problem == nil
+	})
+	return problem
 }
 
 func (v rewriter) testParameter(params *ast.FieldList) *ast.Ident {
@@ -89,7 +147,9 @@ func (v rewriter) Visit(node ast.Node) ast.Visitor {
 			*v.count++
 			break
 		}
-		if id, ok := node.Fun.(*ast.Ident); ok && id.Name == "Download" && len(node.Args) == 3 {
+		id, bare := unparen(node.Fun).(*ast.Ident)
+		download := v.localDownload && bare && id.Obj == nil && id.Name == "Download"
+		if (download || v.packageMember(node.Fun, v.downloadPackage, "Download")) && len(node.Args) == 3 {
 			if v.owner == nil {
 				*v.problems = append(*v.problems, fmt.Errorf("%s: Download has no testing owner", v.files.Position(node.Pos())))
 				return nil
@@ -99,10 +159,7 @@ func (v rewriter) Visit(node ast.Node) ast.Visitor {
 			*v.count++
 			break
 		}
-		for _, factory := range []string{"NewServer", "NewTLSServer", "NewUnstartedServer"} {
-			if !v.packageMember(node.Fun, "net/http/httptest", factory) {
-				continue
-			}
+		if factory := v.serverFactory(node.Fun); factory != "" {
 			if v.owner == nil {
 				*v.problems = append(*v.problems, fmt.Errorf(
 					"%s: server factory has no testing.T/TB owner; this fixture probe requires an owner parameter",
@@ -110,7 +167,7 @@ func (v rewriter) Visit(node ast.Node) ast.Visitor {
 				return nil
 			}
 			inner := *node
-			if selector, ok := inner.Fun.(*ast.SelectorExpr); ok {
+			if selector, ok := unparen(inner.Fun).(*ast.SelectorExpr); ok {
 				inner.Fun = &ast.SelectorExpr{X: selector.X, Sel: ast.NewIdent("NewUnstartedServer")}
 			} else {
 				inner.Fun = ast.NewIdent("NewUnstartedServer")
@@ -125,7 +182,6 @@ func (v rewriter) Visit(node ast.Node) ast.Visitor {
 				},
 			}
 			*v.count++
-			break
 		}
 	}
 	return v
@@ -267,12 +323,51 @@ func evalLifetimeServer(t testing.TB, server *httptest.Server, factory, location
 `
 
 func run(root string) error {
-	files, err := filepath.Glob(filepath.Join(root, "*_test.go"))
+	root, err := filepath.Abs(root)
 	if err != nil {
 		return err
 	}
+	list := exec.Command("go", "list", "-json", "./...")
+	list.Dir = root
+	var stderr bytes.Buffer
+	list.Stderr = &stderr
+	output, err := list.Output()
+	if err != nil {
+		return fmt.Errorf("list executed Go test packages: %w\n%s", err, stderr.String())
+	}
+	var files []string
+	var downloadPackage, rootPackageName string
+	decoder := json.NewDecoder(bytes.NewReader(output))
+	for {
+		var pkg struct {
+			Dir          string
+			ImportPath   string
+			Name         string
+			TestGoFiles  []string
+			XTestGoFiles []string
+		}
+		if err := decoder.Decode(&pkg); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return fmt.Errorf("decode Go test package metadata: %w", err)
+		}
+		if pkg.Dir == root {
+			downloadPackage, rootPackageName = pkg.ImportPath, pkg.Name
+		}
+		for _, filename := range append(pkg.TestGoFiles, pkg.XTestGoFiles...) {
+			files = append(files, filepath.Join(pkg.Dir, filename))
+		}
+	}
+	if downloadPackage == "" {
+		return fmt.Errorf("Go fixture package not found at %s", root)
+	}
 	count := 0
-	packages := map[string]bool{}
+	type testPackage struct {
+		directory string
+		name      string
+	}
+	packages := map[testPackage]bool{}
 	for _, filename := range files {
 		fset := token.NewFileSet()
 		source, err := os.ReadFile(filename)
@@ -318,17 +413,23 @@ func run(root string) error {
 		}
 		before := count
 		var problems []error
-		ast.Walk(rewriter{
+		visitor := rewriter{
 			imports: imports, seen: map[*ast.CallExpr]bool{},
 			files: fset, count: &count, problems: &problems,
-		}, tree)
+			downloadPackage: downloadPackage,
+			localDownload:   filepath.Dir(filename) == root && tree.Name.Name == rootPackageName,
+		}
+		if err := visitor.validateFactoryReferences(tree); err != nil {
+			return err
+		}
+		ast.Walk(visitor, tree)
 		if len(problems) != 0 {
 			return problems[0]
 		}
 		if before == count {
 			continue
 		}
-		packages[tree.Name.Name] = true
+		packages[testPackage{filepath.Dir(filename), tree.Name.Name}] = true
 		var rewritten bytes.Buffer
 		if err := format.Node(&rewritten, fset, tree); err != nil {
 			return err
@@ -338,11 +439,11 @@ func run(root string) error {
 		}
 	}
 	if count == 0 {
-		return fmt.Errorf("no owned httptest server factories found in the Go tests")
+		return fmt.Errorf("no owned resource sites found in the executed Go test packages")
 	}
 	for pkg := range packages {
-		filename := filepath.Join(root, "zz_eval_lifetime_"+pkg+"_test.go")
-		data, err := format.Source([]byte(fmt.Sprintf(probe, pkg)))
+		filename := filepath.Join(pkg.directory, "zz_eval_lifetime_"+pkg.name+"_test.go")
+		data, err := format.Source([]byte(fmt.Sprintf(probe, pkg.name)))
 		if err != nil {
 			return err
 		}

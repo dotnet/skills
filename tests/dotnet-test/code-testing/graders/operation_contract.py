@@ -162,7 +162,7 @@ def check_mutation(root, filename, old, new, argv, exit_code, outcome_pattern, e
 
 def verify_go_lifetime(root, environment):
     helper = Path(__file__).with_name("go_server_lifetime.go")
-    assert digest(helper.read_bytes()) == "397e8d6a59bb91ee7ade822a5bf1f57fb7a0c4ddedc4982f26962449f805ffbe", "Go lifetime verifier changed"
+    assert digest(helper.read_bytes()) == "d184f4010143de218de7d4707533fe66acd9bd3b649a47c24d52639f07643650", "Go lifetime verifier changed"
     with tempfile.TemporaryDirectory(prefix="go-lifetime-replay-") as temporary:
         replay = Path(temporary) / "work"
         shutil.copytree(root, replay)
@@ -234,7 +234,7 @@ def main():
             (args.root / "src" / "lib.rs").read_bytes()
         )) == args.runtime_sha256, "Runtime Rust region changed"
     else:
-        test_sources = list(args.root.glob("*_test.go"))
+        test_sources = list(args.root.rglob("*_test.go"))
         assert test_sources, "No Go test file"
         environment = dict(os.environ, GOPROXY="off", GOSUMDB="off")
         output = command(

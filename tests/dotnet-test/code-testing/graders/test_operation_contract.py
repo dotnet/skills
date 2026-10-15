@@ -64,6 +64,180 @@ func TestDownload(t *testing.T) {
 ''', encoding="utf-8")
             replay.run_graders(case, root)
 
+    def test_go_mixed_direct_and_aliased_factory_rejects_missing_cleanup(self):
+        replay, spec, case = self.go_case()
+        with tempfile.TemporaryDirectory(prefix="go-aliased-factory-") as temporary:
+            root = Path(temporary)
+            replay.materialize(spec, case, root)
+            path = root / "work" / "client_test.go"
+            direct, aliased = path.read_text(encoding="utf-8").split(
+                "func TestDownloadRejectsErrorStatus", 1
+            )
+            aliased = aliased.replace(
+                "server := httptest.NewServer(",
+                "newServer := httptest.NewServer\n\tserver := newServer(",
+                1,
+            ).replace("defer server.Close()", "")
+            path.write_text(direct + "func TestDownloadRejectsErrorStatus" + aliased, encoding="utf-8")
+            self.assert_native_go_tests_pass(root / "work")
+            with redirect_stdout(StringIO()), self.assertRaisesRegex(
+                AssertionError, "unsupported httptest factory reference"
+            ):
+                replay.run_graders(case, root)
+
+    def test_go_factory_values_are_explicitly_rejected(self):
+        replay, spec, case = self.go_case()
+        for factory, qualifier in (
+            ("NewServer", "httptest"),
+            ("NewTLSServer", "httptest"),
+            ("NewUnstartedServer", "httptest"),
+            ("NewServer", "webtest"),
+            ("NewServer", "."),
+        ):
+            with self.subTest(factory=factory, qualifier=qualifier), tempfile.TemporaryDirectory(
+                prefix="go-factory-value-"
+            ) as temporary:
+                root = Path(temporary)
+                replay.materialize(spec, case, root)
+                path = root / "work" / "client_test.go"
+                source = path.read_text(encoding="utf-8")
+                reference = f"{qualifier}.{factory}" if qualifier != "." else factory
+                source += (
+                    "\nfunc TestFactoryValue(t *testing.T) {\n"
+                    f"\tvar newServer = {reference}\n"
+                    "\t_ = newServer(http.NotFoundHandler())\n}\n"
+                )
+                if qualifier != "httptest":
+                    source = source.replace(
+                        '"net/http/httptest"', f'{qualifier} "net/http/httptest"'
+                    ).replace("httptest.", f"{qualifier}." if qualifier != "." else "")
+                path.write_text(source, encoding="utf-8")
+                self.assert_native_go_tests_pass(root / "work")
+                with redirect_stdout(StringIO()), self.assertRaisesRegex(
+                    AssertionError, "unsupported httptest factory reference"
+                ):
+                    replay.run_graders(case, root)
+
+    def test_go_parenthesized_and_dot_imported_factories_keep_ownership(self):
+        replay, spec, case = self.go_case()
+        for qualifier in ("httptest", "."):
+            with self.subTest(qualifier=qualifier), tempfile.TemporaryDirectory(
+                prefix="go-direct-factory-"
+            ) as temporary:
+                root = Path(temporary)
+                replay.materialize(spec, case, root)
+                path = root / "work" / "client_test.go"
+                source = path.read_text(encoding="utf-8").replace(
+                    "httptest.NewServer(", "(httptest.NewServer)("
+                )
+                if qualifier == ".":
+                    source = source.replace(
+                        '"net/http/httptest"', '. "net/http/httptest"'
+                    ).replace("httptest.", "")
+                path.write_text(source, encoding="utf-8")
+                with redirect_stdout(StringIO()):
+                    replay.run_graders(case, root)
+
+    def test_go_probe_ignores_unexecuted_test_files_and_packages(self):
+        replay, spec, case = self.go_case()
+        with tempfile.TemporaryDirectory(prefix="go-unexecuted-tests-") as temporary:
+            root = Path(temporary)
+            replay.materialize(spec, case, root)
+            for name in (
+                "client_inactive_test.go",
+                "testdata/ignored_test.go",
+                "_hidden/ignored_test.go",
+                ".hidden/ignored_test.go",
+            ):
+                path = root / "work" / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(
+                    "//go:build eval_probe_inactive\n\npackage transfer\n"
+                    "var newServer = httptest.NewServer\n",
+                    encoding="utf-8",
+                )
+            with redirect_stdout(StringIO()):
+                replay.run_graders(case, root)
+
+    def test_go_nested_package_requires_its_own_server_cleanup(self):
+        replay, spec, case = self.go_case()
+        for cleaned in (True, False):
+            with self.subTest(cleaned=cleaned), tempfile.TemporaryDirectory(
+                prefix="go-nested-cleanup-"
+            ) as temporary:
+                root = Path(temporary)
+                replay.materialize(spec, case, root)
+                path = root / "work" / "client_test.go"
+                direct, nested = path.read_text(encoding="utf-8").split(
+                    "func TestDownloadRejectsErrorStatus", 1
+                )
+                header = direct.split("func TestDownloadWritesFile", 1)[0]
+                nested = header + "func TestDownloadRejectsErrorStatus" + nested
+                if not cleaned:
+                    nested = nested.replace("defer server.Close()", "")
+                directory = root / "work" / "errors"
+                directory.mkdir()
+                (directory / "client_test.go").write_text(
+                    self.external_go_tests(nested), encoding="utf-8"
+                )
+                path.write_text(direct, encoding="utf-8")
+                self.assert_native_go_tests_pass(root / "work")
+                with redirect_stdout(StringIO()):
+                    if cleaned:
+                        replay.run_graders(case, root)
+                    else:
+                        with self.assertRaisesRegex(AssertionError, "GO_SERVER_LIFETIME: unclosed server"):
+                            replay.run_graders(case, root)
+
+    def test_go_only_nested_external_packages_pass_all_mutations(self):
+        replay, spec, case = self.go_case()
+        with tempfile.TemporaryDirectory(prefix="go-only-nested-tests-") as temporary:
+            root = Path(temporary)
+            replay.materialize(spec, case, root)
+            path = root / "work" / "client_test.go"
+            success, failure = path.read_text(encoding="utf-8").split(
+                "func TestDownloadRejectsErrorStatus", 1
+            )
+            header = success.split("func TestDownloadWritesFile", 1)[0]
+            for name, source in (
+                ("success", success),
+                ("errors", header + "func TestDownloadRejectsErrorStatus" + failure),
+            ):
+                directory = root / "work" / name
+                directory.mkdir()
+                (directory / "client_test.go").write_text(
+                    self.external_go_tests(source, "client"), encoding="utf-8"
+                )
+            path.unlink()
+            self.assert_native_go_tests_pass(root / "work")
+            before = {p.relative_to(root): p.read_bytes() for p in root.rglob("*") if p.is_file()}
+            with redirect_stdout(StringIO()):
+                replay.run_graders(case, root)
+            self.assertEqual(before, {
+                p.relative_to(root): p.read_bytes() for p in root.rglob("*") if p.is_file()
+            })
+
+    def test_go_external_package_download_calls_pass_all_mutations(self):
+        replay, spec, case = self.go_case()
+        for qualifier in ("transfer", "client", "."):
+            with self.subTest(qualifier=qualifier), tempfile.TemporaryDirectory(
+                prefix="go-external-package-"
+            ) as temporary:
+                root = Path(temporary)
+                replay.materialize(spec, case, root)
+                path = root / "work" / "client_test.go"
+                path.write_text(
+                    self.external_go_tests(path.read_text(encoding="utf-8"), qualifier),
+                    encoding="utf-8",
+                )
+                self.assert_native_go_tests_pass(root / "work")
+                before = {p.relative_to(root): p.read_bytes() for p in root.rglob("*") if p.is_file()}
+                with redirect_stdout(StringIO()):
+                    replay.run_graders(case, root)
+                self.assertEqual(before, {
+                    p.relative_to(root): p.read_bytes() for p in root.rglob("*") if p.is_file()
+                })
+
     def test_go_destination_must_use_owned_cleaned_directory(self):
         replay, spec, case = self.go_case()
         with tempfile.TemporaryDirectory(prefix="go-directory-ownership-") as temporary:
@@ -188,6 +362,24 @@ func TestDownload(t *testing.T) {
         case = next(case for case in yaml.safe_load(spec.read_text(encoding="utf-8"))["stimuli"]
                     if case["name"].startswith("Test Go HTTP"))
         return replay, spec, case
+
+    def assert_native_go_tests_pass(self, root):
+        native = subprocess.run(
+            ["go", "test", "-json", "-count=1", "./..."], cwd=root,
+            env=dict(os.environ, GOPROXY="off", GOSUMDB="off"),
+            capture_output=True, text=True, timeout=120,
+        )
+        self.assertEqual(0, native.returncode, native.stdout + native.stderr)
+
+    @staticmethod
+    def external_go_tests(source, qualifier="transfer"):
+        imported = '"example.com/transfer"' if qualifier == "transfer" else (
+            f'{qualifier} "example.com/transfer"'
+        )
+        source = source.replace("package transfer\n", "package transfer_test\n", 1).replace(
+            '"context"', f'"context"\n\t{imported}', 1
+        )
+        return source.replace("Download(", f"{qualifier}.Download(") if qualifier != "." else source
 
     def test_go_requires_cleanup_for_each_server(self):
         replay, spec, case = self.go_case()
