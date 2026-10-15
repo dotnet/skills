@@ -130,6 +130,50 @@ def main():
             if gate["vally_regex_found"](grader["config"]["pattern"], mutated):
                 raise AssertionError(f"Deconstruction mutation was accepted: {label}")
 
+    formatted_cases = 0
+    formatted_mutations = 0
+    capture_forms = (
+        (outputs[0], "output.StandardOutput", "output.StandardError"),
+        (outputs[2], "output.StandardOutput", "output.StandardError"),
+        (
+            outputs[2].replace("output.StandardOutput", "output.Item1").replace("output.StandardError", "output.Item2"),
+            "output.Item1",
+            "output.Item2",
+        ),
+        (deconstructed, "stdout", "stderr"),
+        (deconstructed.replace("(string stdout, string stderr)", "var (stdout, stderr)"), "stdout", "stderr"),
+    )
+    for stimulus_index in (0, 2):
+        for output, stdout, stderr in capture_forms:
+            if stimulus_index == 2 and output == outputs[0]:
+                continue
+            for interpolated in (True, False):
+                if interpolated:
+                    stdout_write = f'Console.Out.WriteLine($"stdout: {{{stdout}}}");'
+                    stderr_write = f'Console.Error.WriteLine($"stderr: {{{stderr}}}");'
+                    repeated_stdout = f'Console.Error.WriteLine($"stderr: {{{stdout}}}");'
+                else:
+                    stdout_write = f'Console.Out.WriteLine("stdout: {{0}}", {stdout});'
+                    stderr_write = f'Console.Error.WriteLine("stderr: {{0}}", {stderr});'
+                    repeated_stdout = f'Console.Error.WriteLine("stderr: {{0}}", {stdout});'
+                formatted = output.replace(f"Console.Out.Write({stdout});", stdout_write).replace(
+                    f"Console.Error.Write({stderr});", stderr_write
+                )
+                if stdout_write not in formatted or stderr_write not in formatted:
+                    raise AssertionError("Formatted-output regression did not replace both writes.")
+                reference = copy.deepcopy(stimuli[stimulus_index]["golden_trajectory"]["inline"])
+                reference["steps"][-1]["message"] = formatted
+                gate["check_trajectory_output_graders"](str(spec), stimuli[stimulus_index], reference, "formatted output")
+                formatted_cases += 1
+                for replacement in ("", repeated_stdout):
+                    mutated = formatted.replace(stderr_write, replacement)
+                    pattern = stimuli[stimulus_index]["graders"][4]["config"]["pattern"]
+                    if gate["vally_regex_found"](pattern, mutated):
+                        raise AssertionError("Formatted output accepted missing or repeated stderr.")
+                    formatted_mutations += 1
+    if gate["errors"]:
+        raise AssertionError("\n".join(gate["errors"]))
+
     inheritance_pattern = stimuli[5]["graders"][3]["config"]["pattern"]
     explanatory_output = outputs[5] + "\nAvoid `InheritedHandles = null` because it preserves unrestricted inheritance."
     if gate["vally_regex_found"](inheritance_pattern, explanatory_output):
@@ -139,6 +183,8 @@ def main():
     print(f"PASS: all {len(mutations)} realistic mutations fail the intended grader.")
     print(f"PASS: all {len(alternatives)} equivalent solutions satisfy their deterministic output graders.")
     print("PASS: all 6 deconstructed-output mutations fail the intended grader.")
+    print(f"PASS: all {formatted_cases} formatted-output alternatives satisfy their deterministic output graders.")
+    print(f"PASS: all {formatted_mutations} formatted-output mutations fail the intended grader.")
     print("PASS: inheritance grader permits prose explaining the unsafe default.")
 
 

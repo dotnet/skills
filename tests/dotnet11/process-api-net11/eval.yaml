@@ -56,10 +56,10 @@ stimuli:
           pattern: net11\.0
       - type: output-matches
         config:
-          pattern: &printed-stdout 'Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*\w+\.(?:StandardOutput|Item1)\b|\(\s*(?:string\s+)?(\w+)\s*,\s*(?:string\s+)?\w+\s*\)\s*=\s*(?:await\s+)?\w+\.ReadAllText(?:Async)?\s*\([^;]*\)\s*;[\s\S]*?Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*\1\s*\)'
+          pattern: &printed-stdout 'Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*(?:\$"(?:[^"\\]|\\.)*?\{\s*|"(?:[^"\\]|\\.)*\{0(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*)?\w+\.(?:StandardOutput|Item1)\b|\(\s*(?:string\s+)?(\w+)\s*,\s*(?:string\s+)?\w+\s*\)\s*=\s*(?:await\s+)?\w+\.ReadAllText(?:Async)?\s*\([^;]*\)\s*;[\s\S]*?Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*(?:\$"(?:[^"\\]|\\.)*?\{\s*|"(?:[^"\\]|\\.)*\{0(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*)?\1(?=\s*[,)}:])'
       - type: output-matches
         config:
-          pattern: &printed-stderr 'Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*\w+\.(?:StandardError|Item2)\b|\(\s*(?:string\s+)?\w+\s*,\s*(?:string\s+)?(\w+)\s*\)\s*=\s*(?:await\s+)?\w+\.ReadAllText(?:Async)?\s*\([^;]*\)\s*;[\s\S]*?Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*\1\s*\)'
+          pattern: &printed-stderr 'Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*(?:\$"(?:[^"\\]|\\.)*?\{\s*|"(?:[^"\\]|\\.)*\{0(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*)?\w+\.(?:StandardError|Item2)\b|\(\s*(?:string\s+)?\w+\s*,\s*(?:string\s+)?(\w+)\s*\)\s*=\s*(?:await\s+)?\w+\.ReadAllText(?:Async)?\s*\([^;]*\)\s*;[\s\S]*?Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*(?:\$"(?:[^"\\]|\\.)*?\{\s*|"(?:[^"\\]|\\.)*\{0(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*)?\1(?=\s*[,)}:])'
       - type: output-not-matches
         config:
           pattern: \.\s*Begin(Output|Error)ReadLine\s*\(|\.\s*(Output|Error)DataReceived\s*\+=
