@@ -118,6 +118,8 @@ class PlatformContractTests(unittest.TestCase):
         labels = GOLDEN.split("\n\n", 1)[0]
         for explanation in (
             "MTP 2 cannot use the VSTest bridge on SDK 10.",
+            "MTP 2 no longer supports the VSTest bridge on SDK 10.",
+            "MTP 2 is incompatible with the VSTest bridge on SDK 10.",
             "SDK 10 with MTP 2 has an unsupported VSTest bridge.",
             "MTP 2 removed VSTest-mode bridging on .NET 10.",
             "The bridge is no longer supported on SDK 10 with MTP 2.",
@@ -151,6 +153,12 @@ class PlatformContractTests(unittest.TestCase):
             "MTP 2 cannot bridge on SDK 9; this project uses SDK 10.",
             "SDK 10 cannot bridge MTP 1, and this project uses MTP 2.",
             "MTP 2 is not unsupported by the VSTest bridge on SDK 10.",
+            "MTP 2 is not incompatible with the VSTest bridge on SDK 10.",
+            "MTP 2 is never incompatible with the VSTest bridge on SDK 10.",
+            "MTP 1 no longer supports the VSTest bridge on SDK 10; this project uses MTP 2.",
+            "MTP 2 no longer supports the VSTest bridge on SDK 9; this project uses SDK 10.",
+            "MTP 1 is incompatible with the VSTest bridge on SDK 10; this project uses MTP 2.",
+            "MTP 2 is incompatible with the VSTest bridge on SDK 9; this project uses SDK 10.",
             "This project has MTP 2 installed on SDK 10.",
             "MTP 2 supports native mode on SDK 10.",
             "MTP version 1 cannot bridge on SDK version 10; this project uses MTP 2.",
@@ -209,6 +217,12 @@ for (const [output, passed] of [
   ["MTP 2 cannot bridge on SDK 10.", true],
   ["MTP 2 on SDK 10 cannot fail when using the VSTest bridge.", false],
   ["MTP 2 on SDK 10 does not support the VSTest bridge.", true],
+  ["MTP 2 no longer supports the VSTest bridge on SDK 10.", true],
+  ["MTP 2 is incompatible with the VSTest bridge on SDK 10.", true],
+  ["MTP 2 supports the VSTest bridge on SDK 10.", false],
+  ["MTP 2 is not incompatible with the VSTest bridge on SDK 10.", false],
+  ["MTP 1 no longer supports the VSTest bridge on SDK 10; this project uses MTP 2.", false],
+  ["MTP 2 is incompatible with the VSTest bridge on SDK 9; this project uses SDK 10.", false],
 ]) {
   const result = await grader.grade({ config, trajectory: { workDir: root, output } });
   assert.equal(result.passed, passed, JSON.stringify(result));

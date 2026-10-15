@@ -30,7 +30,10 @@ def validate_report(policy, response):
     )
     peers = r"\b(?:each other|one another|themselves)\b"
     parallel = r"\b(?:parallel|concurrent(?:ly)?|overlaps?|overlapping)\b"
-    serial = r"\b(?:serial(?:izes?|izing|ized|ly)?|sequential(?:ly)?|nonparallel|blocks?|blocked)\b"
+    serial = (
+        r"\b(?:serial(?:izes?|izing|ized|ly)?|sequential(?:ly)?|nonparallel|blocks?|blocked|"
+        rf"prevent(?:s|ed|ing)?(?=\s+from\s+(?:(?:running|executing)\s+(?:in\s+)?)?{parallel}))\b"
+    )
     negation = r"\b(?:cannot|can't|don't|doesn't|won't|isn't|aren't|not|never|no longer)\b"
     continuation = (
         r"(?:can|cannot|can't|may|must|do|does|don't|doesn't|will|won't|are|aren't|"

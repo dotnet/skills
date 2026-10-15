@@ -114,6 +114,51 @@ class DiscoveryContractTests(unittest.TestCase):
             GOLDEN + "\nThe three commands list tests only; they do not run test bodies."
         ))
 
+    def test_extra_non_dotnet_command_chains_are_rejected(self):
+        for command, operator, suffix in product(
+            (
+                "make test", "MAKE test", "npm test", "./run-tests.sh", "CI=true make test",
+                "arbitrary-command suite", "customrunner --run-tests", "customrunner test",
+            ),
+            (";", "&&", "||", "|", "&"),
+            ("echo done", "echo done.", 'echo "done."', "# explanation.", "secondrunner opaque"),
+        ):
+            with self.subTest(command=command, operator=operator, suffix=suffix):
+                self.assertIn(
+                    "program", self.failed_graders(GOLDEN + f"\n{command} {operator} {suffix}")
+                )
+        self.assertEqual([], self.failed_graders(
+            GOLDEN + '\n# make test && echo done\nThe quoted `make test && echo done` is not run.'
+        ))
+        for operator in (";", "&&", "||", "|", "&"):
+            with self.subTest(operator=operator):
+                self.assertIn(
+                    "program",
+                    self.failed_graders(GOLDEN + f"\nfirstcommand alpha {operator} secondcommand beta"),
+                )
+        self.assertEqual([], self.failed_graders(
+            GOLDEN + "\nEach command lists built tests; MTP uses existing outputs."
+        ))
+
+    def test_sdk_owned_options_cannot_be_forwarded_to_mtp(self):
+        for lane, option in product(
+            (1, 2),
+            (
+                "--configuration Debug", "-c Debug", "--framework net8.0", "-f net8.0",
+                "--verbosity normal", "-v normal", "--no-build", "--no-restore", "--nologo",
+            ),
+        ):
+            with self.subTest(lane=lane, option=option):
+                valid = COMMANDS[lane]
+                if lane == 2:
+                    valid = valid.replace(" --list-tests", " -- --list-tests")
+                self.assertEqual([], self.failed_graders(
+                    GOLDEN.replace(COMMANDS[lane], valid.replace(" -- ", f" {option} -- ", 1))
+                ))
+                self.assertIn("program", self.failed_graders(
+                    GOLDEN.replace(COMMANDS[lane], valid + " " + option)
+                ))
+
     def test_environment_assignments_and_executable_casing_do_not_hide_commands(self):
         for prefix, executable, suffix in product(
             ("", "CI=true ", 'CI="true" MODE=\'test suite\' ', "_SETTING=1 "),
@@ -390,9 +435,14 @@ const grader = new ProgramGrader();
 const preface = "Use dotnet test with the discovery flag in each lane:";
 const proseResult = await grader.grade({ config, trajectory: { workDir: root, output: preface + "\\n" + golden } });
 assert.equal(proseResult.passed, true, JSON.stringify(proseResult));
+const disclaimer = "I have not executed any dotnet test commands.";
+const disclaimerResult = await grader.grade({ config, trajectory: { workDir: root, output: golden + "\\n" + disclaimer } });
+assert.equal(disclaimerResult.passed, true, JSON.stringify(disclaimerResult));
 for (const extra of ["", "\\nnice dotnet test Native.slnx --no-build",
                     "\\nionice -c 3 dotnet test Native.slnx --no-build",
                     "\\nmake test # extra command.",
+                    "\\nmake test && echo done",
+                    "\\ndotnet test Bridge.slnx --no-build -- --list-tests --configuration Debug",
                     "\\nCI=true make test", "\\nMAKE test",
                     "\\nUse dotnet test with the discovery flag; dotnet test:"]) {
   const result = await grader.grade({ config, trajectory: { workDir: root, output: golden + extra } });
@@ -455,6 +505,25 @@ assert.equal(result.passed, false, JSON.stringify(result));
             "$ Use dotnet test with discovery:",
             "`Use dotnet test with discovery:`",
             "```shell\nUse dotnet test with discovery:\n```",
+        ):
+            with self.subTest(extra=extra):
+                self.assertIn("program", self.failed_graders(GOLDEN + "\n" + extra))
+
+    def test_execution_disclaimers_are_prose_not_wrapped_commands(self):
+        for disclaimer in (
+            "I have not executed any dotnet test commands.",
+            "I did not execute the dotnet test commands.",
+            "We have not run any dotnet test commands.",
+            "I haven't executed any dotnet test commands.",
+        ):
+            with self.subTest(disclaimer=disclaimer):
+                self.assertEqual([], self.failed_graders(GOLDEN + "\n" + disclaimer))
+        for extra in (
+            "I have not executed any dotnet test commands; dotnet test",
+            "I have not executed any dotnet test commands && make test",
+            "$ I have not executed any dotnet test commands.",
+            "`I have not executed any dotnet test commands.`",
+            "```shell\nI have not executed any dotnet test commands.\n```",
         ):
             with self.subTest(extra=extra):
                 self.assertIn("program", self.failed_graders(GOLDEN + "\n" + extra))

@@ -161,14 +161,14 @@ stimuli:
             - >-
               import hashlib,pathlib;
               p=pathlib.Path('.eval/discovery_commands.py');data=p.read_bytes();
-              assert hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()=='8e843710a033dafeef49fde85e02fd21ca7b1818cc91d0a9934cbc7959b7c7e7','Command verifier changed';
+              assert hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()=='92afbf0d91144dcfed31f504ae8b20a2bab06cb10695bde5febec78fa0b25bcb','Command verifier changed';
               exec(compile(data,str(p),'exec'),{'__name__':'__main__','__file__':str(p)})
           timeout: 1m
       - type: run-command
         config:
           command: >-
             python -c "import hashlib,pathlib;
-            expected={'.eval/discovery_commands.py':'8e843710a033dafeef49fde85e02fd21ca7b1818cc91d0a9934cbc7959b7c7e7'};
+            expected={'.eval/discovery_commands.py':'92afbf0d91144dcfed31f504ae8b20a2bab06cb10695bde5febec78fa0b25bcb'};
             actual={p.as_posix():hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest() for p in pathlib.Path('.').rglob('*') if p.is_file() and p.parts[0] not in {'.git','.agents','.copilot','.claude'}};
             assert actual==expected, 'Read-only discovery workspace changed'"
           expected_exit_code: 0

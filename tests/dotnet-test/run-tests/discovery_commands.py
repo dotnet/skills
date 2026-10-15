@@ -107,7 +107,13 @@ def validate_command(command):
     else:
         assert positional == ["VSTest.slnx"] and after is None, "Invalid VSTest solution"
         assert flags & {"--list-tests", "-t"}, "Missing VSTest discovery"
-    assert after is None or "--no-build" not in after, "SDK option forwarded to the application"
+    sdk_options = {
+        "--solution", "--configuration", "-c", "--framework", "-f", "--verbosity", "-v",
+        "--no-build", "--no-restore", "--nologo", "--logger", "--filter",
+    }
+    assert after is None or not sdk_options.intersection(after), (
+        "SDK option forwarded to the application"
+    )
     return solution or positional[0]
 
 
@@ -144,16 +150,18 @@ def validate_output(response):
             continue
         preface = re.match(
             r"^(?:Use\s+dotnet\s+test\s+(?:with|for|to|in)\b|"
-            r"(?:These|The(?:\s+following)?)\s+dotnet\s+test\s+commands?\b)",
+            r"(?:These|The(?:\s+following)?)\s+dotnet\s+test\s+commands?\b|"
+            r"(?:I|We)\s+(?:(?:have\s+not|haven't)\s+(?:executed|run)|"
+            r"(?:did\s+not|didn't)\s+(?:execute|run))\b)",
             line, re.I,
         )
         if not (fenced or code_span or prompted) and preface and line.endswith((".", ":")):
-            assert not any(operator for _, operator in tokens(line)), (
+            assert not any(operator for _, operator in tokens(line[preface.end():])), (
                 "Prose preface cannot contain a command chain"
             )
             continue
         if not re.search(r"\bdotnet(?:\.exe)?\b", line, re.I):
-            executable = parse_line(line)[1] if "#" in line else line
+            parsed, executable = parse_line(line)
             if executable:
                 assigned = bool(re.match(r"[A-Za-z_][A-Za-z0-9_]*=", executable))
                 if assigned:
@@ -161,12 +169,36 @@ def validate_output(response):
                     while words and re.match(r"[A-Za-z_][A-Za-z0-9_]*=", words[0]):
                         words.pop(0)
                     executable = " ".join(words)
-                sentence = bool(re.search(r"(?<![./])[.!?](?=\s|$)", executable))
-                command_shaped = assigned or (not sentence and bool(re.fullmatch(
-                    r"(?:[./\\]|[A-Za-z]:[\\/])\S+(?:\s+.*)?|"
-                    r"[a-z][a-z0-9_.-]*(?:[ \t]+(?:[-./\\\w=#]+|\"[^\"]*\"|'[^']*'))*",
-                    executable, re.I,
-                )))
+                compound = any(operator for _, operator in parsed)
+                shell_chain = any(operator and value in {"&", "|"} for value, operator in parsed)
+                segments = [executable]
+                if compound:
+                    segments = []
+                    words = []
+                    for value, operator in parsed + [("", True)]:
+                        if operator:
+                            if words:
+                                segments.append(" ".join(
+                                    json.dumps(word) if re.search(r"\s", word) else word
+                                    for word in words
+                                ))
+                                words = []
+                        else:
+                            words.append(value)
+                command_shaped = assigned or any(
+                    (compound or not re.search(r"(?<![./])[.!?](?=\s|$)", segment)) and (
+                        not compound or shell_chain or not re.match(
+                            r"^(?:The|These|This|They|It|Avoid)\b|"
+                            r"^(?:[a-z][a-z0-9_-]*\s+){1,3}(?:uses|forwards|lists|means|requires|supports)\b",
+                            segment, re.I,
+                        )
+                    ) and re.fullmatch(
+                        r"(?:[./\\]|[A-Za-z]:[\\/])\S+(?:\s+.*)?|"
+                        r"[a-z][a-z0-9_.-]*(?:[ \t]+(?:[-./\\\w=#]+|\"[^\"]*\"|'[^']*'))*",
+                        segment, re.I,
+                    )
+                    for segment in segments
+                )
                 assert not (fenced or code_span or prompted or command_shaped), (
                     "Additional command outside the requested discovery lanes"
                 )

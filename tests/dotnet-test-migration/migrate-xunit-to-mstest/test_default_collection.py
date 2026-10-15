@@ -38,6 +38,34 @@ DEFERRED_REPORT = (
 
 
 class DefaultCollectionTests(unittest.TestCase):
+    def test_prevention_and_its_negation_keep_overlap_polarity(self):
+        for overlap in ("overlapping", "running in parallel", "executing concurrently"):
+            deferred = (
+                f"Unrelated classes are prevented from {overlap} these deferred members, "
+                "but may run in parallel with each other."
+            )
+            with self.subTest(overlap=overlap):
+                report.validate_report("deferred-members", deferred)
+                with self.assertRaisesRegex(AssertionError, "Scheduling disclosure"):
+                    report.validate_report(
+                        "deferred-members", deferred.replace("are prevented", "are not prevented")
+                    )
+                with self.assertRaisesRegex(AssertionError, "Scheduling disclosure"):
+                    report.validate_report(
+                        "deferred-members", DEFERRED_REPORT + " " +
+                        deferred.replace("are prevented", "are not prevented")
+                    )
+        serial = "Unrelated classes are prevented from overlapping one another."
+        report.validate_report("assembly-serial", serial)
+        with self.assertRaisesRegex(AssertionError, "Scheduling disclosure"):
+            report.validate_report(
+                "assembly-serial", serial.replace("are prevented", "are not prevented")
+            )
+        shared = "Unrelated classes are not prevented from overlapping these members."
+        report.validate_report("shared-resource", shared)
+        with self.assertRaisesRegex(AssertionError, "Scheduling disclosure"):
+            report.validate_report("shared-resource", shared.replace("are not prevented", "are prevented"))
+
     def test_omitted_predicate_preserves_negation_and_targets(self):
         for text in (
             "Unrelated classes can run in parallel with each other, but not with FirstMember or SecondMember.",

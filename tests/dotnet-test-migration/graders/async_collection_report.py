@@ -36,7 +36,7 @@ def main():
     grading = json.loads(Path(os.environ["EVALUATE_GRADER_INPUT"]).read_text(encoding="utf-8"))
     report = load_verified(
         workspace / ".eval" / "collection_report.py",
-        "f05dd41c81bce127a8e9d5301148e2b893a1ddc8b949cfbe3addbb279d8e8107",
+        "eb1efd3d58975875ddd6e261a101a7a739ef5fe1a248fcbba6434ffa7c1ded28",
     )
     clean = load_verified(
         workspace / ".eval" / "migration_cleanliness.py",

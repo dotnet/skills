@@ -92,10 +92,10 @@ stimuli:
                   object_ = r"(?:(?:the|a|an|this|legacy)\s+)*" + bridge
                   unavailable = (
                       r"\b(?:cannot|can't|does not|doesn't|no longer)\s+"
-                      r"(?:(?:use|run|execute|support|enable|allow|provide|work)\s+"
+                      r"(?:(?:use|run|execute|supports?|enable|allow|provide|work)\s+"
                       r"(?:(?:via|through|with|using)\s+)?" + object_ + r"|bridge\b)|"
                       r"\b(?:removes?|removed)\s+" + object_ + r"|"
-                      r"\b(?:unsupported|unavailable|incompatible)\s+" + object_ + r"|"
+                      r"\b(?:unsupported|unavailable|incompatible)\s+(?:with\s+)?" + object_ + r"|"
                       + bridge + r"(?:\s+support)?\s+(?:(?:is|was|remains)\s+)?"
                       r"(?:no longer\s+(?:supported|available|compatible)|not\s+(?:supported|available|compatible|usable)|"
                       r"unsupported|unavailable|incompatible|removed)\b"
