@@ -151,6 +151,7 @@ def controls(selected, scratch):
                     f"{CASES[index]}/{label}: expected {outcome}, got {result}")
             results.append({"case": CASES[index], "control": label, "outcome": outcome, "result": result,
                             "workspace": str(workspace), "config": config})
+            return result
 
         grade("correct", outcome="pass")
         grade("broad-grounded-ranges", worksheet(index, broad=True), "pass")
@@ -183,7 +184,6 @@ def controls(selected, scratch):
                     sink = oracle(index)["paths"][0]["anchors"][-1]["alternatives"][0]
                     citation.update({"start_line": sink["line"], "end_line": sink["line"], "quote": sink["text"]})
         grade("sink-declaration-not-storage", alternative, "pass")
-        grade("send-capable-exclusion-with-grouped-helper", worksheet(index, broad=True), "pass")
         for path_index, required in enumerate(oracle(index)["paths"]):
             for step_index in range(len(required["route"])):
                 altered = copy.deepcopy(correct)
@@ -219,6 +219,7 @@ def controls(selected, scratch):
             ("duplicate-branch", lambda a: a["paths"].__setitem__(1, a["paths"][0])),
             ("wrong-value", lambda a: a["paths"][1].__setitem__("value", "snapshot.DockId")),
             ("fabricated-route", lambda a: a["paths"][1]["route"].__setitem__(1, "ExternalRouter.Route")),
+            ("derived-type-route-alias", lambda a: a["paths"][0]["route"].__setitem__(0, "DockBoard.PublishAsync")),
             ("unreachable-as-reachable", lambda a: a["paths"][1]["route"].__setitem__(1, "CalibrationExport.Emit")),
             ("invented-extra-step", lambda a: a["paths"][0]["route"].insert(-1, "ExternalRouter.Route")),
             ("unreached-framework-step", lambda a: a["paths"][1]["route"].insert(
@@ -247,14 +248,18 @@ def controls(selected, scratch):
             ("out-of-source-citation", lambda a: a["paths"][1]["citations"][0].__setitem__(
                 "path", "../CalibrationExport.cs")),
             ("missing-exclusion", lambda a: a.__setitem__("excluded", [])),
-            ("scalar-only-exclusion", lambda a: a["excluded"].append({
-                **copy.deepcopy(a["excluded"][0]), "entry": "ScalarLexeme.Quote"})),
+            ("scalar-only-exclusion", lambda a: a["excluded"][0].__setitem__("entry", "ScalarLexeme.Quote")),
             ("hostile-identifier-claim", lambda a: a["limits"].__setitem__("application_ids_hostile", True)),
             ("invented-browser-run", lambda a: a["limits"].__setitem__("browser_executed", True)),
         ):
             altered = copy.deepcopy(correct)
             change(altered)
-            grade(label, altered)
+            result = grade(label, altered)
+            if label == "scalar-only-exclusion":
+                require("wrong reachability" in result["evidence"], "scalar exclusion failed for the wrong reason")
+            elif label == "derived-type-route-alias":
+                require("fabricated or incomplete reached route" in result["evidence"],
+                        "derived route alias failed for the wrong reason")
         for name in FILES:
             grade("mutated-" + name, outcome="error", mutate=lambda w, name=name: (
                 w / "fixture" / "component" / name).write_bytes(
