@@ -77,8 +77,18 @@ rejections and remain eligible for in-scope repair.
 Focused work uses the shared prompt's focused workflow without state files.
 For project/package-wide or multi-module work, read
 [generation-workflow.md](../skills/code-testing/references/generation-workflow.md).
-It owns the Research-Plan-Implement steps, scratch-state lifecycle, proportional
-verification and quality gates. A sparse project-wide request is still broad.
+It owns the evidence-informed plan -> generate -> execute -> quality review ->
+targeted repair -> revalidate loop, scratch-state lifecycle and proportional
+verification. A sparse project-wide request is still broad.
+
+Use the shared contract's **Evidence-informed selection** for both routes.
+Keep one inventory: pairing locates tests, measured coverage identifies executed
+paths, and assertion/gap findings establish what behavior is protected. Invoke
+only the applicable available consumers with the same permissions and evidence.
+CRAP is conditional on risk intent and reliable matching coverage/complexity;
+missing metrics never authorize collection, installations or production edits.
+Keep .NET-only metric skills out of non-.NET phases and disclose unsupported
+native evidence. Reuse an existing audit instead of duplicating it.
 
 Complete phases inline by default. Delegate only substantial work needing
 separate context to a named, available specialist. Builder, tester and linter

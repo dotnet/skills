@@ -1,0 +1,11 @@
+--- a/parcel/test_stock.py
++++ b/parcel/test_stock.py
+@@ -10,6 +10,7 @@
+ 
+     def test_shortage(self):
+         stock = Stock(4)
+-        self.assertIsNotNone(stock.reserve(5))
++        self.assertIs(False, stock.reserve(5))
++        self.assertEqual(4, stock.quantity)
+ 
+     def test_invalid(self):

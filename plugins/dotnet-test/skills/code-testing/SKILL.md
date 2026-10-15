@@ -48,6 +48,10 @@ starting a second Research-Plan-Implement pipeline.
    detected language and use examples only for an unanswered question. For
    .NET test commands, `run-tests` owns runner/mode/filter selection; preserve
    classic projects, pinned framework APIs and existing test infrastructure.
+   Apply the shared contract's evidence-informed selection: consume relevant
+   existing pairing, measured coverage and quality findings, and request CRAP
+   analysis only for risk intent with reliable inputs. Do not collect optional
+   metrics or rerun an audit merely because tests are being generated.
 5. **Deliver the result once.** Consume the owner's requirement mapping and
    validation evidence. Follow up only on a concrete missing item; do not
    repeat discovery, skill audits or unchanged passing commands. Apply the

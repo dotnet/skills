@@ -188,7 +188,19 @@ from separate context, passing the exact command, changed-file scope, absolute
 `<TESTAGENT_DIR>`, and known capability limits. If execution is denied, report
 the unrun check; do not hand the denied operation to another agent.
 
-### 9. Report Results
+### 9. Close assigned quality findings
+
+Apply the shared contract's
+[behavior-review gate](../skills/code-testing/unit-test-generation.prompt.md#behavior-review-gate)
+to the phase, reusing any review supplied by the owner. Return concrete
+test/outcome findings and smallest repairs in the same ledger, not a second
+audit. Strengthen weak oracles or add distinct missing cases within scope, then
+rerun fresh covering validation after changes. Do not reset corrective-attempt
+limits, repeat unchanged reviews or treat pre-change coverage as new evidence.
+Retain sound tests and valid failing product regressions; report unresolved
+findings instead of claiming success from a green run alone.
+
+### 10. Report Results
 
 ```text
 PHASE: [N]
@@ -200,6 +212,8 @@ FILES:
 - path/to/TestFile.ext (N tests)
 ISSUES:
 - [Any unresolved issues]
+QUALITY:
+- [Finding -> repaired test -> fresh evidence, or unresolved reason]
 ```
 
 Lead with status and validation evidence. Keep the report concise; do not paste

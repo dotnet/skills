@@ -72,6 +72,9 @@ Based on files found:
 - Prefer project manifests, language-server references, and deterministic pairing tools over whole-tree text searches.
 - For source-to-test pairing, follow Step 7 at every scope, not only multi-file
   requests. Consume the helper's JSON instead of manually matching names.
+  Preserve the requested output format: engine-specific legacy defaults or
+  explicitly selected JSON v1. Inspect status, diagnostics, scope and any
+  unassessed files before reuse; Rust inline regions may share a source file.
 - Batch independent glob, manifest, source, and representative-test reads where
   the available tools support it.
 - Keep a single evidence set for discovered paths, commands, and conventions;
@@ -148,6 +151,13 @@ Use bounded manual discovery only when the skill is unavailable or the language
 unsupported, and label the limitation. An analyzer failure or policy denial is
 a blocker, not permission to bypass the helper.
 
+Apply the shared contract's
+[evidence-informed selection](../skills/code-testing/unit-test-generation.prompt.md#evidence-informed-selection).
+Attach usable report provenance, missing paths and priority-changing quality
+findings to the same inventory. Coverage/CRAP consumers receive a bounded
+analysis-only task, never ownership of generation. Do not collect missing
+metrics or publish a risk score without matching reliable inputs and risk intent.
+
 ### 8. Generate Research Document
 
 Create `<TESTAGENT_DIR>/research.md` with this structure:
@@ -200,7 +210,8 @@ Create `<TESTAGENT_DIR>/research.md` with this structure:
 - [Heuristic source-to-test references, including unresolved files/regions]
 - [Per requested outcome: named assertion, demonstrated gap, or unknown context]
 - [Measured coverage report/scope when available; otherwise "not measured"]
-- [Helper engine/output version and completeness diagnostics when used]
+- [Helper engine/output format, status, scan bounds, input identity and diagnostics when used; hashes are not source-revision attestation]
+- [Priority-changing quality findings and report provenance; stale/unsupported metrics remain unknown]
 
 ## Existing Test Projects
 For each test project found, list:

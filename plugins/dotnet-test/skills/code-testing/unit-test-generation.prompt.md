@@ -236,6 +236,47 @@ Before writing tests:
 
 Apply this analysis to the requested scope, not adjacent modules.
 
+### Evidence-informed selection
+
+Reuse one bounded inventory and the caller's
+[analysis context](../test-analysis-extensions/references/analysis-context.md)
+when available. Keep these evidence types separate: source-to-test references,
+asserted outcomes, measured execution coverage, and complexity/risk. A paired
+file can contain no useful assertions; a line hit does not prove a branch
+outcome or a correct oracle. Neither is a reason to skip a requested behavior.
+
+| Available evidence and intent | Conditional composition |
+| --- | --- |
+| Source-to-test pairing or test-location discovery at any scope | Follow the mandatory pairing policy above: invoke the available, supported `find-untested-sources` or reuse a completed, current result covering the same scope. Preserve the requested format: engine-specific legacy defaults or explicitly selected JSON v1. Check exit status, diagnostics, root, bounds and unassessed files; partial or omitted entries remain unresolved, not a reusable complete inventory. Rust inline test regions can share a source file. |
+| Usable .NET coverage already supplied or recorded | Use `coverage-analysis` only for the bounded interpretation needed to choose missing paths. Supply the source mapping, report scope and no-collection limit; generation remains owned here. |
+| Risk-prioritization intent plus reliable coverage and complexity for the same source/target | Use `crap-score` for a named .NET target, or `coverage-analysis` for project-wide risk. Compute only from supported, verified inputs; do not call both for the same ranking. |
+| Non-.NET coverage or risk evidence | Use a verified repository-native report format/tool and its actual semantics. The bundled coverage/CRAP skills are .NET-only; unsupported mappings or metrics stay explicitly unsupported. |
+| Existing quality findings | Reuse concrete assertion and behavioral-gap evidence before ordering work. Do not rerun an unchanged audit or treat a finding as edit permission. |
+
+Check report provenance, source/revision mapping, selected tests, exclusions and
+line/branch denominators before using metrics. Separate supplied historical
+evidence from current validation. Missing, stale, contradictory, incomplete or
+unmapped data is **unknown**, not zero coverage, a passing threshold or an
+invented CRAP score. In helper JSON v1, input hashes identify bytes read, not a
+source revision; keep the source association separately. A complete result with
+truncation is not the whole inventory. Do not collect metrics, install tools,
+change dependencies or refactor production just to fill these fields. Collection is separately
+opt-in; an unavailable optional metric does not block otherwise feasible tests.
+After changing tests, pre-change coverage can explain the original priority but
+cannot prove the new coverage or threshold.
+
+For each planned outcome retain the evidence location, known limitation, reason
+for priority, independent expected result and test that would reject a plausible
+defect. Prioritize explicit requirements and broken/ineffective checks, then
+high-consequence unprotected behavior and measured missing paths; use reliable
+risk scores only when requested. Dependency order can constrain implementation
+but declaration counts, easy leaf methods and raw coverage percentages must not
+silently override the identified risk. With no usable metrics, plan from
+contracts and inspected assertions, clearly separating unreviewed outcomes.
+For one focused addition, use relevant evidence inline and keep any pairing
+scoped to the named target; do not broaden into a repository-wide inventory or
+produce a metric dashboard.
+
 ## Coverage Types
 
 | Type                  | Examples                                                            |
@@ -355,9 +396,11 @@ necessary and authorized; never assume an evaluation harness will collect them.
 
 1. Bound the requested behavior, edit permissions and resource needs. Read the
    target, its relevant collaborators and representative existing tests.
-2. Record the independent expected outcomes and the repository's narrow
-   build/test command. For .NET command selection use `run-tests`; other languages
-   use their repository runner and matching language reference.
+2. Use relevant supplied evidence under **Evidence-informed selection**, without
+   collecting optional metrics. Record the independent expected outcomes and
+   the repository's narrow build/test command. For .NET command selection use
+   `run-tests`; other languages use their repository runner and matching
+   language reference.
 3. Add or repair the tests, preserving the operation policy and authorization
    stop condition. Verify build,
    discovery, execution and configured reports with the smallest covering command.
@@ -365,8 +408,9 @@ necessary and authorized; never assume an evaluation harness will collect them.
    does not type-check TypeScript tests.
 4. Map every requested behavior to a concrete test and assertion. Review weak
    oracles and plausible missed mutations; distinguish static reasoning from
-   executed evidence. Apply the behavior-review gate below. Do not add tests
-   merely to raise counts.
+   executed evidence. Apply the behavior-review gate below, repair actionable
+   in-scope findings, then rerun the covering command if tests changed. Do not
+   add tests merely to raise counts.
 5. Review the final diff for only authorized deliverables. Report `SUCCESS` only
    if all required checks passed; otherwise report `PARTIAL`/`BLOCKED` with the
    exact failing or unrun command and remaining requirement.
@@ -384,9 +428,23 @@ another agent to repeat it.
 
 Every generation/strengthening strategy reviews assertions and requirement
 coverage. For broad/comprehensive work, multiple files, coverage-quality
-requests, at least five added tests, or enumerated scenarios, use available
-`test-gap-analysis` and `assertion-quality` once with the same bounded inventory.
-For smaller work, or unavailable supporting skills, do the equivalent review
-inline. Pass read-only review context; this gate alone does not authorize
-mutation execution or further source edits. After a fix, recheck only affected
-behavior without reloading the entire audit.
+requests or enumerated scenarios, use available `test-gap-analysis` and
+`assertion-quality` once with the same bounded inventory. For smaller work, or
+unavailable supporting skills, do the equivalent review inline. Pass read-only
+review context; this gate alone does not authorize mutation execution or source
+edits. A broad multi-dimensional audit-and-improve request may use the existing
+`test-quality-auditor` instead; reuse its findings, not another copy of each review.
+
+Feed findings back to the plan: record the affected test/outcome, concrete
+false-confidence or missing-path defect, and smallest authorized repair.
+Strengthen an existing oracle before adding redundant cases. Credit sound tests
+and leave already-satisfied behavior alone. Reject false positives using the
+contract and test bodies; do not impose assertion variety for its own sake.
+
+After a repair, invalidate only the affected evidence, recheck that finding and
+rerun fresh covering build/test/report validation. Reuse unchanged reviews and
+discovery; never restart the pipeline or reset its corrective-attempt limits.
+Stop when bounded findings are closed, or record a repeated finding, unresolved
+contract, valid failing product regression or denied lane as `PARTIAL`/`BLOCKED`.
+Static mutation predictions are not an executed mutation score. Quality review
+complements execution; neither can substitute for the other.

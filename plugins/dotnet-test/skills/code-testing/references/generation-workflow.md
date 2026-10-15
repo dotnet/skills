@@ -46,9 +46,16 @@ Batch independent manifest, target and representative-test reads. Record in
 
 Apply the shared contract's mandatory `find-untested-sources` pairing policy at
 every scope, including tiny or explicit target lists. Reuse an existing
-completed, current helper result rather than rerunning the same inventory.
+completed, current helper result covering the same scope rather than rerunning
+the same inventory.
 Pairing is heuristic reference evidence, not behavioral coverage; inspect
 relevant test bodies before treating a contract as tested.
+
+Apply the shared contract's **Evidence-informed selection** to this same
+inventory, not a second audit worklist. Record supplied pairing diagnostics,
+coverage provenance/scope and reliable complexity only when applicable; missing
+or stale metrics stay unknown. Native non-.NET evidence must be verified;
+do not invoke .NET coverage/CRAP skills against another language.
 
 For .NET runner/mode/filter selection use `run-tests`; preserve classic project
 commands, `packages.config`, explicit compile registration and pinned API versions.
@@ -60,6 +67,11 @@ Examples are fallback answers to specific gaps, not mandatory reading.
 Map each requirement to test names, inputs, independently derived expected
 outcomes and canonical files in `plan.md`. Group collaborating targets into
 coherent phases. Planning is not permission to edit; honor a plan-only request.
+Record which evidence changed each priority and its limits. A paired but weakly
+asserted high-risk branch can outrank an unpaired trivial file. Use measured
+missing paths to select discriminating cases, not duplicate line-hitting tests.
+Use CRAP only for requested risk ranking with reliable matching inputs; an
+unavailable score does not block a contract-based plan.
 
 Implement phases sequentially, inline by default. Read complete relevant target
 logic and collaborators; choose inputs that distinguish requested modes instead
@@ -110,6 +122,9 @@ Map explicit requirements to final test bodies and apply the shared contract's
 behavior-review gate. Supply the same inventory, permissions and evidence;
 do not repeat its skill invocations or interpret a static review as permission
 to execute mutations.
+Merge findings by affected outcome and consequence, retain credited sound
+tests, and attach the smallest test repair to the existing plan. Do not close a
+finding merely because its line now executes or the suite is green.
 
 Check:
 
@@ -129,14 +144,17 @@ configuration alone does not prove it. Static mutation thinking is not an
 executed mutation score or revision-bound red-green proof.
 
 Recheck only affected behavior after a fix, then rerun covering validation if
-tests changed. Stop when all feasible requirements and distinct bounded
+tests changed. Update the same findings ledger with repaired test names and
+fresh results, retaining pre-change metrics as historical selection evidence.
+Stop when all feasible requirements and distinct bounded
 partitions are proved, or report concrete blockers. Do not recursively expand
 into unrelated modules.
 
 ## 6. Persist and report
 
 Write `status.md` with completed requirements, quality findings/fixes, exact
-commands/results, report artifacts and blockers. Review the final working-tree
+commands/results, evidence-based priorities, metric limitations, report artifacts
+and blockers. Review the final working-tree
 changes for only authorized deliverables and no intermediate artifacts.
 
 The final response must apply the shared completion contract, including the
