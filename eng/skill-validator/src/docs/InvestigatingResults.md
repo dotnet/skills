@@ -316,6 +316,14 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > shell metacharacters are rejected before any allowlist or path check. An allowed
 > `possiblePaths` output is never sufficient to approve an unclassified command
 > such as a scheme-less download with missing URL metadata.
+> Recovered read/list and .NET path operands use a conservative literal-path
+> grammar: letters/digits, spaces, directory separators, dots, underscores and
+> hyphens, plus a fully qualified Windows drive prefix. This applies even when
+> SDK path metadata is absent or contains only a safe operand. Comma arrays,
+> expression syntax, PowerShell provider/alternate-stream paths, drive-relative
+> paths, and UNC/network roots are rejected rather than checked as one filename.
+> Ordinary relative/absolute workspace paths, quoted spaces and separate literal
+> path arguments remain supported.
 >
 > Every helper command also requires `trusted_shell_files` entries with
 > workspace-relative paths and SHA-256 digests. Commands must use `node`, `python`,

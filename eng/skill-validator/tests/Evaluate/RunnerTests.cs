@@ -1472,6 +1472,123 @@ public class BuildSessionConfigTests
     }
 
     [TestMethod]
+    [DataRow("Get-Content safe.txt,/Windows/win.ini")]
+    [DataRow("Get-Content safe.txt,../outside.txt")]
+    [DataRow("Get-ChildItem safe.txt,/Windows")]
+    [DataRow("cat safe.txt,/Windows/win.ini")]
+    [DataRow("ls safe.txt,/Windows")]
+    [DataRow("Get-Content safe.txt,//server/share/secret.txt")]
+    [DataRow("Get-Content safe.txt,\\\\server\\share\\secret.txt")]
+    [DataRow("Get-Content //server/share/secret.txt")]
+    [DataRow("Get-Content \\\\server\\share\\secret.txt")]
+    [DataRow("Get-Content FileSystem:://server/share/secret.txt")]
+    [DataRow("Get-Content Env:PATH")]
+    [DataRow("Get-Content safe.txt+/Windows/win.ini")]
+    [DataRow("Get-Content @('safe.txt','/Windows/win.ini')")]
+    [DataRow("Get-Content (Join-Path /Windows win.ini)")]
+    [DataRow("Get-Content ${env:windir}/win.ini")]
+    [DataRow("Get-Content safe.txt -Stream secret")]
+    public async Task LocalReadRejectsNonliteralOperandsWithoutShellMetadata(string command)
+    {
+        var workDir = AgentRunner.GetEvaluationRoot();
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        foreach (var paths in new[] { Array.Empty<string>(), new[] { Path.Combine(workDir, "safe.txt") } })
+        {
+            Assert.IsFalse(await RunShellPermissionPipelineAsync(
+                config, MakeShellRequest(command, paths),
+                execute: () => Assert.Fail("Nonliteral or network path must not execute")));
+        }
+    }
+
+    [TestMethod]
+    [DataRow("Get-Content safe.txt")]
+    [DataRow("Get-Content \"safe file.txt\"")]
+    [DataRow("Get-Content 'safe file.txt'")]
+    [DataRow("Get-Content safe.txt other.txt")]
+    [DataRow("Get-ChildItem ./src")]
+    [DataRow("cat src/safe.txt")]
+    [DataRow("ls \"src with spaces\"")]
+    [DataRow("type safe.txt")]
+    [DataRow("dir src")]
+    public async Task LocalReadPreservesLiteralWorkspacePathsWithoutShellMetadata(string command)
+    {
+        var workDir = AgentRunner.GetEvaluationRoot();
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        Assert.IsTrue(await RunShellPermissionPipelineAsync(config, MakeShellRequest(command)));
+        var absolute = $"Get-Content \"{Path.Combine(workDir, "safe file.txt")}\"";
+        Assert.IsTrue(await RunShellPermissionPipelineAsync(config, MakeShellRequest(absolute)));
+    }
+
+    [TestMethod]
+    public async Task NativePowerShellArrayReadIsDeniedWhileLiteralReadExecutes()
+    {
+        var root = Directory.CreateTempSubdirectory("powershell-path-boundary-");
+        try
+        {
+            var workDir = Directory.CreateDirectory(Path.Combine(root.FullName, "work"));
+            await File.WriteAllTextAsync(Path.Combine(workDir.FullName, "safe.txt"), "safe-marker");
+            await File.WriteAllTextAsync(Path.Combine(workDir.FullName, "safe file.txt"), "safe-marker");
+            await File.WriteAllTextAsync(Path.Combine(root.FullName, "outside.txt"), "outside-marker");
+
+            async Task<string> RunPowerShell(string command)
+            {
+                using var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo("pwsh")
+                    {
+                        ArgumentList = { "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command },
+                        WorkingDirectory = workDir.FullName,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                    },
+                };
+                try
+                {
+                    process.Start();
+                }
+                catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 2)
+                {
+                    Assert.Inconclusive("This native PowerShell probe requires an installed pwsh.");
+                }
+                var output = process.StandardOutput.ReadToEndAsync();
+                var error = process.StandardError.ReadToEndAsync();
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                try
+                {
+                    await process.WaitForExitAsync(timeout.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    process.Kill(entireProcessTree: true);
+                    throw;
+                }
+                Assert.AreEqual(0, process.ExitCode, await error);
+                return await output;
+            }
+
+            const string arrayRead = "Get-Content safe.txt,../outside.txt";
+            var nativeOutput = await RunPowerShell(arrayRead);
+            Assert.Contains("safe-marker", nativeOutput);
+            Assert.Contains("outside-marker", nativeOutput);
+            var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir.FullName);
+            Assert.IsFalse(await RunShellPermissionPipelineAsync(
+                config, MakeShellRequest(arrayRead),
+                execute: () => Assert.Fail("PowerShell array must not be approved as a literal path")));
+
+            const string literalRead = "Get-Content 'safe file.txt'";
+            Assert.IsTrue(await RunShellPermissionPipelineAsync(config, MakeShellRequest(literalRead)));
+            var safeOutput = await RunPowerShell(literalRead);
+            Assert.Contains("safe-marker", safeOutput);
+            Assert.DoesNotContain("outside-marker", safeOutput);
+        }
+        finally
+        {
+            root.Delete(recursive: true);
+        }
+    }
+
+    [TestMethod]
     [DataRow("python -c \"import socket; socket.create_connection(('example.com', 443))\"")]
     [DataRow("node socket-launcher.js")]
     [DataRow("./open-socket.sh")]
@@ -1572,6 +1689,12 @@ public class BuildSessionConfigTests
     [DataRow("dotnet build a.csproj @options.rsp")]
     [DataRow("dotnet build --project @options.rsp")]
     [DataRow("dotnet build a.csproj --output @options.rsp")]
+    [DataRow("dotnet build safe.csproj,/Windows/outside.csproj")]
+    [DataRow("dotnet build safe.csproj --output safe,//server/share")]
+    [DataRow("dotnet build --project Env:PATH")]
+    [DataRow("dotnet build //server/share/outside.csproj")]
+    [DataRow("dotnet test --project safe.csproj --results-directory safe,../outside")]
+    [DataRow("dotnet test --project safe.csproj --report-trx-filename safe,../outside.trx")]
     public void ScopedDotnetFallbackRejectsUnknownOrComputedShellForms(string command)
     {
         Assert.IsNull(AgentRunner.GetScopedDotnetCommandPaths(command));

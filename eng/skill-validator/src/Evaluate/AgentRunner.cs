@@ -70,7 +70,7 @@ internal sealed class RunEventBuffer
 
 public static class AgentRunner
 {
-    internal const string ExecutionContractVersion = "absolute-trusted-shell-permissions-v4";
+    internal const string ExecutionContractVersion = "literal-path-shell-permissions-v5";
     private static readonly HashSet<string> EvaluatorOnlySetupEntries =
         new(StringComparer.OrdinalIgnoreCase)
         {
@@ -570,10 +570,24 @@ public static class AgentRunner
         var words = GetSimpleShellWords(command);
         if (words is not { Count: >= 2 }
             || words[0] is not ("cat" or "type" or "Get-Content" or "ls" or "dir" or "Get-ChildItem")
-            || words.Skip(1).Any(word => string.IsNullOrWhiteSpace(word)
-                || word.StartsWith('-') || word.StartsWith('~') || word.StartsWith('@')))
+            || words.Skip(1).Any(word => !IsLiteralShellPath(word)))
             return null;
         return words.Skip(1).ToArray();
+    }
+
+    private static bool IsLiteralShellPath(string path)
+    {
+        // Shell operands must be literal paths, not PowerShell arrays, expressions or providers.
+        if (string.IsNullOrWhiteSpace(path) || path.StartsWith('-')
+            || !path.All(character => char.IsLetterOrDigit(character)
+                || character is ' ' or '/' or '\\' or '.' or '_' or '-' or ':')
+            || (path.Length >= 2 && (path[0] is '/' or '\\') && (path[1] is '/' or '\\')))
+            return false;
+
+        var colon = path.IndexOf(':');
+        return colon < 0
+            || (colon == 1 && char.IsAsciiLetter(path[0])
+                && path.LastIndexOf(':') == colon && Path.IsPathFullyQualified(path));
     }
 
     internal static IReadOnlyList<string>? GetScopedDotnetCommandPaths(string? command)
@@ -604,8 +618,7 @@ public static class AgentRunner
             if (word is "--project" or "--solution" or "--output" or "-o" or "--results-directory"
                 or "--report-trx-filename")
             {
-                if (++index >= words.Count || string.IsNullOrWhiteSpace(words[index])
-                    || words[index].StartsWith('~'))
+                if (++index >= words.Count || !IsLiteralShellPath(words[index]))
                     return null;
                 paths.Add(words[index]);
                 hasProject |= word is "--project" or "--solution";
@@ -628,7 +641,7 @@ public static class AgentRunner
             }
             if (!word.StartsWith('-') && !hasProject)
             {
-                if (word.StartsWith('~'))
+                if (!IsLiteralShellPath(word))
                     return null;
                 paths.Add(word);
                 hasProject = true;
