@@ -1,0 +1,8 @@
+<Project>
+  <!-- Only the four deployment-test projects stamp the tool version. -->
+  <Target Name="StampToolVersion" BeforeTargets="CoreCompile" Condition="'$(IsDeploymentTest)' == 'true'">
+    <Exec Command="contoso-cli --version" ConsoleToMSBuild="true" StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="ToolVersion" />
+    </Exec>
+  </Target>
+</Project>

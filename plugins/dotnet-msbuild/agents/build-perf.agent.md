@@ -72,6 +72,7 @@ If asked, apply fixes and re-run the build to measure improvement.
 ## Specialized Skills Reference
 Load these skills for detailed guidance on specific optimization areas:
 - `build-perf-diagnostics` — Performance metrics and common bottlenecks
+- `find-repeated-build-work` — Work repeated in every project or built several times in one build
 - `incremental-build` — Incremental build optimization
 - `build-parallelism` — Parallelism and graph build
 - `eval-performance` — Evaluation performance

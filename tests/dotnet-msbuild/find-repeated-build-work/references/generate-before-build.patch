@@ -1,0 +1,37 @@
+diff --git a/exists-sentinel-race/Directory.Build.targets b/exists-sentinel-race/Directory.Build.targets
+index ce10029..080d63c 100644
+--- a/exists-sentinel-race/Directory.Build.targets
++++ b/exists-sentinel-race/Directory.Build.targets
+@@ -1,9 +1,5 @@
+ <Project>
+-  <!-- Generates obj/buildinfo.g.cs once, then every project compiles it. -->
+-  <Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile" Condition="!Exists('$(MSBuildThisFileDirectory)obj/buildinfo.g.cs')">
+-    <Exec Command="sh tools/make-buildinfo.sh obj/buildinfo.g.cs" WorkingDirectory="$(MSBuildThisFileDirectory)" />
+-  </Target>
+-
++  <!-- build.sh generates obj/buildinfo.g.cs once before the build; every project compiles it. -->
+   <ItemGroup>
+     <Compile Include="$(MSBuildThisFileDirectory)obj/buildinfo.g.cs" Link="buildinfo.g.cs" />
+   </ItemGroup>
+diff --git a/exists-sentinel-race/build.sh b/exists-sentinel-race/build.sh
+--- a/exists-sentinel-race/build.sh
++++ b/exists-sentinel-race/build.sh
+@@ -1,4 +1,18 @@
+ #!/usr/bin/env bash
+ set -euo pipefail
+ 
++mkdir -p obj
++generated="$(mktemp obj/buildinfo.XXXXXX)"
++trap 'rm -f "$generated"' EXIT
++sh tools/make-buildinfo.sh "$generated"
++if [ ! -e obj/buildinfo.g.cs ]; then
++    mv "$generated" obj/buildinfo.g.cs
++elif cmp "$generated" obj/buildinfo.g.cs >/dev/null; then
++    :
++else
++    status=$?
++    [ "$status" -eq 1 ] || exit "$status"
++    mv "$generated" obj/buildinfo.g.cs
++fi
++
+ dotnet build Contoso.slnx -c Release -m

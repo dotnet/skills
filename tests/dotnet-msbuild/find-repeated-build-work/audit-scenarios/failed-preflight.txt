@@ -1,0 +1,22 @@
+Invocation: ./build.sh -p:Configuration=Release
+Task events in the failing invocation:
+wrapper: contract-tool --version exits 17 with "required license not available"
+16 child projects: the fallback contract-tool --version also exits 17
+Each process takes 1000 ms. The version must be known before compilation.
+
+build.sh:
+#!/usr/bin/env bash
+set -euo pipefail
+version=$(contract-tool --version || true)
+dotnet msbuild Build.proj -m "-p:ContractToolVersion=$version" "$@"
+
+Directory.Build.targets:
+<Target Name="ContractVersion" BeforeTargets="CoreCompile">
+  <Exec Command="contract-tool --version" ConsoleToMSBuild="true"
+        Condition="'$(ContractToolVersion)' == ''">
+    <Output TaskParameter="ConsoleOutput" PropertyName="ContractToolVersion" />
+  </Exec>
+</Target>
+
+The tool has no meaningful default version. Direct project builds require the
+fallback. Caller arguments and failure diagnostics must remain intact.

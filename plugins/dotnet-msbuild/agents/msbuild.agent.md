@@ -76,6 +76,7 @@ This agent has access to a comprehensive set of troubleshooting and optimization
 ### Performance Skills
 - `build-perf-baseline` — Performance baseline methodology and systematic optimization
 - `build-perf-diagnostics` — Performance bottleneck identification
+- `find-repeated-build-work` — Work repeated in every project or built several times in one build
 - `incremental-build` — Incremental build optimization
 - `build-parallelism` — Parallelism and graph build
 - `eval-performance` — Evaluation performance

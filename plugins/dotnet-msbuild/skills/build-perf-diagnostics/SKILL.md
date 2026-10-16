@@ -1,6 +1,6 @@
 ---
 name: build-perf-diagnostics
-description: "Diagnose MSBuild bottlenecks from binlog timelines and Target/Task Performance Summaries after build-perf-baseline establishes measurements. USE FOR: unknown build slowness, RAR >5s, analyzers >30% of Csc, one target >50% of build time, node utilization <80%, excessive Copy tasks, finding restore overhead. DO NOT USE FOR: known repeated-restore fixes (use eliminate-redundant-restores), initial baselines (use build-perf-baseline), incremental rebuilds (use incremental-build), parallelism tuning (use build-parallelism), non-MSBuild builds."
+description: "Diagnose measured MSBuild bottlenecks from binlog timelines and Target/Task Performance Summaries after build-perf-baseline. USE FOR: RAR >5s, analyzers >30% of Csc time, one target >50% of build time, excessive Copy, finding restore overhead. DO NOT USE FOR: within-build duplicate executions (find-repeated-build-work), known repeated-restore fixes (eliminate-redundant-restores), measured idle workers or serial critical paths (build-parallelism), initial baselines (build-perf-baseline), unchanged-build reruns (incremental-build), non-MSBuild systems."
 license: MIT
 ---
 
@@ -21,7 +21,7 @@ license: MIT
    grep "Target Performance Summary\|Task Performance Summary" -A 50 full.log
    ```
 4. **Find expensive targets and tasks**: The PerformanceSummary section lists all targets/tasks sorted by cumulative time
-5. **Check for node utilization**: grep for scheduling and node messages
+5. **Spot scheduling symptoms**: hand measured idle workers or serial critical paths to `build-parallelism`; these messages are only an initial triage signal
    ```bash
    grep -i "node.*assigned\|building with\|scheduler" full.log | head -30
    ```
@@ -33,7 +33,7 @@ license: MIT
 ## Key Metrics and Thresholds
 
 - **Build duration**: what's "normal" — small project <10s, medium <60s, large <5min
-- **Node utilization**: ideal is >80% active time across nodes. Low utilization = serialization bottleneck
+- **Node utilization**: below 80% is a scheduling signal, not proof of serialization. Use `build-parallelism` to inspect the node timeline and critical path.
 - **Single target domination**: if one target is >50% of build time, investigate
 - **Analyzer time vs compile time**: analyzers should be <30% of Csc task time. If higher, consider removing expensive analyzers
 - **RAR time**: ResolveAssemblyReference >5s is concerning. >15s is pathological
@@ -110,7 +110,7 @@ Step-by-step workflow using text log replay:
    ```bash
    grep "Target Performance Summary\|Task Performance Summary" -A 50 full.log
    ```
-   This shows all targets and tasks sorted by cumulative time — equivalent to finding expensive targets/tasks.
+   This shows all targets and tasks sorted by cumulative time — equivalent to finding expensive targets/tasks. Compare `N calls` with the projects and TFMs that genuinely need each operation. An invariant command repeated once in every project can be waste even when its count equals the project count; legitimate per-TFM work can exceed that count (see `find-repeated-build-work`).
 3. **Find per-project build times**:
    ```bash
    grep "done building project\|Project Performance Summary" full.log
