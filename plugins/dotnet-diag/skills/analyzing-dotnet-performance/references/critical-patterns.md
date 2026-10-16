@@ -1,6 +1,26 @@
-# Critical .NET Performance Anti-Patterns
+# Critical .NET Performance and Correctness Anti-Patterns
 
-17 patterns that cause deadlocks, order-of-magnitude regressions, or excessive allocations.
+Patterns that cause deadlocks, crashes, non-termination, order-of-magnitude regressions, or excessive allocations.
+
+## Control Flow
+
+### Verify Recursive Calls Make Progress
+🔴 **AVOID** recursive calls that can receive the same state as the caller | All .NET
+
+```csharp
+string Convert(int value)
+{
+    if (value > 10)
+        return Convert(value % 100); // For 11..99, value % 100 == value.
+    return value.ToString();
+}
+```
+
+Before discussing allocations inside recursion, prove that every recursive branch moves toward a
+base case. Test boundary ranges symbolically: modulo, division, substring, and collection-slicing
+arguments can preserve the original state for part of the domain.
+
+**Impact: Non-progressing recursion causes StackOverflowException and prevents the method from producing a result. Report it before any micro-optimization.**
 
 ## Async / Tasks
 

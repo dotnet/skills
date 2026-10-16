@@ -139,7 +139,16 @@ public string Convert(long number)
 }
 ```
 
-**Impact: Eliminates collection + internal storage + closure allocations per call. For a Dictionary with N entries, saves ~N+3 allocations per invocation.**
+**Impact:** Eliminates the dictionary and its internal storage allocations per call. Classify the
+delegates separately:
+
+- A **capturing** lambda closes over local or instance state and normally requires a closure/display
+  object plus a delegate.
+- A **noncapturing** lambda is not a closure and modern C# compilers can cache its delegate. Do not
+  report a closure allocation merely because the syntax uses `=>`.
+
+Hoisting is still useful for deterministic lookup data, but report only allocations demonstrated by
+the code and compiler behavior rather than a fixed `N+3` estimate.
 
 ### Add Overloads to Avoid params Array Allocation
 🟡 **DO** add 1- and 2-argument overloads for methods that accept `params T[]`, or use `params ReadOnlySpan<T>` on .NET 9+ | .NET Core+

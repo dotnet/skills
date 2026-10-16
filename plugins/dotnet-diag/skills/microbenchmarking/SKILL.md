@@ -95,6 +95,16 @@ After each run, read the Markdown report (`*-report-github.md`) from the results
 
 ## Writing new benchmarks
 
+### Step 0: Discover and inspect supplied inputs
+
+Before answering, inspect the supplied workspace and read the relevant source. If the prompt names a
+class, method, project, or "this benchmark" without a path, perform a bounded file/symbol search in
+the current workspace and open the matching source. Do not ask the user for a path until that search
+finds no plausible match.
+
+For review-only requests, do not restore, build, run, or edit unless requested. Source inspection is
+still mandatory: do not give a generic plan when a fixture is available.
+
 ### Step 1: Plan the test cases
 
 Before writing any code, determine:
@@ -104,6 +114,16 @@ Before writing any code, determine:
 
 Each benchmark case should justify its cost. An uncovered scenario is usually more valuable than another parameter combination for one already covered, but when a specific parameter dimension genuinely affects performance characteristics, the depth is warranted.
 
+When the user asks for case count or run cost, answer it directly from the inspected source:
+
+1. Count benchmark methods.
+2. Multiply every independent `[Params]`, `[Arguments]`, generic-type, and job dimension.
+3. Show the arithmetic (`methods × parameter combinations × jobs = cases`).
+4. Convert cases to a rough duration using the selected job's per-case range.
+5. Propose a smaller matrix and show its revised arithmetic.
+
+Do not defer this evidence plan by asking for information already present in the workspace.
+
 Decide on the list of test cases. For each test case, think through:
 
 - **How to express variation**: BenchmarkDotNet provides several mechanisms for parameterizing benchmarks — `[Params]` and `[ParamsSource]` for property-level parameters, `[Arguments]` and `[ArgumentsSource]` for method-level arguments, `[ParamsAllValues]` to enumerate all values of a `bool` or enum, and `[GenericTypeArguments]` for varying type parameters on generic benchmark classes. Choose the mechanism that best fits the dimension being varied. Read [references/writing-benchmarks.md](references/writing-benchmarks.md) for the full set of options and correctness patterns.
@@ -112,6 +132,11 @@ Decide on the list of test cases. For each test case, think through:
   - Asset files — static data that is too large or impractical to embed in source code such as binary blobs.
   - Programmatically generated via `[ParamsSource]`/`[ArgumentsSource]`/`[GlobalSetup]` — when data shape matters more than specific content, or when input must be parameterized by size.
 - **Whether randomness is appropriate**: If using generated data, use seeded randomness for reproducibility. When generating random data, use a large enough sample that the generated distribution is representative (e.g., 4 random values may cluster in a narrow range, while 1000 will better exercise the full distribution).
+
+Prefer purposeful deterministic corpora derived from the inspected API and real caller behavior:
+empty/boundary input, a representative common input, and a scale or cardinality case that changes
+the operation's behavior. Use seeded random generation only when distribution shape is itself part
+of the question; do not substitute random data for known semantic cases.
 
 ### Step 2: Implement the benchmarks
 
@@ -135,3 +160,22 @@ Validate before committing to a long run:
 3. Only run the full suite after validation passes.
 
 When iterating on benchmark design, use `--job Short` until confident, then switch to default for final numbers.
+
+Even when the user asks only for a design or review, include the fast validation command in the
+proposed plan:
+
+```text
+dotnet run -c Release -- --filter "<focused filter>" --job Dry
+```
+
+## Advisory review output
+
+Keep review-only answers concise:
+
+1. State the measurement defect or comparison axis.
+2. Give the corrected design or evidence plan.
+3. Show case arithmetic when relevant.
+4. End with the `--job Dry` validation command and the intended follow-up job.
+
+Do not scaffold a project, reproduce general BenchmarkDotNet documentation, or ask for already
+discoverable paths unless the user requests those actions.

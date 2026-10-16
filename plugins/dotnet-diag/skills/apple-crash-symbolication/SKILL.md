@@ -1,6 +1,6 @@
 ---
 name: apple-crash-symbolication
-description: Symbolicate .NET runtime frames in Apple platform .ips crash logs (iOS, tvOS, Mac Catalyst, macOS). Extracts UUIDs and addresses from the native backtrace, locates dSYM debug symbols, and runs atos to produce function names with source file and line numbers. Automatically downloads .dwarf symbols from the Microsoft symbol server using Mach-O UUIDs. USE FOR triaging a .NET MAUI or Mono app crash from an .ips file on any Apple platform, resolving native backtrace frames in libcoreclr or libmonosgen-2.0 to .NET runtime source code, retrieving .ips crash logs from a connected iOS device or iPhone, or investigating EXC_CRASH, EXC_BAD_ACCESS, SIGABRT, or SIGSEGV originating from the .NET runtime. DO NOT USE FOR pure Swift/Objective-C crashes with no .NET components, or Android tombstone files. INVOKES Symbolicate-Crash.ps1 script, atos, dwarfdump, idevicecrashreport.
+description: Symbolicate .NET runtime frames in Apple platform .ips crash logs (iOS, tvOS, Mac Catalyst, macOS). Extracts UUIDs and addresses, locates dSYMs, and runs atos for function names and source lines. Can download .dwarf symbols using Mach-O UUIDs. USE FOR .NET MAUI or Mono crashes in two-part JSON .ips files with .NET runtime or BCL native images, resolving libcoreclr or libmonosgen-2.0 frames, retrieving .ips reports from a connected iPhone, or investigating EXC_CRASH, EXC_BAD_ACCESS, SIGABRT, or SIGSEGV from the .NET runtime. DO NOT USE FOR legacy plain-text Apple .crash reports, Apple .ips reports with no libcoreclr, libmonosgen-2.0, or libSystem.* .NET images or frames, pure Swift/Objective-C crashes, or Android tombstones. INVOKES Symbolicate-Crash.ps1, atos, dwarfdump, idevicecrashreport.
 license: MIT
 ---
 
@@ -8,7 +8,7 @@ license: MIT
 
 Resolves native backtrace frames from .NET MAUI and Mono app crashes on Apple platforms (iOS, tvOS, Mac Catalyst, macOS) to function names, source files, and line numbers using Mach-O UUIDs and dSYM debug symbol bundles.
 
-**Inputs:** Crash log file (`.ips` JSON format, iOS 15+ / macOS 12+), `atos` (from Xcode), optionally a connected iOS device to pull crash logs from.
+**Inputs:** Crash log file (`.ips` JSON format, iOS 15+ / macOS 12+), `atos` (from Xcode), matching local binaries or dSYMs when available, and optionally a connected iOS device to pull crash logs from.
 
 **Do not use when:** The crashing library is not a .NET component (e.g., pure Swift/UIKit), or the crash log is an Android tombstone.
 
@@ -68,21 +68,28 @@ Then examine the **faulting thread** (`threads[faultingThread]`). Explain what f
 
 Also check `lastExceptionBacktrace` for the managed exception path through bridge functions like `xamarin_process_managed_exception`.
 
+If the user requests the faulting or crashing thread only:
+
+- Limit the frame inventory and command addresses to `threads[faultingThread]`; do not include `lastExceptionBacktrace` or background-thread frames.
+- State that other captured threads were intentionally omitted when the `threads` array contains them.
+- Never claim that no background threads exist unless the parsed crash body actually contains no other threads.
+
 Sometimes the .NET runtime version is visible in image paths in `usedImages`, particularly on macOS when using shared-framework installs or NuGet-pack-style layouts (e.g., `.../Microsoft.NETCore.App/10.0.4/libcoreclr.dylib`). On iOS, however, image paths are typically inside the app bundle (for example, `.../Frameworks/libcoreclr.framework/libcoreclr`) and do not embed the runtime version, so you usually need to infer it via the Mach-O UUID by matching against SDK packs or symbol-server downloads rather than relying on the path alone.
 
 ### Step 4: Locate dSYMs
 
 For each .NET library needing symbolication, locate a UUID-matched dSYM:
 
-1. **Microsoft symbol server** (automatic): Download `.dwarf` via `https://msdl.microsoft.com/download/symbols/_.dwarf/mach-uuid-sym-{UUID}/_.dwarf` (UUID lowercase, no dashes). Convert to `.dSYM` bundle (use the image name from `usedImages[].name`, e.g., `libcoreclr`):
+1. **User-provided and build-local artifacts**: Search supplied paths and the original build output first.
+2. **Matching local runtime image or dSYM**: For macOS shared-runtime paths, prefer the exact local binary named in `usedImages[].path` or its UUID-matched dSYM. Also check installed SDK packs and the NuGet cache.
+3. **Microsoft symbol server** (when network use is allowed): Download `.dwarf` via `https://msdl.microsoft.com/download/symbols/_.dwarf/mach-uuid-sym-{UUID}/_.dwarf` (UUID lowercase, no dashes). Convert to `.dSYM` bundle (use the image name from `usedImages[].name`, e.g., `libcoreclr`):
    ```bash
    mkdir -p libcoreclr.dSYM/Contents/Resources/DWARF
    cp _.dwarf libcoreclr.dSYM/Contents/Resources/DWARF/libcoreclr
    ```
-2. **Build output**: `bin/Debug/net*-ios/ios-arm64/<App>.app.dSYM/`
-3. **SDK packs**: `$DOTNET_ROOT/packs/Microsoft.NETCore.App.Runtime.<rid>/<version>/runtimes/<rid>/native/`
-4. **NuGet cache**: `~/.nuget/packages/microsoft.netcore.app.runtime.<rid>/<version>/runtimes/<rid>/native/`
-5. **`dotnet-symbol`**: `dotnet-symbol --symbols -o symbols-out <path-to-binary.dylib>`
+4. **`dotnet-symbol`** (when network use is allowed): `dotnet-symbol --symbols -o symbols-out <path-to-binary.dylib>`
+
+When the user says offline, local-only, or no network, do not make a download the required next step. Use `-SkipSymbolDownload`, prefer the matching local binary/dSYM/runtime image, and provide an `atos` command against that local artifact. If no matching local artifact exists, preserve UUIDs and addresses and request the exact build artifacts.
 
 Always verify: `dwarfdump --uuid <dsym>` must match the UUID from the crash log exactly.
 
@@ -113,9 +120,11 @@ Strip the `/__w/1/s/` CI workspace prefix from output — meaningful paths start
 pwsh "$SKILL_DIR/scripts/Symbolicate-Crash.ps1" -CrashFile MyApp-2026-02-25.ips
 ```
 
-Start with `-ParseOnly` for a fast overview without requiring `atos`. The script automatically downloads symbols from the Microsoft symbol server when local dSYMs are missing.
+Start with `-ParseOnly` for a fast overview without requiring `atos`. When network use is allowed, the script can download symbols from the Microsoft symbol server after local dSYM lookup fails.
 
 Flags: `-CrashingThreadOnly`, `-OutputFile path`, `-ParseOnly`, `-SkipVersionLookup`, `-SkipSymbolDownload`, `-SymbolCacheDir path`, `-DsymSearchPaths path1,path2`.
+
+Honor scope and connectivity in the invocation: combine `-CrashingThreadOnly` with `-ParseOnly` for a faulting-thread-only handoff, and add `-SkipSymbolDownload` whenever the user disallows network access.
 
 ---
 

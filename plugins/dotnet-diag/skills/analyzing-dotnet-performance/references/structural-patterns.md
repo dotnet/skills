@@ -36,3 +36,15 @@ internal sealed class MyHandler : Base
 - 1-10 unsealed leaf classes → ℹ️ Info
 - 11-50 unsealed leaf classes → 🟡 Moderate
 - 50+ unsealed leaf classes → 🟡 Moderate (elevated priority)
+
+### Treat Value Equality Findings as Usage-Dependent
+
+`IEquatable<T>` is a useful positive signal, but declarations alone do not prove an equality or
+hashing defect. `ValueType.Equals` and `ValueType.GetHashCode` still provide value semantics when
+custom overrides are absent. A `readonly struct` also does not, by itself, prove that equality calls
+avoid boxing.
+
+Recommend custom `IEquatable<T>`, `Equals(object)`, or `GetHashCode` implementations only when the
+code shows equality-heavy generic use, boxed calls, hashing cost, inconsistent participating fields,
+or a real equality/hash contract violation. Describe an unmeasured override as a possible
+performance/API improvement, not a correctness defect.

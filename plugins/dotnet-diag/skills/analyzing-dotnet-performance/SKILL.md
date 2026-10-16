@@ -3,8 +3,13 @@ name: analyzing-dotnet-performance
 description: >-
   Scans .NET code for ~50 performance anti-patterns across async, memory,
   strings, collections, LINQ, regex, serialization, and I/O with tiered
-  severity classification. Use when analyzing .NET code for optimization
-  opportunities, reviewing hot paths, or auditing allocation-heavy patterns.
+  severity classification. Use only when reviewing a user-identified or
+  measured .NET hot path, sustained high-throughput code, or an allocation-heavy
+  path with a stated performance requirement.
+  DO NOT USE FOR choosing algorithms or asymptotic-complexity analysis, or for
+  one-time startup/configuration code with no measured performance requirement,
+  including simple LINQ that reads a small settings or configuration file once
+  before a long-running workload.
 license: MIT
 ---
 
@@ -83,6 +88,10 @@ Always check structural patterns (unsealed classes) regardless of signals.
 **For files under 500 lines, read the entire file first** — you'll spot most patterns faster than running individual grep recipes. Use grep to confirm counts and catch patterns you might miss visually.
 
 For each relevant pattern category, run the detection recipes below. Report exact counts, not estimates.
+Before proposing optimizations, read enough surrounding control flow to detect correctness defects.
+A crash, non-terminating recursion, data race, wrong result, or behavior-changing fix outranks every
+allocation or throughput improvement. Report that defect first and do not bury it in an informational
+note.
 
 **Core scan recipes** (run these when reference files aren't available):
 ```
@@ -91,7 +100,7 @@ grep -n '\.IndexOf(\"' FILE                    # Missing StringComparison
 grep -n '\.Substring(' FILE                    # Substring allocations
 grep -En '\.(StartsWith|EndsWith|Contains)\s*\(' FILE  # Missing StringComparison
 grep -n '\.ToLower()\|\.ToUpper()' FILE        # Culture-sensitive + allocation
-grep -n '\.Replace(' FILE                      # Chained Replace allocations
+grep -n '\.Replace(' FILE                      # Inspect chained Replace scans and conditional allocations
 grep -n 'params ' FILE                         # params array allocation
 
 # Collections & LINQ
@@ -113,7 +122,9 @@ grep -n ': IEquatable' FILE                    # Positive: struct equality
 
 **Rules:**
 - Run every relevant recipe for the detected pattern categories
-- **Emit a scan execution checklist** before classifying findings — list each recipe and the hit count
+- Emit a scan execution checklist before classifying findings. For one compact file, use one concise
+  line containing only relevant recipes and counts. Use a table only for a multi-file or comprehensive
+  audit.
 - A result of **0 hits** is valid and valuable (confirms good practice)
 - If reference files were loaded, also run their `## Detection` recipes
 
@@ -127,7 +138,10 @@ If an optimized pattern is found in one file, check whether sibling files (same 
 
 After running scan recipes, look for these multi-allocation patterns that single-line recipes miss:
 
-1. **Branched `.Replace()` chains:** Methods that call `.Replace()` across multiple `if/else` branches — report total allocation count across all branches, not just per-line.
+1. **Branched `.Replace()` chains:** Follow the reachable branch for one call. A `string.Replace`
+   call does not allocate a replacement string when no match occurs. Report scans separately from
+   allocations, and express allocation counts as conditional on the relevant token being present.
+   Do not sum mutually exclusive branches.
 2. **Cross-method chaining:** When a public method delegates to another method that itself allocates intermediates (e.g., A calls B which does 3 regex replaces, then A calls C), report the total chain cost as one finding.
 3. **Compound `+=` with embedded allocating calls:** Lines like `result += $"...{Foo().ToLower()}"` are 2+ allocations (interpolation + ToLower + concatenation) — flag the compound cost, not just the `.ToLower()`.
 4. **`string.Format` specificity:** Distinguish resource-loaded format strings (not fixable) from compile-time literal format strings (fixable with interpolation). Enumerate the actionable sites.
@@ -143,9 +157,11 @@ Assign each finding a severity:
 | ℹ️ **Info** | Pattern applies but code may not be on a hot path | Consider if profiling shows impact |
 
 **Prioritization rules:**
-1. If the user identified hot-path code, elevate all findings in that code to their maximum severity
-2. If hot-path context is unknown, report 🔴 Critical findings unconditionally; report 🟡 Moderate findings with a note: _"Impactful if this code is on a hot path"_
-3. Never suggest micro-optimizations on code that is clearly not performance-sensitive
+1. Correctness and safety defects outrank performance findings, even when the request is framed as
+   optimization. Examples include non-progressing recursion, data races, and output-changing fixes.
+2. If the user identified hot-path code, elevate applicable performance findings to their maximum severity.
+3. If hot-path context is unknown, report 🔴 Critical findings unconditionally; report 🟡 Moderate findings with a note: _"Impactful if this code is on a hot path"_
+4. Never suggest micro-optimizations on code that is clearly not performance-sensitive.
 
 **Scale-based severity escalation:**
 When the same pattern appears across many instances, escalate severity:
@@ -158,6 +174,11 @@ Always report exact counts (from scan recipes), not estimates or agent summaries
 ### Step 5: Generate Findings
 
 **Keep findings compact.** Each finding is one short block — not an essay. Group by severity (🔴 → 🟡 → ℹ️), not by file.
+
+**Scale the report to the input.** For one compact file with at most three findings, use a short
+checklist line, the findings, and a one-line severity summary. Do not add a scan table, a summary
+table, or repeated positive-finding sections merely to satisfy the template. Use the full tables for
+multi-file or comprehensive audits.
 
 Format per finding:
 
@@ -177,7 +198,7 @@ Format per finding:
 - **Merge related findings** that share the same fix (e.g., all `.ToLower()` calls go in one finding, not split by file).
 - **Positive findings** in a bullet list, not a table. One line per pattern: `✅ Pattern — evidence`.
 
-End with a summary table and disclaimer:
+For multi-file or comprehensive audits, end with a summary table and disclaimer:
 
 ```markdown
 | Severity | Count | Top Issue |
@@ -194,21 +215,27 @@ End with a summary table and disclaimer:
 Before delivering results, verify:
 
 - [ ] All critical patterns were checked (from reference files or inline recipes)
+- [ ] Correctness defects were checked and ranked ahead of micro-optimizations
 - [ ] Topic-specific recipes run only when matching signals detected
 - [ ] Each finding includes a concrete code fix
-- [ ] Scan execution checklist is complete (all recipes run)
-- [ ] Summary table included at end
+- [ ] Scan execution checklist is complete and scaled to the input
+- [ ] Summary table is included for multi-file or comprehensive audits
 
 ## Common Pitfalls
 
 | Pitfall | Correct Approach |
 |---------|-----------------|
 | Flagging every `Dictionary` as needing `FrozenDictionary` | Only flag if the dictionary is never mutated after construction |
+| Calling every lambda a closure | A closure captures state and normally needs a display object. Noncapturing lambdas may use cached delegates; distinguish collection allocation, delegate allocation, and closure allocation |
+| Treating `string.Replace` as an unconditional allocation | It can return the original string when no replacement occurs. Count an allocation only for inputs that match and change |
+| Adding an `IndexOf`/`Contains` check before every `Replace` | A precheck adds another scan and can slow the common-match case. Recommend it only when misses dominate and a benchmark supports it |
+| Inferring equality/hash correctness defects from a struct declaration | `ValueType` supplies value semantics. Only recommend custom equality/hash members when usage proves boxing, hashing cost, or an actual contract defect |
 | Suggesting `Span<T>` in async methods | Use `Memory<T>` in async code; `Span<T>` only in sync hot paths |
 | Reporting LINQ outside hot paths | Only flag LINQ in identified hot paths or tight loops; LINQ is acceptable in code that runs infrequently. Since .NET 7, LINQ Min/Max/Sum/Average are vectorized — blanket bans on LINQ are misguided |
 | Suggesting `ConfigureAwait(false)` in app code | Only applicable in library code; not primarily a performance concern |
 | Recommending `ValueTask` everywhere | Only for hot paths with frequent synchronous completion |
 | Flagging `new HttpClient()` in DI services | Check if `IHttpClientFactory` is already in use |
 | Suggesting `[GeneratedRegex]` for dynamic patterns | Only flag when the pattern string is a compile-time literal |
+| Suggesting source generation for a runtime rule API | If a method accepts the regex pattern as data, treat it as dynamic unless inspected call sites prove a closed set of literals. Do not offer `[GeneratedRegex]` as a generic fallback |
 | Suggesting `CollectionsMarshal.AsSpan` broadly | Only for ultra-hot paths with benchmarked evidence; adds complexity and fragility |
 | Suggesting `unsafe` code for micro-optimizations | Avoid `unsafe` except where absolutely necessary — do not recommend it for micro-optimizations that don't matter. Safe alternatives like `Span<T>`, `stackalloc` in safe context, and `ArrayPool` cover the vast majority of performance needs |

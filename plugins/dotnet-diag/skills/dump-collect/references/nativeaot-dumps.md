@@ -91,8 +91,11 @@ gcore -o /tmp/dumps/myapp <pid>
 # Enable core dumps for the current shell session
 ulimit -c unlimited
 
-# Core dumps go to /cores/core.<pid>
-# Ensure the directory exists and is writable
+# Inspect the configured core filename before assuming a location.
+sysctl kern.corefile
+
+# /cores/core.<pid> is a common configuration. If kern.corefile points there,
+# ensure the directory exists and is writable.
 sudo mkdir -p /cores
 sudo chmod 1777 /cores
 
@@ -101,7 +104,9 @@ ulimit -c  # Should print "unlimited"
 ```
 
 **Notes:**
-- macOS also generates `.crash` reports in `~/Library/Logs/DiagnosticReports/` automatically — these are text-based crash logs, not full memory dumps.
+- macOS may generate a `.crash` or `.ips` report when crash reporting is enabled. Common locations
+  are `~/Library/Logs/DiagnosticReports/` and `/Library/Logs/DiagnosticReports/`; availability
+  depends on OS version, crash-reporting settings, process ownership, and retention.
 - On Apple Silicon, core dumps may require SIP (System Integrity Protection) adjustments for certain processes.
 
 ### Retrieving Dumps from an Already-Crashed Process
@@ -109,16 +114,25 @@ ulimit -c  # Should print "unlimited"
 If the app has already crashed and core dumps were enabled (`ulimit -c unlimited` was set):
 
 ```bash
-# Check /cores/ for core dumps
+# Read the configured core path, then check that location.
+sysctl kern.corefile
+
+# /cores is common, but not guaranteed.
 ls -la /cores/core.*
 
-# Check macOS crash reports (always generated, even without ulimit)
+# Check per-user crash reports, if retained
 ls -la ~/Library/Logs/DiagnosticReports/*.crash
-# Or on newer macOS:
 ls -la ~/Library/Logs/DiagnosticReports/*.ips
+
+# Also check system-wide reports
+ls -la /Library/Logs/DiagnosticReports/*.crash
+ls -la /Library/Logs/DiagnosticReports/*.ips
 ```
 
-If core dumps were **not** enabled before the crash, the core dump is lost. The `.crash`/`.ips` report in `DiagnosticReports` is the only artifact — it contains the stack trace and crash reason but not full memory.
+If core dumps were **not** enabled before the crash, a missing core cannot be recovered
+retroactively. A `.crash` or `.ips` report may still be available, but do not claim that one is
+always generated or retained. Report the paths that exist and stop; these reports are not full
+memory dumps.
 
 ### On-Demand Dump Collection
 
