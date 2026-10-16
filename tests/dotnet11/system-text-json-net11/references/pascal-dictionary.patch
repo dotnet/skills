@@ -1,0 +1,17 @@
+diff --git a/app/Program.cs b/app/Program.cs
+--- a/app/Program.cs
++++ b/app/Program.cs
+@@ -6,8 +6,9 @@ var values = new Dictionary<string, int>
+     ["activeUsers"] = 5
+ };
+ 
+-var transformed = values.ToDictionary(
+-    pair => char.ToUpperInvariant(pair.Key[0]) + pair.Key[1..],
+-    pair => pair.Value);
++var options = new JsonSerializerOptions
++{
++    DictionaryKeyPolicy = JsonNamingPolicy.PascalCase
++};
+ 
+-Console.WriteLine(JsonSerializer.Serialize(transformed));
++Console.WriteLine(JsonSerializer.Serialize(values, options));
