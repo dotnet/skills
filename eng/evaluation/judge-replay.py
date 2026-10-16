@@ -493,7 +493,7 @@ def compare(old, new):
 
 
 def run_replay(args):
-    source, output = args.source.resolve(), args.output.resolve()
+    source, output = Path(args.source).resolve(), Path(args.output).resolve()
     if not source.is_dir() or output.is_relative_to(source):
         raise ValueError("Source must exist; output must not be inside source")
     assert_tree(source)

@@ -82,6 +82,16 @@ class JudgeReplayTests(unittest.TestCase):
         self.assertLess(steps.index(recorded), next(i for i, step in enumerate(steps)
                         if step.get("name") == "Upload results"))
 
+    def test_replay_accepts_cli_path_strings(self):
+        spec = importlib.util.spec_from_file_location("judge_replay_cli_paths_test", SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as temp:
+            args = SimpleNamespace(source=str(Path(temp) / "missing"),
+                                   output=str(Path(temp) / "candidate"))
+            with self.assertRaisesRegex(ValueError, "Source must exist"):
+                module.run_replay(args)
+
     def test_replay_matrix_axis_matches_discovery_output(self):
         import re
         import sys
