@@ -901,6 +901,9 @@ jobs:
       COPILOT_PAT_9: ${{ secrets.COPILOT_PAT_9 }}
 
   judge-only-replay:
+    permissions:
+      actions: read
+      contents: read
     if: >-
       github.event_name == 'workflow_dispatch' &&
       inputs.rejudge_run_ids != '' &&
