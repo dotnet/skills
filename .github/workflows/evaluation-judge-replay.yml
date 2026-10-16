@@ -1,5 +1,9 @@
 # Called only by the manual judge-only path in evaluation.yml. It never starts
 # an executor: every comparison consumes a completed evaluation run's artifact.
+# Legacy artifacts require an independently verifiable gate binding, a unique
+# successful content-checkout/upload job (including artifact upload time), and
+# a run-linked commit status. That job's raw, timestamped log must confirm both
+# its exact content checkout and the selected artifact's name and ID.
 name: saved judge replay
 
 on:
@@ -144,15 +148,18 @@ jobs:
           tar -xzf "$RUNNER_TEMP/judge-validator/skill-validator-dist.tar.gz" \
             -C "$RUNNER_TEMP/judge-validator/bin"
       - name: Download saved executor evidence
+        # Runs retried across attempts may have duplicate artifact names. Bind
+        # the ZIP download to the matrix artifact ID, never to its name alone.
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_RUN: ${{ matrix.entry.run_id }}
+          SOURCE_ID: ${{ matrix.entry.artifact_id }}
           SOURCE_ARTIFACT: ${{ matrix.entry.artifact_name }}
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/judge-source"
-          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
-            --name "$SOURCE_ARTIFACT" --dir "$RUNNER_TEMP/judge-source"
+          python eng/evaluation/judge-replay.py download-source \
+            --run-id "$SOURCE_RUN" --artifact-id "$SOURCE_ID" \
+            --artifact-name "$SOURCE_ARTIFACT" --output "$RUNNER_TEMP/judge-source"
       - name: Select a healthy judge credential
         env:
           CANDIDATE_JUDGE: ${{ inputs.candidate_judge }}
@@ -195,10 +202,10 @@ jobs:
           exit 1
       - name: Rejudge saved evidence and compare
         env:
+          GH_TOKEN: ${{ github.token }}
           SOURCE_RUN: ${{ matrix.entry.run_id }}
           SOURCE_ID: ${{ matrix.entry.artifact_id }}
           SOURCE_ARTIFACT: ${{ matrix.entry.artifact_name }}
-          SOURCE_SHA: ${{ matrix.entry.source_sha }}
           ORIGINAL_JUDGE: ${{ inputs.original_judge }}
           CANDIDATE_JUDGE: ${{ inputs.candidate_judge }}
         run: |
@@ -209,7 +216,7 @@ jobs:
           python eng/evaluation/judge-replay.py replay \
             --source "$RUNNER_TEMP/judge-source" --output "$RUNNER_TEMP/judge-output" \
             --run-id "$SOURCE_RUN" --artifact-id "$SOURCE_ID" \
-            --artifact-name "$SOURCE_ARTIFACT" --source-sha "$SOURCE_SHA" \
+            --artifact-name "$SOURCE_ARTIFACT" \
             --repo-root "$GITHUB_WORKSPACE" \
             --adapter "$GITHUB_WORKSPACE/eng/vally-adapter/adapt.mjs" \
             --validator "$RUNNER_TEMP/judge-validator/bin/skill-validator" \
