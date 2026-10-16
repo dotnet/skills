@@ -1,0 +1,8 @@
+This curated coverage.py-format fixture snapshot maps to the accompanying sources.
+The selected run contains all ShippingTests and StockTests except test_shortage.
+Stock.reserve(count > quantity) was not executed in that selected run.
+It is not a full-suite or post-edit measurement.
+The supplied review found StockTests.test_shortage only checks that the returned
+boolean is not None. Both True and False satisfy it, and it never checks quantity.
+Coverage.py branch data here describes statement arcs, not both outcomes of
+every conditional expression on shipping.py line 6.

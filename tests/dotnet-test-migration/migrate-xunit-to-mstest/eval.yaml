@@ -4,6 +4,287 @@ type: capability
 defaults:
   timeout: 20m
 stimuli:
+  - name: Preserve asynchronous shared fixture initialization and cleanup
+    tags: {capability: async-collection-lifecycle, risk: unawaited-or-premature-cleanup, journey: migrate-async-shared-resource}
+    prompt: |
+      Migrate this xUnit v2 project to MSTest v4, keeping net8.0 and VSTest.
+      The two classes share a resource with asynchronous setup and cleanup.
+      Preserve both test bodies and the probe, initialize the shared resource
+      once before use, and finish cleanup once after its final use. Keep the
+      collection members serialized. This assembly contains only this collection;
+      run-end cleanup is an acceptable scope, including when either member is
+      selected alone. Run the full suite and each member separately, and explain
+      the scheduling and resource-lifetime trade-off for unrelated classes.
+    environment:
+      files:
+        - src: fixtures/handle-icollectionfixture-explicitly-do-not-silently-widen-scope/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/async-collection/AsyncCollectionTests.cs
+          dest: AsyncCollectionTests.cs
+        - src: ../graders/AsyncLifecycleProbe.cs
+          dest: AsyncLifecycleProbe.cs
+        - src: ../graders/global-vstest.json
+          dest: global.json
+        - src: ../graders/migration_evidence.py
+          dest: .eval/migration_evidence.py
+        - src: ../graders/CollectionSchedulingContract.cs
+          dest: .eval/CollectionSchedulingContract.txt
+        - src: ../graders/collection_report.py
+          dest: .eval/collection_report.py
+        - src: ../graders/migration_cleanliness.py
+          dest: .eval/migration_cleanliness.py
+        - src: ../graders/async_collection_report.py
+          dest: .eval/async_collection_report.py
+    golden_patch:
+      path: goldens/async-collection.patch
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: mstest-async-shared-collection
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Migrated to MSTest v4 on net8.0/VSTest. Both original assertions and
+              the probe are preserved. The lazy shared resource initializes
+              asynchronously once; each selected class awaits the same setup.
+              Assembly cleanup awaits disposal once after the selected members.
+              The full suite and each single-member filter passed with one
+              completed initialization and one completed cleanup in each run.
+
+              This is conservative scheduling: unrelated classes cannot overlap
+              each other or these members under the default serial assembly policy.
+              Run-end cleanup is the explicitly accepted boundary for this sole
+              collection, not a generic mapping for multiple unrelated collections.
+    graders:
+      - type: program
+        config:
+          program: python
+          args:
+            - -c
+            - >-
+              import hashlib,pathlib;
+              p=pathlib.Path('.eval/async_collection_report.py');data=p.read_bytes();
+              assert hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()=='aad6ca7f889157559c9953ce2034640356346cd377b79180458b2dd94c3e08a6','Async verifier changed';
+              exec(compile(data,str(p),'exec'),{'__name__':'__main__','__file__':str(p)})
+          timeout: 6m
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - Preserves the original test assertions and one shared asynchronous resource across both member classes
+      - Completes initialization before every selected use and finishes exactly one cleanup after the last selected member, for both the full run and each single-member filter
+      - Accurately reports execution evidence and the accepted sole-collection run boundary without claiming generic multi-collection scheduling or lifetime equivalence
+
+  - name: Keep long-running runner diagnostics separate from enforced timeouts
+    tags: {capability: diagnostic-timeout-semantics, risk: warning-becomes-failure, journey: migrate-runner-configuration}
+    prompt: |
+      Migrate this xUnit v2 project to MSTest v4, preserving net8.0 and VSTest.
+      Preserve the behavior of the existing runner configuration rather than
+      inventing new failure conditions. Run the migrated tests and explain any
+      runner setting that has no equivalent.
+    environment:
+      files:
+        - src: fixtures/runner-diagnostics/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/runner-diagnostics/DiagnosticsTests.cs
+          dest: DiagnosticsTests.cs
+        - src: fixtures/runner-diagnostics/xunit.runner.json
+          dest: xunit.runner.json
+        - src: ../graders/global-vstest.json
+          dest: global.json
+        - src: ../graders/migration_evidence.py
+          dest: .eval/migration_evidence.py
+        - src: ../graders/DiagnosticTimeoutContract.cs
+          dest: .eval/DiagnosticTimeoutContract.txt
+        - src: ../graders/migration_cleanliness.py
+          dest: .eval/migration_cleanliness.py
+    golden_patch:
+      path: goldens/runner-diagnostics.patch
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: migrate-runner-diagnostic-warning
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Migrated the test to MSTest v4, preserving net8.0 and VSTest.
+              CompletesNormally passed. longRunningTestSeconds was a diagnostic
+              warning threshold, not an enforced failure deadline. I did not
+              synthesize a Timeout attribute. The xUnit-specific warning setting
+              has no direct equivalent here and was documented rather than
+              changing pass/fail behavior.
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,sys;
+            p=pathlib.Path('.eval/migration_cleanliness.py');data=p.read_bytes();
+            assert hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()=='91b71bc7343f3e5013d0c60fc465ad13f1e7bb99729b9b0794adca6594efd0af','Migration cleanliness verifier changed';
+            sys.argv=[str(p),*sys.argv[1:]];exec(compile(data,str(p),'exec'),{'__name__':'__main__','__file__':str(p)})" --forbid-timeouts
+            --test-bodies diagnostics:3bcf3897cb941e9e9880a599b332b359c2e1334853af4fd8f742efb62cab8d68:DiagnosticsTests.cs
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,sys;
+            guard=pathlib.Path('.eval/DiagnosticTimeoutContract.txt').read_bytes();
+            assert hashlib.sha256(guard.replace(b'\r\n',b'\n')).hexdigest()=='45d48abdd4a7bbadd0f11a6db07c69df6aa7f4c1051b0c55468dcfbd7867d290','Diagnostic verifier changed';
+            pathlib.Path('DiagnosticTimeoutContract.cs').write_bytes(guard);
+            p=pathlib.Path('.eval/migration_evidence.py');data=p.read_bytes();
+            assert hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()=='9ded8edba1cdcdad78385a79b58919cf394758a1768d79662a9260595f8f5ed2','Evaluator code changed';
+            sys.argv=[str(p),*sys.argv[1:]];exec(compile(data,str(p),'exec'),{'__name__':'__main__','__file__':str(p)})" run --project TestProject.csproj --runner vstest
+            --mstest-major 4 --expect CompletesNormally=Passed
+          expected_exit_code: 0
+          timeout: 4m
+      - type: program
+        config:
+          program: python
+          args:
+            - -c
+            - |
+              import json, os, pathlib, re
+
+              def validate_diagnostic_report(response):
+                  assert isinstance(response, str) and response.strip(), "Missing diagnostic report"
+                  text = re.sub(r"[`*_]", "", response).replace("\u2019", "'")
+                  text = re.sub(r"\s+", " ", text)
+                  active = described = False
+                  continuation = (
+                      r"^(?:its?\b|(?:this|that|the)\s+(?:source\s+)?(?:setting|option|threshold)\b|"
+                      r"(?:an?\s+)(?:diagnostics?|warnings?|informational|advisory|enforced|failure|timeout|deadline)\b|"
+                      r"(?:(?:also|still|then)\s+)?(?:not|never|does|is|was|only|merely|diagnostics?|informational|advisory|"
+                      r"warns?|fail(?:ures?|s|ing)?|enforc(?:es?|ed|ing)|timeouts?|deadlines?)\b)"
+                  )
+                  negative = r"\b(?:not|never|no|cannot|can't|doesn't|isn't|wasn't|without)\b"
+                  for clause in re.split(r"(?<=[.!?])\s+|[;,]|\b(?:but|and|whereas|however|yet)\b", text, flags=re.I):
+                      clause = clause.strip()
+                      if not clause:
+                          continue
+                      active = bool(re.search(r"\blongRunningTestSeconds\b", clause, re.I)) or (
+                          active and bool(re.match(continuation, clause, re.I))
+                      )
+                      if not active:
+                          continue
+                      warning = re.search(r"\b(?:diagnostics?(?:-only)?|warnings?|warns?|informational|advisory)\b", clause, re.I)
+                      if warning:
+                          assert not re.search(negative + r"|\bnon[- ]$", clause[:warning.start()], re.I), "Source diagnostic warning was negated"
+                          described = True
+                      enforcing = re.search(r"\b(?:timeouts?|deadlines?|fail(?:s|ures?|ing)?|enforc(?:es?|ed|ing)|aborts?|terminates?)\b", clause, re.I)
+                      if enforcing:
+                          assert re.search(negative + r"|\bnon[- ]|\b(?:rather than|instead of)\b", clause[:enforcing.start()], re.I), "Source warning was described as an enforced deadline"
+                  assert described, "Missing diagnostic warning relationship for longRunningTestSeconds"
+
+              if __name__ == "__main__":
+                  data = json.loads(pathlib.Path(os.environ["EVALUATE_GRADER_INPUT"]).read_text(encoding="utf-8"))
+                  validate_diagnostic_report(data["trajectory"]["output"])
+          timeout: 1m
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - Treats longRunningTestSeconds as a diagnostic warning threshold, not a pass/fail timeout
+      - Does not synthesize Timeout attributes or another enforced deadline from the runner warning
+      - Preserves the existing framework target and VSTest runner and identifies unsupported diagnostic settings explicitly
+
+  - name: Preserve an ordinary shared collection without a disable-parallelization flag
+    tags: {capability: default-collection-contract, risk: overlapping-members-or-split-fixture, journey: migrate-shared-resource}
+    prompt: |
+      Convert this xUnit v2 project to MSTest v4 while keeping VSTest and net8.0.
+      Preserve the shared resource's lifetime and the collection's execution
+      semantics using framework-managed scheduling, not custom locks or a new
+      scheduler. Keep both existing test classes and cases. Run the migrated
+      tests and explain any scheduling or fixture-scope trade-off, including
+      what the chosen policy would mean for unrelated classes.
+    environment:
+      files:
+        - src: fixtures/handle-icollectionfixture-explicitly-do-not-silently-widen-scope/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/default-collection/CollectionTests.cs
+          dest: CollectionTests.cs
+        - src: ../graders/LifecycleProbe.cs
+          dest: LifecycleProbe.cs
+        - src: ../graders/global-vstest.json
+          dest: global.json
+        - src: ../graders/migration_evidence.py
+          dest: .eval/migration_evidence.py
+        - src: ../graders/CollectionSchedulingContract.cs
+          dest: .eval/CollectionSchedulingContract.txt
+        - src: ../graders/collection_report.py
+          dest: .eval/collection_report.py
+        - src: ../graders/migration_cleanliness.py
+          dest: .eval/migration_cleanliness.py
+    golden_patch:
+      path: goldens/default-collection.patch
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: mstest-default-collection-scheduling
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Migrated both members to MSTest v4, preserving net8.0 and VSTest.
+              CollectionTests.cs uses AssemblyInitialize/AssemblyCleanup for the
+              shared resource, and DoNotParallelize on FirstMember and SecondMember.
+              `dotnet test TestProject.csproj --logger trx` passed both FirstCase
+              and SecondCase (2 passed, 0 failed, 0 skipped). Lifecycle evidence
+              records one created instance and one disposal after both cases.
+
+              This is conservative scheduling, not exact collection equivalence:
+              unrelated classes cannot overlap each other or these members. Assembly
+              initialization/cleanup bounds the resource to this sole collection's
+              assembly; adding other collections would require a scope review.
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,sys;
+            p=pathlib.Path('.eval/migration_cleanliness.py');data=p.read_bytes();
+            assert hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()=='91b71bc7343f3e5013d0c60fc465ad13f1e7bb99729b9b0794adca6594efd0af','Migration cleanliness verifier changed';
+            sys.argv=[str(p),*sys.argv[1:]];exec(compile(data,str(p),'exec'),{'__name__':'__main__','__file__':str(p)})"
+            --test-bodies collection:feb5a8647f8474c997768b5dfc61e8eb8f8130e2e3e02d9f1702156c7cf63c20:CollectionTests.cs
+          expected_exit_code: 0
+          timeout: 1m
+      - type: program
+        config:
+          program: python
+          args:
+            - -c
+            - >-
+              import hashlib,pathlib;
+              p=pathlib.Path('.eval/collection_report.py');data=p.read_bytes();
+              assert hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()=='eb1efd3d58975875ddd6e261a101a7a739ef5fe1a248fcbba6434ffa7c1ded28','Report verifier changed';
+              exec(compile(data,str(p),'exec'),{'__name__':'__main__','__file__':str(p)})
+          timeout: 4m
+      - type: output-matches
+        config:
+          pattern: '(?is)(?:conservative|coarser|broader|assembly-wide|whole assembly).{0,250}(?:serial|parallel|overlap|scope)|(?:serial|parallel|overlap|scope).{0,250}(?:conservative|coarser|broader|assembly-wide|whole assembly)|(?:serializ\w*|parallel\w*).{0,100}unrelated|unrelated.{0,100}(?:serializ\w*|parallel\w*)'
+      - type: output-matches
+        config:
+          pattern: '(?i)unrelated|other (?:test )?classes|other collections'
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+          prompt: >-
+            Judge the actual migrated diff and the explanation, not exact
+            attribute spelling. MSTest DoNotParallelize tests run serially in
+            a deferred phase and cannot overlap other tests in that assembly;
+            this is conservative serialization, not a failure to serialize.
+            Serial assembly policy also suffices for this two-member fixture.
+            A supported common exclusive ResourceLock can preserve narrower
+            scheduling. Require accurate disclosure of the chosen scope and
+            its effect on unrelated classes; do not require custom locks.
+    rubric:
+      - Both collection members serialize even though the source has no DisableParallelization flag.
+      - The two members share one resource created before use and disposed exactly once after the last use; both original cases execute.
+      - Explains the chosen framework scheduling and resource lifetime, including its effect on unrelated classes, without claiming conservative serialization is exact collection-level concurrency parity.
+
   - name: Migrate basic xUnit v2 project to MSTest v4 preserving VSTest
     tags: {capability: xunit-v2-migration, risk: runner-change, journey: migrate-vstest-project}
     prompt: |

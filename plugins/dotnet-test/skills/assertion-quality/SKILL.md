@@ -53,6 +53,11 @@ Low assertion diversity signals shallow testing. Tests may pass while bugs hide 
 
 ## Workflow
 
+Reuse the caller's bounded inventory and assertion evidence. For composition,
+read `references/analysis-context.md` relative to the supplied/runtime-listed
+`test-analysis-extensions` catalog when available. Keep this analysis read-only;
+an unavailable shared reference does not justify rediscovery or scope expansion.
+
 ### Step 1: Detect language and load extension
 
 Identify the language and test framework. Read the corresponding file in
@@ -101,8 +106,13 @@ Calculate these metrics for the test suite:
 - **Assertion type spread**: Number of distinct assertion categories used across the suite (out of 12)
 - **Tests with zero assertions**: Count and percentage of test methods with no assertions at all
 - **Tests with only trivial assertions**: Count and percentage of tests where every assertion is only a null check or `Assert.IsTrue(true)` — trivial means no meaningful value verification
-- **Tests with self-referential assertions**: Count and percentage of tests whose assertions compare an input to a round-tripped or identity-transformed version of itself (e.g., `Assert.AreEqual(input, Parse(input.ToString()))`) or assert a field against itself (`Assert.AreEqual(dto.Name, dto.Name)`). These are tautological — they verify the plumbing, not the behavior.
-- **Tests with negative assertions**: Count and percentage (target: at least 10% of tests should verify what should NOT happen)
+- **Tests with self-referential assertions**: Count tests comparing a value with
+  itself or deriving the expected result from the actual result. Do not include
+  valid identity, persistence or round-trip contracts merely because output
+  equals input; those checks can detect real faults.
+- **Tests with negative assertions**: Count and percentage, descriptive only.
+  Require negative cases for relevant rejection/absence contracts, not a
+  universal percentage or assertion-style quota.
 - **Tests with exception assertions**: Count and percentage
 - **Tests with state/side-effect assertions**: Count and percentage
 - **Tests with structural/deep assertions**: Count and percentage
@@ -135,7 +145,12 @@ Before reporting, calibrate findings:
 - **Snapshot assertions** (`.toMatchSnapshot()`, `syrupy`, `SnapshotTesting`) count as Structural/Deep assertions. Flag stale or never-updated snapshots separately.
 - **Property-based tests** (`@given` Hypothesis, `proptest!`, `forAll` Kotest) generate assertions implicitly through generated cases — count the inner assertion logic, not the outer scaffold.
 - **Don't conflate diversity with volume.** A test with 20 equality assertions has high volume but low diversity. A test with one equality, one null check, and one exception assertion has low volume but good diversity.
-- **Self-referential assertions are not meaningful equality checks.** Asserting that an output equals an input round-trip looks like a real equality assertion but is tautological when the operation under test is expected to be identity. Flag these separately from normal equality assertions. If the test's *purpose* is to verify a round-trip (serialize/deserialize, encode/decode), the assertion is valid — but it should be accompanied by assertions on non-trivial inputs that exercise the transformation.
+- **Distinguish round-trip contracts from circular oracles.** Preserve valid
+  input/output checks for identity, persistence, cloning and serialization.
+  Use transformation-relevant inputs; add an independent representation or
+  invalid-input assertion when paired implementations could share a defect
+  that violates that contract. Do not demand a transformation from an API
+  whose intended behavior is identity.
 - **Match recommendations to the named behavior.** Formatting tests should pin the
   exact formatted representation, validation tests need rejected inputs, and round-trip
   tests need inputs that exercise escaping, null/empty handling, or another transformation

@@ -10,7 +10,10 @@ Before writing any test or running any command, read:
 2. **Build configuration** — inspect `CMakeLists.txt`, `CMakePresets.json`, `Makefile`, `WORKSPACE`, `MODULE.bazel`, `BUILD`, `BUILD.bazel`, `meson.build`, or CI scripts before inventing commands.
 3. **Dependencies** — detect GoogleTest, GoogleMock, Catch2, doctest, Boost.Test, or a custom harness from package manifests and target links.
 4. **Compiler and standard** — identify `CMAKE_CXX_STANDARD`, `-std=c++NN`, toolchain files, compiler wrappers, sanitizers, and warning-as-error flags.
-5. **Coverage setup** — determine whether the repo already has `gcov`, `llvm-cov`, `gcovr`, `lcov`, or custom coverage targets. If not, add minimal, test-target-scoped coverage instrumentation.
+5. **Coverage setup, only when required** — reuse the repository's coverage
+   target when the user or repository asks for measured coverage. Do not add
+   instrumentation by default; report a missing prerequisite or make only
+   required, authorized test-target changes.
 
 Generated C++ tests must earn coverage, not merely compile. Target uncovered functions, branches, error paths, and boundary conditions; shallow smoke tests that only construct objects rarely move line coverage.
 
@@ -211,6 +214,11 @@ Use `Catch2::Catch2WithMain` unless the repo already provides a custom `main`. L
 
 ## Coverage Instrumentation
 
+This section is opt-in under the
+[shared coverage policy](../../code-testing/unit-test-generation.prompt.md#test-scope-guidelines).
+Skip it for ordinary test generation without a coverage requirement. Reuse
+existing instrumentation before adding flags or dependencies.
+
 Coverage instrumentation is the highest-risk setup step. Add coverage flags to **both compilation and linking** for the test target. Adding flags only to `CXXFLAGS` often compiles but produces no `.gcda` files or fails with missing gcov runtime symbols at link time.
 
 ### CMake target-scoped coverage option
@@ -302,6 +310,10 @@ Important coverage rules:
 - If the code under test is a static library, object library, or source list linked into tests, instrument that target as well as the test executable.
 
 ## Coverage-Targeting Guidance
+
+Use measured reports only when coverage collection was requested and permitted.
+Otherwise prioritize behavior from the bounded requirement inventory, without
+claiming a measured coverage delta.
 
 To avoid low coverage deltas:
 

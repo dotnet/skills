@@ -28,19 +28,16 @@ migrating the project or claiming `dotnet test` succeeded.
 
 - Use `--no-restore` if dependencies are already restored
 - Use `-v:q` (quiet) to reduce output noise
-- Always use `--no-incremental` for the final validation build — incremental builds hide errors like CS7036
+- Validate fresh changed outputs; reuse a fresh-build test command when it
+  already compiles the affected projects. Do not force a full solution rebuild
+  for a focused test change.
 
 ## Test Commands
 
-| Scope | Command |
-|-------|---------|
-| SDK-style all tests | `dotnet test` |
-| SDK-style filtered | `dotnet test --filter "FullyQualifiedName~ClassName"` |
-| SDK-style after build | `dotnet test --no-build` |
-| Classic non-SDK | Use the checked-in runner command; commonly `vstest.console.exe <test.dll>` after MSBuild |
-
-- Use `--no-build` if already built
-- Use `-v:q` for quieter output
+Reuse the researched repository command. For unresolved mode, filters, discovery,
+coverage or reporting flags, use [run-tests](../../run-tests/SKILL.md).
+That skill owns classic, VSTest, bridged MTP and native MTP command selection;
+an SDK version alone is insufficient. Do not use `--no-build` after test edits.
 
 ## Lint Command
 
@@ -77,8 +74,8 @@ configuration mappings instead of replacing them with the SDK-style shorthand.
 ## `.csproj` / `.sln` Handling
 
 - During phase implementation, build only the specific test `.csproj` for speed
-- For the final validation, build the full `.sln` with `--no-incremental`
-- Full-solution builds catch cross-project reference errors invisible in scoped builds
+- Use the bounded solution build when project/registration changes affect
+  other projects or the repository requires it, not for every focused addition
 
 ### Registering test code with the build (MANDATORY)
 
@@ -105,26 +102,16 @@ A new `.csproj` is **invisible** to `dotnet test <solution>`, to `dotnet test` r
 2. If that target is a `.sln` or `.slnx`, run `dotnet sln <solution> add <test-project.csproj>`.
 3. If the target is a `.slnf` (solution filter), also ensure the new project is included in the filter; adding only to the underlying `.sln` may not be enough for test discovery.
 4. Skip this if the project is already included in the solution or solution filter used for testing.
-5. Prefer the researched test command. If you need to run the solution directly, use `dotnet test --solution <solution>` only for repos on .NET SDK 10+ with MTP-style syntax; otherwise use the standard positional form `dotnet test <solution>`.
+5. Prefer the researched test command. Use `run-tests` for solution/project
+   selector syntax when unresolved; preserve the actual command mode.
 
 ### Harness Discovery Check
 
 Before reporting success, run the **harness-equivalent** discovery command from the repo root against the exact researched entry point and confirm it enumerates the new tests. Passing a project directly does not prove that the solution/filter command used by CI discovers it.
 
-Select the command mode from the repository's actual runner configuration,
-`global.json` `test.runner`, evaluated project properties, and installed SDK
-using `platform-detection`. An SDK 10+ installation alone does not select
-native MTP.
-
-| Command mode / executed runner | Discovery command after a successful build |
-|---|---|
-| VSTest mode / VSTest | `dotnet test <solution> --list-tests --no-build` |
-| VSTest mode / bridged MTP | `dotnet test <solution> --no-build -- --list-tests` |
-| SDK 10+ native MTP mode / MTP | `dotnet test --solution <solution> --list-tests --no-build` |
-
-Preserve the repository's configuration, target framework, and filtering
-switches. For project entry points, use `--project <test-project>` in native
-MTP mode and the positional project in VSTest mode.
+Use the **Discovery-only commands** table in `run-tests` for the actual
+runner/mode, preserving configuration, target framework and filters. Do not
+repeat its command table here or infer native MTP from an SDK 10+ installation.
 
 Run discovery directly and require exit code zero before inspecting its output
 or runner-owned discovery artifact. Do not pipe it into `grep -c`, `wc`, or a
@@ -207,12 +194,10 @@ public sealed class ClassNameTests
 }
 ```
 
-## Skip Coverage Tools
+## Coverage when requested
 
-Do not configure or run code coverage measurement tools (coverlet, dotnet-coverage, XPlat Code Coverage) by default. These tools have inconsistent cross-configuration behavior and waste significant time. Coverage is measured separately by the evaluation harness.
-
-**SDK-style exception**: if the user or evaluation harness explicitly requires a
-Cobertura/XML artifact, add `coverlet.collector` as a `PackageReference` so the
-harness can produce it. For classic non-SDK projects, preserve `packages.config`
-and use only the repository's existing coverage workflow; never inject a
-`PackageReference`. Do not run the coverage command yourself.
+Follow the [shared coverage policy](../../code-testing/unit-test-generation.prompt.md#test-scope-guidelines).
+Use `run-tests` for platform-compatible collection flags and the repository's
+existing collector. Do not add `coverlet.collector` blindly to an MTP project.
+Preserve classic `packages.config` and runner configuration. Required artifacts
+must be collected and inspected, or explicitly reported as blocked.

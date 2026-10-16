@@ -1,0 +1,14 @@
+This is a curated, internally consistent fixture snapshot, not a live coverage run.
+baseline.cobertura.xml describes the accompanying Policy.cs and Freight.cs.
+The snapshot selects these observations:
+  Policy.Authorize(-1, true, false, false, false, false, false) == -1
+  Policy.Authorize(10, false, false, false, false, false, false) == -2
+  Policy.Authorize(10, true, true, false, false, false, false) == -3
+  Policy.Authorize(10, true, false, true, false, false, false) == -4
+  Freight.Quote(false) == 5
+All executable statement locations in these two source files are represented.
+Authorize complexity is 1 + 7 if statements. Label and Quote complexity is 2 each.
+The report is supplied planning evidence; no new collection has been requested.
+No tests exercise Policy.Label. Freight already has a source-to-test reference.
+The 50% branch metric alone does not identify which Quote outcome is missing;
+the selected observation above supplies that information.

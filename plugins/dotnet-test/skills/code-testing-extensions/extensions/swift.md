@@ -222,6 +222,8 @@ Only add dependencies after investigation confirms they are missing.
 
 Then add to the test target's `dependencies:`. For CocoaPods/Carthage, edit `Podfile`/`Cartfile` and run `pod install` / `carthage update --use-xcframeworks`.
 
-## Skip Coverage Tools
+## Coverage when requested
 
-Do not configure or run coverage tools (`-enableCodeCoverage YES`, `xccov`, `slather`). Coverage is measured separately by the evaluation harness.
+Follow the [shared coverage policy](../../code-testing/unit-test-generation.prompt.md#test-scope-guidelines).
+Reuse the repository's SPM/Xcode coverage workflow and configured xccov or
+slather reporting when required; do not assume a harness performs collection.

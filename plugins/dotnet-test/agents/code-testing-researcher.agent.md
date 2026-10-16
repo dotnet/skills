@@ -70,7 +70,11 @@ Based on files found:
 ### 4. Use the cheapest discovery path
 
 - Prefer project manifests, language-server references, and deterministic pairing tools over whole-tree text searches.
-- For multi-file scopes in C#, Python, TypeScript/JavaScript, Go, Java, Rust, Ruby, Kotlin, Swift, PowerShell, or C++, invoke `find-untested-sources` once and consume its JSON instead of manually walking source and test trees.
+- For source-to-test pairing, follow Step 7 at every scope, not only multi-file
+  requests. Consume the helper's JSON instead of manually matching names.
+  Preserve the requested output format: engine-specific legacy defaults or
+  explicitly selected JSON v1. Inspect status, diagnostics, scope and any
+  unassessed files before reuse; Rust inline regions may share a source file.
 - Batch independent glob, manifest, source, and representative-test reads where
   the available tools support it.
 - Keep a single evidence set for discovered paths, commands, and conventions;
@@ -105,8 +109,16 @@ Search for commands in:
 
 Identify **two** test commands and record both in the caller-provided research document:
 
-1. **Scoped test command** — what the implementer should run during fix cycles (e.g., `dotnet test <test.csproj>` for SDK-style .NET, the repository's MSBuild + VSTest/MSTest command for classic .NET, `bundle exec rspec spec/foo_spec.rb`, `Invoke-Pester -Path ./Tests/Foo.Tests.ps1`). Optimized for speed and locality.
-2. **Harness-equivalent discovery command** — what a generic CI/benchmark verifier would run from the repo root with no args (e.g., `dotnet test <solution> --list-tests` for SDK-style .NET, the checked-in runner/discovery command for classic .NET, `bundle exec rspec --dry-run`, `Invoke-Pester` with default config, `pytest --collect-only -q`). This is the command the implementer's "Verify Harness Discovery" step uses to confirm new tests are visible to outside tooling. Read the "Harness Discovery Check" section in the supplied or runtime-listed language reference.
+1. **Scoped test command** — the repository runner selecting the affected
+   project/package or tests for fix cycles.
+2. **Repository discovery/CI command** — the real entry point used to verify
+   new tests are visible outside a scoped run, with its working directory,
+   configuration and selection preserved. Do not substitute a guessed
+   no-argument benchmark command.
+
+Use `run-tests` for unresolved .NET runner/mode/filter/discovery syntax.
+Other languages use their repository entry point and matching reference's
+"Harness Discovery Check". Record names/count semantics, not just a count delta.
 
 For classic .NET projects, do not invent a `dotnet` replacement. Prefer commands
 already used by scripts or CI. If the required Windows/Visual Studio toolchain is
@@ -117,14 +129,34 @@ the project as part of test generation.
 
 Locate tests paired to the bounded target inventory:
 
-- Match each test file to the source file(s) it tests
-- For each target source file, classify existing coverage as untested / partial / substantial based on:
-  - Presence/absence of a corresponding test file
-  - Number of test methods vs. number of public methods in the source
-  - Whether tests cover only happy paths or also edge cases and error paths
-- Do not invent numeric coverage percentages without a coverage report.
+- Record detected source-to-test references separately from behavioral evidence.
+- For each requested public outcome, record the named assertion that protects
+  it, a demonstrated gap, or unknown context. Inspect representative bodies
+  and relevant fixtures; neither a matching file nor a test-to-method count
+  ratio proves the outcome is covered.
+- Keep measured coverage in a separate field with its report identity/scope.
+  Do not infer percentages, substantial coverage or a clean result from a
+  pairing map, partial parser output or missing metrics.
 
-Before manually pairing source ↔ test files in C#, Python, TypeScript/JavaScript, Go, Java, Rust, Ruby, Kotlin, Swift, PowerShell, or C++, invoke the `find-untested-sources` skill when available. It returns a deterministic JSON pairing map, an untested list ordered by declared API surface, and suggested test paths. For .NET-only repositories, prefer its namespace-aware Roslyn engine; otherwise use its tree-sitter engine. Use the untested list as the prioritized worklist and do not repeat the same discovery manually. Fall back to bounded manual discovery only when the skill is unavailable or the language is unsupported.
+For source-to-test pairing or suggested test locations, invoke
+`find-untested-sources` before manual matching when it is available for the
+language, even for a tiny package or small explicit target list. Prefer its
+namespace-aware Roslyn engine for C#-only work; matching short names is not
+sufficient. Reuse an existing completed helper result only when it covers this
+scope and the relevant source, tests and project metadata are unchanged.
+Preserve engine/schema differences and diagnostics; failed or partial analysis
+is not an empty or wholly unpaired inventory. Rust inline test regions may
+share a file with runtime code. Prioritize behavioral gaps by risk, not counts.
+Use bounded manual discovery only when the skill is unavailable or the language
+unsupported, and label the limitation. An analyzer failure or policy denial is
+a blocker, not permission to bypass the helper.
+
+Apply the shared contract's
+[evidence-informed selection](../skills/code-testing/unit-test-generation.prompt.md#evidence-informed-selection).
+Attach usable report provenance, missing paths and priority-changing quality
+findings to the same inventory. Coverage/CRAP consumers receive a bounded
+analysis-only task, never ownership of generation. Do not collect missing
+metrics or publish a risk score without matching reliable inputs and risk intent.
 
 ### 8. Generate Research Document
 
@@ -161,12 +193,12 @@ Create `<TESTAGENT_DIR>/research.md` with this structure:
 ## Files to Test
 
 ### High Priority
-| File | Classes/Functions | Testability | Estimated Coverage | Notes |
+| File | Classes/Functions | Testability | Behavior Evidence | Notes |
 |------|-------------------|-------------|-------------------|-------|
-| path/to/file.ext | Class1, func1 | High | Untested | Core logic, leaf type |
+| path/to/file.ext | Class1, func1 | High | Named assertion, demonstrated gap, or unknown | Core logic, leaf type |
 
 ### Medium Priority
-| File | Classes/Functions | Testability | Estimated Coverage | Notes |
+| File | Classes/Functions | Testability | Behavior Evidence | Notes |
 |------|-------------------|-------------|-------------------|-------|
 
 ### Low Priority / Skip
@@ -174,10 +206,12 @@ Create `<TESTAGENT_DIR>/research.md` with this structure:
 |------|--------|
 | path/to/file.ext | Auto-generated |
 
-## Existing Tests & Coverage Classification
-- [Pair each target source file with existing test files]
-- [Per target: untested / partial / substantial, with one-line evidence]
-- [Or "No existing tests found"]
+## Existing Tests & Evidence
+- [Heuristic source-to-test references, including unresolved files/regions]
+- [Per requested outcome: named assertion, demonstrated gap, or unknown context]
+- [Measured coverage report/scope when available; otherwise "not measured"]
+- [Helper engine/output format, status, scan bounds, input identity and diagnostics when used; hashes are not source-revision attestation]
+- [Priority-changing quality findings and report provenance; stale/unsupported metrics remain unknown]
 
 ## Existing Test Projects
 For each test project found, list:
