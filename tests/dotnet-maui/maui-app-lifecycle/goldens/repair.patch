@@ -1,0 +1,11 @@
+--- a/Program.cs
++++ b/Program.cs
+@@ -4,7 +4,7 @@
+     public string Text { get; set; } = "";
+     public string Saved { get; private set; } = "";
+     public void Save() => Saved = Text;
+-    public void Restore() => Saved = Text;
++    public void Restore() => Text = Saved;
+     public void Attach(Window window)
+     {
+         window.Stopped += (_, _) => Save();

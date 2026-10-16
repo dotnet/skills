@@ -2117,16 +2117,85 @@ esac
             "import.meta.resolve('@github/copilot-linux-x64/sdk')",
             install_script,
         )
-        for filename in ("sdk-startup.mjs", "vally.mjs"):
+        for filename in ("sdk-startup.mjs", "workspace-session-fs.mjs", "vally.mjs"):
             self.assertIn(
                 f'"$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/{filename}"',
                 install_script,
             )
         self.assertIn('ln -s ../vally.mjs "$RUNNER_TEMP/evaluation-tools/bin/vally"', install_script)
+        self.assertIn("node vally.mjs --version", install_script)
+        self.assertIn("GOTOOLCHAIN=go1.27.1 go build -o ../workspace-root-helper .", install_script)
+        go_index, go = by_name["Setup Go for rooted workspace filesystem"]
+        self.assertLess(find_index, go_index)
+        self.assertLess(go_index, install_index)
+        self.assertEqual(go["if"], expected_condition)
+        self.assertEqual(go["with"]["go-version"], "1.27.1")
+        self.assertFalse(go["with"]["cache"])
         self.assertGreater(
             install_script.index('echo "$RUNNER_TEMP/evaluation-tools/bin"'),
             install_script.index('echo "$RUNNER_TEMP/evaluation-tools/node_modules/.bin"'),
         )
+
+    def test_trusted_tool_staging_copies_launcher_dependency_closure(self) -> None:
+        workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        steps = workflow["jobs"]["vally-evaluate"]["steps"]
+        install = next(step for step in steps if step.get("name") == "Install vally and Copilot CLI")
+        staging_script = install["run"].split("npm ci", 1)[0]
+        source = REPO_ROOT / "eng" / "evaluation-tools"
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            trusted = root / "trusted-validator-src" / "eng" / "evaluation-tools"
+            trusted.mkdir(parents=True)
+            for path in (*source.glob("*.mjs"), source / "package.json", source / "package-lock.json"):
+                shutil.copyfile(path, trusted / path.name)
+            shutil.copytree(source / "workspace-root", trusted / "workspace-root")
+            environment = os.environ.copy()
+            environment["RUNNER_TEMP"] = str(root)
+            result = subprocess.run(
+                [BASH, "-e", "-c", staging_script],
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            staged = root / "evaluation-tools"
+            pending = [staged / "vally.mjs"]
+            visited = set()
+            while pending:
+                module = pending.pop()
+                if module in visited:
+                    continue
+                visited.add(module)
+                self.assertTrue(module.is_file(), f"Missing staged launcher dependency: {module.name}")
+                self.assertEqual(module.read_bytes(), (source / module.name).read_bytes())
+                imports = re.findall(
+                    r"""(?:\bfrom\s+|\bimport\s*(?:\(\s*)?)["'](\.[^"']+)["']""",
+                    module.read_text(encoding="utf-8"),
+                )
+                pending.extend(
+                    (module.parent / path).resolve()
+                    for path in imports
+                    if not path.startswith("./node_modules/")
+                )
+            for filename in ("package.json", "package-lock.json"):
+                self.assertEqual((staged / filename).read_bytes(), (source / filename).read_bytes())
+            for path in (source / "workspace-root").glob("*"):
+                if path.is_file():
+                    self.assertEqual((staged / "workspace-root" / path.name).read_bytes(), path.read_bytes())
+
+    def test_local_evaluations_use_pinned_launcher_and_build_before_token_selection(self) -> None:
+        script = (REPO_ROOT / "eng" / "run-skill-evals.sh").read_text(encoding="utf-8")
+        self.assertIn('export PATH="$SKILLS_ROOT/eng/evaluation-tools:$PATH"', script)
+        self.assertIn('VALLY="${VALLY:-vally.mjs}"', script)
+        self.assertIn('CUSTOM_VALLY="${VALLY:-}"', script)
+        build = script.index("GOTOOLCHAIN=go1.27.1 go build -o ../workspace-root-helper .")
+        smoke = script.index('"$SKILLS_ROOT/eng/evaluation-tools/vally.mjs" --version')
+        token = script.index('if [ -z "${GITHUB_TOKEN:-}" ]')
+        self.assertLess(build, smoke)
+        self.assertLess(smoke, token)
+        self.assertTrue(os.access(REPO_ROOT / "eng" / "evaluation-tools" / "vally.mjs", os.X_OK))
 
     def test_evaluation_tool_manifest_has_secretless_smoke_test(self) -> None:
         workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
@@ -2136,8 +2205,16 @@ esac
             self.assertEqual(triggers[event]["paths"].count(tool_path), 1)
 
         job = workflow["jobs"]["evaluation-tools"]
-        self.assertEqual(job["runs-on"], "ubuntu-latest")
+        self.assertEqual(job["runs-on"], "${{ matrix.runner }}")
+        self.assertFalse(job["strategy"]["fail-fast"])
+        self.assertEqual(job["strategy"]["matrix"]["include"], [
+            {"runner": "ubuntu-latest", "platform": "linux", "arch": "x64"},
+            {"runner": "ubuntu-24.04-arm", "platform": "linux", "arch": "arm64"},
+            {"runner": "macos-15-intel", "platform": "darwin", "arch": "x64"},
+            {"runner": "macos-15", "platform": "darwin", "arch": "arm64"},
+        ])
         steps = {step.get("name"): step for step in job["steps"]}
+        self.assertEqual(steps["Setup Go for rooted workspace filesystem"]["with"]["go-version"], "1.27.1")
         install_script = steps["Install evaluation tools"]["run"]
         self.assertIn("--prefix eng/evaluation-tools", install_script)
         self.assertIn("npm ci", install_script)
@@ -2145,15 +2222,21 @@ esac
         self.assertIn("--registry https://registry.npmjs.org/", install_script)
 
         smoke_script = steps["Smoke test evaluation tools"]["run"]
+        self.assertEqual(steps["Smoke test evaluation tools"]["env"], {
+            "EXPECTED_PLATFORM": "${{ matrix.platform }}",
+            "EXPECTED_ARCH": "${{ matrix.arch }}",
+        })
+        self.assertIn("assert.equal(process.platform, process.env.EXPECTED_PLATFORM)", smoke_script)
+        self.assertIn("assert.equal(process.arch, process.env.EXPECTED_ARCH)", smoke_script)
         self.assertIn("node_modules/.bin/vally --version", smoke_script)
         self.assertIn("node vally.mjs --version", smoke_script)
-        self.assertIn(
-            "node --test eng/evaluation-tools/*.test.mjs",
-            steps["Test SDK startup ordering without model calls"]["run"],
-        )
+        regression_script = steps["Test SDK startup ordering without model calls"]["run"]
+        self.assertIn("node --test eng/evaluation-tools/*.test.mjs", regression_script)
+        self.assertIn("GOTOOLCHAIN=go1.27.1 go test ./...", regression_script)
+        self.assertIn("GOTOOLCHAIN=go1.27.1 go build -o ../workspace-root-helper .", regression_script)
         self.assertIn("node_modules/.bin/copilot --version", smoke_script)
         self.assertIn(
-            "import.meta.resolve('@github/copilot-linux-x64/sdk')",
+            "import.meta.resolve('@github/copilot-' + process.platform + '-' + process.arch + '/sdk')",
             smoke_script,
         )
 

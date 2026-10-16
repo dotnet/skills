@@ -1,0 +1,11 @@
+--- a/Program.cs
++++ b/Program.cs
+@@ -4,7 +4,7 @@
+ {
+     public static Grid Create() => new Grid
+     {
+-        Spacing = 10,
++        ColumnSpacing = 10,
+         SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.Container, SafeAreaRegions.Container,
+             SafeAreaRegions.Container, SafeAreaRegions.SoftInput)
+     };

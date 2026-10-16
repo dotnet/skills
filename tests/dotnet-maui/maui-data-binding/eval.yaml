@@ -1,101 +1,560 @@
 name: maui-data-binding
 description: Evaluates the dotnet-maui/maui-data-binding skill
 type: capability
-config:
-  timeout: 2m
 stimuli:
-  - name: Set up compiled bindings with x:DataType on a page
-    prompt: |
-      I have a .NET MAUI ContentPage called SettingsPage.xaml that currently uses
-      plain bindings with no x:DataType. The page's BindingContext is a
-      SettingsViewModel with properties: string Theme, bool NotificationsEnabled,
-      and int FontSize. Convert this page to use compiled bindings and tell me
-      how to catch binding errors at build time.
-    graders:
-      - type: output-contains
-        config:
-          substring: x:DataType
-      - type: output-matches
-        config:
-          pattern: (?i)SettingsViewModel
-      - type: output-matches
-        config:
-          pattern: XC0022|XC0025|WarningsAsErrors
-      - type: prompt
-    rubric:
-      - Places x:DataType on the ContentPage root element pointing to SettingsViewModel
-      - Does not scatter x:DataType on child elements or use x:DataType='x:Object'
-      - Recommends enabling XC0022 and/or XC0025 as warnings-as-errors in the .csproj
-      - Explains that compiled bindings are faster and required for NativeAOT/trimming
-  - name: Implement MVVM ViewModel with ObservableObject
-    prompt: |
-      I need to create a ProductDetailViewModel for a .NET MAUI app. It should
-      have properties for Name (string), Price (decimal), IsAvailable (bool),
-      and a LoadCommand that fetches data asynchronously. Show me how to
-      implement this with proper change notification so bindings update the UI.
-    graders:
-      - type: output-matches
-        config:
-          pattern: (?i)ObservableObject|INotifyPropertyChanged
-      - type: output-matches
-        config:
-          pattern: (?i)ObservableProperty|PropertyChanged
-      - type: output-matches
-        config:
-          pattern: (?i)RelayCommand|ICommand
-      - type: prompt
-    rubric:
-      - Uses CommunityToolkit.Mvvm ObservableObject with [ObservableProperty] or implements INotifyPropertyChanged
-        manually
-      - "Includes all four members: Name, Price, IsAvailable, and a load command"
-      - Shows how the generated properties raise PropertyChanged automatically when using the toolkit
-      - Does not use a base class that doesn't implement INotifyPropertyChanged
-  - name: Create and use an IValueConverter
-    prompt: |
-      In my .NET MAUI app I have a status field that is an enum:
-      enum OrderStatus { Pending, Shipped, Delivered, Cancelled }.
-      I want to display a different color for each status in a Label's TextColor.
-      Show me how to create a value converter and wire it up in XAML.
-    graders:
-      - type: output-contains
-        config:
-          substring: IValueConverter
-      - type: output-matches
-        config:
-          pattern: (?i)Convert
-      - type: output-matches
-        config:
-          pattern: (?i)StaticResource|x:Key
-      - type: prompt
-    rubric:
-      - Implements IValueConverter with a Convert method that maps each enum value to a Color
-      - Declares the converter in XAML resources with an x:Key
-      - Shows the binding syntax with Converter={StaticResource ...}
-      - Handles the default/fallback case in the converter
-  - name: Diagnose missing BindingContext and non-compiled bindings
-    prompt: |
-      My .NET MAUI page shows blank labels even though my ViewModel properties
-      have values. Here is my XAML:
-      ```xml
-      <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-                   xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
-          <VerticalStackLayout>
-              <Label Text="{Binding Title}" />
-              <Label Text="{Binding Description}" />
-          </VerticalStackLayout>
-      </ContentPage>
-      ```
-      What am I doing wrong?
-    graders:
-      - type: output-matches
-        config:
-          pattern: (?i)BindingContext
-      - type: output-matches
-        config:
-          pattern: (?i)x:DataType
-      - type: prompt
-    rubric:
-      - Identifies that BindingContext is never set on the page
-      - Shows how to set BindingContext either in XAML or code-behind
-      - Points out the missing x:DataType and recommends compiled bindings
-      - Explains that without BindingContext, bindings resolve to null and display empty
+- name: Set up compiled bindings with x:DataType on a page
+  prompt: |
+    I have a .NET MAUI ContentPage called SettingsPage.xaml that currently uses
+    plain bindings with no x:DataType. The page's BindingContext is a
+    SettingsViewModel with properties: string Theme, bool NotificationsEnabled,
+    and int FontSize. Convert this page to use compiled bindings and tell me
+    how to catch binding errors at build time.
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: x:DataType
+  - type: prompt
+    config:
+      scoring: binary
+      prompt: |
+        This is a typed-binding correctness contract. Return overall_score=0
+        if recommended bindings reference properties absent from the supplied
+        ViewModel, use a scalar string as a collection ItemsSource, or do not
+        enable the requested build-time detection of invalid typed members.
+        Diagnostic documentation cannot compensate for broken binding code.
+        Accept minimal markup using the existing page/context; do not require
+        a new ViewModel, constructor, DI registration, or a complete app.
+      evidence:
+      - trajectory
+  rubric:
+  - Types the page bindings against SettingsViewModel while preserving the BindingContext already
+    supplied by the prompt. Explaining that x:DataType is metadata rather than a runtime context is
+    valid; repeating context assignment or adding constructor/DI wiring is not required.
+  - Uses valid MAUI diagnostic properties, including strict diagnostics where needed, and preserves other
+    warning settings. MauiStrictXamlCompilation and MauiEnableXamlCBindingWithSourceCompilation
+    are documented MAUI properties; XC0022-XC0025 are real fallback diagnostics and XC0045 reports a
+    missing binding property. Promote the relevant warning to reject a misspelled typed member.
+    Do not invent properties absent from the supplied ViewModel or bind a scalar string to Picker.ItemsSource.
+  - Explains that typed binding paths are checked at build time, distinguishing invalid members
+    from missing-type/reflection-fallback warnings, without disabling binding compilation.
+    Performance and trimming/AOT benefits are useful optional context, not requested prerequisites.
+  tags:
+    capability: set-up-compiled-bindings-with-x-datatype-on-a-page
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+          xmlns:vm="clr-namespace:MyApp.ViewModels" x:DataType="vm:SettingsViewModel"><VerticalStackLayout><Label
+          Text="{Binding Theme}" /><Switch IsToggled="{Binding NotificationsEnabled}" /><Stepper Value="{Binding
+          FontSize}" /></VerticalStackLayout></ContentPage>. Set BindingContext to the real SettingsViewModel
+          in the constructor after InitializeComponent. For build diagnostics set MauiStrictXamlCompilation=true,
+          MauiEnableXamlCBindingWithSourceCompilation=true where source bindings need it, and append XC0022;XC0025;XC0045
+          to WarningsAsErrors. XC0045 reports an invalid typed member; XC0022/XC0025 alone do not reject it.
+          Compiled bindings avoid reflection, improve performance, and support NativeAOT/full
+          trimming.
+- name: Implement MVVM ViewModel with ObservableObject
+  prompt: |
+    I need to create a ProductDetailViewModel for a .NET MAUI app. It should
+    have properties for Name (string), Price (decimal), IsAvailable (bool),
+    and a LoadCommand that fetches data asynchronously. Show me how to
+    implement this with proper change notification so bindings update the UI.
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (ObservableObject|INotifyPropertyChanged)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Uses CommunityToolkit.Mvvm ObservableObject with [ObservableProperty] or implements INotifyPropertyChanged
+    manually
+  - 'Includes all four members: Name, Price, IsAvailable, and a load command'
+  - Demonstrates that changes to the exposed properties raise PropertyChanged for the
+    correct public property names, whether through valid source generation or a manual
+    notifying implementation. Neither approach is required over the other.
+  - Does not use a base class that doesn't implement INotifyPropertyChanged
+  tags:
+    capability: implement-mvvm-viewmodel-with-observableobject
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    path: ./references/product-detail-viewmodel.json
+- name: Create and use an IValueConverter
+  prompt: |
+    In my .NET MAUI app I have a status field that is an enum:
+    enum OrderStatus { Pending, Shipped, Delivered, Cancelled }.
+    I want to display a different color for each status in a Label's TextColor.
+    Show me how to create a value converter and wire it up in XAML.
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: IValueConverter
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Implements IValueConverter with a Convert method that maps each enum value to a Color
+  - Declares the converter in XAML resources with an x:Key
+  - Shows the binding syntax with Converter={StaticResource ...}
+  - Handles the default/fallback case in the converter
+  tags:
+    capability: create-and-use-an-ivalueconverter
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Implement IValueConverter.Convert with an OrderStatus switch returning Colors.Orange
+          for Pending, Blue for Shipped, Green for Delivered, Gray for Cancelled, and a neutral fallback.
+          ConvertBack can return BindableProperty.UnsetValue for this display-only mapping. Declare the
+          converter in resources with x:Key="StatusColor" and bind Label.TextColor="{Binding Status, Converter={StaticResource
+          StatusColor}}". Include the converter namespace declaration.
+- name: Diagnose missing BindingContext and non-compiled bindings
+  prompt: |
+    My .NET MAUI page shows blank labels even though my ViewModel properties
+    have values. Here is my XAML:
+    ```xml
+    <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+        <VerticalStackLayout>
+            <Label Text="{Binding Title}" />
+            <Label Text="{Binding Description}" />
+        </VerticalStackLayout>
+    </ContentPage>
+    ```
+    What am I doing wrong?
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: BindingContext
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Checks whether BindingContext is supplied in code or inherited; identifies a missing context if absent
+    rather than treating the shown markup as proof.
+  - Demonstrates one valid runtime BindingContext assignment, in XAML or code-behind.
+    Either approach is sufficient; do not require both.
+  - Points out the missing x:DataType and recommends compiled bindings
+  - Explains that without BindingContext, bindings resolve to null and display empty
+  tags:
+    capability: diagnose-missing-bindingcontext-and-non-compiled-bindings
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: 'A binding needs an actual BindingContext. After InitializeComponent set BindingContext
+          = viewModel, or instantiate the ViewModel in XAML if construction permits. Missing context is
+          one possible cause, not proof from markup alone: inspect inherited/code-behind context and binding
+          diagnostics. Add a root x:DataType for the ViewModel to check paths; x:DataType itself does
+          not instantiate the context.'
+- name: Template binding context mismatch
+  prompt: My MAUI page has x:DataType set to OrdersViewModel. Inside its item template, Name belongs to
+    Order, but the build says Name is not on OrdersViewModel. Show the smallest markup fix and explain
+    why.
+  tags:
+    capability: template-scope
+    risk: wrong-type
+    journey: render-orders
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)(template|Order)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Checks row-member paths against the row model while retaining the page's ViewModel binding scope.
+  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Annotate the item template with the Order type; retain the outer ViewModel type and do
+          not disable compilation globally.
+- name: Explicit source compilation
+  prompt: A .NET 10 MAUI label binds to a named slider with Source={x:Reference amount}. The rest of the
+    page binds to an invoice ViewModel. How can I compile this source binding without treating the slider
+    as an invoice?
+  tags:
+    capability: source-scope
+    risk: incorrect-source-type
+    journey: edit-invoice
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)(source|Slider)
+  - type: prompt
+    config:
+      scoring: binary
+      prompt: |
+        This is a correctness contract. Return overall_score=0 if the proposed
+        binding uses the wrong source type, changes the unrelated invoice
+        context, or presents structurally invalid complete page markup.
+        Otherwise accept a correct minimal fragment; do not require a complete
+        page, new namespaces already supplied by the page, or extra features.
+      evidence:
+      - trajectory
+  rubric:
+  - Compiles the named-control binding against its actual source type without changing the unrelated invoice
+    context. MauiEnableXamlCBindingWithSourceCompilation is a documented MAUI 9+ build option, not an
+    invented property; mentioning it is valid, but repeating already-correct project configuration is
+    not required. Binding markup supports binding-local x:DataType, including
+    x:DataType={x:Type Slider} and the literal x:DataType=Slider form.
+  - Complete page markup has one content root, which may be a layout containing multiple controls.
+    A valid binding fragment need not reproduce the entire page.
+  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: |
+          Keep the invoice ViewModel type on the page. On the one label use:
+          <Label Text="{Binding Value, Source={x:Reference amount}, x:DataType=Slider}" />
+          The named amount control is the existing Slider. The fragment uses
+          the page's existing XAML namespace declarations. If source compilation
+          is not enabled, set MauiEnableXamlCBindingWithSourceCompilation=true
+          in the project. This types only that source binding, not the invoice
+          bindings elsewhere. No build or device validation was performed.
+- name: Background result notification
+  prompt: My MAUI details page loads a value from a service after the page appears. The first value displays,
+    but changing the field later does not update the label. I set BindingContext already. Show a minimal
+    notifying property and safe UI-thread update.
+  tags:
+    capability: async-notification
+    risk: stale-ui
+    journey: load-details
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: PropertyChanged
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Updates the displayed value when service results change and avoids unsafe cross-thread UI-bound changes.
+  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Raise PropertyChanged for the public property or use a valid generated observable property,
+          and marshal UI-bound updates as needed; assigning x:DataType alone is not notification.
+- name: Context switches in a child view
+  prompt: A MAUI page binds to CustomerViewModel, but a child panel explicitly sets BindingContext to
+    SelectedAddress. Its City binding is being checked against CustomerViewModel. How should I type these
+    two scopes without falling back to reflection?
+  tags:
+    capability: nested-context
+    risk: scope-leak
+    journey: edit-address
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)(Address|child)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Checks each changed binding context against its correct model without globally disabling compile-time
+    checking. MAUI 10 XamlC compiles the BindingContext-setting binding using the inherited parent type,
+    skipping the child's x:DataType for that binding; explicit binding-local outer typing is also valid
+    but not mandatory when this supported inference applies. The syntax
+    x:DataType={x:Type vm:CustomerViewModel} inside a Binding markup extension is supported,
+    not an invalid XAML attribute placement.
+  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Keep CustomerViewModel on the page and annotate the new child context with Address; arbitrary
+          scattering or x:Object is not needed.
+- name: Repair supplied executable contract
+  prompt: The supplied MAUI settings ViewModel stores the new Theme value, but consumers of PropertyChanged
+    do not observe the right property. Repair Program.cs only; keep its public API and avoid redundant
+    notifications. Run the supplied checks. The supplied files are in your working directory;
+    inspect and edit only that copy, not fixture originals elsewhere.
+  tags:
+    capability: executable-repair
+    risk: broken-code
+    journey: repair-feature
+  environment:
+    files:
+    - src: fixtures/repair
+      dest: .
+    commands:
+    - python3 -c "import hashlib,pathlib; assert hashlib.sha256(pathlib.Path('Program.cs').read_bytes()).hexdigest() == '4748c4fd25911c0199e5456879ddea691f7de9340ea3db67ba3c2dfcffb08ffd', 'Fixture changed before trial setup'"
+  graders:
+  - type: run-command
+    config:
+      command: 'python3 -c ''import hashlib,pathlib; expected={''"''"''Fixture.csproj''"''"'': ''"''"''daaa2155aa040b8c8e421ae545be8d52233f1ed82cac1a46cb39949fb371962c''"''"'',
+        ''"''"''Checks.cs''"''"'': ''"''"''4a3304db8b65f0d6adb734e960ee3fa404aff1a2bf54c375e6009f473a83fe7b''"''"'',
+        ''"''"''Directory.Build.props''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
+        ''"''"''Directory.Build.targets''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"''};
+        assert all(pathlib.Path(p).is_file() and hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()==h
+        for p,h in expected.items())'''
+  - type: diff-not-contains
+    config:
+      pattern: '(?m)^(?:diff --git (?!a/Program\.cs b/Program\.cs$|a/(?:bin|obj)/[^\r\n]+ b/(?:bin|obj)/[^\r\n]+$|"a/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+" "b/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+"$)|rename (?:from|to) (?!(?:bin|obj)/|"(?:bin|obj)/))'
+  - &id001
+    type: run-command
+    config:
+      command: dotnet run --project Fixture.csproj --verbosity quiet
+      expected_exit_code: 0
+      timeout: 120s
+      stdout_matches: 'PASS: behavior-contract'
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+      - diff
+  rubric:
+  - Repairs the stated defect without changing protected files or weakening checks.
+  - Reports only validation actually performed and distinguishes object-model checks from native/device
+    behavior.
+  golden_patch:
+    path: goldens/repair.patch
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: 'Expected result: the supplied defect is corrected in Program.cs without changing the
+          public contract. The executable checks verify platform-neutral code against real MAUI 10.0.0
+          assemblies; they are not device, native layout, navigation or lifecycle execution evidence.'
+- name: Preserve working supplied implementation
+  prompt: Review the supplied implementation for the behavior checked by Checks.cs. Run the checks; if
+    it already satisfies that contract, do not edit, delete, rename, or add any non-generated workspace files.
+    Explain any platform-specific validation limitations rather than rewriting working code.
+    The supplied files are in your working directory; inspect only that copy, not fixture originals elsewhere.
+  tags:
+    capability: working-code-preservation
+    risk: unnecessary-rewrite
+    journey: review-working-code
+  environment:
+    files:
+    - src: fixtures/working
+      dest: .
+    commands:
+    - python3 -c "import hashlib,pathlib; assert hashlib.sha256(pathlib.Path('Program.cs').read_bytes()).hexdigest() == 'a875ef376271c2b4dddbdf4bae210d8887d1e44093e9a89a88126047738b1d17', 'Fixture changed before trial setup'"
+  graders:
+  - type: run-command
+    config:
+      command: 'python3 -c ''import hashlib,pathlib; expected={''"''"''Fixture.csproj''"''"'': ''"''"''daaa2155aa040b8c8e421ae545be8d52233f1ed82cac1a46cb39949fb371962c''"''"'',
+        ''"''"''Checks.cs''"''"'': ''"''"''4a3304db8b65f0d6adb734e960ee3fa404aff1a2bf54c375e6009f473a83fe7b''"''"'',
+        ''"''"''Directory.Build.props''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
+        ''"''"''Directory.Build.targets''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
+        ''"''"''Program.cs''"''"'': ''"''"''a875ef376271c2b4dddbdf4bae210d8887d1e44093e9a89a88126047738b1d17''"''"''};
+        assert all(pathlib.Path(p).is_file() and hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()==h
+        for p,h in expected.items())'''
+  - type: diff-not-contains
+    config:
+      pattern: '(?m)^(?:diff --git (?!a/(?:bin|obj)/[^\r\n]+ b/(?:bin|obj)/[^\r\n]+$|"a/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+" "b/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+"$)|rename (?:from|to) (?!(?:bin|obj)/|"(?:bin|obj)/))'
+  - *id001
+  - type: prompt
+    config:
+      scoring: binary
+      prompt: |
+        This is a preservation and truthful-validation contract. Return
+        overall_score=0 if supplied input was changed or the final answer omits
+        the explicitly requested explanation of validation limitations.
+        Reporting a passing managed check, or merely not claiming device
+        success, is not that explanation. The final answer must explicitly
+        acknowledge the limitation: managed-check success does not establish
+        native/platform/device behavior. Do not infer this disclosure from tool
+        observations alone. Judge semantic meaning, not a required phrase or
+        grammatical form. Saying that only property-change logic was checked
+        and platform-specific UI validation was not performed explicitly
+        communicates this limitation; negation is not a reason to reject it.
+        A concise statement of that limitation is sufficient;
+        do not require an inventory of managed assertions or platform tests,
+        additional builds, device tests, or unrelated explanations.
+      evidence:
+      - trajectory
+  rubric:
+  - Leaves the complete supplied source/project file set byte-identical when the checks already pass.
+  - Explicitly distinguishes managed-check evidence from unperformed or unestablished native/device validation in the final answer.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Inspect the supplied implementation and its behavior check.
+        tool_calls:
+        - tool_call_id: inspect-working
+          function_name: bash
+          arguments:
+            command: cat Program.cs Checks.cs
+        observation:
+          results:
+          - source_call_id: inspect-working
+            content: |
+              using System.ComponentModel;
+              public sealed class SettingsViewModel : INotifyPropertyChanged
+              {
+                  private string _theme = "Light";
+                  public event PropertyChangedEventHandler? PropertyChanged;
+                  public string Theme
+                  {
+                      get => _theme;
+                      set
+                      {
+                          if (_theme == value) return;
+                          _theme = value;
+                          PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Theme)));
+                      }
+                  }
+              }
+              public static class Checks
+              {
+                  public static void Require(bool condition, string message)
+                  {
+                      if (!condition) throw new InvalidOperationException(message);
+                  }
+                  public static void Main()
+                  {
+                      var vm = new SettingsViewModel();
+                      var names = new List<string?>();
+                      vm.PropertyChanged += (_, e) => names.Add(e.PropertyName);
+                      vm.Theme = "Dark"; vm.Theme = "Dark"; vm.Theme = "Light";
+                      Require(vm.Theme == "Light" && names.SequenceEqual(new[] { "Theme", "Theme" }),
+                          "bindings require the public property name and no notification on unchanged values");
+                      Console.WriteLine("PASS: behavior-contract");
+                  }
+              }
+      - step_id: 2
+        source: agent
+        message: Run the supplied managed behavior check without modifying source.
+        tool_calls:
+        - tool_call_id: check-working
+          function_name: bash
+          arguments:
+            command: dotnet run --project Fixture.csproj --verbosity quiet
+        observation:
+          results:
+          - source_call_id: check-working
+            content: |
+              PASS: behavior-contract
+      - step_id: 3
+        source: agent
+        message: The supplied managed behavior check passed and every supplied file is unchanged.
+          This verifies the object-model contract, not native rendering or device behavior;
+          no native/device validation was performed.
+- name: WPF binding diagnostics
+  prompt: My Windows WPF TextBlock binding shows no text. How can I inspect the DataContext and binding
+    diagnostics? The project is WPF, not MAUI.
+  expect_activation: false
+  tags:
+    capability: routing-boundary
+    risk: off-target-activation
+    journey: use-other-platform
+  graders:
+  - type: exit-success
+  - type: output-not-matches
+    config:
+      pattern: <Maui(?:StrictXamlCompilation|EnableXamlCBindingWithSourceCompilation)>
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Recognizes the requested platform/control boundary and gives appropriate guidance.
+  - Treats the native app workflow as out of scope; does not apply its APIs, edit unrelated files, or
+    install tools.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Use WPF DataContext and binding tracing; do not introduce MAUI x:DataType or MAUI build
+          properties.
+defaults:
+  timeout: 6m
+  runs: 1
