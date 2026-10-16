@@ -36,26 +36,68 @@ stimuli:
           path: capture-plan.json
       - type: run-command
         config:
-          command: >-
-            python3 -c 'import json,pathlib,re; p=json.loads(pathlib.Path("capture-plan.json").read_text());
-            assert p["status"]=="planned" and p["device_id"]=="R58M123" and p["physical_capture_verified"] is False;
-            c=p["commands"]; assert all(isinstance(c[k],list) and c[k] and all(isinstance(s,str) for s in c[k]) for k in ("route","collect","validate","cleanup"));
-            r="\n".join(c["route"]); q="\n".join(c["collect"]); v="\n".join(c["validate"]); x="\n".join(c["cleanup"]);
-            route_mode=re.search(r"--dsrouter\s+(\S+)", r); collect_mode=re.search(r"--dsrouter\s+(\S+)", q);
-            assert route_mode and collect_mode and route_mode.group(1)==collect_mode.group(1)=="android";
-            assert "after-navigation.gcdump" in r and "after-navigation.gcdump" in q;
-            assert "dotnet-gcdump collect" in q and "--timeout" in q;
-            assert "dotnet-gcdump report" in v and "after-navigation.gcdump" in v and "-p " not in v and "|| true" not in v and "|| :" not in v;
-            a=r+q+v+x;
-            did=p["device_id"];
-            sq=chr(39);
-            extract_val=lambda name,text: next((mm.group(1) if mm.group(1) is not None else (mm.group(2) if mm.group(2) is not None else mm.group(3)) for mm in re.finditer(r"(?<![A-Za-z0-9_])"+re.escape(name)+r"=(?:\"([^\"]*)\"|"+sq+r"([^"+sq+r"]*)"+sq+r"|(\S+))", text)), None);
-            has_serial=lambda cmd_text: (lambda v: v is not None and (v==did or (v.startswith("$") and extract_val(v[1:], a)==did)))(extract_val("ANDROID_SERIAL", cmd_text));
-            assert has_serial(r) and has_serial(q), "route/collect must bind the selected device via ANDROID_SERIAL (neither --dsrouter nor collect accepts a serial flag)";
-            assert not any(t in a for t in ("server-server","adb reverse","adb -s","setprop debug.mono.profile","-ipcs","-tcps","AndroidEnableProfiler"));
-            assert "0.0.0.0" not in a and "--remove-all" not in a and "-p 2841" not in a and "adb pull" not in a;
-            assert pathlib.Path("android-session.txt").read_text()=="""Operator-supplied facts for a planning exercise; no device is attached to the eval worker.\nHost: macOS, .NET SDK 10.0.102; installed Android workload matches the project.\nProject: App.csproj, net10.0-android, Mono, Release.\nProfiling APK includes libmono-component-diagnostics_tracing.so for arm64-v8a.\nDevice: physical serial R58M123, USB debugging authorized; other serials may be present.\nPackage: com.example.catalog; device PID 2841 is identity information, not a host PID.\ndotnet-gcdump and dotnet-dsrouter: 10.0.750501, installed on host; the --dsrouter switch is present.\nNo diagnostic route is configured yet; a controlled relaunch is acceptable after operator approval.\nReserved host TCP port: 9001. Reserved host IPC path: capture-diag.sock in workspace.\nArtifact requested: after-navigation.gcdump in host workspace.\n""";
-            print("Android plan and input preservation valid")'
+          command: |
+            python3 -c '
+            import json, pathlib, re
+            
+            p = json.loads(pathlib.Path("capture-plan.json").read_text())
+            assert p["status"] == "planned" and p["device_id"] == "R58M123" and p["physical_capture_verified"] is False
+            c = p["commands"]
+            assert all(isinstance(c[k], list) and c[k] and all(isinstance(s, str) for s in c[k]) for k in ("route", "collect", "validate", "cleanup"))
+            r = "\n".join(c["route"])
+            q = "\n".join(c["collect"])
+            v = "\n".join(c["validate"])
+            x = "\n".join(c["cleanup"])
+            route_mode = re.search(r"--dsrouter\s+(\S+)", r)
+            collect_mode = re.search(r"--dsrouter\s+(\S+)", q)
+            assert route_mode and collect_mode and route_mode.group(1) == collect_mode.group(1) == "android"
+            assert "after-navigation.gcdump" in r and "after-navigation.gcdump" in q
+            assert "dotnet-gcdump collect" in q and "--timeout" in q
+            assert "dotnet-gcdump report" in v and "after-navigation.gcdump" in v and "-p " not in v and "|| true" not in v and "|| :" not in v
+            a = r + q + v + x
+            did = p["device_id"]
+            sq = chr(39)
+            dq = chr(34)
+            
+            def extract(name, text):
+                pattern = (r"(?<![A-Za-z0-9_])" + re.escape(name) + r"="
+                           + r"(?:" + dq + r"([^" + dq + r"]*)" + dq
+                           + r"|" + sq + r"([^" + sq + r"]*)" + sq
+                           + r"|(\S+))")
+                last = None
+                for mm in re.finditer(pattern, text):
+                    if mm.group(1) is not None:
+                        last = (mm.group(1), "double")
+                    elif mm.group(2) is not None:
+                        last = (mm.group(2), "single")
+                    else:
+                        last = (mm.group(3), "bare")
+                return last
+            
+            def resolves(name, text, depth=0):
+                # A single-quoted shell value is never subject to $VAR
+                # expansion, so e.g. ANDROID_SERIAL=(sq)$SERIAL(sq) must be
+                # compared literally -- and correctly fails to equal the
+                # selected serial -- rather than treated as a resolvable
+                # reference. Bare/double-quoted values may themselves be
+                # another $VAR-style reference resolved against the full
+                # combined command text, bounded to avoid runaway recursion.
+                found = extract(name, text)
+                if found is None:
+                    return False
+                val, kind = found
+                if kind == "single":
+                    return val == did
+                if val.startswith("$") and depth < 4:
+                    return resolves(val[1:], a, depth + 1)
+                return val == did
+            
+            assert resolves("ANDROID_SERIAL", r) and resolves("ANDROID_SERIAL", q), "route/collect must bind the selected device via a literal or resolvable ANDROID_SERIAL value -- a single-quoted reference such as " + sq + "$SERIAL" + sq + " never expands in a real shell and must not be accepted -- since neither --dsrouter nor collect accepts a serial flag"
+            assert not any(t in a for t in ("server-server", "adb reverse", "adb -s", "setprop debug.mono.profile", "-ipcs", "-tcps", "AndroidEnableProfiler"))
+            assert "0.0.0.0" not in a and "--remove-all" not in a and "-p 2841" not in a and "adb pull" not in a
+            assert pathlib.Path("android-session.txt").read_text() == """Operator-supplied facts for a planning exercise; no device is attached to the eval worker.\nHost: macOS, .NET SDK 10.0.102; installed Android workload matches the project.\nProject: App.csproj, net10.0-android, Mono, Release.\nProfiling APK includes libmono-component-diagnostics_tracing.so for arm64-v8a.\nDevice: physical serial R58M123, USB debugging authorized; other serials may be present.\nPackage: com.example.catalog; device PID 2841 is identity information, not a host PID.\ndotnet-gcdump and dotnet-dsrouter: 10.0.750501, installed on host; the --dsrouter switch is present.\nNo diagnostic route is configured yet; a controlled relaunch is acceptable after operator approval.\nReserved host TCP port: 9001. Reserved host IPC path: capture-diag.sock in workspace.\nArtifact requested: after-navigation.gcdump in host workspace.\n"""
+            print("Android plan and input preservation valid")
+            '
       - type: output-matches
         config:
           pattern: (?i)(approv|consent|permission)
@@ -83,7 +125,75 @@ stimuli:
                 def tokenize(s):
                     lex = shlex.shlex(s, posix=True, punctuation_chars=True)
                     lex.whitespace_split = True
-                    return list(lex)
+                    return expand_puncts(list(lex))
+            
+                def expand_puncts(toks):
+                    # shlex fuses adjacent punctuation characters with no
+                    # intervening whitespace into a single token (e.g. a
+                    # paren-close immediately followed by a semicolon, as in
+                    # "(exit 1);", becomes one fused closing-paren-semicolon
+                    # token) -- split those back into individual operator
+                    # tokens, preserving the real two-character shell
+                    # operators, so later exact-token comparisons against
+                    # "(", ")", ";", etc. are reliable regardless of
+                    # surrounding whitespace.
+                    two_char_ops = ("&&", "||", ";;", ">>", "<<")
+                    punct_chars = set("(){};&|<>")
+                    out = []
+                    for t in toks:
+                        if t and len(t) > 1 and t not in two_char_ops and all(ch in punct_chars for ch in t):
+                            k = 0
+                            while k < len(t):
+                                pair = t[k:k + 2]
+                                if pair in two_char_ops:
+                                    out.append(pair)
+                                    k += 2
+                                else:
+                                    out.append(t[k])
+                                    k += 1
+                        else:
+                            out.append(t)
+                    return out
+            
+                def top_level_clauses(toks):
+                    # Split a token stream on bare top-level ";" into the
+                    # shell clauses it actually sequences, skipping any ";"
+                    # nested inside balanced "(" ... ")" (a subshell), since
+                    # that semicolon never terminates the enclosing clause.
+                    clauses = []
+                    current = []
+                    depth = 0
+                    for t in toks:
+                        if t == "(":
+                            depth += 1
+                        elif t == ")":
+                            depth = max(0, depth - 1)
+                        if t == ";" and depth == 0:
+                            clauses.append(current)
+                            current = []
+                        else:
+                            current.append(t)
+                    clauses.append(current)
+                    return [c for c in clauses if c]
+            
+                def has_unconditional_exit(block_tokens):
+                    # A genuinely nonzero "exit N" only guarantees the real
+                    # enclosing script terminates right there if it is the
+                    # FIRST thing a top-level (bare ";"-separated) clause
+                    # does: an "exit" gated behind "||"/"&&" only runs if an
+                    # earlier command in the same clause fails/succeeds
+                    # (e.g. "printf msg || exit 1" never reaches exit when
+                    # printf itself succeeds, which it normally does), and an
+                    # "exit" wrapped in "(...)" only terminates that inner
+                    # subshell, not the actual script -- both must be
+                    # rejected. Requiring "exit" to be clause[0] excludes
+                    # both: a clause opening with "(" or any other command
+                    # cannot satisfy it.
+                    for clause in top_level_clauses(block_tokens):
+                        if (len(clause) >= 2 and clause[0] == "exit"
+                                and clause[1].isdigit() and 1 <= int(clause[1]) <= 255):
+                            return True
+                    return False
             
                 norm = lambda value: os.path.abspath(value.replace("$" + "{PWD}", os.getcwd()).replace("$PWD", os.getcwd()))
             
@@ -167,11 +277,12 @@ stimuli:
                     guard = prefix[1:-2]
                     else_idx = len(tokens) - 1 - tokens[::-1].index("else")
                     else_block = tokens[else_idx + 1:-1]
-                    has_else_exit = any(
-                        else_block[k] == "exit" and k + 1 < len(else_block)
-                        and else_block[k + 1].isdigit() and 1 <= int(else_block[k + 1]) <= 255
-                        for k in range(len(else_block))
-                    )
+                    # "exit N" merely appearing somewhere in the else-block is not
+                    # enough: e.g. "else printf \"exists\\n\" || exit 1; fi" never
+                    # reaches exit when printf itself succeeds (the normal case),
+                    # so the if-statement still exits 0 overall. Require exit to be
+                    # the unconditional first action of a top-level clause instead.
+                    has_else_exit = has_unconditional_exit(else_block)
                     if has_else_exit and guard_tests_output(guard):
                         matched = True
                         matched_form_b = True
@@ -203,7 +314,15 @@ stimuli:
                         # POSIX shells reduce the exit status modulo 256, so "exit 256" (and
                         # any other multiple of 256) is indistinguishable from "exit 0" at
                         # runtime; only 1-255 are genuinely nonzero once the shell truncates.
-                        has_exit = any(block[k] == "exit" and k + 1 < len(block) and block[k + 1].isdigit() and 1 <= int(block[k + 1]) <= 255 for k in range(len(block)))
+                        # "exit N" merely appearing somewhere in the block is not enough
+                        # either: "{ printf \"exists\\n\" || exit 1; }" never reaches exit
+                        # when printf succeeds (the normal case), so the group real exit
+                        # status is printf success and the following bare ";" still runs
+                        # the collector regardless; "{ (exit 1); }" only terminates the
+                        # inner subshell, never the actual script, so the bare ";" after it
+                        # still runs the collector too. Require exit to be the unconditional
+                        # first action of a top-level (non-subshelled) clause instead.
+                        has_exit = has_unconditional_exit(block)
                         if has_exit and guard_tests_output(guard):
                             matched = True
             

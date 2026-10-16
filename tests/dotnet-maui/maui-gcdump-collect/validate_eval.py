@@ -127,6 +127,7 @@ def main():
 
         workspace_count = 0
         workspace_mutation_count = 0
+        equivalent_count = 0
         response_defect_count = 0
         for index, stimulus in enumerate(doc["stimuli"]):
             workspace = scratch / f"golden-{index}"
@@ -181,6 +182,48 @@ def main():
                         for cmd in plan["commands"]["collect"]
                     ]
                     mutations.append(missing_serial)
+                    # A single-quoted "$SERIAL" reference never expands in a
+                    # real shell (single quotes suppress all variable
+                    # expansion), so this still unscopes the command to an
+                    # unresolved literal string even though an unrelated
+                    # SERIAL=R58M123 binding happens to exist elsewhere in the
+                    # same command text -- the grader must reject this rather
+                    # than naively treating any "$NAME" shape as resolvable.
+                    single_quoted_serial_var = copy.deepcopy(plan)
+                    single_quoted_serial_var["commands"]["route"] = [
+                        cmd.replace("ANDROID_SERIAL=R58M123 ",
+                                    "SERIAL=R58M123 ANDROID_SERIAL='$SERIAL' ")
+                        for cmd in plan["commands"]["route"]
+                    ]
+                    single_quoted_serial_var["commands"]["collect"] = [
+                        cmd.replace("ANDROID_SERIAL=R58M123 ",
+                                    "SERIAL=R58M123 ANDROID_SERIAL='$SERIAL' ")
+                        for cmd in plan["commands"]["collect"]
+                    ]
+                    mutations.append(single_quoted_serial_var)
+                    # Double-quoted and bare "$SERIAL" references both DO
+                    # expand in a real shell, so they must remain accepted
+                    # once they resolve to the selected serial -- this
+                    # regresses the fix so it only newly rejects the
+                    # single-quoted bypass above, not every variable form.
+                    for accepted_prefix in (
+                        'SERIAL=R58M123 ANDROID_SERIAL="$SERIAL" ',
+                        "SERIAL=R58M123 ANDROID_SERIAL=$SERIAL ",
+                    ):
+                        accepted_variant = copy.deepcopy(plan)
+                        accepted_variant["commands"]["route"] = [
+                            cmd.replace("ANDROID_SERIAL=R58M123 ", accepted_prefix)
+                            for cmd in plan["commands"]["route"]
+                        ]
+                        accepted_variant["commands"]["collect"] = [
+                            cmd.replace("ANDROID_SERIAL=R58M123 ", accepted_prefix)
+                            for cmd in plan["commands"]["collect"]
+                        ]
+                        plan_path.write_text(json.dumps(accepted_variant))
+                        assert all(run(c, workspace, shell=True).returncode == 0
+                                   for c in commands), accepted_prefix
+                        equivalent_count += 1
+                    plan_path.write_text(original)
                 if stimulus["tags"]["capability"] == "ios-live-usb-route":
                     # The self-managing --dsrouter ios route always targets the
                     # physical device's usbmux port 9000 with no offset; a plan
@@ -260,6 +303,40 @@ def main():
                     + '; else exit 0; fi'
                 ]
                 mutations.append(masked_form_b_exit0)
+                # Form B with an "else" closer that only reaches exit behind a
+                # conditional "||" never guarantees nonzero termination: printf
+                # normally succeeds, so "exit 1" is never actually reached and the
+                # if-statement still exits 0 overall -- the same false-success
+                # defect as the no-else/exit-0 forms above, just hidden behind a
+                # command that looks like it is failing the branch.
+                masked_form_b_conditional_exit = copy.deepcopy(plan)
+                masked_form_b_conditional_exit["commands"]["collect"] = [
+                    'if [ ! -e "$PWD/after-navigation.gcdump" ]; then ' + capture
+                    + '; else printf "exists\\n" || exit 1; fi'
+                ]
+                mutations.append(masked_form_b_conditional_exit)
+                # Form C with "exit 1" gated behind a conditional "||" inside the
+                # early-exit block has the identical defect: printf normally
+                # succeeds, so "|| exit 1" never runs and the brace group's real
+                # exit status is printf's own (0), so the trailing bare ";" still
+                # runs the collector regardless of the guard.
+                masked_form_c_conditional_exit = copy.deepcopy(plan)
+                masked_form_c_conditional_exit["commands"]["collect"] = [
+                    '[ ! -e "$PWD/after-navigation.gcdump" ] || '
+                    '{ printf "exists\\n" || exit 1; }; ' + capture
+                ]
+                mutations.append(masked_form_c_conditional_exit)
+                # Form C with "exit 1" wrapped in "(...)" only terminates that
+                # inner subshell, not the actual script: the brace group's own
+                # exit status becomes the subshell's status, but the trailing
+                # bare ";" sequences to the collector regardless of that status,
+                # so the collector still runs even though the file already exists.
+                masked_form_c_subshell_exit = copy.deepcopy(plan)
+                masked_form_c_subshell_exit["commands"]["collect"] = [
+                    '[ ! -e "$PWD/after-navigation.gcdump" ] || '
+                    '{ (exit 1); }; ' + capture
+                ]
+                mutations.append(masked_form_c_subshell_exit)
                 # Form C with "exit 0": the guard genuinely stops the collector (exit
                 # always terminates the script), but reporting success for a skipped
                 # capture is still a defect the no-overwrite grader must reject.
@@ -306,12 +383,22 @@ def main():
                     # Form C with a genuine nonzero exit correctly signals "skipped" to
                     # any caller/operator, unlike the "exit 0" mutation rejected above.
                     '[ ! -e "$PWD/after-navigation.gcdump" ] || { exit 1; }; ' + capture,
+                    # An unconditional message before an unconditional, un-subshelled
+                    # exit is still safe: "exit 1" is the clause's own first action
+                    # (not gated behind "||"/"&&" and not wrapped in "(...)"), so it
+                    # always terminates the script regardless of what the preceding
+                    # statement's own exit status was.
+                    '[ ! -e "$PWD/after-navigation.gcdump" ] || '
+                    '{ printf "exists\\n"; exit 1; }; ' + capture,
+                    'if [ ! -e "$PWD/after-navigation.gcdump" ]; then ' + capture
+                    + '; else printf "exists\\n"; exit 1; fi',
                 ):
                     equivalent = copy.deepcopy(plan)
                     equivalent["commands"]["collect"] = [guarded_capture]
                     plan_path.write_text(json.dumps(equivalent))
                     assert all(run(c, workspace, shell=True).returncode == 0
                                for c in commands), guarded_capture
+                    equivalent_count += 1
                 plan_path.write_text(original)
                 input_path = workspace / stimulus["environment"]["files"][0]["dest"]
                 before = input_path.read_text()
@@ -375,7 +462,7 @@ def main():
         print(f"Mutation rejection: {len(doc['stimuli'])} empty responses; "
               f"{response_defect_count} realistic response defects; "
               f"{workspace_mutation_count} workspace defects")
-        print(f"No-overwrite equivalents accepted: {workspace_count * 5}")
+        print(f"No-overwrite equivalents accepted: {equivalent_count}")
 
         if args.oracle:
             deterministic = copy.deepcopy(doc)
