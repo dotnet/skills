@@ -129,24 +129,40 @@ class CaptureGraderTests(unittest.TestCase):
         cases = [
             ("dotnet build '-bl:{}'", True),
             ('dotnet build "/bl:build-{}.binlog"', True),
+            ('dotnet build -bl:"build-{}.binlog"', True),
+            ("dotnet build /bl:'build-{}.binlog'", True),
             ('dotnet build "-bl:$([guid]::NewGuid()).binlog"', True),
+            ('dotnet build -bl:"$([guid]::NewGuid()).binlog"', True),
             ('dotnet build "-bl:$([System.Guid]::NewGuid().ToString(\'N\')).binlog"', True),
             ('dotnet build "-bl:$(New-Guid).binlog"', True),
             ('dotnet build "-bl:$(Get-Date -Format yyyyMMdd-HHmmssfff).binlog"', True),
+            ('dotnet build -bl:"$(Get-Date -Format yyyyMMdd-HHmmssfff).binlog"', True),
             ('$stamp = Get-Date -Format "yyyyMMdd_HHmmss"\n'
              'dotnet build "-bl:build_$stamp.binlog"', True),
             ('$log = "build-$([guid]::NewGuid().ToString(\'N\')).binlog"; '
              'dotnet build -bl:$log', True),
             ('$id = New-Guid; dotnet build "-bl:build-${id}.binlog"', True),
+            ('$id = New-Guid; dotnet build -bl:"build-$id.binlog"', True),
+            ('$stamp = Get-Date -Format "yyyyMMdd_HHmmss"; '
+             'dotnet build -bl:"build-${stamp}.binlog"', True),
+            ('$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"\n'
+             'dotnet build MyProject.csproj -bl:"build_$timestamp.binlog"', True),
+            ('dotnet build /bl:"build-$([DateTime]::Now.ToString(\'yyyyMMdd-HHmmssfff\'))-'
+             '$([Guid]::NewGuid().ToString(\'N\')).binlog"', True),
             ("dotnet build '-bl:build.binlog'", False),
+            ('dotnet build -bl:"build.binlog"', False),
             ('dotnet build "-bl:20261016-160000.binlog"', False),
             ("dotnet build -bl", False),
             ("dotnet build -bl:{}", False),
             ("dotnet build '-bl:{{}}'", False),
+            ("dotnet build -bl:'{{}}'", False),
             ('dotnet build \'-bl:{}"', False),
+            ('dotnet build -bl:\'build-{}.binlog"', False),
             ('$id = New-Guid; dotnet build "-bl:build.binlog"', False),
             ('$id = New-Guid; dotnet build "-bl:$other.binlog"', False),
             ('$id = New-Guid; dotnet build \'-bl:$id.binlog\'', False),
+            ("$id = New-Guid; dotnet build -bl:'build-$id.binlog'", False),
+            ("dotnet build -bl:'$([guid]::NewGuid()).binlog'", False),
             ('$id = New-Guid; dotnet build "-bl:$id_suffix.binlog"', False),
             ('$id = New-Guid; dotnet build "-bl:`$id.binlog"', False),
             ('$id = "fixed"; dotnet build "-bl:$id.binlog"', False),
@@ -171,6 +187,34 @@ class CaptureGraderTests(unittest.TestCase):
         pattern = next(g["config"]["pattern"] for g in CAPTURE["graders"] if g["type"] == "output-matches")
         output = CAPTURE["golden_trajectory"]["inline"]["steps"][0]["message"]
         self.assertIsNotNone(re.search(pattern, output))
+
+    @unittest.skipUnless(shutil.which("pwsh"), "Native argument checks require PowerShell 7")
+    def test_value_only_quotes_reach_native_executable_as_one_argument(self):
+        script = r"""
+            $ErrorActionPreference = 'Stop'
+            node -e 'console.log(JSON.stringify(process.argv.slice(1)))' build '-bl:build-{}.binlog'
+            node -e 'console.log(JSON.stringify(process.argv.slice(1)))' build -bl:"build-{}.binlog"
+            node -e 'console.log(JSON.stringify(process.argv.slice(1)))' build -bl:"$([guid]::NewGuid()).binlog"
+            $id = New-Guid
+            node -e 'console.log(JSON.stringify(process.argv.slice(1)))' build -bl:"build-$id.binlog"
+            $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+            node -e 'console.log(JSON.stringify(process.argv.slice(1)))' build -bl:"build-${stamp}.binlog"
+        """
+        result = subprocess.run(
+            ["pwsh", "-NoProfile", "-NonInteractive", "-Command", script],
+            capture_output=True, text=True, timeout=30,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        arguments = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
+        self.assertEqual(len(arguments), 5)
+        for argv in arguments:
+            self.assertEqual(len(argv), 2)
+            self.assertEqual(argv[0], "build")
+        self.assertEqual(arguments[0], ["build", "-bl:build-{}.binlog"])
+        self.assertEqual(arguments[1], arguments[0])
+        self.assertRegex(arguments[2][1], r"^-bl:[0-9a-f-]{36}\.binlog$")
+        self.assertRegex(arguments[3][1], r"^-bl:build-[0-9a-f-]{36}\.binlog$")
+        self.assertRegex(arguments[4][1], r"^-bl:build-\d{8}_\d{6}\.binlog$")
 
 
 if __name__ == "__main__":
