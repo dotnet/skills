@@ -18,6 +18,10 @@ stimuli:
       5. Any note about where AddIgniteUIBlazor() has to be called in a split app.
 
       Keep the answer concrete and file-oriented. I do not want a generic overview.
+    tags:
+      capability: project-setup
+      risk: high
+      journey: setup-split-web-app
     graders:
       - type: output-contains
         config:
@@ -50,6 +54,10 @@ stimuli:
       I want to start using Ignite UI components (inputs, combos, a dialog) on a couple of my pages. Walk me through every file I have to touch and exactly what goes in it, in the order I should do it.
 
       Also tell me whether there is anything about render modes I need to deal with here.
+    tags:
+      capability: project-setup
+      risk: medium
+      journey: setup-server-app
     graders:
       - type: output-contains
         config:
@@ -77,6 +85,10 @@ stimuli:
       I've tried this once already and the components showed up as plain unstyled markup.
 
       Tell me what I'm missing and where each piece goes for this kind of project.
+    tags:
+      capability: project-setup
+      risk: medium
+      journey: setup-maui-hybrid-app
     graders:
       - type: output-contains
         config:
@@ -105,11 +117,18 @@ stimuli:
       I got a grid that was completely unstyled. My index.html currently has no Ignite UI tags in it at all.
 
       Give me the exact package, startup and index.html changes for a grid-only setup, and don't have me pull in things I don't need.
+    tags:
+      capability: package-selection
+      risk: high
+      journey: setup-grid-only
     graders:
       - type: output-contains
         config:
           substring: IgniteUI.Blazor.GridLite
       - type: output-matches
+        config:
+          pattern: '_content/IgniteUI\.Blazor\.GridLite/themes/(?:light|dark)/(?:bootstrap|material|fluent|indigo)\.css'
+      - type: output-not-matches
         config:
           pattern: '_content/IgniteUI\.Blazor\.GridLite/css/themes/'
       - type: prompt
@@ -130,6 +149,10 @@ stimuli:
       2. Can I pre-load the modules for the components I use to reduce their first-render latency, and what does that do to the initial download? Would other components still render?
 
       Otherwise just give me the package, the startup registration, the imports and the exact index.html tags.
+    tags:
+      capability: theme-and-module-config
+      risk: medium
+      journey: setup-wasm-components
     graders:
       - type: output-contains
         config:
@@ -169,6 +192,10 @@ stimuli:
       I have a .NET 9 Blazor Web App with one server project and Interactive Server components. I want to add Ignite UI inputs and dialogs.
 
       Give me the package, Program.cs registration, imports, App.razor theme tag and render-mode setup. Use the .NET 9 asset collection syntax where it applies. Do not invent a separate client project.
+    tags:
+      capability: project-setup
+      risk: medium
+      journey: setup-interactive-server-app
     graders:
       - type: output-contains
         config:
@@ -197,6 +224,10 @@ stimuli:
       Standalone Blazor WebAssembly app, already referencing IgniteUI.Blazor.Lite and calling AddIgniteUIBlazor(). The only thing I still need is the wwwroot/index.html side.
 
       Give me exactly the Ignite UI tags that belong in the host page and nothing else — no packages, no Program.cs, no render modes.
+    tags:
+      capability: host-page-assets
+      risk: medium
+      journey: configure-host-page
     graders:
       - type: output-matches
         config:
@@ -213,6 +244,10 @@ stimuli:
       In my Blazor app I can write either AddIgniteUIBlazor() or AddIgniteUIBlazor(typeof(IgbComboModule), typeof(IgbDialogModule)).
 
       Which should I use, and what actually changes between the two? I care about what it costs me and whether components I leave off the list still work.
+    tags:
+      capability: module-preloading
+      risk: medium
+      journey: choose-module-registration
     graders:
       - type: output-contains
         config:
@@ -227,6 +262,10 @@ stimuli:
   - name: Name the package behind a specific Igb component
     prompt: |
       I want to put an IgbCombo on one page of my Blazor app. Which Ignite UI package do I install for it, and what else has to be in place before it renders properly?
+    tags:
+      capability: package-selection
+      risk: medium
+      journey: select-component-package
     graders:
       - type: output-contains
         config:
@@ -248,6 +287,10 @@ stimuli:
       My Blazor Web App already references IgniteUI.Blazor.Trial in its Server and Client projects, and its grid works correctly.
 
       I now want to add an IgbCombo to one page. What package references or startup changes do I need?
+    tags:
+      capability: existing-setup-preservation
+      risk: high
+      journey: extend-existing-setup
     graders:
       - type: prompt
     rubric:
@@ -258,6 +301,10 @@ stimuli:
   - name: Stay dormant for a plain Blazor component request
     prompt: |
       Build a reusable Blazor confirmation dialog component with confirm and cancel callbacks. Use only built-in Blazor APIs and include a small usage example.
+    tags:
+      capability: activation-boundary
+      risk: low
+      journey: decline-off-target
     expect_activation: false
     graders:
       - type: prompt

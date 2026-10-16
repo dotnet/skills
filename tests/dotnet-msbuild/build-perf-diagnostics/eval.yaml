@@ -150,17 +150,18 @@ stimuli:
       - Suggested moving the build agent to a Dev Drive (ReFS) given it currently runs on a standard NTFS volume, and/or
         centralizing output with --artifacts-path
 
-  - name: Diagnose NuGet restore running redundantly across CI stages
+  - name: Decline a known repeated-restore fix
     prompt: >-
-      Our CI build/test/publish stages for Storefront each take about 11
-      seconds and Restore keeps showing up as the top target every time, even
-      though nothing changed between stages. See
-      restore-in-build/perf-summary.txt. What's driving this and what should
-      change?
+      We already confirmed that Storefront's CI build/test/publish stages
+      repeatedly restore the same dependency graph for one commit, as shown
+      in restore-in-build/perf-summary.txt. How should we safely remove those
+      duplicate restores? We are not asking for another bottleneck investigation
+      or a faster initial restore.
+    expect_activation: false
     tags:
-      capability: restore-in-build
+      capability: boundary-known-repeated-restores
       risk: medium
-      journey: diagnose-bottleneck
+      journey: decline-off-target
     environment:
       files:
         - src: ./restore-in-build
@@ -168,26 +169,39 @@ stimuli:
     golden_trajectory:
       inline:
         schema_version: "ATIF-v1.6"
-        session_id: "build-perf-diagnostics-restore-in-build"
+        session_id: "build-perf-diagnostics-decline-known-repeated-restores"
         agent: { name: reference, version: "1.0.0", model_name: curated }
         steps:
           - step_id: 1
             source: agent
             message: |-
-              Restore is taking roughly 9.7 of the ~11 second total in all three CI stages for the same commit, even though packages.lock.json, the PackageReferences, and NuGet.config are all unchanged between build, test, and publish. That means the pipeline is re-resolving the identical dependency graph from scratch three separate times for one commit. The fix is to stop letting each `dotnet build`/`dotnet test`/`dotnet publish` invocation implicitly restore: run `dotnet restore` once, then pass `--no-restore` to the build, test, and publish stages so they reuse that single restore. On top of that, I'd set RestoreUseStaticGraphEvaluation to true in Directory.Build.props, since static graph restore can meaningfully cut restore time on larger dependency graphs.
+              This is a known repeated-restore fix, not an unknown build bottleneck to diagnose. Route it to the redundant-restore workflow. The first build currently performs a required restore, so do not simply suppress all three stages. Establish one explicit dotnet restore covering the required project graph and matching configuration, framework, runtime identifier, and assets output location. Then use --no-restore on the later covered build/test/publish commands only if those assets remain available in their workspace. Retain any restore required for changed or uncovered inputs, and execute the revised pipeline from a clean copy. There is no evidence that the required initial restore itself needs tuning, so static-graph restore is not the requested fix.
     graders:
       - type: output-matches
         config:
-          pattern: (--no-restore|no.restore|separate restore)
+          pattern: (repeated|redundant|duplicate)
       - type: output-matches
         config:
-          pattern: (RestoreUseStaticGraphEvaluation|static graph)
+          pattern: (--no-restore|suppres|reuse)
+      - type: output-matches
+        config:
+          pattern: '(?i)(?:\b(?:keep|retain|preserve|leave)\b[^.!?\n]{0,100}\b(?:first|initial|required|existing)\b[^.!?\n]{0,40}\brestore\b|\b(?:first|initial)\b[^.!?\n]{0,40}\brestore\b[^.!?\n]{0,100}\b(?:keep|retain|preserve|remain|required)\b|\b(?:add|introduce|establish|run)\b[^.!?\n]{0,80}\b(?:explicit\s+)?dotnet\s+restore\b)'
+      - type: output-matches
+        config:
+          pattern: '(?i)\b(?:check(?:ing)?|verif(?:y|ying)|ensure|confirm|match(?:ing)?|cover(?:ed|age|ing)?|only if|only when|same)\b[\s\S]{0,180}\b(?:projects?|graph|solution)\b'
+      - type: output-matches
+        config:
+          pattern: '(?i)\b(?:check(?:ing)?|verif(?:y|ying)|ensure|confirm|match(?:ing)?|cover(?:ed|age|ing)?|same|consistent)\b[\s\S]{0,180}(?:\b(?:configuration|frameworks?|runtime|RID|restore inputs?|PackageReference)\b|(?:-c|--configuration|-f|--framework|-r|--runtime)\b)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(?:\b(?:assets?|project\.assets\.json)\b[\s\S]{0,120}\b(?:available|availability|remain|accessible|present|same|match|covered|workspace|location)\b|\b(?:available|availability|same|matching)\b[\s\S]{0,100}\b(?:assets?|project\.assets\.json)\b)'
       - type: prompt
     rubric:
-      - Identified that Restore re-runs identically in all three pipeline stages even though the lock file and
-        dependencies never changed
-      - Recommended running dotnet restore once and passing --no-restore to the subsequent build/test/publish stages
-      - Recommended enabling RestoreUseStaticGraphEvaluation as an additional restore-time improvement
+      - Recognized that a known repeated-restore fix is out of scope for general build bottleneck diagnosis
+      - Did not start another binlog or target/task bottleneck investigation; routed to targeted restore cleanup
+      - Preserved the required first restore and checked project coverage, restore inputs, and assets availability
+        before recommending suppression of later restores
+      - Did not treat faster cold restore or static-graph restore tuning as the requested duplicate-restore fix
 
   - name: Diagnose a single custom target dominating one project's build
     prompt: >-

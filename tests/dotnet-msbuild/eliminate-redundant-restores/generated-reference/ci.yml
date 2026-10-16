@@ -1,0 +1,9 @@
+steps:
+  - script: dotnet restore Contoso.slnx
+    displayName: Restore
+  - script: dotnet run --project tools/AddAnalyzer -- src/Contoso.Core/Contoso.Core.csproj
+    displayName: Add analyzer package to Contoso.Core
+  - script: dotnet build Contoso.slnx -c Release
+    displayName: Build
+  - script: dotnet test Contoso.slnx -c Release --no-build
+    displayName: Test
