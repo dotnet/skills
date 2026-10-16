@@ -705,8 +705,7 @@ stimuli:
       How do I upgrade the tests in this xUnit v2 project to xUnit v3?
       Explain the migration route and runner compatibility without editing
       any files.
-    expect_activation: false
-    tags: {capability: xunit-version-boundary, risk: unrelated-framework-conversion, journey: assess-framework-version-upgrade}
+    tags: {capability: xunit-version-boundary, risk: unrelated-framework-conversion, journey: assess-framework-version-upgrade, expect_activation: "false"}
     environment:
       files:
         - src: fixtures/migrate-basic-xunit-v2-project-to-mstest-v4-preserving-vstest/TestProject.csproj

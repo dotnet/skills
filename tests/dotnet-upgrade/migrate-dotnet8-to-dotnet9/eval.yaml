@@ -1,7 +1,7 @@
 name: migrate-dotnet8-to-dotnet9
 description: Evaluates the dotnet-upgrade/migrate-dotnet8-to-dotnet9 skill
 type: capability
-config:
+defaults:
   timeout: 7m
 stimuli:
   - name: App with empty environment variables, ZIP encoding, and keyed DI services
@@ -23,6 +23,10 @@ stimuli:
         - src: ./fixtures/app-with-empty-environment-variables-zip-encoding-and-keyed-/Startup.cs
           dest: Startup.cs
     graders:
+      - type: skill-invocation
+        config:
+          disallowed:
+            - "*"
       - type: output-matches
         config:
           pattern: (empty.*env|null.*empty|SetEnvironmentVariable|string\.IsNullOrEmpty)
@@ -40,9 +44,6 @@ stimuli:
         entryNameEncoding may be overridden
       - Identifies FromKeyedServicesAttribute no longer falls back to non-keyed service registration; throws
         InvalidOperationException
-    constraints:
-      reject_skills:
-        - "*"
   - name: C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions
     prompt: |
       I'm migrating a .NET 8 library to .NET 9 / C# 13 and getting compiler errors. Here's the code:
@@ -89,6 +90,10 @@ stimuli:
 
       Migrate this code to .NET 9 / C# 13. What breaks in each case and how do I fix it?
     graders:
+      - type: skill-invocation
+        config:
+          disallowed:
+            - "*"
       - type: output-matches
         config:
           pattern: (InlineArray|record struct|CS9259|struct)
@@ -104,9 +109,6 @@ stimuli:
       - Identifies iterator safe context breaks unsafe code in nested local functions; recommends adding unsafe modifier
         to local function
       - Identifies collection expression overload resolution change for empty [] — no longer uses span to tiebreak
-    constraints:
-      reject_skills:
-        - "*"
   - name: ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting
     prompt: |
       Migrate this .NET 8 ASP.NET Core web API to .NET 9.
@@ -120,6 +122,10 @@ stimuli:
         - src: ./fixtures/asp-net-core-app-with-di-validation-forwarded-headers-and-ht/Program.cs
           dest: Program.cs
     graders:
+      - type: skill-invocation
+        config:
+          disallowed:
+            - "*"
       - type: output-matches
         config:
           pattern: (ValidateOnBuild|ValidateScopes|development|DI|scope)
@@ -138,9 +144,6 @@ stimuli:
       - Identifies HttpClientFactory now uses SocketsHttpHandler; casting to HttpClientHandler throws
         InvalidCastException
       - Mentions header values are redacted by default in HttpClientFactory logging
-    constraints:
-      reject_skills:
-        - "*"
   - name: EF Core app with migration patterns and Cosmos DB discriminator
     prompt: |
       Migrate this EF Core app to .NET 9 / EF Core 9.
@@ -156,6 +159,10 @@ stimuli:
         - src: ./fixtures/ef-core-app-with-migration-patterns-and-cosmos-db-discrimina/MigrationRunner.cs
           dest: MigrationRunner.cs
     graders:
+      - type: skill-invocation
+        config:
+          disallowed:
+            - "*"
       - type: output-matches
         config:
           pattern: (explicit transaction|MigrateAsync|BeginTransaction)
@@ -172,9 +179,6 @@ stimuli:
       - Identifies Cosmos DB discriminator renamed from 'Discriminator' to '$type'; shows HasDiscriminator mitigation
       - Warns that sync I/O on Cosmos DB provider now throws; must use async equivalents
       - Mentions Microsoft.EntityFrameworkCore.Design may not be found; shows Publish=true workaround
-    constraints:
-      reject_skills:
-        - "*"
   - name: EF Core Cosmos DB app with existing documents and composite id format
     prompt: |
       Migrate this EF Core Cosmos DB app to .NET 9.
@@ -191,6 +195,10 @@ stimuli:
         - src: ./fixtures/ef-core-cosmos-db-app-with-existing-documents-and-composite-/CosmosQuery.cs
           dest: CosmosQuery.cs
     graders:
+      - type: skill-invocation
+        config:
+          disallowed:
+            - "*"
       - type: output-matches
         config:
           pattern: (\$type|Discriminator|discriminator.*renamed|HasDiscriminator)
@@ -209,9 +217,6 @@ stimuli:
       - Warns that HasIndex now throws on Cosmos (was silently ignored); must remove it
       - Warns that SQL queries using c.Discriminator need updating to c.$type
       - Identifies sync I/O (ToList) now throws on Cosmos provider; must use ToListAsync
-    constraints:
-      reject_skills:
-        - "*"
   - name: App with JsonDocument null deserialization and BinaryFormatter fallback
     prompt: |
       Migrate this .NET 8 app to .NET 9 and fix all breaking changes in the code.
@@ -226,6 +231,10 @@ stimuli:
         - src: ./fixtures/app-with-jsondocument-null-deserialization-and-binaryformatt/ApiClient.cs
           dest: ApiClient.cs
     graders:
+      - type: skill-invocation
+        config:
+          disallowed:
+            - "*"
       - type: output-matches
         config:
           pattern: (JsonDocument|null|JsonValueKind\.Null|non-null)
@@ -241,9 +250,6 @@ stimuli:
         changes
       - Identifies BinaryFormatter always throws even with the AppContext switch; switch is removed
       - Identifies HttpListenerRequest.UserAgent is now nullable; .Length without null check may throw
-    constraints:
-      reject_skills:
-        - "*"
   - name: CI pipeline with Terminal Logger parsing and version constraints
     prompt: |
       Migrate this CI/CD pipeline and multi-targeted library to .NET 9 SDK.
@@ -259,6 +265,10 @@ stimuli:
         - src: ./fixtures/ci-pipeline-with-terminal-logger-parsing-and-version-constra/ci-build.sh
           dest: ci-build.sh
     graders:
+      - type: skill-invocation
+        config:
+          disallowed:
+            - "*"
       - type: output-matches
         config:
           pattern: (Terminal Logger|--tl|MSBUILDTERMINALLOGGER|console.*output)
@@ -276,9 +286,6 @@ stimuli:
       - Notes netstandard1.x targets produce warnings
       - Mentions dotnet workload output format changed
       - Mentions dotnet watch incompatibility with Hot Reload for older frameworks
-    constraints:
-      reject_skills:
-        - "*"
   - name: WinForms app with custom UserControls and PictureBox URL loading
     prompt: |
       Migrate this .NET 8 WinForms app to .NET 9 and fix all breaking changes.
@@ -294,6 +301,10 @@ stimuli:
         - src: ./fixtures/winforms-app-with-custom-usercontrols-and-picturebox-url-loa/ImageLoader.cs
           dest: ImageLoader.cs
     graders:
+      - type: skill-invocation
+        config:
+          disallowed:
+            - "*"
       - type: output-matches
         config:
           pattern: (WFO1000|security analyz|serialization|DesignerSerializationVisibility)
@@ -310,9 +321,6 @@ stimuli:
       - Mentions StatusStrip default renderer changed
       - Identifies DropDownControl parameter is now non-nullable — passing null will warn
       - Mentions CET support may affect P/Invoke with incompatible native libraries
-    constraints:
-      reject_skills:
-        - "*"
   - name: Containerized app with zlib dependency and runtime configuration
     prompt: |
       Migrate this containerized .NET 8 app to .NET 9.
@@ -332,6 +340,10 @@ stimuli:
         - src: ./fixtures/containerized-app-with-zlib-dependency-and-runtime-configura/global.json
           dest: global.json
     graders:
+      - type: skill-invocation
+        config:
+          disallowed:
+            - "*"
       - type: output-matches
         config:
           pattern: (zlib|no longer install|apt-get|zlib1g)
@@ -350,9 +362,6 @@ stimuli:
         and has no effect, so the minimum ThreadPool thread count remains 50 from runtimeconfig.json"
       - Warns about .NET Monitor image tag format changes
       - Notes global.json should be updated to 9.0.x SDK
-    constraints:
-      reject_skills:
-        - "*"
   - name: EF Core Cosmos DB app with discriminator and sync I/O
     prompt: |
       Migrate this EF Core Cosmos DB app to .NET 9.
@@ -369,6 +378,10 @@ stimuli:
         - src: ./fixtures/ef-core-cosmos-db-app-with-discriminator-and-sync-i-o/SyncJob.cs
           dest: SyncJob.cs
     graders:
+      - type: skill-invocation
+        config:
+          disallowed:
+            - "*"
       - type: output-matches
         config:
           pattern: (\$type|Discriminator|discriminator.*renamed)
@@ -387,9 +400,6 @@ stimuli:
       - Identifies sync I/O throws — SaveChanges must become SaveChangesAsync, ToList must become ToListAsync
       - Identifies HasIndex now throws instead of being silently ignored
       - Warns that SQL queries using c.Discriminator need updating to c.$type or use VALUE projection
-    constraints:
-      reject_skills:
-        - "*"
   - name: Library with String.Trim span overload, keyed services, and InlineArray
     prompt: |
       Migrate this .NET 8 library and web API to .NET 9. It was compiled against .NET 9 RC2.
@@ -404,6 +414,10 @@ stimuli:
         - src: ./fixtures/library-with-string-trim-span-overload-keyed-services-and-in/ApiController.cs
           dest: ApiController.cs
     graders:
+      - type: skill-invocation
+        config:
+          disallowed:
+            - "*"
       - type: output-matches
         config:
           pattern: (Trim|ReadOnlySpan|char\[\]|removed|MissingMethodException)
@@ -420,9 +434,6 @@ stimuli:
       - Identifies FromKeyedServicesAttribute no longer falls back to non-keyed service; throws InvalidOperationException
       - Warns about InlineArray struct size limit enforcement (1 MiB)
       - Identifies HttpListenerRequest.UserAgent is now nullable
-    constraints:
-      reject_skills:
-        - "*"
   - name: Containerized app with env var precedence reversal and zlib removal
     prompt: |
       Migrate this containerized .NET 8 app to .NET 9.
@@ -445,6 +456,10 @@ stimuli:
         - src: ./fixtures/containerized-app-with-env-var-precedence-reversal-and-zlib-/ImageProcessor.cs
           dest: ImageProcessor.cs
     graders:
+      - type: skill-invocation
+        config:
+          disallowed:
+            - "*"
       - type: output-matches
         config:
           pattern: (environment variable|precedence|runtimeconfig|DOTNET_gcServer)
@@ -464,6 +479,3 @@ stimuli:
         adding apt-get install zlib1g
       - Recommends removing or updating conflicting GC environment variables, removing the unsupported
         DOTNET_ThreadPool_MinThreads variable, and configuring the minimum thread count in runtimeconfig.json
-    constraints:
-      reject_skills:
-        - "*"

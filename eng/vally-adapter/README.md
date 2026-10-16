@@ -185,7 +185,7 @@ exactly and no measurement-invalid result remains. Missing execution arms,
 unreadable eval specs, unresolved judge or pairing errors, malformed reports,
 and unknown invalid states fail the matrix leg after diagnostic artifacts are
 written. An unreadable spec is invalid because the adapter cannot safely infer
-whether `expect_activation: false` dormancy contracts apply. The explicit
+whether `tags.expect_activation: "false"` dormancy contracts apply. The explicit
 `underpowered` eval-design state remains visible as instrument debt but does not
 become an infrastructure failure. This proof applies inside each matrix leg.
 Discovery omits entries with no eval specs. The PR collector separately requires
@@ -208,7 +208,7 @@ variant. The plugin variant contributes absolute activation and quality
 telemetry. It can expose routing conflicts and sibling-skill interference, but
 it does not receive a separate sign-test or practical-effect verdict.
 
-Vally 0.14 exposes `environment.skills` but no custom-agent registration field,
+Vally exposes `environment.skills` but no custom-agent registration field,
 and its Copilot executor only sets `skillDirectories`. Agent evals therefore use
 the existing .NET SDK runner, which passes `CustomAgents` directly and leaves
 the default parent agent selected so routing and delegation are measured rather
@@ -258,7 +258,7 @@ result invalid. They are not counted as skill losses.
 
 ### 7. Separate preference stimuli from activation contracts
 
-`expect_activation: false` declares an off-target case where the isolated
+`tags.expect_activation: "false"` declares an off-target case where the isolated
 target skill must stay dormant. Correct dormancy makes the skilled arm
 behaviorally equivalent to baseline, so its head-to-head preference is a tie or
 judge noise by construction. Schema version 4 therefore retains the comparison

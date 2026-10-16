@@ -1,7 +1,7 @@
 name: clr-activation-debugging
 description: Evaluates the dotnet-diag/clr-activation-debugging skill
 type: capability
-config:
+defaults:
   timeout: 2m
 stimuli:
   - name: Diagnose unexpected FOD dialog from native build tool
@@ -172,6 +172,10 @@ stimuli:
       My .NET app crashes with a NullReferenceException after startup.
       Can you analyze the CLR activation logs to find the bug?
     graders:
+      - type: skill-invocation
+        config:
+          disallowed:
+            - "*"
       - type: output-matches
         config:
           pattern: activation.*succeed|loaded.*success|not.*activation|after.*load|runtime.*error|not.*scope
@@ -181,6 +185,3 @@ stimuli:
       - Explains that CLR activation logs cover runtime selection and loading, not runtime behavior after the CLR is
         loaded
       - Does not attempt to diagnose the NullReferenceException from activation logs
-    constraints:
-      reject_skills:
-        - "*"

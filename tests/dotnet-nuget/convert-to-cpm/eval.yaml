@@ -1,7 +1,7 @@
 name: convert-to-cpm
 description: Evaluates the dotnet-nuget/convert-to-cpm skill
 type: capability
-config:
+defaults:
   timeout: 10m
 stimuli:
   - name: Decline CPM conversion for packages.config project
@@ -11,6 +11,10 @@ stimuli:
         - src: .
           dest: .
     graders:
+      - type: skill-invocation
+        config:
+          disallowed:
+            - "*"
       - type: output-contains
         config:
           substring: packages.config
@@ -26,9 +30,6 @@ stimuli:
       - Informed the user that CPM requires PackageReference and cannot be applied to packages.config projects
       - Suggested migrating from packages.config to PackageReference first
       - Did not attempt to create Directory.Packages.props or modify any project files
-    constraints:
-      reject_skills:
-        - "*"
   - name: Align packages directly and recommend CPM
     prompt: The System.Text.Json and Azure.Identity packages have gotten out of sync across projects in
       moderate-version-conflicts/Inventory.slnx. Align each package to the highest version already used in the solution,

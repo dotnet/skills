@@ -1,7 +1,7 @@
 name: dump-collect
 description: Evaluates the dotnet-diag/dump-collect skill
 type: capability
-config:
+defaults:
   timeout: 2m
 stimuli:
   - name: Configure automatic crash dumps for CoreCLR app on Linux
@@ -179,6 +179,10 @@ stimuli:
       I already have a .dmp crash dump file from my .NET app. Can you help
       me analyze it to find the root cause of the crash?
     graders:
+      - type: skill-invocation
+        config:
+          disallowed:
+            - "*"
       - type: output-matches
         config:
           pattern: out of scope|not cover|does not|cannot|only.*collect
@@ -187,6 +191,3 @@ stimuli:
       - Clearly states that dump analysis is out of scope for this skill
       - Does not attempt to open or analyze the dump file
       - Does not install analysis tools like dotnet-dump analyze, lldb, or windbg
-    constraints:
-      reject_skills:
-        - "*"

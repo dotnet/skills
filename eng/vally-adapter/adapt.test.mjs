@@ -776,7 +776,7 @@ test("plugin activation ignores sibling skills when the target stays dormant", (
   assert.equal(verdict.scenarios[0].skillActivationPlugin.activatedRuns, undefined);
 });
 
-test("dormancy parser matches PyYAML Boolean false spellings exactly", () => {
+test("dormancy parser reads false string tags and rejects similar values", () => {
   const root = mkdtempSync(join(tmpdir(), "vally-dormancy-yaml-"));
   try {
     writeFileSync(
@@ -784,53 +784,23 @@ test("dormancy parser matches PyYAML Boolean false spellings exactly", () => {
       [
         "stimuli:",
         "  - name: LowerFalse",
-        "    expect_activation: false",
-        "  - name: TitleFalse",
-        "    expect_activation: False",
-        "  - name: UpperFalse",
-        "    expect_activation: FALSE",
-        "  - name: LowerNo",
-        "    expect_activation: no",
-        "  - name: TitleNo",
-        "    expect_activation: No",
-        "  - name: UpperNo",
-        "    expect_activation: NO",
-        "  - name: LowerOff",
-        "    expect_activation: off",
-        "  - name: TitleOff",
-        "    expect_activation: Off",
-        "  - name: UpperOff",
-        "    expect_activation: OFF",
-        "  - name: SingleLetter",
-        "    expect_activation: n",
-        "  - name: MixedCase",
-        "    expect_activation: fAlse",
+        '    tags: {expect_activation: "false"}',
         "  - name: Commented",
-        "    expect_activation: false # dormancy contract",
+        "    tags:",
+        '      expect_activation: "false" # dormancy contract',
         "  - name: CommentWithoutSeparator",
-        "    expect_activation: false#not-a-comment",
+        "    tags:",
+        '      expect_activation: "false#not-a-comment"',
         "  - name: Prefix",
-        "    expect_activation: off-target",
-        "  - name: Quoted",
-        '    expect_activation: "false"',
+        "    tags:",
+        '      expect_activation: "off-target"',
         "",
       ].join("\n"),
     );
 
     assert.deepEqual(
       [...readNonActivationStimuli("eval.yaml", root)],
-      [
-        "LowerFalse",
-        "TitleFalse",
-        "UpperFalse",
-        "LowerNo",
-        "TitleNo",
-        "UpperNo",
-        "LowerOff",
-        "TitleOff",
-        "UpperOff",
-        "Commented",
-      ],
+      ["LowerFalse", "Commented"],
     );
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -845,9 +815,11 @@ test("dormancy parser reads a zero-indent stimuli sequence", () => {
       [
         "stimuli:",
         "- name: Dormant",
-        "  expect_activation: false",
+        "  tags:",
+        '    expect_activation: "false"',
         "- name: Active",
-        "  expect_activation: true",
+        "  tags:",
+        '    expect_activation: "true"',
         "defaults:",
         "  runs: 1",
         "",
@@ -860,6 +832,34 @@ test("dormancy parser reads a zero-indent stimuli sequence", () => {
   }
 });
 
+test("dormancy parser treats equivalent nested tag indentation identically", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-dormancy-indent-"));
+  try {
+    const evalLines = (expectActivationIndent) => [
+      "stimuli:",
+      "  - name: Dormant",
+      "    tags:",
+      `${" ".repeat(expectActivationIndent)}expect_activation: "false"`,
+      "  - name: Active",
+      "    tags:",
+      `${" ".repeat(expectActivationIndent)}expect_activation: "true"`,
+      "",
+    ].join("\n");
+    writeFileSync(
+      join(root, "two-space.yaml"),
+      evalLines(6),
+    );
+    writeFileSync(join(root, "four-space.yaml"), evalLines(8));
+
+    const conventional = readNonActivationStimuli("two-space.yaml", root);
+    const deeper = readNonActivationStimuli("four-space.yaml", root);
+    assert.deepEqual([...deeper], [...conventional]);
+    assert.deepEqual([...deeper], ["Dormant"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("dormancy parser reads flow-mapping stimuli", () => {
   const root = mkdtempSync(join(tmpdir(), "vally-dormancy-flow-"));
   try {
@@ -867,9 +867,9 @@ test("dormancy parser reads flow-mapping stimuli", () => {
       join(root, "eval.yaml"),
       [
         "stimuli:",
-        "  - {name: Dormant, expect_activation: false}",
-        "  - {expect_activation: false, name: 'Dormant, quoted'}",
-        "  - {name: Active, expect_activation: true}",
+        '  - {name: Dormant, tags: {expect_activation: "false"}}',
+        '  - {tags: {expect_activation: "false"}, name: "Dormant, quoted"}',
+        '  - {name: Active, tags: {expect_activation: "true"}}',
         "",
       ].join("\n"),
     );

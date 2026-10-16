@@ -302,10 +302,10 @@ stimuli:
     prompt: |
       Build a reusable Blazor confirmation dialog component with confirm and cancel callbacks. Use only built-in Blazor APIs and include a small usage example.
     tags:
+      expect_activation: "false"
       capability: activation-boundary
       risk: low
       journey: decline-off-target
-    expect_activation: false
     graders:
       - type: prompt
     rubric:

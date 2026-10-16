@@ -157,8 +157,8 @@ stimuli:
       in restore-in-build/perf-summary.txt. How should we safely remove those
       duplicate restores? We are not asking for another bottleneck investigation
       or a faster initial restore.
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: boundary-known-repeated-restores
       risk: medium
       journey: decline-off-target
@@ -331,8 +331,8 @@ stimuli:
       Our checkout API's p99 latency has doubled since the last release, and
       CheckoutController.cs looks like the main suspect. Can you find the
       bottleneck and speed it up?
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: boundary-runtime-perf
       risk: medium
       journey: decline-off-target

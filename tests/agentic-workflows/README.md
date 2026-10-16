@@ -37,7 +37,7 @@ decision that is safe **if presented to the prompt**; they do not prove the
 live agent job would run. In production, frontmatter conditions or deterministic
 collectors may stop those inputs before any model call. Compiled workflow and
 native-helper evidence validate that separate bootstrap/eligibility boundary.
-`expect_activation: true` here means an active offline decision case, not a
+`tags.expect_activation: "true"` here means an active offline decision case, not a
 claim about live Actions job activation.
 
 ## Fixtures and grading

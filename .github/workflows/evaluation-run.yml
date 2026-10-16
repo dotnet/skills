@@ -1,7 +1,7 @@
 # Reusable LLM skill and custom-agent evaluation.
 #
 # Skills run through `vally experiment run` (baseline / isolated / plugin).
-# Vally 0.14 cannot register custom agents, so tests/<plugin>/agent.*/eval.yaml
+# Current Vally cannot register custom agents, so tests/<plugin>/agent.*/eval.yaml
 # runs through skill-validator's native Copilot SDK agent path and is normalized
 # by eng/vally-adapter/adapt-agent-results.mjs. The main evaluation.yml
 # workflow calls this via workflow_call after `discover`; downstream jobs
@@ -889,7 +889,7 @@ jobs:
           export GITHUB_TOKEN
 
           if [ "$TARGET_KIND" = "agent" ] || [ "$TARGET_KIND" = "workflow" ]; then
-            # Vally 0.14 has no custom-agent registration field: its public
+            # Current Vally has no custom-agent registration field: its public
             # EnvironmentConfig exposes skills/files/commands/MCP only, and its
             # Copilot executor passes skillDirectories but no customAgents.
             # Run the repository's native SDK agent evaluator instead, then

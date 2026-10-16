@@ -1,7 +1,7 @@
 name: android-tombstone-symbolication
 description: Evaluates the dotnet-diag/android-tombstone-symbolication skill
 type: capability
-config:
+defaults:
   timeout: 5m
 stimuli:
   - name: Symbolicate .NET frames in an Android tombstone
@@ -205,6 +205,10 @@ stimuli:
         - src: .
           dest: .
     graders:
+      - type: skill-invocation
+        config:
+          disallowed:
+            - "*"
       - type: output-matches
         config:
           pattern: (iOS|iPhone|Apple|not.*(Android|tombstone)|wrong.*(format|type)|different.*(format|process))
@@ -214,6 +218,3 @@ stimuli:
       - Did NOT attempt to apply the Android tombstone symbolication workflow
       - Did NOT attempt to download symbols from the Microsoft ELF symbol server
       - Explained that iOS crash logs require a different symbolication process (e.g., atos, dSYMs)
-    constraints:
-      reject_skills:
-        - "*"
