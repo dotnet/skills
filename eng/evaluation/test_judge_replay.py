@@ -82,6 +82,20 @@ class JudgeReplayTests(unittest.TestCase):
         self.assertLess(steps.index(recorded), next(i for i, step in enumerate(steps)
                         if step.get("name") == "Upload results"))
 
+    def test_aggregate_accepts_single_and_multiple_artifact_layouts(self):
+        spec = importlib.util.spec_from_file_location("judge_replay_aggregate_test", SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        report = {"provenance": {"artifact_id": 456}, "counts": {"matched": 1},
+                  "replay_wall_seconds": 2.5}
+        with tempfile.TemporaryDirectory() as temp:
+            for nested in (False, True):
+                root = Path(temp) / str(nested)
+                destination = root / "judge-replay-456" if nested else root
+                destination.mkdir(parents=True)
+                (destination / "comparison.json").write_text(json.dumps(report), encoding="utf-8")
+                self.assertEqual(module.aggregate(root, [{"artifact_id": 456}])["counts"]["matched"], 1)
+
     def test_replay_accepts_cli_path_strings(self):
         spec = importlib.util.spec_from_file_location("judge_replay_cli_paths_test", SCRIPT)
         module = importlib.util.module_from_spec(spec)

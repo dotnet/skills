@@ -573,7 +573,7 @@ def run_replay(args):
 
 
 def aggregate(root, expected):
-    reports = [load(path) for path in root.glob("*/comparison.json")]
+    reports = [load(path) for path in root.rglob("comparison.json")]
     observed = {str(report["provenance"]["artifact_id"]) for report in reports}
     required = {str(entry["artifact_id"]) for entry in expected}
     if observed != required or len(required) != len(expected) or len(reports) != len(required):
