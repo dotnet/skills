@@ -42,7 +42,7 @@ Target framework throughout: **MSTest v4** (the few v3-only spellings are explic
 | `[Fact(Timeout = 5000)]` | `[TestMethod]` + `[Timeout(5000)]` (same -- `[Timeout]` is a modifier, not a discovery attribute) |
 | `[Trait("Category", "Unit")]` | `[TestCategory("Unit")]` |
 | `[Trait("Owner", "alice")]` | `[Owner("alice")]` on each affected test method (`Owner` targets methods only; expand xUnit v3 class/assembly owner traits to their tests). `Owner` is a reserved VSTest property and is rejected by `TestPropertyAttribute` |
-| `[Collection("Db")]` | Step 8 + Step 11: `[DoNotParallelize]` (serialization) + `[ClassInitialize]` (sharing) -- preserve scope explicitly |
+| `[Collection("Db")]` | Preserve cross-class sharing and member serialization separately; use a collection-scoped shared helper and a framework scheduling policy (Sections 4 and 7). |
 | Custom `FactAttribute` subclass | Custom `TestMethodAttribute` subclass overriding `ExecuteAsync` (MSTest v4). See `writing-mstest-tests` and `migrate-mstest-v3-to-v4` for `CallerInfo` constructor pattern |
 | Custom `TheoryAttribute` subclass | Same -- subclass `TestMethodAttribute`; expose data via `ITestDataSource` |
 
@@ -259,19 +259,34 @@ public sealed class OrderTests
 
 ### Cross-class fixtures (`ICollectionFixture<T>` / `[CollectionDefinition]`)
 
-xUnit collections do two things at once: (1) share a fixture instance across multiple test classes, **and** (2) serialize execution of those classes (no parallel execution within a collection). MSTest decouples these:
+xUnit's default collections mode combines (1) sharing a collection fixture
+across member classes and (2) serializing those members. This serialization
+does not require `DisableParallelization=true`; that flag additionally prevents
+overlap with other collections. Inspect explicit versioned parallel modes
+before applying the default mapping. MSTest decouples these:
 
-- **Sharing** -> `[AssemblyInitialize]` (genuinely process-wide) **or** static `Lazy<T>` shared helper referenced by each class's `[ClassInitialize]`
-- **Serialization** -> `[DoNotParallelize]` on each member class
+- **Sharing** -> collection-scoped shared helper (for example, static `Lazy<T>`) with one initialization and cleanup after the last member; assembly lifecycle only for a genuinely assembly-wide fixture or an explicitly accepted scope change
+- **Serialization** -> `[DoNotParallelize]` on member classes (conservative), or a common exclusive `[ResourceLock]` when supported by the installed MSTest version
 
 Map deliberately:
 
 | xUnit collection setup | MSTest equivalent |
 |---|---|
-| `[CollectionDefinition("Db")]` + `ICollectionFixture<DbFixture>`, member classes have `[Collection("Db")]`, parallelization default | Static `Lazy<DbFixture>` helper + `[ClassInitialize]` per class. No `[DoNotParallelize]` needed |
-| Same but `[CollectionDefinition("Db", DisableParallelization = true)]` | Same as above + `[DoNotParallelize]` on each member class |
+| `[CollectionDefinition("Db")]` + `ICollectionFixture<DbFixture>`, member classes have `[Collection("Db")]`, default collections mode | Share one fixture and preserve member serialization. With MSTest class-level parallelism, `[DoNotParallelize]` on each member is conservative but also prevents overlap with unrelated classes; disclose this broader scheduling restriction. |
+| Same but `[CollectionDefinition("Db", DisableParallelization = true)]` | Share one fixture and add `[DoNotParallelize]` on member classes; preventing overlap with unrelated tests is part of this source policy, not just a conservative restriction. |
 | Genuinely process-wide singleton (e.g., `WebApplicationFactory` for a TestServer the whole assembly hits) | `[AssemblyInitialize]` + `[AssemblyCleanup]` in a dedicated `AssemblySetup` class -- with the user's explicit acknowledgement that scope widens to the whole assembly |
 | Custom `ITestCollectionOrderer` | **Manual** -- MSTest's `[TestMethodAttribute]` ordering model is different; flag for review |
+
+A shared `Lazy<T>` is not a lifecycle or synchronization policy. Initialize once,
+dispose once after the final member and preserve async cleanup. Do not dispose
+the shared instance from every member's cleanup or silently extend its lifetime
+to the assembly. Counting all declared member classes also leaks when a filter
+selects only one; validate both full and single-member filtered runs. A lazy
+assembly/run-end cleanup fallback requires an explicitly accepted sole-collection
+assembly scope, not a claim of generic collection lifetime.
+If exact fixture scope or concurrency grouping needs an
+unsupported scheduler/lifecycle mechanism, report manual work or obtain agreement
+to a conservative alternative instead of claiming exact parity.
 
 ### Assembly-level fixtures
 
@@ -305,13 +320,19 @@ xUnit v2 has no equivalent of `TestContext.Current.CancellationToken` -- skip th
 
 | xUnit default | MSTest equivalent |
 |---|---|
-| Parallel across test classes, serial within a class | `[assembly: Parallelize(Workers = 0, Scope = ExecutionScope.ClassLevel)]` |
+| Default collections mode: parallel across collections, serial within each | `[assembly: Parallelize(Workers = 0, Scope = ExecutionScope.ClassLevel)]` for independent classes, plus serialization for shared-collection members |
 | xUnit + `[CollectionBehavior(DisableTestParallelization = true)]` | Omit `[assembly: Parallelize]` |
 | xUnit + `[CollectionBehavior(MaxParallelThreads = N)]` | `[assembly: Parallelize(Workers = N, Scope = ExecutionScope.ClassLevel)]` |
-| `[Collection("Db")]` (forces serial within the collection) | `[DoNotParallelize]` on each member class |
+| `[Collection("Db")]` (forces serial within the collection) | `[DoNotParallelize]` on each member class conservatively prevents overlap with unrelated tests too; a supported common exclusive `[ResourceLock]` preserves narrower serialization |
 | `[CollectionDefinition("Db", DisableParallelization = true)]` | Same -- `[DoNotParallelize]` on each member class |
 
-> Do not use `ExecutionScope.MethodLevel` to "match xUnit". MethodLevel parallelizes methods *within* a class, which xUnit never does.
+> Do not use `ExecutionScope.MethodLevel` to match default collections mode.
+> xUnit v3 4.0+ also supports an explicit `all` mode. Inspect the package version,
+> mode, per-test opt-outs and runner overrides before attempting that mapping.
+> Do not infer in-assembly policy from cross-assembly runner settings.
+
+See [xUnit parallelism](https://xunit.net/docs/running-tests-in-parallel) for
+collection grouping, versioned modes and runner-versus-framework scope.
 
 ### `xunit.runner.json`
 
@@ -319,12 +340,15 @@ Delete `xunit.runner.json` after porting the settings that affect behavior:
 
 | xUnit setting | MSTest equivalent |
 |---|---|
-| `"parallelizeAssembly": false` | MSTest's serial default; omit `[assembly: Parallelize]` |
+| `"parallelizeAssembly": false` | Cross-assembly runner policy, not in-assembly class policy. Preserve through the repository's runner/orchestrator configuration or flag the missing equivalent; do not remove class parallelism solely for this setting. |
 | `"parallelizeTestCollections": false` | MSTest's serial default; omit `[assembly: Parallelize]` |
 | `"maxParallelThreads": N` | `[assembly: Parallelize(Workers = N, Scope = ExecutionScope.ClassLevel)]` |
 | `"diagnosticMessages": true` | Use diagnostic CLI output or `.runsettings` verbosity |
-| `"longRunningTestSeconds": N` | `[Timeout(N * 1000)]` on affected tests |
+| `"longRunningTestSeconds": N` | Diagnostic warning only (requires xUnit diagnostic messages). Use a verified non-failing diagnostic equivalent or document the gap; never synthesize `[Timeout]` or a failure deadline. |
 | `"methodDisplay"` / `"preEnumerateTheories"` / `"appDomain"` | No direct equivalent; document the behavior change |
+
+See [xUnit runner configuration](https://xunit.net/docs/config-xunit-runner-json)
+for the distinction between long-running diagnostics and enforced timeouts.
 
 ## 8. Assembly-level attributes
 

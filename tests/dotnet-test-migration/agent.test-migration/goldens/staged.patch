@@ -1,0 +1,193 @@
+diff --git a/OrderTests/OrderTests.csproj b/OrderTests/OrderTests.csproj
+--- a/OrderTests/OrderTests.csproj
++++ b/OrderTests/OrderTests.csproj
+@@ -3,10 +3,13 @@
+     <TargetFramework>net8.0</TargetFramework>
+     <IsPackable>false</IsPackable>
+     <ImplicitUsings>enable</ImplicitUsings>
++    <EnableMSTestRunner>true</EnableMSTestRunner>
++    <OutputType>Exe</OutputType>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="MSTest.TestFramework" Version="2.2.10" />
+-    <PackageReference Include="MSTest.TestAdapter" Version="2.2.10" />
++    <PackageReference Include="MSTest.TestFramework" Version="4.4.1" />
++    <PackageReference Include="MSTest.TestAdapter" Version="4.4.1" />
++    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" />
+     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+   </ItemGroup>
+ </Project>
+diff --git a/OrderTests/OrderServiceTests.cs b/OrderTests/OrderServiceTests.cs
+--- a/OrderTests/OrderServiceTests.cs
++++ b/OrderTests/OrderServiceTests.cs
+@@ -22,7 +22,7 @@
+     public void CreateOrder_InvalidQuantity_Throws(int quantity)
+     {
+         var service = new OrderService();
+-        Assert.ThrowsException<ArgumentException>(() => service.Create("item-1", quantity));
++        Assert.ThrowsExactly<ArgumentException>(() => service.Create("item-1", quantity));
+     }
+ }
+
+diff --git a/global.json b/global.json
+--- a/global.json
++++ b/global.json
+@@ -2,5 +2,8 @@
+   "sdk": {
+     "version": "10.0.100",
+     "rollForward": "latestPatch"
++  },
++  "test": {
++    "runner": "Microsoft.Testing.Platform"
+   }
+ }
+diff --git a/checkpoints/v3/global.json b/checkpoints/v3/global.json
+new file mode 100644
+--- /dev/null
++++ b/checkpoints/v3/global.json
+@@ -0,0 +1,6 @@
++{
++  "sdk": {
++    "version": "10.0.100",
++    "rollForward": "latestPatch"
++  }
++}
+diff --git a/checkpoints/v3/OrderTests/OrderTests.csproj b/checkpoints/v3/OrderTests/OrderTests.csproj
+new file mode 100644
+--- /dev/null
++++ b/checkpoints/v3/OrderTests/OrderTests.csproj
+@@ -0,0 +1,12 @@
++<Project Sdk="Microsoft.NET.Sdk">
++  <PropertyGroup>
++    <TargetFramework>net8.0</TargetFramework>
++    <IsPackable>false</IsPackable>
++    <ImplicitUsings>enable</ImplicitUsings>
++  </PropertyGroup>
++  <ItemGroup>
++    <PackageReference Include="MSTest.TestFramework" Version="3.8.0" />
++    <PackageReference Include="MSTest.TestAdapter" Version="3.8.0" />
++    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
++  </ItemGroup>
++</Project>
+diff --git a/checkpoints/v3/OrderTests/OrderServiceTests.cs b/checkpoints/v3/OrderTests/OrderServiceTests.cs
+new file mode 100644
+--- /dev/null
++++ b/checkpoints/v3/OrderTests/OrderServiceTests.cs
+@@ -0,0 +1,42 @@
++using Microsoft.VisualStudio.TestTools.UnitTesting;
++
++namespace OrderTests;
++
++[TestClass]
++public class OrderServiceTests
++{
++    [TestMethod]
++    public void CreateOrder_ValidInput_ReturnsOrder()
++    {
++        var service = new OrderService();
++        var order = service.Create("item-1", 2);
++        Assert.IsNotNull(order);
++        Assert.AreEqual("item-1", order.ItemId);
++        Assert.AreEqual(2, order.Quantity);
++    }
++
++    [DataTestMethod]
++    [DataRow(0, DisplayName = "invalid-zero")]
++    [DataRow(-1, DisplayName = "invalid-negative")]
++    public void CreateOrder_InvalidQuantity_Throws(int quantity)
++    {
++        var service = new OrderService();
++        Assert.ThrowsException<ArgumentException>(() => service.Create("item-1", quantity));
++    }
++}
++
++public class OrderService
++{
++    public Order Create(string itemId, int quantity)
++    {
++        if (quantity <= 0)
++            throw new ArgumentException("Quantity must be positive", nameof(quantity));
++        return new Order { ItemId = itemId, Quantity = quantity };
++    }
++}
++
++public class Order
++{
++    public string ItemId { get; set; } = "";
++    public int Quantity { get; set; }
++}
+diff --git a/checkpoints/v4/global.json b/checkpoints/v4/global.json
+new file mode 100644
+--- /dev/null
++++ b/checkpoints/v4/global.json
+@@ -0,0 +1,6 @@
++{
++  "sdk": {
++    "version": "10.0.100",
++    "rollForward": "latestPatch"
++  }
++}
+diff --git a/checkpoints/v4/OrderTests/OrderTests.csproj b/checkpoints/v4/OrderTests/OrderTests.csproj
+new file mode 100644
+--- /dev/null
++++ b/checkpoints/v4/OrderTests/OrderTests.csproj
+@@ -0,0 +1,12 @@
++<Project Sdk="Microsoft.NET.Sdk">
++  <PropertyGroup>
++    <TargetFramework>net8.0</TargetFramework>
++    <IsPackable>false</IsPackable>
++    <ImplicitUsings>enable</ImplicitUsings>
++  </PropertyGroup>
++  <ItemGroup>
++    <PackageReference Include="MSTest.TestFramework" Version="4.4.1" />
++    <PackageReference Include="MSTest.TestAdapter" Version="4.4.1" />
++    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
++  </ItemGroup>
++</Project>
+diff --git a/checkpoints/v4/OrderTests/OrderServiceTests.cs b/checkpoints/v4/OrderTests/OrderServiceTests.cs
+new file mode 100644
+--- /dev/null
++++ b/checkpoints/v4/OrderTests/OrderServiceTests.cs
+@@ -0,0 +1,42 @@
++using Microsoft.VisualStudio.TestTools.UnitTesting;
++
++namespace OrderTests;
++
++[TestClass]
++public class OrderServiceTests
++{
++    [TestMethod]
++    public void CreateOrder_ValidInput_ReturnsOrder()
++    {
++        var service = new OrderService();
++        var order = service.Create("item-1", 2);
++        Assert.IsNotNull(order);
++        Assert.AreEqual("item-1", order.ItemId);
++        Assert.AreEqual(2, order.Quantity);
++    }
++
++    [DataTestMethod]
++    [DataRow(0, DisplayName = "invalid-zero")]
++    [DataRow(-1, DisplayName = "invalid-negative")]
++    public void CreateOrder_InvalidQuantity_Throws(int quantity)
++    {
++        var service = new OrderService();
++        Assert.ThrowsExactly<ArgumentException>(() => service.Create("item-1", quantity));
++    }
++}
++
++public class OrderService
++{
++    public Order Create(string itemId, int quantity)
++    {
++        if (quantity <= 0)
++            throw new ArgumentException("Quantity must be positive", nameof(quantity));
++        return new Order { ItemId = itemId, Quantity = quantity };
++    }
++}
++
++public class Order
++{
++    public string ItemId { get; set; } = "";
++    public int Quantity { get; set; }
++}
