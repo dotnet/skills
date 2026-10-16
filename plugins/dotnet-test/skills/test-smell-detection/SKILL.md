@@ -25,8 +25,10 @@ framework idioms, and fixes native to the codebase.
   for code; never claim a file is missing until that search finds no relevant
   test.
 - Read production code only when it changes a verdict.
-- For unfamiliar framework APIs, call `test-analysis-extensions` and read the
-  matching language extension.
+- For unfamiliar framework APIs, read the matching language file relative to
+  the caller-provided or runtime-listed `test-analysis-extensions` catalog,
+  not a skill invocation. If absent, use the framework and rules here and report
+  the missing reference; do not search installation directories.
 - Read [the complete catalog](references/test-smell-catalog.md) when the caller
   requests all 19 smells, asks for citations, or the code may contain a smell
   outside the high-signal set below. Do not load it for a narrow question that

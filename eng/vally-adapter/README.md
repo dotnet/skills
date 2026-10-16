@@ -103,6 +103,24 @@ The implementation is split across these main components:
 | [`consolidate.mjs`](./consolidate.mjs) | Combines model/shard result sets and produces the decision-first PR comment |
 | [`check_eval_quality.py`](../eval-quality/check_eval_quality.py) | Blocks structurally invalid or newly underpowered eval instruments before they run |
 
+### Redistributable workflow packages
+
+The native SDK lane also accepts individual `agentic-workflows/<package>/aw.yml`
+manifests. Discovery includes package source/resource changes, shared grader
+changes, and `tests/agentic-workflows/` scenarios on PRs; schedules include the
+collection. Dispatch `plugin: agentic-workflows` to evaluate only that collection.
+The reusable `evaluation-run.yml` dispatch additionally accepts a package name
+as its `skill` input. Missing package evals fail discovery explicitly.
+
+Workflow evidence uses `skillKind: workflow` and
+`evaluationLane: workflow-prompt-sdk`, retaining the same accounting,
+distinct-stimulus policy, activation, completion, and retry semantics.
+It evaluates real imported prompts and installed resources against offline
+collector/service fixtures and proposed `result.json` actions. It does not run
+Actions bootstrap jobs or publish safe outputs. Runtime gh-aw trace graders,
+package compilation, helper regression tests, and consumer integration runs
+are complementary evidence, not substitutes for these scenario evals.
+
 ## Trust boundaries
 
 Evaluation can execute content from the commit being tested. The workflow must

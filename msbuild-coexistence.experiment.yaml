@@ -21,6 +21,7 @@ variants:
   plugin:
     environment:
       skills:
+        - plugins/dotnet/skills/csharp-expert
         - plugins/dotnet/skills/csharp-refactoring
         - plugins/dotnet/skills/msbuild
         - plugins/dotnet/skills/setup-local-sdk
@@ -32,6 +33,7 @@ variants:
         - plugins/dotnet-msbuild/skills/check-bin-obj-clash
         - plugins/dotnet-msbuild/skills/copy-to-output-directory
         - plugins/dotnet-msbuild/skills/directory-build-organization
+        - plugins/dotnet-msbuild/skills/eliminate-redundant-restores
         - plugins/dotnet-msbuild/skills/eval-performance
         - plugins/dotnet-msbuild/skills/extension-points
         - plugins/dotnet-msbuild/skills/including-generated-files

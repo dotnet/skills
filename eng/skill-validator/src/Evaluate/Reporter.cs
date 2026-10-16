@@ -617,17 +617,17 @@ public static class Reporter
             if (anyPluginRun)
             {
                 sb.AppendLine($"| Skill | Scenario | Quality (Isolated) | Quality (Plugin) | Skills Loaded |{agentsHeader} Overfit | Verdict |");
-                sb.AppendLine($"|-------|----------|--------------------|------------------|---------------|{agentsSep}---------|---------|"  );
+                sb.AppendLine($"|-------|----------|--------------------|------------------|---------------|{agentsSep}---------|---------|");
             }
             else
             {
                 sb.AppendLine($"| Skill | Scenario | Quality | Skills Loaded |{agentsHeader} Overfit | Verdict |");
-                sb.AppendLine($"|-------|----------|---------|---------------|{agentsSep}---------|---------|"  );
+                sb.AppendLine($"|-------|----------|---------|---------------|{agentsSep}---------|---------|");
             }
             foreach (var row in tableRows)
                 sb.AppendLine(row);
         }
-      
+
         if (footnotes.Count > 0)
         {
             sb.AppendLine();
@@ -956,7 +956,7 @@ public static class Reporter
     internal static bool RequiresVerdictLevelFailure(SkillVerdict verdict) =>
         !verdict.Passed
         && (verdict.FailureKind == FailureKind.NoScenarios
-            || verdict.SkillKind == "agent"
+            || verdict.SkillKind is "agent" or "workflow"
                 && verdict.FailureKind is FailureKind.SkillNotActivated or FailureKind.UnexpectedActivation);
 
     /// <summary>Formats a subagent activation info object into a markdown cell string.</summary>

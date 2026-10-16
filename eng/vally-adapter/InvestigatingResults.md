@@ -6,7 +6,35 @@ For the end-to-end architecture, decision policy, metric definitions, and
 historical examples, start with the
 [Skill evaluation infrastructure overview](./README.md).
 
+Workflow packages under `agentic-workflows/` use the native SDK adapter too.
+Their specs live at `tests/agentic-workflows/<package>/eval.yaml`; result identity
+is the package name with `skillKind: workflow` and
+`evaluationLane: workflow-prompt-sdk`. The baseline omits workflow guidance,
+the isolated arm uses the real imported workflow prompt and installed resources,
+and the package arm adds registered bundled agents. These are offline
+fixture-based decision/proposal evaluations, not live Actions jobs or published
+safe outputs. Compile/helper checks and consumer runtime evidence are separate.
+Missing context/import/resource errors invalidate the measurement; no-op
+scenarios still require primary `workflow.<package>` activation.
+The native runner enforces shell denial for all offline workflow model arms;
+this is not merely an instruction in the prompt. Published dashboard JSON keeps
+`skillKind: workflow`, its offline execution lane, exact persona activation, and
+package-manifest/eval source links.
+
 Every target runs in up to three variants — **baseline** (no target), **isolated** (only the target plus declared dependencies), and **plugin** (the production plugin surface). Skill evals run through Vally (`@microsoft/vally-cli`). Agent evals run through `skill-validator evaluate`, which registers `CustomAgents` directly and retains target activation, nested delegation, invoked skills, tool calls, completion, tokens, and wall time. Both adapters write one `results.json` per expected target, including an explicit invalid result when required evidence is missing.
+
+The native agent parser stages `stimuli[].environment.files`, not a shared
+suite-level `environment.files` block. Declare required authentication helpers
+and other shared inputs in every stimulus that uses them. A missing
+`.eval/authenticated_artifacts.py` in a command grader is a spec-staging defect,
+not evidence of an agent content or preservation failure.
+
+Native executor sessions now supply the exact project workspace and staged
+reference-only catalog files. Consumers read those resources, not hidden
+skill-tool names, and normal shell hooks defer to typed SDK permissions rather
+than manufacturing an unsupported custom approval prompt. Explicit shell
+denial remains enforced. Baseline identity includes this execution contract:
+do not reuse recordings from the older workspace/permission behavior.
 
 Native agent stimuli may opt in to `deny_shell: true`. Unlike the post-run
 `reject_tools` constraint, this rejects actual shell execution in all arms
@@ -40,6 +68,16 @@ evidence merely because its rejection events survived.
 When an evaluation has a non-pass or warning, the PR comment includes a ready-to-use prompt. Copy it to your AI agent. The agent downloads the artifacts, reads this guide, analyzes the `results.json` files, and suggests fixes.
 
 ## Quick start
+
+Trusted discovery scripts and evaluated content can come from different
+revisions. An infrastructure PR predating workflow eval support can contain
+`agentic-workflows/<package>/aw.yml` but no corresponding
+`tests/agentic-workflows/<package>/eval.yaml`. Newer trusted discovery then fails
+closed with `Workflow package '<package>' has no eval.yaml` before evaluation.
+Integrate the already-landed workflow evaluation prerequisites into the PR
+content snapshot; do not hide the failure by skipping missing specifications.
+Validate discovery against the exact updated head. A local discovery pass is
+not a paid evaluation result or trusted/default harness certification.
 
 The default PR evaluation profile uses `claude-sonnet-5` and `gpt-5.6-luna`.
 Sonnet is judged by `gpt-5.6-terra`; Luna is judged by `claude-haiku-4.5`.

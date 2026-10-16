@@ -122,7 +122,7 @@ Pester v5 runs in **two phases**: Discovery (collects test metadata) then Run (e
 
 ## Parameterized Test Display Names
 
-Apply [Report-safe test names and result validation](../../code-testing-agent/unit-test-generation.prompt.md#report-safe-test-names-and-result-validation).
+Apply [Report-safe test names and result validation](../../code-testing/unit-test-generation.prompt.md#report-safe-test-names-and-result-validation).
 Use an explicit safe `Name`/`Case` in `-ForEach` or `-TestCases` data and expand
 only that field in the `It` title. Do not expand arbitrary `<Input>` or
 `<Expected>` values into discovery/report metadata.

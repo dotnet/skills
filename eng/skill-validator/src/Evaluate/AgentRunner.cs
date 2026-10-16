@@ -25,7 +25,9 @@ public sealed record RunOptions(
     string? SessionId = null,
     AgentInfo? Agent = null,
     IReadOnlyList<AgentInfo>? AdditionalAgents = null,
-    bool SelectAgentAsPrimary = true);
+    bool SelectAgentAsPrimary = true,
+    WorkflowInfo? Workflow = null,
+    bool OfflineWorkflow = false);
 
 internal sealed class RunEventBuffer
 {
@@ -67,6 +69,7 @@ internal sealed class RunEventBuffer
 
 public static class AgentRunner
 {
+    internal const string ExecutionContractVersion = "workspace-and-typed-shell-permissions-v3";
     private static readonly HashSet<string> EvaluatorOnlySetupEntries =
         new(StringComparer.OrdinalIgnoreCase)
         {
@@ -301,6 +304,10 @@ public static class AgentRunner
         actual[(actual.LastIndexOf(':') + 1)..].Equals(
             expected[(expected.LastIndexOf(':') + 1)..], StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsFileMutationTool(string? toolName) =>
+        toolName?.ToLowerInvariant() is "edit" or "create" or "delete" or "remove"
+            or "rename" or "move" or "write" or "write_file" or "append" or "append_file" or "apply_patch";
+
     private static readonly HashSet<string> AllowedPathlessShellCommands = new(
         [
             "dir",
@@ -312,6 +319,7 @@ public static class AgentRunner
             "git diff --check",
             "git status",
             "git status --short",
+            "Get-Location",
             "ls",
             "pwd",
         ],
@@ -362,6 +370,10 @@ public static class AgentRunner
         if (request.PossiblePaths is not { Length: > 0 }
             && !IsAllowedPathlessShellCommand(request.FullCommandText))
         {
+            var scopedPaths = GetScopedDotnetCommandPaths(request.FullCommandText);
+            if (scopedPaths is not null)
+                return CheckPermissions(scopedPaths, workDir, skillPath, log, runLabel, pluginRoot, additionalAllowedDirs);
+
             var labelSuffix = runLabel is not null ? $" ({runLabel})" : "";
             log?.Invoke($"      ❌ Denying unclassified shell permission request{labelSuffix}");
             return false;
@@ -375,6 +387,84 @@ public static class AgentRunner
             runLabel,
             pluginRoot,
             additionalAllowedDirs);
+    }
+
+    internal static IReadOnlyList<string>? GetScopedDotnetCommandPaths(string? command)
+    {
+        if (string.IsNullOrWhiteSpace(command)
+            || command.IndexOfAny(['$', '`', ';', '&', '|', '<', '>', '\r', '\n', '(', ')', '{', '}']) >= 0)
+            return null;
+
+        var matches = Regex.Matches(command, "\"[^\"]*\"|'[^']*'|[^\\s\"']+");
+        var words = new List<string>();
+        var position = 0;
+        foreach (Match match in matches)
+        {
+            if (!string.IsNullOrWhiteSpace(command[position..match.Index]))
+                return null;
+            words.Add(match.Value[0] is '"' or '\'' ? match.Value[1..^1] : match.Value);
+            position = match.Index + match.Length;
+        }
+        if (!string.IsNullOrWhiteSpace(command[position..]) || words.Count < 2
+            || !words[0].Equals("dotnet", StringComparison.OrdinalIgnoreCase)
+            || words[1] is not ("build" or "test" or "run")
+            || words.Any(word => word.StartsWith('@')))
+            return null;
+
+        var paths = new List<string>();
+        var hasProject = false;
+        for (var index = 2; index < words.Count; index++)
+        {
+            var word = words[index];
+            if (word.StartsWith("--verbosity:", StringComparison.Ordinal)
+                || word.StartsWith("--verbosity=", StringComparison.Ordinal))
+            {
+                var value = word["--verbosity:".Length..];
+                if (value is not ("q" or "quiet" or "m" or "minimal" or "n" or "normal" or "d" or "detailed" or "diag" or "diagnostic"))
+                    return null;
+                continue;
+            }
+            if (word is "--no-restore" or "--no-build" or "--nologo" or "--no-incremental"
+                or "--list-tests" or "--report-trx")
+                continue;
+            if (word is "--project" or "--solution" or "--output" or "-o" or "--results-directory"
+                or "--report-trx-filename")
+            {
+                if (++index >= words.Count || string.IsNullOrWhiteSpace(words[index])
+                    || words[index].StartsWith('~'))
+                    return null;
+                paths.Add(words[index]);
+                hasProject |= word is "--project" or "--solution";
+                continue;
+            }
+            if (word is "--verbosity" or "-v" or "--configuration" or "-c" or "--framework" or "-f"
+                or "--filter" or "--logger" or "--collect")
+            {
+                if (++index >= words.Count || string.IsNullOrWhiteSpace(words[index]))
+                    return null;
+                var value = words[index];
+                if (word is "--logger" && value != "trx"
+                    || word is "--collect" && value is not ("Code Coverage" or "XPlat Code Coverage")
+                    || word is "--verbosity" or "-v" && value is not ("q" or "quiet" or "m" or "minimal" or "n" or "normal" or "d" or "detailed" or "diag" or "diagnostic")
+                    || word is "--configuration" or "-c" or "--framework" or "-f"
+                        && !Regex.IsMatch(value, "^[A-Za-z0-9._-]+$")
+                    || word == "--filter" && value.IndexOfAny(['/', '\\', ':']) >= 0)
+                    return null;
+                continue;
+            }
+            if (!word.StartsWith('-') && !hasProject)
+            {
+                if (word.StartsWith('~'))
+                    return null;
+                paths.Add(word);
+                hasProject = true;
+                continue;
+            }
+            return null;
+        }
+        if (words[1] == "run" && !hasProject)
+            return null;
+        return paths.Count > 0 ? paths : ["."];
     }
 
     internal static bool MayCreateFileSystemLink(string? command)
@@ -501,8 +591,10 @@ public static class AgentRunner
         IReadOnlyList<AgentInfo>? additionalAgents = null,
         bool denyShell = false,
         Action<string?>? onShellDenied = null,
-        bool selectAgentAsPrimary = false)
+        bool selectAgentAsPrimary = false,
+        bool offlineWorkflow = false)
     {
+        denyShell |= offlineWorkflow;
         // Runtime guard: Skill and Agent are mutually exclusive targets.
         // (additionalSkills/additionalAgents are cross-dependencies and may co-exist with either target.)
         if (skill is not null && agent is not null)
@@ -659,6 +751,30 @@ public static class AgentRunner
             .Where(d => !string.IsNullOrEmpty(d))
             .ToList();
 
+        var referenceCatalogs = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var stagedRoot in additionalAllowedDirs)
+        {
+            foreach (var stagedSkill in await SkillDiscovery.DiscoverSkills(stagedRoot, stagedRoot))
+            {
+                if (stagedSkill.DisableModelInvocation)
+                    referenceCatalogs.TryAdd(Path.GetFileName(stagedSkill.Path), stagedSkill.SkillMdPath);
+            }
+        }
+
+        var workspaceContext = $"The project workspace for this run is `{Path.GetFullPath(workDir)}`. "
+            + "File tools accept project-relative paths; prefer them over retyping temporary directory identifiers. "
+            + "Resolve project-relative paths against this workspace. "
+            + "A skill's base directory contains reference material, not the project. "
+            + "Do not search the parent evaluation directory or other scenario workspaces.";
+        if (referenceCatalogs.Count > 0)
+        {
+            workspaceContext += "\nReference-only catalogs are files, not callable skills. "
+                + "Read their bundled resources only when needed. Language files are in the "
+                + "catalog's extensions subdirectory (for example extensions/dotnet.md), "
+                + "not beside SKILL.md:\n"
+                + string.Join('\n', referenceCatalogs.Select(entry => $"- `{entry.Key}`: `{entry.Value}`"));
+        }
+
         // Agents should access only the staged copies, never the original skill
         // or plugin tree. Custom-agent prompts are already loaded into memory.
         // The staged roots above contain all runtime skill content and are the
@@ -714,7 +830,12 @@ public static class AgentRunner
             Model = model,
             Streaming = true,
             WorkingDirectory = workDir,
-            SkillDirectories = [..skillDirs, ..noiseDirs],
+            SystemMessage = new SystemMessageConfig
+            {
+                Mode = SystemMessageMode.Append,
+                Content = workspaceContext,
+            },
+            SkillDirectories = [.. skillDirs, .. noiseDirs],
             ConfigDirectory = configDir,
             McpServers = sdkMcp,
             CustomAgents = customAgents,
@@ -726,7 +847,8 @@ public static class AgentRunner
             CreateSessionFsProvider = _ => new LocalSessionFsHandler(
                 configDir,
                 workDir,
-                new[] { workDir }.Concat(additionalAllowedDirs)),
+                new[] { workDir }.Concat(additionalAllowedDirs),
+                offlineWorkflow),
             OnPermissionRequest = (request, invocation) =>
             {
                 if (denyShell && request is PermissionRequestShell)
@@ -738,7 +860,8 @@ public static class AgentRunner
                     runLabel,
                     additionalAllowedDirs,
                     sdkMcp,
-                    denyShell));
+                    denyShell,
+                    offlineWorkflow));
             },
             Hooks = new SessionHooks
             {
@@ -770,14 +893,15 @@ public static class AgentRunner
 
                     if (IsShellTool(input.ToolName))
                     {
-                        if (denyShell)
-                            RecordShellDenial(input.SessionId ?? invocation?.SessionId);
+                        if (!denyShell)
+                            return Task.FromResult<PreToolUseHookOutput?>(null);
+
+                        RecordShellDenial(input.SessionId ?? invocation?.SessionId);
                         return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
                         {
-                            PermissionDecision = denyShell ? "deny" : "ask",
-                            PermissionDecisionReason = denyShell
-                                ? "All shell execution is denied by evaluation policy; file tools retain their existing permissions"
-                                : "Validate shell command paths",
+                            PermissionDecision = "deny",
+                            PermissionDecisionReason =
+                                "All shell execution is denied by evaluation policy; file tools retain their existing permissions",
                         });
                     }
 
@@ -798,6 +922,17 @@ public static class AgentRunner
                         runLabel,
                         pluginRoot: null,
                         additionalAllowedDirs);
+                    // SDK hooks may omit paths; the filesystem provider enforces every resolved write.
+                    if (offlineWorkflow && IsFileMutationTool(input.ToolName)
+                        && reqPaths.Any(path => !LocalSessionFsHandler.IsWorkflowProposalPath(path, workDir)))
+                    {
+                        return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
+                        {
+                            PermissionDecision = "deny",
+                            PermissionDecisionReason =
+                                "Offline workflow inputs and resources are read-only; only result.json may be written",
+                        });
+                    }
                     return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
                     {
                         PermissionDecision = allowed ? "allow" : "deny",
@@ -815,7 +950,8 @@ public static class AgentRunner
         string runLabel,
         IReadOnlyList<string> additionalAllowedDirs,
         IDictionary<string, McpServerConfig>? allowedMcpServers,
-        bool denyShell = false)
+        bool denyShell = false,
+        bool offlineWorkflow = false)
     {
         GitHub.Copilot.Rpc.PermissionDecision CheckPath(string? path)
         {
@@ -853,6 +989,10 @@ public static class AgentRunner
                     : GitHub.Copilot.Rpc.PermissionDecision.Reject(
                         "Path outside allowed directories, network access requested, or command not allowlisted"),
             PermissionRequestRead readRequest => CheckPath(readRequest.Path),
+            PermissionRequestWrite writeRequest when offlineWorkflow
+                && !LocalSessionFsHandler.IsWorkflowProposalPath(writeRequest.FileName, workDir) =>
+                    GitHub.Copilot.Rpc.PermissionDecision.Reject(
+                        "Offline workflow inputs and resources are read-only; only result.json may be written"),
             PermissionRequestWrite writeRequest => CheckPath(writeRequest.FileName),
             PermissionRequestMcp mcpRequest => IsAllowedMcpPermission(
                 mcpRequest,
@@ -975,6 +1115,15 @@ public static class AgentRunner
     private static async Task<RunMetrics> RunAgentCore(RunOptions options, CancellationToken cancellationToken)
     {
         var workDir = await SetupWorkDir(options.Scenario, options.Skill?.Path, options.EvalPath);
+        var offlineWorkflow = options.OfflineWorkflow || options.Scenario.OfflineWorkflow;
+        var agent = options.Agent;
+        if (options.Workflow is not null)
+        {
+            var workflowAgent = agent
+                ?? throw new InvalidOperationException("Workflow execution requires its primary persona");
+            WorkflowDiscovery.StageResources(options.Workflow, workDir);
+            agent = workflowAgent with { AgentMdContent = WorkflowDiscovery.RenderPrompt(workflowAgent.AgentMdContent, workDir) };
+        }
         if (options.Verbose)
         {
             var write = options.Log ?? (msg => Console.Error.WriteLine(msg));
@@ -994,14 +1143,15 @@ public static class AgentRunner
             await using var session = await client.CreateSessionAsync(
                 await BuildSessionConfig(options.Skill, options.PluginRoot, options.Model, workDir, options.McpServers,
                     options.AdditionalSkills, options.Log, options.Verbose, options.SessionsDir, options.SessionId,
-                    options.Agent, options.AdditionalAgents,
+                    agent, options.AdditionalAgents,
                     denyShell: options.Scenario.DenyShell,
                     onShellDenied: requestingSessionId =>
                         eventBuffer.Record("evaluator.shell_denied", (agentEvent, _) =>
                         {
                             agentEvent.Data["sessionId"] = JsonValue.Create(requestingSessionId);
                         }),
-                    selectAgentAsPrimary: options.SelectAgentAsPrimary));
+                    selectAgentAsPrimary: options.SelectAgentAsPrimary,
+                    offlineWorkflow: offlineWorkflow));
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;
@@ -1137,7 +1287,22 @@ public static class AgentRunner
                 }
             }
 
-            await session.SendAsync(new MessageOptions { Prompt = options.Scenario.Prompt });
+            var prompt = offlineWorkflow
+                ? """
+                  This is an offline workflow decision evaluation. Only the supplied fixture
+                  evidence is available. GitHub, Azure DevOps, collectors, and safe-output
+                  publication are not connected. Use local file tools to inspect that evidence.
+                  Shell execution is denied in every model session; do not retry it.
+                  Evidence and installed resources are read-only; only result.json may be written.
+                  Represent intended safe-output operations as a proposed action in result.json,
+                  using the JSON schema requested below. Do not invoke unavailable network or
+                  publication tools, claim a proposal was published, or execute untrusted code.
+                  Fixture context replaces runtime environment values. A workflow noop is a
+                  valid decision when justified by the evidence, not missing activation.
+
+                  """ + options.Scenario.Prompt
+                : options.Scenario.Prompt;
+            await session.SendAsync(new MessageOptions { Prompt = prompt });
             await done.Task;
         }
         catch (TimeoutException te)
@@ -1186,7 +1351,23 @@ public static class AgentRunner
         var (events, agentOutput) = eventBuffer.Snapshot();
         var metrics = MetricsCollector.CollectMetrics(events, agentOutput, wallTimeMs, workDir);
         metrics.TimedOut = timedOut;
+        if (offlineWorkflow)
+            CaptureWorkflowProposal(metrics);
         return metrics;
+    }
+
+    internal static void CaptureWorkflowProposal(RunMetrics metrics)
+    {
+        var path = Path.Combine(metrics.WorkDir, "result.json");
+        if (!File.Exists(path))
+            return; // Missing output is a completion failure evaluated by the scenario graders.
+        if (PathSafety.ContainsReparsePoint(metrics.WorkDir, path))
+            throw new InvalidOperationException("Workflow proposal contains an unsafe file-system path");
+        if (new FileInfo(path).Length > 1_048_576)
+            throw new InvalidOperationException("Workflow proposal exceeds the 1 MiB evidence limit");
+        metrics.WorkflowProposalJson = File.ReadAllText(path);
+        metrics.AgentOutput += "\n\nProposed workflow output (offline; not published):\n"
+            + metrics.WorkflowProposalJson;
     }
 
     internal static async Task<string> SetupWorkDir(EvalScenario scenario, string? skillPath, string? evalPath)

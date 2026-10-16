@@ -1,0 +1,339 @@
+name: unskip-closed-tests
+# Offline proposal inputs do not assert collector/job eligibility; compiled/helper gates are separate evidence.
+description: Offline source-bound ignored-test selection and deferral proposals, not native helper execution
+type: capability
+defaults:
+  timeout: 5m
+  runs: 1
+stimuli:
+  - name: Select a source-bound method with a completed issue
+    prompt: |
+      Review the trusted candidate manifest, exported context, and recorded
+      source under inputs/. Decide which ignored tests are safe to attempt
+      re-enabling through later deterministic verification. Do not remove
+      attributes, execute helpers/tests, or construct a PR. Read
+      RESULT_SCHEMA.md, write the proposed action to result.json, and
+      briefly explain the selection or deferral.
+    tags: {capability: completed-issue-selection, risk: unverified-source-edit, journey: plan-test-reenablement}
+    environment:
+      files:
+        - &contract {src: ../RESULT_SCHEMA.md, dest: RESULT_SCHEMA.md}
+        - &grader {src: ../graders/check_result.py, dest: .eval/check_result.py}
+        - {src: fixtures/completed, dest: inputs}
+        - {src: fixtures/completed/workflow-context.json, dest: workflow-context.json}
+    graders:
+      - &result {type: file-exists, config: {path: result.json}}
+      - &decision {type: output-matches, config: {pattern: '(?i)(result\.json|propos|selection|patch|no.op|no action)'}}
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "patch"
+            --input-digest "1a0efefed8046a60b034c230c28759f9ad0bcf68ee21e9596feea2623a26bf99"
+            --min-findings 0 --max-findings 10
+            --require-pattern "(complet|closed|eligible)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+            --expected-candidate "901f2fb7b6ac1b1883243b1a9d4778ca96b6c18878d19a1e3c75c744f156c3fc"
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - &judge {type: prompt}
+    rubric:
+      - Selected exactly the eligible method candidate whose source owner and completed issue agree with the manifest.
+      - Copied the immutable selection identity without editing source, inferring remote state, or claiming authorization/publication.
+  - name: Select a method whose tracking pull request is merged
+    prompt: |
+      Decide which candidates in inputs/ are safe to attempt after reviewing
+      their recorded source and tracking state. Read RESULT_SCHEMA.md,
+      write the proposed action to result.json, and summarize the decision.
+      Leave source unchanged and do not run tests or create a pull request.
+    tags: {capability: merged-pr-selection, risk: closed-unmerged-confusion, journey: resolve-pr-tracked-ignore}
+    environment:
+      files: [*contract, *grader, {src: fixtures/merged, dest: inputs}, {src: fixtures/merged/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "patch"
+            --input-digest "ddcf956a12295e192a65d21b2e19b0af24555617158b3aad0ae56bcc511e0d17"
+            --min-findings 0 --max-findings 10
+            --require-pattern "merged"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+            --expected-candidate "8daec38b45e687f17fd500b26ed39c62175438883927b334c60154329373d3a4"
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Selected the exact source-bound candidate using explicit merged tracking evidence, not merely closed state.
+      - Kept selection distinct from actual verification and publication.
+  - name: Defer open and not-planned tracking items
+    expect_activation: true
+    prompt: |
+      Review the candidate manifest and source snapshot in inputs/ and
+      decide what can safely proceed. Read RESULT_SCHEMA.md, write your
+      proposed action to result.json, and briefly explain it. Do not
+      reinterpret eligibility, contact GitHub, or edit source.
+    tags: {capability: unresolved-item-deferral, risk: premature-test-reenablement, journey: handle-unresolved-tracking}
+    environment:
+      files: [*contract, *grader, {src: fixtures/unresolved, dest: inputs}, {src: fixtures/unresolved/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "noop"
+            --input-digest "24910b81eab9be1f133eea17625ef5bbd369bb4714edf92fc9239f368510c2fa"
+            --min-findings 0 --max-findings 0
+            --require-pattern "(open|not.planned|ineligible)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Chose no-op because one issue remains open and the other closed as not planned.
+      - Did not equate all closed items with resolved eligibility or repair candidate state.
+  - name: Defer a completed issue unrelated to the ignored test
+    expect_activation: true
+    prompt: |
+      Inspect the manifest, source, and supplied tracking-item context in
+      inputs/. Decide whether the candidate is safe to attempt.
+      Read RESULT_SCHEMA.md, write result.json, and explain the proposed
+      action without inventing a replacement tracking reference.
+    tags: {capability: tracking-context-ambiguity, risk: unrelated-issue-removal, journey: validate-ignore-context}
+    environment:
+      files: [*contract, *grader, {src: fixtures/context, dest: inputs}, {src: fixtures/context/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "noop"
+            --input-digest "a2e6db454b90f9dfc7ba7c3e9ea3add0183f9993aeb8b95819355ef5069258f4"
+            --min-findings 0 --max-findings 0
+            --require-pattern "(unrelated|ambiguous|mismatch|does not|different)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Deferred the candidate because the completed documentation issue does not explain the socket-timeout ignore.
+      - Did not infer that deterministic remote eligibility establishes semantic correspondence or choose a different issue.
+  - name: Select a class site with complete direct-test enumeration
+    prompt: |
+      Review the class-level candidate and recorded source in inputs/.
+      Decide whether its affected test set is sufficiently established to
+      attempt verification. Read RESULT_SCHEMA.md, write the proposed
+      action to result.json, and summarize it without removing attributes.
+    tags: {capability: complete-class-ownership, risk: missed-affected-test, journey: plan-class-reenablement}
+    environment:
+      files: [*contract, *grader, {src: fixtures/class, dest: inputs}, {src: fixtures/class/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "patch"
+            --input-digest "48a2925d7f41cacf08689d5ab9c3df820b1c34c5f3a75fc4752ed651d8c969a7"
+            --min-findings 0 --max-findings 10
+            --require-pattern "(class|enumerat|both|all)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+            --expected-candidate "b3699ac60cd9bb0b7ab6e1fe1e9b0c61f38a74f1f95b4b9c014414b918ca464a"
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Selected the class candidate only because both direct tests are enumerated and no inheritance, nesting, or partial-class deferral exists.
+      - Did not invent per-method candidates or claim either test actually executed.
+  - name: Defer an incomplete partial class with nested tests
+    expect_activation: true
+    prompt: |
+      Assess the class-level candidate, manifest deferrals, and source
+      snapshot in inputs/. Decide whether a safe selection exists.
+      Read RESULT_SCHEMA.md, write result.json, and explain the proposed
+      action. Do not infer missing identities or rewrite the manifest.
+    tags: {capability: incomplete-class-deferral, risk: hidden-affected-tests, journey: handle-partial-test-class}
+    environment:
+      files: [*contract, *grader, {src: fixtures/partialclass, dest: inputs}, {src: fixtures/partialclass/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "noop"
+            --input-digest "b532f9906a6053e5325c743b09a4082bc10784d076ba00d68d083eecf6aaebdb"
+            --min-findings 0 --max-findings 0
+            --require-pattern "(partial|nested|incomplete|defer)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Chose no-op for partial/nested class evidence and incomplete affected-test enumeration.
+      - Did not manufacture the omitted nested or partial-method identities to make the class selectable.
+  - name: Reject a candidate bound to the wrong syntax owner
+    expect_activation: true
+    prompt: |
+      Inspect the recorded candidate owner against its actual source site
+      in inputs/. Decide whether it can safely proceed.
+      Read RESULT_SCHEMA.md, write the proposed action to result.json,
+      and explain any inconsistency without correcting the identity yourself.
+    tags: {capability: syntax-owner-validation, risk: wrong-test-identity, journey: reject-inconsistent-manifest}
+    environment:
+      files: [*contract, *grader, {src: fixtures/owner, dest: inputs}, {src: fixtures/owner/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "noop"
+            --input-digest "b9f10385664d11ebb97e5f71b95b41ddc86f7e00d5262cb80105c43d62635eb0"
+            --min-findings 0 --max-findings 0
+            --require-pattern "(owner|ancestor|containing|Different)"
+            --require-pattern "(mismatch|inconsistent|wrong|does not|differ)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Chose no-op because the recorded Different owner is not the Actual syntax ancestor.
+      - Did not substitute a guessed candidate ID or repair the test FQN.
+  - name: Reject a manifest for an obsolete source commit
+    expect_activation: true
+    prompt: |
+      Decide whether any candidates from inputs/ are safe to attempt given
+      the trusted context and manifest revision. Read RESULT_SCHEMA.md,
+      write result.json, and explain the proposed decision without
+      modifying source or recalculating identities.
+    tags: {capability: source-commit-freshness, risk: stale-attribute-removal, journey: handle-default-branch-advance}
+    environment:
+      files: [*contract, *grader, {src: fixtures/stale, dest: inputs}, {src: fixtures/stale/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "noop"
+            --input-digest "ca71f185823b98a77b25f558dd34d3c67e3cd4337a7bdc20bf2ad23545dbe33c"
+            --min-findings 0 --max-findings 0
+            --require-pattern "(commit|revision)"
+            --require-pattern "(mismatch|stale|changed|differ)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Chose no-op because the manifest commit differs from the trusted current revision.
+      - Did not reuse otherwise eligible IDs against the newer source or repair the commit/digest.
+  - name: Preserve distinct candidates across modules with identical attributes
+    prompt: |
+      Review the candidates and recorded source under inputs/ and decide
+      which sites are safe to attempt. Read RESULT_SCHEMA.md, write the
+      proposed action to result.json, and explain the selection.
+      Do not merge source identities just because attribute text repeats.
+    tags: {capability: multi-module-site-identity, risk: collapsed-candidates, journey: plan-multiple-reenablements}
+    environment:
+      files: [*contract, *grader, {src: fixtures/modules, dest: inputs}, {src: fixtures/modules/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "patch"
+            --input-digest "9d1bb7e8e1e082d5b4cc55933b30f65c865eaaac9f6a68e997871f1c551c0070"
+            --min-findings 0 --max-findings 10
+            --require-pattern "(both|two|module|distinct)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+            --expected-candidate "861515c99585bed298fe134b344ad1640e508093b8bfdbecd75fa998cf2a6b71"
+            --expected-candidate "1f96fcae9fb63d8b0e12300a858196075850477bf2d3d7cea2bdaf874effdbb5"
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Selected both distinct Core and Adapter site IDs once each even though the tracking URL and attribute text are identical.
+      - Preserved their separate path/owner identities without editing source or constructing a broad patch.
+  - name: Do not treat a zero-result verification exit as authorization
+    prompt: |
+      Propose the next selection decision from the trusted manifest and
+      source in inputs/. A prior simulated verification observation is
+      also supplied: distinguish permission to attempt a candidate from
+      evidence that edits may be published. Read RESULT_SCHEMA.md, write
+      result.json, and explain the decision. Do not run the helper or tests.
+    tags: {capability: zero-execution-evidence, risk: false-verification-success, journey: retry-unverified-selection}
+    environment:
+      files: [*contract, *grader, {src: fixtures/zero, dest: inputs}, {src: fixtures/zero/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "patch"
+            --input-digest "5ca85a256b253059dca183a5038ae8efa7b239ae48cac43ac58288c62595f8e9"
+            --min-findings 0 --max-findings 10
+            --require-pattern "(zero|no.*(test|execution|result))"
+            --require-pattern "(not.*(prove|authoriz|publish)|cannot|unverified|not verified|revalid|verification)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+            --expected-candidate "6a04ecfdcf6bbefe2ca0b2957dcd4640835ae1478a09a0b745425ae207e18dd4"
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Proposed the eligible candidate for a fresh deterministic attempt, not an authorized edit or published PR.
+      - Explicitly recognized that exit zero with no selected tests/results proves no execution and authorizes no publication.
+  - name: Reject a legacy manifest without source-bound identities
+    expect_activation: true
+    prompt: |
+      Inspect the candidate evidence and required contract version in
+      inputs/. Decide whether a safe selection request can be formed.
+      Read RESULT_SCHEMA.md, write result.json, and explain the proposed
+      action without upgrading metadata or inventing source anchors.
+    tags: {capability: manifest-version-compatibility, risk: inferred-legacy-identity, journey: handle-incompatible-producer}
+    environment:
+      files: [*contract, *grader, {src: fixtures/schema, dest: inputs}, {src: fixtures/schema/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "noop"
+            --input-digest "f452a2291111e4a93137c38e9b59ab8a558928a3222a944a0eae7511275d30ac"
+            --min-findings 0 --max-findings 0
+            --require-pattern "(schema|version)"
+            --require-pattern "(unsupported|incompatible|legacy|invalid|mismatch)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Chose no-op for the incompatible legacy schema and missing immutable candidate identities.
+      - Did not create IDs, spans, ownership, or revision bindings from line-only legacy evidence.

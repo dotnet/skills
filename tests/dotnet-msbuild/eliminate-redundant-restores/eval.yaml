@@ -1,0 +1,1168 @@
+name: eliminate-redundant-restores
+tags:
+  executionShard: heavy
+description: Evaluates the dotnet-msbuild/eliminate-redundant-restores skill
+type: capability
+defaults:
+  timeout: 6m
+stimuli:
+  - name: Skip the restore that an rsp file re-adds to a build step
+    prompt: |
+      The Build step in rsp-inherited/ci.yml takes about 41 s, and
+      rsp-inherited/restore-log-excerpt.txt shows part of its log. The step
+      before it already prepared everything, and nothing in the repository
+      changes between the steps. Update the pipeline so the Build step stops
+      repeating that earlier work, while keeping the same build and test
+      coverage. The repository is also used for local development. Only edit
+      ci.yml; leave all other files unchanged. These pipeline command patterns
+      are also reused by repositories on .NET 8.
+    tags:
+      capability: rsp-inherited-restore
+      risk: high
+      journey: apply-fix
+    environment:
+      files:
+        - src: ./rsp-inherited
+          dest: rsp-inherited
+    golden_patch:
+      path: ./references/skip-restore-on-msbuild-step.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "eliminate-redundant-restores-rsp-inherited"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The Build step restores again even though it is a plain msbuild invocation: Directory.Build.rsp contains -restore, and every MSBuild invocation under that directory inherits it. The explicit Restore step already covers the same solution and nothing changes packages between the steps, so the later restores are redundant. dotnet msbuild does not accept --no-restore, so the Build fix is -restore:false. Test uses --no-build, but that only suppresses its implicit restore; the rsp still enables one, so Test also needs --no-restore -restore:false. The explicit MSBuild override works on older SDKs too, where --no-restore alone does not override an rsp. I kept the explicit Restore step and left -restore in Directory.Build.rsp because local builds rely on it.
+
+              | Step | Restores today (explicit/implicit/rsp) | Covered by an earlier restore? | Change | Evidence |
+              |---|---|---|---|---|
+              | Restore | Explicit | No | Keep | Restores Contoso.slnx first |
+              | Build | Rsp | Yes | Add -restore:false | Same solution and restore inputs; no package changes |
+              | Test | Rsp | Yes | Keep --no-build; add --no-restore -restore:false | Overrides the inherited restore on older and current SDKs while reusing the Release build |
+
+              Verdict: removed 2 of 3 restores, first restore kept
+    graders:
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require('fs');
+              const rsp = fs.readFileSync('rsp-inherited/Directory.Build.rsp', 'utf8').split(/\r?\n/).map(l => l.trim());
+              if (!rsp.includes('-restore') || rsp.some(l => /^[-/](?:restore|r):false$/i.test(l))) {
+                throw new Error('Directory.Build.rsp must keep an enabled -restore line for local builds');
+              }
+              const steps = fs.readFileSync('rsp-inherited/ci.yml', 'utf8').split(/\r?\n/)
+                .filter(l => /script:/.test(l)).map(l => l.replace(/^\s*-?\s*script:\s*/, ''));
+              if (steps.some(l => /^dotnet build\b/.test(l) && /(?:^|\s)--no-build(?:\s|$)/.test(l))) {
+                throw new Error('dotnet build does not support --no-build');
+              }
+              if (steps.some(l => /^dotnet restore\b/.test(l) && /(?:^|\s)--no-(?:restore|build)(?:\s|$)/.test(l))) {
+                throw new Error('dotnet restore does not support --no-restore or --no-build');
+              }
+              const restoreOff = l => {
+                const switches = l.match(/(?:^|\s)(?:[-/]restore(?::(?:true|false))?|[-/]r:(?:true|false))(?=\s|$)/gi) || [];
+                return /:false$/i.test(switches[switches.length - 1] || '');
+              };
+              const skipsImplicit = l => /(?:^|\s)--no-restore(?:\s|$)/.test(l) ||
+                (/^dotnet (test|publish|pack|run)\b/.test(l) && /(?:^|\s)--no-build(?:\s|$)/.test(l));
+              const solution = l => /(?:^|\s)(?:\.\/)?Contoso\.slnx(?:\s|$)/.test(l);
+              const restoreIndex = steps.findIndex(l => /^dotnet restore\b/.test(l) && solution(l));
+              const buildIndex = steps.findIndex(l => /^dotnet (msbuild|build)\b/.test(l) && solution(l));
+              const testIndex = steps.findIndex(l => /^dotnet test\b/.test(l) && solution(l));
+              if (restoreIndex < 0 || buildIndex < 0 || testIndex < 0 || restoreIndex > buildIndex || buildIndex > testIndex) {
+                throw new Error('Contoso.slnx must be restored, built, then tested in that order');
+              }
+              const build = steps[buildIndex];
+              if (!/--no-build/.test(steps[testIndex])) throw new Error('the solution test must keep --no-build');
+              if (!restoreOff(steps[testIndex])) {
+                throw new Error('the solution test needs -restore:false to override rsp restore on older SDKs');
+              }
+              const off = restoreOff(build) && (/^dotnet msbuild\b/.test(build) || skipsImplicit(build));
+              if (!off) throw new Error('the build step still restores: ' + build);
+              if (steps.some(l => /^dotnet msbuild\b/.test(l) && /--no-restore/.test(l))) {
+                throw new Error('--no-restore is not a dotnet msbuild switch');
+              }
+              const restoring = steps.filter(command => {
+                const l = command.replace(/["']/g, '');
+                const targets = [...l.matchAll(/(?:^|\s)(?:--?|\/)(?:t|target|targets):([^\s]+)/gi)]
+                  .flatMap(m => m[1].split(/[;,]/).map(t => t.toLowerCase()));
+                if (/^dotnet restore\b/.test(l) || targets.includes('restore')) return true;
+                if (!/^dotnet (msbuild|build|test|publish|pack|run)\b/.test(l)) return false;
+                if (/^dotnet run\b/.test(l)) return !/(?:^|\s)--no-build(?:\s|$)/.test(l);
+                return !restoreOff(l) || (!/^dotnet msbuild\b/.test(l) && !skipsImplicit(l));
+              });
+              if (restoring.length !== 1) throw new Error('exactly one restore-capable invocation must remain, found ' + restoring.length);
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - &execution_modes |
+              const fs = require('fs');
+              const content = fs.readFileSync(process.argv[1], 'utf8');
+              if (/--filter\b|\bVSTestTestCaseFilter\b/i.test(content)) {
+                throw new Error('do not add test filters anywhere in the fixture pipeline, including variable values');
+              }
+              if (/&&|\|\||[;|]\s*dotnet\b|\$\((?![A-Za-z_][\w.-]*\))|`/.test(content)) {
+                throw new Error('keep one invocation per script; shell chaining hides extra restores');
+              }
+              const lines = content.split(/\r?\n/);
+              if (/\.sh$/.test(process.argv[1])) {
+                if (lines.some(l => l.trim() && !/^\s*(?:#|dotnet\b|set -e(?:uo pipefail)?\s*$)/.test(l))) {
+                  throw new Error('shell fixtures must use direct dotnet invocations, not wrappers');
+                }
+              } else {
+                let sectionIndent = null, entryIndent = null, fields = [];
+                const checkStep = () => {
+                  if (entryIndent === null) return;
+                  const execution = fields.filter(l => /^['"]?(?:script|bash|pwsh|powershell|task|run|uses|template)['"]?\s*:/.test(l));
+                  const unsupported = fields.filter(l => !/^['"]?(?:script|displayName)['"]?\s*:/.test(l));
+                  if (execution.length !== 1 || !/^script:\s*dotnet\b/.test(execution[0])) {
+                    throw new Error('each fixture step must contain one direct script: dotnet invocation, not a shell or CI-task wrapper');
+                  }
+                  if (unsupported.length) throw new Error('fixture steps may only contain script and displayName fields');
+                  fields = [];
+                };
+                for (const line of lines) {
+                  if (!line.trim() || /^\s*#/.test(line)) continue;
+                  if (/^\s*["']?(?:jobs|stages|extends|template)["']?\s*:/.test(line)) {
+                    throw new Error('keep the fixture as one visible steps list, without execution templates or job wrappers');
+                  }
+                  const section = /^(\s*)["']?steps["']?\s*:\s*(.*)$/.exec(line);
+                  if (section) {
+                    checkStep();
+                    if (section[2] && !section[2].startsWith('#')) throw new Error('the steps list must not be a flow value or alias');
+                    sectionIndent = section[1].length;
+                    entryIndent = null;
+                    continue;
+                  }
+                  if (sectionIndent === null) continue;
+                  const indent = /^\s*/.exec(line)[0].length;
+                  const item = /^\s*-\s+(.*)$/.exec(line);
+                  if (indent < sectionIndent || (indent === sectionIndent && !item)) {
+                    checkStep();
+                    sectionIndent = entryIndent = null;
+                  } else if (item && (entryIndent === null || indent === entryIndent)) {
+                    checkStep();
+                    entryIndent = indent;
+                    fields.push(item[1]);
+                  } else if (entryIndent !== null) {
+                    if (/^script:\s*dotnet\b/.test(fields[fields.length - 1]) &&
+                        (indent > entryIndent + 2 || !/^["']?[\w.-]+["']?\s*:/.test(line.trim()))) {
+                      throw new Error('script commands must fit on one line; scalar continuations can hide wrapped restores');
+                    }
+                    if (indent === entryIndent + 2) fields.push(line.trim());
+                  }
+                }
+                checkStep();
+              }
+              const invocations = lines
+                .map(l => l.replace(/^\s*-?\s*script:\s*/, '').trim())
+                .filter(l => /^dotnet\b/.test(l));
+              for (const invocation of invocations) {
+                let quote = '', escaped = false;
+                for (const ch of invocation) {
+                  if (escaped) { escaped = false; continue; }
+                  if (ch === '\\' && quote !== "'") { escaped = true; continue; }
+                  if (quote) { if (ch === quote) quote = ''; continue; }
+                  if (ch === '"' || ch === "'") { quote = ch; continue; }
+                  if (';&|'.includes(ch)) throw new Error('shell operators are not allowed outside quoted MSBuild arguments');
+                }
+              }
+              const commands = invocations.map(l => l.replace(/["']/g, ''))
+                .filter(l => /^dotnet (msbuild|build|test|publish)\b/.test(l));
+              for (const command of commands) {
+                const configurationProperties = [...command.matchAll(/(?:^|\s)(?:--?|\/)(?:p|property):([^\s]+)/gi)]
+                  .flatMap(m => m[1].split(/[;,]/));
+                const propertyConfiguration = configurationProperties.reduce((value, property) => {
+                  const match = /^Configuration=(.*)$/i.exec(property);
+                  return match ? decodeURIComponent(match[1]) : value;
+                }, undefined);
+                const cliConfiguration = [...command.matchAll(/(?:^|\s)(?:-c|--configuration)[ =]+([^\s]+)/g)].at(-1)?.[1];
+                // Build/publish forward -c after passthrough properties; test does not.
+                const configuration = /^dotnet (build|publish)\b/.test(command) ?
+                  cliConfiguration ?? propertyConfiguration : /^dotnet msbuild\b/.test(command) ?
+                  propertyConfiguration : propertyConfiguration ?? cliConfiguration;
+                if (configuration !== 'Release') {
+                  throw new Error('build, test and publish must keep the effective Release configuration: ' + command);
+                }
+                const targets = [...command.matchAll(/(?:^|\s)(?:--?|\/)(?:t|target|targets):([^\s]+)/gi)]
+                  .flatMap(m => m[1].split(/[;,]/).map(t => t.toLowerCase()));
+                if (/^dotnet test\b/.test(command)) {
+                  const properties = [...command.matchAll(/(?:^|\s)(?:--?|\/)(?:p|property|properties):([^\s]+)/gi)]
+                    .flatMap(m => m[1].split(/[;,]/));
+                  const listTests = properties.reduce((value, property) => {
+                    const match = /^VSTestListTests=(.*)$/i.exec(property);
+                    return match ? match[1].toLowerCase() : value;
+                  }, 'false');
+                  if (/(?:^|\s)(?:--list-tests|-t)(?:[:=\s]|$)/.test(command) || listTests === 'true') {
+                    throw new Error('tests must execute, not only be listed: ' + command);
+                  }
+                  if (targets.length && !targets.includes('vstest')) {
+                    throw new Error('the test command overrides test execution: ' + command);
+                  }
+                } else if (targets.length) {
+                  const expected = /^dotnet publish\b/.test(command) ? ['publish'] : ['build', 'rebuild'];
+                  const execution = targets.reduce((last, t, i) => expected.includes(t) ? i : last, -1);
+                  const clean = targets.reduce((last, t, i) => t.endsWith('clean') ? i : last, -1);
+                  if (execution < 0 || clean > execution) {
+                    throw new Error('the command must produce its build or publish output: ' + command);
+                  }
+                }
+              }
+            - rsp-inherited/ci.yml
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - &immutable_fixture |
+              const fs = require('fs');
+              const path = require('path');
+              const crypto = require('crypto');
+              const root = process.argv[1];
+              const expected = JSON.parse(process.argv[2]);
+              function collect(directory) {
+                return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+                  const file = path.join(directory, entry.name);
+                  if (entry.isDirectory()) return ['bin', 'obj', '.vs', 'TestResults'].includes(entry.name) ? [] : collect(file);
+                  if (!entry.isFile()) throw new Error('unexpected non-file fixture entry: ' + file);
+                  const relative = path.relative(root, file).split(path.sep).join('/');
+                  return relative === 'ci.yml' && !('ci.yml' in expected) ? [] : [relative];
+                });
+              }
+              if (JSON.stringify(collect(root).sort()) !== JSON.stringify(Object.keys(expected).sort())) {
+                throw new Error('a fixture file was added or removed: ' + root);
+              }
+              for (const [file, hash] of Object.entries(expected)) {
+                const content = fs.readFileSync(path.join(root, file), 'utf8').replace(/\r\n/g, '\n');
+                if (crypto.createHash('sha256').update(content).digest('hex') !== hash) {
+                  throw new Error('fixture file changed: ' + path.join(root, file));
+                }
+              }
+            - rsp-inherited
+            - >-
+              {"Contoso.slnx":"1f4d5020abc9485063c5a2b9eaced3b3d8f9bbb8120b1dfd92531950973da62a",
+              "Directory.Build.rsp":"865706592758d44dddf4dc2ef03eaf3e7ac8b71c3992a0dfcf83e08998f6ab4b",
+              "restore-log-excerpt.txt":"943889a6e1dd651aacfa6366c987676495e3da930c1653d2f576048093eecd04",
+              "src/Contoso.Core/BuildMarker.cs":"4983ca8e13a9428e32bbe314a13de57f5e7145b39f5143b9842e5d36c40b7c98",
+              "src/Contoso.Core/Contoso.Core.csproj":"e2c08643e21eba9123e4b319840fec508efc44b473a7cab491d6188e5f6905ca",
+              "tests/Contoso.Tests/Contoso.Tests.csproj":"0b523d82a19231031bae17755104a62fd21b18db894dd23d24234fb7e2dbdf0e",
+              "tests/Contoso.Tests/SmokeTests.cs":"363c4d10f175b6bbd06aacc4f68cb64a52d726c883614890839bc276c42dc419"}
+          expected_exit_code: 0
+      - type: prompt
+    rubric:
+      - Identified that the Build step restores again because Directory.Build.rsp contains -restore and applies to every
+        MSBuild invocation in that directory
+      - Stopped the Build step from restoring in a way that works for the invocation it uses, such as -restore:false on
+        dotnet msbuild or dotnet build --no-restore -restore:false, and did not put --no-restore on a dotnet msbuild command
+      - Kept the explicit Restore step and left the -restore line in Directory.Build.rsp so local builds keep working
+      - Kept the same build and test coverage
+      - Changed only ci.yml, preserving the solution, response file, project files, and source files
+      - Also stopped the test step inheriting the rsp restore rather than relying on --no-build alone
+      - Left exactly one restore-capable invocation, with explicit response-file overrides compatible with .NET 8
+
+  - name: Keep restore on a project outside the restored solution
+    prompt: |
+      uncovered-project/ci.yml pays for repeated package work. Add --no-restore
+      to every dotnet command where it is safe, and leave the other commands
+      alone so the pipeline keeps passing. You cannot run the pipeline from
+      here, so work from the repository files. Only edit ci.yml; leave the
+      solution, project files, and source files unchanged.
+    tags:
+      capability: restore-coverage
+      risk: high
+      journey: apply-fix
+    environment:
+      files:
+        - src: ./uncovered-project
+          dest: uncovered-project
+    golden_patch:
+      path: ./references/no-restore-covered-solution-only.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "eliminate-redundant-restores-uncovered-project"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The explicit restore covers Contoso.slnx and the projects it lists. The solution build is therefore safe to run with --no-restore. tools/Packager/Packager.csproj is not listed in the solution and nothing in the solution references it, so the restore never produced a project.assets.json for it. Building it with --no-restore would fail with NETSDK1004. I left that command restoring on its own, and the test step already uses --no-build, which implies --no-restore. Not validated: I could not run the pipeline here.
+
+              | Step | Restores today (explicit/implicit/rsp) | Covered by an earlier restore? | Change | Evidence |
+              |---|---|---|---|---|
+              | Restore solution | Explicit | No | Keep | Restores the solution's ProjectReference closure |
+              | Build solution | Implicit | Yes | Add --no-restore | Same solution and inputs |
+              | Build Packager | Implicit | No | Keep restore | No solution project references Packager |
+              | Test | No | Yes | Keep --no-build | Uses the solution's Release build |
+
+              Verdict: removed 1 of 3 restores, first restore kept
+    graders:
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require('fs');
+              const steps = fs.readFileSync('uncovered-project/ci.yml', 'utf8').split(/\r?\n/)
+                .filter(l => /script:/.test(l)).map(l => l.replace(/^\s*-?\s*script:\s*/, ''));
+              if (steps.some(l => /^dotnet build\b/.test(l) && /(?:^|\s)--no-build(?:\s|$)/.test(l))) {
+                throw new Error('dotnet build does not support --no-build');
+              }
+              if (steps.some(l => /^dotnet restore\b/.test(l) && /(?:^|\s)--no-(?:restore|build)(?:\s|$)/.test(l))) {
+                throw new Error('dotnet restore does not support --no-restore or --no-build');
+              }
+              if (steps.some(l => /\bdisplayName:/.test(l))) throw new Error('displayName was folded into a shell command');
+              const solution = l => /(?:^|\s)(?:\.\/)?Contoso\.slnx(?:\s|$)/.test(l);
+              const packager = l => /(?:^|\s)(?:\.\/)?tools\/Packager\/Packager\.csproj(?:\s|$)/.test(l);
+              const restores = command => {
+                const l = command.replace(/["']/g, '');
+                const targets = [...l.matchAll(/(?:^|\s)(?:--?|\/)(?:t|target|targets):([^\s]+)/gi)]
+                  .flatMap(m => m[1].split(/[;,]/).map(t => t.toLowerCase()));
+                if (/^dotnet restore\b/.test(l) || targets.includes('restore')) return true;
+                if (!/^dotnet (build|test|publish|pack)\b/.test(l)) return false;
+                const switches = l.match(/(?:^|\s)(?:--?|\/)(?:restore(?::(?:true|false))?|r:(?:true|false))(?=\s|$)/gi) || [];
+                if (switches.length) return !/:false$/i.test(switches[switches.length - 1]);
+                return !/(?:^|\s)--no-(?:restore|build)(?:\s|$)/.test(l);
+              };
+              const solIndex = steps.findIndex(l => /^dotnet build\b/.test(l) && solution(l));
+              const restoreIndex = steps.findIndex(l => /^dotnet restore\b/.test(l) && solution(l));
+              const testIndex = steps.findIndex(l => /^dotnet test\b/.test(l) && solution(l));
+              const pkIndex = steps.findIndex(l => /^dotnet build\b/.test(l) && packager(l));
+              if (solIndex < 0 || !/--no-restore/.test(steps[solIndex])) throw new Error('the solution build is missing or still restores');
+              if (restoreIndex < 0 || restoreIndex > solIndex) throw new Error('the solution must be restored before its build');
+              if (testIndex < 0 || testIndex < solIndex || !/--no-build/.test(steps[testIndex])) {
+                throw new Error('the solution must still be tested with --no-build after its build');
+              }
+              if (pkIndex < 0) throw new Error('the Packager build step is missing');
+              if (!restores(steps[pkIndex])) {
+                const restoredBefore = steps.findIndex(l => /^dotnet restore\b/.test(l) && packager(l));
+                if (restoredBefore < 0 || restoredBefore > pkIndex) {
+                  throw new Error('Packager is outside the restored solution but its required restore is suppressed');
+                }
+              }
+              const restoring = steps.filter(restores);
+              if (restoring.length !== 2) throw new Error('the solution and Packager must each restore once');
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - *execution_modes
+            - uncovered-project/ci.yml
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - *immutable_fixture
+            - uncovered-project
+            - >-
+              {"Contoso.slnx":"92fddd1b297d8ac86c30b1472949a2c5cd2c1f82ca21cc862e3a7990c76621c2",
+              "src/Contoso.Core/BuildMarker.cs":"4983ca8e13a9428e32bbe314a13de57f5e7145b39f5143b9842e5d36c40b7c98",
+              "src/Contoso.Core/Contoso.Core.csproj":"e2c08643e21eba9123e4b319840fec508efc44b473a7cab491d6188e5f6905ca",
+              "src/Contoso.Web/Contoso.Web.csproj":"525c5ca7da58041ee81c3c851a0261dde03fb3280a1a577f25d63d781af3960a",
+              "tests/Contoso.Tests/Contoso.Tests.csproj":"73e95deb7b9ab1677893740016c0ec02982309936cdc4c5cdd493144fc133d58",
+              "tests/Contoso.Tests/SmokeTests.cs":"363c4d10f175b6bbd06aacc4f68cb64a52d726c883614890839bc276c42dc419",
+              "tools/Packager/Packager.csproj":"ce8c03bcf734bbd93246b78ceaf6c4c36408f8d9424db37012faca236d7d28ca",
+              "tools/Packager/Program.cs":"f4760c4d9bb29d06770a13b3c325ed3dba1d4a7f59d68df184f7cd7d87762374"}
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: Packager
+      - type: prompt
+    rubric:
+      - Added --no-restore to the solution build, which the explicit restore covers
+      - Recognized that tools/Packager is not part of the solution the explicit restore covers, and either left its build
+        restoring or restored it explicitly first
+      - Changed only ci.yml, preserving the solution, project files, and source files
+      - Did not claim the pipeline was verified, because it could not be run from here
+
+  - name: Carry the runtime identifier into the single restore before publish
+    prompt: |
+      rid-mismatch/build.sh builds and publishes the Gateway service. The
+      publish output shows packages being restored again even though a restore
+      already ran at the top of the script. Remove the repeated package work
+      without making the script fail on a clean machine.
+    tags:
+      capability: restore-inputs
+      risk: high
+      journey: apply-fix
+    environment:
+      files:
+        - src: ./rid-mismatch
+          dest: rid-mismatch
+    golden_patch:
+      path: ./references/restore-with-runtime-identifier.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "eliminate-redundant-restores-rid-mismatch"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The publish restores again because the first restore ran without a runtime identifier and publish asks for linux-x64. Simply adding --no-restore to publish would fail with NETSDK1047, since the assets file has no net10.0/linux-x64 target. Restore once with -r linux-x64, then build and publish with --no-restore, keeping the self-contained publish output. This fixture has no package conditions requiring SelfContained on restore. A RID-only restore produces both the plain framework target and net10.0/linux-x64, so the build and self-contained publish remain covered. Not validated on a clean machine: please run build.sh from a clean checkout.
+
+              | Step | Restores today (explicit/implicit/rsp) | Covered by an earlier restore? | Change | Evidence |
+              |---|---|---|---|---|
+              | Restore Gateway | Explicit | No | Add -r linux-x64 | Produces both framework and RID targets without requiring SelfContained on restore |
+              | Build Gateway | No | Yes | Keep --no-restore | Restore also produces the framework target |
+              | Publish Gateway | Implicit | Not with the original inputs | Add --no-restore; keep RID and self-contained output | RID-only restore covers net10.0/linux-x64 |
+
+              Verdict: removed 1 of 2 restores, first restore kept
+    graders:
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require('fs');
+              const cmds = fs.readFileSync('rid-mismatch/build.sh', 'utf8').split(/\r?\n/)
+                .map(l => l.trim().replace(/["']/g, '')).filter(l => /^dotnet\s/.test(l));
+              if (cmds.some(c => /^dotnet build\b/.test(c) && /(?:^|\s)--no-build(?:\s|$)/.test(c))) {
+                throw new Error('dotnet build does not support --no-build');
+              }
+              if (cmds.some(c => /^dotnet restore\b/.test(c) && /(?:^|\s)--no-(?:restore|build)(?:\s|$)/.test(c))) {
+                throw new Error('dotnet restore does not support --no-restore or --no-build');
+              }
+              const gateway = c => /(?:^|\s)(?:\.\/)?src\/Gateway\/Gateway\.csproj(?:\s|$)/.test(c);
+              const option = (c, names) => [...c.matchAll(new RegExp('(?:^|\\s)(?:' + names + ')[ =]+([^\\s]+)', 'g'))].at(-1)?.[1];
+              const runtimeProperty = c => [...c.matchAll(/(?:^|\s)(?:--?|\/)(?:p|property):([^\s]+)/gi)]
+                .flatMap(m => m[1].split(/[;,]/))
+                .filter(p => /^RuntimeIdentifier=/i.test(p)).at(-1)?.split('=').slice(1).join('=');
+              let hostRid;
+              const currentRid = () => {
+                if (hostRid === undefined) {
+                  const info = require('child_process').execFileSync('dotnet', ['--info'], { encoding: 'utf8' });
+                  hostRid = /^\s*RID:\s*(\S+)/m.exec(info)?.[1];
+                  if (hostRid === undefined) throw new Error('cannot determine the SDK host RID for derived runtime inputs');
+                }
+                return hostRid;
+              };
+              const rid = c => {
+                const explicit = option(c, '-r|--runtime') ?? runtimeProperty(c);
+                if (explicit !== undefined) return explicit === 'linux-x64';
+                const os = option(c, '--os'), arch = option(c, '-a|--arch');
+                if (os === undefined && arch === undefined &&
+                    !/(?:^|\s)--(?:ucr|use-current-runtime)(?:[ =]+true)?(?=\s|$)/.test(c)) return false;
+                if (os !== undefined && arch !== undefined) return os + '-' + arch === 'linux-x64';
+                const parts = currentRid().split('-'), currentArch = parts.pop();
+                return (os ?? parts.join('-')) + '-' + (arch ?? currentArch) === 'linux-x64';
+              };
+              const selfContained = c => /(?:^|\s)(?:--self-contained(?:[ =]+true)?|(?:[-/]p:|--property[:=])SelfContained=true)(?=\s|$)(?![ =]+false\b)/i.test(c);
+              const buildIndex = cmds.findIndex(c => /^dotnet build\b/.test(c) && gateway(c));
+              const publishIndex = cmds.findIndex(c => /^dotnet publish\b/.test(c) && gateway(c));
+              if (buildIndex < 0 || publishIndex < 0 || buildIndex > publishIndex) {
+                throw new Error('Gateway must still be built before it is published');
+              }
+              if (!rid(cmds[publishIndex]) || !selfContained(cmds[publishIndex])) {
+                throw new Error('publish must keep linux-x64 and self-contained output');
+              }
+              if (/--no-build/.test(cmds[publishIndex]) && !cmds.slice(0, publishIndex).some(c =>
+                  /^dotnet build\b/.test(c) && gateway(c) && rid(c) && selfContained(c))) {
+                throw new Error('--no-build publish requires a preceding Release build with linux-x64 and SelfContained=true');
+              }
+              let restored = null;
+              let count = 0;
+              for (const c of cmds) {
+                const skips = /--no-restore|--no-build/.test(c);
+                const targets = [...c.matchAll(/(?:^|\s)(?:--?|\/)(?:t|target|targets):([^\s]+)/gi)]
+                  .flatMap(m => m[1].split(/[;,]/).map(t => t.toLowerCase()));
+                if (/^dotnet restore\b/.test(c) || targets.includes('restore') || !skips) {
+                  count++;
+                  restored = { gateway: gateway(c), rid: rid(c) };
+                } else if (!restored) {
+                  throw new Error('a command skips restore before anything restored: ' + c);
+                } else if (/^dotnet publish\b/.test(c) && (!restored.gateway || !restored.rid)) {
+                  throw new Error('publish skips restore without a Gateway restore carrying linux-x64: ' + c);
+                }
+              }
+              if (count !== 1) throw new Error('restore runs ' + count + ' times instead of once');
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - *execution_modes
+            - rid-mismatch/build.sh
+          expected_exit_code: 0
+      - type: prompt
+    rubric:
+      - Explained that the later restore happens because the earlier restore did not include the runtime identifier that
+        publish uses, so the assets file lacks that target
+      - Ended with the restore running once, with -r linux-x64, and did not simply add --no-restore to publish after a
+        restore that lacked the runtime identifier
+      - Kept self-contained publish output; the restore only needs the RID unless repository package conditions require more
+        inputs
+      - Kept the build and publish commands, and either stated what remains unvalidated or said how to validate on a clean
+        checkout
+      - If publish skips building, first built Gateway with the same Release, linux-x64, and self-contained inputs
+
+  - name: Restore after the step that edits package references
+    prompt: |
+      generated-reference/ci.yml restores, runs our tool that adds an analyzer
+      package to Contoso.Core, then builds and tests. The Build step takes
+      noticeably longer than the compile itself. Cut the repeated package work
+      from the pipeline without changing what the tool does or which packages
+      the build ends up using. Only edit ci.yml; use a temporary copy for any
+      pipeline validation so the other fixture files stay unchanged.
+    tags:
+      capability: restore-ordering
+      risk: high
+      journey: apply-fix
+    environment:
+      files:
+        - src: ./generated-reference
+          dest: generated-reference
+    golden_patch:
+      path: ./references/restore-after-generator.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "eliminate-redundant-restores-generated-reference"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The Build step restores again because the tool edits Contoso.Core.csproj after the first restore: the new PackageReference is not in project.assets.json, so the earlier restore is stale and a --no-restore build would miss the analyzer. The solution only needs one restore, and it must run after the tool. I moved the explicit restore below the tool step and added --no-restore to the build. The test step already uses --no-build. Not validated: run the pipeline from a clean checkout to confirm.
+
+              | Step | Restores today (explicit/implicit/rsp) | Covered by an earlier restore? | Change | Evidence |
+              |---|---|---|---|---|
+              | Analyzer tool | Implicit (tool only) | No | Keep; run before solution restore | Edits Core's PackageReference without restoring Core |
+              | Restore solution | Explicit | No | Move after the tool | Includes the newly added analyzer package |
+              | Build solution | Implicit | No; the original restore becomes stale | Add --no-restore after the moved restore | No package changes after the new restore |
+              | Test | No | Yes | Keep --no-build | Uses the solution's Release build |
+
+              Verdict: removed 1 of 3 restores, first restore kept
+    graders:
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require('fs');
+              const steps = fs.readFileSync('generated-reference/ci.yml', 'utf8').split(/\r?\n/)
+                .filter(l => /script:/.test(l)).map(l => l.replace(/^\s*-?\s*script:\s*/, ''));
+              if (steps.some(l => /^dotnet build\b/.test(l) && /(?:^|\s)--no-build(?:\s|$)/.test(l))) {
+                throw new Error('dotnet build does not support --no-build');
+              }
+              if (steps.some(l => /^dotnet restore\b/.test(l) && /(?:^|\s)--no-(?:restore|build)(?:\s|$)/.test(l))) {
+                throw new Error('dotnet restore does not support --no-restore or --no-build');
+              }
+              const gen = steps.findIndex(l => /^dotnet run\s+--project\s+(?:\.\/)?tools\/AddAnalyzer(?:\/AddAnalyzer\.csproj)?\s+--\s+(?:\.\/)?src\/Contoso\.Core\/Contoso\.Core\.csproj\s*$/.test(l));
+              if (gen < 0) throw new Error('the analyzer tool must still run against src/Contoso.Core/Contoso.Core.csproj');
+              const build = steps.findIndex(l => /^dotnet build\b/.test(l) && /Contoso\.slnx\b/.test(l));
+              const test = steps.findIndex(l => /^dotnet test\b/.test(l) && /Contoso\.slnx\b/.test(l));
+              if (build < 0 || test < 0) throw new Error('the solution build and test steps must remain');
+              if (build < gen || test < build || !/--no-build/.test(steps[test])) {
+                throw new Error('the solution must be built after the tool, then tested with --no-build');
+              }
+              const restoring = [];
+              steps.forEach((l, i) => {
+                const targets = [...l.replace(/["']/g, '').matchAll(/(?:^|\s)(?:--?|\/)(?:t|target|targets):([^\s]+)/gi)]
+                  .flatMap(m => m[1].split(/[;,]/).map(t => t.toLowerCase()));
+                if (/Contoso\.slnx/.test(l) && (/^dotnet restore\b/.test(l) ||
+                    targets.includes('restore') ||
+                    (/^dotnet (build|test|publish|pack)\b/.test(l) && !/--no-restore|--no-build/.test(l)))) restoring.push(i);
+              });
+              if (restoring.length !== 1) throw new Error('the solution is restored ' + restoring.length + ' times');
+              if (restoring[0] < gen) throw new Error('the only restore runs before the tool edits the package references');
+              steps.forEach((l, i) => {
+                if (/Contoso\.slnx/.test(l) && /--no-restore|--no-build/.test(l) && i < restoring[0]) {
+                  throw new Error('a step skips restore before the restore ran: ' + l);
+                }
+              });
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - *execution_modes
+            - generated-reference/ci.yml
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - *immutable_fixture
+            - generated-reference
+            - >-
+              {"Contoso.slnx":"1f4d5020abc9485063c5a2b9eaced3b3d8f9bbb8120b1dfd92531950973da62a",
+              "src/Contoso.Core/BuildMarker.cs":"4983ca8e13a9428e32bbe314a13de57f5e7145b39f5143b9842e5d36c40b7c98",
+              "src/Contoso.Core/Contoso.Core.csproj":"e2c08643e21eba9123e4b319840fec508efc44b473a7cab491d6188e5f6905ca",
+              "tests/Contoso.Tests/Contoso.Tests.csproj":"0b523d82a19231031bae17755104a62fd21b18db894dd23d24234fb7e2dbdf0e",
+              "tests/Contoso.Tests/SmokeTests.cs":"363c4d10f175b6bbd06aacc4f68cb64a52d726c883614890839bc276c42dc419",
+              "tools/AddAnalyzer/AddAnalyzer.csproj":"cdd6f0b4e4b9c72196431282fc7f42508e52e0f6a10b88a948a157bbdabd220b",
+              "tools/AddAnalyzer/Program.cs":"eacd116061991ef0bdef4d5a65189880c68b5a0bccdafa53e8eb26c4ccfb2039",
+              "tools/AddAnalyzer/README.txt":"71bd0831214aa914468587a67e9a5827491e1487cd32eae38d09cf99b4131580"}
+          expected_exit_code: 0
+      - type: prompt
+    rubric:
+      - Identified that the tool edits package references after the first restore, so that restore is stale for the build
+      - Ended with the solution restored once, after the tool step, and the later steps not restoring
+      - Did not put --no-restore on the build while the only restore still ran before the tool
+      - Kept the tool step and the build and test steps
+      - Changed only ci.yml, preserving the analyzer tool, package inputs, and source files
+      - Kept both the build and --no-build test in Release
+
+  - name: Build once and run each test project without rebuilding
+    prompt: |
+      The test stage in test-steps/ci.yml takes about 90 s, but the tests
+      themselves run for only about 20 s of that. Each of the three test steps
+      spends roughly 25 s before its first test starts. Reduce that overhead in
+      ci.yml. Keep the three test steps separate so results are reported
+      separately, and keep the Release configuration. Only edit ci.yml; leave
+      the solution, project files, and source files unchanged.
+    tags:
+      capability: test-step-overhead
+      risk: medium
+      journey: apply-fix
+    environment:
+      files:
+        - src: ./test-steps
+          dest: test-steps
+    golden_patch:
+      path: ./references/build-once-test-no-build.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "eliminate-redundant-restores-test-steps"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              dotnet test restores and builds before it runs tests, so each of the three steps repeats that setup even though the earlier restore covers the same solution. Adding --no-restore alone would still rebuild three times. I added one build step for the solution with --no-restore in the same Release configuration, and every test step now uses --no-build, which also implies --no-restore. The three test steps stay separate. Not validated: I could not run the pipeline here, so confirm the stage passes from a clean checkout.
+
+              | Step | Restores today (explicit/implicit/rsp) | Covered by an earlier restore? | Change | Evidence |
+              |---|---|---|---|---|
+              | Restore solution | Explicit | No | Keep | Covers all three test projects |
+              | Build solution (new) | No | Yes | Build once in Release with --no-restore | Contoso.slnx includes every test project |
+              | Unit tests | Implicit | Yes | Add --no-build | Reuses the solution's Release build |
+              | Integration tests | Implicit | Yes | Add --no-build | Reuses the solution's Release build |
+              | Contract tests | Implicit | Yes | Add --no-build | Reuses the solution's Release build |
+
+              Verdict: removed 3 of 4 restores, first restore kept
+    graders:
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require('fs');
+              const steps = fs.readFileSync('test-steps/ci.yml', 'utf8').split(/\r?\n/)
+                .filter(l => /script:/.test(l)).map(l => l.replace(/^\s*-?\s*script:\s*/, ''));
+              if (steps.some(l => /^dotnet build\b/.test(l) && /(?:^|\s)--no-build(?:\s|$)/.test(l))) {
+                throw new Error('dotnet build does not support --no-build');
+              }
+              if (steps.some(l => /^dotnet restore\b/.test(l) && /(?:^|\s)--no-(?:restore|build)(?:\s|$)/.test(l))) {
+                throw new Error('dotnet restore does not support --no-restore or --no-build');
+              }
+              const tests = steps.filter(l => /^dotnet test\b/.test(l));
+              if (tests.length !== 3) throw new Error('expected three separate test steps, found ' + tests.length);
+              for (const project of ['UnitTests', 'IntegrationTests', 'ContractTests']) {
+                if (!tests.some(l => l.includes('tests/Contoso.' + project + '/Contoso.' + project + '.csproj'))) {
+                  throw new Error('the ' + project + ' test step is missing');
+                }
+              }
+              if (!tests.every(l => /--no-build/.test(l))) throw new Error('a test step still rebuilds');
+              const build = steps.findIndex(l => /^dotnet build\b/.test(l));
+              if (build < 0 || build > steps.findIndex(l => /^dotnet test\b/.test(l))) throw new Error('no build step before the tests');
+              if (steps.filter(l => /^dotnet build\b/.test(l)).length !== 1 || !/Contoso\.slnx\b/.test(steps[build])) {
+                throw new Error('the one build must target Contoso.slnx to produce every test project output');
+              }
+              const restore = steps.findIndex(l => /^dotnet restore\b/.test(l) && /Contoso\.slnx\b/.test(l));
+              if (restore < 0 || restore > build) throw new Error('the explicit solution restore must precede the build');
+              const restoring = steps.filter(l => {
+                const targets = [...l.replace(/["']/g, '').matchAll(/(?:^|\s)(?:--?|\/)(?:t|target|targets):([^\s]+)/gi)]
+                  .flatMap(m => m[1].split(/[;,]/).map(t => t.toLowerCase()));
+                return /^dotnet restore\b/.test(l) || targets.includes('restore') ||
+                  (/^dotnet (build|test)\b/.test(l) && !/--no-restore|--no-build/.test(l));
+              });
+              if (restoring.length !== 1) throw new Error('restore still runs ' + restoring.length + ' times');
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - *execution_modes
+            - test-steps/ci.yml
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - *immutable_fixture
+            - test-steps
+            - >-
+              {"Contoso.slnx":"b100e4a0d6e76f1915416036cc6666ab9ceec225d3f3cfaa3cea68871cd097d6",
+              "src/Contoso.Core/BuildMarker.cs":"4983ca8e13a9428e32bbe314a13de57f5e7145b39f5143b9842e5d36c40b7c98",
+              "src/Contoso.Core/Contoso.Core.csproj":"e2c08643e21eba9123e4b319840fec508efc44b473a7cab491d6188e5f6905ca",
+              "tests/Contoso.ContractTests/Contoso.ContractTests.csproj":"0b523d82a19231031bae17755104a62fd21b18db894dd23d24234fb7e2dbdf0e",
+              "tests/Contoso.ContractTests/SmokeTests.cs":"1d469b09fda31a62352910396d4409f2cc41e5b6d657acc546c7282ec353feeb",
+              "tests/Contoso.IntegrationTests/Contoso.IntegrationTests.csproj":"0b523d82a19231031bae17755104a62fd21b18db894dd23d24234fb7e2dbdf0e",
+              "tests/Contoso.IntegrationTests/SmokeTests.cs":"4f4b9fe2b7593a42e77d21fa29cac98fffef9918f74e995c85a9abaa5a08ff53",
+              "tests/Contoso.UnitTests/Contoso.UnitTests.csproj":"0b523d82a19231031bae17755104a62fd21b18db894dd23d24234fb7e2dbdf0e",
+              "tests/Contoso.UnitTests/SmokeTests.cs":"8669a02c2b3b7ae756211e8b58d31a99414441fb362f64e745869249d664a0c3"}
+          expected_exit_code: 0
+      - type: prompt
+    rubric:
+      - Identified that each dotnet test step repeats restore and build work that an earlier step already did
+      - Added one build step for the solution that runs once, in the same Release configuration the tests use, and made the
+        test steps skip building
+      - Kept the three test steps separate and kept the explicit restore as the only restore
+      - Did not rely on --no-restore alone for the test steps, which would still rebuild three times
+      - Changed only ci.yml, preserving all three test projects and their test coverage
+
+  - name: Confirm a pipeline with a single restore needs no change
+    prompt: |
+      Review already-minimal/ci.yml and tell me whether any step repeats work
+      an earlier step already did and should be changed. Do not modify any file.
+    constraints:
+      reject_tools: [edit, create]
+    tags:
+      capability: no-redundancy-found
+      risk: medium
+      journey: audit
+    environment:
+      files:
+        - src: ./already-minimal
+          dest: already-minimal
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "eliminate-redundant-restores-already-minimal"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Nothing is redundant. The pipeline restores once, in the explicit Restore step with --locked-mode, which is also the gate that checks the lock files, so it should stay. Build uses --no-restore, Test uses --no-build, which implies --no-restore, and Pack uses --no-build. I would not change any step.
+
+              | Step | Restores today (explicit/implicit/rsp) | Covered by an earlier restore? | Change | Evidence |
+              |---|---|---|---|---|
+              | Restore | Explicit | No | Keep --locked-mode | The only restore also checks lock files |
+              | Build | No | Yes | None | Uses --no-restore |
+              | Test | No | Yes | None | Uses --no-build |
+              | Pack | No | Yes | None | Uses --no-build |
+
+              Verdict: no redundant restores
+    graders:
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - *immutable_fixture
+            - already-minimal
+            - >-
+              {"ci.yml":"939674552702aba23953d56fed641379a814ba4f99e965a105612795edc017d4",
+              "Contoso.slnx":"1f4d5020abc9485063c5a2b9eaced3b3d8f9bbb8120b1dfd92531950973da62a",
+              "src/Contoso.Core/BuildMarker.cs":"d07e60bdfce07b5433c4acd721ddf2d8898d21a7e9623a8a64584eda6c4aa585",
+              "src/Contoso.Core/Contoso.Core.csproj":"cb7d7067d5c3c73ea8776e4862de63a4afb7dbe52693654e0da444275cd65e31",
+              "src/Contoso.Core/packages.lock.json":"a29c6aa8cfb81874ff8bb78dc369d7416f28c9b8cc47e99592bfc019b20c41eb",
+              "tests/Contoso.Tests/Contoso.Tests.csproj":"149cb722d1cb67a950caf97d66ea567ec5ae27141bddc50bd4612a3091fbf537",
+              "tests/Contoso.Tests/packages.lock.json":"1a09f5b6f45d070c50a53e778d2628c6f1846cdb44c11c5402a322330933a4a4",
+              "tests/Contoso.Tests/SmokeTests.cs":"363c4d10f175b6bbd06aacc4f68cb64a52d726c883614890839bc276c42dc419"}
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (?i)(nothing is redundant|no redundant|no repeated|not redundant|nothing to (change|remove|eliminate)|already (avoid|skip|minimal|optimal)|only one restore|single restore|restores once)
+      - type: prompt
+    rubric:
+      - Concluded that no step repeats restore work, because the single explicit restore is followed by --no-restore or
+        --no-build on every later command
+      - Recommended keeping the --locked-mode restore step rather than removing it
+      - Did not invent a speedup, and did not suggest removing the first restore
+
+  - name: Decline cold restore speed-up advice
+    prompt: |
+      On a fresh CI agent our dotnet restore takes about 4 minutes pulling
+      packages from nuget.org, while later builds on the same agent are fast.
+      What can we do to speed up that first restore?
+    expect_activation: false
+    tags:
+      capability: dormancy-cold-restore
+      risk: routing
+      journey: boundary-condition
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "eliminate-redundant-restores-cold-restore-dormancy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              A cold restore is slow because the agent has an empty NuGet package cache and downloads every package from the public feed. Cache the global packages folder between runs with a key based on Directory.Packages.props or the lock files, point the pipeline at a nearby mirror or internal feed that proxies nuget.org, and use a lock file so the cache key is stable. Do not drop the restore step: the first restore is required.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(cache|mirror|feed|packages folder|lock file)
+      - type: output-matches
+        config:
+          pattern: '(?i)(?:\b(?:keep|retain|preserve)\b[^.!?;\n]*\b(?:first|initial|required)\s+restore\b|\b(?:first|initial)\s+restore\b[^.!?;\n]*\b(?:required|necessary|must remain)\b)'
+      - type: output-not-matches
+        config:
+          pattern: '(?i)(?:^|[.!?;,\n]|\b(?:but|however|instead)\b)[ \t]*(?!(?:(?!\b(?:but|however|instead)\b)[^.!?;,\n])*\b(?:do not|don.t|never|must not|should not|cannot|can.t|unsafe|would fail|will fail|will break|not recommended|not appropriate|not suitable|avoid using|avoid adding|avoid removing|avoid skipping)\b)(?:(?!\b(?:but|however|instead)\b)[^.!?;,\n])*(?:--no-restore|-restore:false|\b(?:skip|remove|drop|delete|omit|bypass|avoid)\b(?:(?!\b(?:but|however|instead)\b)[^.!?;,\n])*\b(?:first|initial|required|explicit|the)\s+(?:NuGet\s+)?restore\b)'
+      - type: prompt
+    rubric:
+      - Recognized that the delay comes from downloading packages into an empty cache on the first restore, not from
+        repeating package work in later build steps
+      - Recommended caching the NuGet package folder or using a nearby feed or mirror
+      - Did not apply or recommend --no-restore, -restore:false, or removing the required first restore
+
+  - name: Match configuration-conditioned packages before reusing assets
+    prompt: |
+      configuration-conditioned/ci.yml restores packages twice. Make it build
+      once and run its Release test with just one restore, without changing
+      the dependency selected for Release. Only edit ci.yml. Preserve all
+      project and source files; use a temporary copy for any execution.
+    tags:
+      capability: configuration-conditioned-packages
+      risk: high
+      journey: apply-fix
+    environment:
+      files:
+        - src: ./configuration-conditioned/ci.yml
+          dest: configuration-conditioned/ci.yml
+        - src: ./configuration-conditioned/Contoso.Core.csproj
+          dest: configuration-conditioned/src/Contoso.Core/Contoso.Core.csproj
+        - src: ./configuration-conditioned/BuildMarker.cs
+          dest: configuration-conditioned/src/Contoso.Core/BuildMarker.cs
+        - src: ./rsp-inherited/tests/Contoso.Tests/Contoso.Tests.csproj
+          dest: configuration-conditioned/tests/Contoso.Tests/Contoso.Tests.csproj
+        - src: ./configuration-conditioned/SmokeTests.cs
+          dest: configuration-conditioned/tests/Contoso.Tests/SmokeTests.cs
+    golden_patch:
+      path: ./references/configuration-conditioned.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "eliminate-redundant-restores-configuration"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Core selects Newtonsoft.Json 13.0.2 by default but 13.0.3 for Release. Suppressing Build's restore without matching Configuration would reuse the wrong package, which the real test detects. I passed -p:Configuration=Release to the first restore, added --no-restore to the Release build, and kept the no-build Release test. One of two restores is removed; only ci.yml changed.
+    graders:
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - &restore_state |
+              const fs = require('fs');
+              const root = process.argv[1], kind = process.argv[2];
+              const steps = fs.readFileSync(root + '/ci.yml', 'utf8').split(/\r?\n/)
+                .filter(l => /^\s*-?\s*script:/.test(l))
+                .map(l => l.replace(/^\s*-?\s*script:\s*/, '').trim().replace(/["']/g, '').replace(/\\/g, '/'));
+              const flag = (l, name) => new RegExp('(?:^|\\s)' + name + '(?:\\s|$)').test(l);
+              const property = (l, name) => [...l.matchAll(/(?:^|\s)(?:--?|\/)(?:p|property):([^\s]+)/gi)]
+                .flatMap(m => m[1].split(/[,;](?=[A-Za-z_]\w*=)/))
+                .reduce((value, p) => {
+                  const match = /^([^=]+)=(.*)$/.exec(p);
+                  return match && match[1].toLowerCase() === name.toLowerCase() ? decodeURIComponent(match[2]) : value;
+                }, undefined);
+              const project = (l, name) => l.split(/\s+/).some(t => t.replace(/^\.\//, '') === name);
+              const restoreSwitches = l => l.match(/(?:^|\s)(?:--?|\/)(?:restore(?::(?:true|false))?|r:(?:true|false))(?=\s|$)/gi) || [];
+              const restoreOff = l => /:false$/i.test(restoreSwitches(l).at(-1) || '');
+              const restores = steps.filter(l => /^dotnet restore\b/.test(l));
+              const builds = steps.filter(l => /^dotnet (build|msbuild)\b/.test(l));
+              const tests = steps.filter(l => /^dotnet test\b/.test(l));
+              if (restores.length !== 1 || builds.length !== 1 || tests.length < 1 ||
+                  tests.length > (kind === 'frameworks' ? 2 : 1) || steps.length !== 2 + tests.length) {
+                throw new Error('keep one explicit restore, one build, and complete test coverage');
+              }
+              const [restore] = restores, [build] = builds;
+              const entry = 'tests/Contoso.Tests/Contoso.Tests.csproj';
+              if (!project(restore, entry) || !tests.every(l => project(l, entry)) ||
+                  !project(build, kind === 'orchestrated' ? 'Build.proj' : entry) ||
+                  steps.indexOf(restore) > steps.indexOf(build) || tests.some(l => steps.indexOf(build) > steps.indexOf(l))) {
+                throw new Error('restore the complete child graph before building and testing it');
+              }
+              if (flag(restore, '(?:--no-(?:restore|build)|-c|--configuration)') ||
+                  !tests.every(l => flag(l, '--no-build')) ||
+                  (/^dotnet build\b/.test(build) && flag(build, '--no-build'))) {
+                throw new Error('preserve valid restore, Release build, and no-build test modes');
+              }
+              if ([build, ...tests].some(l => restoreSwitches(l).length && !restoreOff(l))) throw new Error('restore is re-enabled');
+              if (/^dotnet msbuild\b/.test(build) ? !restoreOff(build) || flag(build, '--no-restore')
+                  : !flag(build, '--no-restore')) throw new Error('the build must not restore');
+              if ([build, ...tests].some(l => [...l.matchAll(/(?:^|\s)(?:--?|\/)(?:t|target|targets):([^\s]+)/gi)]
+                  .some(m => m[1].split(/[;,]/).some(t => t.toLowerCase() === 'restore')))) {
+                throw new Error('an explicit Restore target still repeats restore');
+              }
+              if (kind === 'configuration' && property(restore, 'Configuration') !== 'Release') {
+                throw new Error('restore must select Release packages with a supported MSBuild property');
+              }
+              if (kind === 'frameworks') {
+                const required = ['net10.0', 'net10.0-windows'];
+                const coverage = l => {
+                  const single = property(l, 'TargetFramework') ??
+                    /(?:^|\s)(?:-f|--framework)[ =]([^\s]+)/.exec(l)?.[1];
+                  return single !== undefined ? [single] : property(l, 'TargetFrameworks')?.split(';') ?? required;
+                };
+                const tested = tests.flatMap(coverage);
+                const complete = targets => required.every(t => targets.includes(t)) && targets.every(t => required.includes(t));
+                if (![restore, build].every(l => complete(coverage(l))) || !complete(tested) ||
+                    (tests.length === 2 && !tests.every(l => coverage(l).length === 1))) {
+                  throw new Error('preserve exactly the declared framework set in restore, build, and tests');
+                }
+              }
+              if (kind === 'artifacts' && !steps.every(l => /(?:^|\s)--artifacts-path[ =](?:\.\/)?artifacts(?:\s|$)/.test(l))) {
+                throw new Error('restore must write assets to the retained artifacts output layout');
+              }
+              if (kind === 'orchestrated' && (!/^dotnet msbuild\b/.test(build) || property(build, 'ChildTargets') !== 'Build')) {
+                throw new Error('task-invoked children must build without repeating their explicit Restore targets');
+              }
+            - configuration-conditioned
+            - configuration
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args: [-e, *execution_modes, configuration-conditioned/ci.yml]
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - *immutable_fixture
+            - configuration-conditioned
+            - >-
+              {"src/Contoso.Core/BuildMarker.cs":"d54dd569c7d7b53726d251e543eef1ae652c463c5a182a381302e816d099b88b",
+              "src/Contoso.Core/Contoso.Core.csproj":"a26d770959e689b08a73f04a118bb36aa710c6b116131efd41c2ada4d5ef6630",
+              "tests/Contoso.Tests/Contoso.Tests.csproj":"0b523d82a19231031bae17755104a62fd21b18db894dd23d24234fb7e2dbdf0e",
+              "tests/Contoso.Tests/SmokeTests.cs":"d333f3dcb0509ebd578b11daf952131cc672e1b03f6e3824b7b88851db2706a0"}
+          expected_exit_code: 0
+      - type: prompt
+    rubric:
+      - Recognized that Configuration changes the package version, not just the output folder
+      - Matched the first restore to Release before suppressing the later restore
+      - Built once and ran the unchanged test, preserving the 13.0.3 runtime dependency
+      - Changed only ci.yml and retained the required first restore
+
+  - name: Restore the full framework set before building and testing both targets
+    prompt: |
+      multi-framework/ci.yml repeats package work. Reduce it to one restore
+      and one build, while still running the existing test on both declared
+      target frameworks. Only edit ci.yml; do not narrow the project targets
+      or change source. Use a temporary copy if you execute the pipeline.
+    tags:
+      capability: multi-framework-assets-coverage
+      risk: high
+      journey: apply-fix
+    environment:
+      files:
+        - src: ./multi-framework/ci.yml
+          dest: multi-framework/ci.yml
+        - src: ./multi-framework/Contoso.Core.csproj
+          dest: multi-framework/src/Contoso.Core/Contoso.Core.csproj
+        - src: ./rsp-inherited/src/Contoso.Core/BuildMarker.cs
+          dest: multi-framework/src/Contoso.Core/BuildMarker.cs
+        - src: ./multi-framework/Contoso.Tests.csproj
+          dest: multi-framework/tests/Contoso.Tests/Contoso.Tests.csproj
+        - src: ./rsp-inherited/tests/Contoso.Tests/SmokeTests.cs
+          dest: multi-framework/tests/Contoso.Tests/SmokeTests.cs
+    golden_patch:
+      path: ./references/multi-framework.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "eliminate-redundant-restores-frameworks"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The initial restore overrides TargetFrameworks to net10.0, but both projects declare net10.0 and net10.0-windows. Those assets do not cover the second target. I removed the narrowing restore property, added --no-restore to the single Release build, and kept the no-build test without a framework filter so both test runs remain. Only ci.yml changed; the required restore remains and one of two restores is removed.
+    graders:
+      - type: run-command
+        config:
+          command: node
+          args: [-e, *restore_state, multi-framework, frameworks]
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args: [-e, *execution_modes, multi-framework/ci.yml]
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - *immutable_fixture
+            - multi-framework
+            - >-
+              {"src/Contoso.Core/BuildMarker.cs":"4983ca8e13a9428e32bbe314a13de57f5e7145b39f5143b9842e5d36c40b7c98",
+              "src/Contoso.Core/Contoso.Core.csproj":"af6c68e15c156381a234916b05951bfc8b5e6807826dff450e6d7a92268c593b",
+              "tests/Contoso.Tests/Contoso.Tests.csproj":"3d94a123ad016785cb0ffd765a1022108234c088efe913655bdaca470cceb0c9",
+              "tests/Contoso.Tests/SmokeTests.cs":"363c4d10f175b6bbd06aacc4f68cb64a52d726c883614890839bc276c42dc419"}
+          expected_exit_code: 0
+      - type: prompt
+    rubric:
+      - Distinguished a restore limited to one framework from coverage of both declared frameworks
+      - Kept both frameworks in the restore, build, and test phases
+      - Built once and executed both existing framework-specific test assemblies without rebuilding
+      - Changed only ci.yml, keeping the first restore and the project/source graph intact
+
+  - name: Align restored assets with the artifacts output layout
+    prompt: |
+      artifacts-location/ci.yml repeats restore during Build. Remove the
+      repeat while preserving --artifacts-path artifacts on Build and Test,
+      the Release outputs, and the actual test. Only edit ci.yml; keep the
+      projects and source unchanged. Validate in a temporary copy if needed.
+    tags:
+      capability: restore-output-location
+      risk: high
+      journey: apply-fix
+    environment:
+      files:
+        - src: ./artifacts-location/ci.yml
+          dest: artifacts-location/ci.yml
+        - src: ./rsp-inherited/src/Contoso.Core/Contoso.Core.csproj
+          dest: artifacts-location/src/Contoso.Core/Contoso.Core.csproj
+        - src: ./rsp-inherited/src/Contoso.Core/BuildMarker.cs
+          dest: artifacts-location/src/Contoso.Core/BuildMarker.cs
+        - src: ./rsp-inherited/tests/Contoso.Tests/Contoso.Tests.csproj
+          dest: artifacts-location/tests/Contoso.Tests/Contoso.Tests.csproj
+        - src: ./rsp-inherited/tests/Contoso.Tests/SmokeTests.cs
+          dest: artifacts-location/tests/Contoso.Tests/SmokeTests.cs
+    golden_patch:
+      path: ./references/artifacts-location.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "eliminate-redundant-restores-artifacts"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The first restore writes ordinary obj assets, while Build uses the artifacts intermediate layout. Same project and package inputs are not enough when the assets are in a different location. I gave Restore the same --artifacts-path artifacts, suppressed Build's restore, and retained the Release no-build test and output layout. One of two restores is removed, and only ci.yml changed.
+    graders:
+      - type: run-command
+        config:
+          command: node
+          args: [-e, *restore_state, artifacts-location, artifacts]
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args: [-e, *execution_modes, artifacts-location/ci.yml]
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - *immutable_fixture
+            - artifacts-location
+            - >-
+              {"src/Contoso.Core/BuildMarker.cs":"4983ca8e13a9428e32bbe314a13de57f5e7145b39f5143b9842e5d36c40b7c98",
+              "src/Contoso.Core/Contoso.Core.csproj":"e2c08643e21eba9123e4b319840fec508efc44b473a7cab491d6188e5f6905ca",
+              "tests/Contoso.Tests/Contoso.Tests.csproj":"0b523d82a19231031bae17755104a62fd21b18db894dd23d24234fb7e2dbdf0e",
+              "tests/Contoso.Tests/SmokeTests.cs":"363c4d10f175b6bbd06aacc4f68cb64a52d726c883614890839bc276c42dc419"}
+          expected_exit_code: 0
+      - type: prompt
+    rubric:
+      - Recognized the restore-output location mismatch rather than assuming project identity proves coverage
+      - Wrote the first restore's assets into the artifacts layout before suppressing Build's restore
+      - Preserved the requested output-path flags and the Release build/test execution
+      - Changed only ci.yml and kept exactly one required restore
+
+  - name: Cover MSBuild-task children without changing local orchestration defaults
+    prompt: |
+      orchestrated-children/ci.yml already uses -restore:false, but the
+      orchestrated Build still restores both child projects. Reduce CI to one
+      restore and one build, preserving the child outputs, the orchestration
+      marker, and the test. Only edit ci.yml: local developers still need
+      Build.proj's default behavior. Use a temporary copy for execution.
+    tags:
+      capability: msbuild-task-child-closure
+      risk: high
+      journey: apply-fix
+    environment:
+      files:
+        - src: ./orchestrated-children/ci.yml
+          dest: orchestrated-children/ci.yml
+        - src: ./orchestrated-children/Build.proj
+          dest: orchestrated-children/Build.proj
+        - src: ./rsp-inherited/src/Contoso.Core/Contoso.Core.csproj
+          dest: orchestrated-children/src/Contoso.Core/Contoso.Core.csproj
+        - src: ./rsp-inherited/src/Contoso.Core/BuildMarker.cs
+          dest: orchestrated-children/src/Contoso.Core/BuildMarker.cs
+        - src: ./rsp-inherited/tests/Contoso.Tests/Contoso.Tests.csproj
+          dest: orchestrated-children/tests/Contoso.Tests/Contoso.Tests.csproj
+        - src: ./rsp-inherited/tests/Contoso.Tests/SmokeTests.cs
+          dest: orchestrated-children/tests/Contoso.Tests/SmokeTests.cs
+    golden_patch:
+      path: ./references/orchestrated-children.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "eliminate-redundant-restores-orchestrated"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Restoring Build.proj does not cover projects invoked through its MSBuild tasks. Also, -restore:false does not suppress the explicit child Restore task. I restored the test entry project first, covering Core through ProjectReference, then passed -p:ChildTargets=Build only in CI. The orchestrator still builds both children and writes its marker, Test still executes, and local Restore;Build defaults are unchanged. Two of three restore invocations are removed; only ci.yml changed.
+    graders:
+      - type: run-command
+        config:
+          command: node
+          args: [-e, *restore_state, orchestrated-children, orchestrated]
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args: [-e, *execution_modes, orchestrated-children/ci.yml]
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - *immutable_fixture
+            - orchestrated-children
+            - >-
+              {"Build.proj":"0e08b7d609f86e3f22ef5eea7b3be689bdbd985ffa2a45281d1be800f064bb26",
+              "src/Contoso.Core/BuildMarker.cs":"4983ca8e13a9428e32bbe314a13de57f5e7145b39f5143b9842e5d36c40b7c98",
+              "src/Contoso.Core/Contoso.Core.csproj":"e2c08643e21eba9123e4b319840fec508efc44b473a7cab491d6188e5f6905ca",
+              "tests/Contoso.Tests/Contoso.Tests.csproj":"0b523d82a19231031bae17755104a62fd21b18db894dd23d24234fb7e2dbdf0e",
+              "tests/Contoso.Tests/SmokeTests.cs":"363c4d10f175b6bbd06aacc4f68cb64a52d726c883614890839bc276c42dc419"}
+          expected_exit_code: 0
+      - type: prompt
+    rubric:
+      - Recognized that the orchestrator's own restore does not cover MSBuild-task children
+      - Distinguished explicit task-invoked Restore targets from the top-level -restore switch
+      - Restored the complete child graph first and suppressed child restores only in the CI invocation
+      - Kept Build.proj unchanged, including its local defaults and orchestration marker
+      - Built once, ran the existing test, and changed only ci.yml

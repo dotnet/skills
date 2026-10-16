@@ -446,6 +446,11 @@ dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate \
   plugins/dotnet-msbuild/agents/msbuild.agent.md \
   --tests-dir tests/dotnet-msbuild --runs 1 --verdict-warn-only
 
+# Exercise one redistributable workflow package against offline fixtures
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate \
+  agentic-workflows/msbuild-quality-review/aw.yml \
+  --tests-dir tests/agentic-workflows --runs 1 --verdict-warn-only
+
 # Run every skill's tests
 ./eng/run-skill-evals.sh
 ```
@@ -461,6 +466,13 @@ Per-skill verdicts are written to `./eval-results/<plugin>/<skill>/results.json`
 ### CI evaluation
 
 Tests do **not** run automatically on pull requests. When a PR changes skills, the `pr-status` job posts a pending commit status and a maintainer must trigger the evaluation, binding it to a specific reviewed commit — either by submitting a PR review ("Files changed" → "Review changes") whose body contains `/evaluate` (recommended, no SHA to copy), or by commenting `/evaluate <sha>`. A bare `/evaluate` comment only posts guidance. Results are posted as a PR comment and uploaded as build artifacts.
+
+The same discovery/reporting pipeline covers workflow packages and their specs
+under `tests/agentic-workflows/<package>/eval.yaml`. Manual dispatch with
+`plugin: agentic-workflows` selects that collection. These results measure
+offline workflow decisions/proposals using the real imported prompts and
+installed resources; they do not claim live Actions or publication validation.
+Keep package compilation and trusted-helper regression tests as separate gates.
 
 The [Skill Value dashboard](https://dotnet.github.io/skills/) provides historical
 results for each skill by executor and judge model.
