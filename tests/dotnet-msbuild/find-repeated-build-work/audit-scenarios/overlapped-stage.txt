@@ -1,0 +1,16 @@
+Invocation: dotnet msbuild Build.proj -m:6
+Task Performance Summary: Exec 21600 ms, 72 calls.
+Each project performs identical repoprobe --version, 300 ms, before compilation.
+The value is build-invariant; a wrapper may provide it as a global property.
+
+Timeline extract:
+0-300 ms: calls 1-6 on workers 1-6
+300-600 ms: calls 7-12 on workers 1-6
+...
+3300-3600 ms: calls 67-72 on workers 1-6
+3600 ms: all 72 probes complete; the next phase can start
+There is a phase barrier before compilation, no other work overlaps this stage,
+and the stage is on the critical path. A single wrapper probe would take 300 ms
+before the graph starts, with no additional distribution/IO overhead in this estimate.
+The build wall-clock is 40000 ms. There has been no post-change build.
+Every project must receive exactly the same version and keep direct-build support.

@@ -1,0 +1,20 @@
+Invocation: dotnet msbuild Product.proj -m:8
+Product.proj builds 32 projects, with four projects scheduled on each worker.
+Task Performance Summary: Exec 16000 ms, 32 calls.
+All calls run the same license-tool --catalog-version and return 2026.10.
+The catalog is immutable for the entire invocation and independent of project.
+
+Directory.Build.targets:
+<Target Name="Catalog" BeforeTargets="CoreCompile"
+        Condition="'$(CatalogWasRead)' != 'true'">
+  <Exec Command="license-tool --catalog-version" ConsoleToMSBuild="true">
+    <Output TaskParameter="ConsoleOutput" PropertyName="CatalogVersion" />
+  </Exec>
+  <PropertyGroup><CatalogWasRead>true</CatalogWasRead></PropertyGroup>
+  <Message Text="Catalog $(CatalogVersion)" Importance="high" />
+</Target>
+
+The team expected one call per invocation, or at worst one per worker.
+Each project needs the version before compiling. Direct project builds are
+supported, and the catalog value must remain available there too.
+Only aggregate task time is available; overlap cannot be reconstructed.

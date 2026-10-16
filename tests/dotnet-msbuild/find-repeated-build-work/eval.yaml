@@ -210,90 +210,9 @@ stimuli:
           args:
             - -c
             - |
-              import fnmatch, os, pathlib, re, shutil, subprocess, tempfile
+              import os, pathlib, shutil, subprocess, tempfile
               import xml.etree.ElementTree as ET
               base = pathlib.Path('shared-project-instances')
-              build = ET.parse(base / 'Build.proj').getroot()
-              normalize = lambda path: str(pathlib.PurePosixPath(path.replace('\\', '/'))).lower()
-              items = {}
-              for group in build.findall('ItemGroup'):
-                  if group.get('Condition'):
-                      continue
-                  for item in group:
-                      if item.get('Condition'):
-                          continue
-                      values = items.setdefault(item.tag, [])
-                      excluded = [normalize(p.strip()) for p in item.get('Exclude', '').split(';') if p.strip()]
-                      included = [normalize(p.strip()) for p in item.get('Include', '').split(';') if p.strip()]
-                      values.extend(p for p in included if not any(fnmatch.fnmatchcase(p, pattern) for pattern in excluded))
-                      for pattern in item.get('Remove', '').split(';'):
-                          if pattern.strip():
-                              values[:] = [p for p in values if not fnmatch.fnmatchcase(p, normalize(pattern.strip()))]
-              targets = {t.get('Name'): t for t in build.findall('Target') if not t.get('Condition')}
-              pending = build.get('DefaultTargets', '').split(';')
-              visited, tasks = set(), []
-              while pending:
-                  name = pending.pop().strip()
-                  if name in visited:
-                      continue
-                  assert name in targets, 'the default build target must exist'
-                  visited.add(name)
-                  target = targets[name]
-                  pending.extend(n for n in target.get('DependsOnTargets', '').split(';') if n.strip())
-                  for task in target.findall('MSBuild'):
-                      if task.get('Condition'):
-                          continue
-                      if not {'Build', 'Rebuild'} & {n.strip() for n in (task.get('Targets') or 'Build').split(';')}:
-                          continue
-                      projects = re.sub(r'@\((\w+)\)', lambda m: ';'.join(items.get(m[1], [])), task.get('Projects', ''))
-                      assert '@(' not in projects and '$(' not in projects, 'resolve the MSBuild Projects input'
-                      roots = {normalize(p.strip()) for p in projects.split(';') if p.strip()}
-                      tasks.append((task, roots))
-              expected_roots = {normalize(f'{c}/{c}.csproj') for c in ['Web', 'Api', 'Worker']}
-              assert expected_roots <= set().union(*(roots for _, roots in tasks)), 'Web, Api and Worker must all remain build roots'
-              shared_path = base / 'Directory.Build.targets'
-              shared = ET.parse(shared_path).getroot() if shared_path.exists() else ET.Element('Project')
-              def references(project):
-                  return [r for group in project.findall('ItemGroup') if not group.get('Condition')
-                          for r in group.findall('ProjectReference') if not r.get('Condition')]
-              def removal_metadata(reference, default=''):
-                  if 'GlobalPropertiesToRemove' in reference.attrib:
-                      return reference.get('GlobalPropertiesToRemove')
-                  child = reference.find('GlobalPropertiesToRemove')
-                  if child is None or child.get('Condition'):
-                      return default
-                  return child.text or ''
-              for component in ['Web', 'Api', 'Worker']:
-                  component_path = normalize(f'{component}/{component}.csproj')
-                  passes_name = False
-                  for task, roots in tasks:
-                      if component_path not in roots:
-                          continue
-                      for assignment in task.get('Properties', '').split(';'):
-                          match = re.fullmatch(r'ComponentName=%\((\w+)\.Filename\)', assignment.strip())
-                          if match and '@(' + match[1] + ')' in task.get('Projects', ''):
-                              passes_name = True
-                          elif assignment.strip() == 'ComponentName=' + component and roots == {component_path}:
-                              passes_name = True
-                  root = ET.parse(base / component / (component + '.csproj')).getroot()
-                  title = root.findtext('.//AssemblyTitle', '')
-                  name = root.findtext('.//ComponentName', '')
-                  assert (title == 'Contoso ' + component or
-                          title == 'Contoso $(ComponentName)' and (passes_name or name == component)), 'component AssemblyTitle changed'
-                  refs = [r for r in references(root)
-                          if normalize(r.get('Include', '')) == '../core/core.csproj']
-                  assert refs, 'the component must still reference Core'
-                  if not passes_name:
-                      continue
-                  for ref in refs:
-                      metadata = removal_metadata(ref)
-                      applicable = references(root)
-                      updates = applicable[applicable.index(ref) + 1:] + references(shared)
-                      for update in updates:
-                          pattern = update.get('Update', '')
-                          if pattern and any(fnmatch.fnmatchcase(normalize(ref.get('Include')), normalize(p.strip())) for p in pattern.split(';')):
-                              metadata = removal_metadata(update, metadata)
-                      assert 'ComponentName' in [p.strip() for p in metadata.split(';')], 'ComponentName still reaches Core: removal must be metadata on its ProjectReference'
               dotnet = shutil.which('dotnet')
               bash = shutil.which('bash')
               assert dotnet and bash, 'the .NET SDK and Bash are required to exercise the submitted build'
@@ -439,7 +358,7 @@ stimuli:
                           compile_observations.append(items)
                           ET.SubElement(target, 'WriteLinesToFile', File=str(items.resolve()),
                                         Lines="@(Compile->'%(FullPath)')", Overwrite='true')
-                      project_path = project_dir / (name + '.proj')
+                      project_path = project_dir / (name + '.csproj')
                       ET.ElementTree(probe).write(project_path, encoding='utf-8')
                       projects.append(str(project_path.resolve()))
                   graph = ET.Element('Project', DefaultTargets='Build')
@@ -653,7 +572,7 @@ stimuli:
                   log = pathlib.Path(tmp) / 'schemagen-calls.jsonl'
                   script = bin_dir / 'schemagen.py'
                   script.write_text(
-                      'import argparse, json, os, pathlib\n'
+                      'import argparse, hashlib, json, os, pathlib\n'
                       'parser = argparse.ArgumentParser()\n'
                       'parser.add_argument("--input-list", required=True)\n'
                       'parser.add_argument("--output-dir", required=True)\n'
@@ -666,8 +585,10 @@ stimuli:
                       'inputs = [pathlib.Path(line).resolve() for line in source_list.read_text(encoding="utf-8-sig").splitlines() if line.strip()]\n'
                       'assert inputs and all(p.is_relative_to(work) and p.is_file() for p in inputs)\n'
                       'outputs = [output_dir / (p.stem + ".g.cs") for p in inputs]\n'
-                      'for output in outputs:\n'
-                      '    output.write_bytes(b"// generated placeholder for Compile-item inspection\\n")\n'
+                      'for source, output in zip(inputs, outputs):\n'
+                      '    digest = hashlib.sha256(source.read_bytes()).hexdigest()\n'
+                      '    relative = source.relative_to(work).as_posix()\n'
+                      '    output.write_bytes(("// generated schema: " + relative + "\\n// sha256: " + digest + "\\n").encode("utf-8"))\n'
                       'with open(os.environ["SCHEMA_LOG"], "a", encoding="utf-8") as stream:\n'
                       '    stream.write(json.dumps({"inputs": [str(p) for p in inputs], "outputs": [str(p) for p in outputs]}) + "\\n")\n',
                       encoding='utf-8', newline='\n',
@@ -686,24 +607,44 @@ stimuli:
                       launcher.chmod(0o755)
                   env = dict(os.environ, PATH=str(bin_dir) + os.pathsep + os.environ['PATH'],
                              SCHEMA_WORK=str(work), SCHEMA_LOG=str(log))
+                  sources = set(work.joinpath('schemas').rglob('*.json'))
+                  source_bytes = {source: source.read_bytes() for source in sources}
+                  expected_content = {
+                      source: (
+                          '// generated schema: ' + source.relative_to(work).as_posix() +
+                          '\n// sha256: ' + hashlib.sha256(content).hexdigest() + '\n'
+                      ).encode('utf-8')
+                      for source, content in source_bytes.items()
+                  }
                   result = subprocess.run(
                       [dotnet, 'msbuild', 'Contoso.Schemas.csproj', '-nologo', '-verbosity:quiet',
-                       '-nodeReuse:false', '-target:' + ';'.join(hooks), '-getItem:Compile'],
+                       '-nodeReuse:false', '-target:' + ';'.join(hooks), '-getItem:Compile',
+                       '-getProperty:IntermediateOutputPath'],
                       cwd=work, env=env, capture_output=True, text=True, timeout=60,
                   )
                   assert result.returncode == 0, result.stdout + result.stderr
                   calls = [json.loads(line) for line in log.read_text().splitlines()]
                   assert len(calls) == 1, 'schema generation must execute exactly once'
-                  sources = set(work.joinpath('schemas').rglob('*.json'))
                   required = {work / 'schemas' / (name + '.json') for name in ['Customer', 'Invoice', 'Order']}
                   assert required <= sources, 'preserve all fixture schema inputs'
+                  assert set(work.joinpath('schemas').rglob('*.json')) == sources and all(
+                      source.read_bytes() == content for source, content in source_bytes.items()
+                  ), 'generation must not modify, add or delete schema inputs'
                   assert {pathlib.Path(p) for p in calls[0]['inputs']} == sources, 'generate an output for every schema'
                   generated = {pathlib.Path(p) for p in calls[0]['outputs']}
-                  compiled = {pathlib.Path(item['FullPath']).resolve() for item in json.loads(result.stdout)['Items']['Compile']}
+                  evaluated = json.loads(result.stdout)
+                  compiled = {pathlib.Path(item['FullPath']).resolve() for item in evaluated['Items']['Compile']}
                   assert generated <= compiled, 'every generated output must remain a Compile input'
                   assert all(p.is_file() for p in compiled if p.name.endswith('.g.cs')), 'generated Compile inputs must exist'
-                  assert all(p.read_bytes() == b'// generated placeholder for Compile-item inspection\n'
-                             for p in generated), 'preserve every generated schema output byte-for-byte'
+                  properties.update(evaluated['Properties'])
+                  evaluated_args = shlex.split(expand(task.get('Command')))
+                  evaluated_output_dir = evaluated_args[evaluated_args.index('--output-dir') + 1]
+                  expected_outputs = {
+                      (work / evaluated_output_dir / (source.stem + '.g.cs')).resolve(): expected_content[source]
+                      for source in sources
+                  }
+                  assert generated == expected_outputs.keys(), 'preserve the per-schema output mapping'
+                  assert all(path.read_bytes() == content for path, content in expected_outputs.items()), 'preserve every distinct content-dependent schema output byte-for-byte'
           expected_exit_code: 0
       - type: output-matches
         config:
@@ -913,6 +854,676 @@ stimuli:
       - Compared the aggregate saving upper bound with the 18 minute wall-clock and concluded it is not worth changing
         without assuming every busy node divides that saving
       - Did not recommend a change to the Exec or invent other repeated work
+
+  - name: Keep revisions separate across repository roots
+    prompt: |
+      Review audit/evidence.txt from our product build. Can we reduce the Git process launches without changing the
+      revision stamped into any project? Explain the safe scope and likely benefit. Do not edit files or run a build.
+    constraints:
+      reject_tools: [edit, create]
+    tags: { capability: repository-working-directory-partition, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/repository-cwd.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-repository-cwd
+        agent: &audit-agent { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The command text matches, but its working directories belong to two different Git repositories. Compute one full revision per repository and pass the matching value to that repository's 12 projects, retaining the direct-build fallback and write-if-different behavior. A single product-wide revision would incorrectly stamp Engine with Main's commit. Two calls rather than 24 could avoid 44,000 ms of aggregate task time; overlap and wall-clock gain are unknown. This is a proposal, not a measured result.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Git revision | 24 | 2 | 44000 estimated | Two repository roots | Compute once per repository | unknown |
+
+              Verdict: proposed removal of 22 executions; wall-clock not validated
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -c
+            - &preserve-audit |
+              import hashlib, pathlib, sys
+              base = pathlib.Path('audit')
+              actual = {p.relative_to(base).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+                        for p in base.rglob('*') if p.is_file()}
+              assert actual == {'evidence.txt': sys.argv[1]}, 'preserve the complete supplied evidence without edits, additions or deletions'
+            - 76dadff9d21382a7ec513453c2cca7120dc0b62ccc3cb55ad616f4125339dc61
+          expected_exit_code: 0
+      - &audit-table
+        type: output-matches
+        config:
+          pattern: '(?m)^\|\s*Work\s*\|\s*Calls\s*\|\s*Expected\s*\|\s*Avoidable ms\s*\|\s*Cause\s*\|\s*Fix\s*\|\s*On critical path\?\s*\|\r?\n\|(?:\s*:?-+:?\s*\|){7}\r?\n\|(?:[^|\r\n]*\|){7}\s*$'
+      - &audit-verdict
+        type: output-matches
+        config:
+          pattern: '(?m)^Verdict:[ \t]*\S[^\r\n]*$'
+      - type: prompt
+    rubric:
+      - Distinguished the two repository roots despite identical command text and retained each repository's original full revision
+      - Proposed two computations distributed to the matching projects, not one product-wide value
+      - Estimated 22 avoided calls and 44000 ms of aggregate task time without asserting unobserved wall-clock savings
+      - Respected the read-only request and did not claim to execute or validate a build
+
+  - name: Remove only the unused dimension of a shared project
+    prompt: |
+      audit/evidence.txt lists the Shared builds in one invocation. Which of those builds can be avoided while still
+      shipping both framework assemblies and preserving component branding? Recommend a change, without editing or building.
+    constraints:
+      reject_tools: [edit, create]
+    tags: { capability: required-property-partition, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/required-property-partitions.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-required-property-partition
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Shared needs net9.0 and net10.0, but Brand creates three instances inside each framework partition without affecting Shared's behavior. Remove Brand only at the component-to-Shared reference, for example with GlobalPropertiesToRemove metadata. Keep TargetFramework on Shared and Brand on the components. This leaves two Shared compilations, not one, and preserves both framework outputs and component AssemblyTitle values.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Shared build | 6 | 2 | 8040 estimated | Unused Brand within each required TFM | Remove Brand only on Shared references | unknown |
+
+              Verdict: proposed removal of 4 executions; estimated project-time saving 8.04 s; wall-clock not validated
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, 458e872dca2f02cd8ad673b41574e2c1b92f457a64741196ab747eaeb1344d67]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Kept two Shared compilations because both TargetFramework variants are required
+      - Removed only Brand at the Shared reference while preserving component branding and required framework properties
+      - Estimated four avoided executions and 8040 ms aggregate project time without inventing a wall-clock result
+      - Did not turn an advisory question into file changes or a build
+
+  - name: Trim inherited properties on an orchestrator task edge
+    prompt: |
+      The Shared builds in audit/evidence.txt look identical. How should we avoid unnecessary work without losing
+      the slice diagnostics or the Release framework settings? Do not change files or execute the build.
+    constraints:
+      reject_tools: [edit, create]
+    tags: { capability: msbuild-task-property-removal, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/orchestrator-removal.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-task-property-removal
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              TraceBucket is inherited by Shared as a global property, producing three executed instances although Shared does not read it. On PrepareSlice's MSBuild task, use RemoveProperties="TraceBucket". There is no ProjectReference to annotate here. Keep TraceBucket in PrepareSlice for its message, and retain Configuration=Release and TargetFramework=net10.0 on the child task. Shared can then use one common instance. Only the aggregate project-time estimate is supported.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Shared build | 3 | 1 | 12000 estimated | Inherited TraceBucket | RemoveProperties on the MSBuild task | unknown |
+
+              Verdict: proposed removal of 2 executions; wall-clock not validated
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, 157f6aad821a3bec251718e92d989235c9ce4baef28c9f069513fc40d875c79a]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Located the task edge where TraceBucket reaches Shared and proposed a valid task-level removal rather than nonexistent ProjectReference metadata
+      - Preserved parent diagnostics and the required Configuration and TargetFramework globals
+      - Reduced the expected Shared executions to one with 12000 ms estimated aggregate savings and no measured wall-clock claim
+      - Did not edit files or run a build
+
+  - name: Respect a generator that cannot accept multiple inputs
+    prompt: |
+      Can we replace the sixty generator launches described in audit/evidence.txt with one process in this release?
+      Review the available interface and advise; do not modify files or run commands against the build.
+    constraints:
+      reject_tools: [edit, create]
+    tags: { capability: unsupported-generator-batching, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/single-input-contract.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-single-input-contract
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Not with this installed tool contract. Sixty distinct inputs need sixty distinct outputs, and contractc accepts only one pair per process. Inventing --input-list, passing a glob, or concatenating commands inside one Exec does not create a one-process generator. Retain the existing input/output transform and compilation items. A supported multi-input tool interface would be a prerequisite to this optimization, but replacing the tool is outside this release.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | contractc | 60 | 60 | 0 with current interface | Single-input tool contract | Leave unchanged | unknown |
+
+              Verdict: no supported reduction in generator processes under the supplied constraints
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, 5286fae0faefa563fac100327b951c27e1cfa125a61016ea67fc04cf24c627d3]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Concluded that the supplied tool contract cannot perform all sixty inputs in one process
+      - Did not invent list or response-file support, substitute a tool, or misrepresent one shell Exec containing sixty processes as one generator process
+      - Preserved every required output and the incremental input/output pairing without claiming a speedup
+      - Kept the response advisory without edits or build execution
+
+  - name: Preserve metadata partitions when batching a generator
+    prompt: |
+      Suggest a lower-startup-cost version of the generation step in audit/evidence.txt without changing generated APIs.
+      Work only from the supplied evidence; do not edit files or execute a build.
+    constraints:
+      reject_tools: [edit, create]
+    tags: { capability: generator-metadata-partition, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/metadata-batches.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-metadata-partition
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Batch stale inputs by Namespace and invoke modelgen once for each of the two namespaces with a separate overwritten UTF-8 input list. One combined list with one --namespace would change half the generated APIs. Keep each item's output mapping and the Inputs/Outputs relationship so unchanged files remain current. Processing all 120 schemas still costs 12,000 ms; only 118 process startups disappear, an estimated 59,000 ms rather than the whole original 72,000 ms.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | modelgen | 120 | 2 | 59000 estimated | Per-input process startup | One input list per namespace | unknown |
+
+              Verdict: proposed removal of 118 startups; wall-clock not validated
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, ba9899833681fff82485e72628764d8fb1c361123c431ef951d59f8e7d8b895c]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Kept Public and Internal namespaces separate using two valid list invocations rather than flattening metadata
+      - Preserved all per-input outputs, compilation inclusion and stale-item input/output behavior
+      - Estimated 59000 ms from 118 avoided 500 ms startups while retaining unavoidable per-input processing
+      - Did not claim to modify or measure the build
+
+  - name: Batch only the stale subset of an incremental target
+    prompt: |
+      How can the generation in audit/evidence.txt start fewer processes on this invocation without touching the files
+      that are already current? Recommend the change without editing files or running the build.
+    constraints:
+      reject_tools: [edit, create]
+    tags: { capability: partial-incremental-batching, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/stale-items.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-stale-item-batching
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Keep the one-to-one target Inputs/Outputs transform. MSBuild supplies the stale subset to that target, so write an overwritten input list inside it from the current Model items, then run modelgen once on A, B and C. Do not build the list at evaluation time from all 120 inputs: that would rewrite the other 117 outputs. Keep CollectModels outside the incremental generation body so all required generated files are compiled even when generation is skipped. The new invocation still processes three schemas.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | modelgen for stale inputs | 3 | 1 | 1000 estimated | Three 500 ms startups | List only the stale items inside the target | unknown |
+
+              Verdict: proposed removal of 2 startups; 117 current outputs unchanged; wall-clock not validated
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, 93e66a4eb778b04742539d1516a4f9fd3b36c2fcf90d20ebc5652956a99e89c3]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Limited the list to the three stale inputs using the preserved one-to-one incremental target mapping
+      - Did not regenerate the 117 current outputs or populate the list too early from the full item set
+      - Kept all 120 generated files in compilation even on a skipped or partially incremental generation target
+      - Estimated two avoided startups and 1000 ms rather than eliminating required processing or claiming a measured build
+
+  - name: Pass an orchestrator result into child project instances
+    prompt: |
+      Our new pre-build probe did not reduce child process launches. Diagnose audit/evidence.txt and suggest a fix
+      that also works when a developer builds a single project. Do not edit files or run the build.
+    constraints:
+      reject_tools: [edit, create]
+    tags: { capability: orchestrator-local-property-propagation, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/local-property-propagation.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-local-property-propagation
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              BuildAll sets a local ToolVersion property, which the MSBuild task does not automatically turn into a child global property. The children therefore still see an empty value. Pass Properties="ToolVersion=$(ToolVersion)" on that task after the successful probe, preserving parallelism and the existing empty-value fallback for direct and IDE builds. Keep the probe implementation and value unchanged; do not simply delete the fallback.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | sdkprobe | 21 | 1 | 8000 estimated | Local property is not distributed to children | Pass the result as a child global property | unknown |
+
+              Verdict: proposed removal of 20 executions; wall-clock not validated
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, 1ceeeba7517d0bb70429320597aa1531d4996a01668e95bd0f61dfce2b5495fa]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Explained why a property computed locally in the orchestrator does not automatically reach the child instances
+      - Passed the computed version before child builds as a global property while retaining the direct-project fallback
+      - Preserved the probe implementation, value and parallel build behavior
+      - Estimated 20 avoided calls and 8000 ms without claiming an unperformed build or known critical path
+
+  - name: Explain why a project flag is not a worker cache
+    prompt: |
+      The team expected the flag in audit/evidence.txt to cache the catalog version for the whole invocation. Explain
+      why the counts disagree and how to reduce them safely. This is a read-only review; do not build or edit.
+    constraints:
+      reject_tools: [edit, create]
+    tags: { capability: project-instance-flag-scope, risk: medium, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/project-local-flag.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-project-local-flag
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              CatalogWasRead is state on each project instance, not an invocation-wide or worker-wide cache. Reusing a worker does not make another project's properties visible. Compute the immutable catalog version once before dispatch and pass the value globally to all 32 projects. Retain an empty-value fallback for direct project builds and make the version available before its consumer; merely distributing a true flag would omit the value. Do not replace this with a shared file Exists race.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Catalog version | 32 | 1 | 15500 estimated | Per-instance flag state | Distribute one computed version | unknown |
+
+              Verdict: proposed removal of 31 executions; wall-clock not validated
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, b2cbb89d86eae4d8314ca652991be5a56f0cc448d6793cec1df1c5b4aa875493]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Located the flag state on individual project instances rather than assuming shared state on one worker or all workers
+      - Proposed distributing the actual version from one pre-dispatch computation with a working direct-project fallback
+      - Did not substitute a shared Exists guard or pass only a flag without the required value
+      - Estimated 31 avoided executions and 15500 ms aggregate task time without fabricating overlap or measurements
+
+  - name: Share generated settings only inside equivalent configurations
+    prompt: |
+      Can the settings generator in audit/evidence.txt do less work while retaining both build configurations?
+      Explain the necessary ordering and output handling. Do not edit files or run a build.
+    constraints:
+      reject_tools: [edit, create]
+    tags: { capability: generated-input-identity-partition, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/variant-generator-inputs.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-generator-input-partition
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The effective config input changes with Configuration, so one output for the entire graph would be wrong. Generate Debug once and Release once before dispatching their consumers, retaining separate output paths and both Compile includes. Keep direct-build support with safe ordering and synchronization rather than concurrent Exists checks. Generate to a temporary file and replace on content change, or use equivalent write-if-different behavior, so sharing does not force an unchanged rerun to recompile.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | settingsgen | 12 | 2 | 20000 estimated | Six repeats per effective config input | Pre-generate each required configuration | unknown |
+
+              Verdict: proposed removal of 10 executions while preserving both variants; wall-clock not validated
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, a4fba76b775ec0540b5f3b1b5b4c65f8b637ab1cf1c8f2cdd485127aced7c0ac]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Used the effective configuration file identity to require two generations rather than trusting identical command text
+      - Preserved both configuration outputs and compilation inputs, with generation completed before the relevant parallel consumers
+      - Addressed unchanged-content timestamps and safe direct-project behavior without an unsynchronized shared guard
+      - Estimated 10 avoided executions and 20000 ms aggregate savings without claiming validation
+
+  - name: Estimate serial startup savings without dividing by all workers
+    prompt: |
+      Use audit/evidence.txt to estimate the benefit of the tool's list mode. How much time is actually removable,
+      and does the worker count change that estimate? No edits or new build runs, please.
+    constraints:
+      reject_tools: [edit, create]
+    tags: { capability: sequential-startup-cost-accounting, risk: medium, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/sequential-startup.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-sequential-startup
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Current duration is 200 x (400 + 50) = 90,000 ms. List mode still processes every input: 400 + 200 x 50 = 10,400 ms. The modeled saving is 79,600 ms from 199 avoided startups. Do not divide by 16: these particular calls are consecutive on one node and precede the critical-path package consumer. With the supplied unchanged-scheduling assumptions the wall-clock reduction could be about 79.6 s, not a measured result. Keep the target's incremental input/output pairing and all outputs.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | assetpack startups | 200 | 1 | 79600 estimated | Serial startup overhead | Use supported list mode | yes, supplied timeline |
+
+              Verdict: proposed removal of 199 startups; modeled wall-clock saving about 79.6 s, not validated
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, 10a45a3e8e4870d88aab9489468ba7d0375acdd00f999584fc2d78c03d9086d4]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Retained 10000 ms required processing plus one 400 ms startup, giving 79600 ms estimated removable time
+      - Did not divide serial savings by the 16 available workers or count the entire old Exec duration as removable
+      - Connected the estimate to the supplied critical path without representing it as a measured post-change result
+      - Preserved all input/output pairs and respected the read-only request
+
+  - name: Convert overlapping probe time into a stage estimate
+    prompt: |
+      The total probe time in audit/evidence.txt is large. Estimate what computing the value in the wrapper would save,
+      using the supplied timeline rather than just the task total. Do not edit or run the build.
+    constraints:
+      reject_tools: [edit, create]
+    tags: { capability: observed-overlap-stage-accounting, risk: medium, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/overlapped-stage.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-overlapped-stage
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Aggregate probe time falls from 21,600 to 300 ms, saving 21,300 ms of task time. The observed stage is only 3,600 ms because six calls overlap in each wave. Replacing it with a 300 ms wrapper probe therefore models a 3,300 ms wall-clock reduction, about 8.25% of the 40 s build, under the stated no-overhead assumptions. Pass the unchanged value globally and retain direct-build fallback support. This estimate is not post-change measurement.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | repoprobe | 72 | 1 | 21300 aggregate, 3300 wall-clock estimated | Six concurrent calls per wave | One 300 ms wrapper probe | yes, phase barrier |
+
+              Verdict: proposed removal of 71 executions; modeled wall-clock saving 3.3 s, not validated
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, f7d3a768b3017db0089efd0ad1d55d591ed9feb0b2f794c9efb841e1423ce9fc]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Separated 21300 ms aggregate savings from the 3300 ms stage reduction supported by the six-way overlapping timeline
+      - Included the remaining 300 ms wrapper call rather than treating all 3600 ms as removable
+      - Preserved the version value and direct-build fallback while distinguishing modeled savings from measured results
+      - Did not execute or modify the build
+
+  - name: Avoid moving noncritical work onto the critical path
+    prompt: |
+      Would moving the inventory probe to the wrapper make the build in audit/evidence.txt faster? Compare it with
+      computing the value inside Inventory. Explain your recommendation without editing or running anything.
+    constraints:
+      reject_tools: [edit, create]
+    tags: { capability: noncritical-work-hoisting-regression, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/off-critical-path.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-off-critical-path
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Inventory is not on the critical path and has no contention with Compiler. Removing nine probes could save 18,000 ms of aggregate task time, but computing once within Inventory still leaves the 120 s Compiler branch as the final join. It provides no modeled wall-clock saving here. A 2 s wrapper probe delays the start of Compiler and instead models a 122 s build. Do not make that move as a build-speed optimization; branch-local sharing is only a resource-cost improvement and must preserve the version for all consumers.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Inventory probe | 10 | 1 | 18000 aggregate, 0 wall-clock estimated | Repeats on a noncritical branch | Leave off the global preflight; optionally share inside Inventory | no |
+
+              Verdict: wrapper hoisting risks a 2 s regression; branch-local deduplication has no modeled wall-clock benefit
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, 520fde95f44a400204b6bbf069dc232a0a5697ff4ab2a184debe971e82ce1413]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Recognized that removing Inventory work cannot shorten the independent 120 s Compiler critical path under the supplied assumptions
+      - Identified the 2 s regression from running a wrapper probe before Compiler starts
+      - Distinguished 18000 ms aggregate resource savings from zero modeled wall-clock improvement for branch-local sharing
+      - Preserved all consumers and made no edits, executions or measured-result claims
+
+  - name: Stop a failed shared preflight before child fallbacks repeat it
+    prompt: |
+      Why does the failing invocation in audit/evidence.txt run the tool so many times after the preflight? Recommend
+      safe failure behavior while keeping direct project builds supported. Do not modify files or invoke the build.
+    constraints:
+      reject_tools: [edit, create]
+    tags: { capability: failed-preflight-error-propagation, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/failed-preflight.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-failed-preflight
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The wrapper's || true hides exit 17 and passes an empty version, so every child's fallback runs the same failing command. Remove the suppression or explicitly propagate the probe's exit status and diagnostics before starting MSBuild. There is no valid default version. Preserve "$@" forwarding and the fallback for direct project builds; on successful wrapper runs pass the real value globally. On this failing invocation, one failed preflight should stop all child dispatch, not produce a successful-looking build.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Failing version probe | 17 | 1 | 16000 aggregate estimated | Suppressed failure yields empty global value | Fail before dispatch with exit 17 | unknown |
+
+              Verdict: proposed removal of 16 redundant failed attempts; preserve the original failure, not a success fallback
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, 424b1e79205d8ba7ead84a60b343e078516fd74bf1bd7a0a9209c71e957dcd8e]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Traced the repeated child attempts to the swallowed preflight failure and empty passed value
+      - Stopped before child dispatch with the original error status and diagnostics rather than inventing a default or silently succeeding
+      - Retained caller arguments, successful global value propagation and direct-project fallback support
+      - Distinguished an estimated reduction in failing attempts from validated build performance and did not execute or edit
+
+  - name: Preserve distinct identities despite matching command lines
+    prompt: |
+      Review the twenty-four process launches in audit/evidence.txt. Are any removable under the release contract,
+      and what would be unsafe to share? Do not change files or execute the build.
+    constraints:
+      reject_tools: [edit, create]
+    tags: { capability: intentionally-nondeterministic-project-work, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/per-project-identity.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-per-project-identity
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              These calls are intentionally not equivalent: identitygen creates a fresh per-project signing identity on every invocation. One product-wide cached result would give projects the same identity and violate the release contract. All 24 outputs remain necessary, and this tool cannot generate several identities in one process. Leave the step unchanged under the supplied constraints rather than infer invariance from command text or promise a 34.5 s saving.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Signing identity creation | 24 | 24 | 0 | Required distinct random identities | Leave unchanged | unknown |
+
+              Verdict: no safely removable identity-generation work with the current tool contract
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, 09dfde3c236d57cf5513e05899353e7337e38687d26aa9ebeb9ffb594bb0d4fa]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Recognized nondeterministic per-project identity creation as required distinct work despite identical command text
+      - Preserved 24 distinct identities and rejected product-wide value caching or unsupported multi-identity tool modes
+      - Did not claim any removable work or performance gain under the given contract
+      - Kept the review read-only without builds or edits
+
+  - name: Fix a correctness race even when timing savings are negligible
+    prompt: |
+      The source corruption in audit/evidence.txt is rare and the task time is tiny. Should we change this step?
+      Recommend safe ordering and rerun behavior without modifying files or running a build.
+    constraints:
+      reject_tools: [edit, create]
+    tags: { capability: correctness-race-overrides-timing-threshold, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/cheap-race.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-cheap-correctness-race
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Change it for correctness, not speed. Exists is a check-then-write race: parallel projects can all enter and truncate the shared file. Generate once successfully in build.sh before starting the parallel build, retain the shared Compile include, and propagate generator errors. Generate to a temporary file and replace only on byte changes so an unchanged rerun preserves the timestamp. Avoiding seven 10 ms calls saves at most 70 ms, about 0.012% of this build, but that tiny timing gain does not justify leaving source corruption unfixed.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | stampgen | 8 | 1 | 70 aggregate estimated | Concurrent Exists-guarded writers | Generate before dispatch, replace only on change | unknown |
+
+              Verdict: proposed correctness fix removing 7 concurrent writers; negligible timing benefit, not validated
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, ae891f69fb623f1c6cc90051801c84aa6fa8460ab2a358d3011f439141ed9c01]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Recommended fixing the demonstrated source-corruption race despite the negligible timing upper bound
+      - Ensured one successful generation finishes before parallel readers and retained the shared compilation input and failure propagation
+      - Preserved unchanged-content timestamps rather than unconditionally rewriting the generated source on every wrapper invocation
+      - Distinguished the 70 ms estimated aggregate saving from the correctness benefit without claiming a measured build
+
+  - name: Share a value between different targets in one project instance
+    prompt: |
+      Both consumers in audit/evidence.txt need the revision. Explain why it is computed twice and recommend how
+      to compute it once without breaking Build-only or Pack-only use. Do not modify files or execute the build.
+    constraints:
+      reject_tools: [edit, create]
+    tags: { capability: same-instance-cross-target-sharing, risk: medium, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/two-targets-one-instance.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-cross-target-sharing
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The two Exec tasks live in different targets; target-once-per-instance semantics do not merge their bodies. Extract one revision-producing target and make both StampAssembly and StampPackage depend on it. In this single project instance, the shared dependency executes once before either consumer and exposes the same full revision to both. Keep both consumer hooks so either entry path obtains the value, rather than depending on Build to run before Pack. No cross-project global-state mechanism is required.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Git revision | 2 | 1 | 1500 estimated | Separate target bodies repeat one lookup | Shared dependency target for both consumers | unknown |
+
+              Verdict: proposed removal of 1 execution; both standalone entry paths retained; wall-clock not validated
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, 710ea3d8de55e5b2305ba8e2dac4d45956616681c55b76fb95059e530046ef62]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Explained that identical tasks in different targets can execute twice in one project instance
+      - Proposed one shared computation ordered before both consumers, valid for either standalone entry path
+      - Preserved both full-revision consumers without assuming cross-project property sharing or requiring Build before Pack
+      - Estimated one avoided call and 1500 ms without editing, executing or claiming measured performance
 
   - name: Decline evaluation-only global-property instances
     prompt: |
