@@ -1,0 +1,42 @@
+{
+  "author": "Contoso",
+  "classifications": ["Web", "API"],
+  "identity": "Contoso.Templates.AuthenticatedApi",
+  "name": "Contoso Authenticated API",
+  "description": "Creates an API with configurable authentication.",
+  "defaultName": "AuthenticatedApi",
+  "shortName": "contoso-auth-api",
+  "sourceName": "AuthenticatedApi",
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "symbols": {
+    "Auth": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "false",
+      "description": "Enable authentication."
+    },
+    "AuthMode": {
+      "type": "parameter",
+      "datatype": "choice",
+      "defaultValue": "Bearer",
+      "description": "Select the authentication mode.",
+      "choices": {
+        "Bearer": { "displayName": "Bearer token" },
+        "Cookies": { "displayName": "Cookies" }
+      }
+    }
+  },
+  "sources": [
+    {
+      "modifiers": [
+        {
+          "condition": "Auth && AuthMode == \"Bearer\"",
+          "exclude": ["Authentication/Cookies/**"]
+        }
+      ]
+    }
+  ]
+}

@@ -3,197 +3,446 @@ description: Evaluates the dotnet-template-engine/template-comparison skill
 type: capability
 defaults:
   timeout: 3m
+environment:
+  env:
+    XDG_DATA_HOME: .xdg-data
+    LOCALAPPDATA: .local-app-data
+    DOTNET_NOLOGO: "1"
+  files:
+    - src: ./fixtures/global.json
+      dest: global.json
+  commands:
+    - >-
+      node -e "const fs=require('fs');
+      fs.mkdirSync('.xdg-data/NuGet/Migrations', { recursive: true });
+      fs.writeFileSync('.xdg-data/NuGet/Migrations/1', '');
+      fs.mkdirSync('.local-app-data/NuGet/Migrations', { recursive: true });
+      fs.writeFileSync('.local-app-data/NuGet/Migrations/1', '');"
 stimuli:
-  - name: Compare webapi vs webapp side by side
-    prompt: "I'm deciding between the 'webapi' and 'webapp' templates for a new .NET project. Compare them side by side — show parameters, which supports authentication, AOT, Docker, and controllers, and the available frameworks. Then recommend one for a JSON REST backend."
-    graders:
-      - type: exit-success
-      - type: output-matches
-        config:
-          pattern: (?i)webapi
-      - type: output-matches
-        config:
-          pattern: (?i)webapp
-      - type: output-matches
-        config:
-          pattern: (?i)auth
-      - type: output-matches
-        config:
-          pattern: (?i)aot
-      - type: output-matches
-        config:
-          pattern: (?i)docker
-      - type: output-matches
-        config:
-          pattern: (?i)controllers
-      - type: output-matches
-        config:
-          pattern: (?i)recommend
-      - type: prompt
-    rubric:
-      - The comparison reflects each template's actual parameters and choices (not guessed)
-      - The agent produced a side-by-side comparison table (not just two separate lists)
-      - The comparison covered parameters, feature support (auth/AOT/Docker/controllers), and frameworks
-      - The agent gave a clear recommendation for a JSON REST backend
-    constraints:
-      expect_tools:
-        - skill
-  - name: Choose between blazor and blazorwasm
-    prompt: "Which template should I use for an app that needs offline support: 'blazor' (Blazor Web App) or 'blazorwasm' (Blazor WebAssembly Standalone)? Compare the interactivity/hosting trade-offs and recommend one."
-    graders:
-      - type: exit-success
-      - type: output-matches
-        config:
-          pattern: (?i)\bblazor\b
-      - type: output-matches
-        config:
-          pattern: (?i)blazorwasm
-      - type: output-matches
-        config:
-          pattern: (?i)recommend
-      - type: prompt
-    rubric:
-      - The comparison reflects each template's actual capabilities (not guessed)
-      - The agent explained the hosting/interactivity trade-offs (server-rendered vs WebAssembly)
-      - The agent connected the offline-support requirement to a concrete recommendation
-    constraints:
-      expect_tools:
-        - skill
-  - name: Decide which template fits a background processing scenario
-    prompt: "I need to run a long-lived background job that processes a queue. Which template should I use — 'worker' or 'console'? Compare them and justify the choice."
-    graders:
-      - type: exit-success
-      - type: output-matches
-        config:
-          pattern: (?i)worker
-      - type: output-matches
-        config:
-          pattern: (?i)console
-      - type: prompt
-    rubric:
-      - The agent compared worker and console templates side by side
-      - The agent explained why the worker template fits a long-lived queue processor (hosted service lifecycle)
-      - The agent did NOT create any project files
-    constraints:
-      expect_tools:
-        - skill
-
-  - name: Choose MVC or Razor Pages for an admin portal
+  - name: Choose webapi or webapp for a JSON backend
     prompt: |
-      I'm building a server-rendered internal admin portal with mostly CRUD pages,
-      but it may grow into a large app with shared controller logic. Compare the
-      `mvc` and `webapp` templates side by side, including project structure,
-      routing model, auth options, and supported frameworks. Recommend one for this
-      situation without creating either project.
+      Use evidence/template-help.txt to compare `webapi` and `webapp` on
+      authentication, AOT, controllers, Docker options, frameworks, and generated
+      application shape. Recommend one for a JSON REST backend. Do not create files.
+    tags:
+      capability: compare-web-backend-templates
+      risk: high
+      journey: choose-json-backend
+    environment:
+      files:
+        - src: ./fixtures/captured-sdk-10/template-help.txt
+          dest: evidence/template-help.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-comparison-webapi-webapp"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              | Aspect | `webapi` | `webapp` |
+              |---|---|---|
+              | Auth | None, IndividualB2C, SingleOrg, Windows | None, Individual, SingleOrg, Windows |
+              | AOT/controllers | `--aot`, `--use-controllers` | Not exposed |
+              | Docker option | Not recorded | Not exposed |
+              | Frameworks | net8.0, net9.0, net10.0 | net8.0, net9.0, net10.0 |
+              | Shape | HTTP API | Razor Pages UI |
+              **Recommendation: `webapi`** — it directly fits a JSON REST backend. Preview: `dotnet new webapi --name CatalogApi --dry-run`.
     graders:
-      - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)\bmvc\b
+          pattern: (?i)\|.*webapi.*\|.*webapp
       - type: output-matches
         config:
-          pattern: (?i)\bwebapp\b
+          pattern: (?is)(recommend|use|choose|pick|prefer|start with).{0,80}webapi
       - type: output-matches
         config:
-          pattern: \|.*\|
-      - type: output-matches
-        config:
-          pattern: (?i)recommend
+          pattern: (?i)(Not exposed|not recorded)
       - type: prompt
     rubric:
-      - The comparison accurately distinguishes controllers and views from the Razor Pages page model
-      - The table covers the requested structure, routing, authentication, and framework dimensions
-      - The recommendation accounts for both the current CRUD focus and likely growth
-      - No project files are created
+      - Compares both templates on every requested dimension using only the capture
+      - Marks absent or unavailable evidence instead of guessing feature parity
+      - Selects the API template for the stated backend scenario
     constraints:
-      expect_tools:
-        - skill
+      expect_tools: [skill]
+      reject_tools: [edit, create]
 
-  - name: Compare REST and gRPC service templates
+  - name: Choose Blazor hosting for offline use
     prompt: |
-      For an internal service-to-service API, should I start from `webapi` or `grpc`?
-      Compare the two templates side by side on transport and contracts, browser
-      friendliness, streaming, AOT options, and generated project shape. Recommend
-      one for high-throughput typed calls between .NET services.
+      I need an app that continues to run after the network drops. Compare
+      `blazor` and `blazorwasm` from evidence/template-help.txt, including
+      hosting, interactivity, PWA requirements, and first-load behavior. Recommend
+      a starting template without creating it.
+    tags:
+      capability: compare-blazor-hosting-models
+      risk: high
+      journey: choose-offline-blazor
+    environment:
+      files:
+        - src: ./fixtures/captured-sdk-10/template-help.txt
+          dest: evidence/template-help.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-comparison-blazor-offline"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              | Aspect | `blazor` | `blazorwasm` |
+              |---|---|---|
+              | Hosting | Server plus selectable render modes | Standalone browser WebAssembly |
+              | Interactivity | None, Server, WebAssembly, Auto | Client-side WebAssembly |
+              | Offline | Server modes need a live server | `--pwa` enables cached app assets |
+              | First load | Server-rendered HTML can arrive immediately | Assets must load and be cached first |
+              **Recommendation: `blazorwasm --pwa`** for offline execution after the first successful load.
     graders:
-      - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)\bwebapi\b
+          pattern: (?is)\|.*\bblazor\b.*\|.*(blazorwasm|Blazor WebAssembly)
       - type: output-matches
         config:
-          pattern: (?i)\bgrpc\b
+          pattern: (?i)(PWA|service worker|cached)
       - type: output-matches
         config:
-          pattern: (?i)(protobuf|proto)
-      - type: output-matches
-        config:
-          pattern: (?i)recommend
+          pattern: (?is)(recommend|use|choose|pick|prefer|start with).{0,80}(blazorwasm|Blazor WebAssembly)
       - type: prompt
     rubric:
-      - The comparison is grounded in the installed templates and accurately covers all requested dimensions
-      - The recommendation connects typed, high-throughput .NET-to-.NET calls to the chosen template
-      - Trade-offs such as browser compatibility and streaming are stated clearly
+      - Accurately distinguishes the captured hosting and interactivity models
+      - Explains that offline use requires PWA caching after an initial load
+      - Makes a clear recommendation tied to the offline requirement
     constraints:
-      expect_tools:
-        - skill
+      expect_tools: [skill]
+      reject_tools: [edit, create]
 
-  - name: Choose a Blazor or Razor Pages template
+  - name: Choose worker or console for a durable queue processor
     prompt: |
-      Compare `blazor` and `webapp` for a customer portal that needs rich interactive
-      forms but should render useful HTML on the first request. Show the relevant
-      interactivity, authentication, and framework options side by side, then
-      recommend a starting template.
+      Compare `worker` and `console` from evidence/template-help.txt for a
+      long-running service that reads a durable queue. Cover lifecycle,
+      dependency injection, configuration, logging, shutdown, and operational
+      fit, then recommend one. Do not create a project.
+    tags:
+      capability: compare-background-process-templates
+      risk: medium
+      journey: choose-queue-processor
+    environment:
+      files:
+        - src: ./fixtures/captured-sdk-10/template-help.txt
+          dest: evidence/template-help.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-comparison-worker-console"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              | Aspect | `worker` | `console` |
+              |---|---|---|
+              | Lifecycle | Generic Host and BackgroundService | Direct process entry point |
+              | DI/config/logging | Built in through the host | Must be assembled explicitly |
+              | Shutdown | Hosted-service cancellation and graceful stop | Application-owned handling |
+              **Recommendation: `worker`** for a durable queue consumer because its host lifecycle, DI, configuration, logging, and graceful shutdown fit a managed long-running process. The queue itself must still be durable.
     graders:
-      - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)\bblazor\b
+          pattern: (?i)\|.*worker.*\|.*console
       - type: output-matches
         config:
-          pattern: (?i)\bwebapp\b
+          pattern: (?is)(Generic Host|BackgroundService).*(graceful|shutdown)
       - type: output-matches
         config:
-          pattern: (?i)(interactive|render)
-      - type: output-matches
-        config:
-          pattern: (?i)recommend
+          pattern: (?is)(recommend|use|choose|pick|prefer|start with).{0,80}worker
       - type: prompt
     rubric:
-      - The response compares the actual interactivity, authentication, and framework choices exposed by both templates
-      - The recommendation balances first-request rendering with the need for rich interactive forms
-      - The answer uses a side-by-side presentation rather than unrelated summaries
+      - Compares the two generated application models on the requested operational concerns
+      - Connects the hosted-service lifecycle to long-running queue processing
+      - Does not imply that the template itself supplies a durable queue
     constraints:
-      expect_tools:
-        - skill
+      expect_tools: [skill]
+      reject_tools: [edit, create]
 
-  - name: Select a test project template for an enterprise suite
+  - name: Choose MVC or Razor Pages for a growing admin portal
     prompt: |
-      My organization is choosing among the `xunit`, `nunit`, and `mstest` project
-      templates for a new enterprise test suite. Compare the generated dependencies,
-      default test platform integration, and framework choices side by side. We value
-      Microsoft-supported tooling and Visual Studio integration; make a clear
-      recommendation and don't create projects.
+      Compare `mvc` and `webapp` from evidence/template-help.txt for a
+      server-rendered internal admin portal. It starts as CRUD pages but may grow
+      shared controller logic. Cover structure, routing, auth, and frameworks,
+      then recommend one. Do not create files.
+    tags:
+      capability: compare-server-rendered-web-models
+      risk: medium
+      journey: choose-admin-portal
+    environment:
+      files:
+        - src: ./fixtures/captured-sdk-10/template-help.txt
+          dest: evidence/template-help.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-comparison-mvc-webapp"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              | Aspect | `mvc` | `webapp` |
+              |---|---|---|
+              | Structure | Controllers, Views, Models | Razor Pages and PageModel classes |
+              | Routing | Conventional or attribute routes | File/page-oriented routes |
+              | Auth | None, Individual, SingleOrg, Windows | None, Individual, SingleOrg, Windows |
+              | Frameworks | net8.0, net9.0, net10.0 | net8.0, net9.0, net10.0 |
+              **Recommendation: `mvc`** because the expected shared controller logic and application growth outweigh Razor Pages' simpler CRUD start.
     graders:
-      - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)\bxunit\b
+          pattern: (?is)\|.*mvc.*\|.*(webapp|Razor Pages)
       - type: output-matches
         config:
-          pattern: (?i)\bnunit\b
+          pattern: (?is)((PageModel|Razor Pages).*(controller|MVC)|(controller|MVC).*(PageModel|Razor Pages))
       - type: output-matches
         config:
-          pattern: (?i)\bmstest\b
-      - type: output-matches
-        config:
-          pattern: (?i)recommend
+          pattern: (?is)(recommend|use|choose|pick|prefer|start with).{0,80}mvc
       - type: prompt
     rubric:
-      - The comparison reflects the templates' actual generated package and platform choices
-      - The three options are compared on the same requested dimensions
-      - The recommendation follows from the stated Microsoft tooling and Visual Studio priorities
-      - No project files are created
+      - Accurately distinguishes controller/view and page-oriented structures
+      - Covers all requested decision dimensions with comparable evidence
+      - Weighs likely growth and shared controller logic in the recommendation
     constraints:
-      expect_tools:
-        - skill
+      expect_tools: [skill]
+      reject_tools: [edit, create]
+
+  - name: Choose REST or gRPC for typed internal calls
+    prompt: |
+      Compare `webapi` and `grpc` from evidence/template-help.txt for
+      high-throughput calls between .NET services. Cover contracts, transport,
+      browser friendliness, streaming, AOT evidence, and generated project
+      shape. Recommend one without creating it.
+    tags:
+      capability: compare-service-contract-templates
+      risk: high
+      journey: choose-internal-service-protocol
+    environment:
+      files:
+        - src: ./fixtures/captured-sdk-10/template-help.txt
+          dest: evidence/template-help.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-comparison-webapi-grpc"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              | Aspect | `webapi` | `grpc` |
+              |---|---|---|
+              | Contract | HTTP API conventions | Protocol Buffers in Protos/greet.proto |
+              | Transport/streaming | Browser-friendly HTTP APIs | HTTP/2 with unary and streaming RPCs |
+              | AOT evidence | `--aot` is exposed | No AOT option is recorded in the capture |
+              | Shape | API Program.cs | Proto, service implementation, Program.cs |
+              **Recommendation: `grpc`** for typed, high-throughput .NET-to-.NET calls; choose `webapi` when direct browser compatibility is primary.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)\|.*webapi.*\|.*grpc
+      - type: output-matches
+        config:
+          pattern: (?is)(Protocol Buffers|proto).*(HTTP/2|stream)
+      - type: output-matches
+        config:
+          pattern: (?is)(recommend|use|choose|pick|prefer|start with).{0,80}grpc
+      - type: prompt
+    rubric:
+      - Uses captured template evidence for generated shape and option support
+      - States the typed-contract, streaming, and browser trade-offs accurately
+      - Selects gRPC for the stated service-to-service workload while naming the REST boundary
+    constraints:
+      expect_tools: [skill]
+      reject_tools: [edit, create]
+
+  - name: Choose Blazor or Razor Pages for interactive forms
+    prompt: |
+      Compare `blazor` and `webapp` from evidence/template-help.txt for a customer
+      portal with rich interactive forms and useful HTML on the first response.
+      Cover rendering, interaction model, auth, and frameworks, then recommend a
+      starting template. Do not create it.
+    tags:
+      capability: compare-interactive-web-templates
+      risk: high
+      journey: choose-customer-portal
+    environment:
+      files:
+        - src: ./fixtures/captured-sdk-10/template-help.txt
+          dest: evidence/template-help.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-comparison-blazor-webapp"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              | Aspect | `blazor` | `webapp` |
+              |---|---|---|
+              | First response | Server rendering is available | Server-rendered Razor Pages |
+              | Rich interaction | Server, WebAssembly, or Auto components | PageModel forms plus added client code |
+              | Auth | None or Individual in the capture | None, Individual, SingleOrg, Windows |
+              | Frameworks | net8.0, net9.0, net10.0 | net8.0, net9.0, net10.0 |
+              **Recommendation: `blazor` with Server interactivity** because it can send useful initial HTML and then run component-based interactive forms.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?is)\|.*blazor.*\|.*(webapp|Razor Pages)
+      - type: output-matches
+        config:
+          pattern: (?is)((first response|initial HTML|server render).*(interactive|interactivity)|(interactive|interactivity).*(first response|initial HTML|server render))
+      - type: output-matches
+        config:
+          pattern: (?is)(recommend|use|choose|pick|prefer|start with).{0,80}blazor
+      - type: prompt
+    rubric:
+      - Compares the captured rendering, interaction, authentication, and framework choices
+      - Explains how server interactivity meets both initial-render and rich-form needs
+      - Distinguishes component forms from the Razor Pages PageModel approach
+    constraints:
+      expect_tools: [skill]
+      reject_tools: [edit, create]
+
+  - name: Choose an enterprise test project template
+    prompt: |
+      Compare the captured `xunit`, `nunit`, and `mstest` template project files
+      in evidence/. Show generated dependencies, test-platform integration, and
+      target framework side by side. We prioritize Microsoft-supported tooling
+      and native Microsoft.Testing.Platform use. Do not create projects.
+    tags:
+      capability: compare-generated-test-dependencies
+      risk: high
+      journey: choose-enterprise-test-template
+    environment:
+      files:
+        - src: ./fixtures/captured-sdk-10/xunit-template.csproj
+          dest: evidence/xunit-template.csproj
+        - src: ./fixtures/captured-sdk-10/nunit-template.csproj
+          dest: evidence/nunit-template.csproj
+        - src: ./fixtures/captured-sdk-10/mstest-template.csproj
+          dest: evidence/mstest-template.csproj
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-comparison-test-projects"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              | Template | Generated dependencies/platform | Framework |
+              |---|---|---|
+              | `xunit` | Microsoft.NET.Test.Sdk, xunit, VS runner, coverlet | net10.0 |
+              | `nunit` | Microsoft.NET.Test.Sdk, NUnit, NUnit3TestAdapter, coverlet | net10.0 |
+              | `mstest` | MSTest.Sdk 3.8.3 with EnableMSTestRunner and TestingPlatformDotnetTestSupport | net10.0 |
+              **Recommendation: `mstest`** because this capture directly enables the MSTest runner and Microsoft.Testing.Platform bridge while matching the Microsoft tooling preference.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?is)\|.*xunit.*\|.*nunit.*\|.*mstest
+      - type: output-matches
+        config:
+          pattern: (?i)(MSTest\.Sdk|EnableMSTestRunner).*(TestingPlatformDotnetTestSupport|Microsoft\.Testing\.Platform)
+      - type: output-matches
+        config:
+          pattern: (?is)(recommend|use|choose|pick|prefer|start with).{0,80}mstest
+      - type: prompt
+    rubric:
+      - Reads generated package and platform choices from the captured project files
+      - Compares all three templates on the same requested dimensions
+      - Grounds the MSTest recommendation in the stated platform and support priorities
+    constraints:
+      expect_tools: [skill]
+      reject_tools: [edit, create]
+
+  - name: Choose a library template for reusable UI components
+    prompt: |
+      I am packaging reusable components and static styles for several ASP.NET
+      Core applications. Compare `classlib` and `razorclasslib` from
+      evidence/template-help.txt on generated shape, Razor support, static web
+      assets, and framework choices. Recommend one without creating it.
+    tags:
+      capability: compare-overlapping-library-templates
+      risk: medium
+      journey: choose-ui-component-library
+    environment:
+      files:
+        - src: ./fixtures/captured-sdk-10/template-help.txt
+          dest: evidence/template-help.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-comparison-classlib-razorclasslib"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              | Aspect | `classlib` | `razorclasslib` |
+              |---|---|---|
+              | Shape | Ordinary .NET library with Class1.cs | Razor components, _Imports.razor, and wwwroot |
+              | Razor/static assets | Not exposed | Built for components and static web assets |
+              | Frameworks | net8.0, net9.0, net10.0 | net8.0, net9.0, net10.0 |
+              **Recommendation: `razorclasslib`** because the package must carry reusable UI components and styles. Use `classlib` for non-UI shared code.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?is)\|.*(classlib|class library).*\|.*(razorclasslib|Razor Class Library)
+      - type: output-matches
+        config:
+          pattern: (?i)(Razor components|static web assets|wwwroot)
+      - type: output-matches
+        config:
+          pattern: (?is)(recommend|use|choose|pick|prefer|start with).{0,80}(razorclasslib|Razor Class Library)
+      - type: prompt
+    rubric:
+      - Compares two genuinely overlapping library choices on UI packaging needs
+      - Accurately distinguishes ordinary libraries from Razor component/static-asset libraries
+      - Selects the Razor class library for the stated reusable UI workload
+    constraints:
+      expect_tools: [skill]
+      reject_tools: [edit, create]
+
+  - name: Stay dormant for single-template inspection
+    prompt: |
+      Inspect only the installed `worker` template. List its exact framework
+      choices, defaults, and every creation option, then give one safe example
+      command. I am not comparing it with another template.
+    tags:
+      capability: boundary-single-template-discovery
+      risk: routing
+      journey: handoff-to-template-discovery
+    expect_activation: false
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-comparison-dormancy-discovery"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a single-template inspection, so it belongs to template discovery rather than comparison. Inspect the installed worker help, report its observed choices and defaults, and provide a `dotnet new worker --name QueueProcessor --dry-run` example. No side-by-side comparison or file creation is needed.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(worker template|single template|inspect)
+      - type: output-matches
+        config:
+          pattern: (?i)dotnet new worker.*--dry-run
+      - type: prompt
+    rubric:
+      - Recognizes that one-template inspection belongs to the discovery workflow
+      - The comparison skill stayed dormant and did not manufacture a second template
+      - Redirects to the sibling capability while preserving the useful next action
+    constraints:
+      reject_tools: [edit, create]

@@ -1,13 +1,20 @@
 {
   "author": "Test Author",
   "classifications": ["Library"],
+  "description": "Creates a reusable library.",
+  "defaultName": "MyLibrary",
   "name": "My Library Template",
   "shortName": "list",
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
   "symbols": {
     "targetFramework": {
       "type": "parameter",
       "datatype": "choice",
       "defaultValue": "net7.0",
+      "description": "Target framework.",
       "choices": {
         "net8.0": { "description": ".NET 8" },
         "net9.0": { "description": ".NET 9" }
@@ -16,12 +23,14 @@
     "enableLogging": {
       "type": "parameter",
       "datatype": "bool",
-      "defaultValue": "yes"
+      "defaultValue": "yes",
+      "description": "Enable logging."
     },
     "maxRetries": {
       "type": "parameter",
       "datatype": "int",
-      "defaultValue": "abc"
+      "defaultValue": "abc",
+      "description": "Maximum retry count."
     },
     "computed1": {
       "type": "computed"

@@ -1,59 +1,189 @@
 name: template-instantiation
+tags:
+  executionShard: heavy
 description: Evaluates the dotnet-template-engine/template-instantiation skill
 type: capability
 defaults:
-  timeout: 6m
+  timeout: 8m
+environment:
+  env:
+    XDG_DATA_HOME: .xdg-data
+    LOCALAPPDATA: .local-app-data
+    DOTNET_NOLOGO: "1"
+  files:
+    - src: ./fixtures/global.json
+      dest: global.json
+  commands:
+    - >-
+      node -e "const fs=require('fs');
+      fs.mkdirSync('.xdg-data/NuGet/Migrations', { recursive: true });
+      fs.writeFileSync('.xdg-data/NuGet/Migrations/1', '');
+      fs.mkdirSync('.local-app-data/NuGet/Migrations', { recursive: true });
+      fs.writeFileSync('.local-app-data/NuGet/Migrations/1', '');"
 stimuli:
-  - name: Create a console application
-    prompt: Create a new .NET console application called MyConsoleApp in the ./test-output directory
+  - name: Create and run a console application
+    prompt: >-
+      Create a .NET console application named MyConsoleApp under
+      `./test-output/MyConsoleApp`, target net10.0, build it, and run it once so
+      I can see the generated program's output.
+    tags:
+      capability: standalone-console-creation
+      risk: low
+      journey: create-first-project
+    environment:
+      files:
+        - src: ./fixtures/verify-workspace.mjs
+          dest: .eval/verify-workspace.mjs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-instantiation-console"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Created MyConsoleApp only at test-output/MyConsoleApp with the console template targeting net10.0. I inspected the template options, created the project, built it successfully, and then ran the built application. The observed output was: Hello, World!
+    golden_patch:
+      path: ./references/create-console.patch
     graders:
       - type: exit-success
-      - type: output-contains
-        config:
-          substring: MyConsoleApp
       - type: file-exists
         config:
           path: test-output/MyConsoleApp/MyConsoleApp.csproj
+      - type: file-exists
+        config:
+          path: test-output/MyConsoleApp/Program.cs
+      - type: run-command
+        config:
+          command: dotnet
+          args:
+            - build
+            - ./test-output/MyConsoleApp/MyConsoleApp.csproj
+            - --nologo
+            - -p:RestoreIgnoreFailedSources=true
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: dotnet
+          args:
+            - run
+            - --project
+            - ./test-output/MyConsoleApp/MyConsoleApp.csproj
+            - --no-build
+          expected_exit_code: 0
+          stdout_matches: Hello, World!
+      - type: run-command
+        config:
+          command: node
+          args:
+            - .eval/verify-workspace.mjs
+            - >-
+              {"allowedRoots":["test-output/MyConsoleApp"],"requiredFiles":["test-output/MyConsoleApp/MyConsoleApp.csproj","test-output/MyConsoleApp/Program.cs"]}
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (?i)Hello, World!
       - type: prompt
+        config:
+          evidence: [trajectory, diff]
     rubric:
-      - The agent created the requested console project
-      - The agent created it at the requested ./test-output path
-      - The resulting project is a valid console application
+      - Created a runnable console project at exactly test-output/MyConsoleApp and targeted net10.0
+      - Built the generated project and reported the observed program output truthfully
+      - Did not create projects, solutions, or source files outside the requested destination
     constraints:
       expect_tools:
         - skill
 
-  - name: Create and build a class library
-    prompt: |
-      Create a C# class library named Contoso.Utilities under
-      `./src/Contoso.Utilities`, preview the generated files first, then create it
-      and verify that it builds.
+  - name: Preview and create a class library
+    prompt: >-
+      Add a C# class library named Contoso.Utilities at
+      `./src/Contoso.Utilities`, targeting net10.0. Show the template dry run
+      before creating files, then create it and verify that it builds.
+    tags:
+      capability: preview-before-creation
+      risk: medium
+      journey: create-library
+    environment:
+      files:
+        - src: ./fixtures/verify-workspace.mjs
+          dest: .eval/verify-workspace.mjs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-instantiation-class-library"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Previewed the classlib creation with a dry run before writing anything. I then created Contoso.Utilities at src/Contoso.Utilities with framework net10.0 and built Contoso.Utilities.csproj successfully. No files were created outside that destination.
+    golden_patch:
+      path: ./references/create-class-library.patch
     graders:
       - type: exit-success
       - type: file-exists
         config:
           path: src/Contoso.Utilities/Contoso.Utilities.csproj
+      - type: file-exists
+        config:
+          path: src/Contoso.Utilities/Class1.cs
       - type: run-command
         config:
-          command: dotnet build ./src/Contoso.Utilities/Contoso.Utilities.csproj
+          command: dotnet
+          args:
+            - build
+            - ./src/Contoso.Utilities/Contoso.Utilities.csproj
+            - --nologo
+            - -p:RestoreIgnoreFailedSources=true
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - .eval/verify-workspace.mjs
+            - >-
+              {"allowedRoots":["src/Contoso.Utilities"],"requiredFiles":["src/Contoso.Utilities/Contoso.Utilities.csproj","src/Contoso.Utilities/Class1.cs"]}
           expected_exit_code: 0
       - type: output-matches
         config:
-          pattern: (?i)(dry-run|preview)
+          pattern: (?i)(dry[- ]run|preview)
       - type: prompt
+        config:
+          evidence: [trajectory, diff]
     rubric:
-      - The class library is created at the exact requested path
-      - The agent previews creation before writing files
-      - A clean build is run and reported truthfully
+      - Performed the requested preview before file creation
+      - Created a net10.0 class library at exactly src/Contoso.Utilities and built it successfully
+      - Kept all generated source and project files inside the requested destination
     constraints:
       expect_tools:
         - skill
 
   - name: Create a controller-based web API
-    prompt: |
-      Create a web API named Orders.Api in `./src/Orders.Api`. It must use
-      controllers rather than minimal APIs. Preview it, create it with the
-      template's actual controller option, and build the result.
+    prompt: >-
+      Create a net10.0 web API named Orders.Api in `./src/Orders.Api`. Use
+      controllers instead of minimal APIs, omit OpenAPI support, and do not
+      generate launchSettings.json. Preview the result, create it, and build it.
+    tags:
+      capability: template-option-selection
+      risk: high
+      journey: create-controller-api
+    environment:
+      files:
+        - src: ./fixtures/verify-workspace.mjs
+          dest: .eval/verify-workspace.mjs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-instantiation-controller-api"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Previewed and created Orders.Api at src/Orders.Api with the webapi template, net10.0, controllers enabled, OpenAPI disabled, and launch settings excluded. The generated controller project built successfully, and no files were written outside src/Orders.Api.
+    golden_patch:
+      path: ./references/create-controller-api.patch
     graders:
       - type: exit-success
       - type: file-exists
@@ -61,94 +191,218 @@ stimuli:
           path: src/Orders.Api/Orders.Api.csproj
       - type: file-exists
         config:
+          path: src/Orders.Api/Program.cs
+      - type: file-exists
+        config:
           path: src/Orders.Api/Controllers/*.cs
+      - type: file-not-exists
+        config:
+          path: src/Orders.Api/Properties/launchSettings.json
+      - type: file-not-contains
+        config:
+          path: src/Orders.Api/Orders.Api.csproj
+          value: OpenApi
       - type: run-command
         config:
-          command: dotnet build ./src/Orders.Api/Orders.Api.csproj
+          command: dotnet
+          args:
+            - build
+            - ./src/Orders.Api/Orders.Api.csproj
+            - --nologo
+            - -p:RestoreIgnoreFailedSources=true
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - .eval/verify-workspace.mjs
+            - >-
+              {"allowedRoots":["src/Orders.Api"],"requiredFiles":["src/Orders.Api/Orders.Api.csproj","src/Orders.Api/Program.cs","src/Orders.Api/appsettings.json"],"forbiddenFiles":["src/Orders.Api/Properties/launchSettings.json"]}
           expected_exit_code: 0
       - type: output-matches
         config:
-          pattern: (?i)(use-controllers|controllers)
+          pattern: (?i)(controller|use-controllers)
       - type: prompt
+        config:
+          evidence: [trajectory, diff]
     rubric:
-      - The generated project uses the webapi template's controller option
-      - The project is created only under the requested src/Orders.Api path
-      - Preview and build both complete successfully
+      - Used the web API template's supported controller option rather than converting a minimal API after creation
+      - Omitted OpenAPI package references and launchSettings.json as requested
+      - Created and built a complete controller-based project only under src/Orders.Api
     constraints:
       expect_tools:
         - skill
 
-  - name: Create a worker service
-    prompt: |
-      Scaffold a worker service called Billing.Worker in
-      `./src/Billing.Worker`. Use the workspace's available SDK defaults, show a
-      dry run before creation, then build the generated service.
+  - name: Create an empty web application without launch settings
+    prompt: >-
+      Scaffold a minimal empty ASP.NET Core app named Status.Web under
+      `./src/Status.Web`, targeting net10.0. Do not create launchSettings.json.
+      Preview the files first, then create and build the app.
+    tags:
+      capability: package-free-web-creation
+      risk: medium
+      journey: create-minimal-web-app
+    environment:
+      files:
+        - src: ./fixtures/verify-workspace.mjs
+          dest: .eval/verify-workspace.mjs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-instantiation-empty-web"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Previewed the package-free ASP.NET Core empty template, then created Status.Web at src/Status.Web for net10.0 with launch settings excluded. The project built successfully using the shared framework, and all generated files stayed under src/Status.Web.
+    golden_patch:
+      path: ./references/create-empty-web.patch
     graders:
       - type: exit-success
       - type: file-exists
         config:
-          path: src/Billing.Worker/Billing.Worker.csproj
+          path: src/Status.Web/Status.Web.csproj
       - type: file-exists
         config:
-          path: src/Billing.Worker/Worker.cs
+          path: src/Status.Web/Program.cs
+      - type: file-not-exists
+        config:
+          path: src/Status.Web/Properties/launchSettings.json
       - type: run-command
         config:
-          command: dotnet build ./src/Billing.Worker/Billing.Worker.csproj
+          command: dotnet
+          args:
+            - build
+            - ./src/Status.Web/Status.Web.csproj
+            - --nologo
+            - -p:RestoreIgnoreFailedSources=true
           expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - .eval/verify-workspace.mjs
+            - >-
+              {"allowedRoots":["src/Status.Web"],"requiredFiles":["src/Status.Web/Status.Web.csproj","src/Status.Web/Program.cs","src/Status.Web/appsettings.json"],"forbiddenFiles":["src/Status.Web/Properties/launchSettings.json"]}
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (?i)(preview|dry[- ]run)
       - type: prompt
+        config:
+          evidence: [trajectory, diff]
     rubric:
-      - The worker template is instantiated with the requested name and output path
-      - The agent does not add unrelated project types or packages
-      - The generated worker is built after creation
+      - Selected the empty ASP.NET Core web template and targeted net10.0
+      - Excluded launchSettings.json without adding packages or unrelated application layers
+      - Previewed, created, and built the project in sequence inside src/Status.Web
     constraints:
       expect_tools:
         - skill
 
-  - name: Compose an application and test solution
-    prompt: |
-      Create `Inventory.sln` with a class library at
-      `src/Inventory.Core` and an xUnit test project at
-      `tests/Inventory.Core.Tests`. Add a project reference from the tests to the
-      library, add both projects to the solution, and build the solution.
+  - name: Compose a library and console solution
+    prompt: >-
+      Create `Inventory.sln` with a net10.0 class library at
+      `src/Inventory.Core` and a net10.0 console app at `apps/Inventory.Cli`.
+      Add a project reference from the app to the library, add both projects to
+      the solution, and build the complete solution.
+    tags:
+      capability: multi-project-composition
+      risk: high
+      journey: compose-solution
+    environment:
+      files:
+        - src: ./fixtures/verify-workspace.mjs
+          dest: .eval/verify-workspace.mjs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-instantiation-solution"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Created Inventory.sln, then created Inventory.Core and Inventory.Cli at their final paths. I added the ProjectReference from the console app to the library, added both projects to Inventory.sln, and built the solution successfully after all state-dependent creation and wiring steps completed.
+    golden_patch:
+      path: ./references/compose-solution.patch
     graders:
       - type: exit-success
       - type: file-exists
         config:
-          path: Inventory.sln*
+          path: Inventory.sln
       - type: file-exists
         config:
           path: src/Inventory.Core/Inventory.Core.csproj
       - type: file-exists
         config:
-          path: tests/Inventory.Core.Tests/Inventory.Core.Tests.csproj
+          path: apps/Inventory.Cli/Inventory.Cli.csproj
       - type: file-contains
         config:
-          path: tests/Inventory.Core.Tests/Inventory.Core.Tests.csproj
+          path: apps/Inventory.Cli/Inventory.Cli.csproj
           value: ProjectReference
       - type: run-command
         config:
-          command: dotnet build ./Inventory.sln
+          command: dotnet
+          args:
+            - build
+            - ./Inventory.sln
+            - --nologo
+            - -p:RestoreIgnoreFailedSources=true
           expected_exit_code: 0
           timeout: 3m
+      - type: run-command
+        config:
+          command: node
+          args:
+            - .eval/verify-workspace.mjs
+            - >-
+              {"allowedPaths":["Inventory.sln"],"allowedRoots":["src/Inventory.Core","apps/Inventory.Cli"],"requiredFiles":["Inventory.sln","src/Inventory.Core/Inventory.Core.csproj","src/Inventory.Core/Class1.cs","apps/Inventory.Cli/Inventory.Cli.csproj","apps/Inventory.Cli/Program.cs"]}
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (?i)(ProjectReference|project reference|referenced)
       - type: prompt
+        config:
+          evidence: [trajectory, diff]
     rubric:
-      - The solution contains the library and its test project at the requested paths
-      - The test project references the library
-      - The complete solution builds successfully
+      - Created exactly the requested solution, library, and console application at their final paths
+      - Added the app-to-library project reference and included both projects in Inventory.sln
+      - Performed creation and wiring before the final solution build, with no unrelated projects or solutions
     constraints:
       expect_tools:
         - skill
 
   - name: Match a neighboring project's target framework
-    prompt: |
-      This repo already has `src/Existing/Existing.csproj`. Create a sibling
-      console app named Companion under `src/Companion`, matching the existing
-      project's target framework instead of accepting a newer template default.
-      Preview, create, and build it.
+    prompt: >-
+      This repository already has `src/Existing/Existing.csproj`. Create a
+      sibling console app named Companion under `src/Companion`, matching the
+      existing project's target framework. Preview it, create it, and build it
+      without changing the existing project.
+    tags:
+      capability: workspace-framework-alignment
+      risk: high
+      journey: extend-existing-workspace
     environment:
       files:
-        - src: ./fixtures/workspace-framework/src/Existing/Existing.csproj
-          dest: src/Existing/Existing.csproj
+        - src: ./fixtures/verify-workspace.mjs
+          dest: .eval/verify-workspace.mjs
+        - src: ./fixtures/workspace-framework/src/Existing
+          dest: src/Existing
+        - src: ./fixtures/workspace-framework/src/Existing
+          dest: .eval/baseline/Existing
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-instantiation-framework-match"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Inspected src/Existing/Existing.csproj first and found net9.0. I previewed and created Companion at src/Companion with --framework net9.0, left the existing project unchanged, and built the new console project successfully.
+    golden_patch:
+      path: ./references/match-framework.patch
     graders:
       - type: exit-success
       - type: file-exists
@@ -160,31 +414,75 @@ stimuli:
           value: net9.0
       - type: run-command
         config:
-          command: dotnet build ./src/Companion/Companion.csproj
+          command: dotnet
+          args:
+            - build
+            - ./src/Companion/Companion.csproj
+            - --nologo
+            - -p:RestoreIgnoreFailedSources=true
           expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - .eval/verify-workspace.mjs
+            - >-
+              {"allowedRoots":["src/Existing","src/Companion"],"requiredFiles":["src/Existing/Existing.csproj","src/Companion/Companion.csproj","src/Companion/Program.cs"],"unchangedTrees":[{"actual":"src/Existing","baseline":".eval/baseline/Existing"}]}
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (?i)net9\.0
       - type: prompt
+        config:
+          evidence: [trajectory, diff]
     rubric:
-      - The existing project is inspected and net9.0 is treated as the workspace's explicit framework choice
-      - The new project is created with a matching target framework
-      - The generated console app builds cleanly
+      - Inspected the neighboring project and treated net9.0 as the workspace's explicit framework choice
+      - Passed the matching supported framework when creating Companion and built the result
+      - Preserved src/Existing unchanged and wrote no files outside the existing and requested sibling directories
     constraints:
       expect_tools:
         - skill
 
   - name: Adapt a generated test project to central package management
-    prompt: |
-      This repository uses `Directory.Packages.props`. Create an xUnit test project
-      named Payments.Tests under `tests/Payments.Tests`, then adapt every generated
-      PackageReference to central package management and build the project.
+    prompt: >-
+      This offline repository uses `Directory.Packages.props`. Create a net10.0
+      xUnit project named Payments.Tests under `tests/Payments.Tests` without
+      restoring packages. Move every generated package version into the central
+      file, preserve its existing entries, and leave the project ready for the
+      repository's normal restore.
+    tags:
+      capability: central-package-management-adaptation
+      risk: high
+      journey: create-test-project-offline
     environment:
       files:
+        - src: ./fixtures/verify-workspace.mjs
+          dest: .eval/verify-workspace.mjs
         - src: ./fixtures/central-package-management/Directory.Packages.props
           dest: Directory.Packages.props
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-instantiation-cpm"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Detected central package management before creation and used the xUnit template's no-restore path for this offline workspace. I created Payments.Tests under tests/Payments.Tests, removed every inline PackageReference version, added matching PackageVersion entries while preserving Microsoft.Extensions.Logging.Abstractions, and did not restore or contact a package feed.
+    golden_patch:
+      path: ./references/adapt-cpm.patch
     graders:
       - type: exit-success
       - type: file-exists
         config:
           path: tests/Payments.Tests/Payments.Tests.csproj
+      - type: file-exists
+        config:
+          path: tests/Payments.Tests/UnitTest1.cs
+      - type: file-exists
+        config:
+          path: tests/Payments.Tests/Usings.cs
       - type: file-not-contains
         config:
           path: tests/Payments.Tests/Payments.Tests.csproj
@@ -192,18 +490,180 @@ stimuli:
       - type: file-contains
         config:
           path: Directory.Packages.props
-          value: PackageVersion
+          value: Microsoft.Extensions.Logging.Abstractions
       - type: run-command
         config:
-          command: dotnet build ./tests/Payments.Tests/Payments.Tests.csproj
+          command: dotnet
+          args:
+            - msbuild
+            - ./tests/Payments.Tests/Payments.Tests.csproj
+            - -nologo
+            - -getProperty:TargetFramework
           expected_exit_code: 0
-          timeout: 3m
+          stdout_matches: net10.0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - .eval/verify-workspace.mjs
+            - >-
+              {"allowedPaths":["Directory.Packages.props"],"allowedRoots":["tests/Payments.Tests"],"requiredFiles":["Directory.Packages.props","tests/Payments.Tests/Payments.Tests.csproj","tests/Payments.Tests/UnitTest1.cs","tests/Payments.Tests/Usings.cs"],"centralPackages":{"project":"tests/Payments.Tests/Payments.Tests.csproj","props":"Directory.Packages.props"}}
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (?is)((central package management|PackageVersion).*(no[- ]restore|without restoring|did not restore)|(no[- ]restore|without restoring|did not restore).*(central package management|PackageVersion))
       - type: prompt
+        config:
+          evidence: [trajectory, diff]
     rubric:
-      - The agent detects central package management before finalizing the generated project
-      - Inline versions are removed from all generated PackageReference items
-      - Matching central PackageVersion entries are added without deleting the existing version
-      - The adapted project restores and builds successfully
+      - Detected central package management before creation and avoided an automatic restore in the offline workspace
+      - Removed inline versions from every generated PackageReference and added a central version for each package
+      - Preserved the existing central version entry and created files only in the requested test-project destination plus Directory.Packages.props
     constraints:
       expect_tools:
         - skill
+
+  - name: Preserve an already-existing destination
+    prompt: >-
+      Set up a net10.0 console app named SafeApp at `./src/SafeApp`. If that
+      destination already contains the requested project, do not overwrite or
+      regenerate anything; leave every existing file unchanged and only verify
+      that the project builds.
+    tags:
+      capability: existing-destination-no-op
+      risk: high
+      journey: repeat-project-creation
+    environment:
+      files:
+        - src: ./fixtures/verify-workspace.mjs
+          dest: .eval/verify-workspace.mjs
+        - src: ./fixtures/existing-destination/src/SafeApp
+          dest: src/SafeApp
+        - src: ./fixtures/existing-destination/src/SafeApp
+          dest: .eval/baseline/SafeApp
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-instantiation-existing-destination"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: SafeApp already exists, so I will verify it without running project creation.
+            tool_calls:
+              - tool_call_id: call_build_safe_app
+                function_name: bash
+                arguments:
+                  command: dotnet build ./src/SafeApp/SafeApp.csproj --nologo
+            observation:
+              results:
+                - source_call_id: call_build_safe_app
+                  content: Build succeeded. 0 Warning(s), 0 Error(s).
+          - step_id: 2
+            source: agent
+            message: |-
+              SafeApp already exists at src/SafeApp with the requested net10.0 console project, so I did not run template creation or overwrite any files. I left the project, Program.cs, and DO-NOT-OVERWRITE.txt unchanged and verified that SafeApp builds successfully.
+    graders:
+      - type: exit-success
+      - type: file-exists
+        config:
+          path: src/SafeApp/DO-NOT-OVERWRITE.txt
+      - type: file-contains
+        config:
+          path: src/SafeApp/Program.cs
+          value: Preserve this application
+      - type: run-command
+        config:
+          command: dotnet
+          args:
+            - build
+            - ./src/SafeApp/SafeApp.csproj
+            - --nologo
+            - -p:RestoreIgnoreFailedSources=true
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - .eval/verify-workspace.mjs
+            - >-
+              {"allowedRoots":["src/SafeApp"],"requiredFiles":["src/SafeApp/SafeApp.csproj","src/SafeApp/Program.cs","src/SafeApp/DO-NOT-OVERWRITE.txt"],"unchangedTrees":[{"actual":"src/SafeApp","baseline":".eval/baseline/SafeApp"}]}
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (?i)(already exist|existing).*(unchanged|did not overwrite|no changes)
+      - type: prompt
+    rubric:
+      - Recognized that the requested project already existed and treated creation as a no-op
+      - Preserved the complete existing destination byte-for-byte, including its marker file
+      - Verified the existing project builds without using force, regeneration, or writes elsewhere
+    constraints:
+      expect_tools:
+        - skill
+
+  - name: Modify an existing project without scaffolding
+    prompt: >-
+      Update the existing app in `src/ExistingApp`: change its greeting to
+      `Updated existing application`, enable TreatWarningsAsErrors in the
+      project file, and build it. Do not create a new project or add packages.
+    expect_activation: false
+    tags:
+      capability: dormancy-existing-project-modification
+      risk: low
+      journey: modify-existing-project
+    environment:
+      files:
+        - src: ./fixtures/verify-workspace.mjs
+          dest: .eval/verify-workspace.mjs
+        - src: ./fixtures/existing-modification/src/ExistingApp
+          dest: src/ExistingApp
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "template-instantiation-dormancy-existing-project"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Modified the existing project directly: Program.cs now prints Updated existing application and ExistingApp.csproj enables TreatWarningsAsErrors. I did not scaffold a project or add packages. The updated existing app builds successfully.
+    golden_patch:
+      path: ./references/modify-existing-project.patch
+    graders:
+      - type: exit-success
+      - type: file-contains
+        config:
+          path: src/ExistingApp/Program.cs
+          value: Updated existing application
+      - type: file-contains
+        config:
+          path: src/ExistingApp/ExistingApp.csproj
+          value: <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+      - type: run-command
+        config:
+          command: dotnet
+          args:
+            - build
+            - ./src/ExistingApp/ExistingApp.csproj
+            - --nologo
+            - -p:RestoreIgnoreFailedSources=true
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: node
+          args:
+            - .eval/verify-workspace.mjs
+            - >-
+              {"allowedRoots":["src/ExistingApp"],"requiredFiles":["src/ExistingApp/ExistingApp.csproj","src/ExistingApp/Program.cs"]}
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (?i)(modified|updated)
+      - type: prompt
+        config:
+          evidence: [trajectory, diff]
+    rubric:
+      - The project-creation workflow stayed dormant because this request only changes an existing project
+      - Modified the existing source and project file directly rather than invoking a project-creation workflow
+      - Enabled TreatWarningsAsErrors, changed the requested greeting, and built the existing project
+      - Did not create another project, install a template, add a package, or write outside src/ExistingApp

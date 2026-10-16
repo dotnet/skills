@@ -1,18 +1,15 @@
 ---
 name: template-discovery
 description: >
-  Helps find, inspect, and compare (at a high level) .NET project templates.
-  Resolves natural-language project descriptions to ranked template matches
-  with pre-filled parameters.
-  USE FOR: finding the right dotnet new template for a task, inspecting a template's
-  parameters and constraints, understanding what a template
-  produces before creating a project, resolving intent like "web API with auth" to
-  concrete template + parameters.
-  DO NOT USE FOR: actually creating projects (use template-instantiation), authoring
-  custom templates (use template-authoring), producing a detailed side-by-side comparison
-  (use template-comparison), choosing cross-parameter defaults during creation
-  (use template-smart-defaults), MSBuild or build issues (use dotnet-msbuild plugin),
-  NuGet package management unrelated to template packages.
+  Finds and inspects one .NET project template, or ranks candidates when the user
+  has not named a fixed comparison set.
+  USE FOR: resolving natural-language intent to a template, inspecting one
+  template's parameters or constraints, reviewing saved or live dotnet new list,
+  search, help, or dry-run evidence, and previewing exact generated files.
+  DO NOT USE FOR: prompts that name two or more templates and ask to compare or
+  choose between them (use template-comparison), creating projects (use
+  template-instantiation), authoring custom templates (use template-authoring),
+  choosing cross-parameter defaults (use template-smart-defaults), or build issues.
 license: MIT
 ---
 

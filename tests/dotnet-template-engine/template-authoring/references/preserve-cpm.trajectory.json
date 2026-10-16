@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "template-authoring-cpm",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Use this layout so the central props file remains above the generated project:\n```text\ncpm-template/\n|-- .template.config/\n|   `-- template.json\n|-- Directory.Packages.props\n`-- src/\n    `-- MyApp/\n        `-- MyApp.csproj\n```\n`Directory.Packages.props`:\n```xml\n<Project>\n  <PropertyGroup>\n    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>\n  </PropertyGroup>\n  <ItemGroup>\n    <PackageVersion Include=\"Serilog\" Version=\"4.2.0\" />\n  </ItemGroup>\n</Project>\n```\n`src/MyApp/MyApp.csproj` keeps the reference versionless:\n```xml\n<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net10.0</TargetFramework>\n  </PropertyGroup>\n  <ItemGroup>\n    <PackageReference Include=\"Serilog\" />\n  </ItemGroup>\n</Project>\n```\n`.template.config/template.json`:\n```json\n{\n  \"$schema\": \"http://json.schemastore.org/template\",\n  \"author\": \"Contoso\",\n  \"classifications\": [\"Library\"],\n  \"identity\": \"Contoso.Templates.CpmApp\",\n  \"name\": \"Contoso CPM App\",\n  \"shortName\": \"contoso-cpm\",\n  \"sourceName\": \"MyApp\",\n  \"tags\": { \"language\": \"C#\", \"type\": \"project\" }\n}\n```\nPackage the whole `cpm-template` root. Keeping the props file at the generated repository root lets MSBuild find the matching `PackageVersion` for the versionless `PackageReference`."
+    }
+  ]
+}

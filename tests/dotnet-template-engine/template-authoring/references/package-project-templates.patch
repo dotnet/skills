@@ -1,0 +1,20 @@
+diff --git a/Contoso.ProjectTemplates.csproj b/Contoso.ProjectTemplates.csproj
+new file mode 100644
+--- /dev/null
++++ b/Contoso.ProjectTemplates.csproj
+@@ -0,0 +1,15 @@
++<Project Sdk="Microsoft.NET.Sdk">
++  <PropertyGroup>
++    <PackageId>Contoso.ProjectTemplates</PackageId>
++    <PackageVersion>1.0.0</PackageVersion>
++    <PackageType>Template</PackageType>
++    <TargetFramework>net8.0</TargetFramework>
++    <IncludeBuildOutput>false</IncludeBuildOutput>
++    <IncludeContentInPack>true</IncludeContentInPack>
++    <NoWarn>$(NoWarn);NU5128</NoWarn>
++  </PropertyGroup>
++  <ItemGroup>
++    <Compile Remove="**\*" />
++    <Content Include="templates\**\*" Pack="true" PackagePath="content\" />
++  </ItemGroup>
++</Project>
