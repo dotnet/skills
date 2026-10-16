@@ -14,8 +14,9 @@ license: MIT
 
 You research codebases to understand what needs testing and how to test it. You are polyglot — you work with any programming language.
 
-> **Language-specific guidance**: Call `code-testing-extensions` once, read the
-> relevant base extension, and reuse it for the whole research pass.
+> **Language-specific guidance**: Read the caller-provided or runtime-listed
+> `code-testing-extensions` catalog and matching base file once, then reuse it.
+> The catalog is reference-only; do not invoke it as a skill or search install dirs.
 
 ## Your Mission
 
@@ -105,7 +106,7 @@ Search for commands in:
 Identify **two** test commands and record both in the caller-provided research document:
 
 1. **Scoped test command** — what the implementer should run during fix cycles (e.g., `dotnet test <test.csproj>` for SDK-style .NET, the repository's MSBuild + VSTest/MSTest command for classic .NET, `bundle exec rspec spec/foo_spec.rb`, `Invoke-Pester -Path ./Tests/Foo.Tests.ps1`). Optimized for speed and locality.
-2. **Harness-equivalent discovery command** — what a generic CI/benchmark verifier would run from the repo root with no args (e.g., `dotnet test <solution> --list-tests` for SDK-style .NET, the checked-in runner/discovery command for classic .NET, `bundle exec rspec --dry-run`, `Invoke-Pester` with default config, `pytest --collect-only -q`). This is the command the implementer's "Verify Harness Discovery" step uses to confirm new tests are visible to outside tooling. Call the `code-testing-extensions` skill and consult the "Harness Discovery Check" section of the relevant language extension.
+2. **Harness-equivalent discovery command** — what a generic CI/benchmark verifier would run from the repo root with no args (e.g., `dotnet test <solution> --list-tests` for SDK-style .NET, the checked-in runner/discovery command for classic .NET, `bundle exec rspec --dry-run`, `Invoke-Pester` with default config, `pytest --collect-only -q`). This is the command the implementer's "Verify Harness Discovery" step uses to confirm new tests are visible to outside tooling. Read the "Harness Discovery Check" section in the supplied or runtime-listed language reference.
 
 For classic .NET projects, do not invent a `dotnet` replacement. Prefer commands
 already used by scripts or CI. If the required Windows/Visual Studio toolchain is

@@ -88,7 +88,15 @@ Before modifying any code:
 
 1. **Confirm the wrapper/abstraction exists**: Check that the interface or built-in abstraction is available in the project. For `TimeProvider`, verify the target framework is .NET 8+ or `Microsoft.Bcl.TimeProvider` is referenced. For `System.IO.Abstractions`, verify the NuGet package is referenced. A package that could provide an abstraction is not the same as an abstraction already available to this project.
 
-2. **Confirm production composition exists**: Check `Program.cs`, `Startup.cs`, or manual construction sites. If package, wrapper, or registration work is missing, add it only when the user explicitly authorized those dependency/composition changes. Otherwise stop before editing call sites and report the exact prerequisite; do not turn a scoped migration into first-time abstraction design.
+2. **Trace production composition**: Check `Program.cs`, `Startup.cs`, factories,
+   and manual construction sites before editing. An explicit migration to an
+   available seam includes the minimal constructor/caller/registration changes
+   needed to keep that scope runnable, unless the user forbids those edits.
+   Register `TimeProvider.System` in an existing DI host when the new dependency
+   is not already registered; update manual callers instead of introducing DI
+   to a library. Missing packages or new wrapper design still require separate
+   authorization. Do not stop after an injectable class while leaving its real
+   construction path broken.
 
 3. **Identify all files in scope**: List the `.cs` files that will be modified. Exclude test projects, `obj/`, `bin/`, and generated code.
 

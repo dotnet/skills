@@ -3104,9 +3104,12 @@ esac
             "plugins/dotnet-test/skills/test-smell-detection/SKILL.md",
             "tests/dotnet-test/agent.test-quality-auditor/eval.yaml",
             "tests/dotnet-test/test-smell-detection/eval.yaml",
+            "tests/agentic-workflows/RESULT_SCHEMA.md",
+            "tests/agentic-workflows/test_graders.py",
+            "tests/agentic-workflows/graders/check_result.py",
             "plugins/dotnet-test/README.md",
         ]
-        expected = changed_files[:6]
+        expected = changed_files[:-1]
 
         for job_name, script in discovery_scripts.items():
             with self.subTest(job=job_name):

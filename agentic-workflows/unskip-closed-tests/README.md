@@ -158,6 +158,36 @@ runs its chosen VSTest or MTP command, and writes the requested TRX files.
 | `20` | Stale or invalid source, manifest, proposal, GitHub evidence, path, symlink, generated input, or other contract violation. |
 | `30` | Helper, infrastructure, hook, or result-protocol failure; no PR is authorized. |
 
+## Offline decision evaluation
+
+From a `dotnet/skills` checkout:
+
+```powershell
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate `
+  agentic-workflows/unskip-closed-tests/aw.yml `
+  --tests-dir tests/agentic-workflows --runs 1 --verdict-warn-only
+```
+
+The eleven scenarios provide committed source-bound manifest/source snapshots,
+trusted context, and simulated verification observations. The native prompt
+lane loads the packaged prompt/import bodies and planner and stages all
+manifest-declared runtime resources at installed `.github` paths. It grades
+selection/deferral proposals in `result.json`, including completed issues,
+merged PRs, ambiguous context, ownership/class boundaries, multiple modules,
+stale/incompatible manifests, and zero-execution evidence.
+
+`action: "patch"` is only a candidate-selection proposal: no source is edited
+and no PR is authorized or published. This native evaluation is **not full
+helper execution**. It does not run inventory/apply/authorize/materialize,
+consumer hooks, or real TRX validation. Package helper tests remain separate
+execution/protocol coverage. See
+[`tests/agentic-workflows`](../../tests/agentic-workflows/README.md) for the
+shared result contract and deterministic grader regression command. Results
+are labelled `skillKind=workflow`, `evaluationLane=workflow-prompt-sdk`.
+The lane is **not gh-aw Actions E2E**. Only main/imported Markdown bodies are
+composed as prompts; frontmatter jobs/steps are not executed. Each case stages
+flat expression context and trusted manifest/runtime-variable snapshots.
+
 ## Local package staging
 
 `gh aw add` accepts local workflow files but not a local package directory with

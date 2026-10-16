@@ -1,6 +1,9 @@
 $entries = @()
 $plugins = @()
 . (Join-Path $PWD "eng/evaluation/path-safety.ps1")
+if (Test-Path "agentic-workflows") {
+  . (Join-Path $PWD "eng/evaluation/workflow-targets.ps1")
+}
 
 # Build matrix entries for a full-plugin evaluation, sharding skills
 # that have eval specs by the optional `executionShard:` metadata key
@@ -208,12 +211,12 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   # Fail closed: if the bound commit cannot be checked out (e.g. it is
   # no longer present in the repo), stop here rather than continue and
   # report success for a commit we did not actually evaluate.
-  git worktree add /tmp/pr-content "$env:GATE_HEAD_SHA"
+  $contentRoot = Join-Path ([IO.Path]::GetTempPath()) "evaluation-pr-$([Guid]::NewGuid().ToString('N'))"
+  git worktree add $contentRoot "$env:GATE_HEAD_SHA"
   if ($LASTEXITCODE -ne 0) {
     throw "Bound commit $env:GATE_HEAD_SHA could not be checked out (it may no longer be present). Failing closed."
   }
-  $contentRoot = "/tmp/pr-content"
-
+  try {
   $mergeBase = git merge-base $base $head
   $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
@@ -223,7 +226,7 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   $hasInfraChanges = $changedFiles |
     Where-Object {
       ($_ -match '^eng/vally-adapter/') -or
-      ($_ -match '^eng/evaluation/(?:find-targets|path-safety)\.ps1$') -or
+      ($_ -match '^eng/evaluation/(?:find-targets|path-safety|workflow-targets)\.ps1$') -or
       ($_ -match '^eng/skill-validator/src/') -or
       ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
       $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
@@ -232,7 +235,7 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
 
   # Also check for skill, agent, and test changes so we don't lose them.
   $hasSkillChanges = $changedFiles |
-    Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/)' } |
+    Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
     Select-Object -First 1
 
   if ($hasInfraChanges -and -not $hasSkillChanges) {
@@ -251,6 +254,9 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
       Get-PluginShardEntries -plugin $_ -contentRoot $contentRoot
       Get-PluginAgentEntries -plugin $_ -contentRoot $contentRoot
     })
+    if (Test-Path (Join-Path $contentRoot "agentic-workflows")) {
+      $entries += @(Get-WorkflowEntries -contentRoot $contentRoot)
+    }
   } else {
     # Extract unique plugin/skill pairs from changed skill sources and
     # non-agent eval directories.
@@ -338,7 +344,27 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
     })
   }
 
-  git worktree remove /tmp/pr-content --force 2>$null
+  $workflowChanges = @($changedFiles | Where-Object {
+    $_ -match '^(agentic-workflows/|tests/agentic-workflows/|\.github/graders/)'
+  })
+  if ($workflowChanges.Count -gt 0) {
+    $allWorkflows = $workflowChanges | Where-Object {
+      $_ -match '^agentic-workflows/[^/]+$|^\.github/graders/|^tests/agentic-workflows/(?:[^/]+$|graders/|_)'
+    } | Select-Object -First 1
+    $selectedPackages = @()
+    if (-not $allWorkflows) {
+      $selectedPackages = @($workflowChanges | ForEach-Object {
+        if ($_ -match '^(?:agentic-workflows|tests/agentic-workflows)/([^/]+)/') {
+          $Matches[1]
+        }
+      } | Sort-Object -Unique)
+    }
+    $entries += @(Get-WorkflowEntries -contentRoot $contentRoot -selectedPackages $selectedPackages)
+  }
+  } finally {
+    git worktree remove $contentRoot --force
+    if ($LASTEXITCODE -ne 0) { throw "Failed to remove evaluation worktree '$contentRoot'" }
+  }
 } else {
   # Schedule and workflow_dispatch: evaluate full plugins.
   # Schedule covers everything; workflow_dispatch can optionally
@@ -355,8 +381,8 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
     if ($dispatchPlugin -notmatch '^[a-zA-Z0-9._-]+$') {
       throw "workflow_dispatch input plugin='$dispatchPlugin' must match ^[a-zA-Z0-9._-]+$ (single directory name, no path separators)"
     }
-    if (-not (Test-Path (Join-Path "plugins" $dispatchPlugin "plugin.json")) -or
-        -not (Test-Path (Join-Path "tests" $dispatchPlugin))) {
+    if ($dispatchPlugin -ne "agentic-workflows" -and (-not (Test-Path (Join-Path "plugins" $dispatchPlugin "plugin.json")) -or
+        -not (Test-Path (Join-Path "tests" $dispatchPlugin)))) {
       throw "workflow_dispatch input plugin='$dispatchPlugin' is not a valid plugin (must have plugin.json and tests/<name>)"
     }
     $plugins = @($dispatchPlugin)
@@ -371,9 +397,16 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
       Select-Object -ExpandProperty Name)
   }
   $entries = @($plugins | ForEach-Object {
-    Get-PluginShardEntries -plugin $_
-    Get-PluginAgentEntries -plugin $_
+    if ($_ -ne "agentic-workflows") {
+      Get-PluginShardEntries -plugin $_
+      Get-PluginAgentEntries -plugin $_
+    }
   })
+  if (Test-Path "agentic-workflows") {
+    if (-not $dispatchPlugin -or $dispatchPlugin -eq "agentic-workflows") {
+      $entries += @(Get-WorkflowEntries)
+    }
+  }
 }
 # Only plugins represented by a non-empty eval entry are downstream
 # publication targets.
@@ -491,6 +524,7 @@ if ($matrixProfile -in @('default','mid','sol','full','newer')) {
         target_kind = if ($e.target_kind) { $e.target_kind } else { "skill" }
         skills_path = $e.skills_path
         agents_path = $e.agents_path
+        package_path = $e.package_path
         eval_path   = $e.eval_path
         model       = $m
         judge       = $route.judge
@@ -516,8 +550,8 @@ foreach ($e in $entries) {
   if ("$($e.name)" -notmatch $namePattern -or "$($e.name)" -match '\.\.' -or "$($e.name)" -eq '.') {
     throw "Refusing unsafe matrix entry: name '$($e.name)' must match $namePattern, not be '.', and not contain '..'"
   }
-  if ("$($e.target_kind)" -notin @('skill', 'agent')) {
-    throw "Refusing unsafe matrix entry: target_kind '$($e.target_kind)' must be 'skill' or 'agent'"
+  if ("$($e.target_kind)" -notin @('skill', 'agent', 'workflow')) {
+    throw "Refusing unsafe matrix entry: target_kind '$($e.target_kind)' must be 'skill', 'agent', or 'workflow'"
   }
   # Model and judge flow into CLI args in the runner, so hold them to the
   # same strict allowlist as names.
@@ -575,6 +609,21 @@ foreach ($e in $entries) {
   }
   if ($e.target_kind -eq 'agent' -and -not $evalPath) {
     throw "Refusing unsafe matrix entry: agent target '$($e.name)' has no eval_path"
+  }
+  if ($e.target_kind -eq 'workflow') {
+    $packagePath = "$($e.package_path)"
+    if ($e.plugin -ne "agentic-workflows" -or
+        $packagePath -notmatch '\Aagentic-workflows/([A-Za-z0-9_-]+)/aw\.yml\z') {
+      throw "Invalid workflow package path '$packagePath'"
+    }
+    $packageName = $Matches[1]
+    $expectedName = "agentic-workflows--$packageName"
+    if ($e.model) { $expectedName += "--$($e.model)" }
+    if ($evalPath -cne "tests/agentic-workflows/$packageName/eval.yaml" -or
+        $e.name -cne $expectedName -or
+        $spSegments.Count -ne 0 -or $agentSegments.Count -ne 0) {
+      throw "Workflow matrix identity does not match package '$packageName'"
+    }
   }
 }
 

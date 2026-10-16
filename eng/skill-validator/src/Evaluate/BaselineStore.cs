@@ -318,12 +318,16 @@ internal sealed class BaselineStore
     private static string CriteriaString(EvalScenario scenario)
     {
         var sb = new StringBuilder();
+        sb.Append("executor=").Append(AgentRunner.ExecutionContractVersion).Append('\0');
         sb.Append("turns=").Append(scenario.MaxTurns?.ToString() ?? "").Append('\0');
         sb.Append("tokens=").Append(scenario.MaxTokens?.ToString() ?? "").Append('\0');
         sb.Append("timeout=").Append(scenario.Timeout).Append('\0');
         // Preserve existing identities when the opt-in policy is absent.
         if (scenario.DenyShell)
             sb.Append("deny-shell=true").Append('\0');
+        if (scenario.OfflineWorkflow)
+            sb.Append("offline-workflow-shell-denied=true").Append('\0')
+                .Append("offline-workflow-proposal-only-writes=true").Append('\0');
         if (scenario.RejectShellRetries)
             sb.Append("reject-shell-retries=true").Append('\0');
         if (scenario.AllowShellCommands is { } allowShellCommands)

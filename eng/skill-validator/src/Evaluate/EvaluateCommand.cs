@@ -9,7 +9,7 @@ public static class EvaluateCommand
 {
     public static Command Create()
     {
-        var pathsArg = new Argument<string[]>("paths") { Description = "Paths to skill directories or parent directories", Arity = ArgumentArity.OneOrMore };
+        var pathsArg = new Argument<string[]>("paths") { Description = "Paths to skills, custom agents, or workflow package aw.yml manifests", Arity = ArgumentArity.OneOrMore };
         var minImprovementOpt = new Option<double>("--min-improvement") { Description = "Minimum improvement score to pass (0-1)", DefaultValueFactory = _ => 0.1 };
         var requireCompletionOpt = new Option<bool>("--require-completion") { Description = "Fail if skill regresses task completion", DefaultValueFactory = _ => true };
         var verdictWarnOnlyOpt = new Option<bool>("--verdict-warn-only") { Description = "Treat verdict failures as warnings (exit 0). Execution errors still fail." };
@@ -292,9 +292,14 @@ public static class EvaluateCommand
         // Discover skills and agents from paths
         var discoveredSkills = new List<SkillInfo>();
         var discoveredAgents = new List<AgentInfo>();
+        var discoveredWorkflows = new List<WorkflowInfo>();
         foreach (var path in config.SkillPaths)
         {
-            if (path.EndsWith(".agent.md", StringComparison.OrdinalIgnoreCase))
+            if (Path.GetFileName(path).Equals("aw.yml", StringComparison.OrdinalIgnoreCase))
+            {
+                discoveredWorkflows.Add(await WorkflowDiscovery.Load(path));
+            }
+            else if (path.EndsWith(".agent.md", StringComparison.OrdinalIgnoreCase))
             {
                 // Single agent file
                 var agents = await AgentDiscovery.DiscoverAgentsInDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
@@ -317,10 +322,10 @@ public static class EvaluateCommand
             }
         }
 
-        if (discoveredSkills.Count == 0 && discoveredAgents.Count == 0)
+        if (discoveredSkills.Count == 0 && discoveredAgents.Count == 0 && discoveredWorkflows.Count == 0)
         {
             var searched = string.Join(", ", config.SkillPaths.Select(p => $"\"{Path.GetFullPath(p)}\""));
-            Console.Error.WriteLine($"No skills or agents found in the specified paths: {searched}");
+            Console.Error.WriteLine($"No skills, agents, or workflow packages found in the specified paths: {searched}");
             return 1;
         }
 
@@ -328,6 +333,8 @@ public static class EvaluateCommand
             Console.WriteLine($"Found {discoveredSkills.Count} skill(s)");
         if (discoveredAgents.Count > 0)
             Console.WriteLine($"Found {discoveredAgents.Count} agent(s)");
+        if (discoveredWorkflows.Count > 0)
+            Console.WriteLine($"Found {discoveredWorkflows.Count} workflow package(s) (offline prompt evaluation)");
         Console.WriteLine();
 
         // Discover noise skills when --noise-skills-dir is provided
@@ -345,7 +352,7 @@ public static class EvaluateCommand
             Console.Error.WriteLine($"{Ansi.Red}❌ {error}{Ansi.Reset}");
         if (pluginErrors.Count > 0)
         {
-            if (discoveredSkills.Count == pluginErrors.Count && discoveredAgents.Count == 0)
+            if (discoveredSkills.Count == pluginErrors.Count && discoveredAgents.Count == 0 && discoveredWorkflows.Count == 0)
             {
                 Console.Error.WriteLine("{Ansi.Red}All skills are standalone (no valid plugin.json found) — nothing to evaluate.{Ansi.Reset}");
                 return 1;
@@ -409,6 +416,24 @@ public static class EvaluateCommand
                 PluginRoot: pluginRoot,
                 McpServers: mcpServers));
         }
+        foreach (var workflow in discoveredWorkflows)
+        {
+            var testsDir = config.TestsDir
+                ?? throw new InvalidOperationException("Workflow evaluation requires --tests-dir");
+            var evalPath = Path.Combine(testsDir, workflow.Name, "eval.yaml");
+            if (!File.Exists(evalPath))
+                throw new InvalidOperationException($"Workflow package has no eval: {evalPath}");
+            var evalConfig = EvalSchema.ParseEvalConfigFlexible(await File.ReadAllTextAsync(evalPath))
+                ?? throw new InvalidOperationException($"Workflow eval contains no valid stimuli: {evalPath}");
+            // Persist the enforced policy in baseline identity as well as runtime permissions.
+            evalConfig = evalConfig with
+            {
+                Scenarios = evalConfig.Scenarios.Select(scenario => scenario with { OfflineWorkflow = true }).ToList(),
+            };
+            allTargets.Add(new EvalTargetInfo(
+                workflow.Name, workflow.ManifestPath, EvalTargetKind.Workflow, null, workflow.Agent,
+                evalPath, evalConfig, null, null, workflow));
+        }
 
         if (config.TargetFilter.Count > 0)
         {
@@ -441,7 +466,7 @@ public static class EvaluateCommand
         }
 
         if (config.Runs < 5)
-            Console.WriteLine($"{Ansi.Yellow}⚠  Running with {config.Runs} run(s). For statistically significant results, use --runs 5 or higher.{Ansi.Reset}");
+            Console.WriteLine($"{Ansi.Yellow}⚠  Running with {config.Runs} run(s) per scenario. Repeats measure reliability; credible preference evidence requires distinct eligible scenarios, not more repeats.{Ansi.Reset}");
         bool usePairwise = config.JudgeMode is JudgeMode.Pairwise or JudgeMode.Both;
         // --no-judge defers judging to a later rejudge step, which reads sessions.db, so it
         // must persist sessions even when --keep-sessions was not passed.
@@ -646,7 +671,7 @@ public static class EvaluateCommand
             var evalSkill = new EvalSkillInfo(target.Skill, target.EvalPath, target.EvalConfig, target.McpServers);
             return await EvaluateSkill(evalSkill, config, usePairwise, spinner, noiseSkills, sessionsDir, sessionDb, baselineStore, scenarioKeyCache, cancellationToken);
         }
-        else if (target.Kind == EvalTargetKind.Agent && target.Agent is not null)
+        else if (target.Kind is EvalTargetKind.Agent or EvalTargetKind.Workflow && target.Agent is not null)
         {
             return await EvaluateAgent(target, config, usePairwise, spinner, sessionsDir, sessionDb, baselineStore, scenarioKeyCache, cancellationToken);
         }
@@ -689,15 +714,16 @@ public static class EvaluateCommand
         log("🔍 Evaluating agent...");
 
         // Validate eval prompts don't mention the agent name (biases baseline)
-        var promptErrors = ValidateEvalPrompts(agent.Name, target.EvalConfig);
+        var promptErrors = ValidateEvalPrompts(target.Name, target.EvalConfig);
         if (promptErrors.Count > 0)
         {
             foreach (var error in promptErrors)
                 log($"   ❌ {error}");
             return new SkillVerdict
             {
-                SkillName = agent.Name,
+                SkillName = target.Name,
                 SkillPath = agent.Path,
+                SkillKind = target.Kind == EvalTargetKind.Workflow ? "workflow" : "agent",
                 Passed = false,
                 Scenarios = [],
                 OverallImprovementScore = 0,
@@ -706,7 +732,8 @@ public static class EvaluateCommand
             };
         }
 
-        var targetSha = sessionDb is not null ? SessionDatabase.ComputeFileSha(agent.Path) : null;
+        var targetSha = target.Workflow?.ContentSha
+            ?? (sessionDb is not null ? SessionDatabase.ComputeFileSha(agent.Path) : null);
         bool singleScenario = target.EvalConfig.Scenarios.Count == 1;
 
         var effectiveParallelScenarios = target.EvalConfig.MaxParallelScenarios.HasValue
@@ -746,10 +773,10 @@ public static class EvaluateCommand
 
         var preferenceComparisons = comparisons.Where(c => c.ExpectActivation).ToList();
         var verdict = Comparator.ComputeAgentVerdict(
-            new SkillInfo(agent.Name, agent.Description, agent.Path, agent.Path, agent.AgentMdContent),
+            new SkillInfo(target.Name, agent.Description, agent.Path, agent.Path, agent.AgentMdContent),
             preferenceComparisons, config.MinImprovement, config.RequireCompletion, config.ConfidenceLevel,
             reportedComparisons: comparisons);
-        verdict.SkillKind = "agent";
+        verdict.SkillKind = target.Kind == EvalTargetKind.Workflow ? "workflow" : "agent";
         ApplyAgentActivationGate(verdict, comparisons, agent.Name, log);
         ApplyExecutionErrorGate(verdict, comparisons, log);
 
@@ -1066,12 +1093,15 @@ public static class EvaluateCommand
         var isolatedTask = AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
             PluginRoot: null, Log: runLog, McpServers: target.McpServers, SessionsDir: sessionsDir,
             SessionId: isolatedSessionId, Agent: agent, AdditionalSkills: additionalSkills,
-            AdditionalAgents: additionalAgents, SelectAgentAsPrimary: ShouldSelectAgentAsPrimary(scenario)), cancellationToken);
+            AdditionalAgents: additionalAgents, SelectAgentAsPrimary: ShouldSelectAgentAsPrimary(scenario),
+            Workflow: target.Workflow, OfflineWorkflow: target.Workflow is not null), cancellationToken);
         // 3. Agent-plugin: use the same selection rule with the full production
         // plugin skill and agent surface available for routing and diagnostics.
         var pluginTask = AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
             PluginRoot: pluginRoot, Log: runLog, McpServers: target.McpServers, SessionsDir: sessionsDir,
-            SessionId: pluginSessionId, Agent: agent, SelectAgentAsPrimary: ShouldSelectAgentAsPrimary(scenario)), cancellationToken);
+            SessionId: pluginSessionId, Agent: agent, SelectAgentAsPrimary: ShouldSelectAgentAsPrimary(scenario),
+            AdditionalAgents: target.Workflow?.Agents,
+            Workflow: target.Workflow, OfflineWorkflow: target.Workflow is not null), cancellationToken);
 
         RunMetrics baselineMetrics;
         RunMetrics isolatedMetrics;
@@ -1089,7 +1119,8 @@ public static class EvaluateCommand
         {
             // 1. Baseline: no agent, no skills — vanilla
             var baselineTask = AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
-                PluginRoot: null, Log: runLog, SessionsDir: sessionsDir, SessionId: baselineSessionId), cancellationToken);
+                PluginRoot: null, Log: runLog, SessionsDir: sessionsDir, SessionId: baselineSessionId,
+                OfflineWorkflow: target.Workflow is not null), cancellationToken);
             var all = await Task.WhenAll(baselineTask, isolatedTask, pluginTask);
             baselineMetrics = all[0];
             isolatedMetrics = all[1];
@@ -2080,8 +2111,8 @@ public static class EvaluateCommand
                         }
                         var soConstraints = AssertionEvaluator.EvaluateConstraints(scenario, skillOnlyMetrics);
                         var asConstraints = AssertionEvaluator.EvaluateConstraints(scenario, allSkillsMetrics);
-                        skillOnlyMetrics.AssertionResults = [..skillOnlyMetrics.AssertionResults, ..soConstraints];
-                        allSkillsMetrics.AssertionResults = [..allSkillsMetrics.AssertionResults, ..asConstraints];
+                        skillOnlyMetrics.AssertionResults = [.. skillOnlyMetrics.AssertionResults, .. soConstraints];
+                        allSkillsMetrics.AssertionResults = [.. allSkillsMetrics.AssertionResults, .. asConstraints];
 
                         skillOnlyMetrics.TaskCompleted = scenario.Assertions is { Count: > 0 } || soConstraints.Count > 0
                             ? skillOnlyMetrics.AssertionResults.All(a => a.Passed)

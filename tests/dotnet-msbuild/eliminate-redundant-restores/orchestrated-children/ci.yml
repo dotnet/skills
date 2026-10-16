@@ -1,0 +1,7 @@
+steps:
+  - script: dotnet restore Build.proj
+    displayName: Restore
+  - script: dotnet msbuild Build.proj -t:Build -p:Configuration=Release -restore:false
+    displayName: Build
+  - script: dotnet test tests/Contoso.Tests/Contoso.Tests.csproj -c Release --no-build
+    displayName: Test

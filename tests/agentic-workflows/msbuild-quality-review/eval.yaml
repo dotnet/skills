@@ -1,0 +1,322 @@
+name: msbuild-quality-review
+# Offline proposal inputs do not assert collector/job eligibility; compiled gates are separate evidence.
+description: Read-only proposed reviews of changed project infrastructure from frozen pull request evidence
+type: capability
+defaults:
+  timeout: 5m
+  runs: 1
+stimuli:
+  - name: Preserve the caller extension chain
+    prompt: |
+      Review the changed project infrastructure in inputs/ for actionable
+      correctness problems. Inputs/context.json includes the diff, related
+      imports, exclusions, and latest PR state. Do not build or edit the
+      repository. Read RESULT_SCHEMA.md, write the proposed action to
+      result.json, and summarize the decision.
+    tags: {capability: extension-chain-review, risk: dropped-build-work, journey: review-project-change}
+    environment:
+      files:
+        - &contract {src: ../RESULT_SCHEMA.md, dest: RESULT_SCHEMA.md}
+        - &grader {src: ../graders/check_result.py, dest: .eval/check_result.py}
+        - {src: fixtures/chain, dest: inputs}
+        - {src: fixtures/chain/workflow-context.json, dest: workflow-context.json}
+    graders:
+      - &result {type: file-exists, config: {path: result.json}}
+      - &decision {type: output-matches, config: {pattern: '(?i)(result\.json|propos|review|no.op|no action)'}}
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "review"
+            --input-digest "8dcf23186a0e3102c61ba414a65e779369d48879f05f678e40c3fd4adc2e7540"
+            --min-findings 1 --max-findings 1
+            --require-pattern "BuildDependsOn"
+            --require-pattern "(preserv|append|overwrit|discard|replac|drop)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+            --max-body-chars 12000
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - &judge {type: prompt}
+    rubric:
+      - Identified the overwritten BuildDependsOn chain and the lost Compile and Pack work using the supplied import order.
+      - Proposed preserving the caller chain in one advisory review on the changed line, without running code.
+  - name: Avoid duplicating default source items
+    prompt: |
+      Review this project-file change from the frozen PR snapshot in inputs/.
+      Report only defects established by the changed code and supplied
+      source. Read RESULT_SCHEMA.md, write the proposed action to
+      result.json, and briefly explain it. Do not build or edit files.
+    tags: {capability: default-item-review, risk: duplicate-compile-items, journey: review-project-metadata}
+    environment:
+      files: [*contract, *grader, {src: fixtures/items, dest: inputs}, {src: fixtures/items/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "review"
+            --input-digest "716607f8a2255438ff7ebf903d462a010f2030beb5bc5e364725738a54dea146"
+            --min-findings 1 --max-findings 1
+            --require-pattern "(duplicate|NETSDK1022)"
+            --require-pattern "(Compile|SDK)"
+            --require-pattern "(Update|remov)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+            --max-body-chars 12000
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Identified the added Compile Include as a duplicate of Program.cs in the SDK default items.
+      - Proposed Update or removal of the redundant include rather than broadly disabling default items.
+  - name: Identify a generated-file collision across projects and frameworks
+    prompt: |
+      Please review the changed generation target and its consumers in
+      inputs/. Identify credible effects on parallel or repeated builds,
+      not cosmetic concerns. Read RESULT_SCHEMA.md, write result.json
+      with the proposed action, and summarize it without executing code.
+    tags: {capability: generated-output-isolation, risk: cross-module-collision, journey: review-generator-change}
+    environment:
+      files: [*contract, *grader, {src: fixtures/generation, dest: inputs}, {src: fixtures/generation/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "review"
+            --input-digest "04c277fd6899f769c22a6e15349a106c483f0fd582b28fb2f5ba1e4487fa857a"
+            --min-findings 1 --max-findings 2
+            --require-pattern "Version\.cs"
+            --require-pattern "(source.tree|source directory|source folder|collis|shared|race)"
+            --require-pattern "(intermediate|obj|FileWrites)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+            --max-body-chars 12000
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Identified the shared source-tree Version.cs output and concrete collision/stale-content risk across consumers and target frameworks.
+      - Proposed isolated intermediate output and sound cleanup/incremental ownership rather than generic performance advice.
+  - name: Accept a valid required import in the packed layout
+    expect_activation: true
+    prompt: |
+      A contributor added a package import. Review the supplied diff, full
+      files, and packaging map in inputs/ to decide whether an actionable
+      defect exists. Read RESULT_SCHEMA.md, write result.json, and briefly
+      explain your proposed action. Do not build or modify the package.
+    tags: {capability: packed-import-validation, risk: false-import-warning, journey: review-package-extension}
+    environment:
+      files: [*contract, *grader, {src: fixtures/packed, dest: inputs}, {src: fixtures/packed/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "noop"
+            --input-digest "254eb3f8b22fa1e40b1b6f2debab9eca9073ef964d6df8a3dd5d621e6cbe4f0e"
+            --min-findings 0 --max-findings 0
+            --require-pattern "(no.*(actionable|defect|issue)|valid|correct|supported)"
+            --require-pattern "(pack|import|contract)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+            --max-body-chars 12000
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Chose no-op because the nuspec supplies the required imported target at the projected package path.
+      - Did not flag normalized evaluator backslashes or require an Exists guard that would hide a broken required package contract.
+  - name: Preserve explicit FSharp compilation order
+    expect_activation: true
+    prompt: |
+      Review the changed project and its two source files in inputs/.
+      Decide whether the added entries introduce an actionable defect.
+      Read RESULT_SCHEMA.md, write the proposed action to result.json,
+      and explain it. Leave all source and configuration unchanged.
+    tags: {capability: language-item-semantics, risk: broken-source-order, journey: review-fsharp-project}
+    environment:
+      files: [*contract, *grader, {src: fixtures/fsharp, dest: inputs}, {src: fixtures/fsharp/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "noop"
+            --input-digest "67a44f1de15a63102290d578382e21fd6c8ebef99d5fb8a96812d8e97d2fe932"
+            --min-findings 0 --max-findings 0
+            --require-pattern "(order|explicit)"
+            --require-pattern "(F#|FSharp|fsproj)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+            --max-body-chars 12000
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Chose no-op for the correct explicit F# source order.
+      - Did not recommend removing ordered Compile Include entries based on C# SDK assumptions.
+  - name: Filter intentionally broken fixture changes
+    expect_activation: true
+    prompt: |
+      Review the changed project infrastructure listed in inputs/context.json
+      using the supplied repository exclusions. Read RESULT_SCHEMA.md,
+      write the proposed action to result.json, and summarize the decision.
+      Do not execute or repair the intentionally broken sample files.
+    tags: {capability: exclusion-filtering, risk: fixture-noise, journey: review-test-assets}
+    environment:
+      files: [*contract, *grader, {src: fixtures/excluded, dest: inputs}, {src: fixtures/excluded/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "noop"
+            --input-digest "5a4f51c23bb604208ca88c0dc862f82e7dd7f28c69c7a45636b1c0ca40e4bd95"
+            --min-findings 0 --max-findings 0
+            --require-pattern "(excluded|scope|filter)"
+            --require-pattern "(fixture|test.assets|generated)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+            --max-body-chars 12000
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Applied both common fixture exclusions and the configured test-assets exclusion, resulting in no-op.
+      - Did not review, fix, or publish warnings for excluded files.
+  - name: Decline publication after the base revision changes
+    expect_activation: true
+    prompt: |
+      Review this changed build policy using the initial and latest PR
+      reads in inputs/context.json. Decide what response is safe now.
+      Read RESULT_SCHEMA.md, write result.json, and summarize the proposed
+      action without executing code or modifying the repository.
+    tags: {capability: review-base-freshness, risk: obsolete-review, journey: handle-base-update}
+    environment:
+      files: [*contract, *grader, {src: fixtures/stale, dest: inputs}, {src: fixtures/stale/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "noop"
+            --input-digest "8fc1ab3ff4c5aad10541f15b0a629777a14a3dd4cbace0ad2e50dcf8e573d2f0"
+            --min-findings 0 --max-findings 0
+            --require-pattern "base"
+            --require-pattern "(changed|stale|moved|differ)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+            --max-body-chars 12000
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Chose no-op because the base revision moved even though the PR head did not.
+      - Did not propose submitting a review against an obsolete analysis snapshot.
+  - name: Avoid findings when the changed file cannot be read
+    expect_activation: true
+    prompt: |
+      The PR file listing and read diagnostics are in inputs/context.json.
+      Decide whether a supported review can be proposed with this evidence.
+      Read RESULT_SCHEMA.md, write the proposed action to result.json,
+      and explain any gaps. Do not fetch other data or guess file contents.
+    tags: {capability: incomplete-review-evidence, risk: speculative-finding, journey: handle-truncated-diff}
+    environment:
+      files: [*contract, *grader, {src: fixtures/missing, dest: inputs}, {src: fixtures/missing/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "noop"
+            --input-digest "838d7444f203b1dfef2831088c550938b8e5b677f7cf7960ab65a48a8dbdc734"
+            --min-findings 0 --max-findings 0
+            --require-pattern "(missing|unavailable|incomplete|truncat)"
+            --require-pattern "(contents|file|evidence)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+            --max-body-chars 12000
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Chose no-op with an explicit full-content/truncated-patch limitation.
+      - Did not infer a defect, line number, or replacement from an unavailable file.
+  - name: Limit findings to the changed in-scope policy
+    prompt: |
+      Please review this PR's project infrastructure from inputs/. Use the
+      diff to separate new defects from pre-existing code and unrelated
+      file types. Read RESULT_SCHEMA.md, write result.json, and summarize
+      the proposed action. Do not build, edit, or broaden this into an audit.
+    tags: {capability: changed-line-scope, risk: unrelated-review-noise, journey: review-mixed-pr}
+    environment:
+      files: [*contract, *grader, {src: fixtures/mixed, dest: inputs}, {src: fixtures/mixed/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "review"
+            --input-digest "92c287818b4e85520afb57634a3d76e97f6ed782bc46d7ec07c189ec7ab1fd0a"
+            --min-findings 1 --max-findings 1
+            --require-pattern "NoWarn"
+            --require-pattern "(preserv|append|overwrit|drop|discard|replac)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+            --max-body-chars 12000
+            --allowed-finding-path "repo/Policy.targets"
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Reported only the new NoWarn overwrite and its discarded caller policy.
+      - Did not flag unchanged DefineConstants or the unrelated C# source as review findings.
+  - name: Catch a property evaluated before its discriminator exists
+    prompt: |
+      Review the changed property assignment and importing project in inputs/.
+      Is its stated conditional behavior reliable? Read RESULT_SCHEMA.md,
+      write the proposed action to result.json, and briefly explain the
+      decision without executing or modifying project code.
+    tags: {capability: property-evaluation-order, risk: silently-missing-feature, journey: review-conditional-property}
+    environment:
+      files: [*contract, *grader, {src: fixtures/early, dest: inputs}, {src: fixtures/early/workflow-context.json, dest: workflow-context.json}]
+    graders:
+      - *result
+      - *decision
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,runpy;p=pathlib.Path('.eval/check_result.py');assert hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()=='7122ab2b4657f42b8fa02ef00422b585a3329213c8f679027ed86067a2098197';runpy.run_path(str(p),run_name='__main__')"
+            --expected-action "review"
+            --input-digest "dcff34bf78c6ba7cffca8563232ba95198cf4d6a1c1b42f54c7fa907921d055f"
+            --min-findings 1 --max-findings 1
+            --require-pattern "TargetFramework"
+            --require-pattern "(before|early|order|not.*set)"
+            --require-pattern "(late|after|move|targets)"
+            --forbid-pattern "\b(?:I|we|the workflow) (?:have |successfully )?(?:posted|published|submitted|created a (?:pull request|PR)|called .*MCP)\b"
+            --max-body-chars 12000
+          timeout: 30s
+          expected_exit_code: 0
+          stdout_matches: '^PASS:'
+      - *judge
+    rubric:
+      - Established that TargetFramework is assigned after Settings.props and the new condition therefore fails during this evaluation.
+      - Proposed moving the dependent property later without incorrectly treating all framework-conditioned items or targets as defective.

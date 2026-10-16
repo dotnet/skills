@@ -77,6 +77,7 @@ Load these skills for detailed guidance on specific optimization areas:
 - `eval-performance` — Evaluation performance
 - `check-bin-obj-clash` — Output path conflicts
 - `copy-to-output-directory` — Removing the `Always` copy perf hit (`IfDifferent`, `$(SkipUnchangedFilesOnCopyAlways)`)
+- `eliminate-redundant-restores` — Removing repeated restores across pipeline or script steps safely (`--no-restore`, `-restore:false`, rsp `-restore`)
 
 ## Important Notes
 - Always use `/bl` to generate binlogs for data-driven analysis

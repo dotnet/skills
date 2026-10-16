@@ -84,7 +84,7 @@ Consequences seen in real runs:
 | Wrong sibling wins the prompt | Descriptions partitioned by topic instead of by discriminator | Partition on the real question, and add handoff exclusions on both sides | PR #864 |
 | Sibling wins on one ambiguous word | The target skill never claims that word | Claim it explicitly — "review" had to be claimed by `writing-mstest-tests` | PR #863 |
 | Isolated activation perfect, plugin arm fails | The model self-serves: reads the file and answers with no skill at all | Raise stakes in the description, de-crowd the menu, verify in the plugin arm | PR #850 |
-| Menu pressure across a plugin | Helper/reference skills consuming budget | `disable-model-invocation: true` keeps them invocable by name only | PR #850 |
+| Menu pressure across a plugin | Helper/reference skills consuming budget | `disable-model-invocation: true` removes them from the callable menu; consumers read the catalog or bundled files directly using the supplied catalog path, not a skill-tool invocation | PR #850 |
 
 ## Process
 

@@ -116,7 +116,8 @@ public sealed record EvalScenario(
     IReadOnlyList<string>? RejectAgents = null,
     bool RejectShellRetries = false,
     IReadOnlyList<string>? AllowShellCommands = null,
-    IReadOnlyList<TrustedShellFile>? TrustedShellFiles = null);
+    IReadOnlyList<TrustedShellFile>? TrustedShellFiles = null,
+    bool OfflineWorkflow = false);
 
 public sealed record EvalConfig(
     IReadOnlyList<EvalScenario> Scenarios,
@@ -134,10 +135,10 @@ public sealed record EvalSkillInfo(
     IReadOnlyDictionary<string, MCPServerDef>? McpServers = null);
 
 /// <summary>
-/// Unified eval target — either a skill or an agent.
+/// Unified eval target — a skill, custom agent, or workflow package.
 /// Most of the evaluation pipeline operates on this generically.
 /// </summary>
-public enum EvalTargetKind { Skill, Agent }
+public enum EvalTargetKind { Skill, Agent, Workflow }
 
 public sealed record EvalTargetInfo(
     string Name,
@@ -148,7 +149,8 @@ public sealed record EvalTargetInfo(
     string? EvalPath,
     EvalConfig? EvalConfig,
     string? PluginRoot,
-    IReadOnlyDictionary<string, MCPServerDef>? McpServers);
+    IReadOnlyDictionary<string, MCPServerDef>? McpServers,
+    WorkflowInfo? Workflow = null);
 
 // --- Agent events ---
 
@@ -204,6 +206,7 @@ public sealed class RunMetrics
     public List<AssertionResult> AssertionResults { get; set; } = [];
     public bool TaskCompleted { get; set; }
     public string AgentOutput { get; set; } = "";
+    public string? WorkflowProposalJson { get; set; }
     public List<AgentEvent> Events { get; set; } = [];
     public string WorkDir { get; set; } = "";
 
@@ -235,6 +238,7 @@ public sealed class RunMetrics
         AssertionResults = [.. AssertionResults],
         TaskCompleted = TaskCompleted,
         AgentOutput = AgentOutput,
+        WorkflowProposalJson = WorkflowProposalJson,
         Events = [.. Events],
         WorkDir = WorkDir,
     };

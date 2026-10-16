@@ -17,6 +17,10 @@ defaults:
 
 stimuli:
   - name: Disambiguate duplicate C# type names by namespace
+    tags:
+      capability: namespace-disambiguation
+      risk: false-positive-pairing
+      journey: locate-untested-sources
     prompt: |
       Find the C# source file under NamespaceCollision that is not referenced by
       any test and suggest the exact test path in the existing test project. Do
@@ -61,6 +65,10 @@ stimuli:
       - Clearly distinguished static source-to-test evidence from actual line or branch coverage
 
   - name: Identify an unpaired TypeScript module
+    tags:
+      capability: typescript-import-pairing
+      risk: missed-source-module
+      journey: prioritize-missing-tests
     prompt: |
       Find the untested TypeScript source module under TypeScriptPairing using
       static source-to-test pairing, and suggest a test file location. Return
@@ -103,6 +111,10 @@ stimuli:
       - Clearly distinguished static source-to-test evidence from actual line or branch coverage
 
   - name: Disambiguate duplicate C# types by nested test namespace
+    tags:
+      capability: nested-namespace-disambiguation
+      risk: namespace-collision
+      journey: locate-untested-sources
     prompt: |
       Find the C# source file under NamespaceCollision that has no test
       referencing its declared Options type. Suggest the exact test path in the
@@ -147,6 +159,10 @@ stimuli:
       - Clearly distinguished static source-to-test evidence from actual line or branch coverage
 
   - name: Exclude generated sources and surface an orphan test
+    tags:
+      capability: generated-source-exclusion
+      risk: generated-code-noise
+      journey: audit-source-test-pairings
     prompt: >
       Which classes under Billing still need unit tests, and is any test file
       not exercising production code at all? Sources are under src/, tests under
@@ -185,6 +201,10 @@ stimuli:
       - Labelled the result as static source-to-test pairing rather than line or branch coverage
 
   - name: Pair sources to tests across a src/tests directory split
+    tags:
+      capability: split-layout-pairing
+      risk: missed-test-reference
+      journey: prioritize-missing-tests
     prompt: >
       Which classes in this repository don't have unit tests yet? The sources
       live under src/ and the tests under tests/.
@@ -210,6 +230,10 @@ stimuli:
       - Did not claim a line-coverage percentage; source-to-test pairing is not coverage
 
   - name: Choose the polyglot engine for a mixed C# and TypeScript repository
+    tags:
+      capability: mixed-language-analysis
+      risk: partial-repository-scan
+      journey: audit-polyglot-repository
     prompt: >
       This repository has a C# service under src/Store and a TypeScript cart
       under src/cart, with tests in tests/. Which sources have no tests? Use one
@@ -254,6 +278,10 @@ stimuli:
       - Labelled the result a static pairing heuristic rather than line or branch coverage
 
   - name: Pair Python modules through imports and preserve analyzer suggestions
+    tags:
+      capability: python-import-pairing
+      risk: incorrect-test-location
+      journey: plan-python-tests
     prompt: |
       Under PythonPairing/, identify the Python module that has no test referring
       to it. Name the test file that covers the other source module and give the
@@ -294,6 +322,10 @@ stimuli:
       - Did not claim that the file relationship proves line or branch coverage
 
   - name: Keep analysis within a named monorepo package
+    tags:
+      capability: package-scoped-analysis
+      risk: out-of-scope-inspection
+      journey: inspect-monorepo-package
     prompt: |
       Only inspect `packages/billing` in this monorepo. Which TypeScript source
       file there has no test referring to it, which source is already paired,
@@ -336,6 +368,10 @@ stimuli:
       - Did not run a package manager or claim that the result proves line or branch coverage
 
   - name: Pair Kotlin Swift PowerShell and C++ sources
+    tags:
+      capability: extended-language-pairing
+      risk: omitted-language-sources
+      journey: audit-polyglot-repository
     prompt: |
       Run the shipped static source-to-test pairing analyzer over the
       PolyglotPairing fixture. Which four source files are unpaired, and which
