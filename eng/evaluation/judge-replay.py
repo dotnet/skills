@@ -611,7 +611,7 @@ def main():
         if not MODEL_NAME.fullmatch(args.original_judge) or not MODEL_NAME.fullmatch(args.candidate_judge):
             raise ValueError("Judge models must be simple allowlisted model IDs")
         entries = discover(args.run_ids, args.artifact_name, args.executor_prefix)
-        Path(args.output).write_text(json.dumps({"include": entries}), encoding="utf-8")
+        Path(args.output).write_text(json.dumps({"entry": entries}), encoding="utf-8")
         print(f"Selected {len(entries)} artifact(s) for judge-only replay")
     elif args.action == "download-source":
         download_source(args.run_id, args.artifact_id, args.artifact_name, args.output)
@@ -622,7 +622,7 @@ def main():
             raise ValueError("Invalid artifact name or judge model")
         run_replay(args)
     else:
-        totals = aggregate(Path(args.root), load(Path(args.manifest))["include"])
+        totals = aggregate(Path(args.root), load(Path(args.manifest))["entry"])
         print(json.dumps(totals, indent=2))
 
 

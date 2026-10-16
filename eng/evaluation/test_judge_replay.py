@@ -82,6 +82,34 @@ class JudgeReplayTests(unittest.TestCase):
         self.assertLess(steps.index(recorded), next(i for i, step in enumerate(steps)
                         if step.get("name") == "Upload results"))
 
+    def test_replay_matrix_axis_matches_discovery_output(self):
+        import re
+        import sys
+
+        workflow = (SCRIPT.parents[2] / ".github/workflows/evaluation-judge-replay.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertEqual(set(re.findall(r"\$\{\{\s*matrix\.([a-z_]+)", workflow)), {"entry"})
+        self.assertEqual(
+            set(re.findall(r"matrix\.entry\.([a-z_]+)", workflow)),
+            {"run_id", "artifact_id", "artifact_name"},
+        )
+
+        spec = importlib.util.spec_from_file_location("judge_replay_matrix_test", SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        entries = [{"run_id": "123", "artifact_id": 456,
+                    "artifact_name": "vally-results-example"}]
+        with tempfile.TemporaryDirectory() as temp:
+            manifest = Path(temp) / "matrix.json"
+            with patch.object(module, "discover", return_value=entries), patch.object(
+                sys, "argv", [str(SCRIPT), "discover", "--run-ids", "123",
+                              "--output", str(manifest)]
+            ):
+                module.main()
+            self.assertEqual(json.loads(manifest.read_text(encoding="utf-8")), {"entry": entries})
+        self.assertIn('load(Path(args.manifest))["entry"]', SCRIPT.read_text(encoding="utf-8"))
+
     def test_discovery_requires_completed_evaluation_and_allows_pilot(self):
         run = {"path": ".github/workflows/evaluation.yml", "status": "completed", "conclusion": "success",
                "repository": "dotnet/skills", "head_sha": "a" * 40}
