@@ -56,10 +56,23 @@ behavior against the corrected executor.
 > Scheduled and main session-data publishing remains strict.
 
 > Current Vally PR evaluations default to `claude-sonnet-5` and `gpt-5.6-luna`,
-> with judges `gpt-5.6-terra` and `claude-haiku-5.5`, respectively.
+> with judges `gpt-5.6-terra` and `claude-haiku-4.5`, respectively.
 > Explicit profiles and the scheduled cadence can select other models.
 > These defaults do not change the model fields in historical results or the
 > legacy schema below. Health and issue-triage workflow models are separate.
+
+For judge-only CI validation, dispatch `evaluation` with `rejudge_run_ids`
+set to completed evaluation run IDs, and optionally set `rejudge_artifact`
+to one exact artifact name for a small pilot. The separate replay path runs
+no executors: it rejudges a **copy** of saved native sessions, preserves the
+original judged result, and uploads candidate verdicts, trial evidence, and
+source provenance in `judge-replay-*`. Leave the artifact name blank to cover
+all matching artifacts from the selected runs with the default `gpt-` executor
+suffix; set `rejudge_executor_prefix` to select a different family. `rejudge_original` and
+`rejudge_candidate` select the two judges. Missing or invalid judgments fail
+the comparison. A previous errored judgment is reported separately, not
+counted as a tie. Pass-check alignment is diagnostic, not accuracy ground
+truth; replay does not alter the authoritative evaluation gate or dashboard.
 
 > Current Vally runs use a version-checked SDK 1.0.11/1.0.13 startup guard. It waits for
 > filesystem-provider setup before sessions start and shares concurrent startup

@@ -483,7 +483,7 @@ if ($evt -eq 'workflow_dispatch') {
   }
 }
 
-if ($matrixProfile -in @('default','mid','sol','full','newer','haiku-judge-trial')) {
+if ($matrixProfile -in @('default','mid','sol','full','newer')) {
   # §10.2 model tiers. Cost-optimized cadence: the two DEFAULT models
   # ({claude-sonnet-5, gpt-5.6-luna}) carry every PR and every scheduled day that
   # no heavier tier occupies. The cheap MID models run at a lower cadence
@@ -497,19 +497,18 @@ if ($matrixProfile -in @('default','mid','sol','full','newer','haiku-judge-trial
     'sol'     = @('gpt-5.6-sol')
     'full'    = @('claude-sonnet-5', 'gpt-5.6-luna', 'claude-haiku-4.5', 'mai-code-1.1-flash', 'gpt-5.3-codex')
     'newer'   = @('gpt-6-astra', 'claude-opus-5')
-    'haiku-judge-trial' = @('gpt-5.6-luna', 'gpt-5.3-codex', 'gpt-5.6-sol', 'gpt-6-astra')
   }
   # §10.5 judge routing. Primary = cross-family (never the same model, and
   # a different family in every case here).
   #   - Non-GPT executor legs (Claude/MAI) are judged by gpt-5.6-terra.
-  #   - GPT executor legs are judged by claude-haiku-5.5.
+  #   - GPT executor legs are judged by claude-haiku-4.5.
   $judgeRoutes = @{
-    'gpt-5.6-luna'            = @{ judge = 'claude-haiku-5.5' }
+    'gpt-5.6-luna'            = @{ judge = 'claude-haiku-4.5' }
     'claude-haiku-4.5'        = @{ judge = 'gpt-5.6-terra' }
     'mai-code-1.1-flash'      = @{ judge = 'gpt-5.6-terra' }
-    'gpt-5.3-codex'           = @{ judge = 'claude-haiku-5.5' }
-    'gpt-5.6-sol'             = @{ judge = 'claude-haiku-5.5' }
-    'gpt-6-astra'             = @{ judge = 'claude-haiku-5.5' }
+    'gpt-5.3-codex'           = @{ judge = 'claude-haiku-4.5' }
+    'gpt-5.6-sol'             = @{ judge = 'claude-haiku-4.5' }
+    'gpt-6-astra'             = @{ judge = 'claude-haiku-4.5' }
     'claude-sonnet-5'         = @{ judge = 'gpt-5.6-terra' }
     'claude-opus-5'           = @{ judge = 'gpt-5.6-terra' }
   }
@@ -519,9 +518,6 @@ if ($matrixProfile -in @('default','mid','sol','full','newer','haiku-judge-trial
     foreach ($m in $models) {
       $route = $judgeRoutes[$m]
       if (-not $route) { throw "No judge route defined for model '$m'" }
-      if ($matrixProfile -eq 'haiku-judge-trial') {
-        $route = @{ judge = 'claude-haiku-5.5' }
-      }
       $expanded += @{
         name        = "$($e.name)--$m"
         plugin      = $e.plugin

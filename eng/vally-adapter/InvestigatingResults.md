@@ -70,12 +70,35 @@ When an evaluation has a non-pass or warning, the PR comment includes a ready-to
 ## Quick start
 
 The default PR evaluation profile uses `claude-sonnet-5` and `gpt-5.6-luna`.
-Sonnet is judged by `gpt-5.6-terra`; Luna is judged by `claude-haiku-5.5`.
+Sonnet is judged by `gpt-5.6-terra`; Luna is judged by `claude-haiku-4.5`.
 The `full` profile includes those defaults. Explicit profile selections still
 apply, and scheduled runs use their configured profile.
 Read the model and judge fields in each result, rather than assuming that an
 older run used the current defaults. The separate health and issue-triage
 workflows default to `gpt-5.6-sol`; they do not choose the PR evaluation models.
+
+### Judge-only CI replay
+
+Dispatch `evaluation` with `rejudge_run_ids` set to one or more comma-separated
+completed evaluation run IDs. Set `rejudge_artifact` to one exact
+`vally-results-*` artifact name for a small pilot; leave it blank to rejudge
+every matching artifact from those runs. By default, all mode selects
+artifacts whose executor model suffix starts with `gpt-`; change
+`rejudge_executor_prefix` for another model family, or clear it to include
+all models. `rejudge_original` and
+`rejudge_candidate` name the recorded and candidate judges (Haiku 4.5 and
+Haiku 5.5 by default). Do not combine this mode with a PR number or dashboard
+publication.
+
+This path never starts executors. It reuses the saved baseline and skilled
+trajectories or a copy of a native agent session database. Original results
+remain authoritative. Separate `judge-replay-*` artifacts hold candidate
+verdicts, old/new per-trial evidence, source run/artifact/SHA provenance, and
+candidate replay wall time (including adapter work). The report fails for missing artifacts, trials, or
+invalid judgments. Saved pass-check alignment is only a diagnostic, not
+accuracy ground truth. Ties and direct preference reversals are counted
+separately. The whole-plugin arm is not part of this primary
+baseline-versus-skilled comparison. Source artifacts must still be unexpired.
 
 ### SDK startup failures
 

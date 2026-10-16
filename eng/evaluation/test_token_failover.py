@@ -403,9 +403,6 @@ class TokenFailoverTests(unittest.TestCase):
             ("schedule", "", "", "0 7 * * 4", ["gpt-5.6-sol"]),
             ("issue_comment", "/evaluate --sol", "", "", ["gpt-5.6-sol"]),
             ("workflow_dispatch", "", "sol", "", ["gpt-5.6-sol"]),
-            ("workflow_dispatch", "", "haiku-judge-trial", "", [
-                "gpt-5.6-luna", "gpt-5.3-codex", "gpt-5.6-sol", "gpt-6-astra",
-            ]),
         ]
         for event, body, profile, schedule, models in cases:
             with self.subTest(event=event, profile=profile, schedule=schedule):
@@ -422,7 +419,7 @@ class TokenFailoverTests(unittest.TestCase):
                 self.assertEqual([entry["model"] for entry in entries], models)
                 for entry in entries:
                     is_gpt = entry["model"].startswith("gpt-")
-                    expected_judge = "claude-haiku-5.5" if is_gpt else "gpt-5.6-terra"
+                    expected_judge = "claude-haiku-4.5" if is_gpt else "gpt-5.6-terra"
                     self.assertEqual(entry["judge"], expected_judge)
                     self.assertNotIn("judge2", entry)
                     self.assertNotEqual(entry["judge"], entry["model"])

@@ -1,0 +1,250 @@
+# Called only by the manual judge-only path in evaluation.yml. It never starts
+# an executor: every comparison consumes a completed evaluation run's artifact.
+name: saved judge replay
+
+on:
+  workflow_call:
+    inputs:
+      run_ids:
+        type: string
+        required: true
+      artifact_name:
+        type: string
+        required: false
+        default: ""
+      executor_prefix:
+        type: string
+        required: false
+        default: "gpt-"
+      original_judge:
+        type: string
+        required: true
+      candidate_judge:
+        type: string
+        required: true
+      pr_number:
+        type: string
+        required: false
+        default: ""
+      publish_eval_data:
+        type: boolean
+        required: false
+        default: false
+    secrets:
+      COPILOT_PAT_0: { required: false }
+      COPILOT_PAT_1: { required: false }
+      COPILOT_PAT_2: { required: false }
+      COPILOT_PAT_3: { required: false }
+      COPILOT_PAT_4: { required: false }
+      COPILOT_PAT_5: { required: false }
+      COPILOT_PAT_6: { required: false }
+      COPILOT_PAT_7: { required: false }
+      COPILOT_PAT_8: { required: false }
+      COPILOT_PAT_9: { required: false }
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - name: Select completed evaluation artifacts
+        id: targets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_IDS: ${{ inputs.run_ids }}
+          ARTIFACT_NAME: ${{ inputs.artifact_name }}
+          EXECUTOR_PREFIX: ${{ inputs.executor_prefix }}
+          ORIGINAL_JUDGE: ${{ inputs.original_judge }}
+          CANDIDATE_JUDGE: ${{ inputs.candidate_judge }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          PUBLISH_EVAL_DATA: ${{ inputs.publish_eval_data }}
+        run: |
+          set -euo pipefail
+          if [ -n "$PR_NUMBER" ] || [ "$PUBLISH_EVAL_DATA" = true ]; then
+            echo "::error::Judge-only replay cannot target a PR or publish dashboard data"
+            exit 1
+          fi
+          python eng/evaluation/judge-replay.py discover \
+            --run-ids "$SOURCE_RUN_IDS" --artifact-name "$ARTIFACT_NAME" \
+            --executor-prefix "$EXECUTOR_PREFIX" \
+            --original-judge "$ORIGINAL_JUDGE" --candidate-judge "$CANDIDATE_JUDGE" \
+            --output "$RUNNER_TEMP/judge-matrix.json"
+          echo "matrix=$(cat "$RUNNER_TEMP/judge-matrix.json")" >> "$GITHUB_OUTPUT"
+
+  prepare-validator:
+    needs: discover
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            eng/skill-validator
+            global.json
+            LICENSE
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v5
+        with:
+          global-json-file: global.json
+      - run: dotnet publish eng/skill-validator/src/SkillValidator.csproj
+      - run: tar -czf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release .
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: judge-validator-${{ github.run_id }}
+          path: skill-validator-dist.tar.gz
+          retention-days: 7
+
+  replay:
+    needs: [discover, prepare-validator]
+    runs-on: ubuntu-latest
+    environment: copilot-pat-pool
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+    name: "rejudge ${{ matrix.entry.artifact_name }} (${{ matrix.entry.run_id }})"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v5
+        with:
+          global-json-file: global.json
+      - name: Install pinned judge tools
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/judge-tools/bin"
+          cp eng/evaluation-tools/{package.json,package-lock.json,vally.mjs,sdk-startup.mjs} "$RUNNER_TEMP/judge-tools/"
+          npm ci --prefix "$RUNNER_TEMP/judge-tools" --registry https://registry.npmjs.org/
+          chmod +x "$RUNNER_TEMP/judge-tools/vally.mjs"
+          ln -s ../vally.mjs "$RUNNER_TEMP/judge-tools/bin/vally"
+          echo "$RUNNER_TEMP/judge-tools/node_modules/.bin" >> "$GITHUB_PATH"
+          echo "$RUNNER_TEMP/judge-tools/bin" >> "$GITHUB_PATH"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: judge-validator-${{ github.run_id }}
+          path: ${{ runner.temp }}/judge-validator
+      - name: Extract validator
+        run: |
+          mkdir -p "$RUNNER_TEMP/judge-validator/bin"
+          tar -xzf "$RUNNER_TEMP/judge-validator/skill-validator-dist.tar.gz" \
+            -C "$RUNNER_TEMP/judge-validator/bin"
+      - name: Download saved executor evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ matrix.entry.run_id }}
+          SOURCE_ARTIFACT: ${{ matrix.entry.artifact_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/judge-source"
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+            --name "$SOURCE_ARTIFACT" --dir "$RUNNER_TEMP/judge-source"
+      - name: Select a healthy judge credential
+        env:
+          CANDIDATE_JUDGE: ${{ inputs.candidate_judge }}
+          COPILOT_PAT_0: ${{ secrets.COPILOT_PAT_0 }}
+          COPILOT_PAT_1: ${{ secrets.COPILOT_PAT_1 }}
+          COPILOT_PAT_2: ${{ secrets.COPILOT_PAT_2 }}
+          COPILOT_PAT_3: ${{ secrets.COPILOT_PAT_3 }}
+          COPILOT_PAT_4: ${{ secrets.COPILOT_PAT_4 }}
+          COPILOT_PAT_5: ${{ secrets.COPILOT_PAT_5 }}
+          COPILOT_PAT_6: ${{ secrets.COPILOT_PAT_6 }}
+          COPILOT_PAT_7: ${{ secrets.COPILOT_PAT_7 }}
+          COPILOT_PAT_8: ${{ secrets.COPILOT_PAT_8 }}
+          COPILOT_PAT_9: ${{ secrets.COPILOT_PAT_9 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$RUNNER_TEMP/judge-home"
+          candidates=()
+          for i in $(seq 0 9); do
+            var="COPILOT_PAT_$i"
+            candidate="${!var}"
+            [ -n "$candidate" ] || continue
+            echo "::add-mask::$candidate"
+            candidates+=("$candidate")
+          done
+          for i in $(seq 0 9); do unset "COPILOT_PAT_$i"; done
+          for candidate in "${candidates[@]}"; do
+            if (cd "$RUNNER_TEMP" && COPILOT_HOME="$RUNNER_TEMP/judge-home" \
+              COPILOT_GITHUB_TOKEN="$candidate" timeout 60s copilot \
+                --prompt "Reply with exactly OK." --available-tools="" \
+                --no-bash-env --no-custom-instructions --no-experimental \
+                --model "$CANDIDATE_JUDGE" --output-format=json --silent \
+                >"$RUNNER_TEMP/judge-probe.log" 2>&1); then
+              printf '%s' "$candidate" > "$RUNNER_TEMP/judge-token"
+              chmod 600 "$RUNNER_TEMP/judge-token"
+              exit 0
+            fi
+          done
+          echo "::error::No configured Copilot credential passed the candidate judge availability probe"
+          exit 1
+      - name: Rejudge saved evidence and compare
+        env:
+          SOURCE_RUN: ${{ matrix.entry.run_id }}
+          SOURCE_ID: ${{ matrix.entry.artifact_id }}
+          SOURCE_ARTIFACT: ${{ matrix.entry.artifact_name }}
+          SOURCE_SHA: ${{ matrix.entry.source_sha }}
+          ORIGINAL_JUDGE: ${{ inputs.original_judge }}
+          CANDIDATE_JUDGE: ${{ inputs.candidate_judge }}
+        run: |
+          set -euo pipefail
+          GITHUB_TOKEN=$(cat "$RUNNER_TEMP/judge-token")
+          rm -f "$RUNNER_TEMP/judge-token"
+          export GITHUB_TOKEN
+          python eng/evaluation/judge-replay.py replay \
+            --source "$RUNNER_TEMP/judge-source" --output "$RUNNER_TEMP/judge-output" \
+            --run-id "$SOURCE_RUN" --artifact-id "$SOURCE_ID" \
+            --artifact-name "$SOURCE_ARTIFACT" --source-sha "$SOURCE_SHA" \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --adapter "$GITHUB_WORKSPACE/eng/vally-adapter/adapt.mjs" \
+            --validator "$RUNNER_TEMP/judge-validator/bin/skill-validator" \
+            --original-judge "$ORIGINAL_JUDGE" --candidate-judge "$CANDIDATE_JUDGE"
+      - name: Upload separate candidate evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: judge-replay-${{ matrix.entry.run_id }}-${{ matrix.entry.artifact_id }}
+          path: ${{ runner.temp }}/judge-output/
+          if-no-files-found: warn
+          retention-days: 14
+
+  report:
+    needs: [discover, replay]
+    if: always() && needs.discover.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+          sparse-checkout: eng/evaluation
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: judge-replay-*
+          path: ${{ runner.temp }}/judge-reports
+      - name: Require every selected artifact and report totals
+        env:
+          MATRIX_JSON: ${{ needs.discover.outputs.matrix }}
+          REPLAY_RESULT: ${{ needs.replay.result }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$MATRIX_JSON" > "$RUNNER_TEMP/judge-matrix.json"
+          python eng/evaluation/judge-replay.py aggregate \
+            --root "$RUNNER_TEMP/judge-reports" \
+            --manifest "$RUNNER_TEMP/judge-matrix.json" | tee -a "$GITHUB_STEP_SUMMARY"
+          [ "$REPLAY_RESULT" = success ]
