@@ -1,0 +1,216 @@
+diff --git a/NuGet.config b/NuGet.config
+new file mode 100644
+index 0000000..90c9f2a
+--- /dev/null
++++ b/NuGet.config
+@@ -0,0 +1,14 @@
++<?xml version="1.0" encoding="utf-8"?>
++<configuration>
++  <packageSources>
++    <clear />
++    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
++    <add key="dotnet12" value="https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet12/nuget/v3/index.json" />
++    <!-- darc-pub feeds of dotnet/maui's NuGet.config on its net11.0 and release/11.0.1xx-rc2 branches (the alpha's iOS and
++         Android workloads still carry packs of the previous major), read on October 11, 2026 -->
++    <add key="darc-pub-dotnet-android-b4100484" value="https://pkgs.dev.azure.com/dnceng/public/_packaging/darc-pub-dotnet-android-b4100484/nuget/v3/index.json" />
++    <add key="darc-pub-dotnet-android-db080b91-1" value="https://pkgs.dev.azure.com/dnceng/public/_packaging/darc-pub-dotnet-android-db080b91-1/nuget/v3/index.json" />
++    <add key="darc-pub-dotnet-android-db080b91" value="https://pkgs.dev.azure.com/dnceng/public/_packaging/darc-pub-dotnet-android-db080b91/nuget/v3/index.json" />
++    <add key="darc-pub-dotnet-macios-fd471cba" value="https://pkgs.dev.azure.com/dnceng/public/_packaging/darc-pub-dotnet-macios-fd471cba/nuget/v3/index.json" />
++  </packageSources>
++</configuration>
+diff --git a/install-dotnet.ps1 b/install-dotnet.ps1
+new file mode 100644
+index 0000000..ad5820f
+--- /dev/null
++++ b/install-dotnet.ps1
+@@ -0,0 +1,83 @@
++param([string[]]$Workloads = @('ios', 'android'))
++$ErrorActionPreference = 'Stop'
++$installDir = '.dotnet'; $channel = '12.0.1xx'; $quality = 'daily'
++$version = ''; $rollForward = 'latestFeature'; $allowPrerelease = $true
++$errorMessage = 'Required .NET SDK not found. Run ./install-dotnet.sh (or .ps1) to install it locally.'
++$installScript = Join-Path $env:TEMP "dotnet-install-$([guid]::NewGuid()).ps1"
++try {
++    Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile $installScript
++    $installArgs = @('-InstallDir', $installDir)
++    if ($version) {
++        $installArgs += @('-Version', $version)
++        $rollForward = 'disable'
++    } else {
++        $installArgs += @('-Channel', $channel, '-Quality', $quality)
++    }
++    & $installScript @installArgs; if ($LASTEXITCODE) { throw "dotnet-install failed with exit code $LASTEXITCODE" }  # a child script's exit code is not terminating
++}
++finally {
++    if (Test-Path -LiteralPath $installScript) {
++        Remove-Item -LiteralPath $installScript -Force
++    }
++}
++$sdkVersion = & "$installDir\dotnet.exe" --version
++$globalJson = if (Test-Path 'global.json') {
++    Copy-Item 'global.json' 'global.json.bak'
++    Get-Content -Path 'global.json' -Raw | ConvertFrom-Json
++} else {
++    [pscustomobject]@{}
++}
++if (-not $globalJson.PSObject.Properties['sdk']) {
++    $globalJson | Add-Member -MemberType NoteProperty -Name 'sdk' -Value ([pscustomobject]@{})
++}
++$updates = [ordered]@{
++    version = $sdkVersion
++    allowPrerelease = $allowPrerelease
++    rollForward = $rollForward
++    paths = @('.dotnet', '$host$')
++    errorMessage = $errorMessage
++}
++foreach ($entry in $updates.GetEnumerator()) {
++    $property = $globalJson.sdk.PSObject.Properties[$entry.Key]
++    if ($property) {
++        $property.Value = $entry.Value
++    } else {
++        $globalJson.sdk | Add-Member -MemberType NoteProperty -Name $entry.Key -Value $entry.Value
++    }
++}
++$globalJson | ConvertTo-Json -Depth 10 | Set-Content -Path 'global.json' -Encoding UTF8
++if (-not (Test-Path .gitignore) -or -not (Select-String -Path .gitignore -Pattern '^\.dotnet/$' -Quiet)) {
++    Add-Content -Path .gitignore -Value '.dotnet/'
++}
++if ($quality -eq 'daily') {
++    # a daily's runtime and reference packs are not on nuget.org: every restore needs the feed, workloads or not; the messages must stand alone in the team's repo
++    $major = "$sdkVersion".Split('.')[0]
++    $sources = & "$installDir\dotnet.exe" nuget list source --format Short  # the effective configuration: E enabled, D disabled
++    if (-not ($sources | Where-Object { "$_".Trim() -eq "E https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet$major/nuget/v3/index.json" })) {
++        throw "Daily SDK: no enabled dotnet$major feed in the effective NuGet configuration. Add https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet$major/nuget/v3/index.json to NuGet.config, plus the darc-pub-* feeds that dotnet/maui's NuGet.config lists for this band, then rerun."
++    }
++}
++if ($Workloads.Count -gt 0) {
++    if ($quality -eq 'daily') {
++        & "$installDir\dotnet.exe" workload config --update-mode manifests  # a daily band has no manifests on nuget.org and no workload set
++        if ($LASTEXITCODE -ne 0) { throw "workload config --update-mode manifests failed with exit code $LASTEXITCODE" }
++    }
++    & "$installDir\dotnet.exe" workload install @Workloads; $rc = $LASTEXITCODE
++    if ($quality -eq 'daily') {
++        & "$installDir\dotnet.exe" build-server shutdown | Out-Null; if ($LASTEXITCODE -ne 0) { throw "build-server shutdown failed with exit code $LASTEXITCODE" }  # even after a failed install
++        if ($rc -ne 0) { throw "workload install failed with exit code $rc" }
++        # the install also succeeds after falling back to bundled manifests of an older band, or to a build of
++        # another lane publishing into the band (a main build in an rc band): check band and lane of every manifest
++        $band = "$sdkVersion" -replace '^(\d+\.\d+\.\d)\d\d(-(preview|rc|alpha)\.\d+)?.*$', '${1}00$2'
++        $lane = if ($band -match '-(rc|preview)\.(\d+)$') { "($($Matches[1])\.$($Matches[2])|-p$($Matches[2]))(\D|`$)" } else { '' }  # rc.2 or -p2 in the version; none for alpha or rtm
++        $list = & "$installDir\dotnet.exe" workload list
++        foreach ($w in $Workloads) {
++            $ver = $list | Where-Object { ($_ -split '\s+')[0] -eq $w } | ForEach-Object { ($_ -split '\s+')[1] } | Select-Object -First 1  # <manifest version>/<band>
++            if (-not ($ver -and $ver.EndsWith("/$band") -and (-not $lane -or $ver.Split('/')[0] -match $lane))) {
++                $list | Write-Host; throw "workload ${w}: $(if ($ver) { $ver } else { 'missing' }) is not a $band build of the SDK's lane: the installer took a bundled or other-lane manifest. Extract the data\ folder of the right <id>.Manifest-$band package into $installDir\sdk-manifests\$band\<id>\<version>\, delete the other version folders of that id and $installDir\metadata\workloads\*\$band\InstallState\default.json, then rerun with workload install --skip-manifest-update."
++            }
++        }
++    }
++    if ($rc -ne 0) { throw "workload install failed with exit code $rc" }
++}
++Write-Host "Done. SDK: $sdkVersion"
+diff --git a/install-dotnet.sh b/install-dotnet.sh
+new file mode 100755
+index 0000000..0e0026f
+--- /dev/null
++++ b/install-dotnet.sh
+@@ -0,0 +1,101 @@
++#!/usr/bin/env bash
++set -euo pipefail
++INSTALL_DIR=".dotnet"
++CHANNEL="12.0.1xx"
++QUALITY="daily"
++VERSION=""
++ROLL_FORWARD="latestFeature"
++ALLOW_PRERELEASE="true"
++WORKLOADS=(ios android); [ $# -eq 0 ] || WORKLOADS=("$@")
++ERROR_MESSAGE="Required .NET SDK not found. Run ./install-dotnet.sh (or .ps1) to install it locally."
++INSTALL_SCRIPT="$(mktemp "${TMPDIR:-/tmp}/dotnet-install.XXXXXX")"
++GLOBAL_JSON_TMP=""
++cleanup() {
++    rm -f "$INSTALL_SCRIPT"
++    [ -z "$GLOBAL_JSON_TMP" ] || rm -f "$GLOBAL_JSON_TMP"  # a failing && list in the EXIT trap would turn a successful run into exit 1 under set -e
++}
++trap cleanup EXIT
++curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$INSTALL_SCRIPT"
++INSTALL_ARGS=(--install-dir "$INSTALL_DIR")
++if [ -n "$VERSION" ]; then
++    INSTALL_ARGS+=(--version "$VERSION")
++    ROLL_FORWARD="disable"
++else
++    INSTALL_ARGS+=(--channel "$CHANNEL" --quality "$QUALITY")
++fi
++bash "$INSTALL_SCRIPT" "${INSTALL_ARGS[@]}"
++SDK_VERSION=$("$INSTALL_DIR/dotnet" --version)
++write_global_json() {
++    if [ -f global.json ]; then
++        cp global.json global.json.bak
++        if ! command -v jq >/dev/null 2>&1; then
++            echo "global.json exists; install succeeded, but this script will not overwrite it without jq." >&2
++            echo "Merge these sdk settings manually so existing global.json properties are preserved:" >&2
++            cat >&2 <<EOF
++{
++  "sdk": {
++    "version": "$SDK_VERSION",
++    "allowPrerelease": $ALLOW_PRERELEASE,
++    "rollForward": "$ROLL_FORWARD",
++    "paths": [".dotnet", "\$host\$"],
++    "errorMessage": "$ERROR_MESSAGE"
++  }
++}
++EOF
++            exit 1
++        fi
++        GLOBAL_JSON_TMP="$(mktemp "${TMPDIR:-/tmp}/global-json.XXXXXX")"
++        jq --arg version "$SDK_VERSION" --arg rollForward "$ROLL_FORWARD" --argjson allowPrerelease "$ALLOW_PRERELEASE" --arg errorMessage "$ERROR_MESSAGE" '
++          .sdk = ((.sdk // {}) + {
++            version: $version,
++            allowPrerelease: $allowPrerelease,
++            rollForward: $rollForward,
++            paths: [".dotnet", "$host$"],
++            errorMessage: $errorMessage
++          })
++        ' global.json > "$GLOBAL_JSON_TMP"
++        mv "$GLOBAL_JSON_TMP" global.json
++        GLOBAL_JSON_TMP=""
++    else
++        cat > global.json <<EOF
++{
++  "sdk": {
++    "version": "$SDK_VERSION",
++    "allowPrerelease": $ALLOW_PRERELEASE,
++    "rollForward": "$ROLL_FORWARD",
++    "paths": [".dotnet", "\$host\$"],
++    "errorMessage": "$ERROR_MESSAGE"
++  }
++}
++EOF
++    fi
++}
++write_global_json
++grep -qxF '.dotnet/' .gitignore 2>/dev/null || printf '\n.dotnet/\n' >> .gitignore
++if [ "$QUALITY" = "daily" ]; then
++    # a daily's runtime and reference packs are not on nuget.org: every restore needs the feed, workloads or not; the messages must stand alone in the team's repo
++    "$INSTALL_DIR/dotnet" nuget list source --format Short 2>/dev/null | sed 's/[[:space:]]*$//' | grep -Fxq "E https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet${SDK_VERSION%%.*}/nuget/v3/index.json" \
++        || { echo "Daily SDK: no enabled dotnet${SDK_VERSION%%.*} feed in the effective NuGet configuration. Add https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet${SDK_VERSION%%.*}/nuget/v3/index.json to NuGet.config, plus the darc-pub-* feeds that dotnet/maui's NuGet.config lists for this band, then rerun." >&2; exit 1; }
++fi
++if [ ${#WORKLOADS[@]} -gt 0 ]; then
++    if [ "$QUALITY" = "daily" ]; then
++        "$INSTALL_DIR/dotnet" workload config --update-mode manifests  # a daily band has no manifests on nuget.org and no workload set
++    fi
++    rc=0; "$INSTALL_DIR/dotnet" workload install "${WORKLOADS[@]}" || rc=$?
++    if [ "$QUALITY" = "daily" ]; then
++        "$INSTALL_DIR/dotnet" build-server shutdown >/dev/null  # even after a failed install: nodes keep the manifests they loaded
++        [ "$rc" -eq 0 ] || exit "$rc"
++        # the install also succeeds after falling back to bundled manifests of an older band, or to a build of
++        # another lane publishing into the band (a main build in an rc band): check band and lane of every manifest
++        BAND="$(echo "$SDK_VERSION" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9])[0-9][0-9](-(preview|rc|alpha)\.[0-9]+)?.*$/\100\2/')"
++        LANE="$(echo "$BAND" | sed -nE 's/^.*-(rc|preview)\.([0-9]+)$/(\1\\.\2|-p\2)([^0-9]|$)/p')"  # rc.2 or -p2 in the version; none for alpha or rtm
++        LIST="$("$INSTALL_DIR/dotnet" workload list)"
++        for w in "${WORKLOADS[@]}"; do
++            ver="$(printf '%s\n' "$LIST" | awk -v w="$w" '$1 == w { print $2 }')"  # <manifest version>/<band>
++            case "$ver" in */"$BAND") [ -z "$LANE" ] || echo "${ver%%/*}" | grep -Eq "$LANE" ;; *) false ;; esac \
++                || { printf '%s\n' "$LIST" >&2; echo "workload ${w}: ${ver:-missing} is not a ${BAND} build of the SDK's lane: the installer took a bundled or other-lane manifest. Extract the data/ folder of the right <id>.Manifest-${BAND} package into $INSTALL_DIR/sdk-manifests/${BAND}/<id>/<version>/, delete the other version folders of that id and $INSTALL_DIR/metadata/workloads/*/${BAND}/InstallState/default.json, then rerun with workload install --skip-manifest-update." >&2; exit 1; }
++        done
++    fi
++    [ "$rc" -eq 0 ] || exit "$rc"
++fi
++echo "Done. SDK: $SDK_VERSION"

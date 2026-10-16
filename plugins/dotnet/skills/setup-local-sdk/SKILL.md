@@ -5,8 +5,13 @@ description: >
   Install a .NET SDK locally for safe preview testing, specific-version pinning, or
   reproducible team setups — without modifying the system-wide installation.
   USE FOR: trying .NET previews safely, testing specific SDK versions, installing MAUI
-  or other workloads on a preview, updating or replacing an existing local SDK,
-  creating reproducible team/CI install scripts, configuring global.json paths.
+  or other workloads on a preview, trying a daily build (nightly) of an unreleased
+  SDK or its workloads, choosing the daily channel for a release lane, fixing
+  daily-SDK workload feed or manifest failures, updating or replacing an existing local SDK,
+  creating reproducible team/CI install scripts, pinning or wiring an
+  already-installed exact stable or preview project-local SDK, configuring or
+  troubleshooting global.json paths when a local SDK is not selected, removing
+  or reverting project-local SDK resolution.
   DO NOT USE FOR: system-wide SDK installs, .NET hosts older than 10, runtime-only
   installs, or projects not using SDK-style commands.
 ---
@@ -34,7 +39,7 @@ The result is a fully isolated SDK that:
 
 | Input | Required | Default | Notes |
 |---|---|---|---|
-| Channel or version | No | `11.0` | e.g. `11.0`, `STS`, `LTS`, or an exact version like `11.0.100-preview.2.26159.112` |
+| Channel or version | No | `11.0` | e.g. `11.0`, `STS`, `LTS`, an exact version, or a daily lane such as `11.0.1xx-rc2` or `12.0.1xx` |
 | Quality | No | `preview` | One of: `daily`, `preview`, `ga` |
 | jq | No | — | Optional for bash team scripts when patching an existing `global.json`; without it, do not overwrite the file |
 
@@ -50,6 +55,10 @@ The result is a fully isolated SDK that:
 If the user didn't specify, ask what .NET SDK version they want (e.g., "latest
 .NET 11 preview" or an exact version like `11.0.100-preview.2.26159.112`).
 Map the answer to `--channel`/`--quality` or `--version` flags.
+Requests for unreleased lane bits, such as an RC before publication or the next
+major's current build, require a daily lane with `--quality daily`; the generic
+major channel with `--quality preview` selects the newest published preview.
+Read [Daily builds](#daily-builds-nightlies) before choosing the channel.
 
 ### Step 2 — Verify .NET 10+ host
 
@@ -87,6 +96,11 @@ if (Test-Path -LiteralPath .\.dotnet) { "exists" } else { "not found" }
 ```
 
 If `.dotnet/` exists, ask: update with the new version, or skip and keep it?
+If the user already supplied output from the project-local binary (for example,
+`.dotnet/dotnet --version`), treat that output as authoritative: skip the local-directory
+existence check and configure `global.json` and `.gitignore` from the stated version.
+Do not stop or ask for clarification because the agent workspace does not contain
+the user's local SDK directory.
 
 ### Step 5 — Download and run the install script
 
@@ -144,6 +158,8 @@ Record the exact version string (e.g., `11.0.100-preview.2.26159.112`) for `glob
 - `paths`: `.dotnet` first (local priority), `$host$` = system-wide fallback.
 - `rollForward: "latestFeature"`: use for latest-preview or floating feature-band installs.
 - Exact version requests: use `rollForward: "disable"` so SDK resolution doesn't move to a different feature band.
+  This applies when wiring an already-installed exact SDK too: replace any existing permissive
+  `rollForward` value with `disable`.
 - `allowPrerelease`: set to `true` only when installing a prerelease SDK. Omit for stable versions.
 - `errorMessage`: include only when team install scripts are created (Step 10). Otherwise omit.
 
@@ -196,6 +212,12 @@ limitation and ask which target to configure.
 > is stored relative to the host process's dotnet root. The system `dotnet` puts
 > metadata in the wrong location. (See [dotnet/sdk#49825](https://github.com/dotnet/sdk/issues/49825).)
 
+For an SDK installed with `--quality daily`, do not run the plain workload
+command. Read [references/daily-builds.md](references/daily-builds.md) first.
+Daily bands need the applicable daily package feeds, manifests update mode,
+and a post-install check that every requested workload uses the SDK's band and
+lane. A successful command can otherwise install stale bundled manifests.
+
 ### Step 10 — Create team install scripts
 
 Create if user mentioned "team", "share", "CI", "scripts", etc. Otherwise offer.
@@ -222,13 +244,13 @@ QUALITY="preview"
 VERSION=""
 ROLL_FORWARD="latestFeature"
 ALLOW_PRERELEASE="true"
-WORKLOADS=("${@}")
+WORKLOADS=(); [ $# -eq 0 ] || WORKLOADS=("$@")
 ERROR_MESSAGE="Required .NET SDK not found. Run ./install-dotnet.sh (or .ps1) to install it locally."
 INSTALL_SCRIPT="$(mktemp "${TMPDIR:-/tmp}/dotnet-install.XXXXXX")"
 GLOBAL_JSON_TMP=""
 cleanup() {
     rm -f "$INSTALL_SCRIPT"
-    [ -n "$GLOBAL_JSON_TMP" ] && rm -f "$GLOBAL_JSON_TMP"
+    [ -z "$GLOBAL_JSON_TMP" ] || rm -f "$GLOBAL_JSON_TMP"
 }
 trap cleanup EXIT
 curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$INSTALL_SCRIPT"
@@ -315,6 +337,7 @@ try {
         $installArgs += @('-Channel', $channel, '-Quality', $quality)
     }
     & $installScript @installArgs
+    if ($LASTEXITCODE) { throw "dotnet-install failed with exit code $LASTEXITCODE" }
 }
 finally {
     if (Test-Path -LiteralPath $installScript) {
@@ -356,6 +379,18 @@ Write-Host "Done. SDK: $sdkVersion"
 
 Commit these scripts to the repo so teammates can run them.
 
+For daily-build team scripts, adapt both templates using
+[references/daily-builds.md](references/daily-builds.md). The scripts must:
+
+1. Use the specific lane channel and `daily` quality.
+2. Verify that the effective NuGet configuration has the `dotnet<major>` feed
+   and any required `darc-pub-*` feeds before workload installation.
+3. Select manifests update mode before installing workloads.
+4. Preserve the workload-install exit code, shut down build servers even after
+   a failed install, and report the original failure.
+5. Read `workload list` after success and fail if any requested workload uses a
+   different band or release lane.
+
 ### Step 11 — Verify SDK resolution
 
 ```bash
@@ -384,3 +419,22 @@ or the exact blocker if the workload could not be installed.
 | Teammates get "SDK not found" | `.dotnet/` gitignored, no install script run | Use `errorMessage` in global.json |
 | Workloads missing | Used system `dotnet` instead of local | Use `./.dotnet/dotnet workload install` |
 | `dotnet app.dll` wrong runtime | `paths` is SDK-only, not apphost | Use `dotnet run` or set `DOTNET_ROOT` |
+
+## Daily builds (nightlies)
+
+A daily channel names a build lane, not only a major version. Examples include
+`11.0.1xx-rc2` for the .NET 11 RC 2 lane, `11.0.1xx` for its release branch,
+and `12.0.1xx` for the next major on `main`. The
+[builds table](https://github.com/dotnet/dotnet/blob/main/docs/builds-table.md)
+can lag a branding change, so resolve the current build without downloading:
+run the official install script with `--dry-run` (`-DryRun` in PowerShell) and
+require its payload URL to contain `/Sdk/<version>/`. An unknown channel can
+redirect to a search page instead of returning 404.
+
+Before installing workloads, follow
+[references/daily-builds.md](references/daily-builds.md). It explains the
+required feeds, package-source mappings, manifests update mode, previous-major
+servicing-package gaps, lane verification, and build-server shutdown. If no
+manifest for a requested workload exists in the SDK's band, do not force an
+older-band workload or report success. Install the workloads that exist, state
+that the SDK remains usable, and explain what publication to check later.

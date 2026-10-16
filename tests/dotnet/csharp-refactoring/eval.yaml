@@ -738,3 +738,72 @@ stimuli:
       - type: prompt
     rubric:
       - Adds a platinum tier with a 15% discount and makes it available through the existing order pricing flow
+
+  - name: Leave an already completed private rename unchanged
+    prompt: "The `OrderProcessor.DoStuff` to `CalculateInvoice` rename should already be complete in Fixture.sln. Verify the solution, but do not change any source or test file if the rename and callers are already correct."
+    tags:
+      capability: refactor-noop
+      risk: unnecessary-edit
+      journey: verify-completed-rename
+    environment:
+      files:
+        - src: Fixture.sln
+          dest: Fixture.sln
+        - src: global.json
+          dest: global.json
+        - src: src
+          dest: src
+        - src: tests
+          dest: tests
+        - src: Fixture.sln
+          dest: .expected/Fixture.sln
+        - src: global.json
+          dest: .expected/global.json
+        - src: src
+          dest: .expected/src
+        - src: tests
+          dest: .expected/tests
+      commands:
+        - >-
+          python -c "from pathlib import Path;
+          roots=[Path('.'),Path('.expected')];
+          [(lambda p:p.write_text(p.read_text().replace('public Invoice DoStuff(', 'public Invoice CalculateInvoice(')))(r/'src/Billing/OrderProcessor.cs') for r in roots];
+          [(lambda p:p.write_text(p.read_text().replace('processor.DoStuff(', 'processor.CalculateInvoice(')))(r/'tests/Billing.Tests/BillingTests.cs') for r in roots]"
+        - git init
+        - git add .
+        - git -c user.name=Eval -c user.email=eval@example.invalid commit -m baseline
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: csharp-refactoring-completed-rename-noop
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: >-
+              The binding rename and callers are already correct, so I left
+              every source and test file unchanged. `dotnet test Fixture.sln
+              --verbosity normal` passes all 17 tests for both target
+              frameworks.
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python -c "from pathlib import Path; import sys;
+            excluded={'bin','obj'};
+            files=lambda root:sorted(p.relative_to(root) for folder in ('src','tests') for p in (root/folder).rglob('*') if p.is_file() and not excluded.intersection(p.parts));
+            actual=files(Path('.')); expected=files(Path('.expected'));
+            sys.exit(0 if actual==expected and all(Path(p).read_bytes()==(Path('.expected')/p).read_bytes() for p in expected) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          stdout_contains: "Total tests: 17"
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Recognized that the requested rename and every binding caller were already correct
+      - Left all source and test files byte-for-byte unchanged
+      - Verified the existing solution and reported the observed test result
