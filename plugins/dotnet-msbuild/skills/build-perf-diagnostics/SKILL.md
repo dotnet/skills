@@ -1,6 +1,6 @@
 ---
 name: build-perf-diagnostics
-description: "Diagnose measured MSBuild bottlenecks after build-perf-baseline. USE FOR: binlog summaries/timelines, ResolveAssemblyReference (RAR) >5s, analyzers >30% of Csc time, targets >50% of build time, excessive Copy, restores across restore/build/test commands or every build. DO NOT USE FOR: within-build duplicate executions (use find-repeated-build-work), measured idle workers or serial critical paths (use build-parallelism), initial baselines (use build-perf-baseline), unchanged-build reruns (use incremental-build), non-MSBuild systems."
+description: "Diagnose measured MSBuild bottlenecks from binlog timelines and Target/Task Performance Summaries after build-perf-baseline. USE FOR: RAR >5s, analyzers >30% of Csc time, one target >50% of build time, excessive Copy, finding restore overhead. DO NOT USE FOR: within-build duplicate executions (find-repeated-build-work), known repeated-restore fixes (eliminate-redundant-restores), measured idle workers or serial critical paths (build-parallelism), initial baselines (build-perf-baseline), unchanged-build reruns (incremental-build), non-MSBuild systems."
 license: MIT
 ---
 
@@ -89,6 +89,7 @@ license: MIT
 - **Fixes**:
   - Separate restore from build: `dotnet restore` then `dotnet build --no-restore`
   - Enable static graph evaluation: `<RestoreUseStaticGraphEvaluation>true</RestoreUseStaticGraphEvaluation>` in Directory.Build.props — can save significant time in large builds (results are workload-dependent)
+- See: `eliminate-redundant-restores` skill when several pipeline or script steps each restore, or before adding `--no-restore` (it fails with NETSDK1004/NETSDK1047 when no earlier restore covers the step)
 
 ### 7. Large Project Count and Graph Shape
 

@@ -1051,7 +1051,7 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              This is NuGet restore repeated across separate CI commands, not duplicate task execution inside one build. Restore once for the required project graph, frameworks, runtimes and configuration, then use dotnet build --no-restore and dotnet test --no-restore with matching inputs. Keep restore when package or project inputs change or assets are missing. The restore guidance belongs to build-perf-diagnostics; changing per-project targets or removing global properties is not needed here.
+              This is NuGet restore repeated across separate CI commands, not duplicate task execution inside one build. Restore once for the required project graph, frameworks, runtimes and configuration, then use dotnet build --no-restore and dotnet test --no-restore with matching inputs. Keep restore when package or project inputs change or assets are missing. The restore guidance belongs to eliminate-redundant-restores; changing per-project targets or removing global properties is not needed here.
     graders:
       - type: output-matches
         config:

@@ -1,6 +1,6 @@
 ---
 name: find-repeated-build-work
-description: "Audit target/task executions in ONE MSBuild invocation. NEVER INVOKE for evaluation-only repeats (eval-performance) or restores across commands (build-perf-diagnostics), even if those skills are unavailable. USE FOR: invariant per-project Exec, redundant project builds, per-item Exec, run-once races, execution-count audits. DO NOT USE FOR: unranked slowness (build-perf-baseline), required-variant bin/obj collisions (check-bin-obj-clash), unchanged reruns (incremental-build), idle workers/serial chains (build-parallelism)."
+description: "Audit target/task executions in ONE MSBuild invocation. NEVER INVOKE for evaluation-only repeats (eval-performance) or restores across commands (eliminate-redundant-restores), even if those skills are unavailable. USE FOR: invariant per-project Exec, redundant project builds, per-item Exec, run-once races, execution-count audits. DO NOT USE FOR: unranked slowness (build-perf-baseline), required-variant bin/obj collisions (check-bin-obj-clash), unchanged reruns (incremental-build), idle workers/serial chains (build-parallelism)."
 license: MIT
 ---
 
@@ -22,7 +22,7 @@ MSBuild runs targets once per project instance. Work that does not depend on the
 - Slow evaluation before any target runs: use `eval-performance`
 - Required project variants colliding in shared bin/obj directories: use `check-bin-obj-clash`
 - Idle nodes or a serial dependency chain: use `build-parallelism`
-- NuGet restore repeated across separate `dotnet restore`, `dotnet build` and `dotnet test` commands: use `build-perf-diagnostics`
+- NuGet restore repeated across separate `dotnet restore`, `dotnet build` and `dotnet test` commands: use `eliminate-redundant-restores`
 - Unranked "why is my build slow": start with `build-perf-baseline`, then `build-perf-diagnostics`
 
 ## Workflow

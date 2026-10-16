@@ -1,6 +1,6 @@
 ---
 name: build-perf-baseline
-description: "Establish MSBuild/.NET build performance baselines before optimizing. USE FOR: a .NET build or solution that is slow or has build-performance concerns; cold, warm, incremental, or no-op measurements; before/after comparisons; CI build output caching; static graph build decisions; artifacts output; and dependency graph trimming. Start here before build-perf-diagnostics, incremental-build, or build-parallelism. DO NOT USE for webpack, npm, JavaScript bundlers, or other non-MSBuild build systems. After baselining: duplicate-call fixes use find-repeated-build-work; other bottlenecks use build-perf-diagnostics."
+description: "Establish MSBuild/.NET build performance baselines before optimizing. USE FOR: unranked slow builds; cold, warm, incremental or no-op measurements; before/after comparisons; CI output caching; static graph, artifacts output and dependency graph trimming. Start here before build-perf-diagnostics, incremental-build or build-parallelism. DO NOT USE FOR: known repeated-restore fixes (eliminate-redundant-restores), within-build duplicate-call fixes (find-repeated-build-work), non-MSBuild builds. For other measured bottlenecks, use build-perf-diagnostics."
 license: MIT
 ---
 
