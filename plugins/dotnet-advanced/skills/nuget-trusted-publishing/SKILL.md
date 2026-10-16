@@ -3,7 +3,10 @@ name: nuget-trusted-publishing
 description: >
   Set up NuGet trusted publishing (OIDC) on a GitHub Actions repo — replaces long-lived API keys
   with short-lived tokens. USE FOR: trusted publishing, NuGet OIDC, keyless NuGet publish,
-  migrate from NuGet API key, NuGet/login, secure NuGet publishing.
+  migrate from NuGet API key, NuGet/login, secure NuGet publishing, determine which projects are
+  packable in a mixed or multi-project repo, review template/dotnet-tool/MCP package publishing,
+  recover when NuGet publish succeeded but GitHub Release failed, partial publish, HTTP 422
+  already_exists, or a rerun would use the original workflow YAML.
   DO NOT USE FOR: publishing to private feeds or Azure Artifacts (OIDC is nuget.org only).
   INVOKES: shell (powershell or bash), edit, create, ask_user for guided repo setup.
 license: MIT
@@ -27,11 +30,15 @@ Use this skill when:
 - Creating a new NuGet publish workflow from scratch
 - Asked to "remove NuGet API key" or "use NuGet/login"
 - Setting up publishing for a dotnet tool, MCP server, or template package
+- Asked which projects in a mixed or multi-project repository are packable or should be published
+- Recovering after NuGet publish succeeded but GitHub Release creation failed
 - Asked about `NuGet/login@v1` or `id-token: write`
 
 ## Safety Rules
 
 > ⚠️ **Bail-out rule**: If any phase fails after one fix attempt on an infrastructure/auth issue, stop and ask the user. Don't loop on environment problems.
+
+> ⚠️ **Fail-closed verification**: A failed pack, install, metadata, workflow, or verifier check remains a failure. Make at most one targeted fix, then rerun the exact failed check. Report success only when that rerun exits successfully and shows the expected artifact or result. Otherwise report the command, error, attempted fix, and unresolved blocker explicitly; never infer success from file inspection or a later unrelated check.
 
 > ⚠️ **Never delete or overwrite without confirmation**: Removing API key secrets, deleting tags/releases, removing workflow steps, or changing package IDs. NuGet package IDs are permanent — mistakes can't be undone.
 
@@ -77,6 +84,8 @@ Pack and verify locally before touching nuget.org — publishing errors waste a 
 1. `dotnet pack -c Release -o ./artifacts` — verify `.nupkg` is created
 2. For tools/MCP servers: install from `./artifacts`, run `--help`, uninstall
 3. For libraries: inspect the `.nupkg` contents (it's a zip)
+
+If any verification command fails, do not continue to policy or publishing steps and do not call the package ready. Apply the fail-closed rule above.
 
 ### Phase 3: nuget.org Policy
 
@@ -155,6 +164,8 @@ Create or modify the publish workflow. **The workflow must always be created or 
 | `already_exists` on push | Re-running same version | Add `--skip-duplicate` |
 | GitHub Release 422 | Duplicate release for tag | Delete conflicting release (confirm first) |
 | Re-run uses wrong YAML | `gh run rerun` replays original commit's YAML | Delete obstacle, re-run — never re-tag |
+
+If the NuGet push already succeeded and only GitHub Release creation failed, the package publish is complete. Do not re-tag or republish the version. Keep package publishing and release creation separate, and resolve or run the release step independently.
 
 > ⚠️ If any blocker persists after one fix attempt, **stop and ask the user**.
 

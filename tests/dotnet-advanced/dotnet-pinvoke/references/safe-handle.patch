@@ -1,0 +1,46 @@
+diff --git a/ResourceNative.cs b/ResourceNative.cs
+--- a/ResourceNative.cs
++++ b/ResourceNative.cs
+@@ -1,5 +1,20 @@
+ using System;
++using Microsoft.Win32.SafeHandles;
+ using System.Runtime.InteropServices;
++
++internal sealed partial class ResourceHandle : SafeHandleZeroOrMinusOneIsInvalid
++{
++    internal ResourceHandle(IntPtr value) : base(ownsHandle: true) => SetHandle(value);
++
++    [LibraryImport("resourcelib", EntryPoint = "close_resource")]
++    private static partial void CloseResource(IntPtr resource);
++
++    protected override bool ReleaseHandle()
++    {
++        CloseResource(handle);
++        return true;
++    }
++}
+ 
+ internal static partial class ResourceNative
+ {
+@@ -7,10 +22,17 @@
+     private static partial IntPtr OpenResource();
+ 
+     [LibraryImport("resourcelib", EntryPoint = "use_resource")]
+-    internal static partial int UseResource(IntPtr resource);
++    internal static partial int UseResource(ResourceHandle resource);
+ 
+-    [LibraryImport("resourcelib", EntryPoint = "close_resource")]
+-    internal static partial void CloseResource(IntPtr resource);
++    public static ResourceHandle Open()
++    {
++        var result = new ResourceHandle(OpenResource());
++        if (result.IsInvalid)
++        {
++            result.Dispose();
++            throw new InvalidOperationException("The native resource could not be opened.");
++        }
+ 
+-    public static IntPtr Open() => OpenResource();
++        return result;
++    }
+ }

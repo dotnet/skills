@@ -1,0 +1,24 @@
+--- a/Product.cs
++++ b/Product.cs
+@@ -1,18 +1,9 @@
++using System.Numerics.Tensors;
++
+ public static class Product
+ {
+     public static int Calculate(ReadOnlySpan<int> values)
+     {
+-        if (values.IsEmpty)
+-        {
+-            return 0;
+-        }
+-
+-        int product = 1;
+-        foreach (int value in values)
+-        {
+-            product *= value;
+-        }
+-
+-        return product;
++        return values.IsEmpty ? 0 : TensorPrimitives.Product(values);
+     }
+ }

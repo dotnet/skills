@@ -33,6 +33,20 @@
 3. Verify struct layout: `Marshal.SizeOf<T>()` must equal the native `sizeof` for every struct crossing the boundary
 4. (.NET Framework only) Enable [Managed Debugging Assistants](https://learn.microsoft.com/en-us/dotnet/framework/debug-trace-profile/diagnosing-errors-with-managed-debugging-assistants) (MDAs) for `pInvokeStackImbalance` and `invalidOverlappedToPinvoke`
 
+## Optional Generators
+
+### CsWin32 (Win32 APIs)
+
+For Win32 P/Invoke, prefer [Microsoft.Windows.CsWin32](https://github.com/microsoft/CsWin32) over hand-written signatures. It source-generates declarations from metadata. Add a `NativeMethods.txt` file listing the required APIs.
+
+### CsWinRT (WinRT APIs)
+
+For WinRT interop, use [Microsoft.Windows.CsWinRT](https://github.com/microsoft/CsWinRT) to generate .NET projections from `.winmd` files.
+
+### Objective Sharpie (Objective-C APIs)
+
+For binding Objective-C libraries on macOS or iOS, use [Objective Sharpie](https://learn.microsoft.com/previous-versions/xamarin/cross-platform/macios/binding/objective-sharpie) to generate the initial declarations and binding definitions.
+
 ## Resources
 
 - [P/Invoke](https://learn.microsoft.com/en-us/dotnet/standard/native-interop/pinvoke)

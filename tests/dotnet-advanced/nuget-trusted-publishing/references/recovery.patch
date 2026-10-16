@@ -1,0 +1,49 @@
+diff --git a/.github/workflows/github-release.yml b/.github/workflows/github-release.yml
+new file mode 100644
+index 0000000..fb37b96
+--- /dev/null
++++ b/.github/workflows/github-release.yml
+@@ -0,0 +1,10 @@
++name: GitHub release
++on:
++  workflow_dispatch:
++jobs:
++  release:
++    runs-on: ubuntu-latest
++    permissions:
++      contents: write
++    steps:
++      - uses: softprops/action-gh-release@v2
+diff --git a/.github/workflows/publish.yml b/.github/workflows/publish.yml
+index 820a68b..8340bf8 100644
+--- a/.github/workflows/publish.yml
++++ b/.github/workflows/publish.yml
+@@ -1,4 +1,4 @@
+-name: Publish and release
++name: Publish
+ on:
+   push:
+     tags:
+@@ -9,19 +9,15 @@ jobs:
+     environment: release
+     permissions:
+       id-token: write
+-      contents: write
++      contents: read
+     steps:
+       - uses: actions/checkout@v4
+       - uses: actions/setup-dotnet@v4
+         with:
+           dotnet-version: "10.0.x"
+       - run: dotnet pack src/Recovery/Recovery.csproj -c Release -o artifacts
+-      - name: NuGet login
+-        id: login
++      - id: login
+         uses: NuGet/login@v1
+         with:
+           user: ${{ secrets.NUGET_USER }}
+-      - run: dotnet nuget push "artifacts/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json
+-      - uses: softprops/action-gh-release@v2
+-        with:
+-          files: artifacts/*.nupkg
++      - run: dotnet nuget push "artifacts/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate

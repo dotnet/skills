@@ -1,0 +1,22 @@
+diff --git a/DeviceNative.cs b/DeviceNative.cs
+--- a/DeviceNative.cs
++++ b/DeviceNative.cs
+@@ -6,7 +6,8 @@
+     [LibraryImport(
+         "devicelib",
+         EntryPoint = "open_device_w",
+-        StringMarshalling = StringMarshalling.Utf16)]
++        StringMarshalling = StringMarshalling.Utf16,
++        SetLastError = true)]
+     private static partial int OpenDeviceNative(string path);
+ 
+     internal static int Open(string path)
+@@ -14,7 +15,7 @@
+         int handle = OpenDeviceNative(path);
+         if (handle == 0)
+         {
+-            throw new Win32Exception(Marshal.GetLastWin32Error());
++            throw new Win32Exception(Marshal.GetLastPInvokeError());
+         }
+ 
+         return handle;

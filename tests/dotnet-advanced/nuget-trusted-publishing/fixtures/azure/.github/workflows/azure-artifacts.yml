@@ -1,0 +1,16 @@
+name: Internal packages
+on:
+  workflow_dispatch:
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - run: dotnet pack src/Internal/Internal.csproj -c Release -o artifacts
+      - run: dotnet nuget push "artifacts/*.nupkg" --source https://pkgs.dev.azure.com/contoso/platform/_packaging/internal/nuget/v3/index.json

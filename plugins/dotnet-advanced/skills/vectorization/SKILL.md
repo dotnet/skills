@@ -40,10 +40,17 @@ project's existing dependency/versioning policy.
    operations, `TensorPrimitives`, and tensor types already accelerate many operations. LINQ
    reductions such as `Sum`, `Min`, `Max`, and `Average` can also accelerate when the source exposes
    its underlying span. Verify empty-input and floating-point behavior rather than assuming similarly
-   named operations are interchangeable. Once an existing API preserves the contract, use it instead
-   of continuing into handwritten SIMD. Before writing an explicit loop, name the framework APIs
-   considered and why none applies. Fixed-shape `System.Numerics` types remain appropriate for
-   graphics and similar domains.
+   named operations are interchangeable. Prefer the existing primitive over bespoke SIMD when a
+   small adapter preserves the contract. For example, if an existing product method has different
+   empty-input behavior, preserve the caller's special result outside the primitive:
+
+   ```csharp
+   return values.IsEmpty ? 0 : TensorPrimitives.Product(values);
+   ```
+
+   Once an existing API plus any small contract adapter preserves the behavior, use it and stop.
+   Before writing an explicit loop, name the framework APIs considered and why none applies.
+   Fixed-shape `System.Numerics` types remain appropriate for graphics and similar domains.
 2. **Start new explicit SIMD loops with `Vector128<T>`.** It is accelerated across the broadest
    hardware set. Add wider fixed-width paths only when measurements justify them.
 3. **Keep platforms consistent.** Prefer cross-platform operations on the fixed-width vector types;
@@ -56,8 +63,10 @@ project's existing dependency/versioning policy.
 5. **Prefer operators where they are clear.** Parenthesize expressions that mix bitwise and
    comparison operators so precedence is explicit.
 
-If the task is review-only, do not rewrite the code. Report correctness and memory-safety defects
-before performance opportunities.
+If the task is review-only, do not rewrite the code. Report only concrete issues that can change the
+requested behavior. Do not dilute a valid finding with runtime-permitted non-bugs, style preferences,
+or generic performance notes. Mention performance only when the user requested it and the supplied
+measurements support the claim.
 
 ## Authoring checklist
 
@@ -90,11 +99,24 @@ before performance opportunities.
   UTF-16, normalizing results before storing when necessary.
 - **Offsets:** prove the input contains a full vector before subtracting `Count` or converting an
   index to `nuint`; otherwise a negative value becomes a huge unsigned offset.
-- **Managed references:** do not form references before the start or past the end of a span,
-  including a one-past-end reference. The runtime permits a non-dereferenced managed pointer exactly
-  one past an object or array, but this guidance intentionally prohibits the pattern because it is
-  fragile and easy to misuse. Keep the base reference in range and express traversal with an element
-  offset.
+- **Managed references:** distinguish runtime validity from this skill's conservative policy. The
+  runtime permits a non-dereferenced managed reference exactly one past an object or array; do not
+  report that fact alone as a memory-safety bug. This guidance still prohibits one-past references
+  because a later refactor can dereference them. When that policy applies, say that it is a
+  conservative fragility finding and recommend the exact in-range-base pattern: obtain one stable
+  base with `MemoryMarshal.GetReference(span)`, keep every offset in `[0, span.Length)`, and derive
+  each current reference with `Unsafe.Add(ref start, offset)` without advancing the base reference.
+  For backwards traversal:
+
+  ```csharp
+  ref T start = ref MemoryMarshal.GetReference(span);
+
+  for (int i = span.Length - 1; i >= 0; i--)
+  {
+      ref T current = ref Unsafe.Add(ref start, i);
+      // Read or write current here.
+  }
+  ```
 - **Remainders:** cover every length, including `0`, `Count - 1`, `Count`, `Count + 1`, and
   nonmultiples of each width. Once the input contains a full vector, keep the tail vectorized by
   reprocessing the last full vector. An idempotent operation can fold that overlap in directly. A
@@ -173,8 +195,9 @@ default-hardware test alone.
 - **Authoring:** leave the scalar contract covered by tests; identify the framework or SIMD layer
   selected; report measurements for the representative workload; name any architecture or fallback
   path that could not be exercised.
-- **Review:** report only concrete findings, ordered by correctness, memory safety, portability,
-  tests, then performance evidence. If none remain, say so directly.
+- **Review:** report only requested, behavior-changing findings, ordered by correctness, memory
+  safety, portability, tests, then measured performance. Do not add non-bugs or speculative
+  optimization notes to increase finding count. If none remain, say so directly.
 - Do not call an optimization complete when it only builds, only passes on the current machine, or
   has no comparison against the scalar baseline.
 

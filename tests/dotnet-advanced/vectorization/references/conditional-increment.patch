@@ -1,0 +1,43 @@
+--- a/ConditionalIncrement.cs
++++ b/ConditionalIncrement.cs
+@@ -1,6 +1,40 @@
++using System.Runtime.Intrinsics;
++
+ public static class ConditionalIncrement
+ {
+     public static void IncrementAbove(Span<int> data, int threshold)
++    {
++        if (!Vector128.IsHardwareAccelerated || data.Length < Vector128<int>.Count)
++        {
++            IncrementScalar(data, threshold);
++            return;
++        }
++
++        Vector128<int> thresholdVector = Vector128.Create(threshold);
++        Vector128<int> one = Vector128.Create(1);
++        int i = 0;
++
++        for (; i + Vector128<int>.Count <= data.Length; i += Vector128<int>.Count)
++        {
++            Span<int> block = data.Slice(i, Vector128<int>.Count);
++            Vector128<int> values = Vector128.Create(block);
++            Vector128.ConditionalSelect(Vector128.GreaterThan(values, thresholdVector), values + one, values).CopyTo(block);
++        }
++
++        if (i != data.Length)
++        {
++            int tailStart = data.Length - Vector128<int>.Count;
++            int overlap = i - tailStart;
++            Span<int> tailSpan = data.Slice(tailStart, Vector128<int>.Count);
++            Vector128<int> tail = Vector128.Create(tailSpan);
++            Vector128<int> lanes = Vector128.Create(0, 1, 2, 3);
++            Vector128<int> unprocessed = Vector128.GreaterThanOrEqual(lanes, Vector128.Create(overlap));
++            Vector128<int> increment = Vector128.GreaterThan(tail, thresholdVector) & unprocessed;
++            Vector128.ConditionalSelect(increment, tail + one, tail).CopyTo(tailSpan);
++        }
++    }
++
++    private static void IncrementScalar(Span<int> data, int threshold)
+     {
+         for (int i = 0; i < data.Length; i++)
+         {

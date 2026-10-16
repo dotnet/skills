@@ -1,0 +1,12 @@
+diff --git a/VersionNative.cs b/VersionNative.cs
+--- a/VersionNative.cs
++++ b/VersionNative.cs
+@@ -24,7 +24,7 @@
+         }
+         finally
+         {
+-            Marshal.FreeHGlobal(ptr);
++            FreeVersion(ptr);
+         }
+     }
+ }

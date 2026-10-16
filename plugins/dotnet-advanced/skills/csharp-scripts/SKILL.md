@@ -25,6 +25,15 @@ license: MIT
 |-------|----------|-------------|
 | C# code or intent | Yes | The code to run, or a description of what the file-based app should do |
 
+## Decisions That Change the Answer
+
+| Situation | Required action |
+|-----------|-----------------|
+| The request says file-based, one-file, or no project | On .NET 10+, create only the requested `.cs` files. Never run `dotnet new`, create a `.csproj`, or use a temporary project. If the task requires project-only features, state that boundary and stop instead of silently changing the workflow. |
+| The user wants a compile-only check | Run `dotnet build <file>.cs --nologo`; do not run the app. Report the exact command, its build result, and that no project was created or runtime side effect occurred. |
+| The user asks whether a feature starts in language version N | Use `#:property LangVersion=N` with a conventional minimal example, then check the same source against the immediately previous language version. Claim a version boundary only when N succeeds and the previous version fails; report both commands and results. |
+| The user wants multiple source files | Check the full SDK feature band. Before 10.0.300, `#:include` and `#:exclude` are unavailable: keep one source file, upgrade the SDK, or use a project only if the user permits one. Do not present `#:ref` as a same-compilation substitute, and probe it on the exact SDK before recommending it. |
+
 ## Workflow
 
 ### Step 1: Check the .NET SDK version
@@ -61,6 +70,9 @@ Builds and runs the file automatically. Cached so subsequent runs are fast. Pass
 ```bash
 dotnet hello.cs -- arg1 arg2 "multi word arg"
 ```
+
+Report the exact command and observed output. For compile-only work, use
+`dotnet build hello.cs --nologo` and explicitly state that the app was not run.
 
 ### Step 4: Add directives (if needed)
 
@@ -204,6 +216,8 @@ Remove the app files when the user is done. To clear cached build artifacts:
 dotnet clean hello.cs
 ```
 
+Cleanup stays file-based. Do not create a project only to run or clean the app.
+
 ## Unix shebang support
 
 On Unix platforms, make a `.cs` file directly executable:
@@ -260,7 +274,9 @@ dotnet project convert hello.cs
 
 ## Fallback for .NET 9 and earlier
 
-If the .NET SDK version is below 10, file-based apps are not available. Use a temporary console project instead:
+If the .NET SDK version is below 10, file-based apps are not available. If the
+user required no project, report the .NET 10 requirement and stop. Otherwise,
+use a temporary console project only when a project fallback is acceptable:
 
 ```bash
 mkdir -p /tmp/csharp-file-based-app && cd /tmp/csharp-file-based-app
