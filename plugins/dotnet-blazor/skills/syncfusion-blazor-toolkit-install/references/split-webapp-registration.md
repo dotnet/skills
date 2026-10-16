@@ -1,0 +1,76 @@
+# Split Blazor Web App Service Registration
+
+> **Framework support.** `Syncfusion.Blazor.Toolkit` 2.0.0 targets `net8.0`, `net9.0`, and `net10.0`. Always check the `<TargetFramework>` of **both** projects before installation. On `net6.0`, `net7.0`, or older frameworks, NuGet restore fails with an incompatibility such as `NU1202` because the package has no compatible assets for those TFMs. Do not expect a later `CS0246` as the primary signal—fix the framework mismatch first. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first, then continue with the installation steps.
+
+A generated `.Client` project is not a standalone WebAssembly app. The server owns `App.razor`, and the host markup has no `#app` element. Never call `RootComponents.Add<App>("#app")` in `.Client/Program.cs`.
+
+## Both hosts must register Toolkit
+
+Default prerendering runs WebAssembly and Auto components on the server first. Verified: with `-int WebAssembly`, registering Toolkit **only** in `.Client` makes a `.Client` page return HTTP 500; adding the server registration returns 200.
+
+```text
+System.InvalidOperationException: Cannot provide a value for property 'SyncfusionService' on type
+'Syncfusion.Blazor.Toolkit.SfButton'. There is no registered service of type
+'Syncfusion.Blazor.Toolkit.SyncfusionBlazorToolkitService'.
+```
+
+The error is the same for any host that renders a Toolkit component without the registration, including static SSR pages. Disable prerendering only if the user asks; otherwise register on both hosts.
+
+## Make only the additions; keep the template
+
+Each template generates its own endpoint calls. **Do not retype `Program.cs`.** A trimmed copy drops `using <App>.Components;` (`CS0246` on `App`) and loses `UseExceptionHandler`, `UseHsts`, `UseHttpsRedirection`, the static-asset mapping (`MapStaticAssets` on .NET 9+, `UseStaticFiles` on .NET 8) and `app.Run()`.
+
+| Template | Already generated on the server (leave alone) |
+| --- | --- |
+| `-int Server` (no `.Client` project) | `AddRazorComponents().AddInteractiveServerComponents()`; `MapRazorComponents<App>().AddInteractiveServerRenderMode()` |
+| `-int WebAssembly` | `AddRazorComponents().AddInteractiveWebAssemblyComponents()`; `MapRazorComponents<App>().AddInteractiveWebAssemblyRenderMode().AddAdditionalAssemblies(typeof(<App>.Client._Imports).Assembly)` |
+| `-int Auto` | `AddRazorComponents().AddInteractiveServerComponents().AddInteractiveWebAssemblyComponents()`; `MapRazorComponents<App>().AddInteractiveServerRenderMode().AddInteractiveWebAssemblyRenderMode().AddAdditionalAssemblies(typeof(<App>.Client._Imports).Assembly)` |
+
+`AddAdditionalAssemblies(...)` sits on `MapRazorComponents<App>()`, not on `AddRazorComponents()`, and it is not a Toolkit setting. Never add, remove, or move it for Toolkit. The three setups are different templates; do not mix them. Adding `AddInteractiveServerComponents()` to a WebAssembly template, or removing it from an Auto template, changes the app's render-mode support and is not needed for Toolkit.
+
+## Server `Program.cs` (all three templates)
+
+Two additions:
+
+```csharp
+using Syncfusion.Blazor.Toolkit;                       // add at the top
+
+// ...template code unchanged...
+
+builder.Services.AddSyncfusionBlazorToolkit();         // add before builder.Build()
+
+var app = builder.Build();
+```
+
+## `.Client/Program.cs` (`-int WebAssembly` and `-int Auto` only)
+
+The template already has `using Microsoft.AspNetCore.Components.WebAssembly.Hosting;`. Two additions:
+
+```csharp
+using Microsoft.AspNetCore.Components.WebAssembly.Hosting;   // already generated
+using Syncfusion.Blazor.Toolkit;                              // add
+
+var builder = WebAssemblyHostBuilder.CreateDefault(args);
+
+builder.Services.AddSyncfusionBlazorToolkit();                // add
+
+await builder.Build().RunAsync();
+```
+
+## Interactive Auto behavior
+
+The first visit runs on the server; later visits use the cached WebAssembly bundle. A running component does not switch runtimes. Both hosts therefore need the registration.
+
+## Common Mistake: Registering only one host
+
+**Symptom**: HTTP 500 with the `SyncfusionBlazorToolkitService` error above, either on first load (server missing) or when a `.Client` component runs in the browser (client missing).
+
+**Fix**: Register on every host that renders it, keep the template's endpoints, and never add `RootComponents.Add<App>("#app")` to `.Client`.
+
+## Component namespaces in both projects
+
+Add the single root namespace `@using Syncfusion.Blazor.Toolkit` to the `_Imports.razor` of every project that renders Toolkit components. Domain-specific namespaces from Toolkit 1.x (for example `Syncfusion.Blazor.Toolkit.Buttons`) were removed in 2.0. A missing root namespace only warns (`RZ10012`) and renders an unstyled unknown element.
+
+## Theming in a Split Web App
+
+Do **not** add a Toolkit theme stylesheet link. From 2.0, `SfThemeRoot` emits the shared theme layer when Toolkit components render, and component styles use CSS isolation. Keep the template's own stylesheet links in `Components/App.razor` (`app.css`, `{Project}.styles.css`, etc.). When migrating from 1.x, remove any `_content/Syncfusion.Blazor.Toolkit/styles/*.css` links.
