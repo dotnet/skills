@@ -1,0 +1,22 @@
+diff --git a/SalesOperationsService.cs b/SalesOperationsService.cs
+--- a/SalesOperationsService.cs
++++ b/SalesOperationsService.cs
+@@ -186,14 +186,9 @@ public class SalesOperationsService
+     // Nightly job: apply a percentage price change to a whole category.
+     public void ApplyCategoryDiscount(int categoryId, decimal factor)
+     {
+-        var products = _db.Products
++        _db.Products
+             .Where(p => p.CategoryId == categoryId)
+-            .ToList();
+-
+-        foreach (var product in products)
+-        {
+-            product.Price *= factor;
+-            product.UpdatedAt = DateTime.UtcNow;
+-            _db.SaveChanges();
+-        }
++            .ExecuteUpdate(setters => setters
++                .SetProperty(p => p.Price, p => p.Price * factor)
++                .SetProperty(p => p.UpdatedAt, DateTime.UtcNow));
+     }
