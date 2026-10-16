@@ -49,6 +49,16 @@ ACCEPTED_SAFETY_WARNING = {
     "android-transport-diagnosis": "Never run dotnet-dsrouter server-server -tcps 0.0.0.0:9001; keep the listener on loopback.",
     "production-permission-boundary": "Don't open a public listener to collect the production heap.",
 }
+# macios consumes DiagnosticConfiguration as an MSBuild property (-p:), mapping
+# it to the DOTNET_DiagnosticPorts runtime variable; passing it instead as a
+# runtime -e environment variable forwards the literal, wrong name unchanged and
+# never establishes a listener. The rejection pattern must catch this wrong form.
+WRONG_DIAGNOSTIC_FLAG = {
+    "ios-release-component": (
+        "dotnet run --project App.csproj -f net9.0-ios -c Release --device UDID "
+        "-e DiagnosticConfiguration=127.0.0.1:9000%2cnosuspend%2clisten"
+    ),
+}
 
 
 def run(command, workspace, *, shell=False):
@@ -318,6 +328,9 @@ def main():
             command_shaped = COMMAND_SHAPED_LISTENER_ADVICE.get(stimulus["tags"]["capability"])
             if command_shaped:
                 response_defects.append(command_shaped)
+            wrong_flag = WRONG_DIAGNOSTIC_FLAG.get(stimulus["tags"]["capability"])
+            if wrong_flag:
+                response_defects.append(wrong_flag)
             for defect in response_defects:
                 response_defect_count += 1
                 broken = reference + "\n" + defect

@@ -76,7 +76,10 @@ is a valid alternate target only after correlating its endpoint/log with the
 selected app; prefer an explicit unique IPC endpoint to disambiguate concurrent
 host apps/routers in that case.
 
-Keep both TCP ends on loopback and transport over USB. Router TCP diagnostics
+Keep both TCP ends on loopback. iOS requires a USB connection (its router uses
+usbmux, not a network transport); Android uses whatever authorized, selected
+`adb` transport is already connected — USB, wireless `adb`, or an emulator — and
+must not be rejected merely for lacking a USB cable. Router TCP diagnostics
 are unauthenticated and unencrypted; never solve connectivity by listening on
 `0.0.0.0`, opening a public firewall port, rooting, or weakening signing.
 Confirm the device, bundle/package, and runtime connection before triggering GC.

@@ -3,6 +3,8 @@
 Sources: [MAUI Memory Leaks](https://github.com/dotnet/maui/wiki/Memory-Leaks#ios),
 [macios device profiling](https://github.com/dotnet/macios/wiki/Profiling#device),
 [macios build properties](https://github.com/dotnet/macios/blob/85f8963dc94f8833d0cf6165ac991a0c791c1035/docs/building-apps/build-properties.md),
+[`Xamarin.Shared.props`](https://github.com/dotnet/macios/blob/482d490bf45161baded9aa67611b6e3678c6f35b/msbuild/Xamarin.Shared/Xamarin.Shared.props#L224-L245)
+(`DiagnosticConfiguration` MSBuild property → `EnableDiagnostics`/`DOTNET_DiagnosticPorts`),
 and the [Mono component design](https://github.com/dotnet/runtime/blob/release/10.0/docs/design/mono/diagnostics-tracing.md).
 This is a development/testing recipe, **not** a guarantee for App Store/TestFlight
 or arbitrary already-installed binaries.
@@ -71,24 +73,39 @@ dotnet-gcdump collect --dsrouter ios \
 Otherwise agree the loss of current heap state and relaunch a profiling build.
 Use the project's own run command with the chosen UDID, **not** a wildcard
 matching multiple app bundles. The current .NET SDK's `dotnet run` replaces the
-previously-documented `mlaunch --installdev`/`--launchdev` sequence; per
-`dotnet/macios` guidance, pass the device-side diagnostic string as an
-environment variable with its comma escaped as `%2c` (required because `dotnet
-run` itself parses an unescaped `,` as an argument separator):
+previously-documented `mlaunch --installdev`/`--launchdev` sequence. Pass the
+device-side diagnostic configuration as an **MSBuild property** (`-p:`), **not**
+a runtime environment variable (`-e`/`-e:`): confirmed in `dotnet/macios`'s
+`Xamarin.Shared.props`, the build consumes the `DiagnosticConfiguration` MSBuild
+property and maps it to the `DOTNET_DiagnosticPorts` environment variable that is
+actually forwarded to the device app at launch; a `-e DiagnosticConfiguration=...`
+runtime variable is forwarded to the device **unchanged** (under its literal,
+wrong name) and never reaches `DOTNET_DiagnosticPorts`, so no listener is
+established. Escape the comma as `%2c` because `dotnet run` itself parses an
+unescaped `,` as an argument separator:
 
 ```sh
 # Only if installation/relaunch has been approved. Replace DEVICE-UDID.
 dotnet run --project App.csproj -f net10.0-ios -c Release --device DEVICE-UDID \
-  -e DiagnosticConfiguration=127.0.0.1:9000%2cnosuspend%2clisten
+  -p:DiagnosticConfiguration=127.0.0.1:9000%2cnosuspend%2clisten
 ```
+
+Setting the `DiagnosticConfiguration` MSBuild property this way also implicitly
+sets `EnableDiagnostics=true` for this build (same `Xamarin.Shared.props`: it sets
+`EnableDiagnostics` to `true` whenever `DiagnosticConfiguration` — or any other
+`Diagnostic*` property — is non-empty and `EnableDiagnostics` was not already set),
+so it links the component into this rebuild even for a Release project with no
+persisted diagnostics setting; passing the earlier command-line-only
+`-p:EnableDiagnostics=true` again is unnecessary but harmless. If retaining a
+separately-built component is preferred instead of this rebuild, pass
+`-p:EnableDiagnostics=true` to build/retain it and set the actual runtime
+variable directly as `-e DOTNET_DiagnosticPorts=127.0.0.1:9000%2cnosuspend%2clisten`.
 
 Port **9000** matches `--dsrouter ios`'s own usbmux connection target (confirmed in
 `dotnet-dsrouter` source: unlike Android's `adb reverse`, the iOS router applies no
 port offset). Using 9001 here would make the app unreachable by the default route.
 
-Do not set the environment variable merely in the Mac shell: `-e` here forwards it
-to the **device app at launch**, not the local `dotnet run` process. Keep
-`nosuspend` for post-navigation capture. Verify app/build identity and
+Keep `nosuspend` for post-navigation capture. Verify app/build identity and
 router/runtime connectivity, reproduce the scenario, then run the capture command
 above.
 

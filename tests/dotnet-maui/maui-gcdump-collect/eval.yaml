@@ -47,8 +47,10 @@ stimuli:
             assert "dotnet-gcdump collect" in q and "--timeout" in q;
             assert "dotnet-gcdump report" in v and "after-navigation.gcdump" in v and "-p " not in v and "|| true" not in v and "|| :" not in v;
             a=r+q+v+x;
-            did=p["device_id"]; qc="["+chr(34)+chr(39)+"]?";
-            has_serial=lambda cmd_text: (lambda m: (m is not None) and (m.group(2)==did or re.search(re.escape(m.group(2)[1:])+"="+qc+re.escape(did)+qc, a) is not None))(re.search(r"ANDROID_SERIAL=(\"?)("+re.escape(did)+r"|\$\w+)\1", cmd_text));
+            did=p["device_id"];
+            sq=chr(39);
+            extract_val=lambda name,text: next((mm.group(1) if mm.group(1) is not None else (mm.group(2) if mm.group(2) is not None else mm.group(3)) for mm in re.finditer(r"(?<![A-Za-z0-9_])"+re.escape(name)+r"=(?:\"([^\"]*)\"|"+sq+r"([^"+sq+r"]*)"+sq+r"|(\S+))", text)), None);
+            has_serial=lambda cmd_text: (lambda v: v is not None and (v==did or (v.startswith("$") and extract_val(v[1:], a)==did)))(extract_val("ANDROID_SERIAL", cmd_text));
             assert has_serial(r) and has_serial(q), "route/collect must bind the selected device via ANDROID_SERIAL (neither --dsrouter nor collect accepts a serial flag)";
             assert not any(t in a for t in ("server-server","adb reverse","adb -s","setprop debug.mono.profile","-ipcs","-tcps","AndroidEnableProfiler"));
             assert "0.0.0.0" not in a and "--remove-all" not in a and "-p 2841" not in a and "adb pull" not in a;
@@ -223,11 +225,14 @@ stimuli:
                 # A single bare trailing ";" is stripped before scanning: any "||", "|",
                 # or additional ";" remaining after that strip means a later clause can
                 # run (or an exit code can be swallowed) regardless of whether
-                # the collector itself succeeded, which is what must be rejected.
+                # the collector itself succeeded, which is what must be rejected. A
+                # single trailing "&" (background) is NOT stripped: it backgrounds the
+                # invocation and the shell reports status 0 immediately, so the guard
+                # exit status can never propagate and validation can race the capture.
                 invocation_tail = tokens[index:form_b_else_idx] if matched_form_b else tokens[index:]
                 if invocation_tail and invocation_tail[-1] == ";":
                     invocation_tail = invocation_tail[:-1]
-                unsafe_operators = {"||", ";", "|"}
+                unsafe_operators = {"||", ";", "|", "&"}
                 assert not any(t in unsafe_operators for t in invocation_tail), (
                     "A shell control operator after the collector invocation can mask its exit status"
                 )
@@ -306,9 +311,7 @@ stimuli:
       arrays of shell strings. Use the reserved artifact name; the reserved host
       IPC path is only needed if a separately-started finer-control router is
       used instead of the default self-managing route. Include an executable
-      no-overwrite check before collection. Note that a listener already running on a
-      non-default port needs the explicit finer-control router, not the self-managing
-      default route. Explain how the host reaches
+      no-overwrite check before collection. Explain how the host reaches
       this device rather than a simulator, and what still needs verification.
     tags:
       capability: ios-live-usb-route
@@ -487,6 +490,12 @@ stimuli:
       - type: output-contains
         config:
           substring: DiagnosticConfiguration
+      - type: output-matches
+        config:
+          pattern: (?i)(?:-p:|--property:)DiagnosticConfiguration=
+      - type: output-not-matches
+        config:
+          pattern: (?i)(?:-e[:\s]|--environment[:\s])DiagnosticConfiguration=
       - *false-verification
       - type: output-not-matches
         config:
@@ -498,7 +507,9 @@ stimuli:
     rubric:
       - Treats the diagnostics stub as a blocker and proposes a separate diagnostic test build with version-specific verification, not a shipping edit.
       - Identifies a real static diagnostic component for physical iOS rather than looking for an Android-style shared library.
-      - Uses dotnet run's device launch environment delivery and a matching physical USB route without substituting a simulator or stale mlaunch commands.
+      - Uses dotnet run's device launch with the diagnostic configuration passed as an
+        MSBuild property and a matching physical USB route, not a runtime environment
+        variable or a simulator/stale mlaunch command.
       - Recognizes Mono AOT as distinct from NativeAOT and accounts for signing, trust and Developer Mode.
     golden_trajectory:
       inline:
@@ -520,11 +531,17 @@ stimuli:
               Discover the device UDID with the SDK's own
               --list-devices output rather than assuming one device.
               After approval launch the exact test build with dotnet run
-              --project App.csproj -f net9.0-ios -c Release --device UDID -e
-              DiagnosticConfiguration=127.0.0.1:9000%2cnosuspend%2clisten (the
+              --project App.csproj -f net9.0-ios -c Release --device UDID
+              -p:DiagnosticConfiguration=127.0.0.1:9000%2cnosuspend%2clisten (the
               comma is escaped as %2c because dotnet run's own argument parser
-              treats an unescaped comma as a separator, and -e forwards the
-              value to the device app, not the local process).
+              treats an unescaped comma as a separator; this must be an MSBuild
+              property, -p:, not a runtime environment variable of the same
+              name, because the build maps the DiagnosticConfiguration property
+              to the DOTNET_DiagnosticPorts variable actually forwarded to the
+              device app -- passing it instead as a runtime variable would
+              forward that literal, wrong name unchanged and establish no
+              listener; setting this property also implicitly sets
+              EnableDiagnostics=true for the build).
               Then collect with dotnet-gcdump collect --dsrouter ios after
               reproduction. No store-build access is promised. Physical-device
               capture not verified.

@@ -10,6 +10,17 @@ Sources: [.NET 10 Android tracing guide](https://github.com/dotnet/android/blob/
 `$(EnableDiagnostics)` reference at all. On .NET 8 set `-p:AndroidEnableProfiler=true`
 directly; do not rely on `$(EnableDiagnostics)` there.
 
+On `release/8.0.1xx`, `Xamarin.Android.Common.targets`'s `_GeneratedAndroidEnvironment`
+item group (confirmed at
+[`4cdf1e01`](https://github.com/dotnet/android/blob/4cdf1e018e1863eb8d1bd823bec4fa0ae35ad594/src/Xamarin.Android.Build.Tasks/Xamarin.Android.Common.targets)
+— that branch's actual last-touching commit for this file) does **not** include the
+`DOTNET_DiagnosticPorts=$(DiagnosticConfiguration)` line that `release/9.0.1xx`+ adds;
+only `-p:AndroidEnableProfiler=true` and its component packaging happen, with no
+generated environment file entry establishing a port. A newly built/relaunched
+.NET 8 app has the diagnostics component but no endpoint to connect to — see the
+`.NET 8 launch fallback` note under Route and approved preparation below before
+assuming the router alone is sufficient there.
+
 ## Preflight
 
 Use a development host with the compatible SDK/workload and Android SDK
@@ -78,11 +89,11 @@ capture command above. A mobile PID is only corroborating app identity, never th
 host attach target.
 
 No manual `adb reverse`, no manual `setprop debug.mono.profile`, and no standalone
-`dotnet-dsrouter server-server` invocation are required for this route — they
-would only risk conflicting port/property state against what `--dsrouter android`
-already manages. If finer-grained control or visible router logs are needed
-instead, run the named router mode separately (still not the raw
-`server-server -ipcs`/`-tcps` form) and attach by its printed PID:
+`dotnet-dsrouter server-server` invocation are required for this route on
+`net9.0-android`/`net10.0-android` — they would only risk conflicting port/property
+state against what `--dsrouter android` already manages. If finer-grained control
+or visible router logs are needed instead, run the named router mode separately
+(still not the raw `server-server -ipcs`/`-tcps` form) and attach by its printed PID:
 
 ```sh
 dotnet-dsrouter android
@@ -91,20 +102,70 @@ dotnet-gcdump ps                     # confirm the router's PID
 dotnet-gcdump collect -p <PID> --output "$PWD/after-navigation.gcdump" --timeout 60
 ```
 
+### .NET 8 launch fallback (`net8.0-android`)
+
+The router starts and forwards the port, but on `net8.0-android` the build does
+not generate a `DOTNET_DiagnosticPorts` environment entry (see Sources at the
+top), so a freshly built/relaunched app never opens the port the router is
+forwarding. Confirmed in dotnet/android's own `debug.mono.profile` system-property
+doc (pinned at
+[`1efa0cf4`](https://github.com/dotnet/android/blob/1efa0cf46c9079fc06669a4434f597faf47504af/Documentation/workflow/SystemProperties.md)):
+in NET6+ apps the value of `debug.mono.profile` becomes the `DOTNET_DiagnosticPorts`
+value, read natively at process start (`monodroid-glue.cc`, pinned at
+[`fc944eee`](https://github.com/dotnet/android/blob/fc944eee080bd34da94790aab9e6ad64a52cee1c/src/monodroid/jni/monodroid-glue.cc)).
+Before an **approved relaunch** on `net8.0-android` only:
+
+```sh
+ANDROID_SERIAL=<selected serial> adb shell getprop debug.mono.profile   # record prior value, may be empty
+ANDROID_SERIAL=<selected serial> adb shell setprop debug.mono.profile '127.0.0.1:9000,nosuspend,connect'
+```
+
+Then relaunch the approved `-p:AndroidEnableProfiler=true` build, run the capture
+command, and immediately restore the recorded value afterward (an empty prior
+value restores with `adb shell setprop debug.mono.profile ''`) — this property is
+device-wide and persists until reboot or explicit reset, unlike the
+`net9.0-android`+ route below which sets no such property at all.
+
 ## Troubleshooting and restoration
 
 - Unauthorized/offline: fix cable/wireless pairing/unlock/RSA authorization with
   the operator; do not reset all ADB devices or deploy to the first entry.
 - `adb: no devices/emulators found`: the router could not see the selected device
-  at all; reselect/reconnect it before retrying — do not assume a stale
-  port-forward is the cause, since this route recreates the forward on every run.
+  at all; reselect/reconnect it before retrying.
+- Stale `adb reverse tcp:9000` entry: confirmed in `dotnet-dsrouter`'s own
+  `ADBTcpRouterFactory.AdbAddPortReverse` (dotnet/diagnostics, pinned at
+  [`20656425`](https://github.com/dotnet/diagnostics/blob/206564254b8318a468786183907ee8be1f2eb9ca/src/Tools/dotnet-dsrouter/ADBTcpRouterFactory.cs)),
+  the router only runs `adb reverse tcp:9000 tcp:<local>` when `adb reverse --list`
+  shows **no** `tcp:9000` entry at all — if one already exists (even pointing at a
+  stale/different local port left behind by a crashed prior session or another
+  tool), the router treats it as already correct and leaves it alone. This route
+  does **not** always recreate the forward on every run. If capture connects but
+  no data arrives, or the router's own log shows it skipped setting up the
+  reverse, inspect the selected device's existing rule first:
+
+  ```sh
+  ANDROID_SERIAL=<selected serial> adb reverse --list
+  ```
+
+  Only if an existing `tcp:9000` entry is confirmed stale/unexpected, get approval
+  to remove that specific mapping (not a blanket reset of all reverses):
+
+  ```sh
+  ANDROID_SERIAL=<selected serial> adb reverse --remove tcp:9000
+  ```
+
+  Then rerun the capture command so the router can (re)create a correct mapping,
+  and restore is automatic — the router removes the reverse it owns when it
+  stops.
 - No connection otherwise: confirm the actual installed Mono component,
   launch-time `EnableDiagnostics`/`Diagnostic*` properties, selected serial,
   router output/log and app foreground state.
 - GC OOM/termination or incomplete graph: stop; report unvalidated capture.
 
 Stop the router (Ctrl+C on the `dotnet-gcdump`/`dotnet-dsrouter` process, or the
-recorded PID) after capture. Because this route does not set a persistent
-device-wide property, there is no `debug.mono.profile` value to restore. Remove
-any temporary project diagnostic build settings and rebuild an approved ordinary
-binary before shipping.
+recorded PID) after capture. On `net9.0-android`+ this route does not set a
+persistent device-wide property, so there is no `debug.mono.profile` value to
+restore — but the `net8.0-android` launch fallback above does set one and its
+recorded prior value must still be restored. Remove any temporary project
+diagnostic build settings and rebuild an approved ordinary binary before
+shipping.
