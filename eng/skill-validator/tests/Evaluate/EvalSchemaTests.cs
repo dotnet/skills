@@ -352,7 +352,7 @@ public class ParseEvalConfigTests
               - name: Run trusted helper
                 prompt: Run the acceptance helper.
                 allow_shell_commands:
-                  - node _acceptance/audit-lifecycle.mjs MyApp --json
+                  - node "{work_dir}/_acceptance/audit-lifecycle.mjs" MyApp --json
                 trusted_shell_files:
                   - path: _acceptance/audit-lifecycle.mjs
                     sha256: a08ed6509d365725d5926ddd73cbd2d833afc0cfcc9dec40111ebc7e37c23308
@@ -360,7 +360,7 @@ public class ParseEvalConfigTests
 
         Assert.IsNotNull(config);
         Assert.AreSequenceEqual(
-            ["node _acceptance/audit-lifecycle.mjs MyApp --json"],
+            ["node \"{work_dir}/_acceptance/audit-lifecycle.mjs\" MyApp --json"],
             config.Scenarios[0].AllowShellCommands!);
         Assert.AreEqual(
             new TrustedShellFile(

@@ -70,7 +70,7 @@ internal sealed class RunEventBuffer
 
 public static class AgentRunner
 {
-    internal const string ExecutionContractVersion = "workspace-and-typed-shell-permissions-v3";
+    internal const string ExecutionContractVersion = "absolute-trusted-shell-permissions-v4";
     private static readonly HashSet<string> EvaluatorOnlySetupEntries =
         new(StringComparer.OrdinalIgnoreCase)
         {
@@ -328,35 +328,65 @@ public static class AgentRunner
 
     internal static bool IsAllowedPathlessShellCommand(string? command)
     {
-        if (string.IsNullOrWhiteSpace(command))
+        if (!IsSimpleShellCommand(command))
             return false;
 
-        var normalized = NormalizeShellCommand(command);
+        var normalized = NormalizeShellCommand(command!);
         return AllowedPathlessShellCommands.Contains(normalized);
     }
 
     internal static bool IsExplicitlyAllowedShellCommand(
         string? command,
-        IReadOnlyList<string>? allowedCommands)
+        IReadOnlyList<string>? allowedCommands,
+        string workDir)
     {
-        if (string.IsNullOrWhiteSpace(command) || allowedCommands is not { Count: > 0 })
+        if (!IsSimpleShellCommand(command) || allowedCommands is not { Count: > 0 })
             return false;
 
-        var normalized = NormalizeShellCommand(command);
         return allowedCommands.Any(allowed =>
-            normalized.Equals(NormalizeShellCommand(allowed), StringComparison.Ordinal));
+            command!.Trim(' ', '\t').Equals(
+                allowed.Replace("{work_dir}", Path.GetFullPath(workDir), StringComparison.Ordinal).Trim(' ', '\t'),
+                StringComparison.Ordinal));
     }
+
+    private static bool IsSimpleShellCommand(string? command) =>
+        !string.IsNullOrWhiteSpace(command)
+        && !command.Any(character => (char.IsControl(character) && character != '\t')
+            || (char.IsWhiteSpace(character) && character is not (' ' or '\t')))
+        && command.IndexOfAny(['$', '`', ';', '&', '|', '<', '>', '(', ')', '{', '}',
+            '#', '!', '%', '^', '*', '?', '[', ']']) < 0
+        && (OperatingSystem.IsWindows() || !command.Contains('\\'));
 
     private static string NormalizeShellCommand(string command) =>
         string.Join(
             ' ',
-            command.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+            command.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries));
+
+    private static IReadOnlyList<string>? GetSimpleShellWords(string? command)
+    {
+        if (!IsSimpleShellCommand(command))
+            return null;
+
+        var matches = Regex.Matches(command!, "\"[^\"]*\"|'[^']*'|[^\\s\"']+");
+        var words = new List<string>();
+        var position = 0;
+        foreach (Match match in matches)
+        {
+            var gap = command![position..match.Index];
+            if (!string.IsNullOrWhiteSpace(gap) || (words.Count > 0 && gap.Length == 0))
+                return null;
+            words.Add(match.Value[0] is '"' or '\'' ? match.Value[1..^1] : match.Value);
+            position = match.Index + match.Length;
+        }
+        return string.IsNullOrWhiteSpace(command![position..]) && words.Count > 0 ? words : null;
+    }
 
     internal static bool ValidateTrustedShellFiles(
         string workDir,
         IReadOnlyList<TrustedShellFile>? trustedFiles,
         Action<string>? log,
-        string? runLabel = null)
+        string? runLabel,
+        string? command)
     {
         var labelSuffix = runLabel is not null ? $" ({runLabel})" : "";
         if (trustedFiles is not { Count: > 0 })
@@ -369,11 +399,23 @@ public static class AgentRunner
         var comparison = OperatingSystem.IsWindows()
             ? StringComparison.OrdinalIgnoreCase
             : StringComparison.Ordinal;
+        var words = GetSimpleShellWords(command);
+        // No interpreter options, inline code, PATH-relative helpers, or shell wrappers.
+        if (words is not { Count: >= 2 }
+            || words[0] is not ("node" or "python" or "python3" or "bash" or "sh")
+            || !Path.IsPathFullyQualified(words[1]))
+        {
+            log?.Invoke($"      ❌ Trusted shell command must invoke an absolute helper path{labelSuffix}");
+            return false;
+        }
+        var helperIsTrusted = false;
 
         foreach (var trustedFile in trustedFiles)
         {
             if (string.IsNullOrWhiteSpace(trustedFile.Path)
                 || Path.IsPathRooted(trustedFile.Path)
+                || trustedFile.Path.Contains(':')
+                || trustedFile.Path.Split(['/', '\\']).Any(segment => segment is "." or "..")
                 || !Regex.IsMatch(trustedFile.Sha256, "^[0-9a-fA-F]{64}$",
                     RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
             {
@@ -438,9 +480,13 @@ public static class AgentRunner
                 log?.Invoke($"      ❌ Trusted shell file digest mismatch{labelSuffix}: {trustedFile.Path}");
                 return false;
             }
+            helperIsTrusted |= fullPath.Equals(
+                OperatingSystem.IsWindows() ? words[1].Replace('/', '\\') : words[1], comparison);
         }
 
-        return true;
+        if (!helperIsTrusted)
+            log?.Invoke($"      ❌ Executed helper is not a verified trusted shell file{labelSuffix}");
+        return helperIsTrusted;
     }
 
     internal static bool CheckPermissions(IEnumerable<string>? reqPaths, string workDir, string? skillPath, Action<string>? log, string? runLabel = null, string? pluginRoot = null, IReadOnlyList<string>? additionalAllowedDirs = null)
@@ -460,6 +506,11 @@ public static class AgentRunner
         IReadOnlyList<string>? explicitlyAllowedCommands = null,
         IReadOnlyList<TrustedShellFile>? trustedShellFiles = null)
     {
+        if (!IsSimpleShellCommand(request.FullCommandText))
+        {
+            log?.Invoke($"      ❌ Denying compound or computed shell command ({runLabel})");
+            return false;
+        }
         var hasUrl = request.PossibleUrls is { Length: > 0 }
             || request.FullCommandText?.Contains("://", StringComparison.OrdinalIgnoreCase) == true;
         if (hasUrl)
@@ -478,23 +529,29 @@ public static class AgentRunner
 
         var explicitlyAllowed = IsExplicitlyAllowedShellCommand(
             request.FullCommandText,
-            explicitlyAllowedCommands);
-        if (request.PossiblePaths is not { Length: > 0 }
-            && !IsAllowedPathlessShellCommand(request.FullCommandText)
-            && !explicitlyAllowed)
+            explicitlyAllowedCommands,
+            workDir);
+        if (explicitlyAllowed)
         {
-            var scopedPaths = GetScopedDotnetCommandPaths(request.FullCommandText);
-            if (scopedPaths is not null)
-                return CheckPermissions(scopedPaths, workDir, skillPath, log, runLabel, pluginRoot, additionalAllowedDirs);
-
-            var labelSuffix = runLabel is not null ? $" ({runLabel})" : "";
-            log?.Invoke($"      ❌ Denying unclassified shell permission request{labelSuffix}");
-            return false;
+            if (!ValidateTrustedShellFiles(workDir, trustedShellFiles, log, runLabel, request.FullCommandText))
+                return false;
+        }
+        else if (!IsAllowedPathlessShellCommand(request.FullCommandText))
+        {
+            var scopedPaths = GetScopedDotnetCommandPaths(request.FullCommandText)
+                ?? GetLocalReadCommandPaths(request.FullCommandText);
+            if (scopedPaths is null)
+            {
+                log?.Invoke($"      ❌ Denying unclassified shell permission request ({runLabel})");
+                return false;
+            }
+            if (!CheckPermissions(scopedPaths, workDir, skillPath, log, runLabel, pluginRoot, additionalAllowedDirs))
+                return false;
         }
 
-        if (explicitlyAllowed
-            && !ValidateTrustedShellFiles(workDir, trustedShellFiles, log, runLabel))
+        if (request.HasWriteFileRedirection)
         {
+            log?.Invoke($"      ❌ Denying shell file redirection ({runLabel})");
             return false;
         }
 
@@ -508,23 +565,21 @@ public static class AgentRunner
             additionalAllowedDirs);
     }
 
+    private static IReadOnlyList<string>? GetLocalReadCommandPaths(string? command)
+    {
+        var words = GetSimpleShellWords(command);
+        if (words is not { Count: >= 2 }
+            || words[0] is not ("cat" or "type" or "Get-Content" or "ls" or "dir" or "Get-ChildItem")
+            || words.Skip(1).Any(word => string.IsNullOrWhiteSpace(word)
+                || word.StartsWith('-') || word.StartsWith('~') || word.StartsWith('@')))
+            return null;
+        return words.Skip(1).ToArray();
+    }
+
     internal static IReadOnlyList<string>? GetScopedDotnetCommandPaths(string? command)
     {
-        if (string.IsNullOrWhiteSpace(command)
-            || command.IndexOfAny(['$', '`', ';', '&', '|', '<', '>', '\r', '\n', '(', ')', '{', '}']) >= 0)
-            return null;
-
-        var matches = Regex.Matches(command, "\"[^\"]*\"|'[^']*'|[^\\s\"']+");
-        var words = new List<string>();
-        var position = 0;
-        foreach (Match match in matches)
-        {
-            if (!string.IsNullOrWhiteSpace(command[position..match.Index]))
-                return null;
-            words.Add(match.Value[0] is '"' or '\'' ? match.Value[1..^1] : match.Value);
-            position = match.Index + match.Length;
-        }
-        if (!string.IsNullOrWhiteSpace(command[position..]) || words.Count < 2
+        var words = GetSimpleShellWords(command);
+        if (words is not { Count: >= 2 }
             || !words[0].Equals("dotnet", StringComparison.OrdinalIgnoreCase)
             || words[1] is not ("build" or "test" or "run")
             || words.Any(word => word.StartsWith('@')))
@@ -888,6 +943,12 @@ public static class AgentRunner
             + "Resolve project-relative paths against this workspace. "
             + "A skill's base directory contains reference material, not the project. "
             + "Do not search the parent evaluation directory or other scenario workspaces.";
+        if (!denyShell && explicitlyAllowedShellCommands is { Count: > 0 })
+        {
+            workspaceContext += "\nEvaluator-configured helper commands (use these exact absolute paths):\n"
+                + string.Join('\n', explicitlyAllowedShellCommands.Select(command =>
+                    command.Replace("{work_dir}", Path.GetFullPath(workDir), StringComparison.Ordinal)));
+        }
         if (referenceCatalogs.Count > 0)
         {
             workspaceContext += "\nReference-only catalogs are files, not callable skills. "

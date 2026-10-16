@@ -32,11 +32,14 @@ public class BaselineStoreTests
         Path.Combine(Path.GetTempPath(), $"sv-baseline-test-{Guid.NewGuid():N}.json");
 
     [TestMethod]
-    public void ExecutionContractChangesInvalidateLegacyBaselineIdentity()
+    [DataRow("")]
+    [DataRow("workspace-and-typed-shell-permissions-v3")]
+    public void ExecutionContractChangesInvalidateLegacyBaselineIdentity(string previousContract)
     {
         var scenario = Scenario("legacy", "Inspect the project.");
         var inputs = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes("\0no-setup\0")));
-        var legacyCriteria = $"turns=\0tokens=\0timeout={scenario.Timeout}\0";
+        var legacyCriteria = (previousContract.Length > 0 ? $"executor={previousContract}\0" : "")
+            + $"turns=\0tokens=\0timeout={scenario.Timeout}\0";
         var legacyTarget = Convert.ToHexStringLower(SHA256.HashData(
             Encoding.UTF8.GetBytes(inputs + "\0criteria\0" + legacyCriteria)));
 

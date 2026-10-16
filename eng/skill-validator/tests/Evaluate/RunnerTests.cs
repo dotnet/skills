@@ -689,7 +689,7 @@ public class BuildSessionConfigTests
     [TestMethod]
     public async Task ExactScenarioShellCommandAllowsUnclassifiedRequest()
     {
-        const string command = "node _acceptance/audit-lifecycle.mjs MyApp --json";
+        const string command = "node \"{work_dir}/_acceptance/audit-lifecycle.mjs\" MyApp --json";
         var workDir = Directory.CreateTempSubdirectory("trusted-shell-");
         try
         {
@@ -710,7 +710,7 @@ public class BuildSessionConfigTests
             {
                 CanOfferSessionApproval = false,
                 Commands = [],
-                FullCommandText = " node   _acceptance/audit-lifecycle.mjs   MyApp   --json ",
+                FullCommandText = command.Replace("{work_dir}", workDir.FullName),
                 HasWriteFileRedirection = false,
                 Intention = "Run the authenticated acceptance helper",
                 PossiblePaths = [],
@@ -721,6 +721,7 @@ public class BuildSessionConfigTests
             var decision = await config.OnPermissionRequest!(request, null!);
 
             Assert.AreEqual("approve-once", decision.Kind);
+            Assert.Contains(request.FullCommandText, config.SystemMessage!.Content!);
         }
         finally
         {
@@ -758,7 +759,7 @@ public class BuildSessionConfigTests
     [TestMethod]
     public async Task ModifiedTrustedShellHelperIsRejectedBeforeExecution()
     {
-        const string command = "node _acceptance/audit-lifecycle.mjs MyApp --json";
+        const string command = "node \"{work_dir}/_acceptance/audit-lifecycle.mjs\" MyApp --json";
         var workDir = Directory.CreateTempSubdirectory("trusted-shell-");
         try
         {
@@ -781,7 +782,7 @@ public class BuildSessionConfigTests
             {
                 CanOfferSessionApproval = false,
                 Commands = [],
-                FullCommandText = command,
+                FullCommandText = command.Replace("{work_dir}", workDir.FullName),
                 HasWriteFileRedirection = false,
                 Intention = "Run a modified acceptance helper",
                 PossiblePaths = [],
@@ -800,7 +801,285 @@ public class BuildSessionConfigTests
     }
 
     [TestMethod]
-    public async Task ScenarioShellCommandAllowlistRequiresExactNormalizedCommand()
+    [DataRow("dotnet\ntest")]
+    [DataRow("dotnet\rtest")]
+    [DataRow("dotnet\r\ntest")]
+    [DataRow("git\vstatus")]
+    [DataRow("git\fstatus")]
+    [DataRow("git\u0085status")]
+    [DataRow("git\u2028status")]
+    [DataRow("git\u2029status")]
+    [DataRow("git\0status")]
+    [DataRow("git status; pwd")]
+    [DataRow("git status && pwd")]
+    [DataRow("git status | cat")]
+    [DataRow("git status > result.txt")]
+    [DataRow("git status $(pwd)")]
+    [DataRow("git status `pwd`")]
+    public async Task ShellControlSyntaxCannotMatchAnyAllowlist(string command)
+    {
+        var workDir = AgentRunner.GetEvaluationRoot();
+        Assert.IsFalse(AgentRunner.IsAllowedPathlessShellCommand(command));
+        Assert.IsFalse(AgentRunner.IsExplicitlyAllowedShellCommand(command, [command], workDir));
+        var config = await AgentRunner.BuildSessionConfig(
+            null, null, "gpt-4.1", workDir,
+            explicitlyAllowedShellCommands: [command]);
+        var request = MakeShellRequest(command, [Path.Combine(workDir, "result.txt")]);
+        Assert.AreEqual("reject", (await config.OnPermissionRequest!(request, null!)).Kind);
+    }
+
+    [TestMethod]
+    public void ExactHelperMatchingPreservesWhitespaceInsideQuotes()
+    {
+        const string allowed = "node \"/tmp/helper.mjs\" \"two  spaces\"";
+        Assert.IsTrue(AgentRunner.IsExplicitlyAllowedShellCommand(allowed, [allowed], "/tmp"));
+        Assert.IsFalse(AgentRunner.IsExplicitlyAllowedShellCommand(
+            "node \"/tmp/helper.mjs\" \"two spaces\"", [allowed], "/tmp"));
+        Assert.IsFalse(AgentRunner.IsExplicitlyAllowedShellCommand(
+            "node \"/tmp/helper.mjs\"\n\"two  spaces\"", [allowed], "/tmp"));
+    }
+
+    [TestMethod]
+    [DataRow("curl example.com -o result.txt")]
+    [DataRow("wget example.com -O result.txt")]
+    [DataRow("Invoke-WebRequest example.com -OutFile result.txt")]
+    [DataRow("python -c \"import urllib.request\" result.txt")]
+    [DataRow("node socket-launcher.js result.txt")]
+    [DataRow("./open-socket.sh result.txt")]
+    [DataRow("unknown-command result.txt")]
+    public async Task AllowedOutputPathCannotAuthorizeUnclassifiedCommand(string command)
+    {
+        var workDir = AgentRunner.GetEvaluationRoot();
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var executed = false;
+        Assert.IsFalse(await RunShellPermissionPipelineAsync(
+            config, MakeShellRequest(command, [Path.Combine(workDir, "result.txt")]),
+            execute: () => executed = true));
+        Assert.IsFalse(executed);
+    }
+
+    [TestMethod]
+    [DataRow("relative")]
+    [DataRow("unrelated")]
+    [DataRow("rooted")]
+    [DataRow("traversal")]
+    [DataRow("escape")]
+    [DataRow("noncanonical-command")]
+    [DataRow("missing")]
+    [DataRow("malformed-hash")]
+    [DataRow("modified")]
+    [DataRow("inline-code")]
+    [DataRow("helper-as-argument")]
+    [DataRow("quoted-whitespace-change")]
+    public async Task TrustedDigestMustBindToExecutedAbsoluteHelper(string mutation)
+    {
+        var workDir = Directory.CreateTempSubdirectory("trusted-shell-");
+        try
+        {
+            var helperDir = Directory.CreateDirectory(Path.Combine(workDir.FullName, "acceptance"));
+            var helperPath = Path.Combine(helperDir.FullName, "helper.sh");
+            await File.WriteAllTextAsync(helperPath, "printf reviewed");
+            var digest = Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(helperPath)));
+            var trustedFile = new TrustedShellFile("acceptance/helper.sh", digest);
+            var command = $"sh \"{helperPath}\"";
+            switch (mutation)
+            {
+                case "relative":
+                    command = "sh acceptance/helper.sh";
+                    break;
+                case "unrelated":
+                    await File.WriteAllTextAsync(Path.Combine(helperDir.FullName, "other.sh"), "printf reviewed");
+                    trustedFile = trustedFile with { Path = "acceptance/other.sh" };
+                    break;
+                case "rooted":
+                    trustedFile = trustedFile with { Path = helperPath };
+                    break;
+                case "traversal":
+                    trustedFile = trustedFile with { Path = "acceptance/../acceptance/helper.sh" };
+                    break;
+                case "escape":
+                    trustedFile = trustedFile with { Path = "../helper.sh" };
+                    break;
+                case "noncanonical-command":
+                    command = $"sh \"{helperDir.FullName}/../acceptance/helper.sh\"";
+                    break;
+                case "missing":
+                    File.Delete(helperPath);
+                    break;
+                case "malformed-hash":
+                    trustedFile = trustedFile with { Sha256 = "not-a-digest" };
+                    break;
+                case "modified":
+                    await File.WriteAllTextAsync(helperPath, "printf modified");
+                    break;
+                case "inline-code":
+                    command = $"sh -c \"{helperPath}\"";
+                    break;
+                case "helper-as-argument":
+                    command = $"curl example.com -o \"{helperPath}\"";
+                    break;
+                case "quoted-whitespace-change":
+                    command += " \"two  spaces\"";
+                    break;
+                default:
+                    Assert.Fail($"Unhandled test mutation: {mutation}");
+                    break;
+            }
+
+            var config = await AgentRunner.BuildSessionConfig(
+                null, null, "gpt-4.1", workDir.FullName,
+                explicitlyAllowedShellCommands: [command], trustedShellFiles: [trustedFile]);
+            var executed = false;
+            var requestedCommand = mutation == "quoted-whitespace-change"
+                ? command.Replace("two  spaces", "two spaces", StringComparison.Ordinal)
+                : command;
+            foreach (var paths in new[] { Array.Empty<string>(), new[] { helperPath } })
+            {
+                Assert.IsFalse(await RunShellPermissionPipelineAsync(
+                    config, MakeShellRequest(requestedCommand, paths),
+                    execute: () => executed = true), $"Mutation {mutation} must be denied");
+                Assert.IsFalse(executed);
+            }
+        }
+        finally
+        {
+            workDir.Delete(recursive: true);
+        }
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task TrustedHelperRejectsLinkedFileOrAncestor(bool linkDirectory)
+    {
+        var workDir = Directory.CreateTempSubdirectory("trusted-shell-link-");
+        try
+        {
+            var realDir = Directory.CreateDirectory(Path.Combine(workDir.FullName, "real"));
+            var realFile = Path.Combine(realDir.FullName, "helper.sh");
+            await File.WriteAllTextAsync(realFile, "printf reviewed");
+            var link = Path.Combine(workDir.FullName, linkDirectory ? "linked" : "linked.sh");
+            try
+            {
+                if (linkDirectory)
+                    Directory.CreateSymbolicLink(link, realDir.FullName);
+                else
+                    File.CreateSymbolicLink(link, realFile);
+            }
+            catch (UnauthorizedAccessException) when (OperatingSystem.IsWindows())
+            {
+                Assert.Inconclusive("Creating symbolic links requires Windows Developer Mode or elevation.");
+            }
+            var helperPath = linkDirectory ? Path.Combine(link, "helper.sh") : link;
+            var command = $"sh \"{helperPath}\"";
+            var trustedFile = new TrustedShellFile(
+                Path.GetRelativePath(workDir.FullName, helperPath),
+                Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(realFile))));
+            var config = await AgentRunner.BuildSessionConfig(
+                null, null, "gpt-4.1", workDir.FullName,
+                explicitlyAllowedShellCommands: [command], trustedShellFiles: [trustedFile]);
+            Assert.IsFalse(await RunShellPermissionPipelineAsync(
+                config, MakeShellRequest(command, [helperPath]),
+                execute: () => Assert.Fail("Linked helper must not execute")));
+        }
+        finally
+        {
+            workDir.Delete(recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public async Task ApprovedAbsoluteHelperExecutesVerifiedBytesAfterWorkingDirectoryChange()
+    {
+        if (OperatingSystem.IsWindows())
+            Assert.Inconclusive("This native /bin/sh execution probe runs on Unix.");
+        var workDir = Directory.CreateTempSubdirectory("trusted-shell-native-");
+        try
+        {
+            var helper = Path.Combine(workDir.FullName, "helper.sh");
+            await File.WriteAllTextAsync(helper, "printf verified");
+            var nestedDir = Directory.CreateDirectory(Path.Combine(workDir.FullName, "nested"));
+            await File.WriteAllTextAsync(Path.Combine(nestedDir.FullName, "helper.sh"), "printf wrong-helper");
+            var command = $"sh \"{helper}\"";
+            var trustedFile = new TrustedShellFile(
+                "helper.sh", Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(helper))));
+            var config = await AgentRunner.BuildSessionConfig(
+                null, null, "gpt-4.1", workDir.FullName,
+                explicitlyAllowedShellCommands: ["sh \"{work_dir}/helper.sh\""],
+                trustedShellFiles: [trustedFile]);
+            Assert.IsTrue(await RunShellPermissionPipelineAsync(
+                config, MakeShellRequest(command), execute: () =>
+                {
+                    using var process = Process.Start(new ProcessStartInfo("/bin/sh")
+                    {
+                        ArgumentList = { "-c", command },
+                        WorkingDirectory = nestedDir.FullName,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                    })!;
+                    var output = process.StandardOutput.ReadToEnd();
+                    Assert.IsTrue(process.WaitForExit(5_000));
+                    Assert.AreEqual(0, process.ExitCode, process.StandardError.ReadToEnd());
+                    Assert.AreEqual("verified", output);
+                }));
+        }
+        finally
+        {
+            workDir.Delete(recursive: true);
+        }
+    }
+
+    [TestMethod]
+    [DataRow("deny-shell")]
+    [DataRow("offline-workflow")]
+    [DataRow("url-metadata")]
+    [DataRow("write-redirection")]
+    [DataRow("outside-path")]
+    public async Task VerifiedHelperCannotOverrideOtherPermissionBoundaries(string boundary)
+    {
+        var workDir = Directory.CreateTempSubdirectory("trusted-shell-policy-");
+        try
+        {
+            var helperPath = Path.Combine(workDir.FullName, "helper.sh");
+            await File.WriteAllTextAsync(helperPath, "printf reviewed");
+            var command = $"sh \"{helperPath}\"";
+            var trustedFile = new TrustedShellFile(
+                "helper.sh", Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(helperPath))));
+            var config = await AgentRunner.BuildSessionConfig(
+                null, null, "gpt-4.1", workDir.FullName,
+                denyShell: boundary == "deny-shell",
+                offlineWorkflow: boundary == "offline-workflow",
+                explicitlyAllowedShellCommands: [command], trustedShellFiles: [trustedFile]);
+            var request = MakeShellRequest(command);
+            request.PossibleUrls = boundary == "url-metadata"
+                ? [new PermissionRequestShellPossibleUrl { Url = "https://example.com" }] : [];
+            request.HasWriteFileRedirection = boundary == "write-redirection";
+            request.PossiblePaths = boundary == "outside-path"
+                ? [Path.Combine(workDir.Parent!.FullName, "outside.txt")] : [];
+            Assert.AreEqual("reject", (await config.OnPermissionRequest!(request, null!)).Kind);
+            Assert.IsFalse(await RunShellPermissionPipelineAsync(
+                config, request, execute: () => Assert.Fail($"Helper bypassed {boundary}")));
+        }
+        finally
+        {
+            workDir.Delete(recursive: true);
+        }
+    }
+
+    private static PermissionRequestShell MakeShellRequest(string command, string[]? paths = null) => new()
+    {
+        CanOfferSessionApproval = false,
+        Commands = [],
+        FullCommandText = command,
+        HasWriteFileRedirection = false,
+        Intention = "Exercise shell permission boundary",
+        PossiblePaths = paths ?? [],
+        PossibleUrls = [],
+    };
+
+    [TestMethod]
+    public async Task ScenarioShellCommandAllowlistRequiresExactCommand()
     {
         var config = await AgentRunner.BuildSessionConfig(
             null,
