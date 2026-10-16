@@ -5,6 +5,76 @@ defaults:
   timeout: 3m
   runs: 1
 stimuli:
+  - name: Diagnose a closed connection by executing the registered launcher
+    prompt: |-
+      The binlog MCP server for affected-workspace reports CONNECTION_CLOSED.
+      I have no startup log. Its host registration is in affected-workspace/host.json.
+      The registered launcher is an offline stand-in for dotnet, including SDK
+      and source queries; use it instead of the machine-wide SDK or live feeds.
+      Investigate from the affected workspace and save the launch stdout, stderr,
+      and numeric exitCode in affected-workspace/launch-result.json. Explain what
+      failed and the smallest policy-safe next step. Do not change any SDK,
+      NuGet, host, or launcher files, install anything, or access the network.
+    tags:
+      capability: executable-workspace-launch-diagnosis
+      risk: diagnosing-without-launch-evidence
+      journey: investigate-closed-connection
+    environment:
+      files:
+        - src: fixtures/launch-failure
+          dest: .
+    golden_trajectory:
+      path: references/executable-launch.json
+    graders:
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const assert = require('node:assert/strict');
+              const fs = require('node:fs');
+              const path = require('node:path');
+              const crypto = require('node:crypto');
+              const expected = {
+                'NuGet.Config': 'b8ff5486232770da7b6bced4a4b829b7c9dc184961bad1c2b8c965f46f584b90',
+                'affected-workspace/global.json': 'c9c9cae030d639a70a7f7642ee546c9a31dda4bae6492a3a8aa21d08cab83779',
+                'affected-workspace/NuGet.Config': 'fe5e6f0f8447ed6a5cac1d8a71517b5c54dc2082b29f29d05a4a61c22a67bf83',
+                'affected-workspace/host.json': '09432624e12b77b7de4065aee62d6464860b8dc83fdaca8ab7fdc46ac2e6123e',
+                'affected-workspace/dotnet.cjs': '68e972803b765d4b681cef76a23476bdc1e8adb17beffb3d484c11d826058edc',
+              };
+              for (const [file, hash] of Object.entries(expected)) {
+                const content = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+                assert.equal(crypto.createHash('sha256').update(content).digest('hex'), hash,
+                  'Changed or missing diagnostic input: ' + file);
+              }
+              const cwd = fs.realpathSync.native('affected-workspace');
+              const records = fs.readFileSync(path.join(cwd, 'launch-invocations.jsonl'), 'utf8')
+                .trim().split(/\r?\n/).map(line => JSON.parse(line));
+              const launches = records.filter(record => record.argv[0] === 'dnx');
+              assert.equal(launches.length, 1, 'Expected one actual launch, not search-only advice');
+              const launch = launches[0];
+              assert.equal(fs.realpathSync.native(launch.cwd), cwd, 'Launch must use the affected workspace');
+              assert.deepEqual(launch.argv,
+                ['dnx', 'Microsoft.AITools.BinlogMcp', '--yes', '--prerelease'],
+                'Launch arguments must match the registered command without source overrides');
+              assert.equal(launch.exitCode, 1);
+              const result = JSON.parse(fs.readFileSync(path.join(cwd, 'launch-result.json'), 'utf8'));
+              for (const key of ['stdout', 'stderr', 'exitCode']) {
+                assert.equal(result[key], launch[key], 'Missing or inaccurate captured ' + key);
+              }
+              assert.match(result.stderr, /not found in NuGet feeds approved-mirror/);
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: 'MCP status: failed'
+      - type: prompt
+    rubric:
+      - Diagnoses the actual package-resolution failure from captured launch stderr rather than guessing from the closed transport
+      - Relates the effective workspace sources to the inherited source being cleared
+      - Recommends approved-feed recovery without changing configuration, installing tools, or claiming a verified repair
+
   - name: Explain a package resolution failure behind a closed connection
     prompt: |-
       I installed dotnet-msbuild but its binlog server reports CONNECTION_CLOSED.
@@ -308,7 +378,9 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: 'dotnet build[^\r\n]*[-/]bl:'
+          # Match quoted placeholders or a GUID/timestamp used inline or through a bound variable.
+          pattern: |-
+            (?:\bdotnet\s+build\b[^\r\n]*?[ \t]+(?:([\x27"])[-/]bl:[^\x27"{}\r\n]*\{\}[^\x27"{}\r\n]*\1|"[-/]bl:[^"\r\n]*(?<!`)\$\(\s*(?:[Nn]ew-[Gg]uid|\[(?:[Ss]ystem\.)?[Gg]uid\]::NewGuid\(\)(?:\.ToString\((?:\x27[ND]\x27|"[ND]")\))?|[Gg]et-[Dd]ate\s+-[Ff]ormat\s+(?:'[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?'|"[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?"|[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?))\s*\)[^"\r\n]*")|\$([A-Za-z_]\w*)\s*=\s*(?:(?:[Nn]ew-[Gg]uid|\[(?:[Ss]ystem\.)?[Gg]uid\]::NewGuid\(\)(?:\.ToString\((?:\x27[ND]\x27|"[ND]")\))?|[Gg]et-[Dd]ate\s+-[Ff]ormat\s+(?:'[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?'|"[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?"|[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?))|"[^"\r\n]*(?<!`)\$\(\s*(?:[Nn]ew-[Gg]uid|\[(?:[Ss]ystem\.)?[Gg]uid\]::NewGuid\(\)(?:\.ToString\((?:\x27[ND]\x27|"[ND]")\))?|[Gg]et-[Dd]ate\s+-[Ff]ormat\s+(?:'[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?'|"[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?"|[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?))\s*\)[^"\r\n]*")\s*;?\s*\bdotnet\s+build\b[^\r\n]*?[ \t]+(?:"[-/]bl:[^"\r\n]*(?<!`)\$(?:\{\2\}|\2(?!\w))[^"\r\n]*"|[-/]bl:[^\s\x27"]*(?<!`)\$(?:\{\2\}|\2(?!\w))[^\s\x27"]*(?=[\s;]|$)))
       - type: prompt
     rubric:
       - Supplies a PowerShell-safe command for unique binlog capture
