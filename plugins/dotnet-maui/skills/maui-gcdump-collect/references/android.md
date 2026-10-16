@@ -121,10 +121,17 @@ ANDROID_SERIAL=<selected serial> adb shell setprop debug.mono.profile '127.0.0.1
 ```
 
 Then relaunch the approved `-p:AndroidEnableProfiler=true` build, run the capture
-command, and immediately restore the recorded value afterward (an empty prior
-value restores with `adb shell setprop debug.mono.profile ''`) — this property is
-device-wide and persists until reboot or explicit reset, unlike the
-`net9.0-android`+ route below which sets no such property at all.
+command, and immediately restore the recorded value afterward on the same
+selected device (`ANDROID_SERIAL=<selected serial> adb shell setprop
+debug.mono.profile <recorded value>`). If the recorded value was empty, the host
+shell's `''` resolves to no argument at all and ADB forwards `setprop
+debug.mono.profile` with the value omitted, leaving the device property
+unchanged rather than unset — per the linked SystemProperties.md, unsetting
+requires the literal two-character payload `''` to survive to the device shell,
+so run `adb shell setprop debug.mono.profile "''"` (not an un-quoted empty
+string) in that case. This property is device-wide and persists until reboot or
+explicit reset, unlike the `net9.0-android`+ route below which sets no such
+property at all.
 
 ## Troubleshooting and restoration
 

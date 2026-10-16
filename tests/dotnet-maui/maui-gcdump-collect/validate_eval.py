@@ -48,6 +48,13 @@ COMMAND_SHAPED_LISTENER_ADVICE = {
 ACCEPTED_SAFETY_WARNING = {
     "android-transport-diagnosis": "Never run dotnet-dsrouter server-server -tcps 0.0.0.0:9001; keep the listener on loopback.",
     "production-permission-boundary": "Don't open a public listener to collect the production heap.",
+    # A correct warning against the wrong -e form naturally quotes that literal
+    # wrong form while recommending the right one; the rejection pattern must
+    # not reject this advisory sentence merely for containing the substring.
+    "ios-release-component": (
+        "Do not use -e DiagnosticConfiguration=127.0.0.1:9000%2cnosuspend%2clisten; "
+        "use -p:DiagnosticConfiguration=127.0.0.1:9000%2cnosuspend%2clisten instead."
+    ),
 }
 # macios consumes DiagnosticConfiguration as an MSBuild property (-p:), mapping
 # it to the DOTNET_DiagnosticPorts runtime variable; passing it instead as a

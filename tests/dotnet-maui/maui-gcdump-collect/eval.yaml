@@ -495,7 +495,7 @@ stimuli:
           pattern: (?i)(?:-p:|--property:)DiagnosticConfiguration=
       - type: output-not-matches
         config:
-          pattern: (?i)(?:-e[:\s]|--environment[:\s])DiagnosticConfiguration=
+          pattern: (?im)^\s*(?!(?:[-*+]\s+|\d+[.)]\s+)?(?:Never|Don['\u2019]?t|Do\s+not|Won['\u2019]?t|Should\s+not|Must\s+not|Avoid(?:ing)?)\b)(?:[-*+]\s+|\d+[.)]\s+)?[^\n]*?(?:-e[:\s]|--environment[:\s])DiagnosticConfiguration=
       - *false-verification
       - type: output-not-matches
         config:
