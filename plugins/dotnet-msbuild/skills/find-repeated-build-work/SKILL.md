@@ -54,7 +54,9 @@ Compare each count with the project instances that genuinely need the operation.
 
 ### Step 3: Size the win
 
-Avoidable aggregate task time is `(calls - expected) x average ms`. Wall-clock saving depends on actual overlap and the critical path. Batched per-item `Exec` calls in one target run sequentially on one node, so removing their startup costs can save nearly the full aggregate time. Only divide by effective parallelism when the duplicate calls actually overlap across nodes; unrelated busy nodes do not reduce a sequential saving. Use the binlog timeline to establish overlap, and mark wall-clock savings unknown when that evidence is missing. Work off the critical path can yield no wall-clock gain. For performance-only changes, if even the aggregate upper bound is below about 1% of build wall-clock, report it as not worth changing. Correctness races still need a fix regardless of the timing gain.
+For eliminated invariant computations, estimate avoidable aggregate task time as `(calls - expected) x average ms`. Per-item batching does not eliminate the required input processing: estimate `(old process starts - new process starts) x startup ms`, retaining every input's processing cost and any required metadata groups. Account for additional list/batch overhead when known. If startup cost is unavailable, mark that estimate unknown rather than treating the entire average task duration as removable.
+
+Wall-clock saving depends on actual overlap and the critical path. Batched per-item `Exec` calls in one target run sequentially on one node, so avoided startup time is not divided by unrelated busy nodes. Only divide by effective parallelism when the removed work actually overlaps across nodes. Use the binlog timeline to establish overlap, and mark wall-clock savings unknown when that evidence is missing. Work off the critical path can yield no wall-clock gain. For performance-only changes, if even the aggregate upper bound is below about 1% of build wall-clock, report it as not worth changing. Correctness races still need a fix regardless of the timing gain.
 
 ### Step 4: Fix without changing behavior
 

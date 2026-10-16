@@ -495,7 +495,7 @@ stimuli:
           args:
             - -c
             - |
-              import hashlib, json, os, pathlib, re, shlex, shutil, subprocess, sys, tempfile
+              import hashlib, json, os, pathlib, re, shlex, shutil, subprocess, sys, tempfile, time
               import xml.etree.ElementTree as ET
               base = pathlib.Path('per-file-exec')
               expected = {
@@ -524,7 +524,6 @@ stimuli:
                             if 'schemagen' in task.get('Command', '')]
               assert len(generators) == 1, 'use one generator invocation'
               target, task = generators[0]
-              assert not task.get('Condition'), 'the generator invocation must not be disabled'
               targets = {t.get('Name'): t for t in root.findall('Target') if not t.get('Condition')}
               pending = [name for name, t in targets.items()
                          if {'BeforeCompile', 'CoreCompile'} & {n.strip() for n in t.get('BeforeTargets', '').split(';')}]
@@ -608,43 +607,81 @@ stimuli:
                   env = dict(os.environ, PATH=str(bin_dir) + os.pathsep + os.environ['PATH'],
                              SCHEMA_WORK=str(work), SCHEMA_LOG=str(log))
                   sources = set(work.joinpath('schemas').rglob('*.json'))
-                  source_bytes = {source: source.read_bytes() for source in sources}
-                  expected_content = {
-                      source: (
-                          '// generated schema: ' + source.relative_to(work).as_posix() +
-                          '\n// sha256: ' + hashlib.sha256(content).hexdigest() + '\n'
-                      ).encode('utf-8')
-                      for source, content in source_bytes.items()
-                  }
-                  result = subprocess.run(
-                      [dotnet, 'msbuild', 'Contoso.Schemas.csproj', '-nologo', '-verbosity:quiet',
-                       '-nodeReuse:false', '-target:' + ';'.join(hooks), '-getItem:Compile',
-                       '-getProperty:IntermediateOutputPath'],
-                      cwd=work, env=env, capture_output=True, text=True, timeout=60,
-                  )
-                  assert result.returncode == 0, result.stdout + result.stderr
-                  calls = [json.loads(line) for line in log.read_text().splitlines()]
-                  assert len(calls) == 1, 'schema generation must execute exactly once'
                   required = {work / 'schemas' / (name + '.json') for name in ['Customer', 'Invoice', 'Order']}
                   assert required <= sources, 'preserve all fixture schema inputs'
-                  assert set(work.joinpath('schemas').rglob('*.json')) == sources and all(
-                      source.read_bytes() == content for source, content in source_bytes.items()
-                  ), 'generation must not modify, add or delete schema inputs'
-                  assert {pathlib.Path(p) for p in calls[0]['inputs']} == sources, 'generate an output for every schema'
-                  generated = {pathlib.Path(p) for p in calls[0]['outputs']}
-                  evaluated = json.loads(result.stdout)
-                  compiled = {pathlib.Path(item['FullPath']).resolve() for item in evaluated['Items']['Compile']}
-                  assert generated <= compiled, 'every generated output must remain a Compile input'
-                  assert all(p.is_file() for p in compiled if p.name.endswith('.g.cs')), 'generated Compile inputs must exist'
-                  properties.update(evaluated['Properties'])
-                  evaluated_args = shlex.split(expand(task.get('Command')))
-                  evaluated_output_dir = evaluated_args[evaluated_args.index('--output-dir') + 1]
-                  expected_outputs = {
-                      (work / evaluated_output_dir / (source.stem + '.g.cs')).resolve(): expected_content[source]
-                      for source in sources
-                  }
-                  assert generated == expected_outputs.keys(), 'preserve the per-schema output mapping'
-                  assert all(path.read_bytes() == content for path, content in expected_outputs.items()), 'preserve every distinct content-dependent schema output byte-for-byte'
+                  source_bytes = {source: source.read_bytes() for source in sources}
+                  # Separate past input/output mtimes without sleeps or future-dated outputs.
+                  clock = time.time_ns() - 120_000_000_000
+                  for source in sources:
+                      os.utime(source, ns=(clock, clock))
+                  def probe(phase, stale, previous_calls):
+                      expected_content = {
+                          source: (
+                              '// generated schema: ' + source.relative_to(work).as_posix() +
+                              '\n// sha256: ' + hashlib.sha256(content).hexdigest() + '\n'
+                          ).encode('utf-8')
+                          for source, content in source_bytes.items()
+                      }
+                      result = subprocess.run(
+                          [dotnet, 'msbuild', 'Contoso.Schemas.csproj', '-nologo', '-verbosity:quiet',
+                           '-nodeReuse:false', '-target:' + ';'.join(hooks), '-getItem:Compile',
+                           '-getProperty:IntermediateOutputPath'],
+                          cwd=work, env=env, capture_output=True, text=True, timeout=60,
+                      )
+                      assert result.returncode == 0, phase + ': ' + result.stdout + result.stderr
+                      calls = [json.loads(line) for line in log.read_text().splitlines()] if log.is_file() else []
+                      assert calls[:len(previous_calls)] == previous_calls, phase + ': preserve generator observations'
+                      new_calls = calls[len(previous_calls):]
+                      assert len(new_calls) == (1 if stale else 0), phase + ': schema generation must execute exactly once for stale inputs and never for current inputs'
+                      assert set(work.joinpath('schemas').rglob('*.json')) == sources and all(
+                          source.is_file() and source.read_bytes() == content for source, content in source_bytes.items()
+                      ), phase + ': generation must not modify, add or delete schema inputs'
+                      evaluated = json.loads(result.stdout)
+                      compiled = {pathlib.Path(item['FullPath']).resolve() for item in evaluated['Items']['Compile']}
+                      properties.update(evaluated['Properties'])
+                      evaluated_args = shlex.split(expand(task.get('Command')))
+                      evaluated_output_dir = evaluated_args[evaluated_args.index('--output-dir') + 1]
+                      expected_outputs = {
+                          (work / evaluated_output_dir / (source.stem + '.g.cs')).resolve(): expected_content[source]
+                          for source in sources
+                      }
+                      if stale:
+                          assert len(new_calls[0]['inputs']) == len(stale) and {
+                              pathlib.Path(p) for p in new_calls[0]['inputs']
+                          } == stale, phase + ': generate only the stale schemas, exactly once each'
+                          assert {pathlib.Path(p) for p in new_calls[0]['outputs']} == {
+                              (work / evaluated_output_dir / (source.stem + '.g.cs')).resolve() for source in stale
+                          }, phase + ': preserve the per-schema output mapping'
+                      assert expected_outputs.keys() <= compiled, phase + ': every generated output must remain a Compile input'
+                      assert all(p.is_file() for p in compiled if p.name.endswith('.g.cs')), phase + ': generated Compile inputs must exist'
+                      assert all(path.is_file() and path.read_bytes() == content for path, content in expected_outputs.items()), phase + ': preserve every distinct content-dependent schema output byte-for-byte'
+                      return expected_outputs, calls
+                  outputs, calls = probe('clean', sources, [])
+                  for output in outputs:
+                      stamp = clock + 40_000_000_000
+                      os.utime(output, ns=(stamp, stamp))
+                  timestamps = {output: output.stat().st_mtime_ns for output in outputs}
+                  unchanged, calls = probe('unchanged', set(), calls)
+                  assert unchanged == outputs, 'unchanged: preserve every output mapping and byte'
+                  assert all(output.stat().st_mtime_ns == stamp for output, stamp in timestamps.items()), 'unchanged: preserve every generated output timestamp'
+                  changed_source = work / 'schemas' / 'Order.json'
+                  source_bytes[changed_source] += b'\n'
+                  changed_source.write_bytes(source_bytes[changed_source])
+                  dirty_stamp = clock + 80_000_000_000
+                  os.utime(changed_source, ns=(dirty_stamp, dirty_stamp))
+                  partial, calls = probe('single-stale', {changed_source}, calls)
+                  assert partial.keys() == outputs.keys(), 'single-stale: preserve the full output mapping'
+                  changed_output = next(output for output in partial if output.name == 'Order.g.cs')
+                  assert changed_output.stat().st_mtime_ns >= changed_source.stat().st_mtime_ns, 'single-stale: refreshed output must be current'
+                  assert partial[changed_output] != outputs[changed_output], 'single-stale: changed input must refresh its output bytes'
+                  assert all(
+                      output.stat().st_mtime_ns == stamp
+                      for output, stamp in timestamps.items() if output != changed_output
+                  ), 'single-stale: preserve current outputs and their timestamps'
+                  timestamps = {output: output.stat().st_mtime_ns for output in partial}
+                  final, calls = probe('final-unchanged', set(), calls)
+                  assert final == partial, 'final-unchanged: preserve every output mapping and byte'
+                  assert all(output.stat().st_mtime_ns == stamp for output, stamp in timestamps.items()), 'final-unchanged: preserve every generated output timestamp'
           expected_exit_code: 0
       - type: output-matches
         config:

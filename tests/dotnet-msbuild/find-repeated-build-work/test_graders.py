@@ -177,6 +177,81 @@ class GraderTests(unittest.TestCase):
         result = self.grade(work, script, accepted=False)
         self.assertIn("must not modify, add or delete schema inputs", result.stderr)
 
+    def test_enabled_schema_exec_condition_is_accepted(self):
+        work, script = self.workspace("per-item-exec")
+        path = work / "per-file-exec" / "Schemas.targets"
+        tree = ET.parse(path)
+        tree.getroot().find("Target/Exec").set("Condition", "Exists('schemas/Customer.json')")
+        tree.write(path, encoding="utf-8")
+        self.grade(work, script)
+
+    def test_disabled_schema_exec_condition_is_rejected(self):
+        work, script = self.workspace("per-item-exec")
+        path = work / "per-file-exec" / "Schemas.targets"
+        tree = ET.parse(path)
+        tree.getroot().find("Target/Exec").set("Condition", "Exists('schemas/Missing.json')")
+        tree.write(path, encoding="utf-8")
+        result = self.grade(work, script, accepted=False)
+        self.assertIn("clean: schema generation must execute exactly once", result.stderr)
+
+    def test_generated_directory_cleanup_is_rejected(self):
+        for inside in (False, True):
+            with self.subTest(inside_incremental_target=inside):
+                work, script = self.workspace("per-item-exec")
+                path = work / "per-file-exec" / "Schemas.targets"
+                tree = ET.parse(path)
+                generator = tree.getroot().find("Target")
+                cleanup = ET.Element("RemoveDir", Directories="$(IntermediateOutputPath)gen")
+                if inside:
+                    generator.insert(0, cleanup)
+                else:
+                    ET.SubElement(
+                        tree.getroot(), "Target", Name="_DeleteGenerated",
+                        BeforeTargets=generator.get("Name"),
+                    ).append(cleanup)
+                tree.write(path, encoding="utf-8")
+                result = self.grade(work, script, accepted=False)
+                self.assertIn("single-stale:" if inside else "unchanged:", result.stderr)
+
+    def test_schema_regeneration_is_limited_to_stale_inputs(self):
+        work, script = self.workspace("per-item-exec")
+        path = work / "per-file-exec" / "Schemas.targets"
+        tree = ET.parse(path)
+        group = ET.Element("ItemGroup")
+        ET.SubElement(group, "SchemaFile", Remove="@(SchemaFile)")
+        ET.SubElement(group, "SchemaFile", Include="schemas/**/*.json")
+        tree.getroot().find("Target").insert(0, group)
+        tree.write(path, encoding="utf-8")
+        result = self.grade(work, script, accepted=False)
+        self.assertIn("single-stale: generate only the stale schemas", result.stderr)
+
+    def test_unchanged_schema_timestamps_are_preserved(self):
+        work, script = self.workspace("per-item-exec")
+        path = work / "per-file-exec" / "Schemas.targets"
+        tree = ET.parse(path)
+        after = ET.SubElement(
+            tree.getroot(), "Target", Name="_RewriteCurrentOutput",
+            AfterTargets=tree.getroot().find("Target").get("Name"),
+        )
+        ET.SubElement(
+            after, "Touch", Files="$(IntermediateOutputPath)gen/Customer.g.cs", ForceTouch="true",
+        )
+        tree.write(path, encoding="utf-8")
+        result = self.grade(work, script, accepted=False)
+        self.assertIn("unchanged: preserve every generated output timestamp", result.stderr)
+
+    def test_single_stale_generation_preserves_current_timestamps(self):
+        work, script = self.workspace("per-item-exec")
+        path = work / "per-file-exec" / "Schemas.targets"
+        tree = ET.parse(path)
+        ET.SubElement(
+            tree.getroot().find("Target"), "Touch",
+            Files="$(IntermediateOutputPath)gen/Customer.g.cs", ForceTouch="true",
+        )
+        tree.write(path, encoding="utf-8")
+        result = self.grade(work, script, accepted=False)
+        self.assertIn("single-stale: preserve current outputs and their timestamps", result.stderr)
+
     def test_suite_contract_and_inline_graders(self):
         guards = [s for s in SPEC["stimuli"] if s.get("expect_activation") is False]
         self.assertEqual(len(guards), 7)
