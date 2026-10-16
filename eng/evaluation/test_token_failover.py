@@ -24,6 +24,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-run.yml"
 CALLER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation.yml"
 TEST_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-workflow-tests.yml"
+INFRA_ADVISORY_WORKFLOW = (
+    REPO_ROOT / ".github" / "workflows" / "fork-infra-check.yml"
+)
 EVAL_QUALITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "eval-quality.yml"
 DASHBOARD_GENERATOR = REPO_ROOT / "eng" / "dashboard" / "generate-benchmark-data.ps1"
 PATH_SAFETY_SCRIPT = REPO_ROOT / "eng" / "evaluation" / "path-safety.ps1"
@@ -2156,6 +2159,80 @@ esac
             "import.meta.resolve('@github/copilot-linux-x64/sdk')",
             smoke_script,
         )
+
+    def test_evaluation_infrastructure_advisory_is_metadata_only(self) -> None:
+        workflow = yaml.safe_load(
+            INFRA_ADVISORY_WORKFLOW.read_text(encoding="utf-8")
+        )
+        triggers = workflow.get("on", workflow.get(True))
+        self.assertEqual(
+            triggers["pull_request_target"]["types"],
+            ["opened", "synchronize", "reopened"],
+        )
+        self.assertEqual(workflow["permissions"], {"pull-requests": "write"})
+
+        fork_job = workflow["jobs"]["check-fork-infra"]
+        self.assertIn("github.event.action == 'opened'", fork_job["if"])
+        self.assertIn(
+            "github.event.pull_request.head.repo.full_name != github.repository",
+            fork_job["if"],
+        )
+
+        advisory_job = workflow["jobs"]["check-evaluation-infra"]
+        self.assertNotIn("permissions", advisory_job)
+        steps = advisory_job["steps"]
+        self.assertEqual(len(steps), 1)
+        step = steps[0]
+        self.assertEqual(
+            step["uses"],
+            "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3",
+        )
+        self.assertNotIn("run", step)
+        self.assertNotIn("secrets", json.dumps(advisory_job))
+
+        script = step["with"]["script"]
+        self.assertIn(
+            "github.paginate(github.rest.pulls.listFiles",
+            script,
+        )
+        self.assertIn(
+            "github.paginate(github.rest.issues.listComments",
+            script,
+        )
+        self.assertIn(
+            "<!-- eval-infra-full-eval-required -->",
+            script,
+        )
+        self.assertNotIn("<!-- pr-triage:fingerprint=", script)
+
+        for path in (
+            "eng/evaluation-tools/",
+            "eng/vally-adapter/",
+            "eng/evaluation/find-targets.ps1",
+            "eng/evaluation/path-safety.ps1",
+            "eng/skill-validator/src/",
+            "dotnet-skills.experiment.yaml",
+            ".github/workflows/evaluation.yml",
+            ".github/workflows/evaluation-run.yml",
+        ):
+            self.assertIn(path, script)
+
+        for expected_text in (
+            "A full evaluation is required before this PR merges.",
+            "trusted branch or ref in `dotnet/skills`",
+            "Leave the `plugin` input blank",
+            "default model profile is sufficient",
+            "The PR `/evaluate` command is not sufficient",
+            "first promote the commit to a reviewed branch in `dotnet/skills`",
+        ):
+            self.assertIn(expected_text, script)
+
+    def test_infrastructure_advisory_changes_run_workflow_tests(self) -> None:
+        workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
+        triggers = workflow.get("on", workflow.get(True))
+        advisory_path = ".github/workflows/fork-infra-check.yml"
+        for event in ("pull_request", "push"):
+            self.assertEqual(triggers[event]["paths"].count(advisory_path), 1)
 
     def test_path_safety_helper_changes_run_workflow_tests(self) -> None:
         workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))

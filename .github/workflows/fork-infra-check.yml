@@ -1,13 +1,14 @@
 name: Fork Infrastructure Check
 
-# Only run on PR creation (opened), never on subsequent pushes/edits,
-# so we post at most one comment per PR.
+# Runs from the base branch and inspects PR metadata only. It never checks out
+# or executes PR-controlled content.
 on:
   pull_request_target:
-    types: [opened]
+    types: [opened, synchronize, reopened]
     paths:
       - 'eng/**'
       - '.github/**'
+      - 'dotnet-skills.experiment.yaml'
 
 permissions:
   pull-requests: write
@@ -15,7 +16,9 @@ permissions:
 jobs:
   check-fork-infra:
     name: Check fork PRs touching infrastructure
-    if: github.event.pull_request.head.repo.full_name != github.repository
+    if: >-
+      github.event.action == 'opened' &&
+      github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
 
     steps:
@@ -34,5 +37,77 @@ jobs:
                 '> Changes to infrastructure typically need to be submitted from a branch in `dotnet/skills` (not a fork) so that CI workflows run with the correct permissions and secrets.',
                 '>',
                 '> Please consider recreating this PR from an upstream branch. If you don\'t have push access to `dotnet/skills`, ask a maintainer to push your branch for you.'
+              ].join('\n')
+            });
+
+  check-evaluation-infra:
+    name: Check evaluation infrastructure changes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Post full evaluation advisory
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const marker = '<!-- eval-infra-full-eval-required -->';
+            const exactPaths = new Set([
+              'eng/evaluation/find-targets.ps1',
+              'eng/evaluation/path-safety.ps1',
+              'dotnet-skills.experiment.yaml',
+              '.github/workflows/evaluation.yml',
+              '.github/workflows/evaluation-run.yml'
+            ]);
+            const pathPrefixes = [
+              'eng/evaluation-tools/',
+              'eng/vally-adapter/',
+              'eng/skill-validator/src/'
+            ];
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              per_page: 100
+            });
+            const changesEvaluationInfrastructure = files.some(({ filename }) =>
+              exactPaths.has(filename) ||
+              pathPrefixes.some(prefix => filename.startsWith(prefix))
+            );
+            if (!changesEvaluationInfrastructure) {
+              core.info('No evaluation infrastructure changes found.');
+              return;
+            }
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              per_page: 100
+            });
+            const alreadyCommented = comments.some(comment =>
+              comment.user?.login === 'github-actions[bot]' &&
+              comment.body?.includes(marker)
+            );
+            if (alreadyCommented) {
+              core.info('The evaluation infrastructure advisory already exists.');
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: [
+                marker,
+                '> [!IMPORTANT]',
+                '> **A full evaluation is required before this PR merges.**',
+                '>',
+                '> This PR changes evaluation infrastructure. A maintainer must manually dispatch the `evaluation` workflow from a reviewed, trusted branch or ref in `dotnet/skills`.',
+                '>',
+                '> Leave the `plugin` input blank so the workflow discovers all plugins. The default model profile is sufficient unless this change is model-specific.',
+                '>',
+                '> The PR `/evaluate` command is not sufficient for this validation because it intentionally uses trusted evaluation tooling from the workflow ref.',
+                '>',
+                '> For a fork PR, first promote the commit to a reviewed branch in `dotnet/skills` before dispatching the workflow.'
               ].join('\n')
             });
