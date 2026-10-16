@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "maui-collectionview-grid-gallery",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "```xml\n<ContentPage xmlns=\"http://schemas.microsoft.com/dotnet/2021/maui\"\n             xmlns:x=\"http://schemas.microsoft.com/winfx/2009/xaml\"\n             xmlns:models=\"clr-namespace:Gallery.Models\"\n             xmlns:vm=\"clr-namespace:Gallery.ViewModels\"\n             x:Class=\"Gallery.PhotosPage\"\n             x:DataType=\"vm:PhotosViewModel\">\n    <CollectionView ItemsSource=\"{Binding Photos}\">\n        <CollectionView.ItemsLayout>\n            <GridItemsLayout Orientation=\"Vertical\"\n                             Span=\"3\"\n                             HorizontalItemSpacing=\"8\"\n                             VerticalItemSpacing=\"8\" />\n        </CollectionView.ItemsLayout>\n        <CollectionView.ItemTemplate>\n            <DataTemplate x:DataType=\"models:Photo\">\n                <Border Padding=\"4\" StrokeThickness=\"0\">\n                    <VerticalStackLayout Spacing=\"4\">\n                        <Image Source=\"{Binding ImageSource}\"\n                               Aspect=\"AspectFill\"\n                               HeightRequest=\"120\" />\n                        <Label Text=\"{Binding Caption}\"\n                               HorizontalTextAlignment=\"Center\" />\n                    </VerticalStackLayout>\n                </Border>\n            </DataTemplate>\n        </CollectionView.ItemTemplate>\n    </CollectionView>\n</ContentPage>\n```\n\nThis is only the requested three-column gallery: it adds no selection, refresh, grouping, or `ViewCell`."
+    }
+  ]
+}

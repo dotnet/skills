@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "maui-shell-dormancy-app-links",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "This is platform app-link association, not an in-app route change. For Android, the activity declaration needs an HTTPS intent filter for the host and order path:\n\n```csharp\n[IntentFilter(\n    new[] { Android.Content.Intent.ActionView },\n    Categories = new[]\n    {\n        Android.Content.Intent.CategoryDefault,\n        Android.Content.Intent.CategoryBrowsable\n    },\n    DataScheme = \"https\",\n    DataHost = \"example.com\",\n    DataPathPrefix = \"/orders\")]\npublic class MainActivity : MauiAppCompatActivity\n{\n}\n```\n\nThe site must serve `https://example.com/.well-known/assetlinks.json` with the real Android package name and signing-certificate SHA-256 fingerprint:\n\n```json\n[{\n  \"relation\": [\"delegate_permission/common.handle_all_urls\"],\n  \"target\": {\n    \"namespace\": \"android_app\",\n    \"package_name\": \"com.example.shop\",\n    \"sha256_cert_fingerprints\": [\"AA:BB:...:FF\"]\n  }\n}]\n```\n\nFor iOS, the signed app entitlement must contain `applinks:example.com` under `com.apple.developer.associated-domains`. The site must also serve `https://example.com/.well-known/apple-app-site-association` as JSON, without a filename extension or redirect:\n\n```json\n{\n  \"applinks\": {\n    \"details\": [{\n      \"appIDs\": [\"TEAMID.com.example.shop\"],\n      \"components\": [{ \"/\": \"/orders/*\" }]\n    }]\n  }\n}\n```\n\nReplace the placeholder package, fingerprint, team, and bundle identifiers with the signed production values, then test the HTTPS URL on installed release-signed builds. No Shell hierarchy registration is part of this setup, and no files were changed during this read-only answer."
+    }
+  ]
+}

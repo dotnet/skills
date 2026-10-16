@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "maui-collectionview-basic-advisory",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Because the collection changes after loading, expose it as `ObservableCollection<Product>`:\n\n```csharp\npublic sealed class ProductsViewModel\n{\n    public ObservableCollection<Product> Products { get; } = [];\n}\n```\n\nThe page and item types both participate in compiled binding:\n\n```xml\n<ContentPage xmlns=\"http://schemas.microsoft.com/dotnet/2021/maui\"\n             xmlns:x=\"http://schemas.microsoft.com/winfx/2009/xaml\"\n             xmlns:models=\"clr-namespace:Shop.Models\"\n             xmlns:vm=\"clr-namespace:Shop.ViewModels\"\n             x:Class=\"Shop.ProductsPage\"\n             x:DataType=\"vm:ProductsViewModel\">\n    <CollectionView ItemsSource=\"{Binding Products}\"\n                    ItemsLayout=\"VerticalList\">\n        <CollectionView.ItemTemplate>\n            <DataTemplate x:DataType=\"models:Product\">\n                <Grid Padding=\"8\" ColumnDefinitions=\"*,Auto\">\n                    <Label Text=\"{Binding Name}\" />\n                    <Label Grid.Column=\"1\"\n                           Text=\"{Binding Price, StringFormat='{}{0:C}'}\" />\n                </Grid>\n            </DataTemplate>\n        </CollectionView.ItemTemplate>\n    </CollectionView>\n</ContentPage>\n```\n\n`Grid` is the template root; a `ViewCell` must not be used with this control."
+    }
+  ]
+}

@@ -54,6 +54,7 @@ whenever they are relevant to what the user asked.
 | Any `GoToAsync` call | `await` it | Fire-and-forget — exceptions are swallowed and navigation races |
 | Confirming before back navigation | `ShellNavigatingEventArgs.GetDeferral()` … `deferral.Complete()` | Blocking synchronously on the dialog task |
 | Detecting back navigation | Check `e.Source == ShellNavigationSource.Pop` | Assuming every navigation is a back action |
+| Editing navigation files | Run the repository's documented validator, XAML compile, or smallest relevant build/check after the edit | A plausible XAML/code change is not complete until the repository's own check passes |
 
 **Do not** propose `NavigationPage` / `PushAsync` solutions for a Shell app, and do
 not restructure a working `AppShell` hierarchy unless the user asked.
@@ -102,6 +103,9 @@ You can omit intermediate wrappers. Shell auto-wraps:
 4. **Always use `ContentTemplate`** with `DataTemplate` so pages load on demand
 5. **Give every `ShellContent` an explicit `Route`** (see below)
 6. Register detail-page routes in the `AppShell` constructor
+7. After editing files, run the repository's documented validator, XAML compile,
+   or smallest relevant build or syntax check. Report the exact command and result.
+   Never claim validation passed if the command was not run or did not exit 0.
 
 > **Set `Route=` on every `ShellContent`.** If you omit it, MAUI auto-generates a
 > name from a shared counter — `Routing.cs` produces `D_FAULT_{TypeName}{n}`. A real
@@ -380,6 +384,9 @@ protected override void OnNavigated(ShellNavigatedEventArgs args)
 - **Wrong absolute route path**: Absolute routes must match the full path through the visual hierarchy (`//FlyoutItem/Tab/ShellContent`). Wrong paths produce silent no-ops, not exceptions.
 - **Manipulating Tab.Stack directly**: The navigation stack is read-only. Use `GoToAsync` for all navigation changes.
 - **Forgetting `GetDeferral()` for async guards**: Synchronous cancellation in `OnNavigating` works, but async checks require `GetDeferral()` / `deferral.Complete()` to avoid race conditions.
+- **Stopping after an edit**: Run the repository's documented validator, XAML
+  compile, or build check after the final edit and report its actual result. Do
+  not substitute a visual inspection or claim success without execution evidence.
 
 ## References
 

@@ -1,0 +1,75 @@
+{
+  "microsoft.net.sdk.android": {
+    "workload": {
+      "alias": [
+        "android"
+      ],
+      "version": "35.0.50"
+    },
+    "jdk": {
+      "version": "[17.0,22.0)",
+      "recommendedVersion": "17.0.12"
+    },
+    "androidsdk": {
+      "packages": [
+        {
+          "desc": "Android SDK Build-Tools 35",
+          "sdkPackage": {
+            "id": "build-tools;35.0.0"
+          },
+          "optional": "false"
+        },
+        {
+          "desc": "Android SDK Command-line Tools",
+          "sdkPackage": {
+            "id": "cmdline-tools;12.0"
+          },
+          "optional": "false"
+        },
+        {
+          "desc": "Android Emulator",
+          "sdkPackage": {
+            "id": "emulator",
+            "recommendedVersion": "35.1.20"
+          },
+          "optional": "true"
+        },
+        {
+          "desc": "NDK (Side by side) 26.1.10909125",
+          "sdkPackage": {
+            "id": "ndk;26.1.10909125"
+          },
+          "optional": "true"
+        },
+        {
+          "desc": "Android SDK Platform 35",
+          "sdkPackage": {
+            "id": "platforms;android-35"
+          },
+          "optional": "false"
+        },
+        {
+          "desc": "Android SDK Platform-Tools",
+          "sdkPackage": {
+            "id": "platform-tools",
+            "recommendedVersion": "34.0.5"
+          },
+          "optional": "false"
+        },
+        {
+          "desc": "Google APIs ARM 64 v8a System Image",
+          "sdkPackage": {
+            "id": {
+              "win-x64": "system-images;android-35;google_apis;x86_64",
+              "mac-x64": "system-images;android-35;google_apis;x86_64",
+              "linux-x64": "system-images;android-35;google_apis;x86_64",
+              "mac-arm64": "system-images;android-35;google_apis;arm64-v8a",
+              "linux-arm64": "system-images;android-35;google_apis;arm64-v8a"
+            }
+          },
+          "optional": "true"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,26 @@
+diff --git a/repair/InventoryPage.xaml b/repair/InventoryPage.xaml
+--- a/repair/InventoryPage.xaml
++++ b/repair/InventoryPage.xaml
+@@ -3,15 +3,14 @@
+              xmlns:models="clr-namespace:Warehouse.Models"
+              xmlns:vm="clr-namespace:Warehouse.ViewModels"
+-             x:Class="Warehouse.InventoryPage">
++             x:Class="Warehouse.InventoryPage"
++             x:DataType="vm:InventoryViewModel">
+     <CollectionView ItemsSource="{Binding Items}">
+         <CollectionView.ItemTemplate>
+-            <DataTemplate>
+-                <ViewCell>
+-                    <Grid Padding="12" ColumnDefinitions="*,Auto">
+-                        <Label Text="{Binding Name}" />
+-                        <Label Grid.Column="1" Text="{Binding Quantity}" />
+-                    </Grid>
+-                </ViewCell>
++            <DataTemplate x:DataType="models:InventoryItem">
++                <Grid Padding="12" ColumnDefinitions="*,Auto">
++                    <Label Text="{Binding Name}" />
++                    <Label Grid.Column="1" Text="{Binding Quantity}" />
++                </Grid>
+             </DataTemplate>
+         </CollectionView.ItemTemplate>
+     </CollectionView>
