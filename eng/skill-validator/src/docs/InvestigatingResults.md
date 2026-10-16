@@ -321,7 +321,10 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > hyphens, plus a fully qualified Windows drive prefix. This applies even when
 > SDK path metadata is absent or contains only a safe operand. Comma arrays,
 > expression syntax, PowerShell provider/alternate-stream paths, drive-relative
-> paths, and UNC/network roots are rejected rather than checked as one filename.
+> paths, parent-traversal (`..`) segments, and UNC/network roots are rejected
+> rather than checked as one filename. Parent segments are rejected before
+> normalization: collapsing `link/../file` could otherwise erase a link that the
+> native filesystem follows before traversing to its parent.
 > Ordinary relative/absolute workspace paths, quoted spaces and separate literal
 > path arguments remain supported.
 >

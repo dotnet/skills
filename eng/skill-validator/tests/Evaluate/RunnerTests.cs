@@ -1520,6 +1520,68 @@ public class BuildSessionConfigTests
     }
 
     [TestMethod]
+    [DataRow("cat")]
+    [DataRow("Get-Content")]
+    [DataRow("ls")]
+    [DataRow("Get-ChildItem")]
+    public async Task RecoveredPathsRejectParentTraversalBeforeLinkNormalization(string tool)
+    {
+        var root = Directory.CreateTempSubdirectory("shell-parent-traversal-");
+        try
+        {
+            var workDir = Directory.CreateDirectory(Path.Combine(root.FullName, "work"));
+            var outside = Directory.CreateDirectory(Path.Combine(root.FullName, "outside"));
+            var subdir = Directory.CreateDirectory(Path.Combine(outside.FullName, "subdir"));
+            await File.WriteAllTextAsync(Path.Combine(workDir.FullName, "secret.txt"), "workspace-marker");
+            await File.WriteAllTextAsync(Path.Combine(outside.FullName, "secret.txt"), "outside-marker");
+            try
+            {
+                Directory.CreateSymbolicLink(Path.Combine(workDir.FullName, "link"), subdir.FullName);
+            }
+            catch (UnauthorizedAccessException) when (OperatingSystem.IsWindows())
+            {
+                Assert.Inconclusive("Creating symbolic links requires Windows Developer Mode or elevation.");
+            }
+
+            if (!OperatingSystem.IsWindows() && tool == "cat")
+            {
+                using var process = Process.Start(new ProcessStartInfo("/bin/cat")
+                {
+                    ArgumentList = { "link/../secret.txt" },
+                    WorkingDirectory = workDir.FullName,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                })!;
+                var output = await process.StandardOutput.ReadToEndAsync();
+                Assert.IsTrue(process.WaitForExit(5_000));
+                Assert.AreEqual(0, process.ExitCode, await process.StandardError.ReadToEndAsync());
+                Assert.Contains("outside-marker", output);
+                Assert.DoesNotContain("workspace-marker", output);
+            }
+
+            var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir.FullName);
+            foreach (var operand in new[]
+            {
+                "link/../secret.txt",
+                $"{workDir.FullName}/link/../secret.txt",
+            })
+            {
+                foreach (var paths in new[] { Array.Empty<string>(), new[] { Path.Combine(workDir.FullName, "secret.txt") } })
+                {
+                    Assert.IsFalse(await RunShellPermissionPipelineAsync(
+                        config, MakeShellRequest($"{tool} \"{operand}\"", paths),
+                        execute: () => Assert.Fail("Traversal must be rejected before link normalization")));
+                }
+            }
+        }
+        finally
+        {
+            root.Delete(recursive: true);
+        }
+    }
+
+    [TestMethod]
     public async Task NativePowerShellArrayReadIsDeniedWhileLiteralReadExecutes()
     {
         var root = Directory.CreateTempSubdirectory("powershell-path-boundary-");
@@ -1695,6 +1757,11 @@ public class BuildSessionConfigTests
     [DataRow("dotnet build //server/share/outside.csproj")]
     [DataRow("dotnet test --project safe.csproj --results-directory safe,../outside")]
     [DataRow("dotnet test --project safe.csproj --report-trx-filename safe,../outside.trx")]
+    [DataRow("dotnet build link/../safe.csproj")]
+    [DataRow("dotnet build --project link/../safe.csproj")]
+    [DataRow("dotnet build safe.csproj --output link/../output")]
+    [DataRow("dotnet test safe.csproj --results-directory link/../results")]
+    [DataRow("dotnet test safe.csproj --report-trx-filename link/../results.trx")]
     public void ScopedDotnetFallbackRejectsUnknownOrComputedShellForms(string command)
     {
         Assert.IsNull(AgentRunner.GetScopedDotnetCommandPaths(command));

@@ -70,7 +70,7 @@ internal sealed class RunEventBuffer
 
 public static class AgentRunner
 {
-    internal const string ExecutionContractVersion = "literal-path-shell-permissions-v5";
+    internal const string ExecutionContractVersion = "literal-no-parent-traversal-shell-permissions-v6";
     private static readonly HashSet<string> EvaluatorOnlySetupEntries =
         new(StringComparer.OrdinalIgnoreCase)
         {
@@ -581,6 +581,7 @@ public static class AgentRunner
         if (string.IsNullOrWhiteSpace(path) || path.StartsWith('-')
             || !path.All(character => char.IsLetterOrDigit(character)
                 || character is ' ' or '/' or '\\' or '.' or '_' or '-' or ':')
+            || path.Split(['/', '\\']).Any(segment => segment == "..")
             || (path.Length >= 2 && (path[0] is '/' or '\\') && (path[1] is '/' or '\\')))
             return false;
 

@@ -35,6 +35,7 @@ public class BaselineStoreTests
     [DataRow("")]
     [DataRow("workspace-and-typed-shell-permissions-v3")]
     [DataRow("absolute-trusted-shell-permissions-v4")]
+    [DataRow("literal-path-shell-permissions-v5")]
     public void ExecutionContractChangesInvalidateLegacyBaselineIdentity(string previousContract)
     {
         var scenario = Scenario("legacy", "Inspect the project.");
