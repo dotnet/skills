@@ -1,0 +1,862 @@
+diff --git a/fixtures/mvc-existing-dbcontext/CatalogMvc.csproj b/fixtures/mvc-existing-dbcontext/CatalogMvc.csproj
+index 062c5ba..32d40ed 100644
+--- a/fixtures/mvc-existing-dbcontext/CatalogMvc.csproj
++++ b/fixtures/mvc-existing-dbcontext/CatalogMvc.csproj
+@@ -7,6 +7,10 @@
+   </PropertyGroup>
+
+   <ItemGroup>
++    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.3">
++      <PrivateAssets>all</PrivateAssets>
++      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
++    </PackageReference>
+     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.3" />
+   </ItemGroup>
+
+diff --git a/fixtures/mvc-existing-dbcontext/Controllers/AuthorsController.cs b/fixtures/mvc-existing-dbcontext/Controllers/AuthorsController.cs
+new file mode 100644
+index 0000000..6936513
+--- /dev/null
++++ b/fixtures/mvc-existing-dbcontext/Controllers/AuthorsController.cs
+@@ -0,0 +1,123 @@
++using CatalogMvc.Data;
++using CatalogMvc.Models;
++using Microsoft.AspNetCore.Mvc;
++using Microsoft.EntityFrameworkCore;
++
++namespace CatalogMvc.Controllers;
++
++public class AuthorsController(CatalogDbContext context) : Controller
++{
++    public async Task<IActionResult> Index()
++    {
++        var authors = await context.Authors
++            .AsNoTracking()
++            .OrderBy(author => author.Name)
++            .ToListAsync();
++
++        return View(authors);
++    }
++
++    public async Task<IActionResult> Details(int? id)
++    {
++        if (id is null)
++        {
++            return NotFound();
++        }
++
++        var author = await context.Authors
++            .AsNoTracking()
++            .Include(item => item.Books)
++            .FirstOrDefaultAsync(item => item.Id == id);
++
++        return author is null ? NotFound() : View(author);
++    }
++
++    public IActionResult Create() => View();
++
++    [HttpPost]
++    [ValidateAntiForgeryToken]
++    public async Task<IActionResult> Create([Bind("Name")] Author author)
++    {
++        if (!ModelState.IsValid)
++        {
++            return View(author);
++        }
++
++        context.Add(author);
++        await context.SaveChangesAsync();
++        return RedirectToAction(nameof(Index));
++    }
++
++    public async Task<IActionResult> Edit(int? id)
++    {
++        if (id is null)
++        {
++            return NotFound();
++        }
++
++        var author = await context.Authors.FindAsync(id);
++        return author is null ? NotFound() : View(author);
++    }
++
++    [HttpPost]
++    [ValidateAntiForgeryToken]
++    public async Task<IActionResult> Edit(int id, [Bind("Id,Name")] Author author)
++    {
++        if (id != author.Id)
++        {
++            return NotFound();
++        }
++
++        if (!ModelState.IsValid)
++        {
++            return View(author);
++        }
++
++        try
++        {
++            context.Update(author);
++            await context.SaveChangesAsync();
++        }
++        catch (DbUpdateConcurrencyException)
++        {
++            if (!await context.Authors.AnyAsync(item => item.Id == author.Id))
++            {
++                return NotFound();
++            }
++
++            throw;
++        }
++
++        return RedirectToAction(nameof(Index));
++    }
++
++    public async Task<IActionResult> Delete(int? id)
++    {
++        if (id is null)
++        {
++            return NotFound();
++        }
++
++        var author = await context.Authors
++            .AsNoTracking()
++            .Include(item => item.Books)
++            .FirstOrDefaultAsync(item => item.Id == id);
++
++        return author is null ? NotFound() : View(author);
++    }
++
++    [HttpPost, ActionName("Delete")]
++    [ValidateAntiForgeryToken]
++    public async Task<IActionResult> DeleteConfirmed(int id)
++    {
++        var author = await context.Authors.FindAsync(id);
++        if (author is null)
++        {
++            return NotFound();
++        }
++
++        context.Authors.Remove(author);
++        await context.SaveChangesAsync();
++        return RedirectToAction(nameof(Index));
++    }
++}
+diff --git a/fixtures/mvc-existing-dbcontext/Controllers/BooksController.cs b/fixtures/mvc-existing-dbcontext/Controllers/BooksController.cs
+new file mode 100644
+index 0000000..dc3ecb1
+--- /dev/null
++++ b/fixtures/mvc-existing-dbcontext/Controllers/BooksController.cs
+@@ -0,0 +1,159 @@
++using CatalogMvc.Data;
++using CatalogMvc.Models;
++using Microsoft.AspNetCore.Mvc;
++using Microsoft.AspNetCore.Mvc.Rendering;
++using Microsoft.EntityFrameworkCore;
++
++namespace CatalogMvc.Controllers;
++
++public class BooksController(CatalogDbContext context) : Controller
++{
++    public async Task<IActionResult> Index()
++    {
++        var books = await context.Books
++            .AsNoTracking()
++            .Include(book => book.Author)
++            .OrderBy(book => book.Title)
++            .ToListAsync();
++
++        return View(books);
++    }
++
++    public async Task<IActionResult> Details(int? id)
++    {
++        if (id is null)
++        {
++            return NotFound();
++        }
++
++        var book = await context.Books
++            .AsNoTracking()
++            .Include(item => item.Author)
++            .FirstOrDefaultAsync(item => item.Id == id);
++
++        return book is null ? NotFound() : View(book);
++    }
++
++    public async Task<IActionResult> Create()
++    {
++        await PopulateAuthorsAsync();
++        return View();
++    }
++
++    [HttpPost]
++    [ValidateAntiForgeryToken]
++    public async Task<IActionResult> Create([Bind("Title,PublicationYear,AuthorId")] Book book)
++    {
++        var authorExists = await context.Authors.AnyAsync(author => author.Id == book.AuthorId);
++        if (!authorExists)
++        {
++            ModelState.AddModelError(nameof(book.AuthorId), "Select a valid author.");
++        }
++
++        if (ModelState.IsValid)
++        {
++            context.Add(book);
++            await context.SaveChangesAsync();
++            return RedirectToAction(nameof(Index));
++        }
++
++        await PopulateAuthorsAsync(book.AuthorId);
++        return View(book);
++    }
++
++    public async Task<IActionResult> Edit(int? id)
++    {
++        if (id is null)
++        {
++            return NotFound();
++        }
++
++        var book = await context.Books.FindAsync(id);
++        if (book is null)
++        {
++            return NotFound();
++        }
++
++        await PopulateAuthorsAsync(book.AuthorId);
++        return View(book);
++    }
++
++    [HttpPost]
++    [ValidateAntiForgeryToken]
++    public async Task<IActionResult> Edit(int id, [Bind("Id,Title,PublicationYear,AuthorId")] Book book)
++    {
++        if (id != book.Id)
++        {
++            return NotFound();
++        }
++
++        var authorExists = await context.Authors.AnyAsync(author => author.Id == book.AuthorId);
++        if (!authorExists)
++        {
++            ModelState.AddModelError(nameof(book.AuthorId), "Select a valid author.");
++        }
++
++        if (ModelState.IsValid)
++        {
++            try
++            {
++                context.Update(book);
++                await context.SaveChangesAsync();
++            }
++            catch (DbUpdateConcurrencyException)
++            {
++                if (!await context.Books.AnyAsync(item => item.Id == book.Id))
++                {
++                    return NotFound();
++                }
++
++                throw;
++            }
++
++            return RedirectToAction(nameof(Index));
++        }
++
++        await PopulateAuthorsAsync(book.AuthorId);
++        return View(book);
++    }
++
++    public async Task<IActionResult> Delete(int? id)
++    {
++        if (id is null)
++        {
++            return NotFound();
++        }
++
++        var book = await context.Books
++            .AsNoTracking()
++            .Include(item => item.Author)
++            .FirstOrDefaultAsync(item => item.Id == id);
++
++        return book is null ? NotFound() : View(book);
++    }
++
++    [HttpPost, ActionName("Delete")]
++    [ValidateAntiForgeryToken]
++    public async Task<IActionResult> DeleteConfirmed(int id)
++    {
++        var book = await context.Books.FindAsync(id);
++        if (book is null)
++        {
++            return NotFound();
++        }
++
++        context.Books.Remove(book);
++        await context.SaveChangesAsync();
++        return RedirectToAction(nameof(Index));
++    }
++
++    private async Task PopulateAuthorsAsync(int? selectedAuthorId = null)
++    {
++        var authors = await context.Authors
++            .AsNoTracking()
++            .OrderBy(author => author.Name)
++            .ToListAsync();
++
++        ViewData["AuthorId"] = new SelectList(authors, "Id", "Name", selectedAuthorId);
++    }
++}
+diff --git a/fixtures/mvc-existing-dbcontext/Migrations/20261012220000_InitialCreate.cs b/fixtures/mvc-existing-dbcontext/Migrations/20261012220000_InitialCreate.cs
+new file mode 100644
+index 0000000..1a9bd9a
+--- /dev/null
++++ b/fixtures/mvc-existing-dbcontext/Migrations/20261012220000_InitialCreate.cs
+@@ -0,0 +1,60 @@
++using CatalogMvc.Data;
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Migrations;
++
++#nullable disable
++
++namespace CatalogMvc.Migrations;
++
++[DbContext(typeof(CatalogDbContext))]
++[Migration("20261012220000_InitialCreate")]
++public partial class InitialCreate : Migration
++{
++    protected override void Up(MigrationBuilder migrationBuilder)
++    {
++        migrationBuilder.CreateTable(
++            name: "Authors",
++            columns: table => new
++            {
++                Id = table.Column<int>(type: "INTEGER", nullable: false)
++                    .Annotation("Sqlite:Autoincrement", true),
++                Name = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false)
++            },
++            constraints: table =>
++            {
++                table.PrimaryKey("PK_Authors", x => x.Id);
++            });
++
++        migrationBuilder.CreateTable(
++            name: "Books",
++            columns: table => new
++            {
++                Id = table.Column<int>(type: "INTEGER", nullable: false)
++                    .Annotation("Sqlite:Autoincrement", true),
++                Title = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
++                PublicationYear = table.Column<int>(type: "INTEGER", nullable: false),
++                AuthorId = table.Column<int>(type: "INTEGER", nullable: false)
++            },
++            constraints: table =>
++            {
++                table.PrimaryKey("PK_Books", x => x.Id);
++                table.ForeignKey(
++                    name: "FK_Books_Authors_AuthorId",
++                    column: x => x.AuthorId,
++                    principalTable: "Authors",
++                    principalColumn: "Id",
++                    onDelete: ReferentialAction.Cascade);
++            });
++
++        migrationBuilder.CreateIndex(
++            name: "IX_Books_AuthorId",
++            table: "Books",
++            column: "AuthorId");
++    }
++
++    protected override void Down(MigrationBuilder migrationBuilder)
++    {
++        migrationBuilder.DropTable(name: "Books");
++        migrationBuilder.DropTable(name: "Authors");
++    }
++}
+diff --git a/fixtures/mvc-existing-dbcontext/Migrations/CatalogDbContextModelSnapshot.cs b/fixtures/mvc-existing-dbcontext/Migrations/CatalogDbContextModelSnapshot.cs
+new file mode 100644
+index 0000000..b25e5f3
+--- /dev/null
++++ b/fixtures/mvc-existing-dbcontext/Migrations/CatalogDbContextModelSnapshot.cs
+@@ -0,0 +1,72 @@
++using CatalogMvc.Data;
++using Microsoft.EntityFrameworkCore;
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Metadata;
++
++#nullable disable
++
++namespace CatalogMvc.Migrations;
++
++[DbContext(typeof(CatalogDbContext))]
++partial class CatalogDbContextModelSnapshot : ModelSnapshot
++{
++    protected override void BuildModel(ModelBuilder modelBuilder)
++    {
++#pragma warning disable 612, 618
++        modelBuilder.HasAnnotation("ProductVersion", "10.0.3");
++
++        modelBuilder.Entity("CatalogMvc.Models.Author", entity =>
++        {
++            entity.Property<int>("Id")
++                .ValueGeneratedOnAdd()
++                .HasColumnType("INTEGER");
++
++            entity.Property<string>("Name")
++                .IsRequired()
++                .HasMaxLength(100)
++                .HasColumnType("TEXT");
++
++            entity.HasKey("Id");
++            entity.ToTable("Authors");
++        });
++
++        modelBuilder.Entity("CatalogMvc.Models.Book", entity =>
++        {
++            entity.Property<int>("Id")
++                .ValueGeneratedOnAdd()
++                .HasColumnType("INTEGER");
++
++            entity.Property<int>("AuthorId")
++                .HasColumnType("INTEGER");
++
++            entity.Property<int>("PublicationYear")
++                .HasColumnType("INTEGER");
++
++            entity.Property<string>("Title")
++                .IsRequired()
++                .HasMaxLength(200)
++                .HasColumnType("TEXT");
++
++            entity.HasKey("Id");
++            entity.HasIndex("AuthorId");
++            entity.ToTable("Books");
++        });
++
++        modelBuilder.Entity("CatalogMvc.Models.Book", entity =>
++        {
++            entity.HasOne("CatalogMvc.Models.Author", "Author")
++                .WithMany("Books")
++                .HasForeignKey("AuthorId")
++                .OnDelete(DeleteBehavior.Cascade)
++                .IsRequired();
++
++            entity.Navigation("Author");
++        });
++
++        modelBuilder.Entity("CatalogMvc.Models.Author", entity =>
++        {
++            entity.Navigation("Books");
++        });
++#pragma warning restore 612, 618
++    }
++}
+diff --git a/fixtures/mvc-existing-dbcontext/Models/Book.cs b/fixtures/mvc-existing-dbcontext/Models/Book.cs
+index aed126c..39c0ae4 100644
+--- a/fixtures/mvc-existing-dbcontext/Models/Book.cs
++++ b/fixtures/mvc-existing-dbcontext/Models/Book.cs
+@@ -13,6 +13,7 @@ public class Book
+     [Range(1, 10000)]
+     public int PublicationYear { get; set; }
+
++    [Range(1, int.MaxValue, ErrorMessage = "Select an author.")]
+     public int AuthorId { get; set; }
+
+     public Author Author { get; set; } = null!;
+diff --git a/fixtures/mvc-existing-dbcontext/Program.cs b/fixtures/mvc-existing-dbcontext/Program.cs
+index b41301d..ba5a5d5 100644
+--- a/fixtures/mvc-existing-dbcontext/Program.cs
++++ b/fixtures/mvc-existing-dbcontext/Program.cs
+@@ -11,16 +11,17 @@ var app = builder.Build();
+
+ if (!app.Environment.IsDevelopment())
+ {
+-    app.UseExceptionHandler("/Home/Error");
++    app.UseExceptionHandler("/Books");
+     app.UseHsts();
+ }
+
+ app.UseHttpsRedirection();
++app.UseStaticFiles();
+ app.UseRouting();
+ app.UseAuthorization();
+
+ app.MapControllerRoute(
+     name: "default",
+-    pattern: "{controller=Home}/{action=Index}/{id?}");
++    pattern: "{controller=Books}/{action=Index}/{id?}");
+
+ app.Run();
+diff --git a/fixtures/mvc-existing-dbcontext/Views/Authors/Create.cshtml b/fixtures/mvc-existing-dbcontext/Views/Authors/Create.cshtml
+new file mode 100644
+index 0000000..d2d0509
+--- /dev/null
++++ b/fixtures/mvc-existing-dbcontext/Views/Authors/Create.cshtml
+@@ -0,0 +1,22 @@
++@model Author
++@{
++    ViewData["Title"] = "Add author";
++}
++<h1>Add author</h1>
++<div class="row">
++    <div class="col-md-6">
++        <form asp-action="Create" method="post">
++            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
++            <div class="mb-3">
++                <label asp-for="Name" class="form-label"></label>
++                <input asp-for="Name" class="form-control" />
++                <span asp-validation-for="Name" class="text-danger"></span>
++            </div>
++            <button type="submit" class="btn btn-primary">Create</button>
++            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
++        </form>
++    </div>
++</div>
++@section Scripts {
++    <partial name="_ValidationScriptsPartial" />
++}
+diff --git a/fixtures/mvc-existing-dbcontext/Views/Authors/Delete.cshtml b/fixtures/mvc-existing-dbcontext/Views/Authors/Delete.cshtml
+new file mode 100644
+index 0000000..fa63603
+--- /dev/null
++++ b/fixtures/mvc-existing-dbcontext/Views/Authors/Delete.cshtml
+@@ -0,0 +1,17 @@
++@model Author
++@{
++    ViewData["Title"] = "Delete author";
++}
++<h1>Delete author</h1>
++<div class="alert alert-warning">
++    Deleting this author also deletes @Model.Books.Count associated book(s). Are you sure?
++</div>
++<dl class="row">
++    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Name)</dt>
++    <dd class="col-sm-9">@Html.DisplayFor(model => model.Name)</dd>
++</dl>
++<form asp-action="Delete" method="post">
++    <input type="hidden" asp-for="Id" />
++    <button type="submit" class="btn btn-danger">Delete</button>
++    <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
++</form>
+diff --git a/fixtures/mvc-existing-dbcontext/Views/Authors/Details.cshtml b/fixtures/mvc-existing-dbcontext/Views/Authors/Details.cshtml
+new file mode 100644
+index 0000000..6de6cb4
+--- /dev/null
++++ b/fixtures/mvc-existing-dbcontext/Views/Authors/Details.cshtml
+@@ -0,0 +1,28 @@
++@model Author
++@{
++    ViewData["Title"] = "Author details";
++}
++<h1>Author details</h1>
++<dl class="row">
++    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Name)</dt>
++    <dd class="col-sm-9">@Html.DisplayFor(model => model.Name)</dd>
++</dl>
++<h2 class="h4">Books</h2>
++@if (Model.Books.Count == 0)
++{
++    <p class="text-muted">No books are assigned to this author.</p>
++}
++else
++{
++    <ul class="list-group mb-3">
++    @foreach (var book in Model.Books.OrderBy(book => book.Title))
++    {
++        <li class="list-group-item d-flex justify-content-between align-items-center">
++            @book.Title
++            <a asp-controller="Books" asp-action="Details" asp-route-id="@book.Id" class="btn btn-sm btn-outline-secondary">View</a>
++        </li>
++    }
++    </ul>
++}
++<a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
++<a asp-action="Index" class="btn btn-outline-secondary">Back to list</a>
+diff --git a/fixtures/mvc-existing-dbcontext/Views/Authors/Edit.cshtml b/fixtures/mvc-existing-dbcontext/Views/Authors/Edit.cshtml
+new file mode 100644
+index 0000000..d1d9718
+--- /dev/null
++++ b/fixtures/mvc-existing-dbcontext/Views/Authors/Edit.cshtml
+@@ -0,0 +1,23 @@
++@model Author
++@{
++    ViewData["Title"] = "Edit author";
++}
++<h1>Edit author</h1>
++<div class="row">
++    <div class="col-md-6">
++        <form asp-action="Edit" method="post">
++            <input type="hidden" asp-for="Id" />
++            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
++            <div class="mb-3">
++                <label asp-for="Name" class="form-label"></label>
++                <input asp-for="Name" class="form-control" />
++                <span asp-validation-for="Name" class="text-danger"></span>
++            </div>
++            <button type="submit" class="btn btn-primary">Save</button>
++            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
++        </form>
++    </div>
++</div>
++@section Scripts {
++    <partial name="_ValidationScriptsPartial" />
++}
+diff --git a/fixtures/mvc-existing-dbcontext/Views/Authors/Index.cshtml b/fixtures/mvc-existing-dbcontext/Views/Authors/Index.cshtml
+new file mode 100644
+index 0000000..6b4b780
+--- /dev/null
++++ b/fixtures/mvc-existing-dbcontext/Views/Authors/Index.cshtml
+@@ -0,0 +1,29 @@
++@model IEnumerable<Author>
++@{
++    ViewData["Title"] = "Authors";
++}
++<div class="d-flex justify-content-between align-items-center mb-3">
++    <h1>Authors</h1>
++    <a asp-action="Create" class="btn btn-primary">Add author</a>
++</div>
++<table class="table table-striped align-middle">
++    <thead>
++        <tr>
++            <th>@Html.DisplayNameFor(model => model.Name)</th>
++            <th></th>
++        </tr>
++    </thead>
++    <tbody>
++@foreach (var item in Model)
++{
++        <tr>
++            <td>@Html.DisplayFor(_ => item.Name)</td>
++            <td class="text-end">
++                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary">Edit</a>
++                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Details</a>
++                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger">Delete</a>
++            </td>
++        </tr>
++}
++    </tbody>
++</table>
+diff --git a/fixtures/mvc-existing-dbcontext/Views/Books/Create.cshtml b/fixtures/mvc-existing-dbcontext/Views/Books/Create.cshtml
+new file mode 100644
+index 0000000..9e8436b
+--- /dev/null
++++ b/fixtures/mvc-existing-dbcontext/Views/Books/Create.cshtml
+@@ -0,0 +1,34 @@
++@model Book
++@{
++    ViewData["Title"] = "Add book";
++}
++<h1>Add book</h1>
++<div class="row">
++    <div class="col-md-6">
++        <form asp-action="Create" method="post">
++            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
++            <div class="mb-3">
++                <label asp-for="Title" class="form-label"></label>
++                <input asp-for="Title" class="form-control" />
++                <span asp-validation-for="Title" class="text-danger"></span>
++            </div>
++            <div class="mb-3">
++                <label asp-for="PublicationYear" class="form-label"></label>
++                <input asp-for="PublicationYear" class="form-control" />
++                <span asp-validation-for="PublicationYear" class="text-danger"></span>
++            </div>
++            <div class="mb-3">
++                <label asp-for="AuthorId" class="form-label">Author</label>
++                <select asp-for="AuthorId" class="form-select" asp-items="ViewBag.AuthorId">
++                    <option value="">Select an author</option>
++                </select>
++                <span asp-validation-for="AuthorId" class="text-danger"></span>
++            </div>
++            <button type="submit" class="btn btn-primary">Create</button>
++            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
++        </form>
++    </div>
++</div>
++@section Scripts {
++    <partial name="_ValidationScriptsPartial" />
++}
+diff --git a/fixtures/mvc-existing-dbcontext/Views/Books/Delete.cshtml b/fixtures/mvc-existing-dbcontext/Views/Books/Delete.cshtml
+new file mode 100644
+index 0000000..1a5b6aa
+--- /dev/null
++++ b/fixtures/mvc-existing-dbcontext/Views/Books/Delete.cshtml
+@@ -0,0 +1,19 @@
++@model Book
++@{
++    ViewData["Title"] = "Delete book";
++}
++<h1>Delete book</h1>
++<div class="alert alert-warning">Are you sure you want to delete this book?</div>
++<dl class="row">
++    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Title)</dt>
++    <dd class="col-sm-9">@Html.DisplayFor(model => model.Title)</dd>
++    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.PublicationYear)</dt>
++    <dd class="col-sm-9">@Html.DisplayFor(model => model.PublicationYear)</dd>
++    <dt class="col-sm-3">Author</dt>
++    <dd class="col-sm-9">@Html.DisplayFor(model => model.Author.Name)</dd>
++</dl>
++<form asp-action="Delete" method="post">
++    <input type="hidden" asp-for="Id" />
++    <button type="submit" class="btn btn-danger">Delete</button>
++    <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
++</form>
+diff --git a/fixtures/mvc-existing-dbcontext/Views/Books/Details.cshtml b/fixtures/mvc-existing-dbcontext/Views/Books/Details.cshtml
+new file mode 100644
+index 0000000..4789aa4
+--- /dev/null
++++ b/fixtures/mvc-existing-dbcontext/Views/Books/Details.cshtml
+@@ -0,0 +1,15 @@
++@model Book
++@{
++    ViewData["Title"] = "Book details";
++}
++<h1>Book details</h1>
++<dl class="row">
++    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Title)</dt>
++    <dd class="col-sm-9">@Html.DisplayFor(model => model.Title)</dd>
++    <dt class="col-sm-3">@Html.DisplayNameFor(model => model.PublicationYear)</dt>
++    <dd class="col-sm-9">@Html.DisplayFor(model => model.PublicationYear)</dd>
++    <dt class="col-sm-3">Author</dt>
++    <dd class="col-sm-9">@Html.DisplayFor(model => model.Author.Name)</dd>
++</dl>
++<a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
++<a asp-action="Index" class="btn btn-outline-secondary">Back to list</a>
+diff --git a/fixtures/mvc-existing-dbcontext/Views/Books/Edit.cshtml b/fixtures/mvc-existing-dbcontext/Views/Books/Edit.cshtml
+new file mode 100644
+index 0000000..c5954d0
+--- /dev/null
++++ b/fixtures/mvc-existing-dbcontext/Views/Books/Edit.cshtml
+@@ -0,0 +1,33 @@
++@model Book
++@{
++    ViewData["Title"] = "Edit book";
++}
++<h1>Edit book</h1>
++<div class="row">
++    <div class="col-md-6">
++        <form asp-action="Edit" method="post">
++            <input type="hidden" asp-for="Id" />
++            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
++            <div class="mb-3">
++                <label asp-for="Title" class="form-label"></label>
++                <input asp-for="Title" class="form-control" />
++                <span asp-validation-for="Title" class="text-danger"></span>
++            </div>
++            <div class="mb-3">
++                <label asp-for="PublicationYear" class="form-label"></label>
++                <input asp-for="PublicationYear" class="form-control" />
++                <span asp-validation-for="PublicationYear" class="text-danger"></span>
++            </div>
++            <div class="mb-3">
++                <label asp-for="AuthorId" class="form-label">Author</label>
++                <select asp-for="AuthorId" class="form-select" asp-items="ViewBag.AuthorId"></select>
++                <span asp-validation-for="AuthorId" class="text-danger"></span>
++            </div>
++            <button type="submit" class="btn btn-primary">Save</button>
++            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
++        </form>
++    </div>
++</div>
++@section Scripts {
++    <partial name="_ValidationScriptsPartial" />
++}
+diff --git a/fixtures/mvc-existing-dbcontext/Views/Books/Index.cshtml b/fixtures/mvc-existing-dbcontext/Views/Books/Index.cshtml
+new file mode 100644
+index 0000000..6616767
+--- /dev/null
++++ b/fixtures/mvc-existing-dbcontext/Views/Books/Index.cshtml
+@@ -0,0 +1,33 @@
++@model IEnumerable<Book>
++@{
++    ViewData["Title"] = "Books";
++}
++<div class="d-flex justify-content-between align-items-center mb-3">
++    <h1>Books</h1>
++    <a asp-action="Create" class="btn btn-primary">Add book</a>
++</div>
++<table class="table table-striped align-middle">
++    <thead>
++        <tr>
++            <th>@Html.DisplayNameFor(model => model.Title)</th>
++            <th>@Html.DisplayNameFor(model => model.PublicationYear)</th>
++            <th>Author</th>
++            <th></th>
++        </tr>
++    </thead>
++    <tbody>
++@foreach (var item in Model)
++{
++        <tr>
++            <td>@Html.DisplayFor(_ => item.Title)</td>
++            <td>@Html.DisplayFor(_ => item.PublicationYear)</td>
++            <td>@Html.DisplayFor(_ => item.Author.Name)</td>
++            <td class="text-end">
++                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary">Edit</a>
++                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary">Details</a>
++                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger">Delete</a>
++            </td>
++        </tr>
++}
++    </tbody>
++</table>
+diff --git a/fixtures/mvc-existing-dbcontext/Views/Shared/_Layout.cshtml b/fixtures/mvc-existing-dbcontext/Views/Shared/_Layout.cshtml
+new file mode 100644
+index 0000000..d611c25
+--- /dev/null
++++ b/fixtures/mvc-existing-dbcontext/Views/Shared/_Layout.cshtml
+@@ -0,0 +1,27 @@
++<!DOCTYPE html>
++<html lang="en">
++<head>
++    <meta charset="utf-8" />
++    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <title>@ViewData["Title"] - Catalog</title>
++    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" />
++</head>
++<body>
++    <header>
++        <nav class="navbar navbar-expand-sm navbar-dark bg-dark mb-4">
++            <div class="container">
++                <a class="navbar-brand" asp-controller="Books" asp-action="Index">Catalog</a>
++                <div class="navbar-nav">
++                    <a class="nav-link" asp-controller="Books" asp-action="Index">Books</a>
++                    <a class="nav-link" asp-controller="Authors" asp-action="Index">Authors</a>
++                </div>
++            </div>
++        </nav>
++    </header>
++    <main class="container pb-4">
++        @RenderBody()
++    </main>
++    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
++    @await RenderSectionAsync("Scripts", required: false)
++</body>
++</html>
+diff --git a/fixtures/mvc-existing-dbcontext/Views/Shared/_ValidationScriptsPartial.cshtml b/fixtures/mvc-existing-dbcontext/Views/Shared/_ValidationScriptsPartial.cshtml
+new file mode 100644
+index 0000000..31cacdb
+--- /dev/null
++++ b/fixtures/mvc-existing-dbcontext/Views/Shared/_ValidationScriptsPartial.cshtml
+@@ -0,0 +1,3 @@
++<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
++<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.21.0/jquery.validate.min.js"></script>
++<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/4.0.0/jquery.validate.unobtrusive.min.js"></script>
+diff --git a/fixtures/mvc-existing-dbcontext/Views/_ViewImports.cshtml b/fixtures/mvc-existing-dbcontext/Views/_ViewImports.cshtml
+new file mode 100644
+index 0000000..89e3f94
+--- /dev/null
++++ b/fixtures/mvc-existing-dbcontext/Views/_ViewImports.cshtml
+@@ -0,0 +1,3 @@
++@using CatalogMvc
++@using CatalogMvc.Models
++@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+diff --git a/fixtures/mvc-existing-dbcontext/Views/_ViewStart.cshtml b/fixtures/mvc-existing-dbcontext/Views/_ViewStart.cshtml
+new file mode 100644
+index 0000000..820a2f6
+--- /dev/null
++++ b/fixtures/mvc-existing-dbcontext/Views/_ViewStart.cshtml
+@@ -0,0 +1,3 @@
++@{
++    Layout = "_Layout";
++}
