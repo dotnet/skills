@@ -48,7 +48,7 @@ def github_json(path, *, lines=False):
     if lines:
         selector = ".[]" if path.startswith("statuses/") else ".jobs[]"
         args += ["--paginate", "--jq", selector]
-    result = subprocess.run(args, check=True, capture_output=True, text=True)
+    result = subprocess.run(args, check=True, capture_output=True, text=True, encoding="utf-8")
     return [json.loads(line) for line in result.stdout.splitlines()] if lines else json.loads(result.stdout)
 
 
@@ -281,6 +281,12 @@ def activation_contract(files):
     return contracts
 
 
+def unique_upload_job(matched_jobs):
+    if not matched_jobs or len({log for _, log in matched_jobs}) != 1:
+        raise ValueError("Legacy artifact ID has no unique completed Vally upload job")
+    return matched_jobs[0]
+
+
 def legacy_source_commit(run_id, artifact_id, artifact_name):
     if not re.fullmatch(r"[1-9][0-9]*", str(run_id)) or not re.fullmatch(
             r"[1-9][0-9]*", str(artifact_id)) or not ARTIFACT_NAME.fullmatch(artifact_name):
@@ -338,9 +344,7 @@ def legacy_source_commit(run_id, artifact_id, artifact_name):
         except ValueError:
             continue
         matched_jobs.append((job, log))
-    if len(matched_jobs) != 1:
-        raise ValueError("Legacy artifact ID has no unique completed Vally upload job")
-    selected_job, vally_log = matched_jobs[0]
+    selected_job, vally_log = unique_upload_job(matched_jobs)
     checkout_sha = checkout_commit_from_log(vally_log, selected_job)
     event = run["event"]
     if event == "workflow_dispatch":

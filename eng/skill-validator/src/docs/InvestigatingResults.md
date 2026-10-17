@@ -80,7 +80,8 @@ The reported source SHA comes from `source-commit.json` in new evaluation
 artifacts, written at the evaluated content checkout. A PR-targeted run's
 `head_sha` may instead identify the workflow on the default branch. A legacy
 artifact without that manifest requires strict proof from its artifact ID,
-uploading job and raw job log: one content-checkout ref and matching HEAD, one
+uploading job and raw job log (duplicate job IDs require identical logs): one
+content-checkout ref and matching HEAD, one
 matching artifact name and ID in that job's upload step, and a gate-bound
 commit/status linked to the run. The later trusted-tools checkout is not the
 source. If logs or identities are missing or ambiguous, replay stops; it never

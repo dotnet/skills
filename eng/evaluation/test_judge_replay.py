@@ -96,6 +96,17 @@ class JudgeReplayTests(unittest.TestCase):
                 (destination / "comparison.json").write_text(json.dumps(report), encoding="utf-8")
                 self.assertEqual(module.aggregate(root, [{"artifact_id": 456}])["counts"]["matched"], 1)
 
+    def test_legacy_upload_accepts_identical_job_log_aliases_only(self):
+        spec = importlib.util.spec_from_file_location("judge_replay_upload_test", SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        first = ({"id": 1}, "same artifact ID and checkout log")
+        alias = ({"id": 2}, first[1])
+        self.assertEqual(module.unique_upload_job([first, alias]), first)
+        for jobs in ([], [first, ({"id": 3}, "conflicting log")]):
+            with self.assertRaisesRegex(ValueError, "no unique completed"):
+                module.unique_upload_job(jobs)
+
     def test_replay_accepts_cli_path_strings(self):
         spec = importlib.util.spec_from_file_location("judge_replay_cli_paths_test", SCRIPT)
         module = importlib.util.module_from_spec(spec)
@@ -511,6 +522,10 @@ class JudgeReplayTests(unittest.TestCase):
                 saved_log if job_id == 790 else saved_log.replace("Artifact ID 456", "Artifact ID 789"))
             self.assertEqual(replay.legacy_source_commit(run_id, artifact_id, name), evaluated)
             logs.side_effect = lambda _run, _job_id: saved_log
+            self.assertEqual(replay.legacy_source_commit(run_id, artifact_id, name), evaluated)
+            logs.side_effect = lambda _run, job_id: (
+                saved_log if job_id == 790 else
+                saved_log.replace("HEAD is now at aaaaaaa", "HEAD is now at ccccccc"))
             with self.assertRaisesRegex(ValueError, "no unique completed Vally upload job"):
                 replay.legacy_source_commit(run_id, artifact_id, name)
             logs.side_effect = None

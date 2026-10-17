@@ -111,7 +111,8 @@ commit to report. Do not use the source workflow run's `head_sha` as a
 substitute: PR-targeted runs can carry the default-branch workflow SHA there.
 Older artifacts without the manifest require independent proof before
 rejudging: a completed PR-targeted run, a uniquely identified artifact ID and
-uploading job (across all attempts), the artifact creation time within that
+upload log (across all attempts; duplicate job IDs count only when their logs
+are identical), the artifact creation time within that
 job's successful upload step, and the **same job's raw log** showing the
 content-checkout ref and matching HEAD plus the exact uploaded name and
 artifact ID. The later checkout of trusted evaluation tools is **not** the
