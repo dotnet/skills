@@ -94,6 +94,14 @@ trials can use unique matching raw executor slots, but ambiguous multi-trial
 arrays cannot be paired by position. Scenarios without trials remain in the
 activation contract and create no comparison key. Native rejudge still uses
 the copied saved sessions; do not substitute current source files for them.
+The CI replay keeps its GitHub Actions token for artifact and provenance
+queries. For native judging, it passes the selected Copilot-capable credential
+as both `GH_TOKEN` and `GITHUB_TOKEN` to the validator process, whose client
+otherwise prefers `GH_TOKEN`. A native validator exit without `results.json`
+is a replay failure, not a failed skill verdict. Saved agent reports can use
+the `agent.` skill prefix while native rejudge uses the bare name; the replay
+matches that alias only when the original artifact contains the exact prefixed
+skill name.
 
 > Current Vally runs use a version-checked SDK 1.0.11/1.0.13 startup guard. It waits for
 > filesystem-provider setup before sessions start and shares concurrent startup
