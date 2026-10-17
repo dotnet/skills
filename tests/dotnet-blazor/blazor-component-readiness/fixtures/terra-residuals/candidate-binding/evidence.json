@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "fixture_kind": "synthetic-static-signature-binding",
+  "notice": "Inert synthetic test data only. The signature entries and receipt are placeholders, not cryptographic signatures or results from an executed verifier.",
+  "record_origin": "supplied-synthetic-records",
+  "package_identity": {
+    "id": "Neutral.Widget",
+    "version": "4.2.0-rc.2"
+  },
+  "observed_entry_paths": [
+    "lib/net8.0/Neutral.Widget.dll",
+    ".signature.p7s"
+  ],
+  "corresponding_entry_path": "lib/net8.0/Neutral.Widget.dll",
+  "signature_entry_path": ".signature.p7s",
+  "packages": [
+    {
+      "role": "assessment-target",
+      "selected_target": true,
+      "file": "target.nupkg",
+      "package_sha256": "f94c70f23f944128f5b98ebfd0b223eb5117b8d03bdea9d8f9fe328526210fe5"
+    },
+    {
+      "role": "comparison-copy",
+      "selected_target": false,
+      "file": "alternate.nupkg",
+      "package_sha256": "6bd209c518e4fb693fb2c08e57bd653e093ca8abb37e27fdc9de0f43519188ff"
+    }
+  ],
+  "signature_observations": [
+    {
+      "id": "receipt-comparison-copy",
+      "synthetic_test_data": true,
+      "executed_now": false,
+      "result": "valid",
+      "package_sha256": "6bd209c518e4fb693fb2c08e57bd653e093ca8abb37e27fdc9de0f43519188ff",
+      "signature_entry_path": ".signature.p7s",
+      "signature_entry_sha256": "53e784c42848c5a4bd746416950cc9d0aab20fda8a7283b3e844601fcedeabbd"
+    }
+  ]
+}

@@ -1,0 +1,1907 @@
+name: blazor-component-readiness
+description: Evaluates evidence-backed local assessment of released Blazor component packages
+type: capability
+defaults:
+  timeout: 20m
+  runs: 1
+scoring:
+  threshold: 1.0
+stimuli:
+  - name: Give documentation-testing advice without a readiness finding
+    tags:
+      capability: documentation-testing-guidance
+      risk: unsupported-readiness-findings
+      journey: plan-documentation-checks
+    prompt: |
+      We're discussing follow-up advice for a Blazor component readiness review, but no assessment
+      report exists yet. Our public samples already exist. How should we check a few examples for
+      accuracy, especially when a Razor attribute can compile without configuring the intended
+      component parameter? Explain a bounded approach here, not a new assessment or implementation.
+    constraints:
+      reject_tools: [execute, bash, Bash, run_shell_command, edit, Edit, Write, write_file, web_search, web_fetch]
+    graders:
+      - type: file-not-exists
+        config:
+          path: '**/*.assessment.json'
+      - type: file-not-exists
+        config:
+          path: '**/decision-guidance.md'
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - Explains why successful compilation alone may miss an ineffective parameter or promise and suggests checking the specific observable behavior.
+      - Uses the exact package and documented context without demanding that every vendor sample be compiled, requiring Copilot use, or inventing a failed readiness criterion.
+      - Answers the requested how-to question without creating a report, changing scores, executing examples, installing tools, or claiming an operation ran.
+
+  - name: Give bounded data-transfer advice without profiling
+    tags:
+      capability: data-transfer-evidence-boundaries
+      risk: unsupported-performance-diagnosis
+      journey: investigate-component-data-transfer
+    prompt: |
+      As optional follow-up to our Blazor component readiness discussion, help me reason about a
+      Server component that serializes its full data set on each selection change. We have source
+      showing that send path but no trace, measured payload size, timing, or evidence of a user
+      impact yet. No assessment report exists. What can we conclude now and what would help
+      determine whether anything should change?
+    constraints:
+      reject_tools: [execute, bash, Bash, run_shell_command, edit, Edit, Write, write_file, web_search, web_fetch]
+    graders:
+      - type: file-not-exists
+        config:
+          path: '**/*.assessment.json'
+      - type: file-not-exists
+        config:
+          path: '**/decision-guidance.md'
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - Treats full-data serialization as a potentially intentional pattern, not proof of a defect, excessive cost, or a missing budget.
+      - Identifies concrete evidence such as call frequency, actual payload bytes and the affected interaction while explaining the limits of allocation and copying attribution.
+      - Gives advice without launching profiling, promising a diagnosis, requiring a broad performance dossier, or creating or changing readiness results.
+
+  - name: Retain excluded deliverables without inventing defects
+    tags:
+      capability: conditional-deliverable-scoping
+      risk: omitted-or-misclassified-requirements
+      journey: confirm-package-assessment-scope
+    prompt: |
+      Review fixture/library-only.json and write out/scope.md explaining how the current
+      package review should represent scaffolder and AI requirements. We want a traceable
+      record, not a smaller checklist. Also explain who owns the removal policy. Do not
+      run probes, modify the package or use the network.
+    environment:
+      files:
+        - src: fixtures/conditional-intake/library-only.json
+          dest: fixture/library-only.json
+    graders:
+      - type: file-exists
+        config:
+          path: out/scope.md
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - Both absent deliverable families remain explicitly accounted for with scope-specific not-applicable rationales.
+      - Development templates are not treated as a promoted scaffolder against the owner's explicit scope confirmation.
+      - Microsoft removal discretion is not rewritten as a partner-owned suspension and restoration process.
+      - The response distinguishes missing rows from demonstrated product defects.
+
+  - name: Apply AI requirements from promoted source deliverables
+    tags:
+      capability: ai-deliverable-applicability
+      risk: missed-ai-review-requirements
+      journey: assess-package-ai-deliverables
+    prompt: |
+      Review the fictional cases in fixture/source-manifest.json, including their source,
+      package, upstream and change-history evidence. For each case, decide family applicability and assess
+      AI-01 through AI-06 from the supplied facts.
+
+      Write `out/ai-decisions.json` with `schema_version: 1` and a `cases` array. Each case needs its
+      `id`, `family_applicability`, and a `rows` object keyed by requirement ID. Row fields are
+      `status`, `evidence_ids`, `missing_fact`, and `rationale_code`. This is a draft decision
+      worksheet: use JSON null for an unassigned status or an unused field. The test-local
+      `missing_fact` codes are `new-ai-skill-status`,
+      `release-day-and-library-change-maintenance-ownership`, and
+      `responsible-ai-review-before-merge`. The rationale codes are
+      `confirmed-no-promoted-ai-deliverable` and `confirmed-existing-ai-skill`.
+
+      Worksheet output protocol:
+      `family_applicability` is exactly `applicable` or `not applicable`. Assigned row `status`
+      values are exactly `verified`, `gap`, `owner evidence required`, or `not applicable`.
+      The only unassigned row status is JSON null for `AI-06` when newness is unresolved.
+      Keep the listed missing-fact codes in `missing_fact` and rationale codes in `rationale_code`;
+      unused code fields are JSON null. Each row's `evidence_ids` retains its applicability basis
+      and its own supplied fact/context where required for that row, not a fixed citation count.
+      Do not fabricate absent context. Include exactly the qualifying required evidence IDs;
+      citation order may vary, but duplicate or extraneous IDs are invalid.
+      For allowed nulls, omission is equivalent to JSON null, not the string "null" or prose.
+      Keep explanations in the accompanying prose, not in code fields.
+      End worksheet output protocol.
+
+      Briefly summarize the evidence and any unresolved context for each case. Stay offline.
+    environment:
+      files:
+        - src: fixtures/terra-residuals/promoted-ai
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+    graders:
+      - type: file-exists
+        config:
+          path: out/ai-decisions.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-ai-applicability --fixture fixture/source-manifest.json --input out/ai-decisions.json
+          expected_exit_code: 0
+          stdout_matches: VALID AI applicability promotion newness and review timing
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - The promoted source-hosted helper makes the AI family applicable even though it is absent from the package and upstream inventory.
+      - Row decisions distinguish family promotion from the new-skill condition of AI-06, which requires RAI review before merge.
+      - A known-new skill with no supplied review identifies the missing before-merge review evidence; a known-existing skill gets a change-specific N/A for AI-06 only.
+      - Missing newness leaves AI-06 applicability unresolved and its draft status unassigned, not guessed new or existing.
+      - The complete explicit no-deliverable control remains not applicable for all six rows.
+
+  - name: Respect the integration requirement for an in-scope scaffolder
+    tags:
+      capability: scaffolder-integration-assessment
+      risk: false-scaffolder-compliance
+      journey: assess-package-scaffolder
+    prompt: |
+      Review fixture/promoted-scaffolder.json and write out/scope.md for the partner.
+      Tell them what the supplied manifest establishes, what is still untested and what
+      exact artifact could close the integration question. Do not run probes or use the network.
+    environment:
+      files:
+        - src: fixtures/conditional-intake/promoted-scaffolder.json
+          dest: fixture/promoted-scaffolder.json
+    graders:
+      - type: file-exists
+        config:
+          path: out/scope.md
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - The declared promoted scaffolder is in scope and dotnet-new-only integration conflicts with the supplied requirement.
+      - The response does not claim accessibility or generated-code correctness from an integration manifest.
+      - Closure requires the documented scaffolding integration and contributed artifact rather than merely renaming a template.
+      - Absent AI deliverables remain explicitly not applicable rather than omitted or failed.
+
+  - name: Distinguish release intent from package facts
+    tags:
+      capability: release-artifact-evidence
+      risk: policy-intent-as-execution-proof
+      journey: assess-release-provenance
+    prompt: |
+      Our release workflow says the Blazor control package is signed and publishes an SBOM. Review only
+      the supplied workflow text and captured package inventory, then tell me what those materials
+      actually establish for a vendor self-assessment. Do not use the network.
+    environment:
+      files:
+        - src: fixtures/artifact-truth
+          dest: fixture
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(intent|claim).*(does not|cannot|not).*(establish|prove)
+      - type: output-matches
+        config:
+          pattern: (?i)(signature|signed).*(SBOM|software bill)
+      - type: exit-success
+
+  - name: Credit bounded release execution records
+    tags:
+      capability: release-execution-evidence
+      risk: overstated-release-verification
+      journey: assess-release-provenance
+    prompt: |
+      Review fixture/records.json for a fictional package release. It contains policy publications
+      and separate release-run, publish-job, dependency-scan, and incident-operation records. Produce
+      `out/release-decisions.json` with `schema_version: 1`, `evidence_origin`,
+      `operations_executed_now`, the exact `package_sha256`, one entry in a `claims` array for every
+      declared claim, and a `limitations` object with Boolean values for
+      `all_release_history_established`, `complete_target_authentication_established`, and
+      `all_vulnerabilities_closed`, derived from the retained evidence rather than assumed.
+      Claim fields are `id`, `status`,
+      `evidence_ids`, `scope`, and `remaining_fact`; use JSON null where needed.
+      For established facts use these test-local scope codes as appropriate:
+      `policy-publication-only`, `single-recorded-release-run`, `declared-dependency-scan-scope`,
+      `incident-policy-publication-only`, `single-recorded-incident-exercise`, or
+      `target-signature-verification`. Missing execution facts use `release-bound-run-and-job-record`,
+      `release-bound-scan-record`, `release-bound-incident-operation-record`, or
+      `target-bound-signature-verification` as appropriate.
+
+      Worksheet output protocol:
+      `status` is non-null and is exactly `verified` or `not tested`.
+      Retain the supported `scope` code and qualifying `evidence_ids` even if the requested
+      execution fact remains unresolved; `scope` is JSON null only when there is no qualifying support.
+      `remaining_fact` holds only the listed missing-execution code for an unresolved execution fact,
+      otherwise JSON null. Publication questions have no missing-execution code, even when not verified.
+      Include exactly the qualifying required evidence IDs; citation order may vary, but duplicate
+      or extraneous IDs are invalid. For allowed nulls, omission is equivalent to JSON null,
+      not the string "null" or prose.
+      Keep broader caveats and explanations in the accompanying prose, not in code fields.
+      End worksheet output protocol.
+
+      Explain what the retained material establishes for each claim and what remains unresolved.
+      These records describe a fictional release; do not perform new operations or use the network.
+    environment:
+      files:
+        - src: fixtures/terra-residuals/release-execution
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+    graders:
+      - type: file-exists
+        config:
+          path: out/release-decisions.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-release-records --fixture fixture/records.json --input out/release-decisions.json
+          expected_exit_code: 0
+          stdout_matches: VALID release execution bounded facts and limitations
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - The release run, publish job, dependency scan, and incident operation are credited as supplied execution facts.
+      - Policy publication remains distinct from evidence that an operation occurred.
+      - The result stays limited to the recorded release and scan scope and does not claim complete authentication or vulnerability closure.
+
+  - name: Classify three different evidence boundaries
+    tags:
+      capability: assessment-status-classification
+      risk: conflated-evidence-states
+      journey: assess-component-readiness
+    prompt: |
+      Produce a local factual assessment for only the Grid component in the supplied package.
+      One implementation fact is contradicted by the source, one formal accessibility fact can
+      only come from the owner, and one static-rendering
+      check was never run. Keep those three situations distinct, finish the complete report under
+      ./out, and verify it without network access.
+    environment:
+      files:
+        - src: fixtures/component
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/component.validation.json
+      - type: file-contains
+        config:
+          path: out/revisions/0001/component.assessment.json
+          value: '"status":"gap"'
+      - type: file-contains
+        config:
+          path: out/revisions/0001/component.assessment.json
+          value: '"status":"owner evidence required"'
+      - type: file-contains
+        config:
+          path: out/revisions/0001/component.assessment.json
+          value: '"status":"not tested"'
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind component --rows 52
+          expected_exit_code: 0
+          stdout_matches: VALID component 52
+      - type: exit-success
+
+  - name: Apply the four status boundaries precisely
+    tags:
+      capability: assessment-status-classification
+      risk: conflated-evidence-states
+      journey: review-targeted-requirements
+    prompt: |
+      Create a targeted row-decision worksheet for a synthetic Blazor package without using the network:
+
+      - The confirmed complete owner-controlled public policy corpus contains no general support
+        response commitment.
+      - A private pre-release threat model was not supplied, and that row does not require publication.
+      - Selection announcements apply, but no screen-reader or live-region probe was run.
+      - The owner explicitly confirms that optional telemetry is not offered, and the complete
+        component source/runtime inventory exposes no telemetry option or consent surface.
+
+      Classify SUP-03, SEC-01, A11Y-09, and SEC-11 with the exact status and explain the matching
+      evidence-state boundary. Do not create a full report.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?is)SUP-03.{0,300}\bgap\b
+      - type: output-matches
+        config:
+          pattern: (?is)SEC-01.{0,300}owner evidence required
+      - type: output-matches
+        config:
+          pattern: (?is)A11Y-09.{0,300}not tested
+      - type: output-matches
+        config:
+          pattern: (?is)SEC-11.{0,300}not applicable
+      - type: output-matches
+        config:
+          pattern: (?is)((complete|confirmed).{0,250}public.{0,250}(absent|missing|contains no)|(absent|missing|contains no).{0,250}public.{0,250}(complete|confirmed))
+      - type: output-matches
+        config:
+          pattern: (?is)(screen-reader|live-region).{0,200}(not run|unrun|missing probe|not tested)
+      - type: exit-success
+
+  - name: Separate implementation proof from outcome proxies
+    tags:
+      capability: source-and-outcome-evidence-separation
+      risk: behavior-as-implementation-proof
+      journey: review-component-implementation
+    prompt: |
+      Perform a targeted source-boundary review for three synthetic component rows. A keyed reorder
+      browser operation passed, but no admitted Razor or component/base source shows whether @key is
+      used. Separately, exact source implements only IDisposable and synchronously discards the Task
+      returned by browser cleanup; the browser handler removes listeners only after that cleanup
+      message is processed.
+
+      Classify PERF-02, BEQ-15, and BEQ-16 with exact statuses and evidence-state boundaries.
+      Explain why the reorder outcome cannot prove the implementation mechanism. Do not run new
+      probes.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?is)PERF-02.{0,300}\bnot tested\b
+      - type: output-matches
+        config:
+          pattern: (?is)(reorder|behavior).{0,200}(does not|cannot).{0,200}(prove|establish).{0,100}@key
+      - type: output-matches
+        config:
+          pattern: (?is)BEQ-15.{0,300}\bgap\b
+      - type: output-matches
+        config:
+          pattern: (?is)BEQ-16.{0,300}\bgap\b
+      - type: exit-success
+
+  - name: Enforce release and parameter trust boundaries
+    tags:
+      capability: release-and-parameter-trust-assessment
+      risk: privileged-build-and-parameter-mutation
+      journey: review-targeted-requirements
+    prompt: |
+      Classify three targeted rows for a synthetic Blazor package without using the network:
+
+      - CI-07: Pull-request CI is separate, but the release job has OIDC and protected-environment
+        privileges from job start. That same job checks out repository source, runs npm install
+        scripts and the package build, then authenticates, signs, and publishes.
+      - CI-08: The release job signs a nupkg, verifies it, runs another action, then pushes the same
+        mutable workspace path. It records no artifact digest and has no immutable artifact handoff
+        into a separate privileged publishing stage.
+      - BEQ-09: The component normally stores incoming Value in a backing field, but one conditional
+        event-handler path executes `this.Value = newValue;` before invoking ValueChanged.
+      - PERF-05: Complete source shows a CascadingValue whose value can change and that does not set
+        IsFixed. No runtime capture counts descendant renders before or after a representative
+        parent update.
+
+      Write the exact statuses as one JSON object at `out/targeted-decisions.json`, mapping each
+      requirement ID directly to its status string. Include PERF-05 with the other three IDs. Then
+      explain the decisive boundary for each in your response. Do not create a full report.
+    graders:
+      - type: file-exists
+        config:
+          path: out/targeted-decisions.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-targeted-decisions --input out/targeted-decisions.json
+          expected_exit_code: 0
+          stdout_matches: VALID targeted decisions CI-07 CI-08 BEQ-09 PERF-05
+      - type: output-matches
+        config:
+          pattern: (?is)(same job|same-job).{0,250}(build|untrusted).{0,250}(sign|publish|privileg)
+      - type: output-matches
+        config:
+          pattern: (?is)(mutable path|path equality|same path).{0,250}(not|isn.t|does not).{0,200}(immutable|digest|byte)
+      - type: output-matches
+        config:
+          pattern: (?is)(Value|parameter setter|public parameter).{0,250}(assign|mutat)
+      - type: output-matches
+        config:
+          pattern: (?is)PERF-05.{0,300}\bnot tested\b
+      - type: output-matches
+        config:
+          pattern: (?is)(CascadingValue|IsFixed|cascading).{0,250}(risk|applicab).{0,250}(does not|cannot|not enough).{0,200}(prove|establish|demonstrate).{0,100}(rerender|gap)
+      - type: exit-success
+    environment:
+      files:
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+
+  - name: Classify published artifact absence and mechanism applicability
+    tags:
+      capability: artifact-completeness-and-applicability
+      risk: softened-artifact-gaps-and-false-applicability
+      journey: review-targeted-requirements
+    prompt: |
+      Classify seven rows for a synthetic released Blazor package without using the network:
+
+      - The confirmed complete exact nupkg inventory and public release-asset inventory contain no
+        SPDX or CycloneDX SBOM and no provenance attestation. The complete release workflow builds,
+        signs, and publishes the package but performs no SBOM or provenance generation/publication.
+        The nupkg contains third-party assets, but no admitted evidence establishes whether every
+        asset is represented. Separately, the complete notice map pairs only a subset of those
+        assets and omits the admitted dependency inventory.
+      - Complete component and inherited-renderer source proves the component only forwards
+        consumer-owned ChildContent. It owns no repeated collection, rendered loop, or other
+        identity-stability surface where @key could apply.
+
+      Write one JSON object at `out/provenance-decisions.json`, mapping PI-06 through PI-11 and
+      PERF-02 directly to exact status strings. Keep missing SBOM bytes distinct from direct
+      incomplete asset/notice representation. Explain why a behavior result is unnecessary when
+      complete source proves the mechanism has no applicable owned surface. Do not create a full
+      report.
+    graders:
+      - type: file-exists
+        config:
+          path: out/provenance-decisions.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-provenance-decisions --input out/provenance-decisions.json
+          expected_exit_code: 0
+          stdout_matches: VALID provenance decisions PI-06 PI-07 PI-08 PI-09 PI-10 PI-11 PERF-02
+      - type: output-matches
+        config:
+          pattern: (?is)(PI-06|PI-07|PI-10|PI-11).{0,350}\bgap\b
+      - type: output-matches
+        config:
+          pattern: (?is)PI-08.{0,300}\bnot tested\b
+      - type: output-matches
+        config:
+          pattern: (?is)PI-09.{0,300}\bgap\b
+      - type: output-matches
+        config:
+          pattern: (?is)PERF-02.{0,300}not applicable
+      - type: output-matches
+        config:
+          pattern: (?is)(no component-owned|owns no).{0,250}(collection|loop|identity).{0,250}(not applicable|no applicable)
+      - type: exit-success
+    environment:
+      files:
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+
+  - name: Select only owner-controlled documentation
+    tags:
+      capability: official-documentation-selection
+      risk: unofficial-evidence-as-authority
+      journey: collect-assessment-inputs
+    prompt: |
+      I captured package-owner metadata plus a list of possible pages for our Blazor control. Identify the
+      exact documentation set suitable for an offline vendor assessment. Do not browse, and do not
+      treat community commentary as official product documentation.
+    environment:
+      files:
+        - src: fixtures/documentation
+          dest: fixture
+    graders:
+      - type: output-contains
+        config:
+          substring: https://components.example.test/docs/widget
+      - type: output-contains
+        config:
+          substring: https://code.example.test/components/docs-widget/blob/v1.0.0/README.md
+      - type: output-not-contains
+        config:
+          substring: https://community.example.test/widget-review
+      - type: exit-success
+
+  - name: Use a bounded internal owner record
+    tags:
+      capability: owner-evidence-provenance
+      risk: unbounded-owner-evidence-claims
+      journey: assess-component-accessibility
+    prompt: |
+      The package owner supplied an internal accessibility audit alongside the exact Blazor Grid package.
+      Assess only the Grid component. Use the audit where it directly applies, label where it came
+      from, and create and verify the complete
+      local report under ./out. Do not publish or upload anything.
+    environment:
+      files:
+        - src: fixtures/component
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/component.validation.json
+      - type: file-contains
+        config:
+          path: out/revisions/0001/component.assessment.json
+          value: '"status":"verified"'
+      - type: file-contains
+        config:
+          path: out/revisions/0001/component.evidence.json
+          value: owner-supplied-internal-evidence
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind component --rows 52
+          expected_exit_code: 0
+      - type: exit-success
+
+  - name: Assess a package with no public source
+    tags:
+      capability: closed-source-assessment
+      risk: unavailable-source-as-product-gap
+      journey: assess-component-readiness
+    prompt: |
+      We ship this Blazor control as binaries and do not publish its source. Produce a bounded
+      assessment of only the closed-grid component from the exact local package and captured documentation, writing
+      and verifying the complete report under ./out. Do not treat missing source as a failed fetch.
+    environment:
+      files:
+        - src: fixtures/closed
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-contains
+        config:
+          path: out/input.confirmed.json
+          value: '"availability":"closed-source"'
+      - type: file-exists
+        config:
+          path: out/revisions/0001/component.validation.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind component --rows 52
+          expected_exit_code: 0
+      - type: output-not-matches
+        config:
+          pattern: (?i)(clone|source repository).*(required|must)
+      - type: exit-success
+
+  - name: Produce one complete component record
+    tags:
+      capability: standalone-component-assessment
+      risk: unrequested-package-assessment
+      journey: validate-component-report
+    prompt: |
+      Create the complete factual record for only the Grid component in the supplied package.
+      No package assessment has been performed or is requested. Cover the component checks,
+      render the local report under ./out,
+      and verify the result. No external services are available.
+    environment:
+      files:
+        - src: fixtures/component
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/component.report.md
+      - type: file-exists
+        config:
+          path: out/revisions/0001/component.validation.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind component --rows 52
+          expected_exit_code: 0
+          stdout_matches: VALID component 52
+      - type: file-contains
+        config:
+          path: out/revisions/0001/component.assessment.json
+          value: '"package_reference":null'
+      - type: file-not-exists
+        config:
+          path: '**/package.assessment.json'
+      - type: exit-success
+
+  - name: Bind package and component records
+    tags:
+      capability: package-component-record-binding
+      risk: conflated-or-mismatched-assessment-scopes
+      journey: validate-bound-assessment-reports
+    prompt: |
+      Assess the supplied Blazor library package once for package-wide facts and assess only its Grid
+      control for component facts. Keep the two records separate, bind the component to the exact
+      validated package result, render both under ./out, and verify both. Stay local.
+    environment:
+      files:
+        - src: fixtures/library
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/package-revisions/0001/package.validation.json
+      - type: file-exists
+        config:
+          path: out/grid-revisions/0001/component.validation.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/package-revisions/0001 --kind package --rows 60
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/grid-revisions/0001 --kind component --rows 52
+          expected_exit_code: 0
+      - type: file-contains
+        config:
+          path: out/grid-revisions/0001/component.assessment.json
+          value: '"package_reference":{'
+      - type: exit-success
+
+  - name: Preserve supplied candidate identity
+    tags:
+      capability: release-candidate-identity-preservation
+      risk: substituted-package-bytes
+      journey: assess-release-candidate
+    prompt: |
+      Evaluate only candidate-grid in the unpublished Blazor package file as the release candidate it is. Preserve
+      the exact package identity and bytes, create the complete local assessment under ./out, and
+      verify it. Do not substitute a published or rebuilt package.
+    environment:
+      files:
+        - src: fixtures/candidate
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-contains
+        config:
+          path: out/input.confirmed.json
+          value: '"acquisition":"release-candidate"'
+      - type: file-contains
+        config:
+          path: out/input.confirmed.json
+          value: '"package_id":"candidate.widget"'
+      - type: file-contains
+        config:
+          path: out/input.confirmed.json
+          value: '"version":"3.0.0-rc.1"'
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind component --rows 52
+          expected_exit_code: 0
+      - type: exit-success
+
+  - name: Bind signature evidence to the selected package
+    tags:
+      capability: package-signature-evidence-binding
+      risk: cross-package-signature-attribution
+      journey: assess-release-provenance
+    prompt: |
+      Inspect the two inert synthetic package archives and fixture/evidence.json. Identify the
+      selected target, assess the recorded signature claims for each archive, and compare the
+      observed entries.
+
+      Write `out/candidate-binding.json` with `schema_version: 1`, `evidence_origin`,
+      `signature_verification_executed_now`, the shared `package_identity`, a `decisions` array with
+      an entry for each package role, and an `entry_observations` array. Package
+      decisions need `package_role`, `package_sha256`, `status`, `evidence_ids`, and
+      `remaining_fact`. Each entry observation needs `entry_path`, a `containers` array containing
+      `package_role`, `package_sha256`, and `entry_sha256`, and a `relationship` value of
+      `identical-entry-bytes` or `different-entry-bytes`.
+      Use the fixture's record origin; an unresolved signature fact uses the test-local code
+      `target-bound-signature-verification`. Treat the receipt
+      only as supplied synthetic data; do not run or claim a cryptographic verification. Briefly
+      summarize the evidence for both archives in your response.
+    environment:
+      files:
+        - src: fixtures/terra-residuals/candidate-binding
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/target.nupkg.b64 fixture/target.nupkg
+        - python3 fixture/fixture-tool.py decode fixture/alternate.nupkg.b64 fixture/alternate.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/candidate-binding.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-candidate-binding --fixture fixture/evidence.json --package-root fixture --input out/candidate-binding.json
+          expected_exit_code: 0
+          stdout_matches: VALID candidate binding target-isolated positive-control
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - The selected archive is not treated as signature-verified from a receipt bound to the other whole-package digest.
+      - The comparison archive receives the bounded positive result supported by its own supplied receipt.
+      - Identical DLL bytes preserve both containing package identities while differing signature entries remain distinct.
+      - The response does not claim that a real signature verifier ran.
+
+  - name: Complete an isolated two-control library
+    tags:
+      capability: isolated-library-assessment
+      risk: incomplete-or-contaminated-library-results
+      journey: assess-library-readiness
+    prompt: |
+      Build a complete local factual index for the supplied Blazor package containing Grid and Chart.
+      Freeze the exact inventory, keep each control's evidence isolated, cover every claimed render
+      mode, validate all package and control records, and write the final JSON and Markdown indexes
+      under ./out. Nothing may be uploaded or pushed.
+    environment:
+      files:
+        - src: fixtures/library
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/inventory.confirmed.json
+      - type: file-exists
+        config:
+          path: out/library-index.json
+      - type: file-exists
+        config:
+          path: out/library-index.md
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-library --root out --packages 1 --components 2
+          expected_exit_code: 0
+          stdout_matches: VALID library 1 2
+      - type: exit-success
+
+  - name: Keep the generated output factual
+    tags:
+      capability: factual-report-generation
+      risk: unsolicited-release-recommendations
+      journey: deliver-factual-assessment
+    prompt: |
+      Generate and verify the complete local report for only the Grid component in the supplied package. I only want the
+      factual record and status counts this time, not a ship decision, ranking, or remediation
+      priorities. Write everything under ./out and remain offline.
+    environment:
+      files:
+        - src: fixtures/component
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/component.report.md
+      - type: file-not-exists
+        config:
+          path: '**/decision-guidance.md'
+      - type: output-not-matches
+        config:
+          pattern: (?i)(release verdict|ship decision|priority ranking)
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind component --rows 52
+          expected_exit_code: 0
+      - type: exit-success
+
+  - name: Assess the first packaged UI release
+    tags:
+      capability: distributed-asset-sbom-correspondence
+      risk: invented-sbom-omission
+      journey: assess-release-provenance
+    prompt: &embedded_sbom_prompt |
+      Assess this Blazor component package for release readiness using the local files in fixture.
+      I want a package-level factual report under out, with its readable report and evidence
+      companions. Pay particular attention to whether the distributed JavaScript is represented
+      in the supplied release SBOM, while preserving other supported package findings.
+      This is a local release candidate, not a request to assess individual controls. I confirm
+      the supplied package/evidence inputs and local output scope, including producer-derived
+      identities and static evidence from those same bytes. No other source or documentation
+      has been supplied. Stay offline, do not delegate, and do not execute, restore, build or test
+      the assessed package/source. Local static inspection and the bundled reporting tools are
+      authorized. Return the factual report links without recommendations.
+    environment:
+      files: &embedded_sbom_files
+        - src: fixtures/fixture-tool.py
+          dest: setup-embedded.py
+        - src: fixtures/embedded-assets.zip.b64
+          dest: setup-embedded.b64
+      commands:
+        - python setup-embedded.py prepare-embedded-sbom --snapshot setup-embedded.b64 --case release-01 --root .
+        - python -c "from pathlib import Path; Path('setup-embedded.py').unlink(); Path('setup-embedded.b64').unlink()"
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/package.validation.json
+      - type: file-exists
+        config:
+          path: out/readable/reader.validation.json
+      - type: program
+        # Structural and outcome checks only: Vally 0.14 does not supply a trusted verifier
+        # source path shared by both arms. This does not verify digests, evidence truth or
+        # the complete native binding contract. WorkflowTests uses native-generated controls.
+        config:
+          program: python
+          args:
+            - -I
+            - -c
+            - &embedded_sbom_grade |
+              import json, pathlib, re, sys
+              def read(path):
+                  value = json.loads(path.read_text(encoding="utf-8"))
+                  assert isinstance(value, dict)
+                  return value
+              def digest(value):
+                  return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+              def digest_object(value):
+                  return isinstance(value, dict) and set(value) == {"algorithm", "value"} and value["algorithm"] == "sha256" and digest(value["value"])
+              revision = pathlib.Path(sys.argv[1]).parent
+              canonical = {"input-manifest.json", "package.assessment.json", "package.evidence.json", "package.report.md", "package.validation.json"}
+              assert {path.name for path in revision.iterdir()} == canonical
+              assert all((revision / name).is_file() and (revision / name).stat().st_size for name in canonical)
+              assessment = read(revision / "package.assessment.json")
+              ids = ("LP-01 LP-02 LP-03 LP-04 LP-05 LP-06 LP-07 LP-08 LP-09 LP-10 "
+                     "PI-01 PI-02 PI-03 PI-04 PI-05 PI-06 PI-07 PI-08 PI-09 PI-10 PI-11 PI-12 "
+                     "SEC-01 SEC-02 SEC-03 SEC-04 SEC-05 SEC-06 SEC-07 SEC-08 SEC-09 "
+                     "BEQ-21 BEQ-24 TA-07 CI-01 CI-05 CI-06 CI-07 CI-08 "
+                     "SUP-01 SUP-02 SUP-03 SUP-04 SUP-05 SUP-06 SUP-07 SUP-08 SUP-10 "
+                     "SCF-01 SCF-02 SCF-03 SCF-04 SCF-05 SCF-06 AI-01 AI-02 AI-03 AI-04 AI-05 AI-06").split()
+              assert type(assessment["schema_version"]) is int and assessment["schema_version"] == 2
+              assert assessment["rubric_version"] == "2.1.0" and assessment["scope_schema_version"] == 2
+              assert assessment["assessment_kind"] == "package" and assessment["completion_state"] == "complete" and assessment["overlays"] == []
+              assert assessment["selected_ids"] == ids and assessment["package_reference"] is None
+              rows = assessment["rows"]
+              assert [row["id"] for row in rows] == ids
+              assert all(row["scope"] == "repository-wide" and row["status"] in
+                         ["verified", "gap", "owner evidence required", "not tested", "not applicable"] for row in rows)
+              row = next(row for row in rows if row["id"] == "PI-08")
+              assert row["status"] == sys.argv[2] and isinstance(row["observation"], str) and row["observation"].strip()
+              assert isinstance(row["evidence_ids"], list) and row["evidence_ids"]
+              manifest = read(revision / "package.validation.json")
+              fields = ("schema_version plugin_version validator_version renderer_version rubric_version scope_schema_version "
+                        "rubric_sha256 scope_map_sha256 overlays input_manifest_sha256 assessment_sha256 evidence_sha256 "
+                        "selected_evidence_ids package_reference report_sha256 assessment_kind completion_state "
+                        "predecessor_manifest_sha256 feedback_sha256 declared_changed_ids limitations").split()
+              assert set(manifest) == set(fields)
+              assert type(manifest["schema_version"]) is int and manifest["schema_version"] == 1
+              for key in ["rubric_version", "scope_schema_version", "overlays", "assessment_kind", "completion_state", "package_reference"]:
+                  assert manifest[key] == assessment[key]
+              assert all(isinstance(manifest[key], str) and manifest[key] for key in ["plugin_version", "validator_version", "renderer_version"])
+              assert all(digest_object(manifest[key]) for key in ["rubric_sha256", "scope_map_sha256", "input_manifest_sha256", "assessment_sha256", "evidence_sha256", "report_sha256"])
+              assert all(manifest[key] is None or digest_object(manifest[key]) for key in ["predecessor_manifest_sha256", "feedback_sha256"])
+              assert isinstance(manifest["declared_changed_ids"], list) and set(manifest["declared_changed_ids"]) <= set(ids)
+              assert isinstance(manifest["limitations"], list) and manifest["limitations"] and all(isinstance(item, str) and item for item in manifest["limitations"])
+              selected = manifest["selected_evidence_ids"]
+              assert isinstance(selected, list) and selected and all(isinstance(item, str) and re.fullmatch(r"EV1-[0-9a-f]{64}", item) for item in selected)
+              assert len(set(selected)) == len(selected) and set(row["evidence_ids"]) <= set(selected)
+              reader = revision.parent.parent / "readable"
+              projection = read(reader / "reader.validation.json")
+              assert set(projection) == {"reader_version", "source_validation_sha256", "rubric_sha256", "package_validation_sha256", "files"}
+              assert projection["reader_version"] == "1.1.0"
+              assert digest(projection["source_validation_sha256"]) and digest(projection["rubric_sha256"]) and projection["package_validation_sha256"] is None
+              files = projection["files"]
+              assert isinstance(files, dict) and {"report.md", "evidence.md", "mapping.json"} | {"technical/" + name for name in canonical} <= set(files)
+              for name, value in files.items():
+                  relative = pathlib.PurePosixPath(name)
+                  assert name and not relative.is_absolute() and not set(relative.parts) & {"..", "."} and "\\" not in name and ":" not in name
+                  assert digest(value) and (reader / relative).is_file() and (reader / relative).stat().st_size
+            - out/revisions/0001/package.assessment.json
+            - verified
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - The reported asset coverage is justified by the distributed package and matching SBOM component identities and versions; no embedded omission is invented.
+      - The result preserves both ordinary dependency coverage and the attributable source content distributed under a first-party-looking path.
+      - Factual completion uses the supported complete package report; no runtime or other unperformed verification is claimed.
+
+  - name: Assess the second packaged UI release
+    tags:
+      capability: distributed-asset-sbom-correspondence
+      risk: missed-distributed-asset-omission
+      journey: assess-release-provenance
+    prompt: *embedded_sbom_prompt
+    environment:
+      files: *embedded_sbom_files
+      commands:
+        - python setup-embedded.py prepare-embedded-sbom --snapshot setup-embedded.b64 --case release-02 --root .
+        - python -c "from pathlib import Path; Path('setup-embedded.py').unlink(); Path('setup-embedded.b64').unlink()"
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/package.validation.json
+      - type: file-exists
+        config:
+          path: out/readable/reader.validation.json
+      - type: program
+        config:
+          program: python
+          args: [-I, -c, *embedded_sbom_grade, out/revisions/0001/package.assessment.json, gap]
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - The report identifies the attributable distributed component omitted from the complete supplied SBOM, rather than falsely verifying complete coverage.
+      - Positive ordinary dependency matches remain credited; the omission is not softened to uncertainty merely because runtime execution was not performed.
+      - The evidence establishes actual distributed content, not ownership inferred from a filename or a source-only reference.
+
+  - name: Assess the third packaged UI release
+    tags:
+      capability: distributed-asset-sbom-correspondence
+      risk: unsupported-asset-identity-verification
+      journey: assess-release-provenance
+    prompt: *embedded_sbom_prompt
+    environment:
+      files: *embedded_sbom_files
+      commands:
+        - python setup-embedded.py prepare-embedded-sbom --snapshot setup-embedded.b64 --case release-03 --root .
+        - python -c "from pathlib import Path; Path('setup-embedded.py').unlink(); Path('setup-embedded.b64').unlink()"
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/package.validation.json
+      - type: file-exists
+        config:
+          path: out/readable/reader.validation.json
+      - type: program
+        config:
+          program: python
+          args: [-I, -c, *embedded_sbom_grade, out/revisions/0001/package.assessment.json, not tested]
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - Third-party distribution is established, but a necessary component-to-source identity or correspondence fact remains unproven despite plausible SBOM coverage.
+      - The report neither invents an omitted component nor treats a supplier/name hint as complete representation; it requests the missing correspondence evidence.
+      - Positive ordinary dependency coverage remains credited and no version, execution result or complete asset verification is invented.
+
+  - name: Summarize an existing factual record without recommendations
+    tags:
+      capability: factual-report-reading
+      risk: altered-records-and-unsolicited-guidance
+      journey: read-validated-assessment
+    prompt: |
+      The local Blazor package report under out/revisions/0001 is already validated.
+      Summarize its existing SBOM and release findings for PI-07, CI-07 and CI-08 and return
+      the report link. I want facts only, not recommendations or implementation examples.
+      Keep every file unchanged and remain offline. Use only non-command local read tools;
+      if the executor does not provide them, report a harness limitation instead of using a shell.
+    environment:
+      files: &guidance_setup_files
+        - src: fixtures/fixture-tool.py
+          dest: setup-guidance.py
+        - src: fixtures/guidance-revisions.zip.b64
+          dest: setup-revisions.b64
+      commands: &guidance_established_setup
+        - python setup-guidance.py prepare-guidance --snapshot setup-revisions.b64 --case established --root . --grading-files
+        - python -c "from pathlib import Path; Path('setup-guidance.py').unlink(); Path('setup-revisions.b64').unlink()"
+    # Vally 0.14 has no hidden grader-file staging. Setup leaves a digest-pinned helper and
+    # only this case's file-hash inventory in .grading; these are agent-visible, not secret.
+    # Canned remediation answers, the alternative case and the eval spec are not staged.
+    graders:
+      - type: file-not-exists
+        config:
+          path: '**/decision-guidance.md'
+      - type: tool-calls
+        # JSON is also YAML: the deterministic controls read these exact native matchers.
+        # Command-bearing, network/browser and delegation tools are unavailable by name.
+        # The program grader separately admits only known read tools and the scoped editor write.
+        config: &guidance_local_calls {
+          "disallowed": [
+            {"name": "(?:^|[._:-])(?:bash|shell|pwsh|powershell|terminal|exec_command|run_command)$"},
+            {"name": "(?:^|[._:-])(?:web_fetch|web_search|fetch|http|browser|playwright|puppeteer|computer)(?:[-_.:].*)?$"},
+            {"name": "(?:^|[._:-])(?:task|create_session|run_factory|run_workflow|subagent)$"}
+          ]
+        }
+      - type: tool-calls
+        config:
+          disallowed:
+            - name: '(?:^|[._:-])(?:[Ee]dit|[Cc]reate|[Ww]rite|[Mm]ultiedit|apply_patch|patch_text)(?:_file)?$'
+      - type: program
+        config:
+          program: python
+          args:
+            - -I
+            - -c
+            - &guidance_program |
+              import hashlib, pathlib, runpy, sys
+              path = pathlib.Path(".grading/guidance-tool.py")
+              expected = "a1e6a9d36bed82bafd975f7c4a58976dd2c04bacd2ddd441809fad61a5da6b79"
+              if hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+                  raise SystemExit("INVALID grader helper differs from trusted config")
+              sys.argv = [str(path), *sys.argv[1:]]
+              runpy.run_path(str(path), run_name="__main__")
+            - grade-guidance
+            - --snapshot
+            - .grading/retained-hashes.json
+            - --snapshot-sha256
+            - &guidance_established_digest 090784289e3897358249d20770bd3167da5a9ac294f2ff370f754664966858c4
+            - --case
+            - established
+            - --mode
+            - factual
+      - type: prompt
+        config: &guidance_judge
+          evidence: [trajectory, repo]
+          prompt: |
+            Inspect the written artifacts and complete available tool-call evidence. Automatic
+            checks establish canonical byte preservation, exact final workspace inventory and the
+            absence of disallowed command-bearing, network/browser and subagent tool names in the
+            recorded trajectory. Recommendation runs additionally prove that any exposed editor path
+            is the scoped guidance target. They do not prove the absence of transient or
+            out-of-workspace effects. If non-command local-read tools are unavailable, or tool shapes,
+            events or counts are unknown/incomplete, record a harness limitation rather than allowing
+            shell access or assigning a model-quality failure. Recheck the complete retained
+            results.jsonl trajectory and events.jsonl calls for a live run.
+            Grader files are agent-visible on Vally 0.14; they contain integrity checks and placeholder
+            self-test text, not expected remediation answers. Judge only advice grounded in this revision.
+      - type: exit-success
+    rubric:
+      - The response summarizes only the requested retained facts and links the existing report without creating advice.
+      - The recorded trajectory contains no command-bearing, network/browser or subagent tool call; unavailable read-only tooling or unknown/incomplete tool evidence is a harness limitation, and a no-rerun conclusion still requires complete retained results.jsonl/events.jsonl review.
+
+  - name: Recommend bounded SBOM and release next steps
+    tags:
+      capability: revision-bound-remediation-guidance
+      risk: changed-findings-and-rerun-investigation
+      journey: plan-assessment-remediation
+    prompt: |
+      Using the already validated Blazor package report in out/revisions/0001 and its retained
+      inputs, give practical recommendations and implementation examples for the unresolved
+      PI-07, CI-07 and CI-08 findings. Keep the advice locally alongside the report under out,
+      and return links to both. Leave the factual record unchanged; do not redo the investigation.
+      Use non-command local read tools and a direct editor/write tool for the companion; if those
+      tools are unavailable, report a harness limitation instead of using a shell or terminal.
+    environment:
+      files: *guidance_setup_files
+      commands: *guidance_established_setup
+    graders:
+      - type: file-exists
+        config:
+          path: out/decision-guidance.md
+      - type: tool-calls
+        config: *guidance_local_calls
+      - type: program
+        config:
+          program: python
+          args: [-I, -c, *guidance_program, grade-guidance, --snapshot, .grading/retained-hashes.json, --snapshot-sha256, *guidance_established_digest, --case, established, --mode, recommendations]
+      - type: prompt
+        config: *guidance_judge
+      - type: exit-success
+    rubric:
+      - Ordinary recommendations/examples wording produces a linked local companion from the existing revision without requiring a filename request, feedback file or another confirmation.
+      - Each requested finding retains its current result, supported implementation pattern, reassessment evidence, relevant verified references, owner decisions and limitations.
+      - The SBOM advice addresses the observed omitted transitive dependency; release advice separates untrusted build from privileged release and preserves exact identities through unsigned transfer, author signing and upload.
+      - Repository signing may change distribution bytes; advice retains both raw digests and verifies correspondence through the preserved author signature, repository signature or countersignature, and package identity rather than demanding upload/distribution digest equality.
+      - Decomposition checks and versioned extensions remain distinct; unsigned and author-signed bytes are not required to match, and no illustrative tool choice is presented as an endorsement or acceptance guarantee.
+      - Canonical artifacts and final workspace inventory are preserved, the scoped companion is written through a recognized editor tool, and the recorded trajectory contains no command-bearing, network/browser or subagent tool call; unavailable or unknown tool evidence is a harness limitation.
+
+  - name: Request missing SBOM and release evidence without inventing a fix
+    tags:
+      capability: missing-evidence-guidance
+      risk: speculative-remediation
+      journey: plan-assessment-remediation
+    prompt: |
+      Give me practical next steps for the unresolved PI-07, CI-07 and CI-08 findings in the
+      already validated Blazor package report at out/revisions/0001. Only the limited release
+      record and other retained inputs are available; do not guess an implementation cause.
+      Keep the factual report unchanged, save the requested advice under out, and link both.
+      Use non-command local read tools and a direct editor/write tool for the companion; if those
+      tools are unavailable, report a harness limitation instead of using a shell or terminal.
+    environment:
+      files: *guidance_setup_files
+      commands:
+        - python setup-guidance.py prepare-guidance --snapshot setup-revisions.b64 --case insufficient --root . --grading-files
+        - python -c "from pathlib import Path; Path('setup-guidance.py').unlink(); Path('setup-revisions.b64').unlink()"
+    graders:
+      - type: file-exists
+        config:
+          path: out/decision-guidance.md
+      - type: tool-calls
+        config: *guidance_local_calls
+      - type: program
+        config:
+          program: python
+          args: [-I, -c, *guidance_program, grade-guidance, --snapshot, .grading/retained-hashes.json, --snapshot-sha256, &guidance_insufficient_digest 0b5689f7dbc41bd22343dced5f4123274054e6fb0c9f3618511d0f8d672c4866, --case, insufficient, --mode, recommendations]
+      - type: prompt
+        config: *guidance_judge
+      - type: exit-success
+    rubric:
+      - The linked advice requests the release-bound SBOM/dependency inventory, actual job graph/permissions, and build-transfer/author-sign/upload records; a repository-signing transition additionally needs distribution identity and signature correspondence evidence, not raw upload/distribution digest equality.
+      - Missing records do not become a guessed workflow/tool prescription, proven defect, or verification claim; the retained not-tested results remain unchanged.
+      - Each requested group includes current findings, exact missing evidence or owner decisions, evidence for reassessment, relevant verified references, limits and a non-endorsement/no-guarantee disclaimer.
+      - The scoped companion is written through a recognized editor tool and the recorded trajectory contains no command-bearing, network/browser or subagent tool call; unavailable or unknown tool evidence is a harness limitation rather than permission to rerun work.
+
+  - name: Map row evidence and returned paths precisely
+    tags:
+      capability: row-evidence-and-artifact-mapping
+      risk: misattributed-evidence-and-broken-handoffs
+      journey: deliver-factual-assessment
+    prompt: |
+      Review fixture/facts.json and make an evidence-backed decision for each of its four fictional
+      rows, including the remaining fact and next action where needed.
+
+      Write the decisions to `out/review/neutral-widget/rows/decisions.json` with
+      `schema_version: 1` and a `rows` array containing `id`, `status`, `evidence_ids`,
+      `missing_facts`, and `next_action`. Write a short factual summary to
+      `out/review/neutral-widget/summary.md`. Write
+      `out/delivery/neutral-widget/final-links.json` with `schema_version: 1` and an `artifacts`
+      array that links the `row-decisions` and `summary` roles to paths relative to `out`. Return
+      both nested artifact paths in your final response. A satisfied row uses an empty
+      `missing_facts` array and JSON null for `next_action`. The test-local fact codes are
+      `runtime-support-matrix`, `browser-support-matrix`, `named-package-owner`, `named-backup`,
+      `package-scope`, and `post-disposal-listener-observation`. Available next actions are
+      `{"operation":"request-record","record_type":"package-support-accountability"}` and
+      `{"operation":"run-probe","probe":"post-disposal-listener-check"}`. Choose from the facts
+      rather than treating the presence of a document or plan as proof. Stay offline.
+    environment:
+      files:
+        - src: fixtures/terra-residuals/row-evidence
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+    graders:
+      - type: file-exists
+        config:
+          path: out/review/neutral-widget/rows/decisions.json
+      - type: file-exists
+        config:
+          path: out/review/neutral-widget/summary.md
+      - type: file-exists
+        config:
+          path: out/delivery/neutral-widget/final-links.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-row-evidence-map --fixture fixture/facts.json --root out --input out/review/neutral-widget/rows/decisions.json --summary out/review/neutral-widget/summary.md --links out/delivery/neutral-widget/final-links.json
+          expected_exit_code: 0
+          stdout_matches: VALID row evidence mapping and nested paths
+      - type: output-contains
+        config:
+          substring: out/review/neutral-widget/rows/decisions.json
+      - type: output-contains
+        config:
+          substring: out/review/neutral-widget/summary.md
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - The support guide is reused only for the two rows whose required facts it contains.
+      - Ownership and disposal retain their distinct evidence, missing facts, boundaries, and next actions.
+      - The returned nested artifact paths resolve to the files actually produced.
+
+  - name: Exercise post-initialization child mutations
+    tags:
+      capability: dynamic-child-lifecycle-assessment
+      risk: missed-post-render-state-failures
+      journey: assess-component-runtime
+    prompt: |
+      Assess the supplied release-candidate Blazor selection group under ./out. It registers and selects
+      child items, so exercise its behavior after initial render when children are added, removed,
+      reordered, disabled, selected, focused, callback-faulted, and disposed. Produce and verify the
+      complete local record without external access.
+    environment:
+      files:
+        - src: fixtures/dynamic-group
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/component.validation.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-dynamic --root out
+          expected_exit_code: 0
+          stdout_matches: VALID dynamic lifecycle 10
+      - type: exit-success
+
+  - name: Bound third-party notice completeness
+    tags:
+      capability: third-party-notice-evidence
+      risk: unsupported-notice-completeness
+      journey: assess-package-licensing
+    prompt: |
+      Produce the complete package-wide local record for the supplied Blazor package. The captured material
+      lists a license file and generated license sidecars, but it contains no dependency-to-bundled-asset
+      notice inventory. Do not use the network, and verify the result under ./out.
+    environment:
+      files:
+        - src: fixtures/evidence-boundaries
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/package.validation.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py assert-row-not-verified --assessment out/revisions/0001/package.assessment.json --id LP-04
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind package --rows 60
+          expected_exit_code: 0
+      - type: exit-success
+
+  - name: Bound embedded signing metadata
+    tags:
+      capability: assembly-signature-evidence
+      risk: signing-metadata-as-verification
+      journey: assess-release-provenance
+    prompt: |
+      Produce the complete package-wide local record for the supplied Blazor package. The only assembly
+      signing material is captured metadata saying a PE certificate table and signer subject are present;
+      no file-digest, chain, timestamp, or revocation verification was supplied. Stay offline and verify
+      the result under ./out.
+    environment:
+      files:
+        - src: fixtures/evidence-boundaries
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/package.validation.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py assert-row-not-verified --assessment out/revisions/0001/package.assessment.json --id PI-02
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind package --rows 60
+          expected_exit_code: 0
+      - type: exit-success
+
+  - name: Bound accountable support ownership
+    tags:
+      capability: support-accountability-evidence
+      risk: contact-metadata-as-support-ownership
+      journey: assess-package-support
+    prompt: |
+      Produce the complete package-wide local record for the supplied Blazor package. The captured metadata
+      names an organization, author, and public contact route, but it does not name the accountable support
+      role, current owner, backup, package scope, or escalation coverage. Stay offline and verify under ./out.
+    environment:
+      files:
+        - src: fixtures/evidence-boundaries
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/package.validation.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py assert-row-not-verified --assessment out/revisions/0001/package.assessment.json --id SUP-01
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind package --rows 60
+          expected_exit_code: 0
+      - type: exit-success
+
+  # Vally 0.14 does not enforce expect_activation during execution. The adapter
+  # consumes it after the run as activation-contract metadata; the deterministic
+  # graders below independently score the requested off-target behavior.
+  - name: Stay dormant for ordinary component authoring
+    tags:
+      capability: scope-boundary-enforcement
+      risk: unrequested-readiness-assessment
+      journey: author-blazor-component
+    prompt: Create a reusable Blazor date-range picker with keyboard navigation and form validation.
+    expect_activation: false
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(date[- ]?range|DateRange)
+      - type: output-matches
+        config:
+          pattern: (?i)(keyboard|ArrowLeft|ArrowRight|Home|End)
+      - type: output-matches
+        config:
+          pattern: (?i)(validation|EditForm|ValidationMessage|InputBase)
+      - type: output-not-matches
+        config:
+          pattern: (?i)(readiness assessment|evidence ledger|certification)
+      - type: file-not-exists
+        config:
+          path: '**/input.confirmed.json'
+      - type: file-not-exists
+        config:
+          path: '**/revisions/**'
+      - type: exit-success
+    rubric:
+      - The readiness skill stayed dormant and did not perform a package or component readiness assessment
+      - The response directly addresses reusable Blazor component authoring
+
+  - name: Stay dormant for application debugging
+    tags:
+      capability: scope-boundary-enforcement
+      risk: unrequested-readiness-assessment
+      journey: debug-blazor-application
+    prompt: My Blazor page throws after navigation when a scoped service is disposed. Help me debug it.
+    expect_activation: false
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(scoped|service lifetime|scope)
+      - type: output-matches
+        config:
+          pattern: (?i)(dispose|ObjectDisposedException|navigation)
+      - type: output-matches
+        config:
+          pattern: (?i)(debug|diagnos|trace|check|lifetime)
+      - type: output-not-matches
+        config:
+          pattern: (?i)(readiness assessment|evidence ledger|certification)
+      - type: file-not-exists
+        config:
+          path: '**/input.confirmed.json'
+      - type: file-not-exists
+        config:
+          path: '**/revisions/**'
+      - type: exit-success
+    rubric:
+      - The readiness skill stayed dormant and did not perform a package or component readiness assessment
+      - The response directly addresses the scoped-service disposal failure
+
+  - name: Stay dormant for framework pull request review
+    tags:
+      capability: scope-boundary-enforcement
+      risk: unrequested-readiness-assessment
+      journey: review-framework-regressions
+    prompt: Review this ASP.NET Core framework pull request for regressions in interactive server rendering.
+    expect_activation: false
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?is)(provide|share|need|which).*(pull request|PR|URL|diff)
+      - type: output-not-matches
+        config:
+          pattern: (?i)(readiness assessment|evidence ledger|certification)
+      - type: file-not-exists
+        config:
+          path: '**/input.confirmed.json'
+      - type: file-not-exists
+        config:
+          path: '**/revisions/**'
+      - type: file-not-exists
+        config:
+          path: '**/library-index.*'
+      - type: exit-success
+    rubric:
+      - The readiness skill stayed dormant because first-party framework pull request review is out of scope
+      - The response requests or uses the pull request evidence needed for an ordinary code review
+
+  - name: Stay dormant for generic package creation
+    tags:
+      capability: scope-boundary-enforcement
+      risk: unrequested-readiness-assessment
+      journey: create-nuget-package
+    prompt: Help me pack a class library with symbols, Source Link, and deterministic builds.
+    expect_activation: false
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(IncludeSymbols|SymbolPackageFormat|snupkg|symbols)
+      - type: output-matches
+        config:
+          pattern: (?i)(Source Link|PublishRepositoryUrl|EmbedUntrackedSources|Microsoft\.SourceLink)
+      - type: output-matches
+        config:
+          pattern: (?i)(ContinuousIntegrationBuild|Deterministic)
+      - type: output-not-matches
+        config:
+          pattern: (?i)(readiness assessment|component inventory|evidence ledger|certification)
+      - type: file-not-exists
+        config:
+          path: '**/input.confirmed.json'
+      - type: file-not-exists
+        config:
+          path: '**/revisions/**'
+      - type: exit-success
+    rubric:
+      - The readiness skill stayed dormant and did not perform a package or component readiness assessment
+      - The response directly addresses ordinary NuGet package creation
+
+  - name: Assess a local selection component
+    tags:
+      capability: public-parameter-ownership-discovery
+      risk: missed-public-parameter-mutation
+      journey: review-component-implementation
+    prompt: &beq09_source_prompt |
+      Review the complete component-owned source in fixture/component against the requirement
+      and status definitions in fixture/criterion.json. Make a source-backed decision for that
+      requirement, not a full readiness report. Keep the supplied files unchanged, stay offline,
+      and do not build, restore, execute code or delegate this review.
+
+      Write one UTF-8 JSON object to out/beq09-decision.json with exactly these five fields:
+      - requirement_id: the string "BEQ-09".
+      - status: "verified", "gap", "owner evidence required", "not tested" or "not applicable".
+      - ownership: "public-parameter", "internal-state" or "unresolved", classifying the cited
+        update target, not the entire component. A gap or verified decision cannot be unresolved.
+      - citations: an array of objects with exactly path, start_line, end_line and fact. Paths
+        must name supplied files relative to fixture/component, never absolute or traversal
+        paths. Line numbers must be integers with 1 <= start_line <= end_line <= file length.
+        Each fact must be a nonempty, non-whitespace string. Include at least one citation for
+        gap or verified, and ground the requirement and ownership decision in the relevant source.
+      - explanation: a nonempty, non-whitespace string explaining the complete decision.
+      Do not substitute null or add fields. Source inspection does not establish runtime behavior.
+    environment:
+      files:
+        - src: fixtures/beq09-source-discovery/case-a/SelectionToggle.csproj
+          dest: fixture/component/SelectionToggle.csproj
+        - src: fixtures/beq09-source-discovery/case-a/SelectionStateBase.cs
+          dest: fixture/component/SelectionStateBase.cs
+        - src: fixtures/beq09-source-discovery/case-a/SelectionToggle.razor
+          dest: fixture/component/SelectionToggle.razor
+        - src: fixtures/beq09-source-discovery/case-a/SelectionToggle.razor.cs
+          dest: fixture/component/SelectionToggle.razor.cs
+        - src: fixtures/beq09-source-discovery/criterion.json
+          dest: fixture/criterion.json
+    graders:
+      - type: file-exists
+        config: &beq09_output
+          path: out/beq09-decision.json
+      # Only this controller-side spec holds expectations. Do not stage this code or its
+      # configuration. JSON-result mode keeps broken instruments errored, not merely failed.
+      # Fixed hashes/anchors bind this reviewed pair; they are not a general semantic analyzer.
+      - type: program
+        config:
+          program: python
+          args:
+            - -I
+            - -c
+            - &beq09_program |
+              import hashlib, json, sys
+              from pathlib import Path, PurePosixPath, PureWindowsPath
+
+              def emit_result(status, passed, evidence):
+                  print(json.dumps({"name": "beq09-source-discovery", "kind": "code",
+                                    "passed": passed, "score": 1 if passed else 0,
+                                    "evidence": evidence, "status": status}))
+                  raise SystemExit(0)
+
+              def invalid(message):
+                  emit_result("error", False, "INVALID fixture/grader: " + message)
+
+              def reject(message):
+                  emit_result("success", False, "FAIL assessor output: " + message)
+
+              def unique_object(pairs):
+                  result = {}
+                  for key, value in pairs:
+                      if key in result:
+                          raise ValueError("duplicate JSON property")
+                      result[key] = value
+                  return result
+
+              def no_constant(value):
+                  raise ValueError("non-JSON numeric constant")
+
+              def load_json(text):
+                  return json.loads(text, object_pairs_hook=unique_object, parse_constant=no_constant)
+
+              def source_text(path):
+                  text = path.read_bytes().decode("utf-8").replace("\r\n", "\n")
+                  if "\r" in text:
+                      raise ValueError("unexpected source line ending")
+                  return text
+
+              try:
+                  expected = load_json(sys.argv[1])
+                  assert set(expected) == {"status", "ownership", "files", "criterion_sha256", "anchors"}
+                  assert (expected["status"], expected["ownership"]) in {
+                      ("gap", "public-parameter"), ("verified", "internal-state")}
+                  files = expected["files"]
+                  assert files and all(PurePosixPath(p).name == p and "\\" not in p for p in files)
+                  root = Path("fixture")
+                  component = root / "component"
+                  assert root.is_dir() and component.is_dir(), "missing staged source"
+                  assert not root.is_symlink() and not component.is_symlink(), "linked input root"
+                  entries = list(root.rglob("*"))
+                  assert not any(p.is_symlink() for p in entries), "linked staged input"
+                  assert {p.relative_to(root).as_posix() for p in entries if p.is_dir()} == {"component"}
+                  actual = {p.relative_to(root).as_posix() for p in entries if p.is_file()}
+                  assert actual == {"criterion.json"} | {"component/" + p for p in files}, "staged inventory differs"
+                  sources = {name: source_text(component / name) for name in files}
+                  for name, text in sources.items():
+                      assert hashlib.sha256(text.encode("utf-8")).hexdigest() == files[name], "source digest differs"
+                  criterion = source_text(root / "criterion.json")
+                  assert hashlib.sha256(criterion.encode("utf-8")).hexdigest() == expected["criterion_sha256"], "criterion digest differs"
+                  assert load_json(criterion)["requirement_id"] == "BEQ-09"
+                  assert expected["anchors"], "missing expected source anchors"
+                  for anchor in expected["anchors"]:
+                      assert set(anchor) == {"path", "start_line", "end_line", "text"}
+                      lines = sources[anchor["path"]].splitlines()
+                      start, end = anchor["start_line"], anchor["end_line"]
+                      assert type(start) is int and type(end) is int and 1 <= start <= end <= len(lines)
+                      assert "\n".join(lines[start - 1:end]) == anchor["text"], "expected source anchor differs"
+              except (AssertionError, IndexError, KeyError, TypeError, ValueError, OSError) as error:
+                  invalid(str(error) or "invalid controller configuration")
+
+              try:
+                  answer = load_json(Path("out/beq09-decision.json").read_bytes().decode("utf-8"))
+              except FileNotFoundError:
+                  reject("missing decision file")
+              except (UnicodeError, ValueError):
+                  reject("decision must be one strict UTF-8 JSON object with unique keys")
+              except OSError as error:
+                  invalid("cannot read decision file: " + type(error).__name__)
+              fields = {"requirement_id", "status", "ownership", "citations", "explanation"}
+              if not isinstance(answer, dict) or set(answer) != fields:
+                  reject("decision requires exactly the five declared fields")
+              if answer["requirement_id"] != "BEQ-09":
+                  reject("wrong requirement_id")
+              statuses = ("verified", "gap", "owner evidence required", "not tested", "not applicable")
+              if answer["status"] not in statuses:
+                  reject("unknown status")
+              if answer["ownership"] not in ("public-parameter", "internal-state", "unresolved"):
+                  reject("unknown ownership")
+              if answer["status"] in ("gap", "verified") and answer["ownership"] == "unresolved":
+                  reject("decisive status requires resolved ownership")
+              if not isinstance(answer["explanation"], str) or not answer["explanation"].strip():
+                  reject("explanation must be nonempty text")
+              citations = answer["citations"]
+              if not isinstance(citations, list) or (answer["status"] in ("gap", "verified") and not citations):
+                  reject("decisive status requires citations")
+              locations = []
+              for citation in citations:
+                  if not isinstance(citation, dict) or set(citation) != {"path", "start_line", "end_line", "fact"}:
+                      reject("citation requires exactly path, start_line, end_line and fact")
+                  name = citation["path"]
+                  if not isinstance(name, str) or not name or name.endswith(("/", "\\")):
+                      reject("citation path must name a supplied file")
+                  path = PurePosixPath(name.replace("\\", "/"))
+                  if path.is_absolute() or PureWindowsPath(name).drive or ".." in path.parts or path.as_posix() not in sources:
+                      reject("citation path is outside supplied source")
+                  start, end = citation["start_line"], citation["end_line"]
+                  if type(start) is not int or type(end) is not int or not 1 <= start <= end <= len(sources[path.as_posix()].splitlines()):
+                      reject("citation line range is invalid")
+                  if not isinstance(citation["fact"], str) or not citation["fact"].strip():
+                      reject("citation fact must be nonempty text")
+                  locations.append((path.as_posix(), start, end))
+              if answer["status"] != expected["status"] or answer["ownership"] != expected["ownership"]:
+                  reject("decision does not match the reviewed source ownership")
+              for anchor in expected["anchors"]:
+                  if not any(p == anchor["path"] and start <= anchor["start_line"] and end >= anchor["end_line"]
+                             for p, start, end in locations):
+                      reject("citations do not connect the decision to the required source anchors")
+              emit_result("success", True, "VALID BEQ-09 source-bound worksheet")
+            - >-
+              {"status":"gap","ownership":"public-parameter",
+              "files":{"SelectionToggle.csproj":"93202fc34fad55c1740d70002685e4cea19cbf0bd45beab98b38ed01eea8fa3b",
+              "SelectionStateBase.cs":"0494b2acca29e04e7c21342c87bea995bad2f2cc82e9940c14e51f52547ade0f",
+              "SelectionToggle.razor":"a4fa093aabef2a64222435da2734ec50c06b9df3f89c365b0510c42e8a6630ba",
+              "SelectionToggle.razor.cs":"0644411cc9957c974393d3102e31646f22ef4a99606f405aac38de120b18e3cb"},
+              "criterion_sha256":"26d779a5f32f266a85bdf5cc21fe8654cc0b46a5e7e98267750e6c608f303291",
+              "anchors":[
+              {"path":"SelectionToggle.razor.cs","start_line":15,"end_line":15,"text":"            Value = nextValue;"},
+              {"path":"SelectionStateBase.cs","start_line":7,"end_line":8,"text":"    [Parameter]\n    public bool Value { get; set; }"},
+              {"path":"SelectionToggle.razor","start_line":2,"end_line":2,"text":"@inherits SelectionStateBase"}]}
+    rubric:
+      - The decision connects the component-owned write to its public parameter declaration through the owned inheritance chain.
+      - Evidence of a conflicting path is not cancelled by other paths or a paired callback; no runtime success is inferred.
+
+  - name: Assess a separate local selection component
+    tags:
+      capability: public-parameter-ownership-discovery
+      risk: internal-state-as-parameter-mutation
+      journey: review-component-implementation
+    prompt: *beq09_source_prompt
+    environment:
+      files:
+        - src: fixtures/beq09-source-discovery/case-b/SelectionToggle.csproj
+          dest: fixture/component/SelectionToggle.csproj
+        - src: fixtures/beq09-source-discovery/case-b/SelectionStateBase.cs
+          dest: fixture/component/SelectionStateBase.cs
+        - src: fixtures/beq09-source-discovery/case-b/SelectionToggle.razor
+          dest: fixture/component/SelectionToggle.razor
+        - src: fixtures/beq09-source-discovery/case-b/SelectionToggle.razor.cs
+          dest: fixture/component/SelectionToggle.razor.cs
+        - src: fixtures/beq09-source-discovery/criterion.json
+          dest: fixture/criterion.json
+    graders:
+      - type: file-exists
+        config: *beq09_output
+      - type: program
+        config:
+          program: python
+          args:
+            - -I
+            - -c
+            - *beq09_program
+            - >-
+              {"status":"verified","ownership":"internal-state",
+              "files":{"SelectionToggle.csproj":"93202fc34fad55c1740d70002685e4cea19cbf0bd45beab98b38ed01eea8fa3b",
+              "SelectionStateBase.cs":"0494b2acca29e04e7c21342c87bea995bad2f2cc82e9940c14e51f52547ade0f",
+              "SelectionToggle.razor":"a4fa093aabef2a64222435da2734ec50c06b9df3f89c365b0510c42e8a6630ba",
+              "SelectionToggle.razor.cs":"1c8e04918e1a7f85b8a88edfe939cf82d32b04b60117b9cefafe460c42076421"},
+              "criterion_sha256":"26d779a5f32f266a85bdf5cc21fe8654cc0b46a5e7e98267750e6c608f303291",
+              "anchors":[
+              {"path":"SelectionToggle.razor.cs","start_line":15,"end_line":15,"text":"            CurrentValue = nextValue;"},
+              {"path":"SelectionStateBase.cs","start_line":16,"end_line":16,"text":"    protected bool CurrentValue;"},
+              {"path":"SelectionStateBase.cs","start_line":7,"end_line":14,"text":"    [Parameter]\n    public bool Value { get; set; }\n\n    [Parameter]\n    public bool AllowChange { get; set; }\n\n    [Parameter]\n    public EventCallback<bool> ValueChanged { get; set; }"},
+              {"path":"SelectionStateBase.cs","start_line":20,"end_line":20,"text":"        CurrentValue = Value;"},
+              {"path":"SelectionToggle.razor.cs","start_line":18,"end_line":18,"text":"        await ValueChanged.InvokeAsync(nextValue);"},
+              {"path":"SelectionToggle.razor","start_line":2,"end_line":2,"text":"@inherits SelectionStateBase"},
+              {"path":"SelectionToggle.razor","start_line":5,"end_line":5,"text":"<button type=\"button\" aria-pressed=\"@CurrentValue\" disabled=\"@(!AllowChange)\" @onclick=\"HandleToggleAsync\">"}]}
+    rubric:
+      - The internal-state ownership decision is supported by its declaration and update paths, not merely by the absence of a reported defect.
+      - All public parameter declarations and owned source paths satisfy the complete source-level requirement; no runtime success is inferred.
+
+  - name: Assess a dock dispatch component
+    tags:
+      capability: outbound-serialization-path-discovery
+      risk: alternate-value-path-bypasses-typed-serialization
+      journey: review-component-implementation
+    prompt: &id001 |-
+      Review the selected Blazor component in fixture/component against the one
+      serialization criterion in fixture/criterion.json. The criterion supplies the complete
+      supported context, status definitions and a small decision worksheet contract for this
+      review. Follow the component's applicable outbound value paths and ground the decision
+      in the supplied source; do not infer a whole mechanism from one example or unrelated code.
+      Write out/serialization-decision.json and explain the result and limits in your final
+      response. Inspect source only: do not change it, build or execute assessed code, install
+      tools, access the network, or produce a full package/component assessment.
+    environment:
+      files:
+      - src: fixtures/beq19-outbound-routing/segment-01/DockDispatch.csproj
+        dest: fixture/component/DockDispatch.csproj
+      - src: fixtures/beq19-outbound-routing/segment-01/DockBoard.razor
+        dest: fixture/component/DockBoard.razor
+      - src: fixtures/beq19-outbound-routing/segment-01/DispatchPanelBase.cs
+        dest: fixture/component/DispatchPanelBase.cs
+      - src: fixtures/beq19-outbound-routing/segment-01/Outbox.cs
+        dest: fixture/component/Outbox.cs
+      - src: fixtures/beq19-outbound-routing/segment-01/SnapshotCodec.cs
+        dest: fixture/component/SnapshotCodec.cs
+      - src: fixtures/beq19-outbound-routing/segment-01/EnvelopeCodec.cs
+        dest: fixture/component/EnvelopeCodec.cs
+      - src: fixtures/beq19-outbound-routing/segment-01/CalibrationExport.cs
+        dest: fixture/component/CalibrationExport.cs
+      - src: fixtures/beq19-outbound-routing/criterion.json
+        dest: fixture/criterion.json
+    graders:
+    - type: file-exists
+      config:
+        path: out/serialization-decision.json
+    - type: program
+      config:
+        program: python
+        args:
+        - -I
+        - -c
+        - &id002 |
+          import hashlib, json, sys
+          from pathlib import Path, PurePosixPath, PureWindowsPath
+
+          def finish(category, message):
+              passed = category == "pass"
+              prefix = {"pass": "VALID source-bound path worksheet: ",
+                        "fail": "FAIL assessor output: ", "error": "INVALID fixture/grader: "}[category]
+              print(json.dumps({"name": "beq19-outbound-routing", "kind": "code", "passed": passed,
+                                "score": int(passed), "status": "error" if category == "error" else "success",
+                                "evidence": prefix + message}))
+              raise SystemExit(0)
+
+          def unique(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError("duplicate JSON key")
+                  result[key] = value
+              return result
+
+          def constant(value):
+              raise ValueError("non-JSON constant")
+
+          def load(value):
+              return json.loads(value, object_pairs_hook=unique, parse_constant=constant)
+
+          def source(path):
+              return path.read_bytes().decode("utf-8").replace("\r\n", "\n")
+
+          def symbol(value):
+              if not isinstance(value, str):
+                  raise ValueError("symbol must be text")
+              return value.removeprefix("global::").removeprefix("DockDispatch.").removeprefix("System.Text.Json.")
+
+          try:
+              binding = sys.argv[1]
+              assert hashlib.sha256(binding.encode()).hexdigest() == sys.argv[2], "controller binding differs"
+              expected = load(binding)
+              assert set(expected) == {"status", "files", "criterion_sha256", "paths", "excluded"}
+              assert expected["status"] == ("gap" if any(p["serialization"]["kind"] == "raw-value"
+                                                       for p in expected["paths"]) else "verified")
+              root = Path("fixture")
+              assert root.is_dir() and not root.is_symlink(), "missing/linked staged root"
+              entries = list(root.rglob("*"))
+              assert not any(p.is_symlink() for p in entries), "linked staged input"
+              assert {p.relative_to(root).as_posix() for p in entries if p.is_dir()} == {"component"}
+              assert {p.relative_to(root).as_posix() for p in entries if p.is_file()} == (
+                  {"criterion.json"} | {"component/" + f for f in expected["files"]}), "staged inventory differs"
+              texts = {f: source(root / "component" / f) for f in expected["files"]}
+              for name, content in texts.items():
+                  assert hashlib.sha256(content.encode()).hexdigest() == expected["files"][name], "source digest differs"
+              criterion = source(root / "criterion.json")
+              assert hashlib.sha256(criterion.encode()).hexdigest() == expected["criterion_sha256"], "criterion digest differs"
+              assert load(criterion)["requirement_id"] == "BEQ-19"
+              for record in expected["paths"] + expected["excluded"]:
+                  for anchor in record["anchors"]:
+                      assert texts[anchor["path"]].splitlines()[anchor["line"] - 1] == anchor["text"], "anchor differs"
+          except (AssertionError, IndexError, KeyError, TypeError, ValueError, OSError, UnicodeError) as error:
+              finish("error", str(error) or "invalid controller configuration")
+
+          def reject(message):
+              finish("fail", message)
+
+          def citations(records, anchors):
+              if not isinstance(records, list) or not records:
+                  reject("missing source grounding")
+              ranges = []
+              for record in records:
+                  if not isinstance(record, dict) or set(record) != {"path", "start_line", "end_line", "quote"}:
+                      reject("citation shape differs from the common contract")
+                  name = record["path"]
+                  if not isinstance(name, str):
+                      reject("citation path must be text")
+                  path = PurePosixPath(name.replace("\\", "/"))
+                  if path.is_absolute() or PureWindowsPath(name).drive or ".." in path.parts or path.as_posix() not in texts:
+                      reject("citation is outside the supplied source")
+                  lines = texts[path.as_posix()].splitlines()
+                  start, end = record["start_line"], record["end_line"]
+                  if type(start) is not int or type(end) is not int or not 1 <= start <= end <= len(lines):
+                      reject("invalid citation range")
+                  if record["quote"] != "\n".join(lines[start - 1:end]):
+                      reject("fabricated source quotation")
+                  ranges.append((path.as_posix(), start, end))
+              for anchor in anchors:
+                  if not any(p == anchor["path"] and first <= anchor["line"] <= last for p, first, last in ranges):
+                      reject("citations do not ground a required relationship")
+
+          try:
+              answer = load(Path("out/serialization-decision.json").read_bytes().decode("utf-8"))
+          except FileNotFoundError:
+              reject("missing worksheet")
+          except (ValueError, UnicodeError):
+              reject("worksheet must be strict UTF-8 JSON with unique keys")
+          except OSError as error:
+              finish("error", "worksheet read failed: " + type(error).__name__)
+
+          try:
+              assert isinstance(answer, dict) and set(answer) == {"requirement_id", "status", "paths", "excluded", "limits"}
+              assert answer["requirement_id"] == "BEQ-19"
+              assert answer["status"] in ("verified", "gap", "owner evidence required", "not tested", "not applicable")
+              if answer["status"] != expected["status"]:
+                  reject("source does not support this conclusion (including legitimate abstention)")
+              assert isinstance(answer["limits"], dict) and set(answer["limits"]) == {
+                  "browser_executed", "exploitability_established", "application_ids_hostile"}
+              assert all(value is False for value in answer["limits"].values()), "unsupported execution/trust claim"
+              paths = answer["paths"]
+              assert isinstance(paths, list) and len(paths) == len(expected["paths"]), "outbound shape inventory differs"
+              remaining = {p["condition"]: p for p in expected["paths"]}
+              for record in paths:
+                  assert isinstance(record, dict) and set(record) == {
+                      "condition", "value", "route", "serialization", "sink", "citations"}
+                  required = remaining.pop(record["condition"])
+                  assert record["value"] == required["value"], "wrong outbound value"
+                  assert isinstance(record["route"], list)
+                  assert [symbol(v) for v in record["route"]] == required["route"], "fabricated or incomplete reached route"
+                  assert symbol(record["sink"]) == required["sink"], "wrong outbound sink"
+                  serialization = record["serialization"]
+                  assert isinstance(serialization, dict) and set(serialization) == {"method", "kind", "escaping"}
+                  assert symbol(serialization["method"]) == required["serialization"]["method"], "wrong writer API"
+                  assert {k: serialization[k] for k in ("kind", "escaping")} == {
+                      k: required["serialization"][k] for k in ("kind", "escaping")}, "wrong serialization operation"
+                  citations(record["citations"], required["anchors"])
+              assert not remaining, "missing supported branch"
+              assert isinstance(answer["excluded"], list) and len(answer["excluded"]) == len(expected["excluded"])
+              for record, required in zip(answer["excluded"], expected["excluded"], strict=True):
+                  assert isinstance(record, dict) and set(record) == {"entry", "reason", "citations"}
+                  assert symbol(record["entry"]) == required["entry"] and record["reason"] == required["reason"], "wrong reachability"
+                  citations(record["citations"], required["anchors"])
+          except (AssertionError, KeyError, TypeError, ValueError) as error:
+              reject(str(error) or "structured path explanation differs from the supplied source")
+          finish("pass", "typed normal path, applicable secondary shape, source relationships and scope limits checked")
+        - '{"status":"gap","files":{"DockDispatch.csproj":"79a05e39a8d7bd1f5de993cb46c49c1d46edc9ce50ea5ac6c3f5ef00aaf9e6a7","DockBoard.razor":"e0105c0267759e50626925018176b50c25d7a63772c3bfd62545861613c507ae","DispatchPanelBase.cs":"32d48bc7a1023c9ef74f48691b1aea6fb28804c23dd44f2e1a78fc849976e1bf","Outbox.cs":"3d348941fdcc64f87a146cc9f95606c2b8f60405add7c8c1a525bf428b5879eb","SnapshotCodec.cs":"a256f70b2311232da8908069d4e6b76fbc7a6bdf2a511674ee48683f3f35618d","EnvelopeCodec.cs":"ca715ce539cba9f4a2f8fe4dc68537d671ede57908ea402ea864625b63dfbc8e","CalibrationExport.cs":"9810b1d84008548aabd5586b521b6a04d654c62120dfb42a36a1c71e8d47b643"},"criterion_sha256":"6b4b2055eb05a9599b2a6e259daf3d7d3e97aa8feca60fd9fbddbdd5177d4a41","paths":[{"condition":"always","value":"snapshot","route":["DispatchPanelBase.PublishAsync","SnapshotCodec.Encode","DeliveryChannel.SendAsync"],"serialization":{"method":"JsonSerializer.SerializeToUtf8Bytes","kind":"typed","escaping":"default-json"},"sink":"DeliveryChannel.SendAsync","anchors":[{"path":"DockBoard.razor","line":2,"text":"@inherits
+          DispatchPanelBase"},{"path":"DockBoard.razor","line":5,"text":"<button @onclick=\"PublishAsync\">Publish dock reservation</button>"},{"path":"DispatchPanelBase.cs","line":14,"text":"    protected
+          async Task PublishAsync()"},{"path":"DispatchPanelBase.cs","line":16,"text":"        var snapshot = new DispatchSnapshot(DockId,
+          Labels);"},{"path":"DispatchPanelBase.cs","line":17,"text":"        await channel.SendAsync(SnapshotCodec.Encode(snapshot));"},{"path":"SnapshotCodec.cs","line":8,"text":"        JsonSerializer.SerializeToUtf8Bytes(snapshot);"},{"path":"Outbox.cs","line":18,"text":"        LastSent
+          = payload.ToArray();"}]},{"condition":"QueueEnabled","value":"reservation.Code","route":["DispatchPanelBase.PublishAsync","DispatchPlan.Capture","Outbox.EnqueueAsync","EnvelopeCodec.Encode","ScalarLexeme.Quote","DeliveryChannel.SendAsync"],"serialization":{"method":"Utf8JsonWriter.WriteRawValue","kind":"raw-value","escaping":"unescaped"},"sink":"DeliveryChannel.SendAsync","anchors":[{"path":"DockBoard.razor","line":2,"text":"@inherits
+          DispatchPanelBase"},{"path":"DockBoard.razor","line":5,"text":"<button @onclick=\"PublishAsync\">Publish dock reservation</button>"},{"path":"DispatchPanelBase.cs","line":14,"text":"    protected
+          async Task PublishAsync()"},{"path":"DispatchPanelBase.cs","line":10,"text":"    [Parameter] public bool QueueEnabled
+          { get; set; }"},{"path":"DispatchPanelBase.cs","line":18,"text":"        if (QueueEnabled)"},{"path":"DispatchPanelBase.cs","line":20,"text":"            var
+          reservation = DispatchPlan.Capture(ReservationCode);"},{"path":"DispatchPanelBase.cs","line":21,"text":"            await
+          Outbox.EnqueueAsync(channel, reservation);"},{"path":"DispatchPanelBase.cs","line":31,"text":"    public static Reservation
+          Capture(string code) => new(code);"},{"path":"Outbox.cs","line":7,"text":"        var payload = EnvelopeCodec.Encode(reservation);"},{"path":"Outbox.cs","line":8,"text":"        return
+          channel.SendAsync(payload);"},{"path":"EnvelopeCodec.cs","line":11,"text":"        using (var writer = new Utf8JsonWriter(buffer))"},{"path":"EnvelopeCodec.cs","line":15,"text":"            writer.WritePropertyName(\"reservation\");"},{"path":"EnvelopeCodec.cs","line":16,"text":"            writer.WriteRawValue(ScalarLexeme.Quote(reservation.Code),
+          skipInputValidation: true);"},{"path":"Outbox.cs","line":18,"text":"        LastSent = payload.ToArray();"},{"path":"CalibrationExport.cs","line":7,"text":"    public
+          static string Quote(string value)"},{"path":"CalibrationExport.cs","line":11,"text":"        text.Append(value);"}]}],"excluded":[{"entry":"CalibrationExport.Emit","reason":"not-reachable-from-selected-component","anchors":[{"path":"CalibrationExport.cs","line":19,"text":"    public
+          static Task Emit(DeliveryChannel channel, string reading)"},{"path":"CalibrationExport.cs","line":21,"text":"        return
+          channel.SendAsync(Encoding.UTF8.GetBytes(ScalarLexeme.Quote(reading)));"},{"path":"CalibrationExport.cs","line":11,"text":"        text.Append(value);"}]}]}'
+        - 8ab4aedeb4b5c38c546ebbb2e7bb86e139c74e0f9d22877db2ff3cd6f2caf031
+    - type: prompt
+    rubric:
+    - The conclusion is supported by the actual button entry, inherited conditional route, projected value, encoder operation
+      and byte-send sink. A guessed status, fabricated relationship, irrelevant citation or meaningless explanation is not a
+      correct assessment.
+    - Identifies the reached queued reservation value bypassing typed writes and safe escaping, while preserving the satisfactory
+      typed ordinary snapshot path.
+    - Distinguishes the .NET serialization mechanism from DOM behavior or exploitability. Application-controlled identifiers
+      are not automatically hostile input. Does not claim browser execution, broaden the assessment or rely on a sibling capture.
+    - Natural source-grounded explanations and equivalent descriptions of the actual serializer APIs are accepted. No particular
+      wording, procedure, tool use or skill activation is rewarded.
+  - name: Assess another dock dispatch component
+    tags:
+      capability: outbound-serialization-path-discovery
+      risk: unreachable-raw-code-as-component-gap
+      journey: review-component-implementation
+    prompt: *id001
+    environment:
+      files:
+      - src: fixtures/beq19-outbound-routing/segment-02/DockDispatch.csproj
+        dest: fixture/component/DockDispatch.csproj
+      - src: fixtures/beq19-outbound-routing/segment-02/DockBoard.razor
+        dest: fixture/component/DockBoard.razor
+      - src: fixtures/beq19-outbound-routing/segment-02/DispatchPanelBase.cs
+        dest: fixture/component/DispatchPanelBase.cs
+      - src: fixtures/beq19-outbound-routing/segment-02/Outbox.cs
+        dest: fixture/component/Outbox.cs
+      - src: fixtures/beq19-outbound-routing/segment-02/SnapshotCodec.cs
+        dest: fixture/component/SnapshotCodec.cs
+      - src: fixtures/beq19-outbound-routing/segment-02/EnvelopeCodec.cs
+        dest: fixture/component/EnvelopeCodec.cs
+      - src: fixtures/beq19-outbound-routing/segment-02/CalibrationExport.cs
+        dest: fixture/component/CalibrationExport.cs
+      - src: fixtures/beq19-outbound-routing/criterion.json
+        dest: fixture/criterion.json
+    graders:
+    - type: file-exists
+      config:
+        path: out/serialization-decision.json
+    - type: program
+      config:
+        program: python
+        args:
+        - -I
+        - -c
+        - *id002
+        - '{"status":"verified","files":{"DockDispatch.csproj":"79a05e39a8d7bd1f5de993cb46c49c1d46edc9ce50ea5ac6c3f5ef00aaf9e6a7","DockBoard.razor":"e0105c0267759e50626925018176b50c25d7a63772c3bfd62545861613c507ae","DispatchPanelBase.cs":"32d48bc7a1023c9ef74f48691b1aea6fb28804c23dd44f2e1a78fc849976e1bf","Outbox.cs":"3d348941fdcc64f87a146cc9f95606c2b8f60405add7c8c1a525bf428b5879eb","SnapshotCodec.cs":"a256f70b2311232da8908069d4e6b76fbc7a6bdf2a511674ee48683f3f35618d","EnvelopeCodec.cs":"df391a73097b0bde1a909e69244b67066fe31940b1f9b30fe601c045671565b2","CalibrationExport.cs":"9810b1d84008548aabd5586b521b6a04d654c62120dfb42a36a1c71e8d47b643"},"criterion_sha256":"6b4b2055eb05a9599b2a6e259daf3d7d3e97aa8feca60fd9fbddbdd5177d4a41","paths":[{"condition":"always","value":"snapshot","route":["DispatchPanelBase.PublishAsync","SnapshotCodec.Encode","DeliveryChannel.SendAsync"],"serialization":{"method":"JsonSerializer.SerializeToUtf8Bytes","kind":"typed","escaping":"default-json"},"sink":"DeliveryChannel.SendAsync","anchors":[{"path":"DockBoard.razor","line":2,"text":"@inherits
+          DispatchPanelBase"},{"path":"DockBoard.razor","line":5,"text":"<button @onclick=\"PublishAsync\">Publish dock reservation</button>"},{"path":"DispatchPanelBase.cs","line":14,"text":"    protected
+          async Task PublishAsync()"},{"path":"DispatchPanelBase.cs","line":16,"text":"        var snapshot = new DispatchSnapshot(DockId,
+          Labels);"},{"path":"DispatchPanelBase.cs","line":17,"text":"        await channel.SendAsync(SnapshotCodec.Encode(snapshot));"},{"path":"SnapshotCodec.cs","line":8,"text":"        JsonSerializer.SerializeToUtf8Bytes(snapshot);"},{"path":"Outbox.cs","line":18,"text":"        LastSent
+          = payload.ToArray();"}]},{"condition":"QueueEnabled","value":"reservation.Code","route":["DispatchPanelBase.PublishAsync","DispatchPlan.Capture","Outbox.EnqueueAsync","EnvelopeCodec.Encode","DeliveryChannel.SendAsync"],"serialization":{"method":"Utf8JsonWriter.WriteStringValue","kind":"typed","escaping":"default-json"},"sink":"DeliveryChannel.SendAsync","anchors":[{"path":"DockBoard.razor","line":2,"text":"@inherits
+          DispatchPanelBase"},{"path":"DockBoard.razor","line":5,"text":"<button @onclick=\"PublishAsync\">Publish dock reservation</button>"},{"path":"DispatchPanelBase.cs","line":14,"text":"    protected
+          async Task PublishAsync()"},{"path":"DispatchPanelBase.cs","line":10,"text":"    [Parameter] public bool QueueEnabled
+          { get; set; }"},{"path":"DispatchPanelBase.cs","line":18,"text":"        if (QueueEnabled)"},{"path":"DispatchPanelBase.cs","line":20,"text":"            var
+          reservation = DispatchPlan.Capture(ReservationCode);"},{"path":"DispatchPanelBase.cs","line":21,"text":"            await
+          Outbox.EnqueueAsync(channel, reservation);"},{"path":"DispatchPanelBase.cs","line":31,"text":"    public static Reservation
+          Capture(string code) => new(code);"},{"path":"Outbox.cs","line":7,"text":"        var payload = EnvelopeCodec.Encode(reservation);"},{"path":"Outbox.cs","line":8,"text":"        return
+          channel.SendAsync(payload);"},{"path":"EnvelopeCodec.cs","line":11,"text":"        using (var writer = new Utf8JsonWriter(buffer))"},{"path":"EnvelopeCodec.cs","line":15,"text":"            writer.WritePropertyName(\"reservation\");"},{"path":"EnvelopeCodec.cs","line":16,"text":"            writer.WriteStringValue(reservation.Code);"},{"path":"Outbox.cs","line":18,"text":"        LastSent
+          = payload.ToArray();"}]}],"excluded":[{"entry":"CalibrationExport.Emit","reason":"not-reachable-from-selected-component","anchors":[{"path":"CalibrationExport.cs","line":19,"text":"    public
+          static Task Emit(DeliveryChannel channel, string reading)"},{"path":"CalibrationExport.cs","line":21,"text":"        return
+          channel.SendAsync(Encoding.UTF8.GetBytes(ScalarLexeme.Quote(reading)));"},{"path":"CalibrationExport.cs","line":11,"text":"        text.Append(value);"}]}]}'
+        - e7f1a2a6b41fc5fc1f7602b1a382b35a1ac7aacdaf5386f8272de88afa99a55a
+    - type: prompt
+    rubric:
+    - The conclusion is supported by the actual button entry, inherited conditional route, projected value, encoder operation
+      and byte-send sink. A guessed status, fabricated relationship, irrelevant citation or meaningless explanation is not a
+      correct assessment.
+    - Establishes typed writes with default JSON escaping on both applicable outbound shapes, without turning the unreachable
+      calibration export into a component defect.
+    - Distinguishes the .NET serialization mechanism from DOM behavior or exploitability. Application-controlled identifiers
+      are not automatically hostile input. Does not claim browser execution, broaden the assessment or rely on a sibling capture.
+    - Natural source-grounded explanations and equivalent descriptions of the actual serializer APIs are accepted. No particular
+      wording, procedure, tool use or skill activation is rewarded.
