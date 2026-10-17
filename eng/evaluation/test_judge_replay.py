@@ -669,7 +669,8 @@ class JudgeReplayTests(unittest.TestCase):
             source, output = root / "source", root / "output"
             original = source / "dotnet" / "example"
             original.mkdir(parents=True)
-            (original / "results.json").write_text(json.dumps(result("claude-haiku-4.5")))
+            (original / "results.json").write_text(json.dumps(
+                result("claude-haiku-4.5", skill="agent.testability-migration")))
             (source / "source-commit.json").write_text(json.dumps({"source_sha": "a" * 40}))
             native = source / "_agent-evaluation" / "timestamp"
             native.mkdir(parents=True)
@@ -689,7 +690,7 @@ class JudgeReplayTests(unittest.TestCase):
                 self.assertEqual((target / "sessions.db").read_bytes(), b"original sessions")
                 (target / "results.json").write_text(json.dumps({
                     "judgeModel": "claude-haiku-5.5", "model": "gpt-5.6-luna",
-                    "verdicts": [{"skillName": "example", "scenarios": [{
+                    "verdicts": [{"skillName": "testability-migration", "scenarios": [{
                         "scenarioName": "case", "pairwiseResult": {
                             "overallWinner": "skill", "overallReasoning": "Candidate wins",
                         },
@@ -701,8 +702,9 @@ class JudgeReplayTests(unittest.TestCase):
                 with patch.object(replay, "command", side_effect=fake_command):
                     replay.run_replay(args)
             self.assertEqual(database.read_bytes(), b"original sessions")
-            self.assertEqual(json.loads((output / "comparison.json").read_text())
-                             ["counts"]["direct_reversals"], 1)
+            report = json.loads((output / "comparison.json").read_text())
+            self.assertEqual(report["counts"]["direct_reversals"], 1)
+            self.assertEqual(report["cases"][0]["skill"], "agent.testability-migration")
 
     def test_native_rejudge_missing_results_reports_validator_failure(self):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary:

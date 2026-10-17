@@ -550,7 +550,11 @@ def run_replay(args):
         if data.get("judgeModel") != args.candidate_judge or data.get("model") != model:
             raise ValueError("Native rejudge returned unexpected model or judge")
         new = {}
+        original_skills = {key[0] for key in old}
         for verdict in data["verdicts"]:
+            skill = verdict["skillName"]
+            if skill not in original_skills and f"agent.{skill}" in original_skills:
+                skill = f"agent.{skill}"
             for scenario in verdict["scenarios"]:
                 result = scenario.get("pairwiseResult")
                 winner = result.get("overallWinner") if result else None
@@ -558,7 +562,7 @@ def run_replay(args):
                     winner = "treatment"
                 if winner not in ("baseline", "treatment", "tie"):
                     raise ValueError(f"Missing or invalid native judgment: {scenario['scenarioName']}")
-                key = (verdict["skillName"], scenario["scenarioName"], 0)
+                key = (skill, scenario["scenarioName"], 0)
                 if key in new:
                     raise ValueError(f"Duplicate native scenario: {key}")
                 new[key] = {"winner": winner, "errored": False,
