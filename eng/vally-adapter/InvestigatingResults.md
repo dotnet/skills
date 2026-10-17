@@ -77,6 +77,68 @@ Read the model and judge fields in each result, rather than assuming that an
 older run used the current defaults. The separate health and issue-triage
 workflows default to `gpt-5.6-sol`; they do not choose the PR evaluation models.
 
+### Judge-only CI replay
+
+Dispatch `evaluation` with `rejudge_run_ids` set to one or more comma-separated
+completed evaluation run IDs. Set `rejudge_artifact` to one exact
+`vally-results-*` artifact name as a filter for a small pilot; leave it blank
+to rejudge every matching artifact from those runs. By default, all mode selects
+artifacts whose executor model suffix starts with `gpt-`; change
+`rejudge_executor_prefix` for another model family, or clear it to include
+all models. `rejudge_original` and
+`rejudge_candidate` name the recorded and candidate judges (Haiku 4.5 and
+Haiku 5.5 by default). Do not combine this mode with a PR number or dashboard
+publication. A retried source run can contain **several artifacts with the same
+name**: the name filter selects all their distinct IDs, not one arbitrary
+artifact. Each replay leg downloads exactly its selected ID, verifies the
+run/name metadata and archive digest when supplied, and reports that ID.
+
+This path never starts executors. It reuses the saved baseline and skilled
+trajectories or a copy of a native agent session database. Original results
+remain authoritative. Separate `judge-replay-*` artifacts hold candidate
+verdicts, old/new per-trial evidence, source run/artifact/SHA provenance, and
+candidate replay wall time (including adapter work). The report fails for missing artifacts, trials, or
+invalid judgments. Saved pass-check alignment is only a diagnostic, not
+accuracy ground truth. Ties and direct preference reversals are counted
+separately. The whole-plugin arm is not part of this primary
+baseline-versus-skilled comparison. Source artifacts must still be unexpired.
+
+#### Replay provenance and slot identity
+
+New source artifacts contain `source-commit.json`, written by the original
+evaluation job from the **evaluated content checkout**. Its `source_sha` is the
+commit to report. Do not use the source workflow run's `head_sha` as a
+substitute: PR-targeted runs can carry the default-branch workflow SHA there.
+Older artifacts without the manifest require independent proof before
+rejudging: a completed PR-targeted run, a uniquely identified artifact ID and
+upload log (across all attempts; duplicate job IDs count only when their logs
+are identical), the artifact creation time within that
+job's successful upload step, and the **same job's raw log** showing the
+content-checkout ref and matching HEAD plus the exact uploaded name and
+artifact ID. The later checkout of trusted evaluation tools is **not** the
+evaluated content. Replay reads raw timestamped job logs with
+`gh api --allow-escape-sequences` and bounds each action by its job-API step
+time and action marker; `gh run view --log` may label every line
+`UNKNOWN STEP`. The bound SHA must also resolve through the commit API and
+have an `evaluation-status` commit status linking back to that run. A dispatch
+title supplies its requested SHA; other PR triggers require one unambiguous
+gate-log binding. Missing, conflicting, or ambiguous evidence stops replay.
+
+Vally replay uses the **original** result's `evalFile` and every saved
+`scenarios[].expectActivation` boolean as its complete activation contract;
+it does not reread `expect_activation` from the replay checkout's `eval.yaml`.
+Missing or duplicate scenario expectations, missing eval provenance, or
+candidate scenario coverage drift fails closed. Normal evaluation still reads
+the checked-out eval spec. Future Vally `scenarios[].trials[]` preserve
+`trialIndex`. For old single-trial scenarios without it, replay accepts a slot
+only when preserved baseline and skilled executor shard keys each identify the
+same unique trial index. Old multi-trial arrays without explicit indices cannot
+be paired by array position and are not replayable. Comparison requires the
+**exact same** `(skill, scenario, trialIndex)` keys on both sides; a scenario
+with no trial supplies no comparison key but retains its activation contract.
+The verdict's `trialCount` counts preference-eligible stimulus votes, **not**
+all raw trial rows: dormant scenarios may still have judged trial evidence.
+
 ### SDK startup failures
 
 `Cannot set session filesystem provider while sessions are active` can indicate
@@ -221,7 +283,7 @@ Each scenario merges the compare preference for that stimulus with the absolute 
 | Field | Description |
 |-------|-------------|
 | `scenarioName` | The stimulus name from the eval spec |
-| `meanScore` / `trials[]` | Compare preference for this stimulus and its per-trial `{ winner, magnitude, score, evidence, errored }` |
+| `meanScore` / `trials[]` | Compare preference for this stimulus and its per-trial `{ trialIndex, winner, magnitude, score, evidence, errored }`. Older artifacts may lack `trialIndex`; judge-only replay does not infer multi-trial slots from array order |
 | `expectActivation` | Whether the target should activate; `false` marks an expected-dormancy stimulus |
 | `preferenceGateEligible` / `preferenceGateExclusionReason` | Whether this scenario contributes a preference vote. Explicit dormancy is `false` / `activation_contract_only` |
 | `timedOut` | Whether the skilled run hit its timeout |
