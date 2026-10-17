@@ -681,8 +681,10 @@ class JudgeReplayTests(unittest.TestCase):
                                    run_id="123", artifact_id="456",
                                    artifact_name="vally-results-dotnet")
 
-            def fake_command(*argv, **_):
+            def fake_command(*argv, **kwargs):
                 self.assertEqual(argv[:3], ("skill-validator", "evaluate", "rejudge"))
+                self.assertEqual(kwargs["env"]["GH_TOKEN"], "copilot-pat")
+                self.assertEqual(kwargs["env"]["GITHUB_TOKEN"], "copilot-pat")
                 target = Path(argv[3])
                 self.assertEqual((target / "sessions.db").read_bytes(), b"original sessions")
                 (target / "results.json").write_text(json.dumps({
@@ -694,11 +696,39 @@ class JudgeReplayTests(unittest.TestCase):
                     }]}],
                 }))
 
-            with patch.object(replay, "command", side_effect=fake_command):
-                replay.run_replay(args)
+            with patch.dict(replay.os.environ, {"GH_TOKEN": "installation-token",
+                                                "GITHUB_TOKEN": "copilot-pat"}):
+                with patch.object(replay, "command", side_effect=fake_command):
+                    replay.run_replay(args)
             self.assertEqual(database.read_bytes(), b"original sessions")
             self.assertEqual(json.loads((output / "comparison.json").read_text())
                              ["counts"]["direct_reversals"], 1)
+
+    def test_native_rejudge_missing_results_reports_validator_failure(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary:
+            root = Path(temporary)
+            source, output = root / "source", root / "output"
+            original = source / "dotnet" / "example"
+            original.mkdir(parents=True)
+            (original / "results.json").write_text(json.dumps(result("claude-haiku-4.5")))
+            (source / "source-commit.json").write_text(json.dumps({"source_sha": "a" * 40}))
+            native = source / "_agent-evaluation" / "timestamp"
+            native.mkdir(parents=True)
+            database = native / "sessions.db"
+            database.write_bytes(b"original sessions")
+            args = SimpleNamespace(source=source, output=output, original_judge="claude-haiku-4.5",
+                                   candidate_judge="claude-haiku-5.5", repo_root=str(root),
+                                   adapter="adapt.mjs", validator="skill-validator",
+                                   run_id="123", artifact_id="456",
+                                   artifact_name="vally-results-dotnet")
+
+            with patch.dict(replay.os.environ, {"GH_TOKEN": "installation-token",
+                                                "GITHUB_TOKEN": "copilot-pat"}):
+                with patch.object(replay, "command", return_value=SimpleNamespace(returncode=1)):
+                    with self.assertRaisesRegex(ValueError, "Native rejudge produced no results.json"):
+                        replay.run_replay(args)
+            self.assertEqual(database.read_bytes(), b"original sessions")
+            self.assertFalse((output / "comparison.json").exists())
 
     def test_aggregate_requires_every_artifact(self):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary:

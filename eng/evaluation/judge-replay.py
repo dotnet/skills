@@ -4,6 +4,7 @@
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import stat
@@ -536,11 +537,15 @@ def run_replay(args):
         target = output / "native-rejudge"
         shutil.copytree(native[0].parent, target)
         original_hash = hashlib.sha256(native[0].read_bytes()).hexdigest()
+        validator_env = os.environ.copy()
+        validator_env["GH_TOKEN"] = validator_env["GITHUB_TOKEN"]
         command(args.validator, "evaluate", "rejudge", str(target),
                 "--judge-model", args.candidate_judge, "--judge-mode", "pairwise",
-                "--judge-timeout", "300", allowed=(0, 1))
+                "--judge-timeout", "300", env=validator_env, allowed=(0, 1))
         if hashlib.sha256(native[0].read_bytes()).hexdigest() != original_hash:
             raise ValueError("Original native session database changed")
+        if not (target / "results.json").is_file():
+            raise ValueError("Native rejudge produced no results.json; inspect validator errors")
         data = load(target / "results.json")
         if data.get("judgeModel") != args.candidate_judge or data.get("model") != model:
             raise ValueError("Native rejudge returned unexpected model or judge")
