@@ -1,12 +1,12 @@
 (function() {
-	function Ne(t, e, n = 0) {
+	function we(t, e, n = 0) {
 		return Math.max(t - e - Math.max(n, 0), 0);
 	}
-	function we(t, e, n) {
-		return Ne(t, n, e) + Math.max(e, 0) + Math.max(n, 0);
+	function Re(t, e, n) {
+		return we(t, n, e) + Math.max(e, 0) + Math.max(n, 0);
 	}
 	function V(t, e, n) {
-		var s = we(t, e, n);
+		var s = Re(t, e, n);
 		if (!(s <= 0)) return Math.max(n, 0) / s;
 	}
 	function et(t) {
@@ -21,7 +21,7 @@
 	function M(t, e) {
 		return t ? t.length > e ? t.slice(0, e) + "..." : t : "";
 	}
-	const Re = 4e3, Ae = "ATIF-v1.6", Oe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})$/, De = /^Error/i, We = /exited with exit code [1-9]/;
+	const Ae = 4e3, Oe = "ATIF-v1.6", De = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})$/, We = /^Error/i, je = /exited with exit code [1-9]/;
 	function qt(t) {
 		try {
 			return JSON.parse(t);
@@ -29,19 +29,19 @@
 			return;
 		}
 	}
-	function je(t) {
+	function Le(t) {
 		const e = qt(t);
 		if (!e || typeof e != "object" || Array.isArray(e)) return !1;
 		const n = e;
 		return typeof n.schema_version == "string" && n.schema_version.startsWith("ATIF-");
 	}
-	function Le(t) {
+	function Ue(t) {
 		if (!t) return null;
 		const e = new Date(t);
 		return Number.isNaN(e.getTime()) ? null : e.getTime() / 1e3;
 	}
-	function Ue(t) {
-		if (!Oe.test(t)) return !1;
+	function Pe(t) {
+		if (!De.test(t)) return !1;
 		const e = new Date(t);
 		return !Number.isNaN(e.getTime());
 	}
@@ -62,13 +62,13 @@
 		return e.join(`
 `);
 	}
-	function Pe(t) {
+	function qe(t) {
 		return t === "agent" ? "assistant" : t === "user" ? "user" : "system";
 	}
-	function qe(t) {
+	function Fe(t) {
 		return t === "system" ? "context" : "output";
 	}
-	function Fe(t, e) {
+	function ze(t, e) {
 		const n = (a) => a.replace(/^ATIF-v/i, ""), s = n(t).split(/[.\-+]/).map(function(a) {
 			const r = parseInt(a, 10);
 			return Number.isNaN(r) ? 0 : r;
@@ -82,9 +82,9 @@
 		}
 		return 0;
 	}
-	function ze(t, e) {
+	function Be(t, e) {
 		const n = t.map(function(r) {
-			return r.timestamp == null ? null : typeof r.timestamp != "string" || !Ue(r.timestamp) ? (e.push("Step " + (r.step_id ?? "?") + " has malformed timestamp: " + r.timestamp), null) : Le(r.timestamp);
+			return r.timestamp == null ? null : typeof r.timestamp != "string" || !Pe(r.timestamp) ? (e.push("Step " + (r.step_id ?? "?") + " has malformed timestamp: " + r.timestamp), null) : Ue(r.timestamp);
 		});
 		let s = 0, o = !1;
 		for (let r = 0; r < n.length; r += 1) if (n[r] != null) {
@@ -105,7 +105,7 @@
 			let y = r + 1;
 			for (; y < n.length && n[y] == null;) y += 1;
 			if (y < n.length) {
-				const T = n[y], c = y - r + 1, x = (T - a) / c;
+				const _ = n[y], c = y - r + 1, x = (_ - a) / c;
 				i[r] = a + x, a = i[r];
 			} else i[r] = a;
 		}
@@ -116,7 +116,7 @@
 			t,
 			agent: e,
 			track: n,
-			text: M(s, Re),
+			text: M(s, Ae),
 			duration: o,
 			intensity: i,
 			raw: a,
@@ -142,7 +142,7 @@
 		}
 		return 0;
 	}
-	function Be(t) {
+	function Je(t) {
 		if (!t) return null;
 		const e = t.prompt_tokens || 0, n = t.completion_tokens || 0, s = t.cached_tokens || 0;
 		return e + n + s === 0 ? null : {
@@ -152,108 +152,108 @@
 			cacheHitRate: V(e, 0, s)
 		};
 	}
-	function Je(t) {
+	function He(t) {
 		return t.is_copied_context === !0;
 	}
-	function He(t) {
+	function Ve(t) {
 		const e = qt(t);
 		if (!e || typeof e != "object" || Array.isArray(e)) return null;
 		const n = e;
 		if (!n.agent || typeof n.agent != "object" || !Array.isArray(n.steps)) return null;
 		const s = [];
-		typeof n.schema_version == "string" && n.schema_version.startsWith("ATIF-") && Fe(n.schema_version, Ae) > 0 && s.push("Schema version " + n.schema_version + " is newer than supported ATIF-v1.6; parsing best-effort.");
+		typeof n.schema_version == "string" && n.schema_version.startsWith("ATIF-") && ze(n.schema_version, Oe) > 0 && s.push("Schema version " + n.schema_version + " is newer than supported ATIF-v1.6; parsing best-effort.");
 		const o = n.steps;
 		if (o.length === 0) return null;
 		for (let b = 0; b < o.length; b += 1) {
-			const _ = o[b], E = b + 1;
-			typeof _.step_id == "number" && _.step_id !== E && s.push("Non-sequential step_id at position " + b + " (expected " + E + ", got " + _.step_id + ")");
+			const T = o[b], E = b + 1;
+			typeof T.step_id == "number" && T.step_id !== E && s.push("Non-sequential step_id at position " + b + " (expected " + E + ", got " + T.step_id + ")");
 		}
-		const i = ze(o, s), a = i.length > 0 ? i[0] : 0, r = [], l = [];
-		let y = null, T = n.agent.model_name;
+		const i = Be(o, s), a = i.length > 0 ? i[0] : 0, r = [], l = [];
+		let y = null, _ = n.agent.model_name;
 		for (let b = 0; b < o.length; b += 1) {
-			const _ = o[b], E = i[b] - a, A = b + 1 < o.length ? i[b + 1] - a : E + (_.metrics && _.metrics.extra && typeof _.metrics.extra.model_call_duration_ms == "number" ? _.metrics.extra.model_call_duration_ms / 1e3 : 0), H = Math.max(0, A - E), B = Pe(_.source), J = Je(_), Q = _.model_name || T || null;
-			if (_.observation && Array.isArray(_.observation.results) && Array.isArray(_.tool_calls)) {
+			const T = o[b], E = i[b] - a, A = b + 1 < o.length ? i[b + 1] - a : E + (T.metrics && T.metrics.extra && typeof T.metrics.extra.model_call_duration_ms == "number" ? T.metrics.extra.model_call_duration_ms / 1e3 : 0), H = Math.max(0, A - E), B = qe(T.source), J = He(T), Q = T.model_name || _ || null;
+			if (T.observation && Array.isArray(T.observation.results) && Array.isArray(T.tool_calls)) {
 				const D = {};
-				for (let S = 0; S < _.tool_calls.length; S += 1) {
-					const L = _.tool_calls[S].tool_call_id;
+				for (let N = 0; N < T.tool_calls.length; N += 1) {
+					const L = T.tool_calls[N].tool_call_id;
 					typeof L == "string" && (D[L] = !0);
 				}
-				for (let S = 0; S < _.observation.results.length; S += 1) {
-					const L = _.observation.results[S];
-					typeof L.source_call_id == "string" && !D[L.source_call_id] && s.push("Step " + (_.step_id ?? b + 1) + " observation references unknown tool_call_id " + L.source_call_id);
+				for (let N = 0; N < T.observation.results.length; N += 1) {
+					const L = T.observation.results[N];
+					typeof L.source_call_id == "string" && !D[L.source_call_id] && s.push("Step " + (T.step_id ?? b + 1) + " observation references unknown tool_call_id " + L.source_call_id);
 				}
 			}
 			const ft = b;
 			y && l.push(y);
-			const xs = _.source === "user" ? dt(_.message) : "";
+			const Ts = T.source === "user" ? dt(T.message) : "";
 			y = {
 				index: ft,
 				startTime: E,
 				endTime: E,
 				eventIndices: [],
-				userMessage: _.source === "user" ? xs || "(continuation)" : B,
+				userMessage: T.source === "user" ? Ts || "(continuation)" : B,
 				toolCount: 0,
 				hasError: !1
 			};
 			const mt = {
-				step_id: _.step_id,
-				source: _.source,
-				timestamp: _.timestamp,
+				step_id: T.step_id,
+				source: T.source,
+				timestamp: T.timestamp,
 				isCopiedContext: J,
-				reasoningEffort: _.reasoning_effort,
-				stepCostUsd: _.metrics && typeof _.metrics.cost_usd == "number" ? _.metrics.cost_usd : null
-			}, _s = Be(_.metrics), be = _.extra && typeof _.extra.ttft_ms == "number" ? _.extra.ttft_ms : 0, Ce = be > 0 ? be / 1e3 : 0, ks = H > 0 ? Math.min(Ce, H) : Ce, ve = Array.isArray(_.tool_calls) ? _.tool_calls : [], gt = _.observation && Array.isArray(_.observation.results) ? _.observation.results : [], Ee = dt(_.message);
-			if (Ee.length > 0) {
-				const D = ht(E, B, qe(_.source), Ee, ks, .6, Object.assign({}, mt, { kind: "message" }), {
+				reasoningEffort: T.reasoning_effort,
+				stepCostUsd: T.metrics && typeof T.metrics.cost_usd == "number" ? T.metrics.cost_usd : null
+			}, ks = Je(T.metrics), ve = T.extra && typeof T.extra.ttft_ms == "number" ? T.extra.ttft_ms : 0, Ce = ve > 0 ? ve / 1e3 : 0, _s = H > 0 ? Math.min(Ce, H) : Ce, Ee = Array.isArray(T.tool_calls) ? T.tool_calls : [], gt = T.observation && Array.isArray(T.observation.results) ? T.observation.results : [], Me = dt(T.message);
+			if (Me.length > 0) {
+				const D = ht(E, B, Fe(T.source), Me, _s, .6, Object.assign({}, mt, { kind: "message" }), {
 					turnIndex: ft,
 					model: Q,
-					tokenUsage: _s
+					tokenUsage: ks
 				});
 				r.push(D);
 			}
-			if (typeof _.reasoning_content == "string" && _.reasoning_content.length > 0) {
-				const D = ht(E, B, "reasoning", _.reasoning_content, 0, .4, Object.assign({}, mt, { kind: "reasoning" }), {
+			if (typeof T.reasoning_content == "string" && T.reasoning_content.length > 0) {
+				const D = ht(E, B, "reasoning", T.reasoning_content, 0, .4, Object.assign({}, mt, { kind: "reasoning" }), {
 					turnIndex: ft,
 					model: Q
 				});
 				r.push(D);
 			}
-			const Me = /* @__PURE__ */ new Map();
+			const Ne = /* @__PURE__ */ new Map();
 			for (let D = 0; D < gt.length; D += 1) {
-				const S = gt[D];
-				typeof S.source_call_id == "string" && Me.set(S.source_call_id, dt(S.content));
+				const N = gt[D];
+				typeof N.source_call_id == "string" && Ne.set(N.source_call_id, dt(N.content));
 			}
-			for (let D = 0; D < ve.length; D += 1) {
-				const S = ve[D];
+			for (let D = 0; D < Ee.length; D += 1) {
+				const N = Ee[D];
 				let L = "";
-				if (S.arguments != null) if (typeof S.arguments == "string") L = S.arguments;
+				if (N.arguments != null) if (typeof N.arguments == "string") L = N.arguments;
 				else try {
-					L = JSON.stringify(S.arguments);
+					L = JSON.stringify(N.arguments);
 				} catch {
 					L = "[unserializable arguments]";
 				}
-				const Ut = (S.function_name || "tool") + (L ? ": " + L : ""), yt = typeof S.tool_call_id == "string" ? Me.get(S.tool_call_id) : void 0, Pt = ht(E, B, "tool_call", Ut, Ft(S), .7, Object.assign({}, mt, {
+				const Ut = (N.function_name || "tool") + (L ? ": " + L : ""), yt = typeof N.tool_call_id == "string" ? Ne.get(N.tool_call_id) : void 0, Pt = ht(E, B, "tool_call", Ut, Ft(N), .7, Object.assign({}, mt, {
 					kind: "tool_call",
-					toolCall: S
+					toolCall: N
 				}), {
 					turnIndex: ft,
 					model: Q,
-					toolName: S.function_name,
-					toolInput: S.arguments,
-					toolCallId: typeof S.tool_call_id == "string" ? S.tool_call_id : null,
+					toolName: N.function_name,
+					toolInput: N.arguments,
+					toolCallId: typeof N.tool_call_id == "string" ? N.tool_call_id : null,
 					toolOutput: yt ?? null
 				});
 				r.push(Pt);
 			}
 			for (let D = 0; D < gt.length; D += 1) {
-				const S = gt[D], L = dt(S.content), Ut = De.test(L) || We.test(L), yt = Array.isArray(S.subagent_trajectory_ref) ? S.subagent_trajectory_ref : null, Pt = ht(E, B, "context", L, Ft(S), .5, Object.assign({}, mt, {
+				const N = gt[D], L = dt(N.content), Ut = We.test(L) || je.test(L), yt = Array.isArray(N.subagent_trajectory_ref) ? N.subagent_trajectory_ref : null, Pt = ht(E, B, "context", L, Ft(N), .5, Object.assign({}, mt, {
 					kind: "observation",
-					result: S,
+					result: N,
 					subagentTrajectoryRefs: yt
 				}), {
 					turnIndex: ft,
 					model: Q,
-					parentToolCallId: typeof S.source_call_id == "string" ? S.source_call_id : null,
+					parentToolCallId: typeof N.source_call_id == "string" ? N.source_call_id : null,
 					isError: Ut
 				});
 				r.push(Pt);
@@ -269,54 +269,54 @@
 			hasError: !1
 		});
 		for (let b = 0; b < r.length; b += 1) {
-			const _ = r[b];
+			const T = r[b];
 			let E = null;
-			const A = typeof _.turnIndex == "number" ? _.turnIndex : -1;
+			const A = typeof T.turnIndex == "number" ? T.turnIndex : -1;
 			if (A >= 0 && A < l.length) E = l[A];
-			else for (let J = l.length - 1; J >= 0; J -= 1) if (_.t >= l[J].startTime) {
+			else for (let J = l.length - 1; J >= 0; J -= 1) if (T.t >= l[J].startTime) {
 				E = l[J];
 				break;
 			}
-			E || (E = l[0]), _.turnIndex = E.index, E.eventIndices.push(b);
-			const H = _.raw, B = !!(H && H.isCopiedContext);
-			_.track === "tool_call" && !B && (E.toolCount = (E.toolCount || 0) + 1), _.isError && (E.hasError = !0), E.endTime < _.t + _.duration && (E.endTime = _.t + _.duration);
+			E || (E = l[0]), T.turnIndex = E.index, E.eventIndices.push(b);
+			const H = T.raw, B = !!(H && H.isCopiedContext);
+			T.track === "tool_call" && !B && (E.toolCount = (E.toolCount || 0) + 1), T.isError && (E.hasError = !0), E.endTime < T.t + T.duration && (E.endTime = T.t + T.duration);
 		}
 		const c = {};
 		let x = 0, d = 0;
 		for (let b = 0; b < r.length; b += 1) {
-			const _ = r[b], E = _.raw, A = !!(E && E.isCopiedContext);
-			_.track === "tool_call" && !A && (x += 1), _.isError && (d += 1), _.model && (c[_.model] = (c[_.model] || 0) + 1);
+			const T = r[b], E = T.raw, A = !!(E && E.isCopiedContext);
+			T.track === "tool_call" && !A && (x += 1), T.isError && (d += 1), T.model && (c[T.model] = (c[T.model] || 0) + 1);
 		}
 		const m = n.final_metrics;
 		let u = 0, p = 0, f = 0;
 		for (let b = 0; b < o.length; b += 1) {
-			const _ = o[b].metrics;
-			_ && (u += _.prompt_tokens || 0, p += _.completion_tokens || 0, f += _.cached_tokens || 0);
+			const T = o[b].metrics;
+			T && (u += T.prompt_tokens || 0, p += T.completion_tokens || 0, f += T.cached_tokens || 0);
 		}
-		let h = 0, g = 0, k = 0, C = 0, I = !1;
-		if (m ? (h = typeof m.total_prompt_tokens == "number" ? m.total_prompt_tokens : u, g = typeof m.total_completion_tokens == "number" ? m.total_completion_tokens : p, k = typeof m.total_cached_tokens == "number" ? m.total_cached_tokens : f, typeof m.total_cost_usd == "number" && (C = m.total_cost_usd, I = !0)) : (h = u, g = p, k = f), !I) for (let b = 0; b < o.length; b += 1) {
-			const _ = o[b].metrics;
-			_ && typeof _.cost_usd == "number" && (C += _.cost_usd, I = !0);
+		let h = 0, g = 0, k = 0, v = 0, I = !1;
+		if (m ? (h = typeof m.total_prompt_tokens == "number" ? m.total_prompt_tokens : u, g = typeof m.total_completion_tokens == "number" ? m.total_completion_tokens : p, k = typeof m.total_cached_tokens == "number" ? m.total_cached_tokens : f, typeof m.total_cost_usd == "number" && (v = m.total_cost_usd, I = !0)) : (h = u, g = p, k = f), !I) for (let b = 0; b < o.length; b += 1) {
+			const T = o[b].metrics;
+			T && typeof T.cost_usd == "number" && (v += T.cost_usd, I = !0);
 		}
-		const v = {};
+		const C = {};
 		for (let b = 0; b < o.length; b += 1) {
-			const _ = o[b], E = _.metrics;
+			const T = o[b], E = T.metrics;
 			if (!E) continue;
-			const A = _.model_name || n.agent.model_name;
+			const A = T.model_name || n.agent.model_name;
 			if (!A) continue;
 			const H = E.prompt_tokens || 0, B = E.completion_tokens || 0, J = E.cached_tokens || 0;
-			H + B + J !== 0 && (v[A] || (v[A] = {
+			H + B + J !== 0 && (C[A] || (C[A] = {
 				inputTokens: 0,
 				outputTokens: 0,
 				cacheRead: 0,
 				cacheWrite: 0
-			}), v[A].inputTokens += H, v[A].outputTokens += B, v[A].cacheRead += J);
+			}), C[A].inputTokens += H, C[A].outputTokens += B, C[A].cacheRead += J);
 		}
-		for (const b of Object.keys(v)) {
-			const _ = v[b];
-			_.cacheHitRate = V(_.inputTokens, _.cacheWrite, _.cacheRead);
+		for (const b of Object.keys(C)) {
+			const T = C[b];
+			T.cacheHitRate = V(T.inputTokens, T.cacheWrite, T.cacheRead);
 		}
-		const P = Object.keys(v).length > 0, N = h + g + k > 0 ? {
+		const P = Object.keys(C).length > 0, S = h + g + k > 0 ? {
 			inputTokens: h,
 			outputTokens: g,
 			cacheRead: k,
@@ -330,7 +330,7 @@
 			duration: j,
 			models: c,
 			primaryModel: q || null,
-			tokenUsage: N,
+			tokenUsage: S,
 			warnings: s,
 			parseIssues: {
 				malformedLines: 0,
@@ -342,13 +342,13 @@
 			agent: n.agent,
 			continuationRef: n.continued_trajectory_ref || null
 		};
-		return P && (w.modelTokenUsage = v), I && (w.totalCost = C), typeof n.notes == "string" && n.notes.length > 0 && (w.customTitle = n.notes), {
+		return P && (w.modelTokenUsage = C), I && (w.totalCost = v), typeof n.notes == "string" && n.notes.length > 0 && (w.customTitle = n.notes), {
 			events: r,
 			turns: l,
 			metadata: w
 		};
 	}
-	const Ve = 4e3, $e = 8;
+	const $e = 4e3, Xe = 8;
 	function R(t) {
 		return !!(t && typeof t == "object" && !Array.isArray(t));
 	}
@@ -357,7 +357,7 @@
 		const e = new Date(t);
 		return Number.isNaN(e.getTime()) ? null : e.getTime() / 1e3;
 	}
-	function Xe(t) {
+	function Ke(t) {
 		const e = [];
 		let n = 0;
 		const s = t.split(/\r?\n/);
@@ -374,7 +374,7 @@
 			malformedLines: n
 		};
 	}
-	function Ke(t, e) {
+	function Ge(t, e) {
 		const n = [], s = t.split(/\r?\n/);
 		for (let o = 0; o < s.length && n.length < e; o += 1) {
 			const i = s[o].trim();
@@ -386,28 +386,28 @@
 		}
 		return n;
 	}
-	function Ge(t) {
+	function Qe(t) {
 		if (t.type !== "session_meta" || !R(t.payload)) return !1;
 		const e = t.payload;
 		return typeof e.originator == "string" && e.originator.startsWith("codex-") || typeof e.thread_source == "string" || typeof e.model_provider == "string" && typeof e.source == "string";
 	}
-	function Qe(t) {
+	function Ye(t) {
 		if (t.type !== "turn_context" || !R(t.payload)) return !1;
 		const e = t.payload;
 		return typeof e.turn_id == "string" && (typeof e.model == "string" || typeof e.approval_policy == "string" || typeof e.sandbox_policy == "string");
 	}
-	function Ye(t) {
+	function Ze(t) {
 		if (t.type !== "response_item" || !R(t.payload)) return !1;
 		const e = t.payload.type;
 		return e === "message" || e === "reasoning" || e === "function_call" || e === "function_call_output" || e === "custom_tool_call" || e === "custom_tool_call_output" || e === "web_search_call";
 	}
-	function Ze(t) {
-		return zt(Ke(t, $e));
+	function tn(t) {
+		return zt(Ge(t, Xe));
 	}
 	function zt(t) {
-		if (t.some(Ge)) return !0;
+		if (t.some(Qe)) return !0;
 		let e = 0;
-		for (let n = 0; n < t.length; n += 1) Qe(t[n]) && (e += 1), Ye(t[n]) && (e += 1);
+		for (let n = 0; n < t.length; n += 1) Ye(t[n]) && (e += 1), Ze(t[n]) && (e += 1);
 		return e >= 2;
 	}
 	function nt(t) {
@@ -418,7 +418,7 @@
 		}
 		return 0;
 	}
-	function _t(t) {
+	function Tt(t) {
 		if (typeof t == "string") return t;
 		if (Array.isArray(t)) return t.map(function(e) {
 			return typeof e == "string" ? e : R(e) ? typeof e.text == "string" ? e.text : typeof e.content == "string" ? e.content : typeof e.output_text == "string" ? e.output_text : "" : "";
@@ -440,7 +440,7 @@
 			return t;
 		}
 	}
-	function tn(t) {
+	function en(t) {
 		const e = Bt(t);
 		if (typeof e == "string") return M(e, 120);
 		if (!R(e)) return e == null ? "" : M(String(e), 120);
@@ -453,7 +453,7 @@
 			return typeof o == "string" ? s + "=" + M(o, 40) : s;
 		}).join(", ") + (n.length > 3 ? ", +" + (n.length - 3) + " more" : "");
 	}
-	function en(t, e) {
+	function nn(t, e) {
 		return t.success === !1 || t.status === "failed" || t.status === "error" || t.error || t.stderr ? !0 : /\b(error|failed|exception|traceback|fatal|panic)\b/i.test(e) || /exit (code|status) [1-9]/i.test(e);
 	}
 	function kt(t) {
@@ -469,7 +469,7 @@
 			t,
 			agent: e,
 			track: n,
-			text: M(s, Ve),
+			text: M(s, $e),
 			duration: o,
 			intensity: i,
 			raw: kt(a),
@@ -481,7 +481,7 @@
 	function Jt(t, e) {
 		return xt(t.timestamp) ?? e;
 	}
-	function Tt(t, e, n) {
+	function _t(t, e, n) {
 		return t.turns[e] || (t.turns[e] = {
 			id: e,
 			startTime: n,
@@ -499,11 +499,11 @@
 	function Ht(t, e, n, s) {
 		const o = e.payload || {}, i = o.role;
 		if (i === "developer") return;
-		const a = _t(o.content).trim();
+		const a = Tt(o.content).trim();
 		if (!a) return;
 		const r = ot(n);
 		if (i === "user") {
-			r && (Tt(n, r, s).userMessage = a), t.push(st(s, "user", "output", a, .5, .8, e, {
+			r && (_t(n, r, s).userMessage = a), t.push(st(s, "user", "output", a, .5, .8, e, {
 				codexTurnId: r,
 				model: it(n)
 			}));
@@ -515,14 +515,14 @@
 		}));
 	}
 	function Vt(t, e, n, s) {
-		const o = e.payload || {}, i = _t(o.summary || o.content).trim();
+		const o = e.payload || {}, i = Tt(o.summary || o.content).trim();
 		i && t.push(st(s, "assistant", "reasoning", i, .4, .5, e, {
 			codexTurnId: ot(n),
 			model: it(n)
 		}));
 	}
 	function $t(t, e, n, s) {
-		const o = e.payload || {}, i = o.type, a = i === "web_search_call" ? "web_search" : String(o.name || i || "tool"), r = i === "custom_tool_call" ? o.input : i === "web_search_call" ? o.action || {} : Bt(o.arguments || {}), l = tn(r);
+		const o = e.payload || {}, i = o.type, a = i === "web_search_call" ? "web_search" : String(o.name || i || "tool"), r = i === "custom_tool_call" ? o.input : i === "web_search_call" ? o.action || {} : Bt(o.arguments || {}), l = en(r);
 		t.push(st(s, "assistant", "tool_call", a + (l ? ": " + l : ""), .5, .8, e, {
 			toolName: a,
 			toolInput: r,
@@ -531,12 +531,12 @@
 			model: it(n)
 		}));
 	}
-	function nn(t) {
+	function sn(t) {
 		return typeof t.output == "string" ? t.output : t.stdout || t.stderr ? [t.stdout, t.stderr].filter(Boolean).join(`
-`) : t.query ? "Web search completed: " + t.query : t.changes ? "Patch applied" : _t(t.output || t.content || t.message);
+`) : t.query ? "Web search completed: " + t.query : t.changes ? "Patch applied" : Tt(t.output || t.content || t.message);
 	}
 	function It(t, e, n, s) {
-		const o = e.payload || {}, i = nn(o), a = en(o, i);
+		const o = e.payload || {}, i = sn(o), a = nn(o, i);
 		t.push(st(s, "assistant", "context", "Result: " + M(i || "completed", 300), .3, a ? 1 : .5, e, {
 			isError: a,
 			toolCallId: o.call_id || null,
@@ -547,7 +547,7 @@
 	function bt(t) {
 		return typeof t.query == "string" ? t.query : R(t.action) && typeof t.action.query == "string" ? t.action.query : "";
 	}
-	function sn(t, e) {
+	function on(t, e) {
 		if (!e.call_id) return;
 		const n = bt(e);
 		for (let s = t.length - 1; s >= 0; s -= 1) {
@@ -575,20 +575,20 @@
 		const o = t.payload || {}, i = o.type;
 		if (i === "task_started") {
 			const a = typeof o.turn_id == "string" ? o.turn_id : "turn-" + (e.turnCount ?? Object.keys(e.turns).length);
-			e.currentTurnId = a, Tt(e, a, xt(o.started_at) || s);
+			e.currentTurnId = a, _t(e, a, xt(o.started_at) || s);
 			return;
 		}
 		if (i === "task_complete") {
 			const a = typeof o.turn_id == "string" ? o.turn_id : e.currentTurnId;
 			if (a) {
-				const r = Tt(e, a, s);
+				const r = _t(e, a, s);
 				r.endTime = xt(o.completed_at) || s + nt(o.duration_ms) / 1e3;
 			}
 			return;
 		}
-		(i === "patch_apply_end" || i === "web_search_end") && (i === "web_search_end" && sn(n, o), It(n, t, e, s));
+		(i === "patch_apply_end" || i === "web_search_end") && (i === "web_search_end" && on(n, o), It(n, t, e, s));
 	}
-	function on(t, e) {
+	function rn(t, e) {
 		const n = [];
 		let s = 0;
 		for (let o = 0; o < t.length; o += 1) {
@@ -611,19 +611,19 @@
 			return o.t - i.t;
 		}), n;
 	}
-	function rn(t) {
+	function an(t) {
 		if (t.length === 0) return;
 		let e = t[0].t;
 		for (let n = 1; n < t.length; n += 1) t[n].t < e && (e = t[n].t);
 		for (let n = 0; n < t.length; n += 1) t[n].t = Math.max(0, t[n].t - e);
 	}
-	function an(t, e) {
+	function ln(t, e) {
 		Object.keys(t.turns).forEach(function(n) {
 			const s = t.turns[n];
 			s.startTime = Math.max(0, s.startTime - e), s.endTime != null && (s.endTime = Math.max(s.startTime, s.endTime - e));
 		});
 	}
-	function ln(t, e) {
+	function un(t, e) {
 		const n = Object.keys(e.turns).map(function(i) {
 			const a = e.turns[i], r = e.turnContexts[i];
 			return {
@@ -684,13 +684,13 @@
 		}
 		return o;
 	}
-	function un(t) {
+	function cn(t) {
 		const e = t.find(function(n) {
 			return n.type === "session_meta" && R(n.payload);
 		});
 		return e && e.payload || {};
 	}
-	function cn(t) {
+	function fn(t) {
 		if (typeof t.agent_nickname == "string") return t.agent_nickname;
 		if (typeof t.agent_role == "string") return t.agent_role;
 		if (!R(t.source)) return null;
@@ -708,7 +708,7 @@
 		const n = Object.keys(e);
 		return n.length === 1 && n[0] !== "thread_spawn" ? n[0] : null;
 	}
-	function Ct(t) {
+	function vt(t) {
 		const e = nt(t.input_tokens), n = nt(t.cached_input_tokens), s = nt(t.cache_write_input_tokens);
 		return {
 			inputTokens: e,
@@ -726,14 +726,14 @@
 			incomplete: !1
 		}, s = t.payload || {};
 		if (t.type !== "event_msg" || s.type !== "token_count" || !R(s.info?.total_token_usage)) return;
-		const o = Ct(s.info.total_token_usage), i = [
+		const o = vt(s.info.total_token_usage), i = [
 			"inputTokens",
 			"outputTokens",
 			"cacheRead",
 			"cacheWrite"
 		];
 		if (i.every((r) => (o[r] || 0) === (n.total[r] || 0))) return;
-		const a = R(s.info.last_token_usage) ? Ct(s.info.last_token_usage) : null;
+		const a = R(s.info.last_token_usage) ? vt(s.info.last_token_usage) : null;
 		a && i.every((r) => (o[r] || 0) - (n.total[r] || 0) === (a[r] || 0)) ? n.requests.push({
 			model: e.currentModel,
 			turnId: e.currentTurnId,
@@ -741,7 +741,7 @@
 			pricingContext: {}
 		}) : n.incomplete = !0, n.total = o;
 	}
-	function fn(t, e) {
+	function dn(t, e) {
 		let n = null;
 		for (let o = 0; o < t.length; o += 1) {
 			const i = t[o].payload;
@@ -750,18 +750,18 @@
 			R(a.total_token_usage) && (n = a.total_token_usage);
 		}
 		if (!n) return null;
-		const s = Ct(n);
+		const s = vt(n);
 		return (s.inputTokens || 0) + (s.outputTokens || 0) + (s.cacheRead || 0) + (s.cacheWrite || 0) === 0 ? null : (e.push("Codex token usage is based on cumulative token_count totals"), s);
 	}
 	function Qt(t, e, n, s, o, i, a) {
-		const r = un(t), l = fn(t, i), y = { ...a?.models };
+		const r = cn(t), l = dn(t, i), y = { ...a?.models };
 		Object.keys(s.turnContexts).forEach(function(c) {
 			const x = s.turnContexts[c].model;
 			x && (y[x] = (y[x] || 0) + 1);
 		}), e.forEach(function(c) {
 			c.model && (y[c.model] = (y[c.model] || 0) + 1);
 		});
-		const T = Object.entries(y).sort(function(c, x) {
+		const _ = Object.entries(y).sort(function(c, x) {
 			return x[1] - c[1];
 		});
 		return o > 0 && i.push(o + " malformed line(s) skipped"), {
@@ -775,7 +775,7 @@
 			}).length,
 			duration: a?.duration ?? et(e),
 			models: y,
-			primaryModel: T.length > 0 ? T[0][0] : null,
+			primaryModel: _.length > 0 ? _[0][0] : null,
 			tokenUsage: l,
 			...s.pricing && !s.pricing.incomplete && s.pricing.requests.length ? { pricingRequests: s.pricing.requests } : {},
 			warnings: i,
@@ -791,32 +791,32 @@
 			modelProvider: typeof r.model_provider == "string" ? r.model_provider : null,
 			threadSource: typeof r.thread_source == "string" ? r.thread_source : null,
 			parentThreadId: typeof r.parent_thread_id == "string" ? r.parent_thread_id : null,
-			subagentName: cn(r)
+			subagentName: fn(r)
 		};
 	}
-	function dn(t, e = 0) {
+	function hn(t, e = 0) {
 		if (t.length === 0) return null;
 		const n = [], s = {
 			currentTurnId: null,
 			currentModel: null,
 			turnContexts: {},
 			turns: {}
-		}, o = on(t, s);
+		}, o = rn(t, s);
 		if (o.length === 0) return null;
 		const i = o.reduce(function(r, l) {
 			return Math.min(r, l.t);
 		}, o[0].t);
-		rn(o), an(s, i);
-		const a = ln(o, s);
+		an(o), ln(s, i);
+		const a = un(o, s);
 		return {
 			events: o,
 			turns: a,
 			metadata: Qt(t, o, a, s, e, n)
 		};
 	}
-	function hn(t) {
-		const e = Xe(t);
-		return dn(e.records, e.malformedLines);
+	function pn(t) {
+		const e = Ke(t);
+		return hn(e.records, e.malformedLines);
 	}
 	const U = {
 		getEventTime: Jt,
@@ -831,55 +831,188 @@
 		isRecord: R,
 		observePricing: Gt
 	};
-	var pn = 1e9;
-	[...[
-		[
-			"gpt-5.6-sol",
-			4,
-			20
-		],
-		[
-			"gpt-5.6-terra",
-			2,
-			12
-		],
-		[
-			"gpt-5.6-luna",
-			.2,
-			1.2
-		],
-		[
-			"gpt-6-astra",
-			10,
-			50
-		]
-	].map(function([t, e, n]) {
-		return {
-			match: t,
-			input: e,
-			output: n,
-			cachedInput: e * .1,
-			cacheWrite: e * 1.25,
-			serviceTiers: !0,
-			longContext: {
-				threshold: 272e3,
-				input: e * 2,
-				cachedInput: e * .2,
-				cacheWrite: e * 2.5,
-				output: n * 1.5
-			}
-		};
-	})];
-	function vt(t) {
-		return t == null || !Number.isFinite(t) ? null : t / pn;
+	var mn = 1e9;
+	[
+		...[
+			[
+				"gpt-5.6-sol",
+				4,
+				20,
+				.4
+			],
+			[
+				"gpt-5.6-terra",
+				2,
+				12,
+				.2
+			],
+			[
+				"gpt-5.6-luna",
+				.2,
+				1.2,
+				.02
+			],
+			[
+				"gpt-6-astra",
+				10,
+				50,
+				1
+			],
+			[
+				"gpt-6-luna",
+				.1,
+				.5,
+				.01
+			],
+			[
+				"gpt-6-sol",
+				2,
+				10,
+				.2
+			],
+			[
+				"gpt-6.1-sol",
+				2,
+				10,
+				.1
+			]
+		].map(function([t, e, n, s]) {
+			return {
+				match: t,
+				input: e,
+				output: n,
+				cachedInput: s,
+				cacheWrite: e * 1.25,
+				serviceTiers: {
+					fast: 2,
+					priority: 2,
+					batch: .5,
+					flex: .5,
+					...["gpt-6-astra", "gpt-6.1-sol"].includes(t) ? { ultrafast: 6 } : {}
+				},
+				longContext: {
+					threshold: 272e3,
+					input: e * 2,
+					cachedInput: s * 2,
+					cacheWrite: e * 2.5,
+					output: n * 1.5
+				}
+			};
+		}),
+		...[
+			[
+				"claude-opus-4.8",
+				5,
+				.5,
+				6.25,
+				25
+			],
+			[
+				"claude-opus-5",
+				5,
+				.5,
+				6.25,
+				25
+			],
+			[
+				"claude-opus-5.5",
+				4,
+				.2,
+				5,
+				20
+			]
+		].map(function([t, e, n, s, o]) {
+			return {
+				match: t,
+				input: e,
+				cachedInput: n,
+				cacheWrite: s,
+				output: o,
+				serviceTiers: {
+					fast: 2,
+					batch: .5
+				}
+			};
+		}),
+		...[
+			"4.5",
+			"4.6",
+			"4.7"
+		].map(function(t) {
+			return {
+				match: "claude-opus-" + t,
+				input: 5,
+				cachedInput: .5,
+				cacheWrite: 6.25,
+				output: 25
+			};
+		}),
+		...["4", "4.1"].map(function(t) {
+			return {
+				match: "claude-opus-" + t,
+				input: 15,
+				cachedInput: 1.5,
+				cacheWrite: 18.75,
+				output: 75
+			};
+		}),
+		...[
+			"4",
+			"4.5",
+			"4.6"
+		].map(function(t) {
+			return {
+				match: "claude-sonnet-" + t,
+				input: 3,
+				cachedInput: .3,
+				cacheWrite: 3.75,
+				output: 15
+			};
+		}),
+		...["gemini-3.7-flash", "gemini-3.8-flash"].map(function(t) {
+			return {
+				match: t,
+				input: .75,
+				cachedInput: .075,
+				output: 3.75,
+				serviceTiers: {
+					batch: .5,
+					flex: .5,
+					priority: 1.8
+				},
+				notes: ["Promotional Gemini Flash rates through December 31, 2026; excludes cache storage and tool charges."]
+			};
+		}),
+		...[
+			"grok-4.5",
+			"grok-4.6",
+			"grok-4.7"
+		].map(function(t) {
+			return {
+				match: t,
+				input: 2,
+				cachedInput: .5,
+				output: 6,
+				serviceTiers: {},
+				longContext: {
+					threshold: 2e5,
+					input: 4,
+					cachedInput: 1,
+					output: 12
+				}
+			};
+		})
+	];
+	function Ct(t) {
+		return t == null || !Number.isFinite(t) ? null : t / mn;
 	}
-	const mn = 4e3;
+	const gn = 4e3;
 	function $(t) {
 		if (!t) return null;
 		const e = new Date(t);
 		return Number.isNaN(e.getTime()) ? null : e.getTime() / 1e3;
 	}
-	function gn(t) {
+	function yn(t) {
 		const e = t.split(`
 `), n = [];
 		let s = 0;
@@ -896,7 +1029,7 @@
 			malformedLines: s
 		};
 	}
-	function yn(t) {
+	function xn(t) {
 		const e = {};
 		for (let n = 0; n < t.length; n += 1) {
 			const s = t[n];
@@ -909,7 +1042,7 @@
 			t,
 			agent: e,
 			track: n,
-			text: M(s, mn),
+			text: M(s, gn),
 			duration: o,
 			intensity: i,
 			raw: a,
@@ -922,7 +1055,7 @@
 		const n = t && t[e];
 		return typeof n == "string" && n.trim() ? n.trim() : null;
 	}
-	function xn(t) {
+	function Tn(t) {
 		const e = [];
 		function n(s) {
 			s && !e.includes(s) && e.push(s);
@@ -933,7 +1066,7 @@
 		}
 		return e;
 	}
-	function _n(t) {
+	function kn(t) {
 		let e = null;
 		for (let n = 0; n < t.length; n += 1) {
 			const s = t[n];
@@ -941,7 +1074,7 @@
 		}
 		return e;
 	}
-	function kn(t, e, n) {
+	function _n(t, e, n) {
 		const s = [];
 		let o = !1;
 		for (let r = 0; r < e.length; r += 1) {
@@ -955,10 +1088,10 @@
 				continue;
 			}
 			if (l.type !== "session.model_change") continue;
-			const T = X(y, "previousReasoningEffort");
-			!o && T && (s.push({
+			const _ = X(y, "previousReasoningEffort");
+			!o && _ && (s.push({
 				t: 0,
-				effort: T
+				effort: _
 			}), o = !0);
 			const c = X(y), x = $(l.timestamp);
 			c && x !== null && s.push({
@@ -978,8 +1111,8 @@
 	}
 	function Yt(t, e, n, s) {
 		const o = [], i = {}, a = s?.taskToolMap || {}, r = s?.subagentStartTimes || {}, l = s?.subagentLifecycle || {};
-		for (let T = 0; !s && T < t.length; T += 1) {
-			const c = t[T], x = c.data || {};
+		for (let _ = 0; !s && _ < t.length; _ += 1) {
+			const c = t[_], x = c.data || {};
 			if (c.type === "tool.execution_start" && x.toolName === "task") {
 				const d = x.arguments || {};
 				a[x.toolCallId] = {
@@ -998,15 +1131,15 @@
 				};
 			}
 		}
-		function y(T, c) {
-			const x = T ? l[T] : null, d = T ? a[T] : null;
+		function y(_, c) {
+			const x = _ ? l[_] : null, d = _ ? a[_] : null;
 			return {
 				agentName: x && x.agentName || d && d.agentType || c.agentName || null,
 				agentDisplayName: x && x.agentDisplayName || c.agentDisplayName || c.agentName || d && d.description || null
 			};
 		}
-		for (let T = 0; T < t.length; T += 1) {
-			const c = t[T], x = $(c.timestamp);
+		for (let _ = 0; _ < t.length; _ += 1) {
+			const c = t[_], x = $(c.timestamp);
 			if (x === null) continue;
 			let d = x - e;
 			d < 0 && (d = 0);
@@ -1016,7 +1149,7 @@
 				continue;
 			}
 			if (m === "assistant.message") {
-				Tn(o, d, u, c, n, u.parentToolCallId || null, y(u.parentToolCallId, u));
+				In(o, d, u, c, n, u.parentToolCallId || null, y(u.parentToolCallId, u));
 				continue;
 			}
 			if (m === "assistant.reasoning") {
@@ -1039,7 +1172,7 @@
 					if (i[p]) continue;
 					i[p] = !0;
 				}
-				In(o, d, x, u, c, n, a, l);
+				bn(o, d, x, u, c, n, a, l);
 				continue;
 			}
 			if (m === "subagent.started") {
@@ -1119,26 +1252,26 @@
 				continue;
 			}
 		}
-		return o.sort(function(T, c) {
-			return T.t - c.t || 0;
-		}), kn(o, t, e), o;
+		return o.sort(function(_, c) {
+			return _.t - c.t || 0;
+		}), _n(o, t, e), o;
 	}
-	function Tn(t, e, n, s, o, i, a) {
-		const r = bn(n, o), l = {};
+	function In(t, e, n, s, o, i, a) {
+		const r = vn(n, o), l = {};
 		i && (l.parentToolCallId = i), a.agentName && (l.agentName = a.agentName), a.agentDisplayName && (l.agentDisplayName = a.agentDisplayName), n.reasoningText && n.reasoningText.trim() && t.push(O(e, "assistant", "reasoning", n.reasoningText, .3, .5, s, Object.assign({
 			model: r,
 			tokenUsage: n.outputTokens ? { outputTokens: n.outputTokens } : null
 		}, l)));
 		const y = typeof n.content == "string" ? n.content.trim() : "";
 		if (y && t.push(O(e + .01, "assistant", "output", y, .5, .7, s, Object.assign({ model: r }, l))), !y && (!n.reasoningText || !n.reasoningText.trim()) && Array.isArray(n.toolRequests) && n.toolRequests.length > 0) {
-			const T = n.toolRequests.map(function(c) {
+			const _ = n.toolRequests.map(function(c) {
 				return c.name;
 			}).join(", ");
-			t.push(O(e, "assistant", "reasoning", "Invoking: " + T, .2, .3, s, Object.assign({ model: r }, l)));
+			t.push(O(e, "assistant", "reasoning", "Invoking: " + _, .2, .3, s, Object.assign({ model: r }, l)));
 		}
 	}
-	function In(t, e, n, s, o, i, a, r) {
-		const l = i.completes[s.toolCallId], y = l ? $(l.timestamp) : null, T = y ? Math.max(y - n, .1) : .5, c = l ? !!(l.data && l.data.success === !1) : !1;
+	function bn(t, e, n, s, o, i, a, r) {
+		const l = i.completes[s.toolCallId], y = l ? $(l.timestamp) : null, _ = y ? Math.max(y - n, .1) : .5, c = l ? !!(l.data && l.data.success === !1) : !1;
 		let x = "";
 		l && l.data && l.data.result && (x = l.data.result.content || l.data.result.detailedContent || "");
 		let d = s.toolName;
@@ -1153,7 +1286,7 @@
 		}
 		const m = a ? a[s.toolCallId] : null, u = s.parentToolCallId && a ? a[s.parentToolCallId] : null, p = r ? r[s.toolCallId] : null, f = s.parentToolCallId && r ? r[s.parentToolCallId] : null;
 		let h = null, g = null;
-		m ? (h = p && p.agentName || m.agentType, g = p && p.agentDisplayName || m.description || null) : (u || f) && (h = f && f.agentName || u && u.agentType || null, g = f && f.agentDisplayName || u && u.description || null), t.push(O(e, "assistant", "tool_call", d, T, c ? .9 : .6, o, {
+		m ? (h = p && p.agentName || m.agentType, g = p && p.agentDisplayName || m.description || null) : (u || f) && (h = f && f.agentName || u && u.agentType || null, g = f && f.agentDisplayName || u && u.description || null), t.push(O(e, "assistant", "tool_call", d, _, c ? .9 : .6, o, {
 			toolName: s.toolName,
 			toolInput: s.arguments,
 			toolOutput: x || null,
@@ -1165,7 +1298,7 @@
 			agentDisplayName: g
 		}));
 	}
-	function bn(t, e) {
+	function vn(t, e) {
 		if (Array.isArray(t.toolRequests)) for (let n = 0; n < t.toolRequests.length; n += 1) {
 			const s = e.completes[t.toolRequests[n].toolCallId];
 			if (s && s.data && s.data.model) return s.data.model;
@@ -1191,7 +1324,7 @@
 			return typeof s == "string" ? n + "=" + M(s, 40) : n;
 		}).join(", ") : e.length + " args";
 	}
-	function vn(t, e, n) {
+	function En(t, e, n) {
 		const s = [];
 		let o = null, i = null;
 		for (let a = 0; a < t.length; a += 1) {
@@ -1230,7 +1363,7 @@
 		const n = t && t[e];
 		return n && typeof n.tokenCount == "number" ? n.tokenCount : 0;
 	}
-	function En(t) {
+	function Mn(t) {
 		if (!t) return null;
 		if (t.usage) {
 			const e = {
@@ -1258,15 +1391,15 @@
 		let i = null, a = null, r = null;
 		for (let w = 0; w < t.length; w += 1) t[w].type === "session.start" && (i = t[w].data || null), t[w].type === "session.resume" && (a = t[w].data || null), t[w].type === "session.shutdown" && (r = t[w].data || null);
 		const l = i || a;
-		let y = o?.totalToolCalls || 0, T = o?.errorCount || 0;
+		let y = o?.totalToolCalls || 0, _ = o?.errorCount || 0;
 		const c = { ...o?.models };
-		for (let w = 0; w < e.length; w += 1) e[w].track === "tool_call" && (y += 1), e[w].isError && (T += 1), e[w].model && (c[e[w].model] = (c[e[w].model] || 0) + 1);
+		for (let w = 0; w < e.length; w += 1) e[w].track === "tool_call" && (y += 1), e[w].isError && (_ += 1), e[w].model && (c[e[w].model] = (c[e[w].model] || 0) + 1);
 		let x = 0, d = 0, m = 0, u = 0, p = null, f = null, h = null, g = null;
 		if (r && r.modelMetrics) {
 			const w = r.modelMetrics;
 			g = {};
 			for (const b of Object.keys(w)) {
-				const _ = w[b], E = En(_), A = _ && _.totalNanoAiu != null ? vt(_.totalNanoAiu) : null;
+				const T = w[b], E = Mn(T), A = T && T.totalNanoAiu != null ? Ct(T.totalNanoAiu) : null;
 				if (E) {
 					const H = E.inputTokens, B = E.outputTokens, J = E.cacheRead, Q = E.cacheWrite;
 					x += H, d += B, m += J, u += Q, g[b] = {
@@ -1285,25 +1418,25 @@
 					cacheWrite: 0,
 					aiCredits: A
 				});
-				A != null && (h = (h || 0) + A), c[b] || (c[b] = _.requests ? _.requests.count : 0);
+				A != null && (h = (h || 0) + A), c[b] || (c[b] = T.requests ? T.requests.count : 0);
 			}
-			Object.values(w).some((b) => vt(b?.totalNanoAiu) == null) && (h = null);
+			Object.values(w).some((b) => Ct(b?.totalNanoAiu) == null) && (h = null);
 		}
-		r && (r.totalNanoAiu != null && (h = vt(r.totalNanoAiu)), h != null && (p = h, f = "ai_credits"));
+		r && (r.totalNanoAiu != null && (h = Ct(r.totalNanoAiu)), h != null && (p = h, f = "ai_credits"));
 		const k = Object.entries(c).sort(function(w, b) {
 			return (b[1] || 0) - (w[1] || 0);
-		}), C = k.length > 0 ? k[0][0] : null, I = xn(t), v = _n(t), P = o?.duration ?? et(e), N = [];
-		s > 0 && N.push(s + " malformed line(s) skipped"), r && r.shutdownType === "error" && N.push("Session ended with error: " + (r.errorReason || "unknown"));
+		}), v = k.length > 0 ? k[0][0] : null, I = Tn(t), C = kn(t), P = o?.duration ?? et(e), S = [];
+		s > 0 && S.push(s + " malformed line(s) skipped"), r && r.shutdownType === "error" && S.push("Session ended with error: " + (r.errorReason || "unknown"));
 		const j = l && l.context ? l.context : {}, q = V(x, u, m);
 		return {
 			totalEvents: e.length,
 			totalTurns: n.length,
 			totalToolCalls: y,
-			errorCount: T,
+			errorCount: _,
 			duration: P,
 			models: c,
-			primaryModel: C,
-			reasoningEffort: v,
+			primaryModel: v,
+			reasoningEffort: C,
 			reasoningEfforts: I,
 			tokenUsage: x + d + m + u > 0 ? {
 				inputTokens: x,
@@ -1312,7 +1445,7 @@
 				cacheWrite: u,
 				cacheHitRate: q
 			} : null,
-			warnings: N,
+			warnings: S,
 			parseIssues: {
 				malformedLines: s,
 				invalidEvents: 0
@@ -1335,7 +1468,7 @@
 			modelTokenUsage: g
 		};
 	}
-	function Mn(t) {
+	function Nn(t) {
 		t = t.trimStart();
 		const e = t.indexOf(`
 `), n = e > 0 ? t.substring(0, e) : t;
@@ -1361,17 +1494,17 @@
 			}
 		}
 		n === null && (n = $(t[0].timestamp) || 0);
-		const s = yn(t), o = Yt(t, n, s);
+		const s = xn(t), o = Yt(t, n, s);
 		if (o.length === 0) return null;
-		const i = vn(t, o, n);
+		const i = En(t, o, n);
 		return {
 			events: o,
 			turns: i,
 			metadata: Zt(t, o, i, e)
 		};
 	}
-	function Nn(t) {
-		const e = gn(t);
+	function wn(t) {
+		const e = yn(t);
 		return Sn(e.records, e.malformedLines);
 	}
 	const z = {
@@ -1401,7 +1534,7 @@
 	function se(t) {
 		return W(t.request) && Array.isArray(t.request.messages) && W(t.response) && W(t.response.usage);
 	}
-	function wn(t) {
+	function Rn(t) {
 		const e = ne(ee(t));
 		return !e || e.length === 0 ? !1 : e.some(se);
 	}
@@ -1416,7 +1549,7 @@
 		}
 		return 0;
 	}
-	function Rn(t) {
+	function An(t) {
 		if (typeof t == "string") return t;
 		if (Array.isArray(t)) return t.map(function(e) {
 			return typeof e == "string" ? e : W(e) ? typeof e.text == "string" ? e.text : typeof e.content == "string" ? e.content : typeof e.value == "string" ? e.value : typeof e.name == "string" ? e.name : "" : "";
@@ -1429,7 +1562,7 @@
 		}
 		return "";
 	}
-	function An(t) {
+	function On(t) {
 		if (t.length <= te) return t;
 		const e = Math.max(te - 1, 0);
 		return t.slice(0, e) + "…";
@@ -1437,20 +1570,20 @@
 	function oe(t) {
 		return t ? Math.max(1, Math.ceil(t.length / 4)) : 0;
 	}
-	function On(t) {
+	function Dn(t) {
 		try {
 			return oe(JSON.stringify(t || ""));
 		} catch {
 			return 0;
 		}
 	}
-	function Dn(t) {
+	function Wn(t) {
 		return W(t) ? typeof t.name == "string" && t.name ? t.name : W(t.function) && typeof t.function.name == "string" && t.function.name ? t.function.name : typeof t.id == "string" && t.id ? t.id : typeof t.type == "string" && t.type ? t.type : "tool" : "tool";
 	}
-	function Wn(t) {
+	function jn(t) {
 		return Array.isArray(t.tools) ? t.tools : Array.isArray(t.tool_definitions) ? t.tool_definitions : Array.isArray(t.toolDefinitions) ? t.toolDefinitions : [];
 	}
-	function jn(t) {
+	function Ln(t) {
 		const e = t.request || {}, n = (t.response || {}).model || e.model || e.modelId || t.model || t.modelId;
 		return typeof n == "string" && n.trim() ? n : null;
 	}
@@ -1458,9 +1591,9 @@
 		return W(t) && typeof t.role == "string" ? t.role : "unknown";
 	}
 	function ie(t) {
-		return W(t) ? Rn(t.content || t.text || t.value) : "";
+		return W(t) ? An(t.content || t.text || t.value) : "";
 	}
-	function Ln(t) {
+	function Un(t) {
 		for (let e = t.length - 1; e >= 0; e -= 1) {
 			const n = t[e];
 			if (Et(n) !== "user") continue;
@@ -1469,7 +1602,7 @@
 		}
 		return "LLM call";
 	}
-	function Un(t) {
+	function Pn(t) {
 		const e = W(t.prompt_tokens_details) ? t.prompt_tokens_details : {}, n = W(t.input_tokens_details) ? t.input_tokens_details : {}, s = W(t.output_tokens_details) ? t.output_tokens_details : {}, o = pt(t.input_tokens, t.prompt_tokens, t.inputTokens, t.promptTokens, t.total_input_tokens), i = pt(t.output_tokens, t.completion_tokens, t.outputTokens, t.completionTokens, t.total_output_tokens), a = pt(t.cache_read_input_tokens, t.cache_read_tokens, t.cached_input_tokens, t.cacheRead, e.cached_tokens, n.cached_tokens), r = pt(n.cache_write_tokens, e.cache_write_tokens, t.cache_creation_input_tokens, t.cache_write_input_tokens, t.cache_write_tokens, t.cacheWrite, n.cache_creation_tokens, s.cache_creation_tokens);
 		return o + i + a + r === 0 ? null : {
 			inputTokens: o,
@@ -1489,10 +1622,10 @@
 			cacheHitRate: V(o, r, a)
 		};
 	}
-	function Pn(t, e) {
+	function qn(t, e) {
 		const n = {
 			system: 0,
-			tools: On(e),
+			tools: Dn(e),
 			history: 0,
 			toolResults: 0,
 			user: 0,
@@ -1506,14 +1639,14 @@
 		}
 		return n.total = n.system + n.tools + n.history + n.toolResults + n.user, n;
 	}
-	function qn(t, e) {
+	function Fn(t, e) {
 		if (!e.request || !e.response || !e.response.usage) return null;
-		const n = Array.isArray(e.request.messages) ? e.request.messages : [], s = Wn(e.request), o = Un(e.response.usage), i = jn(e), a = Ln(n), r = Pn(n, s);
+		const n = Array.isArray(e.request.messages) ? e.request.messages : [], s = jn(e.request), o = Pn(e.response.usage), i = Ln(e), a = Un(n), r = qn(n, s);
 		return {
 			t,
 			agent: "user",
 			track: "output",
-			text: An(a),
+			text: On(a),
 			duration: 1,
 			intensity: o ? Math.min(1, Math.max(.25, ((o.inputTokens || 0) + (o.outputTokens || 0)) / 1e5)) : .4,
 			raw: {
@@ -1522,7 +1655,7 @@
 					index: t,
 					messages: n,
 					tools: s,
-					toolNames: s.map(Dn),
+					toolNames: s.map(Wn),
 					contextBreakdown: r
 				}
 			},
@@ -1536,11 +1669,11 @@
 			}
 		};
 	}
-	function Fn(t, e) {
+	function zn(t, e) {
 		const n = {}, s = {};
 		let o = 0, i = 0, a = 0, r = 0;
-		for (let T = 0; T < t.length; T += 1) {
-			const c = t[T], x = c.model || "unknown";
+		for (let _ = 0; _ < t.length; _ += 1) {
+			const c = t[_], x = c.model || "unknown";
 			if (n[x] = (n[x] || 0) + 1, !c.tokenUsage) continue;
 			const d = c.tokenUsage;
 			o += d.inputTokens || 0, i += d.outputTokens || 0, a += d.cacheRead || 0, r += d.cacheWrite || 0, s[x] || (s[x] = {
@@ -1550,12 +1683,12 @@
 				cacheWrite: 0
 			}), s[x].inputTokens += d.inputTokens || 0, s[x].outputTokens += d.outputTokens || 0, s[x].cacheRead += d.cacheRead || 0, s[x].cacheWrite += d.cacheWrite || 0;
 		}
-		Object.keys(s).forEach(function(T) {
-			const c = s[T];
+		Object.keys(s).forEach(function(_) {
+			const c = s[_];
 			c.cacheHitRate = V(c.inputTokens, c.cacheWrite, c.cacheRead);
 		});
-		const l = Object.entries(n).sort(function(T, c) {
-			return c[1] - T[1];
+		const l = Object.entries(n).sort(function(_, c) {
+			return c[1] - _[1];
 		}), y = o + i + a + r > 0 ? {
 			inputTokens: o,
 			outputTokens: i,
@@ -1578,14 +1711,14 @@
 			promptCallCount: e.length
 		};
 	}
-	function zn(t) {
+	function Bn(t) {
 		const e = ne(ee(t));
 		if (!e || e.length === 0) return null;
 		const n = e.filter(se);
 		if (n.length === 0) return null;
 		const s = [];
 		for (let o = 0; o < n.length; o += 1) {
-			const i = qn(o, n[o]);
+			const i = Fn(o, n[o]);
 			i && s.push(i);
 		}
 		return s.length === 0 ? null : {
@@ -1601,7 +1734,7 @@
 					hasError: !1
 				};
 			}),
-			metadata: Fn(s, n)
+			metadata: zn(s, n)
 		};
 	}
 	function G(t) {
@@ -1618,7 +1751,7 @@
 		const n = e[0], s = t[n], o = typeof s == "string" ? s : JSON.stringify(s), i = e.length > 1 ? ", +" + (e.length - 1) + " more" : "";
 		return M(n + ": " + o + i, 120);
 	}
-	function Bn(t) {
+	function Jn(t) {
 		if (!t || t.length > 600) return !1;
 		const e = t.toLowerCase();
 		return [
@@ -1638,18 +1771,18 @@
 			return e.includes(n);
 		});
 	}
-	function St(t) {
+	function Nt(t) {
 		const e = t.timestamp || t.ts || t.created_at || t.createdAt;
 		if (!e) return null;
 		const n = new Date(e);
 		return Number.isNaN(n.getTime()) ? null : n.getTime() / 1e3;
 	}
-	function Jn(t) {
+	function Hn(t) {
 		if (typeof t.model == "string") return t.model;
 		const e = t.message && typeof t.message == "object" ? t.message : null;
 		return e && typeof e.model == "string" ? e.model : null;
 	}
-	function Nt(t) {
+	function St(t) {
 		const e = t.usage || t.message && t.message.usage || null;
 		if (!e || typeof e != "object") return null;
 		const n = e.input_tokens || e.prompt_tokens || 0, s = e.output_tokens || e.completion_tokens || 0, o = e.cache_read_input_tokens || e.cache_read_tokens || 0, i = e.cache_creation_input_tokens || e.cache_write_tokens || 0, a = n + o + i;
@@ -1657,7 +1790,8 @@
 			inputTokens: a,
 			outputTokens: s,
 			cacheRead: o,
-			cacheWrite: i
+			cacheWrite: i,
+			...typeof e.speed == "string" ? { serviceTier: e.speed } : {}
 		};
 	}
 	function re() {
@@ -1670,10 +1804,10 @@
 		const e = [];
 		return t && (t.malformedLines > 0 && e.push(t.malformedLines + " malformed line" + (t.malformedLines !== 1 ? "s were" : " was") + " skipped"), t.invalidEvents > 0 && e.push(t.invalidEvents + " invalid derived event" + (t.invalidEvents !== 1 ? "s were" : " was") + " skipped")), e;
 	}
-	function Hn(t) {
+	function Vn(t) {
 		return !!(t && typeof t.t == "number" && !Number.isNaN(t.t) && typeof t.agent == "string" && typeof t.track == "string" && typeof t.text == "string" && typeof t.duration == "number" && !Number.isNaN(t.duration) && typeof t.intensity == "number" && !Number.isNaN(t.intensity) && typeof t.isError == "boolean");
 	}
-	const Vn = [
+	const $n = [
 		/\berror\b/i,
 		/\bfailed\b/i,
 		/\bexception\b/i,
@@ -1688,7 +1822,7 @@
 		/cannot find/i
 	];
 	function wt(t, e) {
-		return t.is_error === !0 || t.error ? !0 : e ? Vn.some(function(n) {
+		return t.is_error === !0 || t.error ? !0 : e ? $n.some(function(n) {
 			return n.test(e);
 		}) : !1;
 	}
@@ -1701,31 +1835,37 @@
 			inputTokens: Math.max(t.inputTokens || 0, e.inputTokens || 0),
 			outputTokens: Math.max(t.outputTokens || 0, e.outputTokens || 0),
 			cacheRead: Math.max(t.cacheRead || 0, e.cacheRead || 0),
-			cacheWrite: Math.max(t.cacheWrite || 0, e.cacheWrite || 0)
+			cacheWrite: Math.max(t.cacheWrite || 0, e.cacheWrite || 0),
+			...e.serviceTier != null || t.serviceTier != null ? { serviceTier: e.serviceTier ?? t.serviceTier } : {}
 		} : {
 			inputTokens: e.inputTokens || 0,
 			outputTokens: e.outputTokens || 0,
 			cacheRead: e.cacheRead || 0,
-			cacheWrite: e.cacheWrite || 0
+			cacheWrite: e.cacheWrite || 0,
+			...e.serviceTier != null ? { serviceTier: e.serviceTier } : {}
 		};
 	}
-	function $n(t) {
+	function ue(t, e) {
+		const { serviceTier: n, ...s } = e;
+		t.tokenUsage = s, n != null && (t.pricingContext = { serviceTier: n });
+	}
+	function Xn(t) {
 		const e = /* @__PURE__ */ new Map();
 		for (let n = 0; n < t.length; n += 1) {
-			const s = t[n], o = Nt(s), i = Rt(s);
+			const s = t[n], o = St(s), i = Rt(s);
 			!o || !i || e.set(i, le(e.get(i), o));
 		}
 		return e;
 	}
-	function ue(t, e, n, s, o) {
-		const i = [], a = St(t), r = a !== null ? a : e, l = Jn(t), y = Rt(t), T = y && s ? s.get(y) || null : Nt(t), c = !!T && (!y || !o || !o.has(y));
+	function ce(t, e, n, s, o) {
+		const i = [], a = Nt(t), r = a !== null ? a : e, l = Hn(t), y = Rt(t), _ = y && s ? s.get(y) || null : St(t), c = !!_ && (!y || !o || !o.has(y));
 		let x = !1;
 		function d(u) {
-			if (!Hn(u)) {
+			if (!Vn(u)) {
 				n.invalidEvents += 1;
 				return;
 			}
-			l && !u.model && (u.model = l), c && T && !u.tokenUsage && !x && (u.tokenUsage = T, x = !0, y && o && o.add(y)), i.push(u);
+			l && !u.model && (u.model = l), c && _ && !u.tokenUsage && !x && (ue(u, _), x = !0, y && o && o.add(y)), i.push(u);
 		}
 		if (t.type === "human" || t.type === "user") {
 			const u = G(t.message && t.message.content != null ? t.message.content : t.message || t.content || t);
@@ -1749,7 +1889,7 @@
 					if (h.type === "text" && h.text && (d({
 						t: r + p,
 						agent: "assistant",
-						track: Bn(h.text) ? "reasoning" : "output",
+						track: Jn(h.text) ? "reasoning" : "output",
 						text: M(h.text, 300),
 						duration: Math.max(1, Math.ceil(h.text.length / 500)),
 						intensity: .7,
@@ -1961,13 +2101,13 @@
 			isError: !1
 		}), i;
 	}
-	function Xn(t) {
+	function Kn(t) {
 		for (let e = 0; e < t.length; e += 1) if (e < t.length - 1) {
 			const n = t[e + 1].t - t[e].t;
 			n >= .1 && n < 300 && (t[e].duration = n);
 		}
 	}
-	function Kn(t) {
+	function Gn(t) {
 		const e = [];
 		let n = null;
 		for (let s = 0; s < t.length; s += 1) {
@@ -1992,14 +2132,14 @@
 		}
 		return n && e.push(n), e;
 	}
-	function Gn(t, e, n) {
+	function Qn(t, e, n) {
 		const s = {};
 		let o = 0, i = 0, a = 0, r = 0, l = 0, y = 0;
 		for (let d = 0; d < t.length; d += 1) {
 			const m = t[d];
 			m.model && (s[m.model] = (s[m.model] || 0) + 1), m.tokenUsage && (o += m.tokenUsage.inputTokens || 0, i += m.tokenUsage.outputTokens || 0, a += m.tokenUsage.cacheRead || 0, r += m.tokenUsage.cacheWrite || 0), m.isError && (l += 1), m.track === "tool_call" && (y += 1);
 		}
-		const T = et(t), c = Object.entries(s).sort(function(d, m) {
+		const _ = et(t), c = Object.entries(s).sort(function(d, m) {
 			return m[1] - d[1];
 		}), x = V(o, r, a);
 		return {
@@ -2007,7 +2147,7 @@
 			totalTurns: e.length,
 			totalToolCalls: y,
 			errorCount: l,
-			duration: T,
+			duration: _,
 			models: s,
 			primaryModel: c.length > 0 ? c[0][0] : null,
 			tokenUsage: o + i + a + r > 0 ? {
@@ -2022,15 +2162,15 @@
 			format: "claude-code"
 		};
 	}
-	function Qn(t, e) {
+	function Yn(t, e) {
 		const n = e || re();
 		if (t.length === 0) return null;
 		let s = 0;
-		for (let d = 0; d < t.length; d += 1) St(t[d]) !== null && (s += 1);
-		const o = s > t.length * .5, i = [], a = $n(t), r = /* @__PURE__ */ new Set();
+		for (let d = 0; d < t.length; d += 1) Nt(t[d]) !== null && (s += 1);
+		const o = s > t.length * .5, i = [], a = Xn(t), r = /* @__PURE__ */ new Set();
 		let l = 0;
 		for (let d = 0; d < t.length; d += 1) {
-			const m = ue(t[d], l, n, a, r);
+			const m = ce(t[d], l, n, a, r);
 			i.push(...m), l += Math.max(1, m.length);
 		}
 		if (i.length === 0) return null;
@@ -2041,15 +2181,15 @@
 			for (let d = 1; d < i.length; d += 1) i[d].t < y && (y = i[d].t);
 		}
 		for (let d = 0; d < i.length; d += 1) i[d].t = Math.max(0, i[d].t - y);
-		o && Xn(i);
-		const T = Kn(i), c = Gn(i, T, n), x = t.find((d) => typeof d.sessionId == "string" && d.sessionId);
+		o && Kn(i);
+		const _ = Gn(i), c = Qn(i, _, n), x = t.find((d) => typeof d.sessionId == "string" && d.sessionId);
 		return x && (c.sessionId = x.sessionId), {
 			events: i,
-			turns: T,
+			turns: _,
 			metadata: c
 		};
 	}
-	function Yn(t) {
+	function Zn(t) {
 		const e = t.trim().split(`
 `).filter((o) => o.trim().length > 0), n = [], s = re();
 		for (let o = 0; o < e.length; o += 1) try {
@@ -2057,16 +2197,17 @@
 		} catch {
 			s.malformedLines += 1;
 		}
-		return Qn(n, s);
+		return Yn(n, s);
 	}
-	const Z = {
-		extractTimestamp: St,
-		extractUsage: Nt,
+	const Y = {
+		extractTimestamp: Nt,
+		extractUsage: St,
 		getUsageDedupKey: Rt,
 		mergeTokenUsage: le,
-		extractEventsFromRecord: ue,
+		attachUsage: ue,
+		extractEventsFromRecord: ce,
 		buildWarnings: ae
-	}, Zn = 4e3, ts = new Set([
+	}, ts = 4e3, es = new Set([
 		"__proto__",
 		"constructor",
 		"prototype"
@@ -2074,10 +2215,10 @@
 	function At(t) {
 		return (typeof t == "object" || typeof t == "function") && t !== null;
 	}
-	function ce(t, e) {
+	function fe(t, e) {
 		const n = e.k;
 		if (!Array.isArray(n) || n.length === 0 || n.some(function(s) {
-			return ts.has(String(s));
+			return es.has(String(s));
 		})) return !1;
 		if (e.kind === 1) {
 			let s = t;
@@ -2099,7 +2240,7 @@
 		}
 		return !1;
 	}
-	function es(t) {
+	function ns(t) {
 		const e = t.split(`
 `).filter(function(s) {
 			return s.trim().length > 0;
@@ -2114,7 +2255,7 @@
 			return null;
 		}
 		for (let s = 1; s < e.length; s++) try {
-			n && ce(n, JSON.parse(e[s]));
+			n && fe(n, JSON.parse(e[s]));
 		} catch {}
 		return n;
 	}
@@ -2123,7 +2264,7 @@
 		const e = t;
 		return typeof e.version == "number" && Array.isArray(e.requests) && typeof e.sessionId == "string";
 	}
-	function ns(t) {
+	function ss(t) {
 		const e = t.trim();
 		if (!e.startsWith("{")) return !1;
 		try {
@@ -2138,13 +2279,13 @@
 		} catch {}
 		return !1;
 	}
-	function ss(t) {
+	function os(t) {
 		return t ? t.startsWith("copilot_") ? t.substring(8) : t : "unknown_tool";
 	}
 	function Ot(t) {
 		return t ? typeof t.fsPath == "string" ? t.fsPath : typeof t.path == "string" ? t.path : typeof t.external == "string" ? t.external : "" : "";
 	}
-	const fe = [
+	const de = [
 		/\berror\b/i,
 		/\bfailed\b/i,
 		/\bexception\b/i,
@@ -2155,19 +2296,19 @@
 		/command not found/,
 		/permission denied/i
 	];
-	function os(t) {
+	function is(t) {
 		if (t.toolSpecificData && t.toolSpecificData.kind === "terminal") {
 			const n = t.toolSpecificData.terminalCommandState;
 			if (n && n.exitCode !== 0 && n.exitCode != null) return !0;
 		}
 		if (t.isConfirmed && t.isConfirmed.type === 2) return !0;
 		const e = t.pastTenseMessage && t.pastTenseMessage.value;
-		if (e && fe.some(function(n) {
+		if (e && de.some(function(n) {
 			return n.test(e);
 		})) return !0;
 		if (Array.isArray(t.resultDetails)) for (let n = 0; n < t.resultDetails.length; n++) {
 			const s = t.resultDetails[n] && t.resultDetails[n].value;
-			if (s && fe.some(function(o) {
+			if (s && de.some(function(o) {
 				return o.test(s);
 			})) return !0;
 		}
@@ -2178,7 +2319,7 @@
 			t,
 			agent: e,
 			track: n,
-			text: M(s, Zn),
+			text: M(s, ts),
 			duration: o,
 			intensity: i,
 			raw: a,
@@ -2187,7 +2328,7 @@
 		};
 		return r && Object.assign(l, r), l;
 	}
-	function de(t, e, n) {
+	function he(t, e, n) {
 		const s = t.kind;
 		if (s === "undoStop" || s === "prepareToolInvocation") return null;
 		if (s === "thinking") {
@@ -2195,7 +2336,7 @@
 			return o.trim() ? K(e, "assistant", "reasoning", o, .5, .6, t, { model: n }) : null;
 		}
 		if (s === "toolInvocationSerialized") {
-			const o = ss(t.toolId || ""), i = t.invocationMessage && t.invocationMessage.value || o, a = os(t);
+			const o = os(t.toolId || ""), i = t.invocationMessage && t.invocationMessage.value || o, a = is(t);
 			let r = i;
 			if (t.toolSpecificData && t.toolSpecificData.kind === "terminal") {
 				const c = t.toolSpecificData.commandLine && t.toolSpecificData.commandLine.original;
@@ -2206,19 +2347,19 @@
 				const c = t.toolSpecificData.terminalCommandState.duration;
 				c && c > 0 && (l = c / 1e3);
 			}
-			let y, T;
-			if (t.toolSpecificData && t.toolSpecificData.kind === "terminal") y = { command: t.toolSpecificData.commandLine && t.toolSpecificData.commandLine.original }, T = t.toolSpecificData.terminalCommandOutput && t.toolSpecificData.terminalCommandOutput.text;
+			let y, _;
+			if (t.toolSpecificData && t.toolSpecificData.kind === "terminal") y = { command: t.toolSpecificData.commandLine && t.toolSpecificData.commandLine.original }, _ = t.toolSpecificData.terminalCommandOutput && t.toolSpecificData.terminalCommandOutput.text;
 			else if (t.resultDetails && t.resultDetails.length > 0) {
 				const c = t.resultDetails.map(function(x) {
 					return x && x.value;
 				}).filter(Boolean).join(`
 `);
-				c && (T = c);
+				c && (_ = c);
 			}
 			return K(e, "assistant", "tool_call", r, l, .9, t, {
 				toolName: o,
 				toolInput: y,
-				toolOutput: T || null,
+				toolOutput: _ || null,
 				toolCallId: t.toolCallId || null,
 				isError: a,
 				model: n
@@ -2248,7 +2389,7 @@
 		}
 		return null;
 	}
-	function he(t, e) {
+	function pe(t, e) {
 		const n = t.requests || [];
 		if (n.length === 0) return {
 			events: [],
@@ -2256,49 +2397,49 @@
 		};
 		const s = t.creationDate || n[0].timestamp || 0, o = s / 1e3, i = [], a = [];
 		for (let r = 0; r < n.length; r++) {
-			const l = n[r], y = (l.timestamp || s) / 1e3 - o, T = l.result && l.result.timings && l.result.timings.totalElapsed || 0, c = l.result && l.result.timings && l.result.timings.firstProgress || 0, x = l.modelId || t.selectedModel && t.selectedModel.identifier || null, d = i.length, m = l.message && l.message.text || "";
+			const l = n[r], y = (l.timestamp || s) / 1e3 - o, _ = l.result && l.result.timings && l.result.timings.totalElapsed || 0, c = l.result && l.result.timings && l.result.timings.firstProgress || 0, x = l.modelId || t.selectedModel && t.selectedModel.identifier || null, d = i.length, m = l.message && l.message.text || "";
 			m && i.push(K(y, "user", "output", m, .5, .9, l, { turnIndex: r }));
-			const u = l.response || [], p = u.filter(function(N) {
-				return N.kind !== "undoStop" && N.kind !== "prepareToolInvocation";
+			const u = l.response || [], p = u.filter(function(S) {
+				return S.kind !== "undoStop" && S.kind !== "prepareToolInvocation";
 			}), f = [];
-			for (let N = 0; N < u.length; N++) {
-				const j = u[N];
+			for (let S = 0; S < u.length; S++) {
+				const j = u[S];
 				if (j.kind === "toolInvocationSerialized" && j.toolSpecificData && j.toolSpecificData.kind === "terminal") {
 					const q = j.toolSpecificData.terminalCommandState;
 					q && q.timestamp && f.push({
-						index: N,
+						index: S,
 						timestampSec: q.timestamp / 1e3 - o,
 						durationSec: (q.duration || 0) / 1e3
 					});
 				}
 			}
-			const h = T / 1e3 || 10;
+			const h = _ / 1e3 || 10;
 			let g = 0;
-			for (let N = 0; N < u.length; N++) {
-				const j = u[N];
+			for (let S = 0; S < u.length; S++) {
+				const j = u[S];
 				if (j.kind === "undoStop" || j.kind === "prepareToolInvocation") continue;
 				let q;
 				const w = f.find(function(E) {
-					return E.index === N;
+					return E.index === S;
 				});
 				w ? q = w.timestampSec : j.kind === "thinking" && g === 0 && c > 0 ? q = y + c / 1e3 : q = y + (p.length > 1 ? g / (p.length - 1) : 0) * h;
 				const b = i[i.length - 1] || e;
 				b && q <= b.t && (q = b.t + .1);
-				const _ = de(j, q, x);
-				_ && (_.turnIndex = r, i.push(_)), g++;
+				const T = he(j, q, x);
+				T && (T.turnIndex = r, i.push(T)), g++;
 			}
-			const k = i.length, C = y + h;
-			let I = 0, v = !1;
+			const k = i.length, v = y + h;
+			let I = 0, C = !1;
 			const P = [];
-			for (let N = d; N < k; N++) P.push(N), i[N].track === "tool_call" && I++, i[N].isError && (v = !0);
+			for (let S = d; S < k; S++) P.push(S), i[S].track === "tool_call" && I++, i[S].isError && (C = !0);
 			a.push({
 				index: r,
 				startTime: y,
-				endTime: C,
+				endTime: v,
 				eventIndices: P,
 				userMessage: m || void 0,
 				toolCount: I,
-				hasError: v
+				hasError: C
 			});
 		}
 		return {
@@ -2306,7 +2447,7 @@
 			turns: a
 		};
 	}
-	function pe(t, e, n) {
+	function me(t, e, n) {
 		const s = {};
 		let o = 0, i = 0;
 		for (let l = 0; l < t.length; l++) {
@@ -2331,40 +2472,40 @@
 			sessionMode: n.mode && n.mode.id || void 0
 		};
 	}
-	function is(t) {
+	function rs(t) {
 		if (!at(t)) return null;
-		const { events: e, turns: n } = he(t);
+		const { events: e, turns: n } = pe(t);
 		return e.length === 0 ? null : {
 			events: e,
 			turns: n,
-			metadata: pe(e, n, t)
+			metadata: me(e, n, t)
 		};
 	}
-	function rs(t) {
+	function as(t) {
 		let e = null;
 		try {
 			const n = JSON.parse(t.trim());
 			n && n.kind === 0 && n.v ? e = n.v : e = n;
 		} catch {
-			e = es(t);
+			e = ns(t);
 		}
-		return e ? is(e) : null;
+		return e ? rs(e) : null;
 	}
 	const lt = {
-		buildTimeline: he,
-		buildMetadata: pe,
+		buildTimeline: pe,
+		buildMetadata: me,
 		isVSCodeSession: at,
-		mapResponsePart: de
+		mapResponsePart: he
 	};
-	function me(t) {
-		return je(t) ? "atif" : Ze(t) ? "codex" : Mn(t) ? "copilot-cli" : ns(t) ? "vscode-chat" : wn(t) ? "copilot-prompts" : "claude-code";
-	}
 	function ge(t) {
-		const e = me(t);
-		let n;
-		return e === "atif" ? n = He(t) : e === "codex" ? n = hn(t) : e === "copilot-cli" ? n = Nn(t) : e === "vscode-chat" ? n = rs(t) : e === "copilot-prompts" ? n = zn(t) : n = Yn(t), n && as(n), n;
+		return Le(t) ? "atif" : tn(t) ? "codex" : Nn(t) ? "copilot-cli" : ss(t) ? "vscode-chat" : Rn(t) ? "copilot-prompts" : "claude-code";
 	}
-	function as(t) {
+	function ye(t) {
+		const e = ge(t);
+		let n;
+		return e === "atif" ? n = Ve(t) : e === "codex" ? n = pn(t) : e === "copilot-cli" ? n = wn(t) : e === "vscode-chat" ? n = as(t) : e === "copilot-prompts" ? n = Bn(t) : n = Zn(t), n && ls(n), n;
+	}
+	function ls(t) {
 		const e = t.events;
 		if (!e || e.length === 0) return;
 		const n = /* @__PURE__ */ new Map();
@@ -2516,7 +2657,7 @@
 			}, e.push(i)), r.turnIndex = i.index, i.eventIndices.push(a), i.endTime = s ? Math.max(i.endTime, r.t + r.duration) : r.t + r.duration, r.track === "tool_call" && (i.toolCount = (i.toolCount || 0) + 1), r.isError && (i.hasError = !0);
 		}
 	}
-	function ls(t) {
+	function us(t) {
 		const e = t.raw;
 		return (e ? [
 			t.toolCallId,
@@ -2528,7 +2669,7 @@
 			e.payload?.call_id
 		] : [t.toolCallId]).find((n) => typeof n == "string" && n.length > 0);
 	}
-	var ye = class {
+	var xe = class {
 		constructor(t) {
 			this.index = t, this.results = /* @__PURE__ */ new Map(), this.resultKeys = /* @__PURE__ */ new Map(), this.calls = /* @__PURE__ */ new Map(), this.candidates = /* @__PURE__ */ new Map();
 		}
@@ -2548,7 +2689,7 @@
 		add(t) {
 			const e = this.index.events[t];
 			if (this.index.work.events++, e.track === "context" && e.text) {
-				const n = ls(e);
+				const n = us(e);
 				if (n) {
 					this.results.has(n) || this.results.set(n, {
 						positions: new tt(),
@@ -2591,9 +2732,9 @@
 				n === void 0 && !("toolOutput" in e.original) && delete o.toolOutput, this.index.set(t, o);
 			}
 		}
-	}, us = class {
+	}, cs = class {
 		constructor() {
-			this.index = new ut(), this.pairs = new ye(this.index), this.originals = [], this.turns = [], this.recordCount = 0, this.timestampCount = 0, this.syntheticTime = 0, this.minimum = Infinity, this.realMinimum = Infinity, this.origin = Infinity, this.realTimestamps = !1, this.usage = /* @__PURE__ */ new Map(), this.firstUsageEvent = /* @__PURE__ */ new Map(), this.attached = /* @__PURE__ */ new Set(), this.issues = {
+			this.index = new ut(), this.pairs = new xe(this.index), this.originals = [], this.turns = [], this.recordCount = 0, this.timestampCount = 0, this.syntheticTime = 0, this.minimum = Infinity, this.realMinimum = Infinity, this.origin = Infinity, this.realTimestamps = !1, this.usage = /* @__PURE__ */ new Map(), this.firstUsageEvent = /* @__PURE__ */ new Map(), this.attached = /* @__PURE__ */ new Set(), this.issues = {
 				malformedLines: 0,
 				invalidEvents: 0
 			};
@@ -2606,14 +2747,14 @@
 			n.begin(t.length);
 			const s = this.originals.length, o = /* @__PURE__ */ new Set();
 			for (const c of t) {
-				this.recordCount++, Z.extractTimestamp(c) !== null && this.timestampCount++, !this.identity && typeof c.sessionId == "string" && c.sessionId && (this.identity = c.sessionId);
-				const x = Z.getUsageDedupKey(c), d = Z.extractUsage(c);
-				x && d && this.usage.set(x, Z.mergeTokenUsage(this.usage.get(x), d));
-				const m = Z.extractEventsFromRecord(c, this.syntheticTime, this.issues, this.usage, this.attached);
+				this.recordCount++, Y.extractTimestamp(c) !== null && this.timestampCount++, !this.identity && typeof c.sessionId == "string" && c.sessionId && (this.identity = c.sessionId);
+				const x = Y.getUsageDedupKey(c), d = Y.extractUsage(c);
+				x && d && this.usage.set(x, Y.mergeTokenUsage(this.usage.get(x), d));
+				const m = Y.extractEventsFromRecord(c, this.syntheticTime, this.issues, this.usage, this.attached);
 				if (this.syntheticTime += Math.max(1, m.length), x && m.length && !this.firstUsageEvent.has(x) && this.firstUsageEvent.set(x, this.originals.length), x && this.usage.has(x) && this.firstUsageEvent.has(x)) {
 					const u = this.firstUsageEvent.get(x), p = u < this.originals.length ? this.originals[u] : m[0];
-					if (p.tokenUsage = this.usage.get(x), u < this.originals.length) {
-						for (const f of m) delete f.tokenUsage;
+					if (Y.attachUsage(p, this.usage.get(x)), u < this.originals.length) {
+						for (const f of m) delete f.tokenUsage, delete f.pricingContext;
 						o.add(u);
 					}
 					this.attached.add(x);
@@ -2635,10 +2776,13 @@
 				}
 				c < s && (d.turnIndex = n.events[c]?.turnIndex), n.set(c, d);
 			}
-			for (const c of o) c < l && n.set(c, {
-				...n.events[c],
-				tokenUsage: this.originals[c].tokenUsage
-			});
+			for (const c of o) if (c < l) {
+				const x = {
+					...n.events[c],
+					tokenUsage: this.originals[c].tokenUsage
+				};
+				this.originals[c].pricingContext && (x.pricingContext = this.originals[c].pricingContext), n.set(c, x);
+			}
 			if (r) this.turns = [], Dt(n, this.turns, 0, !1);
 			else {
 				if (s > 0) {
@@ -2648,13 +2792,13 @@
 				Dt(n, this.turns, s, !1);
 			}
 			for (let c = l; c < n.events.length; c++) this.pairs.add(c);
-			const y = n.usage, T = {
+			const y = n.usage, _ = {
 				...n.summary(this.turns),
 				tokenUsage: y.inputTokens + y.outputTokens + y.cacheRead + y.cacheWrite > 0 ? {
 					...y,
 					cacheHitRate: V(y.inputTokens, y.cacheWrite, y.cacheRead)
 				} : null,
-				warnings: Z.buildWarnings(this.issues),
+				warnings: Y.buildWarnings(this.issues),
 				parseIssues: { ...this.issues },
 				format: "claude-code",
 				...this.identity ? { sessionId: this.identity } : {}
@@ -2662,10 +2806,10 @@
 			return {
 				events: n.events,
 				turns: this.turns,
-				metadata: T
+				metadata: _
 			};
 		}
-	}, cs = class Se {
+	}, fs = class Se {
 		constructor() {
 			this.index = new ut(), this.nodes = [], this.slots = [], this.dependencies = /* @__PURE__ */ new Map(), this.completes = Object.create(null), this.retained = {
 				taskToolMap: Object.create(null),
@@ -2747,10 +2891,10 @@
 				this.depend(p.toolCallId, h), this.depend(p.parentToolCallId, h);
 				for (const g of Array.isArray(p.toolRequests) ? p.toolRequests : []) this.depend(g.toolCallId, h);
 				if (u.type === "user.message" && (this.lastUser = p.content || ""), u.type === "assistant.turn_start") {
-					const g = z.parseTimestamp(u.timestamp), k = g ? g - this.start : 0, C = this.turns.length;
+					const g = z.parseTimestamp(u.timestamp), k = g ? g - this.start : 0, v = this.turns.length;
 					this.turns.push({
 						value: {
-							index: C,
+							index: v,
 							startTime: k,
 							endTime: 0,
 							eventIndices: [],
@@ -2761,15 +2905,15 @@
 						ends: new tt(),
 						errors: 0,
 						end: 0
-					}), this.turnValues.push(this.turns[C].value), this.lastUser = null;
-					const I = F(this.boundaries, k, (v) => v.t);
+					}), this.turnValues.push(this.turns[v].value), this.lastUser = null;
+					const I = F(this.boundaries, k, (C) => C.t);
 					this.boundaries.splice(I, 0, {
 						t: k,
-						ordinal: C,
-						winner: C
+						ordinal: v,
+						winner: v
 					});
-					for (let v = I; v < this.boundaries.length; v++) this.boundaries[v].winner = Math.max(this.boundaries[v].ordinal, this.boundaries[v - 1]?.winner ?? -1), s.work.turns++;
-					r = Math.min(r, C === 0 ? -Infinity : k);
+					for (let C = I; C < this.boundaries.length; C++) this.boundaries[C].winner = Math.max(this.boundaries[C].ordinal, this.boundaries[C - 1]?.winner ?? -1), s.work.turns++;
+					r = Math.min(r, v === 0 ? -Infinity : k);
 				}
 				if (u.type === "assistant.turn_end" && this.turns.length) {
 					const g = z.parseTimestamp(u.timestamp), k = this.turns[this.turns.length - 1];
@@ -2782,31 +2926,31 @@
 				].includes(u.type)) {
 					const g = z.getReasoningEffort(p), k = u.type === "session.model_change" ? z.getReasoningEffort(p, "previousReasoningEffort") : null;
 					k && this.effortHistory.add(k), g && this.effortHistory.add(g), this.currentEffort = g || this.currentEffort;
-					const C = [];
-					!this.hasInitialEffort && k && (C.push({
+					const v = [];
+					!this.hasInitialEffort && k && (v.push({
 						t: 0,
 						effort: k
 					}), this.hasInitialEffort = !0);
 					const I = z.parseTimestamp(u.type === "session.start" ? p.startTime || u.timestamp : u.type === "session.resume" && p.resumeTime || u.timestamp);
-					g && I !== null && (C.push({
+					g && I !== null && (v.push({
 						t: Math.max(I - this.start, 0),
 						effort: g
 					}), u.type !== "session.model_change" && (this.hasInitialEffort = !0));
-					for (const v of C) {
-						const P = ct(this.effortChanges, v.t, (N) => N.t);
-						this.effortChanges.splice(P, 0, v), a = Math.min(a, v.t);
+					for (const C of v) {
+						const P = ct(this.effortChanges, C.t, (S) => S.t);
+						this.effortChanges.splice(P, 0, C), a = Math.min(a, C.t);
 					}
 				}
 			}
 			if (l) return this.rebuild(n);
-			const T = [];
+			const _ = [];
 			for (const u of i) {
 				const p = u.record.data || {};
 				if (u.record.type === "tool.execution_start" && typeof p.toolCallId == "string" && p.toolCallId) {
 					if (this.seenStarts.has(p.toolCallId) && z.parseTimestamp(u.record.timestamp) !== null) continue;
 					z.parseTimestamp(u.record.timestamp) !== null && this.seenStarts.add(p.toolCallId);
 				}
-				z.buildNormalizedEvents([u.record], this.start, { completes: this.completes }, this.retained).forEach((f, h) => T.push({
+				z.buildNormalizedEvents([u.record], this.start, { completes: this.completes }, this.retained).forEach((f, h) => _.push({
 					node: u,
 					offset: h,
 					event: f
@@ -2823,9 +2967,9 @@
 					k && (g.reasoningEffort = k), this.slots[f].event = g, this.replace(f, g);
 				});
 			}
-			T.sort((u, p) => u.event.t - p.event.t || u.node.ordinal - p.node.ordinal || u.offset - p.offset);
+			_.sort((u, p) => u.event.t - p.event.t || u.node.ordinal - p.node.ordinal || u.offset - p.offset);
 			let c = s.events.length;
-			for (const u of T) {
+			for (const u of _) {
 				let p = 0, f = this.slots.length;
 				for (; p < f;) {
 					const h = p + f >>> 1, g = this.slots[h];
@@ -2867,7 +3011,7 @@
 			const o = s.append(n, e);
 			return Object.assign(this, s), o;
 		}
-	}, fs = class {
+	}, ds = class {
 		constructor() {
 			this.index = new ut(), this.contexts = new ut(), this.contextPositions = /* @__PURE__ */ new Map(), this.state = {
 				currentTurnId: null,
@@ -2875,7 +3019,7 @@
 				turnContexts: {},
 				turns: {},
 				turnCount: 0
-			}, this.slots = [], this.syntheticTime = 0, this.origin = Infinity, this.nextOrdinal = 0, this.buckets = /* @__PURE__ */ new Map(), this.boundaries = [], this.turns = [], this.owners = [], this.unresolved = [], this.byTurnId = /* @__PURE__ */ new Map(), this.webCalls = [], this.webByQuery = /* @__PURE__ */ new Map(), this.webBarrier = -1, this.pendingTurns = /* @__PURE__ */ new Set(), this.turnOrder = /* @__PURE__ */ new Map(), this.pairs = new ye(this.index);
+			}, this.slots = [], this.syntheticTime = 0, this.origin = Infinity, this.nextOrdinal = 0, this.buckets = /* @__PURE__ */ new Map(), this.boundaries = [], this.turns = [], this.owners = [], this.unresolved = [], this.byTurnId = /* @__PURE__ */ new Map(), this.webCalls = [], this.webByQuery = /* @__PURE__ */ new Map(), this.webBarrier = -1, this.pendingTurns = /* @__PURE__ */ new Set(), this.turnOrder = /* @__PURE__ */ new Map(), this.pairs = new xe(this.index);
 		}
 		get work() {
 			return this.index.work;
@@ -2929,8 +3073,8 @@
 				} else if (f.type === "event_msg") {
 					if (h.type === "web_search_end") {
 						if (h.call_id) {
-							const v = U.getWebSearchQuery(h), P = v ? this.webByQuery.get(v) || [] : this.webCalls, N = P[P.length - 1];
-							N && N.ordinal > this.webBarrier && (N.event.toolCallId = h.call_id, this.webBarrier = N.ordinal, a.add(N));
+							const C = U.getWebSearchQuery(h), P = C ? this.webByQuery.get(C) || [] : this.webCalls, S = P[P.length - 1];
+							S && S.ordinal > this.webBarrier && (S.event.toolCallId = h.call_id, this.webBarrier = S.ordinal, a.add(S));
 						}
 						U.pushToolOutputEvent(k, f, this.state, g);
 					} else U.handleEventMessage(f, this.state, k, g);
@@ -2942,19 +3086,19 @@
 					"web_search_call"
 				].includes(h.type) ? U.pushToolCallEvent(k, f, this.state, g) : ["function_call_output", "custom_tool_call_output"].includes(h.type) && U.pushToolOutputEvent(k, f, this.state, g), this.state.currentTurnId && o.add(this.state.currentTurnId));
 				for (const I of k) {
-					const v = {
+					const C = {
 						event: I,
 						ordinal: this.nextOrdinal++,
 						position: -1
 					};
-					if (s.push(v), I.toolName === "web_search") {
-						this.webCalls.push(v);
+					if (s.push(C), I.toolName === "web_search") {
+						this.webCalls.push(C);
 						const P = U.getWebSearchQuery(I.raw.payload);
-						this.webByQuery.has(P) || this.webByQuery.set(P, []), this.webByQuery.get(P).push(v), I.toolCallId && (this.webBarrier = v.ordinal);
+						this.webByQuery.has(P) || this.webByQuery.set(P, []), this.webByQuery.get(P).push(C), I.toolCallId && (this.webBarrier = C.ordinal);
 					}
 				}
-				const C = typeof h.turn_id == "string" ? h.turn_id : this.state.currentTurnId;
-				C && this.state.turns[C] && !this.turnOrder.has(C) && this.turnOrder.set(C, this.turnOrder.size);
+				const v = typeof h.turn_id == "string" ? h.turn_id : this.state.currentTurnId;
+				v && this.state.turns[v] && !this.turnOrder.has(v) && this.turnOrder.set(v, this.turnOrder.size);
 			}
 			let l = this.slots.length;
 			for (const f of s) {
@@ -2966,8 +3110,8 @@
 				this.slots.splice(h, 0, f), l = Math.min(l, h);
 			}
 			if (!this.slots.length) return null;
-			const y = this.slots[0].event.t, T = y !== this.origin;
-			if (this.origin = y, T) {
+			const y = this.slots[0].event.t, _ = y !== this.origin;
+			if (this.origin = y, _) {
 				l = 0;
 				for (const f of this.buckets.keys()) o.add(f);
 			}
@@ -2998,7 +3142,7 @@
 				for (; h < this.boundaries.length && this.boundaries[h].turn.startTime === f.turn.startTime && this.boundaries[h].ordinal < f.ordinal;) h++;
 				this.boundaries.splice(h, 0, f);
 			}
-			T && this.boundaries.sort((f, h) => f.turn.startTime - h.turn.startTime || f.ordinal - h.ordinal), !r && this.buckets.size && (l = 0, this.turns = []);
+			_ && this.boundaries.sort((f, h) => f.turn.startTime - h.turn.startTime || f.ordinal - h.ordinal), !r && this.buckets.size && (l = 0, this.turns = []);
 			const x = n.events.length;
 			for (let f = x - 1; f >= l; f--) this.owners[f] && c.add(this.owners[f]), this.pairs.remove(f), this.remove(f);
 			for (let f = l; f < this.slots.length; f++) {
@@ -3014,11 +3158,11 @@
 					for (const I of this.byTurnId.get(h.id) || []) I < l && f.add(I);
 					let g = F(this.boundaries, h.turn.startTime, (I) => I.turn.startTime);
 					for (; this.boundaries[g] !== h;) g++;
-					const k = g === 0 ? 0 : F(n.events, h.turn.startTime, (I) => I.t), C = this.boundaries[g + 1]?.turn.startTime ?? Infinity;
-					for (let I = F(this.unresolved, k, (v) => v); I < this.unresolved.length; I++) {
-						const v = this.unresolved[I];
-						if (v >= l || n.events[v].t >= C) break;
-						f.add(v);
+					const k = g === 0 ? 0 : F(n.events, h.turn.startTime, (I) => I.t), v = this.boundaries[g + 1]?.turn.startTime ?? Infinity;
+					for (let I = F(this.unresolved, k, (C) => C); I < this.unresolved.length; I++) {
+						const C = this.unresolved[I];
+						if (C >= l || n.events[C].t >= v) break;
+						f.add(C);
 					}
 				}
 				for (const h of f) this.target(n.events[h]) !== this.owners[h] && (this.owners[h] && c.add(this.owners[h]), this.remove(h), this.assign(h, c));
@@ -3035,18 +3179,18 @@
 					const k = g.turn.eventIndices.length > 0;
 					if (k !== g.active) {
 						if (k) {
-							let C = F(this.turns, g.turn.startTime, (I) => I.startTime);
-							for (; C < this.turns.length && this.turns[C].startTime === g.turn.startTime && this.buckets.get(String(this.turns[C].turnId)).ordinal < g.ordinal;) C++;
-							this.turns.splice(C, 0, g.turn), f = Math.min(f, C);
+							let v = F(this.turns, g.turn.startTime, (I) => I.startTime);
+							for (; v < this.turns.length && this.turns[v].startTime === g.turn.startTime && this.buckets.get(String(this.turns[v].turnId)).ordinal < g.ordinal;) v++;
+							this.turns.splice(v, 0, g.turn), f = Math.min(f, v);
 						}
 						g.active = k;
 					}
 				}
-				T && (this.turns.sort((g, k) => g.startTime - k.startTime || this.buckets.get(String(g.turnId)).ordinal - this.buckets.get(String(k.turnId)).ordinal), f = 0);
+				_ && (this.turns.sort((g, k) => g.startTime - k.startTime || this.buckets.get(String(g.turnId)).ordinal - this.buckets.get(String(k.turnId)).ordinal), f = 0);
 				for (let g = f; g < this.turns.length; g++) {
 					const k = this.turns[g];
 					k.index = g, n.work.turns++;
-					for (const C of k.eventIndices) n.events[C].turnIndex = g, n.work.events++;
+					for (const v of k.eventIndices) n.events[v].turnIndex = g, n.work.events++;
 				}
 				for (let g = l; g < n.events.length; g++) n.events[g].turnIndex = this.owners[g].turn.index;
 			} else {
@@ -3083,7 +3227,7 @@
 				metadata: p
 			};
 		}
-	}, ds = class {
+	}, hs = class {
 		constructor() {
 			this.index = new ut(), this.session = null, this.turns = [], this.offsets = [], this.parts = [], this.errors = [];
 		}
@@ -3104,7 +3248,7 @@
 				}
 				if (!this.session) continue;
 				const x = this.session.requests?.length || 0;
-				if (!ce(this.session, c)) continue;
+				if (!fe(this.session, c)) continue;
 				const d = c.k;
 				if (d[0] === "requests") {
 					if (d.length === 2 && d[1] === "length") {
@@ -3144,45 +3288,45 @@
 					creationDate: this.session.creationDate || l[0]?.timestamp || 0,
 					requests: [l[c]]
 				}, f = lt.buildTimeline(p, e.events[x - 1]);
-				u !== f.events.length && (e.truncate(x), this.offsets.length = c + 1, this.turns.length = c, s = l.length - 1, a = !0), this.offsets[c] = x, f.events.forEach((C, I) => e.set(x + I, {
-					...C,
+				u !== f.events.length && (e.truncate(x), this.offsets.length = c + 1, this.turns.length = c, s = l.length - 1, a = !0), this.offsets[c] = x, f.events.forEach((v, I) => e.set(x + I, {
+					...v,
 					turnIndex: c
 				}));
-				const h = new Map(f.events.map((C, I) => [C.raw, x + I]));
+				const h = new Map(f.events.map((v, I) => [v.raw, x + I]));
 				this.parts[c] = /* @__PURE__ */ new Map();
 				const g = l[c].response || [];
-				for (let C = 0; C < g.length; C++) {
-					const I = g[C], v = h.get(I);
-					v !== void 0 && this.parts[c].set(C, {
-						position: v,
+				for (let v = 0; v < g.length; v++) {
+					const I = g[v], C = h.get(I);
+					C !== void 0 && this.parts[c].set(v, {
+						position: C,
 						kind: I.kind,
 						timestamp: I.toolSpecificData?.terminalCommandState?.timestamp
 					}), e.work.events++;
 				}
-				this.errors[c] = f.events.reduce((C, I) => C + Number(I.isError), 0), this.offsets[c + 1] = x + f.events.length;
+				this.errors[c] = f.events.reduce((v, I) => v + Number(I.isError), 0), this.offsets[c + 1] = x + f.events.length;
 				const k = f.turns[0];
-				if (k.index = c, k.eventIndices = k.eventIndices.map((C) => C + x), this.turns[c] = k, e.work.turns++, m === e.events[this.offsets[c + 1] - 1]?.t) {
+				if (k.index = c, k.eventIndices = k.eventIndices.map((v) => v + x), this.turns[c] = k, e.work.turns++, m === e.events[this.offsets[c + 1] - 1]?.t) {
 					if (c >= s) break;
 					if (!a) {
-						const C = y[ct(y, c, (I) => I)];
-						if (C === void 0) break;
-						c = C - 1;
+						const v = y[ct(y, c, (I) => I)];
+						if (v === void 0) break;
+						c = v - 1;
 					}
 				}
 			}
 			if (this.turns.length > l.length && (e.truncate(this.offsets[l.length] || 0), this.turns.length = l.length, this.offsets.length = l.length + 1, this.parts.length = l.length, this.errors.length = l.length), !e.events.length) return null;
-			const T = {
+			const _ = {
 				...lt.buildMetadata([], [], this.session),
 				...e.summary(this.turns)
 			};
 			return {
 				events: e.events,
 				turns: this.turns,
-				metadata: T
+				metadata: _
 			};
 		}
 	};
-	function hs(t = !0) {
+	function ps(t = !0) {
 		return {
 			rawText: "",
 			pendingText: "",
@@ -3204,13 +3348,13 @@
 			fallbackFullParseCount: 0
 		};
 	}
-	function ps(t, e) {
+	function ms(t, e) {
 		return t ? e ? t.endsWith(`
 `) || e.startsWith(`
 `) ? t + e : t + `
 ` + e : t : e;
 	}
-	function xe(t) {
+	function Te(t) {
 		if (!t) return {
 			lines: [],
 			pendingText: ""
@@ -3233,7 +3377,7 @@
 			pendingText: o
 		};
 	}
-	function _e(t) {
+	function ke(t) {
 		const e = [];
 		let n = 0;
 		for (let s = 0; s < t.length; s += 1) try {
@@ -3247,21 +3391,21 @@
 			malformedLines: n
 		};
 	}
-	function ms(t) {
+	function gs(t) {
 		return (t.type === "session.start" || t.type === "session.resume") && t.data && (t.data.producer === "copilot-agent" || t.data.copilotVersion);
 	}
-	function gs(t) {
+	function ys(t) {
 		const e = t.v;
 		return !!(t.kind === 0 && e && typeof e.version == "number" && typeof e.sessionId == "string" && Array.isArray(e.requests));
 	}
-	function ke(t) {
-		return t.length === 0 ? null : ms(t[0]) ? "copilot-cli" : gs(t[0]) ? "vscode-chat" : zt(t) ? "codex" : null;
+	function _e(t) {
+		return t.length === 0 ? null : gs(t[0]) ? "copilot-cli" : ys(t[0]) ? "vscode-chat" : zt(t) ? "codex" : null;
 	}
 	function Wt(t) {
-		return ke(t) || (t.length > 0 ? "claude-code" : null);
+		return _e(t) || (t.length > 0 ? "claude-code" : null);
 	}
-	function Te(t) {
-		return t === "codex" ? new fs() : t === "copilot-cli" ? new cs() : t === "vscode-chat" ? new ds() : t === "claude-code" ? new us() : null;
+	function Ie(t) {
+		return t === "codex" ? new ds() : t === "copilot-cli" ? new fs() : t === "vscode-chat" ? new hs() : t === "claude-code" ? new cs() : null;
 	}
 	function jt(t) {
 		try {
@@ -3271,10 +3415,10 @@
 			return !1;
 		}
 	}
-	function Ie(t, e, n, s = !0) {
-		const o = xe(t), i = _e(o.lines), a = jt(t);
+	function be(t, e, n, s = !0) {
+		const o = Te(t), i = ke(o.lines), a = jt(t);
 		a && (i.records = [JSON.parse(t)]);
-		const r = a ? "vscode-chat" : Wt(i.records.slice(0, 8)) || (t.trim() ? me(t) : null), l = Te(r), y = l?.append(i.records, i.malformedLines) || (t.trim() ? ge(t) : null);
+		const r = a ? "vscode-chat" : Wt(i.records.slice(0, 8)) || (t.trim() ? ge(t) : null), l = Ie(r), y = l?.append(i.records, i.malformedLines) || (t.trim() ? ye(t) : null);
 		return {
 			rawText: t,
 			pendingText: o.pendingText,
@@ -3297,18 +3441,18 @@
 		};
 	}
 	function Lt(t, e = {}) {
-		if (!t.trim()) return hs(e.snapshot);
-		const n = Ie(t, jt(t) ? 1 : 0, 0, e.snapshot);
+		if (!t.trim()) return ps(e.snapshot);
+		const n = be(t, jt(t) ? 1 : 0, 0, e.snapshot);
 		return !n.result && jt(t) ? {
 			...n,
-			result: ge(t),
+			result: ye(t),
 			format: "vscode-chat"
 		} : n;
 	}
-	function ys(t, e) {
-		const n = t.pendingText ? t.rawText + e : ps(t.rawText, e), s = xe(t.pendingText + e), o = _e(s.lines), i = ke(o.records), a = Wt(t.records.slice(0, 8).concat(o.records.slice(0, Math.max(0, 8 - t.records.length))));
+	function xs(t, e) {
+		const n = t.pendingText ? t.rawText + e : ms(t.rawText, e), s = Te(t.pendingText + e), o = ke(s.lines), i = _e(o.records), a = Wt(t.records.slice(0, 8).concat(o.records.slice(0, Math.max(0, 8 - t.records.length))));
 		if (t.format && (i && i !== t.format || a && a !== t.format)) {
-			const d = Ie(n, t.initialFullParseCount, t.fallbackFullParseCount + 1, t.snapshot);
+			const d = be(n, t.initialFullParseCount, t.fallbackFullParseCount + 1, t.snapshot);
 			return {
 				state: d,
 				result: d.result
@@ -3316,7 +3460,7 @@
 		}
 		const r = t.format || a || i || Wt(o.records), l = t.records;
 		for (const d of o.records) l.push(d);
-		const y = t.malformedLineCount + o.malformedLines, T = t.normalizer || Te(r), c = T?.append(o.records, y) || null, x = t.snapshot && c ? structuredClone(c) : c;
+		const y = t.malformedLineCount + o.malformedLines, _ = t.normalizer || Ie(r), c = _?.append(o.records, y) || null, x = t.snapshot && c ? structuredClone(c) : c;
 		return {
 			state: {
 				rawText: n,
@@ -3328,8 +3472,8 @@
 				format: r,
 				result: x,
 				records: l,
-				normalizer: T,
-				normalizationWork: T?.work || {
+				normalizer: _,
+				normalizationWork: _?.work || {
 					records: 0,
 					events: 0,
 					turns: 0
@@ -3341,13 +3485,13 @@
 			result: x
 		};
 	}
-	let Y = Lt("", { snapshot: !1 });
+	let Z = Lt("", { snapshot: !1 });
 	self.onmessage = ({ data: t }) => {
 		try {
-			t.initial !== void 0 && (Y = Lt(t.initial, { snapshot: !1 })), t.reset && (Y = Lt("", { snapshot: !1 })), t.text && (Y = ys(Y, t.text).state), self.postMessage({
-				result: Y.result,
-				rawText: Y.rawText,
-				normalizationWork: Y.normalizationWork
+			t.initial !== void 0 && (Z = Lt(t.initial, { snapshot: !1 })), t.reset && (Z = Lt("", { snapshot: !1 })), t.text && (Z = xs(Z, t.text).state), self.postMessage({
+				result: Z.result,
+				rawText: Z.rawText,
+				normalizationWork: Z.normalizationWork
 			});
 		} catch (e) {
 			self.postMessage({ error: e instanceof Error ? e.message : String(e) });
