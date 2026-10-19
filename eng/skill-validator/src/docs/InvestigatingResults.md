@@ -15,6 +15,9 @@
 > their green status/triage ping must not override the detailed result artifacts.
 > Updated gating requires the fix on the trusted workflow ref and never
 > retroactively rescales historical results or measures unlanded runner changes.
+> Outcome tooling is explicitly checked out from the repository default branch,
+> including for review events. Missing/non-boolean `conclusive` or `underpowered`
+> fields are malformed evidence, not an implicit quality pass.
 >
 > The current Vally workflow makes one targeted recovery attempt for executor
 > `session.idle` timeouts before adaptation. See

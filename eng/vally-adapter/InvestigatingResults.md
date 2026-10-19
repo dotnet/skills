@@ -39,7 +39,10 @@ evidence merely because its rejection events survived.
 
 The trusted `report-status` job checks every expected `vally-results-*` matrix
 artifact through `outcome-status.mjs`. Missing, malformed, duplicate or incomplete
-accounting produces an error. An objective `VALID_REGRESSION` or explicit
+accounting produces an error, including missing or non-boolean `conclusive` and
+`underpowered` fields. The status job explicitly checks out the repository's
+default branch, not a review event's PR merge commit, before running tooling with
+the status-writing token. An objective `VALID_REGRESSION` or explicit
 activation-contract failure produces failure, even when the executor job
 succeeded. Invalid or underpowered results without a proven regression produce
 an error, not an improvement claim. A conclusive `VALID_NO_CHANGE` is non-gating

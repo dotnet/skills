@@ -1051,6 +1051,7 @@ jobs:
         if: needs.evaluate.result == 'success'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
+          ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
           sparse-checkout: |
             eng/vally-adapter
@@ -1124,7 +1125,7 @@ jobs:
           PR_NUMBER=${{ needs.gate.outputs.pr_number }}
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          if [[ "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
+          if [[ "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" == "false" ]]; then
             BODY="⏭️ No skills or agents to evaluate — no changed targets with eval specs were found in this PR. [View workflow run](${RUN_URL})"
           elif [[ "${{ needs.gate.outputs.is_fork }}" == "true" ]]; then
             BODY="🔒 Secret-backed evaluation is disabled for fork PRs. A maintainer must review and promote the change to a trusted repository branch before running \`/evaluate\`. [View workflow run](${RUN_URL})"

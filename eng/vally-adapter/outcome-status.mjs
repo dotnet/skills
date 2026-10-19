@@ -63,6 +63,9 @@ export function outcomeStatus(root, entries) {
         .includes(verdict.state)) {
         throw new Error(`Unknown evaluation verdict: ${path}`);
       }
+      if (typeof verdict.conclusive !== "boolean" || typeof verdict.underpowered !== "boolean") {
+        throw new Error(`Missing or malformed evaluation validity: ${path}`);
+      }
       verdicts.push(verdict);
     }
   }

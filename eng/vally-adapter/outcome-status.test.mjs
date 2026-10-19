@@ -66,6 +66,21 @@ test("activation violations fail even when preference state is positive", (t) =>
   assert.equal(outcomeStatus(f.root, entries).state, "failure");
 });
 
+test("every verdict requires explicit boolean validity fields", (t) => {
+  for (const state of ["VALID_PASS", "VALID_NO_CHANGE", "VALID_REGRESSION", "INVALID_INCONCLUSIVE"]) {
+    for (const field of ["conclusive", "underpowered"]) {
+      for (const value of [undefined, null, "true", "false", 0, 1, [], {}]) {
+        const f = fixture(t, [state]);
+        if (value === undefined) delete f.results[0].verdicts[0][field];
+        else f.results[0].verdicts[0][field] = value;
+        f.saveResults();
+        assert.throws(() => outcomeStatus(f.root, entries), /validity/,
+          `${state}: ${field}=${JSON.stringify(value)}`);
+      }
+    }
+  }
+});
+
 test("missing, duplicate, malformed and incomplete artifacts never pass", (t) => {
   for (const mutate of [
     (f) => rmSync(join(f.dir, "0", "results.json")),
@@ -110,11 +125,16 @@ test("CLI fails explicitly and workflow gates commit status on outcomes", () => 
   const workflow = readFileSync(".github/workflows/evaluation.yml", "utf8");
   const report = workflow.slice(workflow.indexOf("\n  report-status:"));
   assert.match(report, /name: Checkout trusted outcome tooling/);
+  const checkout = report.match(/name: Checkout trusted outcome tooling\n([\s\S]*?)\n      - name:/)[1];
+  assert.match(checkout, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/,
+    "review events must not default to checking out the PR merge commit");
+  assert.doesNotMatch(checkout, /pull_request|head_ref|github\.sha/);
   assert.match(report, /path: outcome-results\//);
   assert.match(report, /EXPECTED_ENTRIES: \$\{\{ needs\.discover\.outputs\.entries \}\}/);
   assert.match(report, /if node eng\/vally-adapter\/outcome-status\.mjs outcome-results\/ > outcome-status\.json/);
   assert.match(report, /name: Set final commit status\s+if: always\(\)/);
   assert.doesNotMatch(report, /DESC="Evaluation passed"/);
+  assert.doesNotMatch(report, /needs\.discover\.outputs\.has_entries \}\}" != "true"/);
   const triage = readFileSync(".github/scripts/pr-triage-act.sh", "utf8");
   assert.doesNotMatch(triage, /Evaluation passed for/);
   assert.match(triage, /does not certify improvement or default readiness/);
