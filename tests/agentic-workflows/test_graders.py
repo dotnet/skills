@@ -428,6 +428,34 @@ class GraderTests(unittest.TestCase):
                 result["reason"] = reason
                 self.reject(case, result)
 
+    def test_empty_bundle_requires_aggregate_absence_through_shipping_command(self):
+        for reason in (
+            "No failure analysis was performed.",
+            "No crash records exist, but the collector recorded one failure record. I chose not to report it.",
+            "No failure records exist.",
+            "No failure, retry, hang, or crash records exist.",
+        ):
+            with self.subTest(reason=reason):
+                result = good_result("test/empty")
+                result["reason"] = reason
+                checked = self.run_shipping_grader("test/empty", result)
+                self.assertNotEqual(0, checked.returncode)
+                self.assertIn("Missing whole-bundle record absence", checked.stderr)
+        for reason in (
+            "No qualifying findings were collected; no preliminary response needs replacement.",
+            "No\nqualifying findings were collected; no preliminary response needs replacement.",
+            "No \r\n **qualifying findings** were collected; no preliminary response needs replacement.",
+            "No failure, retry, hang, crash, or duration-regression records exist.",
+            "There are no qualifying failure, retry, hang, crash, or duration-regression records to report, and no prior comment to update.",
+            "Zero failures/retries/hangs/crashes/durations records are present.",
+        ):
+            with self.subTest(reason=reason):
+                result = good_result("test/empty")
+                result["reason"] = reason
+                checked = self.run_shipping_grader("test/empty", result)
+                self.assertEqual(0, checked.returncode, checked.stderr)
+                self.assertRegex(checked.stdout, "^PASS:")
+
     def test_explicit_denials_are_not_passing_test_claims(self):
         for denial in (
             "This is not an explicit 'all tests passed' result.",

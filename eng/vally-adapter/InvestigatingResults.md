@@ -217,7 +217,11 @@ a denial in one field does not excuse a success claim in another. This is a
 bounded phrase check, not a general natural-language entailment classifier.
 Typographic quotes and inline Markdown formatting are normalized before
 checking, and explicit absence-of-evidence denials are accepted. Empty-bundle
-checks bind `no`/`zero` directly to the absent-record phrase: the `No-op` action
+checks require aggregate record absence or an absence statement enumerating
+all five collector categories, not an incidental `no failure`/`no crash`
+substring. They check decoded, whitespace-normalized prose rather than JSON
+escapes, so a newline between `No` and `qualifying` is not a failure. The actual
+fixture must also be complete with an empty file inventory. The `No-op` action
 label cannot bridge to an invented positive failure record later in the reason.
 The checker remains hash-pinned in all four workflow specs.
 

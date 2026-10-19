@@ -87,6 +87,32 @@ def check_record(path, record):
     require(record in tokens, "Evidence record does not exist")
 
 
+def normalize_prose(text):
+    normalized = text.translate(str.maketrans({"\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"'}))
+    normalized = re.sub(r"[*_`~]", "", normalized)
+    return re.sub(r"\s+", " ", normalized)
+
+
+def describes_empty_bundle(text):
+    text = normalize_prose(text)
+    aggregate = (
+        r"\b(?:no|zero)\s+(?:"
+        r"qualifying(?:\s+evidence)?\s+(?:records|findings)"
+        r"|(?:collected|reportable|evidence)\s+records"
+        r"|evidence\s+files|records|findings)\b"
+    )
+    if re.search(aggregate, text, re.IGNORECASE):
+        return True
+    categories = (r"failures?", r"retr(?:y|ies)", r"hangs?", r"crash(?:es)?", r"duration(?:s|-regression)?")
+    category = "(?:" + "|".join(categories) + ")"
+    separator = r"\s*(?:,\s*(?:(?:and|or)\s+)?|/\s*|(?:and|or)\s+)"
+    enumeration = r"\b(?:no|zero)\s+(?:qualifying\s+)?(" + category + "(?:" + separator + category + r")*)\s+(?:records|findings)\b"
+    return any(
+        all(re.search(r"\b" + item + r"\b", match[1], re.IGNORECASE) for item in categories)
+        for match in re.finditer(enumeration, text, re.IGNORECASE)
+    )
+
+
 def check_test_success_claims(text):
     claims = r"\b(?:all tests passed|tests are clean|tests are fixed|no historical recurrence)\b"
     denial_before = (
@@ -98,9 +124,7 @@ def check_test_success_claims(text):
         r")[\"']?$"
     )
     denial_after = r"^[\"']? (?:is|was) (?:not|never) (?:proven|established|verified|supported|justified)\b"
-    normalized = text.translate(str.maketrans({"\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"'}))
-    normalized = re.sub(r"[*_`~]", "", normalized)
-    normalized = re.sub(r"\s+", " ", normalized)
+    normalized = normalize_prose(text)
     for match in re.finditer(claims, normalized, re.IGNORECASE):
         denied = (
             re.search(denial_before, normalized[:match.start()], re.IGNORECASE)
@@ -120,6 +144,7 @@ def parse_options(arguments=None):
     parser.add_argument("--require-summary-pattern", action="append", default=[])
     parser.add_argument("--forbid-pattern", action="append", default=[])
     parser.add_argument("--forbid-test-success-claims", action="store_true")
+    parser.add_argument("--require-empty-test-bundle", action="store_true")
     parser.add_argument("--allowed-classification", action="append", default=[])
     parser.add_argument("--allowed-finding-path", action="append", default=[])
     parser.add_argument("--expected-candidate", action="append", default=[])
@@ -224,6 +249,11 @@ def validate_result(root, options):
         for finding in findings:
             for key in ("summary", "next_step"):
                 check_test_success_claims(finding[key])
+    if options.require_empty_test_bundle:
+        metadata = read_json(root / "inputs" / "evidence" / "metadata.json")
+        require(metadata["completeness"]["complete"] is True and metadata["files"] == [], "Expected a complete empty test bundle")
+        require(action == "noop", "Empty-bundle assertion requires no-op")
+        require(any(describes_empty_bundle(value) for value in (reason, *limitations)), "Missing whole-bundle record absence")
     return result
 
 
