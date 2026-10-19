@@ -20,6 +20,8 @@ Two tiers — neither requires a Toolkit theme `<link>` in the host:
 
 ## What the host file should contain
 
+Ensure the host has an active `<link>` to `{Project}.styles.css` so Toolkit's isolated component styles load. Empty standalone WebAssembly templates leave this link commented out, so uncomment it or add it if missing. `SfThemeRoot` does not replace the application's scoped CSS bundle.
+
 Keep the **template-generated** stylesheet links (examples):
 
 - Blazor Web App: `Components/App.razor` — typically `app.css` and `{Project}.styles.css` (or `@Assets[...]` equivalents).

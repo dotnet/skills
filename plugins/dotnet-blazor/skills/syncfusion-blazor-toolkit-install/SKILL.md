@@ -153,6 +153,8 @@ Do **not** add domain-specific usings such as `@using Syncfusion.Blazor.Toolkit.
 1. **CSS isolation** — component scoped styles from the package.
 2. **`SfThemeRoot`** — shared theme layer emitted automatically when a Toolkit component is in the tree (or place an explicit `<SfThemeRoot />` if you need theme tokens with no Toolkit component present).
 
+Ensure the host has an active `<link>` to `{Project}.styles.css` so Toolkit's isolated component styles load. Empty standalone WebAssembly templates leave this link commented out, so uncomment it or add it if missing. `SfThemeRoot` does not replace the application's scoped CSS bundle.
+
 Keep the template-generated host file intact: `HeadOutlet`, `Routes` and its render-mode directive, `app.css` / `{Project}.styles.css`, and the framework script tag. When upgrading from 1.x, **remove** any `<link href="_content/Syncfusion.Blazor.Toolkit/styles/fluent.min.css" ...>` (or `highcontrast.min.css` / per-component `.min.css`) entries. See [Theme and host files](./references/theme-and-host-files.md).
 
 ## Migrating from Toolkit 1.x to 2.0 / 2.0.1
