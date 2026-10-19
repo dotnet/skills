@@ -129,10 +129,11 @@ def contradicts_empty_bundle(text):
     count = r"(?:a|an|one|two|three|[1-9][0-9]*)\s+"
     records = r"(?:(?:qualifying|test|collector|evidence|failure|retry|hang|crash|duration(?:-regression)?)\s+)*records?\b"
     assertion = r"\b(?:recorded|found|collected|contains?|includes?|reports?|lists?|supplies|observed|there (?:is|are|was|were))\s+"
-    for match in re.finditer(assertion + count + records, text, re.IGNORECASE):
+    reverse = r"\b" + count + records + r"\s+(?:(?:is|are|was|were)\s+(?:present|available|recorded|found|collected|omitted)|exists?)\b"
+    for match in re.finditer("(?:" + assertion + count + records + ")|(?:" + reverse + ")", text, re.IGNORECASE):
         if not re.search(r"\b(?:not|never)\s+$", text[:match.start()], re.IGNORECASE):
             return True
-    return bool(re.search(r"\b" + count + records + r"\s+(?:is|are|was|were)\s+(?:present|available|recorded|found)\b", text, re.IGNORECASE))
+    return False
 
 
 def check_test_success_claims(text):

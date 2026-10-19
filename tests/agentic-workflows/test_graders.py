@@ -439,6 +439,8 @@ class GraderTests(unittest.TestCase):
             "No records were omitted from the complete bundle.",
             "No records were collected; the collector recorded one failure record.",
             "No failure, retry, hang, crash, or duration-regression records exist; one failure record is present.",
+            "No records were collected; one failure record exists.",
+            "No records were collected; one failure record was omitted.",
         ):
             with self.subTest(reason=reason):
                 result = good_result("test/empty")
@@ -467,6 +469,9 @@ class GraderTests(unittest.TestCase):
         checked = self.run_shipping_grader("test/empty", result)
         self.assertNotEqual(0, checked.returncode)
         self.assertIn("Claimed positive records", checked.stderr)
+        result["limitations"] = ["Not one failure record exists."]
+        checked = self.run_shipping_grader("test/empty", result)
+        self.assertEqual(0, checked.returncode, checked.stderr)
 
     def test_explicit_denials_are_not_passing_test_claims(self):
         for denial in (
