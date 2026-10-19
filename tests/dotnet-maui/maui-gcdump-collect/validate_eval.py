@@ -201,6 +201,30 @@ def main():
                         for cmd in plan["commands"]["collect"]
                     ]
                     mutations.append(single_quoted_serial_var)
+                    # A correct SERIAL=R58M123 binding that only exists in a
+                    # different, later commands-array entry ("cleanup") must
+                    # not retroactively satisfy route/collect's own wrong
+                    # SERIAL=WRONG binding: each route/collect/validate/cleanup
+                    # entry is its own separate shell invocation, so cleanup's
+                    # assignment never reaches route/collect's process
+                    # environment in a real shell -- the grader must reject
+                    # this rather than resolving $SERIAL against the full
+                    # concatenated command text regardless of which array
+                    # entry actually set it.
+                    late_assignment_rejection = copy.deepcopy(plan)
+                    late_assignment_rejection["commands"]["route"] = [
+                        cmd.replace("ANDROID_SERIAL=R58M123 ",
+                                    'SERIAL=WRONG ANDROID_SERIAL="$SERIAL" ')
+                        for cmd in plan["commands"]["route"]
+                    ]
+                    late_assignment_rejection["commands"]["collect"] = [
+                        cmd.replace("ANDROID_SERIAL=R58M123 ",
+                                    'SERIAL=WRONG ANDROID_SERIAL="$SERIAL" ')
+                        for cmd in plan["commands"]["collect"]
+                    ]
+                    late_assignment_rejection["commands"]["cleanup"] = list(
+                        plan["commands"]["cleanup"]) + ["SERIAL=R58M123"]
+                    mutations.append(late_assignment_rejection)
                     # Double-quoted and bare "$SERIAL" references both DO
                     # expand in a real shell, so they must remain accepted
                     # once they resolve to the selected serial -- this
@@ -223,6 +247,27 @@ def main():
                         assert all(run(c, workspace, shell=True).returncode == 0
                                    for c in commands), accepted_prefix
                         equivalent_count += 1
+                    # An "export NAME=value;"-style assignment must still
+                    # resolve to "value", not a bare-capture that wrongly
+                    # swallows the trailing ";" separator as part of the
+                    # value. ";" is a top-level clause separator (unlike
+                    # "&&"), so this form is only exercised against route (a
+                    # single standalone command) -- substituting it into
+                    # collect would split its own, separately-required
+                    # "test ! -e ... && dotnet-gcdump ..." no-overwrite guard
+                    # into two unguarded top-level clauses, which is a
+                    # distinct, already-covered defect, not a serial-parsing
+                    # one.
+                    exported_route = copy.deepcopy(plan)
+                    exported_route["commands"]["route"] = [
+                        cmd.replace("ANDROID_SERIAL=R58M123 ",
+                                    "export ANDROID_SERIAL=R58M123; ")
+                        for cmd in plan["commands"]["route"]
+                    ]
+                    plan_path.write_text(json.dumps(exported_route))
+                    assert all(run(c, workspace, shell=True).returncode == 0
+                               for c in commands), "export ANDROID_SERIAL=R58M123; (route)"
+                    equivalent_count += 1
                     plan_path.write_text(original)
                 if stimulus["tags"]["capability"] == "ios-live-usb-route":
                     # The self-managing --dsrouter ios route always targets the

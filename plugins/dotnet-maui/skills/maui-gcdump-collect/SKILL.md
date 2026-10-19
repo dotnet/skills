@@ -3,24 +3,20 @@ name: maui-gcdump-collect
 license: MIT
 description: >
   Capture a .gcdump from a confirmed Mono-runtime MAUI app on a physical Android or
-  iOS device. USE FOR: that physical-device Mono capture action — device memory
-  snapshots, growing managed heap, preparing a profiling build, or diagnostic-port/dsrouter
-  connectivity failures during the capture. DO NOT USE FOR (decline without opening this skill): any CoreCLR or NativeAOT app
-  or request, including heap snapshots, growing-heap, or GC dump requests (NativeAOT
-  does not support gcdump collection regardless of framing; explain the Mono-only
-  boundary instead); production/store-distributed (App Store, TestFlight, Play Store,
-  enterprise-signed) binaries where attaching a diagnostic port or bypassing platform
-  signing/security would be required; existing dump analysis or process/crash dumps
-  (dump-collect), CPU traces, native Java/Objective-C heaps, Windows/Mac Catalyst
-  apps, emulator/simulator-only requests, or acknowledgments of already completed
-  collection.
+  iOS device. USE FOR: physical-device Mono heap captures — device memory
+  snapshots, growing managed heap, profiling-build prep, or diagnostic-port/dsrouter
+  connectivity failures. DO NOT USE FOR (decline without opening): CoreCLR or
+  NativeAOT apps (gcdump collection is unsupported there regardless of framing;
+  explain the Mono-only boundary instead); production/store-distributed (App Store,
+  TestFlight, Play Store, enterprise-signed) binaries needing a diagnostic-port
+  attach or signing/security bypass; existing dump/crash analysis, CPU traces,
+  native Java/Objective-C heaps, Windows/Mac Catalyst apps, emulator/simulator-only
+  requests, or acknowledgments of already-completed collection.
 ---
 
 # Collect a MAUI managed heap on a physical device
 
-Produce a host-side `.gcdump` representing the live **managed** object graph.
-It is not an OS crash dump, native heap, or proof of a leak. Collection induces
-a full GC and can pause or exhaust a memory-constrained app.
+Collection induces a full GC and can pause or exhaust a memory-constrained app.
 
 ## Step 1: Establish scope and permission
 
@@ -32,7 +28,7 @@ output location, and authorization. Do not require paths that can be discovered.
 
 | Target / facts | Decision |
 |---|---|
-| Physical Android, confirmed Mono, .NET 8–10, diagnostic component and port configured | Use [Android](references/android.md). |
+| Physical Android, .NET 8–10, diagnostic component and port configured | Use [Android](references/android.md). The routing/capture commands there are the same whether the app runtime is Mono or CoreCLR; this skill's Mono-only scope (see frontmatter) still governs eligibility. |
 | Physical iOS, confirmed Mono, .NET 9–10 development build with diagnostic component | Use [iOS](references/ios.md) on a Mac. Mono AOT on iOS is **not** NativeAOT. |
 | Already running but no diagnostic port/component | Cannot retrofit this session. Offer an approved profiling rebuild/relaunch; capture only after the reproduction is running again. |
 | Store/production binary or denied restart/build changes | Stop; do not promise attach or bypass platform signing/security. |
@@ -47,11 +43,12 @@ structure may be sensitive. Agree storage/access/retention before capture.
 
 ## Step 2: Prepare the host and a compatible test build
 
-- Use host `dotnet-gcdump` and `dotnet-dsrouter`; matched versions at least
-  **9.0.621003** cover the documented explicit-IPC-endpoint workflow, and
-  **9.0.652701+** adds the `--dsrouter` switch this skill now uses as the default
-  route (confirmed present in current 10.0.750501). Check the selected package's
-  host runtime requirements, `--version`, `collect --help`, and router mode help.
+- Use a recent `dotnet-gcdump` and `dotnet-dsrouter` release (or newer) — the
+  `--dsrouter` switch this skill uses as the default route needs a sufficiently
+  current version; see `references/android.md`/`references/ios.md`/
+  `references/capabilities.md` for the confirmed version floors if the installed
+  tooling predates it. Check the selected package's host runtime requirements,
+  `--version`, `collect --help`, and router mode help.
   If absent, propose an approved local tool manifest or dedicated `--tool-path`
   install with pinned versions, not a global install or automatic workload update.
 - Keep the selected SDK/workload, app runtime, and tool versions in the report.
@@ -70,8 +67,11 @@ The device uses TCP diagnostics; the host collector uses IPC through the router.
 Do **not** pass an `adb pidof`/iOS PID to host `dotnet-gcdump -p`. By default
 `dotnet-gcdump collect --dsrouter <android|ios>` starts and owns its own router
 and device port-forward for the single collection, so no separate PID or IPC
-endpoint needs to be tracked. If the router is instead started separately for
-finer-grained control, `dotnet-gcdump ps` can list the **host router PID**, which
+endpoint needs to be tracked. (`--dsrouter` also accepts `android-emu`/`ios-sim`
+for emulator/simulator targets; this skill remains scoped to physical devices
+only — see frontmatter — and does not cover those modes.) If the router is
+instead started separately for finer-grained control, `dotnet-gcdump ps` can
+list the **host router PID**, which
 is a valid alternate target only after correlating its endpoint/log with the
 selected app; prefer an explicit unique IPC endpoint to disambiguate concurrent
 host apps/routers in that case.

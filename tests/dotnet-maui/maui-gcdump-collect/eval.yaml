@@ -60,10 +60,14 @@ stimuli:
             dq = chr(34)
             
             def extract(name, text):
+                # Bare (unquoted) values end at the first shell metacharacter
+                # (";", "&", "|") or whitespace -- not just whitespace -- so a
+                # real "export NAME=value;"-style assignment resolves to
+                # "value", not "value;" with the separator wrongly captured.
                 pattern = (r"(?<![A-Za-z0-9_])" + re.escape(name) + r"="
                            + r"(?:" + dq + r"([^" + dq + r"]*)" + dq
                            + r"|" + sq + r"([^" + sq + r"]*)" + sq
-                           + r"|(\S+))")
+                           + r"|([^\s;&|)]+))")
                 last = None
                 for mm in re.finditer(pattern, text):
                     if mm.group(1) is not None:
@@ -80,8 +84,14 @@ stimuli:
                 # compared literally -- and correctly fails to equal the
                 # selected serial -- rather than treated as a resolvable
                 # reference. Bare/double-quoted values may themselves be
-                # another $VAR-style reference resolved against the full
-                # combined command text, bounded to avoid runaway recursion.
+                # another $VAR-style reference, which only resolves against
+                # the same single commands own text (true single-shell
+                # invocation execution order): each route/collect/validate/
+                # cleanup entry is its own separate command invocation, so an
+                # assignment that only exists in a different, later array
+                # entry (e.g. a correct serial set in "cleanup") never reaches
+                # this commands environment in a real shell and must not
+                # satisfy the reference.
                 found = extract(name, text)
                 if found is None:
                     return False
@@ -89,7 +99,7 @@ stimuli:
                 if kind == "single":
                     return val == did
                 if val.startswith("$") and depth < 4:
-                    return resolves(val[1:], a, depth + 1)
+                    return resolves(val[1:], text, depth + 1)
                 return val == did
             
             assert resolves("ANDROID_SERIAL", r) and resolves("ANDROID_SERIAL", q), "route/collect must bind the selected device via a literal or resolvable ANDROID_SERIAL value -- a single-quoted reference such as " + sq + "$SERIAL" + sq + " never expands in a real shell and must not be accepted -- since neither --dsrouter nor collect accepts a serial flag"
