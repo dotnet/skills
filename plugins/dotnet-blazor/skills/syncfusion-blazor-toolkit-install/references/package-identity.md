@@ -40,7 +40,7 @@ Check the `.csproj` file:
 
 ```xml
 <!-- Correct for Toolkit -->
-<PackageReference Include="Syncfusion.Blazor.Toolkit" Version="2.0.0" />
+<PackageReference Include="Syncfusion.Blazor.Toolkit" Version="2.0.1" />
 <!-- Example only: replace with the latest stable 2.x version from NuGet (check nuget.org) -->
 
 <!-- Wrong for Toolkit (these are commercial) -->
