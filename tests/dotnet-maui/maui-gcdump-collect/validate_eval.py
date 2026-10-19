@@ -225,15 +225,18 @@ def main():
                     late_assignment_rejection["commands"]["cleanup"] = list(
                         plan["commands"]["cleanup"]) + ["SERIAL=R58M123"]
                     mutations.append(late_assignment_rejection)
-                    # POSIX resolves a simple command's own prefix
-                    # assignments against the pre-existing environment
-                    # SIMULTANEOUSLY, never against each other -- confirmed
-                    # against a real "sh -c" probe -- so a same-clause
-                    # sibling such as "SERIAL=R58M123 ANDROID_SERIAL=$SERIAL
-                    # cmd" actually expands ANDROID_SERIAL to an EMPTY string
-                    # at invocation time (SERIAL is not yet set when $SERIAL
-                    # is expanded), not R58M123. This shape must be REJECTED
-                    # despite containing a correct SERIAL=R58M123 nearby.
+                    # POSIX's "2.9.1 Simple Commands" rationale leaves same-clause sibling
+                    # prefix assignments UNSPECIFIED (not "simultaneous" --
+                    # real "sh -c" probes diverge: dash, zsh and ksh resolve
+                    # "SERIAL=R58M123 ANDROID_SERIAL=$SERIAL cmd" to R58M123,
+                    # while bash -- also reachable as "sh" in POSIX mode --
+                    # resolves it to empty). Given that unspecified,
+                    # non-portable divergence, a same-clause sibling such as
+                    # "SERIAL=R58M123 ANDROID_SERIAL=$SERIAL cmd" must be
+                    # REJECTED regardless of what any one shell happens to
+                    # do, despite containing a correct SERIAL=R58M123
+                    # nearby: a device-serial selector must not depend on
+                    # behavior POSIX itself declines to guarantee.
                     for rejected_prefix in (
                         'SERIAL=R58M123 ANDROID_SERIAL="$SERIAL" ',
                         "SERIAL=R58M123 ANDROID_SERIAL=$SERIAL ",
@@ -262,6 +265,51 @@ def main():
                         for cmd in plan["commands"]["route"]
                     ]
                     mutations.append(unexported_separate_statement)
+                    # An "export" reached only through the UNTAKEN side of a
+                    # "||" (or "&&") never actually runs in a real shell --
+                    # confirmed against a real "sh -c" probe where "true ||
+                    # export ANDROID_SERIAL=R58M123" leaves ANDROID_SERIAL
+                    # unset, since "true" already satisfies the "||" and the
+                    # right-hand side is skipped entirely. A plan could use
+                    # this to make a textual walk see a decoy assignment that
+                    # never executes; the grader must REJECT it rather than
+                    # trust any assignment reached only via "&&"/"||".
+                    conditional_skip_decoy = copy.deepcopy(plan)
+                    conditional_skip_decoy["commands"]["route"] = [
+                        cmd.replace(
+                            "ANDROID_SERIAL=R58M123 ",
+                            "true || export ANDROID_SERIAL=R58M123; ")
+                        for cmd in plan["commands"]["route"]
+                    ]
+                    mutations.append(conditional_skip_decoy)
+                    # A correctly-bound SECOND invocation must not mask an
+                    # earlier, unbound FIRST invocation in the same entry:
+                    # the grader must check every "dotnet-gcdump collect"
+                    # clause it finds, not only the last one textually.
+                    masked_earlier_invocation = copy.deepcopy(plan)
+                    masked_earlier_invocation["commands"]["route"] = [
+                        cmd.replace(
+                            "ANDROID_SERIAL=R58M123 dotnet-gcdump collect",
+                            'dotnet-gcdump collect --dsrouter android '
+                            '--output "$PWD/decoy.gcdump" --timeout 60; '
+                            "ANDROID_SERIAL=R58M123 dotnet-gcdump collect")
+                        for cmd in plan["commands"]["route"]
+                    ]
+                    mutations.append(masked_earlier_invocation)
+                    # An export in one "commands" array entry must not be
+                    # assumed to carry over into the NEXT entry's own
+                    # invocation: nothing guarantees multiple JSON array
+                    # entries are pasted into one continuous shell session,
+                    # so each entry must independently resolve the serial
+                    # binding using only its own text.
+                    cross_entry_leak = copy.deepcopy(plan)
+                    cross_entry_leak["commands"]["route"] = [
+                        cmd.replace("ANDROID_SERIAL=R58M123 ", "")
+                        for cmd in plan["commands"]["route"]
+                    ]
+                    cross_entry_leak["commands"]["route"].insert(
+                        0, "export ANDROID_SERIAL=R58M123")
+                    mutations.append(cross_entry_leak)
                     # A correctly-ordered, genuinely resolvable "$SERIAL"
                     # reference -- SERIAL assigned in its OWN earlier
                     # separate statement (not a same-clause sibling), then
