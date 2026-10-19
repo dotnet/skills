@@ -559,12 +559,6 @@ stimuli:
               writer = writers[0]
               assert writer.get('Lines') in ["@(SchemaFile->'%(FullPath)')", "@(SchemaFile->'%(Identity)')", '@(SchemaFile)'], 'the list must contain all stale schema paths'
               assert writer.get('Overwrite', '').lower() == 'true', 'overwrite the list so it cannot retain previously stale schemas'
-              before_writer = preceding[:preceding.index(writer)]
-              created = [expand(d.strip()) for step in before_writer if step.tag == 'MakeDir'
-                         for d in step.get('Directories', '').split(';') if d.strip()]
-              for directory in [str(pathlib.PurePosixPath(input_list).parent), output_dir]:
-                  assert ((pathlib.Path('per-file-exec') / directory).is_dir() or
-                          any(d == directory or d.startswith(directory + '/') for d in created)), 'create the list/output directory before writing on a clean build'
               dotnet = shutil.which('dotnet')
               assert dotnet, 'the .NET SDK is required to query evaluated Compile items'
               with tempfile.TemporaryDirectory() as tmp:

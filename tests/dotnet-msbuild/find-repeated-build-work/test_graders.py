@@ -314,6 +314,15 @@ class GraderTests(unittest.TestCase):
         tree.write(path, encoding="utf-8")
         self.grade(work, script)
 
+    def test_schema_list_writer_can_create_output_directory(self):
+        work, script = self.workspace("per-item-exec")
+        path = work / "per-file-exec" / "Schemas.targets"
+        tree = ET.parse(path)
+        target = tree.getroot().find("Target")
+        target.remove(target.find("MakeDir"))
+        tree.write(path, encoding="utf-8")
+        self.grade(work, script)
+
     def test_after_compilation_schema_cleanup_is_rejected(self):
         for phase in ("CoreCompile", "Build"):
             with self.subTest(after=phase):
