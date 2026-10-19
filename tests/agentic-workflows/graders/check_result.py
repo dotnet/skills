@@ -134,6 +134,7 @@ def contradicts_empty_bundle(text):
     reverse = r"\b" + count + records + r"\s+(?:(?:is|are|was|were)\s+(?:present|available|recorded|found|collected|omitted)|exists?)\b"
     denial = (
         r"(?:\b(?:not|never)\s+"
+        r"|\bno\s+(?:(?:test|collector|evidence)\s+)?(?:files?|collectors?|bundles?)\s+"
         r"|\b(?:it is not true that|there is no evidence that|no evidence that)\s+"
         r"(?:(?:the\s+)?(?:collector|bundle|metadata|evidence)\s+)?)$"
     )

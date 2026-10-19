@@ -227,6 +227,8 @@ in the reason or limitations cannot be excused by a separate absence statement.
 Direct negations and explicit evidence denials apply only to the immediately
 following assertion, with a bounded collector subject where applicable; a later
 affirmative or a claim in another field is still rejected.
+Negated collector/file subjects are scoped to their own collection assertion,
+not later clauses or independent statements.
 These checks use decoded, whitespace-normalized prose rather than JSON
 escapes, so a newline between `No` and `qualifying` is not a failure. The actual
 fixture must also be complete with an empty file inventory. The `No-op` action

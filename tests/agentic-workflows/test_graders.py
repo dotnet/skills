@@ -481,6 +481,8 @@ class GraderTests(unittest.TestCase):
             "There is no evidence that the collector recorded one failure record.",
             "It is not true that the collector recorded one failure record.",
             "There is no evidence that one failure record is present.",
+            "No evidence file contains a failure record.",
+            "No collector recorded a failure record.",
         )
         for denial in denials:
             for field in ("reason", "limitations"):
