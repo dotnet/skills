@@ -27,6 +27,7 @@ function fixture(t, states = ["VALID_PASS"]) {
       skillName: `skill${i}`, skillPath: `plugin/skill${i}`, state,
       conclusive: state !== "INVALID_INCONCLUSIVE",
       underpowered: state === "INVALID_INCONCLUSIVE",
+      activationContract: { evaluated: true, passed: true },
     }],
   }));
   const saveResults = () => results.forEach((result, i) => {
@@ -79,6 +80,30 @@ test("every verdict requires explicit boolean validity fields", (t) => {
       }
     }
   }
+});
+
+test("conclusive evidence requires an evaluated boolean activation contract", (t) => {
+  for (const contract of [
+    undefined, null, {}, { evaluated: true }, { evaluated: true, passed: "false" },
+    { evaluated: true, passed: null }, { evaluated: false, passed: false },
+    { evaluated: false, passed: true }, { evaluated: "true", passed: false },
+    { passed: false }, { evaluated: true, passed: true },
+  ]) {
+    const f = fixture(t, ["VALID_NO_CHANGE"]);
+    f.results[0].verdicts[0].stateReason = { code: "activation_contract_failed" };
+    f.results[0].verdicts[0].activationContract = contract;
+    f.saveResults();
+    assert.throws(() => outcomeStatus(f.root, entries), /activation contract/);
+  }
+  const failed = fixture(t, ["VALID_NO_CHANGE"]);
+  failed.results[0].verdicts[0].stateReason = { code: "activation_contract_failed" };
+  failed.results[0].verdicts[0].activationContract = { evaluated: true, passed: false };
+  failed.saveResults();
+  assert.equal(outcomeStatus(failed.root, entries).state, "failure");
+  const f = fixture(t, ["INVALID_INCONCLUSIVE"]);
+  delete f.results[0].verdicts[0].activationContract;
+  f.saveResults();
+  assert.equal(outcomeStatus(f.root, entries).state, "error");
 });
 
 test("missing, duplicate, malformed and incomplete artifacts never pass", (t) => {

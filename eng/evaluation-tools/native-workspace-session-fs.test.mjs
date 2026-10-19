@@ -23,6 +23,8 @@ test('a missing native helper rejects workspace extensions without changing log 
     assert.equal(provider[isolated.closeWorkspace], undefined);
     await assert.rejects(provider.readFile(path.join(workspace, 'file')),
       { code: 'ERR_EVALUATION_WORKSPACE_ISOLATION_REQUIRED' });
+    await assert.rejects(provider.readFile(`${workspace}/alias/../target.txt`),
+      { code: 'ERR_EVALUATION_WORKSPACE_PARENT_TRAVERSAL' });
     await provider.writeFile('events.jsonl', 'log');
     assert.equal(await provider.readFile('events.jsonl'), 'log');
   } finally {
@@ -31,6 +33,50 @@ test('a missing native helper rejects workspace extensions without changing log 
 });
 
 if (supported) {
+  test('raw parent traversal cannot select a different file across a contained symlink', async () => {
+    const root = await mkdtemp(path.join(process.cwd(), '.native-workspace-fs-test-'));
+    let provider;
+    try {
+      const workspace = path.join(root, 'workspace');
+      const logs = path.join(root, 'logs');
+      await Promise.all([mkdir(path.join(workspace, 'nested', 'deep'), { recursive: true }), mkdir(logs)]);
+      const target = path.join(workspace, 'target.txt');
+      const nestedTarget = path.join(workspace, 'nested', 'target.txt');
+      await writeFile(target, 'lexical target');
+      await writeFile(nestedTarget, 'actual target');
+      await symlink('nested/deep', path.join(workspace, 'alias'));
+      const raw = `${workspace}/alias/../target.txt`;
+      assert.equal(await readFile(raw, 'utf8'), 'actual target');
+      provider = withWorkspaceAccess(new LocalSessionFsHandler(logs), workspace);
+      assert.equal(typeof provider[closeWorkspace], 'function');
+      for (const [operation, args] of [
+        ['readFile', [raw]], ['stat', [raw]], ['exists', [raw]],
+        ['readdir', [`${workspace}/alias/..`]],
+        ['readdirWithTypes', [`${workspace}/alias/..`]],
+        ['writeFile', [raw, 'wrong replacement']], ['appendFile', [raw, 'wrong append']],
+        ['mkdir', [`${workspace}/alias/../created`, true]],
+        ['rm', [raw, false, false]],
+        ['rename', [raw, path.join(workspace, 'moved.txt')]],
+        ['rename', [target, raw]],
+      ]) {
+        await assert.rejects(provider[operation](...args),
+          { code: 'ERR_EVALUATION_WORKSPACE_PARENT_TRAVERSAL' }, operation);
+      }
+      const adapter = createSessionFsAdapter(provider);
+      const rejected = await adapter.writeFile({ path: raw, content: 'wrong SDK replacement' });
+      assert.equal(rejected.code, 'UNKNOWN');
+      assert.match(rejected.message, /parent traversal/i);
+      assert.equal(await readFile(target, 'utf8'), 'lexical target');
+      assert.equal(await readFile(nestedTarget, 'utf8'), 'actual target');
+      assert.deepEqual((await readdir(workspace)).sort(), ['alias', 'nested', 'target.txt']);
+      await provider.writeFile('events.jsonl', 'unchanged log API');
+      assert.equal(await provider.readFile('events.jsonl'), 'unchanged log API');
+    } finally {
+      provider?.[closeWorkspace]?.();
+      await rm(root, { recursive: true });
+    }
+  });
+
   test('SDK replacement preserves target permissions and rejects symlink writes without changing content', async () => {
     const root = await mkdtemp(path.join(process.cwd(), '.native-workspace-fs-test-'));
     let provider;

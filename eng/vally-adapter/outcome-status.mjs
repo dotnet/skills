@@ -66,6 +66,12 @@ export function outcomeStatus(root, entries) {
       if (typeof verdict.conclusive !== "boolean" || typeof verdict.underpowered !== "boolean") {
         throw new Error(`Missing or malformed evaluation validity: ${path}`);
       }
+      if (verdict.conclusive && (verdict.activationContract?.evaluated !== true
+        || typeof verdict.activationContract.passed !== "boolean"
+        || (verdict.stateReason?.code === "activation_contract_failed"
+          && verdict.activationContract.passed !== false))) {
+        throw new Error(`Missing, malformed or unevaluated activation contract: ${path}`);
+      }
       verdicts.push(verdict);
     }
   }

@@ -40,7 +40,9 @@ evidence merely because its rejection events survived.
 The trusted `report-status` job checks every expected `vally-results-*` matrix
 artifact through `outcome-status.mjs`. Missing, malformed, duplicate or incomplete
 accounting produces an error, including missing or non-boolean `conclusive` and
-`underpowered` fields. The status job explicitly checks out the repository's
+`underpowered` fields. Conclusive evidence also requires an explicitly evaluated
+activation contract with a boolean `passed`; an omitted, malformed or unevaluated
+contract cannot clear the gate. The status job explicitly checks out the repository's
 default branch, not a review event's PR merge commit, before running tooling with
 the status-writing token. An objective `VALID_REGRESSION` or explicit
 activation-contract failure produces failure, even when the executor job
@@ -116,6 +118,11 @@ requires a readable target. Helpers have bounded time/output limits and explicit
 errors; descriptors close on normal or forced SDK client shutdown. Relative
 session paths and absolute log-root paths (including nested log roots), outside
 delegation and other provider implementations retain their original behavior.
+The wrapper rejects any absolute operation path with a raw `..` component before
+normalization, including both rename operands and missing-helper calls, with
+`ERR_EVALUATION_WORKSPACE_PARENT_TRAVERSAL`. Lexically collapsing `symlink/..`
+could select a different file. This restriction also applies to absolute log or
+outside paths; relative session-log APIs remain unchanged.
 
 Workspace `writeFile` writes, syncs and closes an exclusively created temporary
 file in a captured parent-directory capability before rooted rename publishes

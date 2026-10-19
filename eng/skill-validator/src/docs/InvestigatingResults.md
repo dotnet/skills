@@ -18,6 +18,8 @@
 > Outcome tooling is explicitly checked out from the repository default branch,
 > including for review events. Missing/non-boolean `conclusive` or `underpowered`
 > fields are malformed evidence, not an implicit quality pass.
+> Conclusive evidence also requires an evaluated activation contract with a
+> boolean `passed`; absent, malformed or unevaluated contracts cannot pass.
 >
 > The current Vally workflow makes one targeted recovery attempt for executor
 > `session.idle` timeouts before adaptation. See
@@ -67,6 +69,10 @@
 > symlink/special-file targets. Append failures and lost responses can still
 > leave state changed or indeterminate; SDK 1.0.11 has no changed-target error
 > classification. Inspect the target before retrying.
+> Absolute operation paths containing raw `..` components are rejected before
+> normalization, including rename source/destination and missing-helper paths.
+> Collapsing `symlink/..` lexically could otherwise select a different file.
+> Relative session-log APIs remain unchanged; this is not global confinement.
 > See the current Vally guide for build instructions and the full scope.
 
 > **Vally schema:** Vally adapter results use an independently owned and

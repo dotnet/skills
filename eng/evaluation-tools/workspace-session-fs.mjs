@@ -17,6 +17,15 @@ const operations = new Set([
   'writeFile', 'appendFile', 'mkdir', 'rm', 'rename',
 ]);
 
+function rejectParentTraversal(paths) {
+  if (paths.some(file => path.isAbsolute(file) && file.split(path.sep).includes('..'))) {
+    const error = new Error(
+      'Absolute filesystem paths with parent traversal are unsupported: symlink/.. semantics cannot be normalized safely');
+    error.code = 'ERR_EVALUATION_WORKSPACE_PARENT_TRAVERSAL';
+    throw error;
+  }
+}
+
 export function withWorkspaceIsolationGuard(provider, workingDirectory) {
   const workspace = path.resolve(workingDirectory);
   const logs = path.resolve(provider.rootDir);
@@ -27,6 +36,7 @@ export function withWorkspaceIsolationGuard(provider, workingDirectory) {
       if (!operations.has(key)) return original.bind(target);
       return async (...args) => {
         const paths = key === 'rename' ? args.slice(0, 2) : args.slice(0, 1);
+        rejectParentTraversal(paths);
         if (paths.some(file => {
           if (!path.isAbsolute(file)) return false;
           const absolute = path.resolve(file);
@@ -169,6 +179,7 @@ export function withWorkspaceAccess(provider, workingDirectory) {
       if (!operations.has(key)) return original.bind(target);
       return async (...args) => {
         const paths = key === 'rename' ? args.slice(0, 2) : args.slice(0, 1);
+        rejectParentTraversal(paths);
         const workspacePaths = paths.map(workspaceRoot);
         if (!workspacePaths.some(Boolean)) return original.call(target, ...args);
         if (workspacePaths.some(value => !value)) {
