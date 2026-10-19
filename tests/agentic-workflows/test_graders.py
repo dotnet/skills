@@ -97,17 +97,21 @@ def case_path(case):
     return ROOT / PACKAGES[suite] / "fixtures" / name
 
 
-def evaluator_options(case):
+def evaluator_command(case):
     prefix, name = case.split("/")
     document = yaml.safe_load((ROOT / PACKAGES[prefix] / "eval.yaml").read_text(encoding="utf-8"))
     for stimulus in document["stimuli"]:
         fixture = next(item for item in stimulus["environment"]["files"] if item["dest"] == "inputs")
         if Path(fixture["src"]).name == name:
-            command = next(item["config"]["command"] for item in stimulus["graders"] if item["type"] == "run-command")
-            argument_text = command[command.index(" --expected-action "):]
-            tokens = [match[1] if match[1] is not None else match[2] for match in re.finditer(r'"([^"]*)"|(\S+)', argument_text)]
-            return GRADER.parse_options(tokens)
+            return next(item["config"]["command"] for item in stimulus["graders"] if item["type"] == "run-command")
     raise ValueError(f"Missing evaluator command for {case}")
+
+
+def evaluator_options(case):
+    command = evaluator_command(case)
+    argument_text = command[command.index(" --expected-action "):]
+    tokens = [match[1] if match[1] is not None else match[2] for match in re.finditer(r'"([^"]*)"|(\S+)', argument_text)]
+    return GRADER.parse_options(tokens)
 
 
 OPTIONS = {case: evaluator_options(case) for case in REASONS}
@@ -173,6 +177,13 @@ class GraderTests(unittest.TestCase):
         self.stage(case, result)
         with self.assertRaises((ValueError, TypeError, KeyError, OSError)):
             GRADER.validate_result(self.root, OPTIONS[case])
+
+    def run_shipping_grader(self, case, result):
+        self.stage(case, result)
+        staged = self.root / ".eval" / "check_result.py"
+        staged.parent.mkdir(exist_ok=True)
+        shutil.copyfile(ROOT / "graders" / "check_result.py", staged)
+        return subprocess.run(evaluator_command(case), shell=True, cwd=self.root, capture_output=True, text=True)
 
     def test_all_43_positive_outcomes(self):
         self.assertEqual(43, len(REASONS))
@@ -376,6 +387,90 @@ class GraderTests(unittest.TestCase):
             result["reason"] = reason
             self.stage(case, result)
             GRADER.validate_result(self.root, OPTIONS[case])
+
+    def test_recorded_equivalent_noops_pass_the_shipping_grader(self):
+        examples = {
+            "test/stale": [
+                "The latest PR read has head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and merge revision cccccccccccccccccccccccccccccccccccccccc, but the evidence tested SHA is bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb. The tested revision is no longer the current head or merge revision, so no visible result is safe.",
+                "Fail closed because the tested revision bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb matches neither the current PR head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa nor its merge commit cccccccccccccccccccccccccccccccccccccccc.",
+                "The tested revision does not equal the current merge commit.",
+            ],
+            "unskip/stale": [
+                "No candidate is safe to attempt because the manifest source_commit does not match the trusted source commit.",
+            ],
+            "test/empty": [
+                "Collector evidence is complete (metadata.json completeness.complete=true, all categories 'complete', no reasons) but lists zero evidence files (files: []). There are no failure, retry, hang, crash, or duration-regression records to analyze, so no visible comment is justified.",
+                "There are zero qualifying evidence records to cite. This is distinct from an affirmative 'all tests passed' signal: the collector supplies no record file at all.",
+            ],
+        }
+        for case, reasons in examples.items():
+            for reason in reasons:
+                with self.subTest(case=case, reason=reason):
+                    result = good_result(case)
+                    result["reason"] = reason
+                    checked = self.run_shipping_grader(case, result)
+                    self.assertEqual(0, checked.returncode, checked.stderr)
+                    self.assertRegex(checked.stdout, "^PASS:")
+                    result["action"] = "comment"
+                    self.reject(case, result)
+
+    def test_revision_and_empty_noops_still_require_relevant_explanations(self):
+        for case, reason in (
+            ("test/stale", "The current revision is ready."),
+            ("unskip/stale", "The source commit is ready."),
+            ("test/empty", "The evidence is available."),
+        ):
+            with self.subTest(case=case):
+                result = good_result(case)
+                result["reason"] = reason
+                self.reject(case, result)
+
+    def test_explicit_denials_are_not_passing_test_claims(self):
+        for denial in (
+            "This is not an explicit 'all tests passed' result.",
+            "This is distinct from an affirmative 'all tests passed' signal.",
+            "The evidence does not prove that all tests passed.",
+            "We cannot conclude all tests passed.",
+            "'All tests passed' is not established.",
+        ):
+            for key in ("reason", "body", "limitations", "summary", "next_step"):
+                with self.subTest(denial=denial, key=key):
+                    result = good_result("test/retry")
+                    if key in ("reason", "body"):
+                        result[key] += " " + denial
+                    elif key == "limitations":
+                        result[key].append(denial)
+                    else:
+                        result["findings"][0][key] += " " + denial
+                    self.stage("test/retry", result)
+                    GRADER.validate_result(self.root, OPTIONS["test/retry"])
+
+    def test_denial_does_not_mask_an_actual_success_claim(self):
+        claims = (
+            "All tests passed.",
+            "'All tests passed'.",
+            "Not only all tests passed, tests are clean.",
+            "We cannot conclude all tests passed, but all tests passed.",
+            "This is distinct from an affirmative 'all tests passed' signal. Tests are fixed.",
+            "'All tests passed' is not established; no historical recurrence.",
+        )
+        for claim in claims:
+            for key in ("reason", "body", "limitations", "summary", "next_step"):
+                with self.subTest(claim=claim, key=key):
+                    result = good_result("test/retry")
+                    if key in ("reason", "body"):
+                        result[key] += " " + claim
+                    elif key == "limitations":
+                        result[key].append(claim)
+                    else:
+                        result["findings"][0][key] += " " + claim
+                    self.reject("test/retry", result)
+        result = good_result("test/empty")
+        result["reason"] += " This does not prove that all tests passed."
+        result["limitations"] = ["All tests passed."]
+        checked = self.run_shipping_grader("test/empty", result)
+        self.assertNotEqual(0, checked.returncode)
+        self.assertIn("Unsupported test-success claim", checked.stderr)
 
     def test_selection_metadata_keeps_identity_and_evidence_strict(self):
         for case in ("unskip/completed", "unskip/merged", "unskip/class", "unskip/modules", "unskip/zero"):

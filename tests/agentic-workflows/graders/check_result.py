@@ -87,6 +87,25 @@ def check_record(path, record):
     require(record in tokens, "Evidence record does not exist")
 
 
+def check_test_success_claims(text):
+    claims = r"\b(?:all tests passed|tests are clean|tests are fixed|no historical recurrence)\b"
+    denial_before = (
+        r"\b(?:"
+        r"not (?:(?:an?|the|explicit|affirmative|verified) )*"
+        r"|distinct from (?:(?:an?|the|explicit|affirmative|verified) )*"
+        r"|(?:does not|do not|cannot|can't) (?:prove|establish|mean|show|imply|confirm|conclude) (?:that )?"
+        r")[\"']?$"
+    )
+    denial_after = r"^[\"']? (?:is|was) (?:not|never) (?:proven|established|verified|supported|justified)\b"
+    normalized = re.sub(r"\s+", " ", text)
+    for match in re.finditer(claims, normalized, re.IGNORECASE):
+        denied = (
+            re.search(denial_before, normalized[:match.start()], re.IGNORECASE)
+            or re.search(denial_after, normalized[match.end():], re.IGNORECASE)
+        )
+        require(denied, f"Unsupported test-success claim: {match[0]}")
+
+
 def parse_options(arguments=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--expected-action", required=True, choices=("comment", "review", "noop", "patch"))
@@ -97,6 +116,7 @@ def parse_options(arguments=None):
     parser.add_argument("--require-pattern", action="append", default=[])
     parser.add_argument("--require-summary-pattern", action="append", default=[])
     parser.add_argument("--forbid-pattern", action="append", default=[])
+    parser.add_argument("--forbid-test-success-claims", action="store_true")
     parser.add_argument("--allowed-classification", action="append", default=[])
     parser.add_argument("--allowed-finding-path", action="append", default=[])
     parser.add_argument("--expected-candidate", action="append", default=[])
@@ -195,6 +215,12 @@ def validate_result(root, options):
         require(re.search(pattern, text, re.IGNORECASE), f"Missing supported outcome: {pattern}")
     for pattern in options.forbid_pattern:
         require(not re.search(pattern, text, re.IGNORECASE), f"Forbidden result content: {pattern}")
+    if options.forbid_test_success_claims:
+        for value in (reason, result.get("body") or "", *limitations):
+            check_test_success_claims(value)
+        for finding in findings:
+            for key in ("summary", "next_step"):
+                check_test_success_claims(finding[key])
     return result
 
 

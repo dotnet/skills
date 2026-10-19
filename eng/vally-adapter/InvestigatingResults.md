@@ -206,6 +206,26 @@ choosing `comment` where an advisory `review` was required. A missing explicit
 zero-execution explanation is distinct from those false negatives. Do not
 erase all recorded regressions because some assertions are defective.
 
+The corrected workflow checker accepts the reproduced revision-mismatch
+equivalents (`does not match`, `does not equal`, `matches neither`, and
+`no longer the current`) and empty-record descriptions without requiring the
+word "qualifying". The structured no-op, empty-findings, no-visible-body,
+fixture digest, citation, selection identity and publication guards remain.
+Test-success checking distinguishes directly negated or explicitly denied
+quoted phrases from affirmative claims, checking each prose field separately;
+a denial in one field does not excuse a success claim in another. This is a
+bounded phrase check, not a general natural-language entailment classifier.
+The checker remains hash-pinned in all four workflow specs.
+
+These changes are prospective. Replaying the 258 retained native proposals
+from run 38908547657 with the corrected checker accepts seven previously
+rejected equivalent no-ops, preserves 137 prior passes, and still rejects 114
+proposals. It does not rewrite the six recorded result-level regressions,
+the four underpowered results, or the original assertions and judge output.
+Actual stale-head, technical, action-selection and citation failures remain.
+Only a separately authorized new measurement could establish new aggregate
+results; do not derive a new quality pass from this offline diagnostic replay.
+
 Separate executor lanes and trusted tooling from evaluated content. The same
 run retained native workflow sessions on runtime 1.0.79 and Vally skill
 sessions on 1.0.80. Original root-escape errors occurred in the Vally lane;
