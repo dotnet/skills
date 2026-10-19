@@ -1,656 +1,8 @@
 {
-  "lastUpdate": 1792269368379,
+  "lastUpdate": 1792432654141,
   "repoUrl": "",
   "entries": {
     "Efficiency": [
-      {
-        "commit": {
-          "timestamp": "2026-10-02T18:07:31+00:00",
-          "id": "e87c5da26cbf0f8c701e91247c4817df0adc12f7",
-          "url": "https://github.com/dotnet/skills/commit/e87c5da26cbf0f8c701e91247c4817df0adc12f7",
-          "author": {
-            "name": "Abhitej John",
-            "username": "AbhitejJohn"
-          },
-          "message": "Merge pull request #1185 from dotnet/abhitejjohn-fix-csharp-refactoring-evals"
-        },
-        "model": "claude-sonnet-5",
-        "tool": "customSmallerIsBetter",
-        "date": 1791218766106,
-        "benches": [
-          {
-            "name": "convert-to-cpm/Align packages directly and recommend CPM - Skilled Time",
-            "overfittingScore": 0.38,
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "notActivated": true,
-            "value": 20.7
-          },
-          {
-            "name": "convert-to-cpm/Align packages directly and recommend CPM - Skilled Tokens In",
-            "overfittingScore": 0.38,
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "notActivated": true,
-            "value": 119913.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Align packages directly and recommend CPM - Plugin Time",
-            "overfittingScore": 0.38,
-            "value": 18.2,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Align packages directly and recommend CPM - Plugin Tokens In",
-            "overfittingScore": 0.38,
-            "value": 117664.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Align packages directly and recommend CPM - Vanilla Time",
-            "value": 19.5
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Align packages directly and recommend CPM - Vanilla Tokens In",
-            "value": 135942.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Skilled Time",
-            "overfittingScore": 0.38,
-            "value": 131.6,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Skilled Tokens In",
-            "overfittingScore": 0.38,
-            "value": 742156.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Plugin Time",
-            "overfittingScore": 0.38,
-            "value": 210.7,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Plugin Tokens In",
-            "overfittingScore": 0.38,
-            "value": 1105993.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Vanilla Time",
-            "value": 62.4
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Vanilla Tokens In",
-            "value": 228009.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert multi-project solution to CPM - Skilled Time",
-            "overfittingScore": 0.38,
-            "value": 113.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert multi-project solution to CPM - Skilled Tokens In",
-            "overfittingScore": 0.38,
-            "value": 633271.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert multi-project solution to CPM - Plugin Time",
-            "overfittingScore": 0.38,
-            "value": 90.5,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert multi-project solution to CPM - Plugin Tokens In",
-            "overfittingScore": 0.38,
-            "value": 663164.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert multi-project solution to CPM - Vanilla Time",
-            "value": 57.3
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert multi-project solution to CPM - Vanilla Tokens In",
-            "value": 353133.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert repository with multiple independent targets - Skilled Time",
-            "overfittingScore": 0.38,
-            "value": 86.6,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert repository with multiple independent targets - Skilled Tokens In",
-            "overfittingScore": 0.38,
-            "value": 517576.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert repository with multiple independent targets - Plugin Time",
-            "overfittingScore": 0.38,
-            "value": 95.2,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert repository with multiple independent targets - Plugin Tokens In",
-            "overfittingScore": 0.38,
-            "value": 621655.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert repository with multiple independent targets - Vanilla Time",
-            "value": 67.3
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert repository with multiple independent targets - Vanilla Tokens In",
-            "value": 292229.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert single project to CPM - Skilled Time",
-            "overfittingScore": 0.38,
-            "value": 77.4,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert single project to CPM - Skilled Tokens In",
-            "overfittingScore": 0.38,
-            "value": 528407.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert single project to CPM - Plugin Time",
-            "overfittingScore": 0.38,
-            "value": 78.4,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert single project to CPM - Plugin Tokens In",
-            "overfittingScore": 0.38,
-            "value": 499406.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert single project to CPM - Vanilla Time",
-            "value": 131.4
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert single project to CPM - Vanilla Tokens In",
-            "value": 388596.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Skilled Time",
-            "overfittingScore": 0.38,
-            "value": 85.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Skilled Tokens In",
-            "overfittingScore": 0.38,
-            "value": 467239.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Plugin Time",
-            "overfittingScore": 0.38,
-            "value": 88.3,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Plugin Tokens In",
-            "overfittingScore": 0.38,
-            "value": 505574.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Vanilla Time",
-            "value": 95.2
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Vanilla Tokens In",
-            "value": 312113.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Skilled Time",
-            "overfittingScore": 0.38,
-            "value": 119.2,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Skilled Tokens In",
-            "overfittingScore": 0.38,
-            "value": 702154.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Plugin Time",
-            "overfittingScore": 0.38,
-            "value": 106.5,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Plugin Tokens In",
-            "overfittingScore": 0.38,
-            "value": 575264.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Vanilla Time",
-            "value": 160.6
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Vanilla Tokens In",
-            "value": 627345.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Skilled Time",
-            "overfittingScore": 0.38,
-            "value": 11.6,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Skilled Tokens In",
-            "overfittingScore": 0.38,
-            "value": 112018.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Plugin Time",
-            "overfittingScore": 0.38,
-            "value": 17.6,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Plugin Tokens In",
-            "overfittingScore": 0.38,
-            "value": 115207.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Vanilla Time",
-            "value": 59.0
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Vanilla Tokens In",
-            "value": 144969.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Skilled Time",
-            "overfittingScore": 0.38,
-            "value": 115.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Skilled Tokens In",
-            "overfittingScore": 0.38,
-            "value": 674426.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Plugin Time",
-            "overfittingScore": 0.38,
-            "value": 164.3,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Plugin Tokens In",
-            "overfittingScore": 0.38,
-            "value": 648363.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Vanilla Time",
-            "value": 105.4
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Vanilla Tokens In",
-            "value": 469860.0
-          }
-        ]
-      },
-      {
-        "commit": {
-          "timestamp": "2026-10-02T18:07:31+00:00",
-          "id": "e87c5da26cbf0f8c701e91247c4817df0adc12f7",
-          "url": "https://github.com/dotnet/skills/commit/e87c5da26cbf0f8c701e91247c4817df0adc12f7",
-          "author": {
-            "name": "Abhitej John",
-            "username": "AbhitejJohn"
-          },
-          "message": "Merge pull request #1185 from dotnet/abhitejjohn-fix-csharp-refactoring-evals"
-        },
-        "model": "gpt-5.6-luna",
-        "tool": "customSmallerIsBetter",
-        "date": 1791218766165,
-        "benches": [
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Align packages directly and recommend CPM - Skilled Time",
-            "value": 35.0
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Align packages directly and recommend CPM - Skilled Tokens In",
-            "value": 212271.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Align packages directly and recommend CPM - Plugin Time",
-            "value": 35.5
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Align packages directly and recommend CPM - Plugin Tokens In",
-            "value": 224916.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Align packages directly and recommend CPM - Vanilla Time",
-            "value": 59.1
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Align packages directly and recommend CPM - Vanilla Tokens In",
-            "value": 181043.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Skilled Time",
-            "value": 108.5
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Skilled Tokens In",
-            "value": 483401.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Plugin Time",
-            "value": 145.8
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Plugin Tokens In",
-            "value": 770463.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Vanilla Time",
-            "value": 71.3
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Vanilla Tokens In",
-            "value": 271415.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert multi-project solution to CPM - Skilled Time",
-            "value": 91.1
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert multi-project solution to CPM - Skilled Tokens In",
-            "value": 396895.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert multi-project solution to CPM - Plugin Time",
-            "value": 81.8
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert multi-project solution to CPM - Plugin Tokens In",
-            "value": 404940.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert multi-project solution to CPM - Vanilla Time",
-            "value": 39.5
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert multi-project solution to CPM - Vanilla Tokens In",
-            "value": 212320.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert repository with multiple independent targets - Skilled Time",
-            "value": 91.9
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert repository with multiple independent targets - Skilled Tokens In",
-            "value": 342910.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert repository with multiple independent targets - Plugin Time",
-            "value": 105.1
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert repository with multiple independent targets - Plugin Tokens In",
-            "value": 443134.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert repository with multiple independent targets - Vanilla Time",
-            "value": 37.0
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert repository with multiple independent targets - Vanilla Tokens In",
-            "value": 203417.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert single project to CPM - Skilled Time",
-            "value": 68.5
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert single project to CPM - Skilled Tokens In",
-            "value": 338508.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert single project to CPM - Plugin Time",
-            "value": 70.0
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert single project to CPM - Plugin Tokens In",
-            "value": 435380.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert single project to CPM - Vanilla Time",
-            "value": 84.9
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert single project to CPM - Vanilla Tokens In",
-            "value": 297992.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Skilled Time",
-            "value": 79.9
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Skilled Tokens In",
-            "value": 452077.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Plugin Time",
-            "value": 86.6
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Plugin Tokens In",
-            "value": 464149.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Vanilla Time",
-            "value": 55.6
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Vanilla Tokens In",
-            "value": 306292.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Skilled Time",
-            "value": 125.8
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Skilled Tokens In",
-            "value": 703002.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Plugin Time",
-            "value": 108.8
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Plugin Tokens In",
-            "value": 497946.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Vanilla Time",
-            "value": 56.7
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Vanilla Tokens In",
-            "value": 253558.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Skilled Time",
-            "value": 11.1
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Skilled Tokens In",
-            "value": 73948.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Plugin Time",
-            "value": 6.4
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Plugin Tokens In",
-            "value": 42297.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Vanilla Time",
-            "value": 12.3
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Vanilla Tokens In",
-            "value": 88726.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Skilled Time",
-            "value": 75.2
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Skilled Tokens In",
-            "value": 445658.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Plugin Time",
-            "value": 93.4
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Plugin Tokens In",
-            "value": 574793.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Vanilla Time",
-            "value": 56.4
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Vanilla Tokens In",
-            "value": 393206.0
-          }
-        ]
-      },
       {
         "model": "claude-haiku-4.5",
         "commit": {
@@ -8606,850 +7958,657 @@
             "unit": "tokens"
           }
         ]
+      },
+      {
+        "model": "claude-sonnet-5",
+        "tool": "customSmallerIsBetter",
+        "commit": {
+          "url": "https://github.com/dotnet/skills/commit/10d85e25fb42d5f65c568d5e979a005ee69eecb3",
+          "message": "Merge pull request #1301 from kdinev/adjust-grid-css-path",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "id": "10d85e25fb42d5f65c568d5e979a005ee69eecb3",
+          "timestamp": "2026-10-16T21:55:16+00:00"
+        },
+        "date": 1792432654077,
+        "benches": [
+          {
+            "name": "convert-to-cpm/Align packages directly and recommend CPM - Skilled Time",
+            "overfitting": "moderate",
+            "value": 18.7,
+            "notActivated": true,
+            "overfittingScore": 0.43,
+            "unit": "seconds"
+          },
+          {
+            "name": "convert-to-cpm/Align packages directly and recommend CPM - Skilled Tokens In",
+            "overfitting": "moderate",
+            "value": 137378.0,
+            "notActivated": true,
+            "overfittingScore": 0.43,
+            "unit": "tokens"
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Align packages directly and recommend CPM - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.43,
+            "value": 13.7
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Align packages directly and recommend CPM - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.43,
+            "value": 115078.0
+          },
+          {
+            "name": "convert-to-cpm/Align packages directly and recommend CPM - Vanilla Time",
+            "unit": "seconds",
+            "value": 69.7
+          },
+          {
+            "name": "convert-to-cpm/Align packages directly and recommend CPM - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 233212.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.43,
+            "value": 185.9
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.43,
+            "value": 1113215.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.43,
+            "value": 145.2
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.43,
+            "value": 957354.0
+          },
+          {
+            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Vanilla Time",
+            "unit": "seconds",
+            "value": 67.6
+          },
+          {
+            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 328497.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert multi-project solution to CPM - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.43,
+            "value": 87.7
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert multi-project solution to CPM - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.43,
+            "value": 678025.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert multi-project solution to CPM - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.43,
+            "value": 98.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert multi-project solution to CPM - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.43,
+            "value": 510131.0
+          },
+          {
+            "name": "convert-to-cpm/Convert multi-project solution to CPM - Vanilla Time",
+            "unit": "seconds",
+            "value": 50.4
+          },
+          {
+            "name": "convert-to-cpm/Convert multi-project solution to CPM - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 268428.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert repository with multiple independent targets - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.43,
+            "value": 72.1
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert repository with multiple independent targets - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.43,
+            "value": 394781.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert repository with multiple independent targets - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.43,
+            "value": 65.9
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert repository with multiple independent targets - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.43,
+            "value": 413958.0
+          },
+          {
+            "name": "convert-to-cpm/Convert repository with multiple independent targets - Vanilla Time",
+            "unit": "seconds",
+            "value": 61.0
+          },
+          {
+            "name": "convert-to-cpm/Convert repository with multiple independent targets - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 237844.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert single project to CPM - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.43,
+            "value": 74.1
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert single project to CPM - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.43,
+            "value": 533091.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert single project to CPM - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.43,
+            "value": 69.2
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert single project to CPM - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.43,
+            "value": 503252.0
+          },
+          {
+            "name": "convert-to-cpm/Convert single project to CPM - Vanilla Time",
+            "unit": "seconds",
+            "value": 129.8
+          },
+          {
+            "name": "convert-to-cpm/Convert single project to CPM - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 296878.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.43,
+            "value": 86.5
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.43,
+            "value": 564207.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.43,
+            "value": 79.4
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.43,
+            "value": 492415.0
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Vanilla Time",
+            "unit": "seconds",
+            "value": 120.3
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 304303.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.43,
+            "value": 75.1
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.43,
+            "value": 435493.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.43,
+            "value": 133.7
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.43,
+            "value": 909799.0
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Vanilla Time",
+            "unit": "seconds",
+            "value": 106.0
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 319512.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.43,
+            "value": 9.1
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.43,
+            "value": 88374.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.43,
+            "value": 18.1
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.43,
+            "value": 137308.0
+          },
+          {
+            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Vanilla Time",
+            "unit": "seconds",
+            "value": 85.8
+          },
+          {
+            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 170955.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.43,
+            "value": 115.5
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.43,
+            "value": 478131.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.43,
+            "value": 104.9
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.43,
+            "value": 561458.0
+          },
+          {
+            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Vanilla Time",
+            "unit": "seconds",
+            "value": 93.6
+          },
+          {
+            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 524274.0
+          }
+        ]
+      },
+      {
+        "model": "gpt-5.6-luna",
+        "tool": "customSmallerIsBetter",
+        "commit": {
+          "url": "https://github.com/dotnet/skills/commit/10d85e25fb42d5f65c568d5e979a005ee69eecb3",
+          "message": "Merge pull request #1301 from kdinev/adjust-grid-css-path",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "id": "10d85e25fb42d5f65c568d5e979a005ee69eecb3",
+          "timestamp": "2026-10-16T21:55:16+00:00"
+        },
+        "date": 1792432654141,
+        "benches": [
+          {
+            "name": "convert-to-cpm/Align packages directly and recommend CPM - Skilled Time",
+            "unit": "seconds",
+            "value": 33.7
+          },
+          {
+            "name": "convert-to-cpm/Align packages directly and recommend CPM - Skilled Tokens In",
+            "unit": "tokens",
+            "value": 242669.0
+          },
+          {
+            "name": "convert-to-cpm/Align packages directly and recommend CPM - Plugin Time",
+            "unit": "seconds",
+            "value": 43.4
+          },
+          {
+            "name": "convert-to-cpm/Align packages directly and recommend CPM - Plugin Tokens In",
+            "unit": "tokens",
+            "value": 264316.0
+          },
+          {
+            "name": "convert-to-cpm/Align packages directly and recommend CPM - Vanilla Time",
+            "unit": "seconds",
+            "value": 30.3
+          },
+          {
+            "name": "convert-to-cpm/Align packages directly and recommend CPM - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 157114.0
+          },
+          {
+            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Skilled Time",
+            "unit": "seconds",
+            "value": 108.7
+          },
+          {
+            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Skilled Tokens In",
+            "unit": "tokens",
+            "value": 479282.0
+          },
+          {
+            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Plugin Time",
+            "unit": "seconds",
+            "value": 119.1
+          },
+          {
+            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Plugin Tokens In",
+            "unit": "tokens",
+            "value": 504031.0
+          },
+          {
+            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Vanilla Time",
+            "unit": "seconds",
+            "value": 64.7
+          },
+          {
+            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 277207.0
+          },
+          {
+            "name": "convert-to-cpm/Convert multi-project solution to CPM - Skilled Time",
+            "unit": "seconds",
+            "value": 81.7
+          },
+          {
+            "name": "convert-to-cpm/Convert multi-project solution to CPM - Skilled Tokens In",
+            "unit": "tokens",
+            "value": 412924.0
+          },
+          {
+            "name": "convert-to-cpm/Convert multi-project solution to CPM - Plugin Time",
+            "unit": "seconds",
+            "value": 74.3
+          },
+          {
+            "name": "convert-to-cpm/Convert multi-project solution to CPM - Plugin Tokens In",
+            "unit": "tokens",
+            "value": 431575.0
+          },
+          {
+            "name": "convert-to-cpm/Convert multi-project solution to CPM - Vanilla Time",
+            "unit": "seconds",
+            "value": 53.0
+          },
+          {
+            "name": "convert-to-cpm/Convert multi-project solution to CPM - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 224888.0
+          },
+          {
+            "name": "convert-to-cpm/Convert repository with multiple independent targets - Skilled Time",
+            "unit": "seconds",
+            "value": 87.9
+          },
+          {
+            "name": "convert-to-cpm/Convert repository with multiple independent targets - Skilled Tokens In",
+            "unit": "tokens",
+            "value": 454923.0
+          },
+          {
+            "name": "convert-to-cpm/Convert repository with multiple independent targets - Plugin Time",
+            "unit": "seconds",
+            "value": 77.6
+          },
+          {
+            "name": "convert-to-cpm/Convert repository with multiple independent targets - Plugin Tokens In",
+            "unit": "tokens",
+            "value": 372607.0
+          },
+          {
+            "name": "convert-to-cpm/Convert repository with multiple independent targets - Vanilla Time",
+            "unit": "seconds",
+            "value": 81.0
+          },
+          {
+            "name": "convert-to-cpm/Convert repository with multiple independent targets - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 322612.0
+          },
+          {
+            "name": "convert-to-cpm/Convert single project to CPM - Skilled Time",
+            "unit": "seconds",
+            "value": 65.8
+          },
+          {
+            "name": "convert-to-cpm/Convert single project to CPM - Skilled Tokens In",
+            "unit": "tokens",
+            "value": 332267.0
+          },
+          {
+            "name": "convert-to-cpm/Convert single project to CPM - Plugin Time",
+            "unit": "seconds",
+            "value": 76.8
+          },
+          {
+            "name": "convert-to-cpm/Convert single project to CPM - Plugin Tokens In",
+            "unit": "tokens",
+            "value": 369493.0
+          },
+          {
+            "name": "convert-to-cpm/Convert single project to CPM - Vanilla Time",
+            "unit": "seconds",
+            "value": 60.5
+          },
+          {
+            "name": "convert-to-cpm/Convert single project to CPM - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 234772.0
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Skilled Time",
+            "unit": "seconds",
+            "value": 80.1
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Skilled Tokens In",
+            "unit": "tokens",
+            "value": 471265.0
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Plugin Time",
+            "unit": "seconds",
+            "value": 72.4
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Plugin Tokens In",
+            "unit": "tokens",
+            "value": 403992.0
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Vanilla Time",
+            "unit": "seconds",
+            "value": 41.5
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 243172.0
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Skilled Time",
+            "unit": "seconds",
+            "value": 92.2
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Skilled Tokens In",
+            "unit": "tokens",
+            "value": 547828.0
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Plugin Time",
+            "unit": "seconds",
+            "value": 73.9
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Plugin Tokens In",
+            "unit": "tokens",
+            "value": 391842.0
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Vanilla Time",
+            "unit": "seconds",
+            "value": 40.4
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 181916.0
+          },
+          {
+            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Skilled Time",
+            "unit": "seconds",
+            "value": 16.0
+          },
+          {
+            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Skilled Tokens In",
+            "unit": "tokens",
+            "value": 94892.0
+          },
+          {
+            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Plugin Time",
+            "unit": "seconds",
+            "value": 7.4
+          },
+          {
+            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Plugin Tokens In",
+            "unit": "tokens",
+            "value": 42282.0
+          },
+          {
+            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Vanilla Time",
+            "unit": "seconds",
+            "value": 11.7
+          },
+          {
+            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 71308.0
+          },
+          {
+            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Skilled Time",
+            "unit": "seconds",
+            "value": 56.8
+          },
+          {
+            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Skilled Tokens In",
+            "unit": "tokens",
+            "value": 336064.0
+          },
+          {
+            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Plugin Time",
+            "unit": "seconds",
+            "value": 100.9
+          },
+          {
+            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Plugin Tokens In",
+            "unit": "tokens",
+            "value": 483172.0
+          },
+          {
+            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Vanilla Time",
+            "unit": "seconds",
+            "value": 80.6
+          },
+          {
+            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 360771.0
+          }
+        ]
       }
     ],
     "Quality": [
-      {
-        "benches": [
-          {
-            "name": "convert-to-cpm/Align packages directly and recommend CPM - Skilled Quality",
-            "overfittingScore": 0.38,
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "notActivated": true,
-            "value": 7.5
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Align packages directly and recommend CPM - Plugin Quality",
-            "overfittingScore": 0.38,
-            "value": 7.5,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Align packages directly and recommend CPM - Vanilla Quality",
-            "value": 7.5
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Skilled Quality",
-            "overfittingScore": 0.38,
-            "value": 9.642857551574707,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Plugin Quality",
-            "overfittingScore": 0.38,
-            "value": 9.642857551574707,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Vanilla Quality",
-            "value": 9.285714149475098
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert multi-project solution to CPM - Skilled Quality",
-            "overfittingScore": 0.38,
-            "value": 10.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert multi-project solution to CPM - Plugin Quality",
-            "overfittingScore": 0.38,
-            "value": 10.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert multi-project solution to CPM - Vanilla Quality",
-            "value": 8.333333015441895
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert repository with multiple independent targets - Skilled Quality",
-            "overfittingScore": 0.38,
-            "value": 10.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert repository with multiple independent targets - Plugin Quality",
-            "overfittingScore": 0.38,
-            "value": 10.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert repository with multiple independent targets - Vanilla Quality",
-            "value": 8.125
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert single project to CPM - Skilled Quality",
-            "overfittingScore": 0.38,
-            "value": 10.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert single project to CPM - Plugin Quality",
-            "overfittingScore": 0.38,
-            "value": 10.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert single project to CPM - Vanilla Quality",
-            "value": 8.333333015441895
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Skilled Quality",
-            "overfittingScore": 0.38,
-            "value": 10.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Plugin Quality",
-            "overfittingScore": 0.38,
-            "value": 10.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Vanilla Quality",
-            "value": 9.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Skilled Quality",
-            "overfittingScore": 0.38,
-            "value": 9.5,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Plugin Quality",
-            "overfittingScore": 0.38,
-            "value": 9.5,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Vanilla Quality",
-            "value": 9.5
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Skilled Quality",
-            "overfittingScore": 0.38,
-            "value": 10.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Plugin Quality",
-            "overfittingScore": 0.38,
-            "value": 10.0,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Vanilla Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Skilled Quality",
-            "overfittingScore": 0.38,
-            "value": 6.25,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Plugin Quality",
-            "overfittingScore": 0.38,
-            "value": 8.75,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Vanilla Quality",
-            "value": 6.25
-          }
-        ],
-        "date": 1791218766106,
-        "verdictEvidence": [
-          {
-            "skillName": "convert-to-cpm",
-            "skillKind": "invocable",
-            "state": "VALID_PASS",
-            "stateReason": {
-              "code": "credible_preference_improvement",
-              "phase": "decision"
-            },
-            "passed": true,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +66.7% (6W/3T/0L over 9 preference-eligible stimulus vote(s), sign test p=0.016), mean preference +60.0% across 9 paired run(s) — credibly better",
-            "noChangeDiagnosis": null,
-            "gateEvidence": {
-              "stimulusVoteCount": 9,
-              "wins": 6,
-              "ties": 3,
-              "losses": 0,
-              "discordant": 6,
-              "direction": "better",
-              "pValue": 0.015625000000000007,
-              "alpha": 0.05,
-              "netWin": 0.6666666666666666,
-              "minimumNetWin": 0.2,
-              "minCredibleStimuli": 5,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": true,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "Explicit dormancy expectations are evaluated independently of preference",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": true,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Align packages directly and recommend CPM",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "missing-activation",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-no-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Convert complex repository with multiple CPM challenges",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Convert multi-project solution to CPM",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Convert repository with multiple independent targets",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Convert single project to CPM",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Convert solution with MSBuild property versions to CPM",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Convert solution with version conflicts to CPM",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Decline CPM conversion for packages.config project",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Update complex package layout and recommend CPM",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Align packages directly and recommend CPM",
-                "direction": "none",
-                "rationale": "The final states and user-facing outputs are substantively equivalent: both correctly apply the requested direct alignment without CPM, recover from failed edit-tool attempts, and verify references. Both share the same omissions of restore/build validation and a separate CPM follow-up recommendation."
-              },
-              {
-                "scenarioName": "Convert complex repository with multiple CPM challenges",
-                "direction": "better",
-                "rationale": "Both appear to implement the core CPM conversion correctly, including central conditional versions and inlining property values. B is substantially stronger as a deliverable: it builds as well as restores, compares baseline versus result, provides a persisted markdown report and binlogs, and communicates the version-change risks. A's concise summary omits these important validation and audit artifacts."
-              },
-              {
-                "scenarioName": "Convert multi-project solution to CPM",
-                "direction": "better",
-                "rationale": "Both appear to implement the core CPM edit correctly, but B provides substantially stronger validation and reviewability: baseline and post-change restore/build checks, resolved-package comparison, a markdown report, and binlogs/artifacts. A's restore-only verification and concise summary leave several requested quality safeguards unmet."
-              },
-              {
-                "scenarioName": "Convert repository with multiple independent targets",
-                "direction": "better",
-                "rationale": "Both performed the core CPM edit correctly and built both projects, but B additionally meets the evidence, baseline, artifact preservation, and aggregate-report requirements across nearly all rubric criteria where A has no supporting deliverables."
-              },
-              {
-                "scenarioName": "Convert single project to CPM",
-                "direction": "better",
-                "rationale": "The core CPM edits are equally correct, but B supplies substantially stronger validation and review evidence: successful builds, baseline-to-result package comparison, a markdown report, artifacts/binlogs, and an explicit low-risk assessment. A validates restore only and omits these requested deliverables."
-              },
-              {
-                "scenarioName": "Convert solution with MSBuild property versions to CPM",
-                "direction": "better",
-                "rationale": "Both appear to make the core CPM edits correctly, but B provides substantially stronger validation and deliverables: build validation in addition to restore, explicit leftover-reference checking, baseline-versus-result package comparison, a markdown report, and binlog artifacts. These are meaningful quality advantages for a repository conversion."
-              },
-              {
-                "scenarioName": "Convert solution with version conflicts to CPM",
-                "direction": "better",
-                "rationale": "Both appear to complete the CPM conversion and validation correctly. B is preferable because it accurately recognizes and communicates the major System.Text.Json upgrade risk, explicitly ties the reconciliation to the user's instruction, and documents a test follow-up; A's claim that there were no major jumps is materially misleading."
-              },
-              {
-                "scenarioName": "Decline CPM conversion for packages.config project",
-                "direction": "none",
-                "rationale": "Position-swap inconsistent (forward: B, reverse: tie). Defaulting to tie."
-              },
-              {
-                "scenarioName": "Update complex package layout and recommend CPM",
-                "direction": "none",
-                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/e87c5da26cbf0f8c701e91247c4817df0adc12f7/plugins/dotnet-nuget/skills/convert-to-cpm/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/e87c5da26cbf0f8c701e91247c4817df0adc12f7/tests/dotnet-nuget/convert-to-cpm/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/e87c5da26cbf0f8c701e91247c4817df0adc12f7"
-              }
-            ]
-          }
-        ],
-        "commit": {
-          "timestamp": "2026-10-02T18:07:31+00:00",
-          "id": "e87c5da26cbf0f8c701e91247c4817df0adc12f7",
-          "url": "https://github.com/dotnet/skills/commit/e87c5da26cbf0f8c701e91247c4817df0adc12f7",
-          "author": {
-            "name": "Abhitej John",
-            "username": "AbhitejJohn"
-          },
-          "message": "Merge pull request #1185 from dotnet/abhitejjohn-fix-csharp-refactoring-evals"
-        },
-        "model": "claude-sonnet-5",
-        "tool": "customBiggerIsBetter"
-      },
-      {
-        "benches": [
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Align packages directly and recommend CPM - Skilled Quality",
-            "value": 9.583333015441895
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Align packages directly and recommend CPM - Plugin Quality",
-            "value": 9.583333015441895
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Align packages directly and recommend CPM - Vanilla Quality",
-            "value": 8.75
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Skilled Quality",
-            "value": 9.285714149475098
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Plugin Quality",
-            "value": 9.285714149475098
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Vanilla Quality",
-            "value": 7.5
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert multi-project solution to CPM - Skilled Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert multi-project solution to CPM - Plugin Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert multi-project solution to CPM - Vanilla Quality",
-            "value": 7.5
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert repository with multiple independent targets - Skilled Quality",
-            "value": 9.375
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert repository with multiple independent targets - Plugin Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert repository with multiple independent targets - Vanilla Quality",
-            "value": 8.125
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert single project to CPM - Skilled Quality",
-            "value": 3.3333332538604736
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert single project to CPM - Plugin Quality",
-            "value": 3.3333332538604736
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert single project to CPM - Vanilla Quality",
-            "value": 9.166666984558105
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Skilled Quality",
-            "value": 9.5
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Plugin Quality",
-            "value": 9.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Vanilla Quality",
-            "value": 8.5
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Skilled Quality",
-            "value": 9.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Plugin Quality",
-            "value": 9.5
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Vanilla Quality",
-            "value": 8.5
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Skilled Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Plugin Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Vanilla Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Skilled Quality",
-            "value": 5.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Plugin Quality",
-            "value": 8.125
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Vanilla Quality",
-            "value": 8.75
-          }
-        ],
-        "date": 1791218766165,
-        "verdictEvidence": [
-          {
-            "skillName": "convert-to-cpm",
-            "skillKind": "invocable",
-            "state": "VALID_NO_CHANGE",
-            "stateReason": {
-              "code": "no_credible_preference_change",
-              "phase": "decision"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +44.4% (6W/1T/2L over 9 preference-eligible stimulus vote(s), sign test p=0.145), mean preference +37.8% across 9 paired run(s) — not credible (sign test p=0.145 > 0.05)",
-            "noChangeDiagnosis": "positive_unproven",
-            "gateEvidence": {
-              "stimulusVoteCount": 9,
-              "wins": 6,
-              "ties": 1,
-              "losses": 2,
-              "discordant": 8,
-              "direction": "better",
-              "pValue": 0.14453125000000006,
-              "alpha": 0.05,
-              "netWin": 0.4444444444444444,
-              "minimumNetWin": 0.2,
-              "minCredibleStimuli": 5,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": true,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "Explicit dormancy expectations are evaluated independently of preference",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": true,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Align packages directly and recommend CPM",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Convert complex repository with multiple CPM challenges",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Convert multi-project solution to CPM",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Convert repository with multiple independent targets",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Convert single project to CPM",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Convert solution with MSBuild property versions to CPM",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Convert solution with version conflicts to CPM",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Decline CPM conversion for packages.config project",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Update complex package layout and recommend CPM",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Align packages directly and recommend CPM",
-                "direction": "better",
-                "rationale": "Both responses correctly identified and aligned the package versions to the highest versions present in the solution without introducing CPM. Response B's decisive advantage is the build verification—it ran 'dotnet build' and confirmed the solution compiles successfully, proving the alignment is correct and dependencies resolve properly. Response A only verified at the file level. While Response A was slightly more cautious about not loading CPM skills, Response B demonstrated better quality control through actual testing. Response B was also more efficient (35.0s vs 59.1s). The build verification represents a meaningful quality difference in demonstrating task completion correctness.\""
-              },
-              {
-                "scenarioName": "Convert complex repository with multiple CPM challenges",
-                "direction": "better",
-                "rationale": "Response B addresses significantly more rubric criteria, particularly the documentation, risk communication, and comprehensive audit requirements. It created a markdown report, captured binlogs, provided detailed risk assessment, and actually ran tests to validate the conversion—discovering issues rather than potentially missing them. Response A claims successful conversion but provides minimal evidence of the thorough audit, documentation, and risk analysis the rubric explicitly requires. While Response B's test failure is concerning, discovering and documenting issues is more aligned with the rubric's emphasis on validation and guidance than Response A's claim of silent success with incomplete evidence.\""
-              },
-              {
-                "scenarioName": "Convert multi-project solution to CPM",
-                "direction": "better",
-                "rationale": "Both responses successfully complete the core conversion task—centralizing packages, removing version attributes, and validating the build. However, Response B is substantially more thorough and professional. It produces the required markdown documentation, captures binary logs for before/after validation, provides package snapshots for comparison, and explicitly assesses conversion risk. Response B fulfills all 10 rubric criteria (or comes very close), while Response A omits three significant requirements: the conversion report, binary logs, and explicit risk reassurance. For a CPM conversion task that requires audit trails and reproducibility, Response B's comprehensive documentation and artifacts make it the clear winner.\""
-              },
-              {
-                "scenarioName": "Convert repository with multiple independent targets",
-                "direction": "better",
-                "rationale": "Response B delivers a comprehensive, professional-grade CPM conversion with systematic evidence collection, structured reporting, and explicit build validation from proper directory contexts. It meets 6-7 rubric criteria and provides traceable before/after evidence and risk analysis. Response A performs the minimal conversion task but lacks baseline capture, comprehensive validation, structured artifacts, and any reporting. The gap is substantial: Response B provides production-ready conversion documentation with binlogs and audit trails; Response A provides only inline claims with no verification mechanism.\""
-              },
-              {
-                "scenarioName": "Convert single project to CPM",
-                "direction": "none",
-                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
-              },
-              {
-                "scenarioName": "Convert solution with MSBuild property versions to CPM",
-                "direction": "better",
-                "rationale": "While both responses successfully completed the core conversion task, Response B provided significantly more comprehensive validation and documentation. Response B generated required artifacts (markdown report, binlogs, package snapshots) that explicitly meet rubric criteria 8 and 10, while Response A omitted these. Response B also performed more thorough validation (clean+restore+build vs just restore) and provided detailed explanation of version reconciliation and transitive dependency behavior. Response B met 9-10 of the 11 rubric criteria effectively, while Response A met only 6-7. The conversion quality is equivalent, but Response B's documentation, validation evidence, and user communication are substantially stronger, making it much better overall."
-              },
-              {
-                "scenarioName": "Convert solution with version conflicts to CPM",
-                "direction": "better",
-                "rationale": "While both responses successfully completed the core task of converting to Central Package Management with correct highest-version selections, Response B demonstrates significantly superior quality in execution and communication. Response B activated a dedicated skill, performed systematic baseline capturing, generated detailed before/after comparison tables, created a formal markdown report with structured rationale for each change, ran comprehensive validation (including tests that revealed dependency issues), and explicitly warned the user about high-risk major-version alignments. Response A completed the technical conversion correctly but provided minimal documentation, no risk assessment, no structured reporting, and no comprehensive testing. For a configuration-management task where documentation, traceability, and risk communication are critical, Response B's thoroughness and rigor represent substantially better work quality, even though both achieved the same final package versions.\" [Magnitude reduced to \"slightly-better\": the position-swapped pass judged this \"slightly-better\", so the more confident \"much-better\" was downgraded.]"
-              },
-              {
-                "scenarioName": "Decline CPM conversion for packages.config project",
-                "direction": "worse",
-                "rationale": "Both responses correctly identify the problem, appropriately refuse to convert, and explain why CPM cannot be applied to packages.config projects. However, Response A provides slightly more actionable guidance by specifically naming the package (Newtonsoft.Json) that needs to be migrated, whereas Response B offers only generic advice to migrate the project. This additional specificity makes Response A marginally more helpful to the user while both reach the correct technical conclusion.\""
-              },
-              {
-                "scenarioName": "Update complex package layout and recommend CPM",
-                "direction": "worse",
-                "rationale": "Response A better fulfills the rubric requirements by explicitly recommending Central Package Management adoption as a separate follow-up task, whereas Response B activated a CPM conversion skill but omitted the critical recommendation from its final output. Both successfully completed the technical updates and built the solution, but Response A aligned more closely with the structured task requirements (auditing complexity, recommending CPM, explaining benefits, and completing direct updates as preparation for future CPM adoption)."
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/e87c5da26cbf0f8c701e91247c4817df0adc12f7/plugins/dotnet-nuget/skills/convert-to-cpm/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/e87c5da26cbf0f8c701e91247c4817df0adc12f7/tests/dotnet-nuget/convert-to-cpm/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/e87c5da26cbf0f8c701e91247c4817df0adc12f7"
-              }
-            ]
-          }
-        ],
-        "commit": {
-          "timestamp": "2026-10-02T18:07:31+00:00",
-          "id": "e87c5da26cbf0f8c701e91247c4817df0adc12f7",
-          "url": "https://github.com/dotnet/skills/commit/e87c5da26cbf0f8c701e91247c4817df0adc12f7",
-          "author": {
-            "name": "Abhitej John",
-            "username": "AbhitejJohn"
-          },
-          "message": "Merge pull request #1185 from dotnet/abhitejjohn-fix-csharp-refactoring-evals"
-        },
-        "model": "gpt-5.6-luna",
-        "tool": "customBiggerIsBetter"
-      },
       {
         "verdictEvidence": [
           {
@@ -19649,153 +18808,852 @@
           }
         ],
         "date": 1792269368379
+      },
+      {
+        "date": 1792432654077,
+        "benches": [
+          {
+            "name": "convert-to-cpm/Align packages directly and recommend CPM - Skilled Quality",
+            "overfitting": "moderate",
+            "value": 7.5,
+            "notActivated": true,
+            "overfittingScore": 0.43,
+            "unit": "Score (0-10)"
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Align packages directly and recommend CPM - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.43,
+            "value": 7.5
+          },
+          {
+            "name": "convert-to-cpm/Align packages directly and recommend CPM - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 7.5
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.43,
+            "value": 9.642857551574707
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.43,
+            "value": 9.642857551574707
+          },
+          {
+            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 9.285714149475098
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert multi-project solution to CPM - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.43,
+            "value": 10.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert multi-project solution to CPM - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.43,
+            "value": 10.0
+          },
+          {
+            "name": "convert-to-cpm/Convert multi-project solution to CPM - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert repository with multiple independent targets - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.43,
+            "value": 10.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert repository with multiple independent targets - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.43,
+            "value": 10.0
+          },
+          {
+            "name": "convert-to-cpm/Convert repository with multiple independent targets - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.75
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert single project to CPM - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.43,
+            "value": 10.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert single project to CPM - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.43,
+            "value": 10.0
+          },
+          {
+            "name": "convert-to-cpm/Convert single project to CPM - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.43,
+            "value": 10.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.43,
+            "value": 10.0
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 9.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.43,
+            "value": 9.5
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.43,
+            "value": 9.5
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 9.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.43,
+            "value": 10.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.43,
+            "value": 10.0
+          },
+          {
+            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 10.0
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.43,
+            "value": 9.375
+          },
+          {
+            "overfitting": "moderate",
+            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.43,
+            "value": 8.75
+          },
+          {
+            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 6.25
+          }
+        ],
+        "tool": "customBiggerIsBetter",
+        "verdictEvidence": [
+          {
+            "skillName": "convert-to-cpm",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "VALID_PASS",
+            "stateReason": {
+              "code": "credible_preference_improvement",
+              "phase": "decision"
+            },
+            "passed": true,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +77.8% (7W/2T/0L over 9 preference-eligible stimulus vote(s), sign test p=0.008), mean preference +71.1% across 9 paired run(s) — credibly better",
+            "noChangeDiagnosis": null,
+            "gateEvidence": {
+              "stimulusVoteCount": 9,
+              "wins": 7,
+              "ties": 2,
+              "losses": 0,
+              "discordant": 7,
+              "direction": "better",
+              "pValue": 0.007812500000000002,
+              "alpha": 0.05,
+              "netWin": 0.7777777777777778,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Align packages directly and recommend CPM",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "missing-activation",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Convert complex repository with multiple CPM challenges",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Convert multi-project solution to CPM",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Convert repository with multiple independent targets",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Convert single project to CPM",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Convert solution with MSBuild property versions to CPM",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Convert solution with version conflicts to CPM",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Decline CPM conversion for packages.config project",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Update complex package layout and recommend CPM",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Align packages directly and recommend CPM",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Convert complex repository with multiple CPM challenges",
+                "direction": "better",
+                "rationale": "Both appear to implement the essential CPM conversion correctly, but B supplies substantially stronger validation, baseline-versus-result evidence, a detailed markdown report, binlogs, and risk communication. A is a competent concise conversion but misses build validation, reporting, evidence artifacts, and important security/risk context."
+              },
+              {
+                "scenarioName": "Convert multi-project solution to CPM",
+                "direction": "better",
+                "rationale": "Both appear to make the core CPM edits correctly, but B provides materially stronger validation and reviewability: baseline and converted builds, exact package-version comparison, a markdown report, and paired binlogs. A lacks build validation, reporting, and troubleshooting artifacts."
+              },
+              {
+                "scenarioName": "Convert repository with multiple independent targets",
+                "direction": "better",
+                "rationale": "Both implementations make the core CPM conversion correctly and validate builds, but B fulfills the evidence-driven conversion requirements: per-target baseline and post-change artifacts and a common aggregate report. A omits all of that required reviewable evidence."
+              },
+              {
+                "scenarioName": "Convert single project to CPM",
+                "direction": "better",
+                "rationale": "The core edits are equally correct, but B provides substantially stronger validation and reviewability: successful baseline/post builds, resolved-version comparison, a markdown report, and both binlogs. A only establishes restore success and lacks the required evidence artifacts."
+              },
+              {
+                "scenarioName": "Convert solution with MSBuild property versions to CPM",
+                "direction": "better",
+                "rationale": "Both appear to have made the core CPM edits correctly, but B provides substantially stronger validation and reviewability: baseline and post-conversion builds, resolved-version comparison, property-reference verification, binlogs, and a markdown report. A's restore-only validation and terse summary leave several requested quality checks unaddressed."
+              },
+              {
+                "scenarioName": "Convert solution with version conflicts to CPM",
+                "direction": "better",
+                "rationale": "Both appear to perform the core CPM conversion successfully, but B supplies substantially stronger validation, before/after evidence, a reviewable report, binlogs, and risk communication. A's lack of a build validation, report, artifacts, and risk assessment leaves it materially less complete."
+              },
+              {
+                "scenarioName": "Decline CPM conversion for packages.config project",
+                "direction": "better",
+                "rationale": "Both responses correctly follow the required guard behavior. B is marginally more grounded and actionable in explaining the evidence and next migration step, without making unsupported changes."
+              },
+              {
+                "scenarioName": "Update complex package layout and recommend CPM",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/10d85e25fb42d5f65c568d5e979a005ee69eecb3/plugins/dotnet-nuget/skills/convert-to-cpm/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/10d85e25fb42d5f65c568d5e979a005ee69eecb3/tests/dotnet-nuget/convert-to-cpm/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/10d85e25fb42d5f65c568d5e979a005ee69eecb3"
+              }
+            ]
+          }
+        ],
+        "model": "claude-sonnet-5",
+        "commit": {
+          "url": "https://github.com/dotnet/skills/commit/10d85e25fb42d5f65c568d5e979a005ee69eecb3",
+          "message": "Merge pull request #1301 from kdinev/adjust-grid-css-path",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "id": "10d85e25fb42d5f65c568d5e979a005ee69eecb3",
+          "timestamp": "2026-10-16T21:55:16+00:00"
+        }
+      },
+      {
+        "date": 1792432654141,
+        "benches": [
+          {
+            "name": "convert-to-cpm/Align packages directly and recommend CPM - Skilled Quality",
+            "unit": "Score (0-10)",
+            "value": 9.583333015441895
+          },
+          {
+            "name": "convert-to-cpm/Align packages directly and recommend CPM - Plugin Quality",
+            "unit": "Score (0-10)",
+            "value": 9.583333015441895
+          },
+          {
+            "name": "convert-to-cpm/Align packages directly and recommend CPM - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.75
+          },
+          {
+            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Skilled Quality",
+            "unit": "Score (0-10)",
+            "value": 9.642857551574707
+          },
+          {
+            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Plugin Quality",
+            "unit": "Score (0-10)",
+            "value": 9.642857551574707
+          },
+          {
+            "name": "convert-to-cpm/Convert complex repository with multiple CPM challenges - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 9.285714149475098
+          },
+          {
+            "name": "convert-to-cpm/Convert multi-project solution to CPM - Skilled Quality",
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895
+          },
+          {
+            "name": "convert-to-cpm/Convert multi-project solution to CPM - Plugin Quality",
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105
+          },
+          {
+            "name": "convert-to-cpm/Convert multi-project solution to CPM - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 7.5
+          },
+          {
+            "name": "convert-to-cpm/Convert repository with multiple independent targets - Skilled Quality",
+            "unit": "Score (0-10)",
+            "value": 10.0
+          },
+          {
+            "name": "convert-to-cpm/Convert repository with multiple independent targets - Plugin Quality",
+            "unit": "Score (0-10)",
+            "value": 10.0
+          },
+          {
+            "name": "convert-to-cpm/Convert repository with multiple independent targets - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 10.0
+          },
+          {
+            "name": "convert-to-cpm/Convert single project to CPM - Skilled Quality",
+            "unit": "Score (0-10)",
+            "value": 3.3333332538604736
+          },
+          {
+            "name": "convert-to-cpm/Convert single project to CPM - Plugin Quality",
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105
+          },
+          {
+            "name": "convert-to-cpm/Convert single project to CPM - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 10.0
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Skilled Quality",
+            "unit": "Score (0-10)",
+            "value": 9.0
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Plugin Quality",
+            "unit": "Score (0-10)",
+            "value": 8.5
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with MSBuild property versions to CPM - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.5
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Skilled Quality",
+            "unit": "Score (0-10)",
+            "value": 9.5
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Plugin Quality",
+            "unit": "Score (0-10)",
+            "value": 9.5
+          },
+          {
+            "name": "convert-to-cpm/Convert solution with version conflicts to CPM - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.5
+          },
+          {
+            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Skilled Quality",
+            "unit": "Score (0-10)",
+            "value": 9.375
+          },
+          {
+            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Plugin Quality",
+            "unit": "Score (0-10)",
+            "value": 10.0
+          },
+          {
+            "name": "convert-to-cpm/Decline CPM conversion for packages.config project - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 10.0
+          },
+          {
+            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Skilled Quality",
+            "unit": "Score (0-10)",
+            "value": 5.0
+          },
+          {
+            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Plugin Quality",
+            "unit": "Score (0-10)",
+            "value": 8.125
+          },
+          {
+            "name": "convert-to-cpm/Update complex package layout and recommend CPM - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.125
+          }
+        ],
+        "tool": "customBiggerIsBetter",
+        "verdictEvidence": [
+          {
+            "skillName": "convert-to-cpm",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "VALID_NO_CHANGE",
+            "stateReason": {
+              "code": "no_credible_preference_change",
+              "phase": "decision"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +33.3% (5W/2T/2L over 9 preference-eligible stimulus vote(s), sign test p=0.227), mean preference +33.3% across 9 paired run(s) — not credible (sign test p=0.227 > 0.05)",
+            "noChangeDiagnosis": "positive_unproven",
+            "gateEvidence": {
+              "stimulusVoteCount": 9,
+              "wins": 5,
+              "ties": 2,
+              "losses": 2,
+              "discordant": 7,
+              "direction": "better",
+              "pValue": 0.22656250000000014,
+              "alpha": 0.05,
+              "netWin": 0.3333333333333333,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Align packages directly and recommend CPM",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Convert complex repository with multiple CPM challenges",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Convert multi-project solution to CPM",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Convert repository with multiple independent targets",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Convert single project to CPM",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Convert solution with MSBuild property versions to CPM",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Convert solution with version conflicts to CPM",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Decline CPM conversion for packages.config project",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Update complex package layout and recommend CPM",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Align packages directly and recommend CPM",
+                "direction": "better",
+                "rationale": "Response B completed the same core alignment task as Response A (correctly updating System.Text.Json to 10.0.1 and Azure.Identity to 1.13.2 without CPM conversion), but went further by verifying the solution restores and builds successfully. This build verification is a critical quality assurance step that validates the changes are correct and don't break the solution. While Response B's activation of the convert-to-cpm skill at the start was a minor concern regarding task adherence, it ultimately did not convert to CPM and the final deliverable is correct. Response A's omission of build verification leaves uncertainty about whether the alignment is valid in practice.\""
+              },
+              {
+                "scenarioName": "Convert complex repository with multiple CPM challenges",
+                "direction": "better",
+                "rationale": "Response B follows a comprehensive, methodical approach guided by a dedicated 'convert-to-cpm' skill with audit references, baseline/after comparison infrastructure, binlogs, package snapshots, and markdown reporting. It explicitly identifies all three key conflicts (System.Text.Json, Azure.Storage.Blobs, conditional Newtonsoft.Json), performs structured MSBuild property tracing, generates a comparison report, captures diagnostic artifacts (binlogs), and provides explicit risk assessment warning about major version changes. Response A performs basic conversion without systematic auditing, produces no baseline/after comparison, captures no binlogs or report, offers no risk guidance, and lacks evidence of thorough reconciliation of version conflicts. The rubric heavily emphasizes reporting, validation, risk assessment, and user guidance through reconciliation—areas where Response B is substantially stronger. Response B is much better overall.\""
+              },
+              {
+                "scenarioName": "Convert multi-project solution to CPM",
+                "direction": "better",
+                "rationale": "Response B is significantly better overall. While both responses successfully performed the core CPM conversion (creating Directory.Packages.props, listing packages, running builds), Response B delivered substantially more: a comprehensive markdown report, baseline+post-conversion binlog captures for validation, explicit package comparison showing no conflicts, and well-structured verification artifacts. Response A's output is functional but minimal, lacking the documentation and validation evidence that Response B provided. The absence of a markdown report and binlogs in Response A represents a significant gap in the rubric requirements, particularly for audit trail and troubleshooting purposes. Response B's use of a structured skill framework also demonstrates more robust methodology.\""
+              },
+              {
+                "scenarioName": "Convert repository with multiple independent targets",
+                "direction": "worse",
+                "rationale": "Both responses successfully completed the multi-target repository conversion to Central Package Management with equivalent functional outcomes. The primary differentiator is artifact organization: Response A structured evidence under a dedicated `.cpm-artifacts/` directory with baseline/ and converted/ subdirectories, better satisfying the rubric requirement for \"a common artifact directory.\" Response A also achieved this with greater efficiency (28 vs 39 tool calls, 81s vs 87.9s). Response B was more methodical with additional validation steps and skill leverage, but the superior organizational structure and efficiency of Response A provide a modest quality advantage."
+              },
+              {
+                "scenarioName": "Convert single project to CPM",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Convert solution with MSBuild property versions to CPM",
+                "direction": "better",
+                "rationale": "Both responses successfully completed the core conversion task (criteria 1-6), converting the solution to Central Package Management with correct property inlining and file modifications. However, Response B significantly exceeds Response A in professional rigor and documentation quality. Response B addresses all four additional criteria (8-11) that Response A completely misses: it produced a detailed conversion report, captured and compared baseline vs. converted package resolutions with explicit UNCHANGED verification, preserved binlogs for troubleshooting, and provided explicit risk assessment. Response B's approach of loading the convert-to-cpm skill also demonstrates systematic best-practices guidance. These are substantive quality differences in deliverables, not mere operational efficiency differences—the comparison data and report are valuable artifacts for stakeholders and auditing.\" [Magnitude reduced to \"slightly-better\": the position-swapped pass judged this \"slightly-better\", so the more confident \"much-better\" was downgraded.]"
+              },
+              {
+                "scenarioName": "Convert solution with version conflicts to CPM",
+                "direction": "better",
+                "rationale": "Response B delivers a professional, comprehensive conversion with extensive validation evidence (binlogs, baseline/after package snapshots, markdown report), explicit risk warnings, and deeper validation testing. Response A performs only the minimal technical conversion task with no reporting, no risk analysis, and no diagnostic artifacts. Response B satisfies 8-9 of the 10 rubric criteria substantially, while Response A addresses only 2-3. The quality gap is substantial—Response B provides production-ready conversion documentation suitable for code review and troubleshooting, while Response A provides only a bare assertion that the task was completed.\""
+              },
+              {
+                "scenarioName": "Decline CPM conversion for packages.config project",
+                "direction": "worse",
+                "rationale": "Both responses correctly identified the blocking issue (packages.config vs PackageReference), informed the user appropriately, and avoided file modifications. However, Response A provides more value by suggesting the migration path forward ('Migrate Newtonsoft.Json from packages.config to a PackageReference first; then CPM can be enabled with a Directory.Packages.props file'), whereas Response B only states that migration is required without actionable guidance. This makes Response A slightly better in terms of practical usefulness to the user.\""
+              },
+              {
+                "scenarioName": "Update complex package layout and recommend CPM",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/10d85e25fb42d5f65c568d5e979a005ee69eecb3/plugins/dotnet-nuget/skills/convert-to-cpm/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/10d85e25fb42d5f65c568d5e979a005ee69eecb3/tests/dotnet-nuget/convert-to-cpm/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/10d85e25fb42d5f65c568d5e979a005ee69eecb3"
+              }
+            ]
+          }
+        ],
+        "model": "gpt-5.6-luna",
+        "commit": {
+          "url": "https://github.com/dotnet/skills/commit/10d85e25fb42d5f65c568d5e979a005ee69eecb3",
+          "message": "Merge pull request #1301 from kdinev/adjust-grid-css-path",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "id": "10d85e25fb42d5f65c568d5e979a005ee69eecb3",
+          "timestamp": "2026-10-16T21:55:16+00:00"
+        }
       }
     ],
     "SkillValue": [
-      {
-        "commit": {
-          "timestamp": "2026-10-02T18:07:31+00:00",
-          "id": "e87c5da26cbf0f8c701e91247c4817df0adc12f7",
-          "url": "https://github.com/dotnet/skills/commit/e87c5da26cbf0f8c701e91247c4817df0adc12f7",
-          "author": {
-            "name": "Abhitej John",
-            "username": "AbhitejJohn"
-          },
-          "message": "Merge pull request #1185 from dotnet/abhitejjohn-fix-csharp-refactoring-evals"
-        },
-        "model": "claude-sonnet-5",
-        "date": 1791218766106,
-        "judgeModel": "gpt-5.6-terra",
-        "skills": [
-          {
-            "treatmentOnlyPass": 1,
-            "treatmentFail": 2,
-            "baseline": {
-              "tokens": 328021.77777777775,
-              "tokensIn": 323443.44444444444,
-              "tokensOut": 4578.333333333333,
-              "timeMs": 84241.11111111111,
-              "cacheWrite": 21463.11111111111,
-              "cacheRead": 301951.6666666667,
-              "n": 9
-            },
-            "preference": {
-              "underpowered": false,
-              "count": 9,
-              "direction": "better",
-              "wins": 6,
-              "alpha": 0.05,
-              "minCredibleStimuli": 5,
-              "netWin": 0.6666666666666666,
-              "ties": 3,
-              "practicalPassed": true,
-              "pValue": 0.015625000000000007,
-              "losses": 0,
-              "conclusive": true
-            },
-            "pairedN": 9,
-            "skill": "convert-to-cpm",
-            "baselineFail": 3,
-            "activationContract": {
-              "violated": 0,
-              "passed": true,
-              "evaluated": true,
-              "count": 0
-            },
-            "activationFired": 8,
-            "bothFail": 2,
-            "timedOut": false,
-            "hasPassData": true,
-            "bothPass": 6,
-            "baselineOnlyPass": 0,
-            "treatment": {
-              "tokens": 499684.44444444444,
-              "tokensIn": 492523.0,
-              "tokensOut": 7161.444444444444,
-              "timeMs": 84443.66666666667,
-              "cacheWrite": 24114.333333333332,
-              "cacheRead": 468374.6666666667,
-              "n": 9
-            },
-            "passTotal": 9,
-            "activationExpected": 9,
-            "treatAvailable": 9,
-            "baseAvailable": 9
-          }
-        ]
-      },
-      {
-        "commit": {
-          "timestamp": "2026-10-02T18:07:31+00:00",
-          "id": "e87c5da26cbf0f8c701e91247c4817df0adc12f7",
-          "url": "https://github.com/dotnet/skills/commit/e87c5da26cbf0f8c701e91247c4817df0adc12f7",
-          "author": {
-            "name": "Abhitej John",
-            "username": "AbhitejJohn"
-          },
-          "message": "Merge pull request #1185 from dotnet/abhitejjohn-fix-csharp-refactoring-evals"
-        },
-        "model": "gpt-5.6-luna",
-        "date": 1791218766165,
-        "judgeModel": "claude-haiku-4.5",
-        "skills": [
-          {
-            "treatmentOnlyPass": 6,
-            "treatmentFail": 2,
-            "baseline": {
-              "tokens": 245329.88888888888,
-              "tokensIn": 241904.0,
-              "tokensOut": 3425.8888888888887,
-              "timeMs": 52544.88888888889,
-              "cacheWrite": 20621.555555555555,
-              "cacheRead": 221239.44444444444,
-              "n": 9
-            },
-            "preference": {
-              "underpowered": false,
-              "count": 9,
-              "direction": "better",
-              "wins": 6,
-              "alpha": 0.05,
-              "minCredibleStimuli": 5,
-              "netWin": 0.4444444444444444,
-              "ties": 1,
-              "practicalPassed": true,
-              "pValue": 0.14453125000000006,
-              "losses": 2,
-              "conclusive": true
-            },
-            "pairedN": 9,
-            "skill": "convert-to-cpm",
-            "baselineFail": 6,
-            "activationContract": {
-              "violated": 0,
-              "passed": true,
-              "evaluated": true,
-              "count": 0
-            },
-            "activationFired": 9,
-            "bothFail": 0,
-            "timedOut": false,
-            "hasPassData": true,
-            "bothPass": 1,
-            "baselineOnlyPass": 2,
-            "treatment": {
-              "tokens": 383185.55555555556,
-              "tokensIn": 377912.77777777775,
-              "tokensOut": 5272.777777777777,
-              "timeMs": 76339.22222222222,
-              "cacheWrite": 28104.777777777777,
-              "cacheRead": 349757.6666666667,
-              "n": 9
-            },
-            "passTotal": 9,
-            "activationExpected": 9,
-            "treatAvailable": 9,
-            "baseAvailable": 9
-          }
-        ]
-      },
       {
         "judgeModel": "gpt-5.6-terra",
         "commit": {
@@ -21523,6 +21381,150 @@
           }
         ],
         "judgeModel": "gpt-5.6-terra"
+      },
+      {
+        "judgeModel": "gpt-5.6-terra",
+        "model": "claude-sonnet-5",
+        "commit": {
+          "url": "https://github.com/dotnet/skills/commit/10d85e25fb42d5f65c568d5e979a005ee69eecb3",
+          "message": "Merge pull request #1301 from kdinev/adjust-grid-css-path",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "id": "10d85e25fb42d5f65c568d5e979a005ee69eecb3",
+          "timestamp": "2026-10-16T21:55:16+00:00"
+        },
+        "skills": [
+          {
+            "treatAvailable": 9,
+            "preference": {
+              "ties": 2,
+              "minCredibleStimuli": 5,
+              "count": 9,
+              "losses": 0,
+              "conclusive": true,
+              "pValue": 0.007812500000000002,
+              "practicalPassed": true,
+              "alpha": 0.05,
+              "netWin": 0.7777777777777778,
+              "underpowered": false,
+              "wins": 7,
+              "direction": "better"
+            },
+            "skill": "convert-to-cpm",
+            "passTotal": 9,
+            "treatmentOnlyPass": 1,
+            "hasPassData": true,
+            "activationFired": 8,
+            "baseAvailable": 9,
+            "baseline": {
+              "tokensIn": 294159.6666666667,
+              "n": 9,
+              "timeMs": 87135.0,
+              "tokens": 298211.44444444444,
+              "tokensOut": 4051.777777777778,
+              "cacheWrite": 20983.444444444445,
+              "cacheRead": 273148.8888888889
+            },
+            "pairedN": 9,
+            "bothFail": 1,
+            "baselineOnlyPass": 0,
+            "timedOut": false,
+            "treatment": {
+              "tokensIn": 484222.77777777775,
+              "n": 9,
+              "timeMs": 80506.44444444444,
+              "tokens": 491410.55555555556,
+              "tokensOut": 7187.777777777777,
+              "cacheWrite": 23769.11111111111,
+              "cacheRead": 460420.1111111111
+            },
+            "bothPass": 7,
+            "baselineFail": 2,
+            "activationContract": {
+              "count": 0,
+              "violated": 0,
+              "evaluated": true,
+              "passed": true
+            },
+            "treatmentFail": 1,
+            "activationExpected": 9
+          }
+        ],
+        "date": 1792432654077
+      },
+      {
+        "judgeModel": "claude-haiku-4.5",
+        "model": "gpt-5.6-luna",
+        "commit": {
+          "url": "https://github.com/dotnet/skills/commit/10d85e25fb42d5f65c568d5e979a005ee69eecb3",
+          "message": "Merge pull request #1301 from kdinev/adjust-grid-css-path",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "id": "10d85e25fb42d5f65c568d5e979a005ee69eecb3",
+          "timestamp": "2026-10-16T21:55:16+00:00"
+        },
+        "skills": [
+          {
+            "treatAvailable": 9,
+            "preference": {
+              "ties": 2,
+              "minCredibleStimuli": 5,
+              "count": 9,
+              "losses": 2,
+              "conclusive": true,
+              "pValue": 0.22656250000000014,
+              "practicalPassed": true,
+              "alpha": 0.05,
+              "netWin": 0.3333333333333333,
+              "underpowered": false,
+              "wins": 5,
+              "direction": "better"
+            },
+            "skill": "convert-to-cpm",
+            "passTotal": 9,
+            "treatmentOnlyPass": 4,
+            "hasPassData": true,
+            "activationFired": 9,
+            "baseAvailable": 9,
+            "baseline": {
+              "tokensIn": 226983.33333333334,
+              "n": 9,
+              "timeMs": 51520.444444444445,
+              "tokens": 230417.77777777778,
+              "tokensOut": 3434.4444444444443,
+              "cacheWrite": 21420.444444444445,
+              "cacheRead": 205523.22222222222
+            },
+            "pairedN": 9,
+            "bothFail": 1,
+            "baselineOnlyPass": 1,
+            "timedOut": false,
+            "treatment": {
+              "tokensIn": 369690.44444444444,
+              "n": 9,
+              "timeMs": 69223.66666666667,
+              "tokens": 374679.3333333333,
+              "tokensOut": 4988.888888888889,
+              "cacheWrite": 27903.222222222223,
+              "cacheRead": 341736.55555555556
+            },
+            "bothPass": 3,
+            "baselineFail": 5,
+            "activationContract": {
+              "count": 0,
+              "violated": 0,
+              "evaluated": true,
+              "passed": true
+            },
+            "treatmentFail": 2,
+            "activationExpected": 9
+          }
+        ],
+        "date": 1792432654141
       }
     ]
   },
