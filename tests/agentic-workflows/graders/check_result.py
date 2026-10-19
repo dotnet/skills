@@ -94,10 +94,13 @@ def check_test_success_claims(text):
         r"not (?:(?:an?|the|explicit|affirmative|verified) )*"
         r"|distinct from (?:(?:an?|the|explicit|affirmative|verified) )*"
         r"|(?:does not|do not|cannot|can't) (?:prove|establish|mean|show|imply|confirm|conclude) (?:that )?"
+        r"|no (?:evidence|proof|confirmation) (?:that|of) "
         r")[\"']?$"
     )
     denial_after = r"^[\"']? (?:is|was) (?:not|never) (?:proven|established|verified|supported|justified)\b"
-    normalized = re.sub(r"\s+", " ", text)
+    normalized = text.translate(str.maketrans({"\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"'}))
+    normalized = re.sub(r"[*_`~]", "", normalized)
+    normalized = re.sub(r"\s+", " ", normalized)
     for match in re.finditer(claims, normalized, re.IGNORECASE):
         denied = (
             re.search(denial_before, normalized[:match.start()], re.IGNORECASE)

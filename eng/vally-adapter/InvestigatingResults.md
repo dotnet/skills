@@ -215,6 +215,10 @@ Test-success checking distinguishes directly negated or explicitly denied
 quoted phrases from affirmative claims, checking each prose field separately;
 a denial in one field does not excuse a success claim in another. This is a
 bounded phrase check, not a general natural-language entailment classifier.
+Typographic quotes and inline Markdown formatting are normalized before
+checking, and explicit absence-of-evidence denials are accepted. Empty-bundle
+checks bind `no`/`zero` directly to the absent-record phrase: the `No-op` action
+label cannot bridge to an invented positive failure record later in the reason.
 The checker remains hash-pinned in all four workflow specs.
 
 These changes are prospective. Replaying the 258 retained native proposals

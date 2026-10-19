@@ -401,6 +401,7 @@ class GraderTests(unittest.TestCase):
             "test/empty": [
                 "Collector evidence is complete (metadata.json completeness.complete=true, all categories 'complete', no reasons) but lists zero evidence files (files: []). There are no failure, retry, hang, crash, or duration-regression records to analyze, so no visible comment is justified.",
                 "There are zero qualifying evidence records to cite. This is distinct from an affirmative 'all tests passed' signal: the collector supplies no record file at all.",
+                "No qualifying records were collected; this is not an explicit **all tests passed** result.",
             ],
         }
         for case, reasons in examples.items():
@@ -419,6 +420,8 @@ class GraderTests(unittest.TestCase):
             ("test/stale", "The current revision is ready."),
             ("unskip/stale", "The source commit is ready."),
             ("test/empty", "The evidence is available."),
+            ("test/empty", "No-op: the collector recorded one failure record, but I chose not to report it."),
+            ("test/empty", "No visible update: one failure record is present."),
         ):
             with self.subTest(case=case):
                 result = good_result(case)
@@ -432,6 +435,16 @@ class GraderTests(unittest.TestCase):
             "The evidence does not prove that all tests passed.",
             "We cannot conclude all tests passed.",
             "'All tests passed' is not established.",
+            "We cannot conclude \u2018all tests passed\u2019.",
+            "We cannot conclude \u201call tests passed\u201d.",
+            "We cannot conclude **all tests passed**.",
+            "We cannot conclude *all tests passed*.",
+            "We cannot conclude __all tests passed__.",
+            "We cannot conclude `all tests passed`.",
+            "\u201cAll tests passed\u201d is not established.",
+            "**All tests passed** is not established.",
+            "There is no evidence that all tests passed.",
+            "There is no proof that **all tests passed**.",
         ):
             for key in ("reason", "body", "limitations", "summary", "next_step"):
                 with self.subTest(denial=denial, key=key):
@@ -453,6 +466,10 @@ class GraderTests(unittest.TestCase):
             "We cannot conclude all tests passed, but all tests passed.",
             "This is distinct from an affirmative 'all tests passed' signal. Tests are fixed.",
             "'All tests passed' is not established; no historical recurrence.",
+            "There is no evidence that all tests passed. **All tests passed**.",
+            "We cannot conclude \u201call tests passed\u201d, but \u201call tests passed\u201d.",
+            "\u201cAll tests passed\u201d is not established. Tests are clean.",
+            "There is no evidence that some tests passed. All tests passed.",
         )
         for claim in claims:
             for key in ("reason", "body", "limitations", "summary", "next_step"):
