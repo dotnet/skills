@@ -181,7 +181,38 @@ workspace I/O or certify a default-branch revision.
 2. **Skim the run's step summary** (the "Full Results" link) for the complete metrics and scenario tables.
 3. **Read `adapter-summary.json` and each `results.json`** (`eval-results/vally-results-*/<plugin>/<skill>/results.json`). The summary proves expected-versus-produced accounting; each skill file gives the compare state and evidence.
 4. **Identify the result pattern** using the categories below and fix in priority order: invalid accounting or judge evidence → timeouts → activation contract → underpowered design → quality/preference.
-5. **Apply the fix**, push it, and evaluate that exact commit. Submit a PR review containing `/evaluate` (recommended), or comment `/evaluate <new-head-sha>` in the PR conversation.
+5. **Apply the fix**, push it, and evaluate that exact commit only when authorized. Submit a PR review containing `/evaluate` (recommended), or comment `/evaluate <new-head-sha>` in the PR conversation.
+
+### Job success is not a passing measurement
+
+Check retained results even when `evaluation-status` or a triage comment says
+"Evaluation passed". Run 38908547657 completed successfully, but its schema-5
+artifacts reported six `VALID_REGRESSION` results with
+`stateReason.code: native_completion_regression` and four underpowered
+`INVALID_INCONCLUSIVE` results. Successful execution and complete artifact
+accounting do not override those verdicts. Preserve them while investigating;
+do not infer quality approval from the workflow conclusion.
+
+For native workflow results, inspect `_agent-evaluation/**/verdict.json`,
+including each role's `metrics.assertionResults`, `taskCompleted`, and
+`agentOutput`. Replay saved proposals against the original fixture and exact
+deterministic grader arguments before changing workflow guidance. In that run,
+a correct stale-revision no-op failed a hidden lexical requirement for
+`changed|stale|moved|differ`, and an explicit denial of an "all tests passed"
+claim failed a forbidden-phrase check. Those are grader-contract problems,
+not evidence that the JSON action enum is wrong. Other losses were real:
+commenting on a stale head, inventing an MSBuild portability problem, or
+choosing `comment` where an advisory `review` was required. A missing explicit
+zero-execution explanation is distinct from those false negatives. Do not
+erase all recorded regressions because some assertions are defective.
+
+Separate executor lanes and trusted tooling from evaluated content. The same
+run retained native workflow sessions on runtime 1.0.79 and Vally skill
+sessions on 1.0.80. Original root-escape errors occurred in the Vally lane;
+the current workspace guard's rejection signature was absent. Evaluation of
+a PR content SHA therefore does not prove adoption of its launcher/provider
+changes. A repair or offline replay does not retroactively certify these
+recordings, and additional repetitions do not repair underpowered suites.
 
 > The `--pattern "vally-results-*"` flag matters — without it, `gh` also tries to download non-zip artifacts and exits non-zero.
 
@@ -193,8 +224,9 @@ workspace I/O or certify a default-branch revision.
 - the exact evaluated commit and judge model;
 - expected / observed / written result accounting, with missing, unexpected,
   invalid, recovered, and unresolved counts; and
-- an explicit notice that the objective completion regression gate is not
-  enabled.
+- whether the objective completion regression gate is enabled. Native workflow
+  results can report objective completion regressions; inspect the actual
+  result state and lane rather than assuming all lanes share the same policy.
 
 Its compact table has these columns:
 
@@ -202,7 +234,7 @@ Its compact table has these columns:
 |--------|---------|
 | `Skill` | Skill under test |
 | `Model` | Model used for the baseline and skilled agent runs. This prevents duplicate skill rows from being ambiguous |
-| `Verdict` | ✅ Improved / a cause-specific ➖ no-clear-winner label / 📉 Preference loss (report only) / ⚠️ Invalid or underpowered / 🔻 Objective regression when that future gate is enabled |
+| `Verdict` | ✅ Improved / a cause-specific ➖ no-clear-winner label / 📉 Preference loss (report only) / ⚠️ Invalid or underpowered / 🔻 Objective regression when that gate is enabled |
 | `Gate evidence` | `n` preference-eligible distinct-stimulus votes, stimulus W/T/L, `d` discordant votes, exact one-sided `p`, net win, and the separately retained dormancy count. A pass needs `p ≤ 0.05`, net win ≥20%, and a passing dormancy activation contract |
 | `Overfit` | Overfitting-judge severity — ✅ Low, 🟡 Moderate, 🔴 High, — none — with its score |
 | `Warnings` | Activation gaps, timeouts, recovered judge slots, and unresolved comparison errors |
