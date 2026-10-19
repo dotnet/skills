@@ -132,6 +132,87 @@ class GraderTests(unittest.TestCase):
         result = self.grade(work, script, accepted=False)
         self.assertIn("effective Compile items", result.stderr)
 
+    def test_shared_generation_orchestrator_is_accepted(self):
+        for task_dispatch in (False, True):
+            with self.subTest(msbuild_task=task_dispatch):
+                work, script = self.workspace("racy-run-once-guard")
+                base = work / "exists-sentinel-race"
+                wrapper = base / "build.sh"
+                lines = wrapper.read_text(encoding="utf-8").splitlines()
+                dispatch = lines.pop()
+                self.assertTrue(dispatch.startswith("dotnet build Contoso.slnx"))
+                (base / "prepare.sh").write_text("\n".join(lines) + "\n", encoding="utf-8")
+                wrapper.write_text(
+                    "#!/usr/bin/env bash\nset -euo pipefail\n"
+                    "dotnet msbuild Build.proj -p:Configuration=Release -m\n",
+                    encoding="utf-8",
+                )
+                project = ET.Element("Project", DefaultTargets="BuildAll")
+                target = ET.SubElement(project, "Target", Name="BuildAll")
+                ET.SubElement(target, "Exec", Command="bash prepare.sh")
+                if task_dispatch:
+                    ET.SubElement(target, "Exec", Command="dotnet restore Contoso.slnx -p:Configuration=Release")
+                    ET.SubElement(
+                        target, "MSBuild", Projects="Contoso.slnx", Targets="Build",
+                        BuildInParallel="true", Properties="Configuration=Release",
+                    )
+                else:
+                    ET.SubElement(target, "Exec", Command=dispatch)
+                ET.ElementTree(project).write(base / "Build.proj", encoding="utf-8")
+                self.grade(work, script)
+
+    def test_late_shared_generation_is_rejected(self):
+        work, script = self.workspace("racy-run-once-guard")
+        base = work / "exists-sentinel-race"
+        wrapper = base / "build.sh"
+        lines = wrapper.read_text(encoding="utf-8").splitlines()
+        dispatch = lines.pop()
+        (base / "prepare.sh").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        wrapper.write_text("#!/usr/bin/env bash\nset -euo pipefail\n" + dispatch + "\n", encoding="utf-8")
+        path = base / "Directory.Build.targets"
+        tree = ET.parse(path)
+        target = ET.SubElement(tree.getroot(), "Target", Name="LateGeneration", AfterTargets="CoreCompile")
+        ET.SubElement(
+            target, "Exec", Command='bash "$(MSBuildThisFileDirectory)prepare.sh"',
+            WorkingDirectory="$(MSBuildThisFileDirectory)",
+        )
+        tree.write(path, encoding="utf-8")
+        self.grade(work, script, accepted=False)
+
+    def test_repeated_shared_generation_is_rejected(self):
+        work, script = self.workspace("racy-run-once-guard")
+        path = work / "exists-sentinel-race" / "Directory.Build.targets"
+        tree = ET.parse(path)
+        target = ET.SubElement(tree.getroot(), "Target", Name="RepeatedGeneration", BeforeTargets="CoreCompile")
+        ET.SubElement(
+            target, "Exec", Command="sh tools/make-buildinfo.sh obj/buildinfo.g.cs",
+            WorkingDirectory="$(MSBuildThisFileDirectory)",
+        )
+        tree.write(path, encoding="utf-8")
+        self.grade(work, script, accepted=False)
+
+    def test_global_property_keeps_shared_fallback_dormant(self):
+        work, script = self.workspace("racy-run-once-guard")
+        base = work / "exists-sentinel-race"
+        wrapper = base / "build.sh"
+        wrapper.write_text(
+            wrapper.read_text(encoding="utf-8").replace(
+                "dotnet build Contoso.slnx", "dotnet build Contoso.slnx -p:SharedInfoReady=true",
+            ), encoding="utf-8",
+        )
+        path = base / "Directory.Build.targets"
+        tree = ET.parse(path)
+        target = ET.SubElement(
+            tree.getroot(), "Target", Name="GuardedGeneration", BeforeTargets="CoreCompile",
+            Condition="'$(SharedInfoReady)' != 'true'",
+        )
+        ET.SubElement(
+            target, "Exec", Command="sh tools/make-buildinfo.sh obj/buildinfo.g.cs",
+            WorkingDirectory="$(MSBuildThisFileDirectory)",
+        )
+        tree.write(path, encoding="utf-8")
+        self.grade(work, script)
+
     def test_cross_schema_copy_and_swap_are_rejected(self):
         for swap in (False, True):
             with self.subTest(swap=swap):
@@ -193,6 +274,69 @@ class GraderTests(unittest.TestCase):
         tree.write(path, encoding="utf-8")
         result = self.grade(work, script, accepted=False)
         self.assertIn("clean: schema generation must execute exactly once", result.stderr)
+
+    def test_schema_conditions_are_evaluated_by_msbuild(self):
+        variants = (
+            ("import", "Import", "Exists('Schemas.targets')", "Exists('Missing.targets')"),
+            ("target", "Target", "'$(TargetFramework)' == 'net10.0'", "'$(TargetFramework)' == 'net9.0'"),
+            ("writer", "Target/WriteLinesToFile", "'@(SchemaFile)' != ''", "'@(SchemaFile)' == ''"),
+            ("directory", "Target/MakeDir", "!Exists('$(IntermediateOutputPath)gen')", "'false' == 'true'"),
+        )
+        for kind, selector, enabled, disabled in variants:
+            for accepted, condition in ((True, enabled), (False, disabled)):
+                with self.subTest(operation=kind, accepted=accepted):
+                    work, script = self.workspace("per-item-exec")
+                    path = work / "per-file-exec" / (
+                        "Contoso.Schemas.csproj" if kind == "import" else "Schemas.targets"
+                    )
+                    tree = ET.parse(path)
+                    tree.getroot().find(selector).set("Condition", condition)
+                    if kind == "directory" and not accepted:
+                        # The list writer creates its parent, so keep it outside the missing output directory.
+                        target = tree.getroot().find("Target")
+                        writer = target.find("WriteLinesToFile")
+                        old_list = writer.get("File")
+                        new_list = "$(IntermediateOutputPath)schemas.list"
+                        writer.set("File", new_list)
+                        task = target.find("Exec")
+                        self.assertIn(old_list, task.get("Command"))
+                        task.set("Command", task.get("Command").replace(old_list, new_list))
+                    tree.write(path, encoding="utf-8")
+                    result = self.grade(work, script, accepted=accepted)
+                    if not accepted:
+                        self.assertIn("clean:", result.stderr)
+
+    def test_redundant_disabled_schema_makedir_is_accepted(self):
+        work, script = self.workspace("per-item-exec")
+        path = work / "per-file-exec" / "Schemas.targets"
+        tree = ET.parse(path)
+        tree.getroot().find("Target/MakeDir").set("Condition", "'false' == 'true'")
+        tree.write(path, encoding="utf-8")
+        self.grade(work, script)
+
+    def test_after_compilation_schema_cleanup_is_rejected(self):
+        for phase in ("CoreCompile", "Build"):
+            with self.subTest(after=phase):
+                work, script = self.workspace("per-item-exec")
+                path = work / "per-file-exec" / "Schemas.targets"
+                tree = ET.parse(path)
+                target = ET.SubElement(tree.getroot(), "Target", Name="DeleteGenerated", AfterTargets=phase)
+                ET.SubElement(target, "RemoveDir", Directories="$(IntermediateOutputPath)gen")
+                tree.write(path, encoding="utf-8")
+                result = self.grade(work, script, accepted=False)
+                self.assertIn("clean:", result.stderr)
+
+    def test_generated_schemas_must_be_compile_inputs_at_compilation(self):
+        work, script = self.workspace("per-item-exec")
+        path = work / "per-file-exec" / "Schemas.targets"
+        tree = ET.parse(path)
+        for phase, operation in (("BeforeTargets", "Remove"), ("AfterTargets", "Include")):
+            target = ET.SubElement(tree.getroot(), "Target", Name=operation + "Compile", **{phase: "CoreCompile"})
+            group = ET.SubElement(target, "ItemGroup")
+            ET.SubElement(group, "Compile", **{operation: "$(IntermediateOutputPath)gen/*.g.cs"})
+        tree.write(path, encoding="utf-8")
+        result = self.grade(work, script, accepted=False)
+        self.assertIn("Compile input at compilation", result.stderr)
 
     def test_generated_directory_cleanup_is_rejected(self):
         for inside in (False, True):

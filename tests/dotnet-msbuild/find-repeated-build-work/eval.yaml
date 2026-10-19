@@ -315,7 +315,6 @@ stimuli:
               import datetime, os, pathlib, shutil, subprocess, tempfile, uuid
               import xml.etree.ElementTree as ET
               base = pathlib.Path('exists-sentinel-race')
-              root = ET.parse(base / 'Directory.Build.targets').getroot()
               bash = shutil.which('bash')
               assert bash, 'Bash is required to exercise build.sh'
               real_dotnet = shutil.which('dotnet')
@@ -325,26 +324,22 @@ stimuli:
                   shutil.copytree(base, work)
                   bin_dir = pathlib.Path(tmp) / 'bin'
                   bin_dir.mkdir()
-                  projects = []
-                  phases = ['BeforeBuild', 'PrepareForBuild', 'BeforeCompile', 'CoreCompile', 'AfterBuild']
-                  submitted_targets = {target.get('Name') for target in root.findall('Target')}
+                  solution = ET.Element('Solution')
                   observations = []
                   compile_observations = []
+                  boundaries = []
+                  generated = (work / 'obj/buildinfo.g.cs').resolve()
+                  expected = (bin_dir / 'expected-buildinfo').resolve()
                   for name in ['Api', 'Worker']:
                       project_dir = work / 'probes' / name
                       project_dir.mkdir(parents=True)
                       probe = ET.Element('Project')
+                      ET.SubElement(probe, 'Import', Project='Sdk.props', Sdk='Microsoft.NET.Sdk')
                       properties = ET.SubElement(probe, 'PropertyGroup')
                       for property_name, value in [('Configuration', 'Release'), ('TargetFramework', 'net10.0'),
-                                                   ('IsCrossTargetingBuild', 'false'),
-                                                   ('BuildDependsOn', ';'.join(phases))]:
+                                                   ('IsCrossTargetingBuild', 'false')]:
                           ET.SubElement(properties, property_name).text = value
-                      ET.SubElement(probe, 'Import', Project=str((work / 'Directory.Build.targets').resolve()))
-                      for phase in phases:
-                          if phase not in submitted_targets:
-                              ET.SubElement(probe, 'Target', Name=phase)
-                      if 'Build' not in submitted_targets:
-                          ET.SubElement(probe, 'Target', Name='Build', DependsOnTargets='$(BuildDependsOn)')
+                      ET.SubElement(probe, 'Import', Project='Sdk.targets', Sdk='Microsoft.NET.Sdk')
                       observation = bin_dir / (name + '.built')
                       observations.append((name, observation))
                       observer = ET.SubElement(probe, 'Target', Name='ObserveProbeBuild_' + uuid.uuid4().hex,
@@ -358,15 +353,29 @@ stimuli:
                           compile_observations.append(items)
                           ET.SubElement(target, 'WriteLinesToFile', File=str(items.resolve()),
                                         Lines="@(Compile->'%(FullPath)')", Overwrite='true')
+                          hashes = '_GraderGenerated_' + phase
+                          expected_hashes = '_GraderExpected_' + phase
+                          for file, item_name in [(generated, hashes), (expected, expected_hashes)]:
+                              task = ET.SubElement(target, 'GetFileHash', Files=str(file))
+                              ET.SubElement(task, 'Output', TaskParameter='Items', ItemName=item_name)
+                          ET.SubElement(
+                              target, 'Error',
+                              Condition="'@(" + hashes + "->'%(FileHash)')' != '@(" + expected_hashes + "->'%(FileHash)')'",
+                              Text='preserve shared source bytes at the ' + phase + ' boundary',
+                          )
+                          events = bin_dir / (name + '.' + phase + '.events')
+                          mtime = bin_dir / (name + '.' + phase + '.mtime')
+                          boundaries.append((events, mtime))
+                          ET.SubElement(target, 'Copy', SourceFiles=str((bin_dir / 'events').resolve()),
+                                        DestinationFiles=str(events.resolve()))
+                          ET.SubElement(
+                              target, 'WriteLinesToFile', File=str(mtime.resolve()), Overwrite='true',
+                              Lines="@(" + hashes + "->'%(ModifiedTime)')",
+                          )
                       project_path = project_dir / (name + '.csproj')
                       ET.ElementTree(probe).write(project_path, encoding='utf-8')
-                      projects.append(str(project_path.resolve()))
-                  graph = ET.Element('Project', DefaultTargets='Build')
-                  ET.SubElement(graph, 'Target', Name='Restore')
-                  build = ET.SubElement(graph, 'Target', Name='Build')
-                  ET.SubElement(build, 'MSBuild', Projects=';'.join(projects), Targets='Build', BuildInParallel='true')
-                  graph_path = work / 'probe-build.proj'
-                  ET.ElementTree(graph).write(graph_path, encoding='utf-8')
+                      ET.SubElement(solution, 'Project', Path=project_path.relative_to(work).as_posix())
+                  ET.ElementTree(solution).write(work / 'Contoso.slnx', encoding='utf-8')
                   generator = work / 'tools/make-buildinfo.sh'
                   generator.rename(generator.with_name('make-buildinfo.submitted.sh'))
                   generator.write_text(
@@ -392,18 +401,13 @@ stimuli:
                   dotnet.write_text(
                       '#!/usr/bin/env sh\nset -eu\n'
                       'printf "build\\n" >> "$MOCK_BIN/events"\n'
-                      '[ "$1" = build ] || [ "$1" = msbuild ]\n'
-                      '[ "$2" = Contoso.slnx ]\n'
-                      'cmp obj/buildinfo.g.cs "$MOCK_BIN/expected-buildinfo"\n'
-                      'stat -c %Y obj/buildinfo.g.cs >> "$MOCK_BIN/mtimes"\n'
-                      'mode="$1"\nshift 2\n'
-                      '"$REAL_DOTNET" "$mode" probe-build.proj "$@" -nologo -verbosity:quiet\n',
+                      '"$REAL_DOTNET" "$@" -nologo -verbosity:quiet\n',
                       encoding='utf-8', newline='\n',
                   )
                   dotnet.chmod(0o755)
                   env = dict(os.environ, MOCK_BIN=str(bin_dir), REAL_DATE=real_date,
-                             REAL_DOTNET=pathlib.Path(real_dotnet).as_posix())
-                  expected = bin_dir / 'expected-buildinfo'
+                             REAL_DOTNET=pathlib.Path(real_dotnet).as_posix(),
+                             MSBUILDDISABLENODEREUSE='1')
                   stamp = datetime.date(2040, 1, 1) + datetime.timedelta(days=uuid.uuid4().int % 20000)
                   def set_stamp(value):
                       env['EXPECTED_DATE'] = value.isoformat() + ' 00:00:00 UTC'
@@ -412,21 +416,29 @@ stimuli:
                            value.strftime('%Y%m%d') + '"; }\n').encode('utf-8')
                       )
                   set_stamp(stamp)
-                  generated = work / 'obj/buildinfo.g.cs'
                   def run_build():
-                      for path in [path for _, path in observations] + compile_observations:
+                      for path in ([path for _, path in observations] + compile_observations +
+                                   [path for pair in boundaries for path in pair]):
                           path.unlink(missing_ok=True)
                       subprocess.run(
                           [bash, '-c', 'export MOCK_BIN="$(cd "$MOCK_BIN" && pwd)"; export PATH="$MOCK_BIN:$PATH"; bash build.sh'],
-                          cwd=work, env=env, check=True, timeout=20,
+                          cwd=work, env=env, check=True, timeout=60,
                       )
                       assert all(path.is_file() and path.read_text(encoding='utf-8-sig').strip() == name
                                  for name, path in observations), 'exercise both project Build paths and their submitted target hooks'
                       assert all(path.is_file() and generated.resolve() in [
                           pathlib.Path(line).resolve() for line in path.read_text(encoding='utf-8-sig').splitlines()
                       ] for path in compile_observations), 'each project must retain buildinfo.g.cs in effective Compile items at the compile and build boundaries'
-                      assert (bin_dir / 'events').read_text().splitlines() == ['generator-start', 'generator-done', 'build'], 'generate exactly once and await its required output before building'
+                      generation = lambda path: [line for line in path.read_text().splitlines()
+                                                 if line.startswith('generator-')]
+                      assert generation(bin_dir / 'events') == ['generator-start', 'generator-done'], 'generate exactly once per wrapper invocation'
                       assert generated.read_bytes() == expected.read_bytes(), 'preserve the original daily build-info output bytes'
+                      final_ns = generated.stat().st_mtime_ns
+                      expected_mtime = datetime.datetime.fromtimestamp(final_ns // 1_000_000_000).strftime('%Y-%m-%d %H:%M:%S')
+                      expected_mtime += '.' + format(final_ns % 1_000_000_000 // 100, '07d')
+                      for events, mtime in boundaries:
+                          assert events.is_file() and generation(events) == ['generator-start', 'generator-done'], 'complete one generation before every project consumer'
+                          assert mtime.is_file() and mtime.read_text(encoding='utf-8-sig').strip() == expected_mtime, 'publish the final source timestamp before compilation and preserve it through Build'
                       (bin_dir / 'events').unlink()
                       return generated.stat().st_mtime_ns
                   run_build()
@@ -434,11 +446,8 @@ stimuli:
                   os.utime(generated, ns=(previous.st_atime_ns, previous.st_mtime_ns - 20_000_000_000))
                   unchanged_mtime = generated.stat().st_mtime_ns
                   assert run_build() == unchanged_mtime, 'an identical second build must preserve the generated-source timestamp'
-                  assert int((bin_dir / 'mtimes').read_text().splitlines()[-1]) == unchanged_mtime // 1_000_000_000, 'preserve the unchanged timestamp before the build consumes the source'
                   set_stamp(stamp + datetime.timedelta(days=1))
                   assert run_build() > previous.st_mtime_ns, 'changed generated content must advance the source timestamp'
-                  mtimes = [int(value) for value in (bin_dir / 'mtimes').read_text().splitlines()]
-                  assert mtimes[-1] > mtimes[0], 'publish the changed timestamp before the build consumes the source'
           expected_exit_code: 0
       - type: output-matches
         config:
@@ -495,7 +504,7 @@ stimuli:
           args:
             - -c
             - |
-              import hashlib, json, os, pathlib, re, shlex, shutil, subprocess, sys, tempfile, time
+              import hashlib, json, os, pathlib, re, shlex, shutil, subprocess, sys, tempfile, time, uuid
               import xml.etree.ElementTree as ET
               base = pathlib.Path('per-file-exec')
               expected = {
@@ -518,13 +527,13 @@ stimuli:
                       value = re.sub(r'\$\(([^)]+)\)', lambda m: properties.get(m[1], m[0]), value)
                   return value.replace('\\', '/').rstrip('/')
               assert any(str(pathlib.PurePosixPath(expand(i.get('Project', '')))) == 'Schemas.targets'
-                         and not i.get('Condition') for i in project.findall('Import')), 'the project must import Schemas.targets'
+                         for i in project.findall('Import')), 'the project must import Schemas.targets'
               properties.update({p.tag: p.text or '' for group in root.findall('PropertyGroup') for p in group})
               generators = [(target, task) for target in root.findall('Target') for task in target.findall('Exec')
                             if 'schemagen' in task.get('Command', '')]
               assert len(generators) == 1, 'use one generator invocation'
               target, task = generators[0]
-              targets = {t.get('Name'): t for t in root.findall('Target') if not t.get('Condition')}
+              targets = {t.get('Name'): t for t in root.findall('Target')}
               pending = [name for name, t in targets.items()
                          if {'BeforeCompile', 'CoreCompile'} & {n.strip() for n in t.get('BeforeTargets', '').split(';')}]
               compile_path = set()
@@ -550,24 +559,29 @@ stimuli:
               writer = writers[0]
               assert writer.get('Lines') in ["@(SchemaFile->'%(FullPath)')", "@(SchemaFile->'%(Identity)')", '@(SchemaFile)'], 'the list must contain all stale schema paths'
               assert writer.get('Overwrite', '').lower() == 'true', 'overwrite the list so it cannot retain previously stale schemas'
-              assert not writer.get('Condition'), 'the list writer must not skip stale schemas'
               before_writer = preceding[:preceding.index(writer)]
-              created = [expand(d.strip()) for step in before_writer if step.tag == 'MakeDir' and not step.get('Condition')
+              created = [expand(d.strip()) for step in before_writer if step.tag == 'MakeDir'
                          for d in step.get('Directories', '').split(';') if d.strip()]
               for directory in [str(pathlib.PurePosixPath(input_list).parent), output_dir]:
                   assert ((pathlib.Path('per-file-exec') / directory).is_dir() or
                           any(d == directory or d.startswith(directory + '/') for d in created)), 'create the list/output directory before writing on a clean build'
               dotnet = shutil.which('dotnet')
               assert dotnet, 'the .NET SDK is required to query evaluated Compile items'
-              hooks = list(dict.fromkeys(
-                  name for phase in ['BeforeCompile', 'CoreCompile'] for name, t in targets.items()
-                  if phase in [n.strip() for n in t.get('BeforeTargets', '').split(';')]
-              ))
               with tempfile.TemporaryDirectory() as tmp:
                   work = (pathlib.Path(tmp) / 'work').resolve()
                   shutil.copytree('per-file-exec', work, ignore=shutil.ignore_patterns('bin', 'obj', '*.g.cs'))
                   bin_dir = pathlib.Path(tmp) / 'bin'
                   bin_dir.mkdir()
+                  compile_items = pathlib.Path(tmp) / 'compile-items.txt'
+                  project_path = work / 'Contoso.Schemas.csproj'
+                  probe_project = ET.parse(project_path)
+                  observer = ET.SubElement(
+                      probe_project.getroot(), 'Target', Name='_GraderObserveCompile_' + uuid.uuid4().hex,
+                      BeforeTargets='CoreCompile',
+                  )
+                  ET.SubElement(observer, 'WriteLinesToFile', File=str(compile_items.resolve()),
+                                Lines="@(Compile->'%(FullPath)')", Overwrite='true', Encoding='UTF-8')
+                  probe_project.write(project_path, encoding='utf-8')
                   log = pathlib.Path(tmp) / 'schemagen-calls.jsonl'
                   script = bin_dir / 'schemagen.py'
                   script.write_text(
@@ -622,9 +636,10 @@ stimuli:
                           ).encode('utf-8')
                           for source, content in source_bytes.items()
                       }
+                      compile_items.unlink(missing_ok=True)
                       result = subprocess.run(
                           [dotnet, 'msbuild', 'Contoso.Schemas.csproj', '-nologo', '-verbosity:quiet',
-                           '-nodeReuse:false', '-target:' + ';'.join(hooks), '-getItem:Compile',
+                           '-nodeReuse:false', '-restore', '-target:Build', '-getItem:Compile',
                            '-getProperty:IntermediateOutputPath'],
                           cwd=work, env=env, capture_output=True, text=True, timeout=60,
                       )
@@ -645,6 +660,11 @@ stimuli:
                           (work / evaluated_output_dir / (source.stem + '.g.cs')).resolve(): expected_content[source]
                           for source in sources
                       }
+                      assert compile_items.is_file(), phase + ': exercise the actual compilation boundary'
+                      consumed = {
+                          pathlib.Path(line).resolve()
+                          for line in compile_items.read_text(encoding='utf-8-sig').splitlines()
+                      }
                       if stale:
                           assert len(new_calls[0]['inputs']) == len(stale) and {
                               pathlib.Path(p) for p in new_calls[0]['inputs']
@@ -653,6 +673,7 @@ stimuli:
                               (work / evaluated_output_dir / (source.stem + '.g.cs')).resolve() for source in stale
                           }, phase + ': preserve the per-schema output mapping'
                       assert expected_outputs.keys() <= compiled, phase + ': every generated output must remain a Compile input'
+                      assert expected_outputs.keys() <= consumed, phase + ': every generated output must be a Compile input at compilation'
                       assert all(p.is_file() for p in compiled if p.name.endswith('.g.cs')), phase + ': generated Compile inputs must exist'
                       assert all(path.is_file() and path.read_bytes() == content for path, content in expected_outputs.items()), phase + ': preserve every distinct content-dependent schema output byte-for-byte'
                       return expected_outputs, calls
