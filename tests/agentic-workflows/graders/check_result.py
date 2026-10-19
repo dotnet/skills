@@ -97,20 +97,42 @@ def describes_empty_bundle(text):
     text = normalize_prose(text)
     aggregate = (
         r"\b(?:no|zero)\s+(?:"
-        r"qualifying(?:\s+evidence)?\s+(?:records|findings)"
-        r"|(?:collected|reportable|evidence)\s+records"
-        r"|evidence\s+files|records|findings)\b"
+        r"(?:(?:qualifying|collected|reportable)\s+)?(?:(?:test|collector|evidence)\s+)?records"
+        r"|qualifying\s+findings|evidence\s+files|findings)\b"
     )
-    if re.search(aggregate, text, re.IGNORECASE):
-        return True
     categories = (r"failures?", r"retr(?:y|ies)", r"hangs?", r"crash(?:es)?", r"duration(?:s|-regression)?")
     category = "(?:" + "|".join(categories) + ")"
     separator = r"\s*(?:,\s*(?:(?:and|or)\s+)?|/\s*|(?:and|or)\s+)"
-    enumeration = r"\b(?:no|zero)\s+(?:qualifying\s+)?(" + category + "(?:" + separator + category + r")*)\s+(?:records|findings)\b"
-    return any(
-        all(re.search(r"\b" + item + r"\b", match[1], re.IGNORECASE) for item in categories)
-        for match in re.finditer(enumeration, text, re.IGNORECASE)
+    enumeration = r"\b(?:no|zero)\s+(?:qualifying\s+)?(?P<categories>" + category + "(?:" + separator + category + r")*)\s+(?:records|findings)\b"
+    boundary = r"(?:\s*(?:[.;,:!?)\]]|$)|\s+(?:for|in|from|under|by|at)\b|\s+to\s+(?:cite|report|analyze)\b)"
+    collection = r"\b(?:record(?:ed|s)?|collect(?:ed|s)?|found|finds|contains?|lists?|suppl(?:ied|ies)|reports?)\s+$"
+    existence = r"\bthere\s+(?:are|were|is|was)\s+$"
+    predicate = (
+        r"\s+(?:(?:are|were|is|was|have been|has been)\s+)?"
+        r"(?:collected|recorded|found|supplied|retrieved|present|available|reported|observed|exists?)"
+        + boundary
     )
+    for match in re.finditer("(?:" + aggregate + ")|(?:" + enumeration + ")", text, re.IGNORECASE):
+        listed = match["categories"]
+        if listed and not all(re.search(r"\b" + item + r"\b", listed, re.IGNORECASE) for item in categories):
+            continue
+        before, after = text[:match.start()], text[match.end():]
+        if re.match(predicate, after, re.IGNORECASE):
+            return True
+        if re.search("(?:" + collection + ")|(?:" + existence + ")", before, re.IGNORECASE) and re.match(boundary, after, re.IGNORECASE):
+            return True
+    return False
+
+
+def contradicts_empty_bundle(text):
+    text = normalize_prose(text)
+    count = r"(?:a|an|one|two|three|[1-9][0-9]*)\s+"
+    records = r"(?:(?:qualifying|test|collector|evidence|failure|retry|hang|crash|duration(?:-regression)?)\s+)*records?\b"
+    assertion = r"\b(?:recorded|found|collected|contains?|includes?|reports?|lists?|supplies|observed|there (?:is|are|was|were))\s+"
+    for match in re.finditer(assertion + count + records, text, re.IGNORECASE):
+        if not re.search(r"\b(?:not|never)\s+$", text[:match.start()], re.IGNORECASE):
+            return True
+    return bool(re.search(r"\b" + count + records + r"\s+(?:is|are|was|were)\s+(?:present|available|recorded|found)\b", text, re.IGNORECASE))
 
 
 def check_test_success_claims(text):
@@ -253,6 +275,7 @@ def validate_result(root, options):
         metadata = read_json(root / "inputs" / "evidence" / "metadata.json")
         require(metadata["completeness"]["complete"] is True and metadata["files"] == [], "Expected a complete empty test bundle")
         require(action == "noop", "Empty-bundle assertion requires no-op")
+        require(not any(contradicts_empty_bundle(value) for value in (reason, *limitations)), "Claimed positive records in an empty bundle")
         require(any(describes_empty_bundle(value) for value in (reason, *limitations)), "Missing whole-bundle record absence")
     return result
 

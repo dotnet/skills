@@ -434,15 +434,22 @@ class GraderTests(unittest.TestCase):
             "No crash records exist, but the collector recorded one failure record. I chose not to report it.",
             "No failure records exist.",
             "No failure, retry, hang, or crash records exist.",
+            "No records were omitted from the complete collector bundle; the collector recorded one failure record, but I chose not to report it.",
+            "No failure, retry, hang, crash, or duration-regression records were omitted from the complete bundle.",
+            "No records were omitted from the complete bundle.",
+            "No records were collected; the collector recorded one failure record.",
+            "No failure, retry, hang, crash, or duration-regression records exist; one failure record is present.",
         ):
             with self.subTest(reason=reason):
                 result = good_result("test/empty")
                 result["reason"] = reason
                 checked = self.run_shipping_grader("test/empty", result)
                 self.assertNotEqual(0, checked.returncode)
-                self.assertIn("Missing whole-bundle record absence", checked.stderr)
+                self.assertRegex(checked.stderr, "Missing whole-bundle record absence|Claimed positive records")
         for reason in (
             "No qualifying findings were collected; no preliminary response needs replacement.",
+            "No qualifying test records were collected; the metadata files array is empty. This does not prove that all tests passed.",
+            "No qualifying records were collected; the metadata files array is empty. This does not prove that all tests passed.",
             "No\nqualifying findings were collected; no preliminary response needs replacement.",
             "No \r\n **qualifying findings** were collected; no preliminary response needs replacement.",
             "No failure, retry, hang, crash, or duration-regression records exist.",
@@ -455,6 +462,11 @@ class GraderTests(unittest.TestCase):
                 checked = self.run_shipping_grader("test/empty", result)
                 self.assertEqual(0, checked.returncode, checked.stderr)
                 self.assertRegex(checked.stdout, "^PASS:")
+        result = good_result("test/empty")
+        result["limitations"] = ["The collector recorded one failure record."]
+        checked = self.run_shipping_grader("test/empty", result)
+        self.assertNotEqual(0, checked.returncode)
+        self.assertIn("Claimed positive records", checked.stderr)
 
     def test_explicit_denials_are_not_passing_test_claims(self):
         for denial in (

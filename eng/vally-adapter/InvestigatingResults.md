@@ -219,7 +219,11 @@ Typographic quotes and inline Markdown formatting are normalized before
 checking, and explicit absence-of-evidence denials are accepted. Empty-bundle
 checks require aggregate record absence or an absence statement enumerating
 all five collector categories, not an incidental `no failure`/`no crash`
-substring. They check decoded, whitespace-normalized prose rather than JSON
+substring. Both branches require an existence/collection predicate; "no records
+were omitted" establishes completeness, not absence. Scoped `test`/`collector`
+qualifiers do not change aggregate scope. Explicit positive-record assertions
+in the reason or limitations cannot be excused by a separate absence statement.
+These checks use decoded, whitespace-normalized prose rather than JSON
 escapes, so a newline between `No` and `qualifying` is not a failure. The actual
 fixture must also be complete with an empty file inventory. The `No-op` action
 label cannot bridge to an invented positive failure record later in the reason.
