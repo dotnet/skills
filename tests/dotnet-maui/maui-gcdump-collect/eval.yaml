@@ -59,50 +59,146 @@ stimuli:
             sq = chr(39)
             dq = chr(34)
             
-            def extract(name, text):
-                # Bare (unquoted) values end at the first shell metacharacter
-                # (";", "&", "|") or whitespace -- not just whitespace -- so a
-                # real "export NAME=value;"-style assignment resolves to
-                # "value", not "value;" with the separator wrongly captured.
-                pattern = (r"(?<![A-Za-z0-9_])" + re.escape(name) + r"="
-                           + r"(?:" + dq + r"([^" + dq + r"]*)" + dq
-                           + r"|" + sq + r"([^" + sq + r"]*)" + sq
-                           + r"|([^\s;&|)]+))")
-                last = None
-                for mm in re.finditer(pattern, text):
-                    if mm.group(1) is not None:
-                        last = (mm.group(1), "double")
-                    elif mm.group(2) is not None:
-                        last = (mm.group(2), "single")
+            def split_clauses(text):
+                # Split into the top-level clauses real POSIX sequencing
+                # operators (";", "&&", "||", "&", newline) actually
+                # delimit, skipping any that are nested inside quotes or a
+                # "(" ... ")" subshell. Tracking variable state only needs
+                # clause ORDER, not the &&/|| conditions themselves, since
+                # state must follow the same left-to-right textual sequence
+                # regardless of whether a later clauses condition would
+                # really run it on a real exit status.
+                clauses, cur, depth, quote = [], [], 0, None
+                i, n = 0, len(text)
+                while i < n:
+                    c = text[i]
+                    if quote:
+                        cur.append(c)
+                        if c == quote:
+                            quote = None
+                        i += 1
+                        continue
+                    if c in (dq, sq):
+                        quote = c
+                        cur.append(c)
+                        i += 1
+                        continue
+                    if c == "(":
+                        depth += 1
+                        cur.append(c)
+                        i += 1
+                        continue
+                    if c == ")":
+                        depth = max(0, depth - 1)
+                        cur.append(c)
+                        i += 1
+                        continue
+                    if depth == 0:
+                        if text[i:i + 2] in ("&&", "||"):
+                            clauses.append("".join(cur))
+                            cur = []
+                            i += 2
+                            continue
+                        if c in (";", "&", "\n"):
+                            clauses.append("".join(cur))
+                            cur = []
+                            i += 1
+                            continue
+                    cur.append(c)
+                    i += 1
+                clauses.append("".join(cur))
+                return [c.strip() for c in clauses if c.strip()]
+            
+            assign_re = re.compile(
+                r"^(export\s+)?([A-Za-z_][A-Za-z0-9_]*)="
+                + r"(?:" + dq + r"([^" + dq + r"]*)" + dq
+                + r"|" + sq + r"([^" + sq + r"]*)" + sq
+                + r"|([^\s;&|)]+))\s*")
+            
+            def leading_assigns(clause):
+                # Walk any number of (optionally "export"-prefixed)
+                # NAME=value tokens at the start of a clause -- POSIX allows
+                # several simple-command prefix assignments before the
+                # command word -- and return them plus whatever command
+                # text remains (empty for an assignment-only clause).
+                assigns, rest = [], clause
+                while True:
+                    m = assign_re.match(rest)
+                    if not m:
+                        break
+                    if m.group(3) is not None:
+                        val, kind = m.group(3), "double"
+                    elif m.group(4) is not None:
+                        val, kind = m.group(4), "single"
                     else:
-                        last = (mm.group(3), "bare")
-                return last
+                        val, kind = m.group(5), "bare"
+                    assigns.append((m.group(2), val, kind, m.group(1) is not None))
+                    rest = rest[m.end():]
+                return assigns, rest.strip()
             
-            def resolves(name, text, depth=0):
-                # A single-quoted shell value is never subject to $VAR
-                # expansion, so e.g. ANDROID_SERIAL=(sq)$SERIAL(sq) must be
-                # compared literally -- and correctly fails to equal the
-                # selected serial -- rather than treated as a resolvable
-                # reference. Bare/double-quoted values may themselves be
-                # another $VAR-style reference, which only resolves against
-                # the same single commands own text (true single-shell
-                # invocation execution order): each route/collect/validate/
-                # cleanup entry is its own separate command invocation, so an
-                # assignment that only exists in a different, later array
-                # entry (e.g. a correct serial set in "cleanup") never reaches
-                # this commands environment in a real shell and must not
-                # satisfy the reference.
-                found = extract(name, text)
-                if found is None:
-                    return False
-                val, kind = found
+            def resolve_value(val, kind, before_vals):
+                # A single-quoted value is never subject to $VAR expansion in
+                # a real shell -- compared literally. A bare/double-quoted
+                # "$NAME" reference expands against the variable state as it
+                # stood strictly BEFORE this clauses own assignments: POSIX
+                # resolves all of one simple commands prefix assignments
+                # against the pre-existing environment simultaneously, so
+                # sibling assignments in the very same clause (e.g.
+                # "A=1 B=$A cmd") never see each other, and an unset
+                # reference expands to an empty string exactly like a real
+                # shell -- never treated as "still resolvable".
                 if kind == "single":
-                    return val == did
-                if val.startswith("$") and depth < 4:
-                    return resolves(val[1:], text, depth + 1)
-                return val == did
+                    return val
+                if val.startswith("$"):
+                    return before_vals.get(val[1:], "")
+                return val
             
-            assert resolves("ANDROID_SERIAL", r) and resolves("ANDROID_SERIAL", q), "route/collect must bind the selected device via a literal or resolvable ANDROID_SERIAL value -- a single-quoted reference such as " + sq + "$SERIAL" + sq + " never expands in a real shell and must not be accepted -- since neither --dsrouter nor collect accepts a serial flag"
+            def invocation_value(name, text):
+                # Walk clauses in true left-to-right execution order,
+                # tracking each variables resolved value and whether it has
+                # ever been exported. At the clause that actually invokes
+                # the collector, "name" resolves to: (a) that same clauses
+                # own prefix assignment if present -- always inherited by
+                # this one command regardless of export, since POSIX prefix
+                # assignments are inherently scoped to it; otherwise (b) the
+                # most recent EXPORTED separate-statement assignment from an
+                # earlier clause; otherwise the value is unset (None). An
+                # assignment-only clause (no command word) persists into
+                # later clauses state; a prefix attached to any OTHER
+                # command is scoped to that one child process only and must
+                # not update persistent state -- matching real shell
+                # variable-propagation rules.
+                # A clause may be reached through an "if"/"then"/"else"/"do"
+                # control keyword (the guarded forms this skill actually
+                # accepts, e.g. "if <guard>; then ANDROID_SERIAL=... cmd;
+                # else exit 1; fi"); strip exactly one such leading keyword
+                # before looking for prefix assignments, since the keyword
+                # itself is not part of the invoked commands own prefix.
+                keyword_re = re.compile(r"^(?:then|else|do)\s+")
+                global_vals, global_exported, found = {}, set(), None
+                for clause in split_clauses(text):
+                    assigns, rest = leading_assigns(keyword_re.sub("", clause, count=1))
+                    before_vals = dict(global_vals)
+                    resolved = {n: (resolve_value(v, k, before_vals), exp) for n, v, k, exp in assigns}
+                    if re.search(r"dotnet-gcdump\s+collect\b", rest):
+                        if name in resolved:
+                            found = resolved[name][0]
+                        elif name in global_exported:
+                            found = global_vals.get(name)
+                        else:
+                            found = None
+                    if not rest:
+                        for n, (rv, exp) in resolved.items():
+                            global_vals[n] = rv
+                            if exp:
+                                global_exported.add(n)
+                return found
+            
+            def resolves(name, text):
+                val = invocation_value(name, text)
+                return val is not None and val == did
+            
+            assert resolves("ANDROID_SERIAL", r) and resolves("ANDROID_SERIAL", q), "route/collect must bind the selected device via a literal ANDROID_SERIAL prefix on the invocation itself, or a " + dq + "$VAR" + dq + " reference to a value assigned -- and, if in a separate, non-prefix statement, EXPORTED -- strictly before the invocation in true left-to-right shell execution order: a single-quoted reference, a same-command sibling assignment (POSIX resolves one commands own prefix assignments against the pre-existing environment, never against each other), a non-exported separate-statement assignment, or an assignment that only occurs later or in a different commands-array entry never reaches the invocations actual environment in a real shell, since neither --dsrouter nor collect accepts a serial flag"
             assert not any(t in a for t in ("server-server", "adb reverse", "adb -s", "setprop debug.mono.profile", "-ipcs", "-tcps", "AndroidEnableProfiler"))
             assert "0.0.0.0" not in a and "--remove-all" not in a and "-p 2841" not in a and "adb pull" not in a
             assert pathlib.Path("android-session.txt").read_text() == """Operator-supplied facts for a planning exercise; no device is attached to the eval worker.\nHost: macOS, .NET SDK 10.0.102; installed Android workload matches the project.\nProject: App.csproj, net10.0-android, Mono, Release.\nProfiling APK includes libmono-component-diagnostics_tracing.so for arm64-v8a.\nDevice: physical serial R58M123, USB debugging authorized; other serials may be present.\nPackage: com.example.catalog; device PID 2841 is identity information, not a host PID.\ndotnet-gcdump and dotnet-dsrouter: 10.0.750501, installed on host; the --dsrouter switch is present.\nNo diagnostic route is configured yet; a controlled relaunch is acceptable after operator approval.\nReserved host TCP port: 9001. Reserved host IPC path: capture-diag.sock in workspace.\nArtifact requested: after-navigation.gcdump in host workspace.\n"""

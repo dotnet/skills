@@ -225,39 +225,75 @@ def main():
                     late_assignment_rejection["commands"]["cleanup"] = list(
                         plan["commands"]["cleanup"]) + ["SERIAL=R58M123"]
                     mutations.append(late_assignment_rejection)
-                    # Double-quoted and bare "$SERIAL" references both DO
-                    # expand in a real shell, so they must remain accepted
-                    # once they resolve to the selected serial -- this
-                    # regresses the fix so it only newly rejects the
-                    # single-quoted bypass above, not every variable form.
-                    for accepted_prefix in (
+                    # POSIX resolves a simple command's own prefix
+                    # assignments against the pre-existing environment
+                    # SIMULTANEOUSLY, never against each other -- confirmed
+                    # against a real "sh -c" probe -- so a same-clause
+                    # sibling such as "SERIAL=R58M123 ANDROID_SERIAL=$SERIAL
+                    # cmd" actually expands ANDROID_SERIAL to an EMPTY string
+                    # at invocation time (SERIAL is not yet set when $SERIAL
+                    # is expanded), not R58M123. This shape must be REJECTED
+                    # despite containing a correct SERIAL=R58M123 nearby.
+                    for rejected_prefix in (
                         'SERIAL=R58M123 ANDROID_SERIAL="$SERIAL" ',
                         "SERIAL=R58M123 ANDROID_SERIAL=$SERIAL ",
                     ):
-                        accepted_variant = copy.deepcopy(plan)
-                        accepted_variant["commands"]["route"] = [
-                            cmd.replace("ANDROID_SERIAL=R58M123 ", accepted_prefix)
+                        same_clause_sibling = copy.deepcopy(plan)
+                        same_clause_sibling["commands"]["route"] = [
+                            cmd.replace("ANDROID_SERIAL=R58M123 ", rejected_prefix)
                             for cmd in plan["commands"]["route"]
                         ]
-                        accepted_variant["commands"]["collect"] = [
-                            cmd.replace("ANDROID_SERIAL=R58M123 ", accepted_prefix)
+                        same_clause_sibling["commands"]["collect"] = [
+                            cmd.replace("ANDROID_SERIAL=R58M123 ", rejected_prefix)
                             for cmd in plan["commands"]["collect"]
                         ]
-                        plan_path.write_text(json.dumps(accepted_variant))
+                        mutations.append(same_clause_sibling)
+                    # A separate-statement "ANDROID_SERIAL=R58M123;" with NO
+                    # "export" is a shell-local variable only -- confirmed
+                    # against a real "sh -c" probe -- and is never inherited
+                    # by the subsequently invoked collector process, unlike a
+                    # direct prefix attached to the invocation itself. This
+                    # must be REJECTED even though the literal value is
+                    # correct and textually precedes the invocation.
+                    unexported_separate_statement = copy.deepcopy(plan)
+                    unexported_separate_statement["commands"]["route"] = [
+                        cmd.replace("ANDROID_SERIAL=R58M123 ",
+                                    "ANDROID_SERIAL=R58M123; ")
+                        for cmd in plan["commands"]["route"]
+                    ]
+                    mutations.append(unexported_separate_statement)
+                    # A correctly-ordered, genuinely resolvable "$SERIAL"
+                    # reference -- SERIAL assigned in its OWN earlier
+                    # separate statement (not a same-clause sibling), then
+                    # referenced via a prefix directly on the invocation
+                    # (always inherited by that one command regardless of
+                    # export) -- must remain accepted; confirmed against a
+                    # real "sh -c" probe. ";" is a top-level clause
+                    # separator (unlike "&&"), so this and the "export"
+                    # variant below are only exercised against route (a
+                    # single standalone command) -- substituting either into
+                    # collect would split its own, separately-required
+                    # "test ! -e ... && dotnet-gcdump ..." no-overwrite guard
+                    # into two unguarded top-level clauses, which is a
+                    # distinct, already-covered defect, not a serial-
+                    # resolution one.
+                    for accepted_route_prefix in (
+                        'SERIAL=R58M123; ANDROID_SERIAL="$SERIAL" ',
+                        "SERIAL=R58M123; ANDROID_SERIAL=$SERIAL ",
+                    ):
+                        accepted_separate_statement = copy.deepcopy(plan)
+                        accepted_separate_statement["commands"]["route"] = [
+                            cmd.replace("ANDROID_SERIAL=R58M123 ", accepted_route_prefix)
+                            for cmd in plan["commands"]["route"]
+                        ]
+                        plan_path.write_text(json.dumps(accepted_separate_statement))
                         assert all(run(c, workspace, shell=True).returncode == 0
-                                   for c in commands), accepted_prefix
+                                   for c in commands), accepted_route_prefix
                         equivalent_count += 1
                     # An "export NAME=value;"-style assignment must still
                     # resolve to "value", not a bare-capture that wrongly
                     # swallows the trailing ";" separator as part of the
-                    # value. ";" is a top-level clause separator (unlike
-                    # "&&"), so this form is only exercised against route (a
-                    # single standalone command) -- substituting it into
-                    # collect would split its own, separately-required
-                    # "test ! -e ... && dotnet-gcdump ..." no-overwrite guard
-                    # into two unguarded top-level clauses, which is a
-                    # distinct, already-covered defect, not a serial-parsing
-                    # one.
+                    # value.
                     exported_route = copy.deepcopy(plan)
                     exported_route["commands"]["route"] = [
                         cmd.replace("ANDROID_SERIAL=R58M123 ",
