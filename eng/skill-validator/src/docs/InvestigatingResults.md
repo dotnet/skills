@@ -7,6 +7,15 @@
 > document describes the raw `skill-validator evaluate` output retained under
 > `_agent-evaluation/` for custom-agent diagnosis and for historical results.
 >
+> Executor success alone is not a quality pass. The current trusted workflow
+> checks complete schema-5 adapted results: objective regressions and activation
+> breaches fail the commit status, while invalid/underpowered evidence is an
+> error. Conclusive no-change remains non-gating but unproven. Older workflows
+> reported executor success as "Evaluation passed" even with objective losses;
+> their green status/triage ping must not override the detailed result artifacts.
+> Updated gating requires the fix on the trusted workflow ref and never
+> retroactively rescales historical results or measures unlanded runner changes.
+>
 > The current Vally workflow makes one targeted recovery attempt for executor
 > `session.idle` timeouts before adaptation. See
 > `executor-retry-summary.json` in the result artifact and the current guide for

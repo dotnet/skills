@@ -35,6 +35,25 @@ evidence merely because its rejection events survived.
 
 > Note: the linter (`skill-validator check`) is a **separate** workflow (`skill-check.yml`) and is unrelated to these eval results.
 
+### Commit status is an outcome gate, not just execution health
+
+The trusted `report-status` job checks every expected `vally-results-*` matrix
+artifact through `outcome-status.mjs`. Missing, malformed, duplicate or incomplete
+accounting produces an error. An objective `VALID_REGRESSION` or explicit
+activation-contract failure produces failure, even when the executor job
+succeeded. Invalid or underpowered results without a proven regression produce
+an error, not an improvement claim. A conclusive `VALID_NO_CHANGE` is non-gating
+but is explicitly reported as unproven; only an all-`VALID_PASS` matrix is called
+improved. Preference-only losses remain report-only under the existing policy.
+
+Older trusted workflows mapped executor success directly to "Evaluation passed".
+In particular, the October 16 runs for PRs #1277 and #1280 reported five/six
+objective regressions and eight/four invalid or underpowered results despite a
+green status and subsequent maintainer ping. Read their authoritative detailed
+results, not those historical pings. The correction does not rescore old votes,
+retroactively change statuses, or certify unmeasured PR harness changes: the
+trusted workflow must contain this gate before it can apply to a new run.
+
 ## Using this guide with an AI agent
 
 When an evaluation has a non-pass or warning, the PR comment includes a ready-to-use prompt. Copy it to your AI agent. The agent downloads the artifacts, reads this guide, analyzes the `results.json` files, and suggests fixes.

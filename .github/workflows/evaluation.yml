@@ -1042,10 +1042,34 @@ jobs:
     if: always() && needs.gate.result == 'success' && needs.gate.outputs.should_eval == 'true'
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       statuses: write
       pull-requests: write
       issues: write
     steps:
+      - name: Checkout trusted outcome tooling
+        if: needs.evaluate.result == 'success'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            eng/vally-adapter
+
+      - name: Setup Node.js
+        if: needs.evaluate.result == 'success'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Download outcome artifacts
+        if: needs.evaluate.result == 'success'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: vally-results-*
+          path: outcome-results/
+          merge-multiple: false
+        continue-on-error: true
+
       - name: Remove eyes reaction from trigger comment
         if: github.event_name == 'issue_comment'
         env:
@@ -1059,8 +1083,10 @@ jobs:
           fi
 
       - name: Set final commit status
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
+          EXPECTED_ENTRIES: ${{ needs.discover.outputs.entries }}
         run: |
           if [[ "${{ needs.evaluate.result }}" == "skipped" && "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
             STATE="success"
@@ -1069,8 +1095,13 @@ jobs:
             STATE="failure"
             DESC="Fork PR evaluation requires a trusted branch"
           elif [[ "${{ needs.evaluate.result }}" == "success" ]]; then
-            STATE="success"
-            DESC="Evaluation passed"
+            if node eng/vally-adapter/outcome-status.mjs outcome-results/ > outcome-status.json; then
+              STATE=$(jq -er '.state' outcome-status.json)
+              DESC=$(jq -er '.description' outcome-status.json)
+            else
+              STATE="error"
+              DESC="Evaluation outcome artifacts missing, malformed or incomplete"
+            fi
           elif [[ "${{ needs.evaluate.result }}" == "failure" ]]; then
             STATE="failure"
             DESC="Evaluation failed"
