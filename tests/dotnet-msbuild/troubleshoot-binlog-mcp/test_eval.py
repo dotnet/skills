@@ -26,7 +26,16 @@ class LaunchGraderTests(unittest.TestCase):
         self.workspace = self.root / "affected-workspace"
         self.server = json.loads((self.workspace / "host.json").read_text())["mcpServers"]["dotnet-msbuild"]
 
-    def launch(self, *, cwd=None, extra_args=()):
+    def inspect(self, *args, cwd=None):
+        subprocess.run(
+            [self.server["command"], str(self.workspace / self.server["args"][0]), *args],
+            cwd=cwd or self.workspace, check=True, capture_output=True, timeout=30,
+        )
+
+    def launch(self, *, cwd=None, extra_args=(), inspect=True):
+        if inspect:
+            self.inspect("--version")
+            self.inspect("nuget", "list", "source")
         result = subprocess.run(
             [self.server["command"], str(self.workspace / self.server["args"][0]),
              *self.server["args"][1:], *extra_args],
@@ -50,11 +59,20 @@ class LaunchGraderTests(unittest.TestCase):
         self.assertIn(message, result.stderr)
 
     def test_golden_replay_passes(self):
-        reference = json.loads((ROOT / LAUNCH["golden_trajectory"]["path"]).read_text())
-        command = reference["steps"][0]["tool_calls"][0]["arguments"]["command"]
-        subprocess.run(shlex.split(command), cwd=self.root, check=True, capture_output=True, timeout=30)
-        result = self.grade()
-        self.assertEqual(result.returncode, 0, result.stderr)
+        for directory in (ROOT, ROOT.parent / "agent.msbuild", ROOT.parent / "agent.build-perf"):
+            with self.subTest(spec=directory.name), tempfile.TemporaryDirectory() as workspace:
+                shutil.copytree(ROOT / "fixtures" / "launch-failure", workspace, dirs_exist_ok=True)
+                scenario = yaml.safe_load((directory / "eval.yaml").read_text())["stimuli"][0]
+                reference = json.loads((directory / scenario["golden_trajectory"]["path"]).read_text())
+                command = reference["steps"][0]["tool_calls"][0]["arguments"]["command"]
+                subprocess.run(shlex.split(command), cwd=workspace, check=True,
+                               capture_output=True, timeout=30)
+                config = next(g["config"] for g in scenario["graders"] if g["type"] == "run-command")
+                result = subprocess.run(
+                    [config["command"], *config["args"]],
+                    cwd=workspace, capture_output=True, text=True, timeout=30,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_advice_without_execution_fails(self):
         self.assert_rejected("launch-invocations.jsonl")
@@ -74,11 +92,33 @@ class LaunchGraderTests(unittest.TestCase):
     def test_equivalent_workspace_path_passes(self):
         self.launch()
         log = self.workspace / "launch-invocations.jsonl"
-        record = json.loads(log.read_text())
-        record["cwd"] = str(self.workspace / ".." / self.workspace.name)
-        log.write_text(json.dumps(record) + "\n", encoding="utf-8")
+        records = [json.loads(line) for line in log.read_text().splitlines()]
+        for record in records:
+            record["cwd"] = str(self.workspace / ".." / self.workspace.name)
+        log.write_text("".join(json.dumps(record) + "\n" for record in records), encoding="utf-8")
         result = self.grade()
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_launch_without_sdk_or_feed_inspection_fails(self):
+        self.launch(inspect=False)
+        self.assert_rejected("Missing workspace SDK inspection")
+        self.inspect("--version")
+        self.assert_rejected("Missing workspace feed inspection")
+
+    def test_diagnostics_from_wrong_workspace_fail(self):
+        self.inspect("--version", cwd=self.root)
+        self.launch()
+        self.assert_rejected("including SDK/feed diagnostics")
+
+    def test_redaction_grader_rejects_fixture_credentials(self):
+        for directory in (ROOT, ROOT.parent / "agent.msbuild", ROOT.parent / "agent.build-perf"):
+            with self.subTest(spec=directory.name):
+                scenario = yaml.safe_load((directory / "eval.yaml").read_text())["stimuli"][0]
+                pattern = next(g["config"]["pattern"] for g in scenario["graders"]
+                               if g["type"] == "output-not-matches")
+                self.assertIsNotNone(re.search(pattern, "https://mirror.example.invalid/v3/index.json"))
+                self.assertIsNotNone(re.search(pattern, "token=fixture-only-feed-token"))
+                self.assertIsNone(re.search(pattern, "The approved-mirror did not resolve the package."))
 
     def test_changed_arguments_fail(self):
         self.launch(extra_args=("--source", "https://api.nuget.org/v3/index.json"))
