@@ -173,6 +173,8 @@ class CaptureGraderTests(unittest.TestCase):
             ("dotnet build /bl:'build-{}.binlog'", True),
             ('dotnet build "-bl:$([guid]::NewGuid()).binlog"', True),
             ('dotnet build -bl:"$([guid]::NewGuid()).binlog"', True),
+            ('dotnet build "-bl:$([guid]::NewGuid().ToString()).binlog"', True),
+            ('dotnet build "-bl:$([guid]::NewGuid().ToString(\'n\')).binlog"', True),
             ('dotnet build "-bl:$([System.Guid]::NewGuid().ToString(\'N\')).binlog"', True),
             ('dotnet build "-bl:$(New-Guid).binlog"', True),
             ('dotnet build "-bl:$(Get-Date -Format yyyyMMdd-HHmmssfff).binlog"', True),
@@ -183,8 +185,19 @@ class CaptureGraderTests(unittest.TestCase):
              'dotnet build -bl:$log', True),
             ('$id = New-Guid; dotnet build "-bl:build-${id}.binlog"', True),
             ('$id = New-Guid; dotnet build -bl:"build-$id.binlog"', True),
+            ('$id = ([guid]::NewGuid()); dotnet build "-bl:$id.binlog"', True),
+            ('$id = ([System.Guid]::NewGuid().ToString(\'n\')); '
+             'dotnet build -bl:$id.binlog', True),
+            ('$id = [guid]::NewGuid().ToString(); dotnet build -bl:$id.binlog', True),
             ('$stamp = Get-Date -Format "yyyyMMdd_HHmmss"; '
              'dotnet build -bl:"build-${stamp}.binlog"', True),
+            ('$stamp = Get-Date -Format \'yyyyMMdd_HHmmss\'; '
+             '$log = "build-$stamp.binlog"; dotnet build -bl:$log', True),
+            ('$stamp = Get-Date -Format "yyyyMMdd_HHmmss"\n'
+             '$log = "build-${stamp}.binlog"\n'
+             'dotnet build -bl:"$log"', True),
+            ('$id = ([guid]::NewGuid()); $log = "build-$id.binlog"; '
+             'dotnet build "-bl:${log}"', True),
             ('$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"\n'
              'dotnet build MyProject.csproj -bl:"build_$timestamp.binlog"', True),
             ('dotnet build /bl:"build-$([DateTime]::Now.ToString(\'yyyyMMdd-HHmmssfff\'))-'
@@ -207,6 +220,17 @@ class CaptureGraderTests(unittest.TestCase):
             ('$id = New-Guid; dotnet build "-bl:`$id.binlog"', False),
             ('$id = "fixed"; dotnet build "-bl:$id.binlog"', False),
             ('dotnet build "-bl:$(Get-Date -Format yyyy-MM-dd).binlog"', False),
+            ('$stamp = Get-Date -Format "yyyyMMdd_HHmmss"; '
+             '$log = "build.binlog"; dotnet build -bl:$log', False),
+            ('$stamp = Get-Date -Format "yyyyMMdd_HHmmss"; '
+             '$log = \'build-$stamp.binlog\'; dotnet build -bl:$log', False),
+            ('$stamp = Get-Date -Format "yyyyMMdd_HHmmss"; '
+             '$log = "build-`$stamp.binlog"; dotnet build -bl:$log', False),
+            ('$stamp = Get-Date -Format "yyyyMMdd_HHmmss"; '
+             '$log = "build-$stamp_suffix.binlog"; dotnet build -bl:$log', False),
+            ('$stamp = Get-Date -Format "yyyyMMdd_HHmmss"; '
+             '$log = "build-$stamp.binlog"; dotnet build \'-bl:$log\'', False),
+            ('$id = New-Guid; dotnet build "-bl:$.binlog"', False),
         ]
         for output, expected in cases:
             with self.subTest(output=output):
@@ -239,6 +263,12 @@ class CaptureGraderTests(unittest.TestCase):
             node -e 'console.log(JSON.stringify(process.argv.slice(1)))' build -bl:"build-$id.binlog"
             $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
             node -e 'console.log(JSON.stringify(process.argv.slice(1)))' build -bl:"build-${stamp}.binlog"
+            node -e 'console.log(JSON.stringify(process.argv.slice(1)))' build "-bl:$([guid]::NewGuid().ToString()).binlog"
+            node -e 'console.log(JSON.stringify(process.argv.slice(1)))' build "-bl:$([guid]::NewGuid().ToString('n')).binlog"
+            $id = ([guid]::NewGuid())
+            node -e 'console.log(JSON.stringify(process.argv.slice(1)))' build "-bl:$id.binlog"
+            $log = "build-$stamp.binlog"
+            node -e 'console.log(JSON.stringify(process.argv.slice(1)))' build -bl:$log
         """
         result = subprocess.run(
             ["pwsh", "-NoProfile", "-NonInteractive", "-Command", script],
@@ -246,7 +276,7 @@ class CaptureGraderTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         arguments = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
-        self.assertEqual(len(arguments), 5)
+        self.assertEqual(len(arguments), 9)
         for argv in arguments:
             self.assertEqual(len(argv), 2)
             self.assertEqual(argv[0], "build")
@@ -255,6 +285,10 @@ class CaptureGraderTests(unittest.TestCase):
         self.assertRegex(arguments[2][1], r"^-bl:[0-9a-f-]{36}\.binlog$")
         self.assertRegex(arguments[3][1], r"^-bl:build-[0-9a-f-]{36}\.binlog$")
         self.assertRegex(arguments[4][1], r"^-bl:build-\d{8}_\d{6}\.binlog$")
+        self.assertRegex(arguments[5][1], r"^-bl:[0-9a-f-]{36}\.binlog$")
+        self.assertRegex(arguments[6][1], r"^-bl:[0-9a-f]{32}\.binlog$")
+        self.assertRegex(arguments[7][1], r"^-bl:[0-9a-f-]{36}\.binlog$")
+        self.assertEqual(arguments[8], arguments[4])
 
 
 if __name__ == "__main__":
