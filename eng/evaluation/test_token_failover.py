@@ -167,6 +167,143 @@ const github = {{
         return json.loads(completed.stdout.strip())
 
 
+def run_health_publisher(
+    test_case: unittest.TestCase,
+    current_body: str,
+) -> dict[str, object]:
+    node = shutil.which("node")
+    if not node:
+        test_case.skipTest("Node.js is required for publisher behavior tests")
+
+    replacement_body = "\n".join(
+        [
+            "# 🏥 Daily Health Check — 2026-10-15",
+            "## 🆕 New Findings (0)",
+            "None.",
+            "## 🔍 Investigation Results",
+            "DEVOPS_HEALTH_INVESTIGATION_ROWS_SLOT_V1",
+            "## ✅ Resolved Since Yesterday (0)",
+            "None.",
+            "## 📌 Existing Findings (0)",
+            "None.",
+            "## 📊 Trends (7-day)",
+            "DEVOPS_HEALTH_STATE_SLOT_V1",
+        ]
+    )
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        output_path = root / "agent-output.json"
+        harness_path = root / "health-publisher.cjs"
+        output_path.write_text(
+            json.dumps(
+                {
+                    "items": [
+                        {
+                            "type": "publish_health_report",
+                            "body": replacement_body,
+                            "comment_body": "## 📋 Health Check — 2026-10-15",
+                            "state_json": (
+                                "```json\n"
+                                '{"active_findings":[],"history":[]}'
+                                "\n```"
+                            ),
+                            "investigation_rows_json": "```json\n[]\n```",
+                            "dispatches_json": "```json\n[]\n```",
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        harness_path.write_text(
+            f"""
+const fs = require("fs");
+const errors = [];
+const calls = [];
+let dashboardBody = {json.dumps(current_body)};
+const core = {{
+  setFailed: message => errors.push(String(message)),
+  info: () => {{}}
+}};
+const context = {{
+  actor: "github-actions[bot]",
+  runId: 123,
+  runNumber: 45
+}};
+const github = {{
+  rest: {{
+    repos: {{
+      get: async () => ({{ data: {{ default_branch: "main" }} }})
+    }},
+    issues: {{
+      get: async () => ({{
+        data: {{
+          state: "open",
+          title: "🏥 Repository Health Dashboard",
+          labels: [{{ name: "devops-health" }}],
+          body: dashboardBody
+        }}
+      }}),
+      update: async args => {{
+        dashboardBody = args.body;
+        calls.push({{ type: "update", body: args.body }});
+        return {{ data: {{}} }};
+      }},
+      listComments: async () => ({{ data: [] }}),
+      createComment: async args => {{
+        calls.push({{ type: "comment", body: args.body }});
+        return {{ data: {{}} }};
+      }},
+      getComment: async () => {{
+        throw new Error("getComment should not be called");
+      }}
+    }},
+    actions: {{
+      listWorkflowRuns: async () => ({{ data: {{ workflow_runs: [] }} }}),
+      createWorkflowDispatch: async args => {{
+        calls.push({{ type: "dispatch", inputs: args.inputs }});
+        return {{ data: {{}} }};
+      }},
+      getWorkflowRun: async () => {{
+        throw new Error("getWorkflowRun should not be called");
+      }}
+    }}
+  }}
+}};
+(async () => {{
+{safe_output_script(
+    "devops-health-check.md",
+    "publish-health-report",
+    "Publish dashboard and dependent outputs",
+)}
+}})().then(
+  () => console.log(JSON.stringify({{ errors, calls, dashboardBody }})),
+  error => {{
+    console.error(error);
+    process.exitCode = 1;
+  }}
+);
+""",
+            encoding="utf-8",
+        )
+        environment = os.environ.copy()
+        environment.update(
+            {
+                "GH_AW_AGENT_OUTPUT": str(output_path),
+                "EXPECTED_REPOSITORY": "dotnet/skills",
+            }
+        )
+        completed = subprocess.run(
+            [node, str(harness_path)],
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env=environment,
+        )
+        return json.loads(completed.stdout.strip())
+
+
 def run_groom_publisher_without_rows(
     test_case: unittest.TestCase,
     *,
@@ -367,6 +504,61 @@ def generated_safe_output_configs(workflow: object) -> list[dict[str, object]]:
 
 
 class TokenFailoverTests(unittest.TestCase):
+    def test_health_publisher_gates_legacy_rows_on_persisted_state(self) -> None:
+        legacy_row = (
+            "| Legacy finding | 🔴 critical | 🔄 Dispatched | "
+            "2026-09-16 | Pending |"
+        )
+        valid_state = (
+            "<!-- devops-health-state:v1\n"
+            '{"active_findings":[],"history":[]}'
+            "\n-->"
+        )
+
+        marker_free = run_health_publisher(self, legacy_row)
+        self.assertEqual(marker_free["errors"], [])
+        self.assertEqual(
+            [call["type"] for call in marker_free["calls"]],
+            ["update", "update", "comment"],
+        )
+        self.assertIn(
+            "<!-- devops-health-state:v1",
+            marker_free["dashboardBody"],
+        )
+
+        persisted = run_health_publisher(
+            self,
+            f"{valid_state}\n{legacy_row}",
+        )
+        self.assertEqual(
+            persisted["errors"],
+            [
+                "Dashboard contains an in-flight row without valid "
+                "identity markers"
+            ],
+        )
+        self.assertEqual(persisted["calls"], [])
+
+        invalid_markers = {
+            "duplicated": (
+                f"{valid_state}\n{valid_state}",
+                "Existing dashboard state marker is duplicated",
+            ),
+            "malformed": (
+                "<!-- devops-health-state:v1\n{}",
+                "Existing dashboard state marker is malformed",
+            ),
+            "schema-invalid": (
+                "<!-- devops-health-state:v1\n{}\n-->",
+                "Existing dashboard state has an invalid top-level schema",
+            ),
+        }
+        for name, (body, expected_error) in invalid_markers.items():
+            with self.subTest(marker=name):
+                result = run_health_publisher(self, body)
+                self.assertEqual(result["errors"], [expected_error])
+                self.assertEqual(result["calls"], [])
+
     def test_evaluation_model_profiles_and_judges(self) -> None:
         caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
         discover_script = workflow_step_script(
@@ -736,6 +928,10 @@ class TokenFailoverTests(unittest.TestCase):
         )
         self.assertIn(
             "Dashboard contains an in-flight row without valid identity markers",
+            health_lock_text,
+        )
+        self.assertIn(
+            "hasPersistedState &&",
             health_lock_text,
         )
         self.assertIn("legacyFingerprintMatch", health_lock_text)

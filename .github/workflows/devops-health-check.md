@@ -553,6 +553,7 @@ safe-outputs:
               ];
               const currentStateTokenCount =
                 currentBody.split("<!-- devops-health-state:v1").length - 1;
+              const hasPersistedState = currentStateMatches.length === 1;
               if (currentStateTokenCount > 1) {
                 core.setFailed("Existing dashboard state marker is duplicated");
                 return;
@@ -595,6 +596,7 @@ safe-outputs:
                       ? "done"
                       : null;
                 if (
+                  hasPersistedState &&
                   outboxStatus &&
                   !legacyFingerprintMatch &&
                   (!fingerprintMatch || !correlationMatch)
