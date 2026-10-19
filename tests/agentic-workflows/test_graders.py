@@ -473,6 +473,61 @@ class GraderTests(unittest.TestCase):
         checked = self.run_shipping_grader("test/empty", result)
         self.assertEqual(0, checked.returncode, checked.stderr)
 
+    def test_empty_bundle_denials_are_scoped_to_each_shipping_assertion(self):
+        absence = "No records were collected."
+        denials = (
+            "Not one failure record is present.",
+            "It is not true that a failure record is present.",
+            "There is no evidence that the collector recorded one failure record.",
+            "It is not true that the collector recorded one failure record.",
+            "There is no evidence that one failure record is present.",
+        )
+        for denial in denials:
+            for field in ("reason", "limitations"):
+                with self.subTest(denial=denial, field=field):
+                    result = good_result("test/empty")
+                    result["reason"] = absence
+                    if field == "reason":
+                        result["reason"] += " " + denial
+                    else:
+                        result["limitations"] = [denial]
+                    checked = self.run_shipping_grader("test/empty", result)
+                    self.assertEqual(0, checked.returncode, checked.stderr)
+                    for affirmative in (
+                        "The collector recorded one failure record.",
+                        "One failure record is present.",
+                    ):
+                        for separator in (" ", "; ", ", but ", " and "):
+                            result[field] = (
+                                absence + " " + denial + separator + affirmative
+                                if field == "reason" else [denial + separator + affirmative]
+                            )
+                            checked = self.run_shipping_grader("test/empty", result)
+                            self.assertNotEqual(0, checked.returncode)
+                            self.assertIn("Claimed positive records", checked.stderr)
+                    result["reason"] = absence + " " + denial
+                    result["limitations"] = ["One failure record is present."]
+                    checked = self.run_shipping_grader("test/empty", result)
+                    self.assertNotEqual(0, checked.returncode)
+                    self.assertIn("Claimed positive records", checked.stderr)
+
+    def test_whole_bundle_records_to_report_is_explicit_absence(self):
+        for reason in (
+            "No qualifying records to report; no preliminary response needs replacement. This does not prove that all tests passed.",
+            "No qualifying test records to report.",
+            "No records to cite.",
+            "No failure, retry, hang, crash, or duration-regression records to analyze.",
+        ):
+            with self.subTest(reason=reason):
+                result = good_result("test/empty")
+                result["reason"] = reason
+                checked = self.run_shipping_grader("test/empty", result)
+                self.assertEqual(0, checked.returncode, checked.stderr)
+                result["reason"] += " The collector recorded one failure record."
+                checked = self.run_shipping_grader("test/empty", result)
+                self.assertNotEqual(0, checked.returncode)
+                self.assertIn("Claimed positive records", checked.stderr)
+
     def test_explicit_denials_are_not_passing_test_claims(self):
         for denial in (
             "This is not an explicit 'all tests passed' result.",

@@ -117,6 +117,8 @@ def describes_empty_bundle(text):
         if listed and not all(re.search(r"\b" + item + r"\b", listed, re.IGNORECASE) for item in categories):
             continue
         before, after = text[:match.start()], text[match.end():]
+        if re.match(r"\s+to\s+(?:cite|report|analyze)\b" + boundary, after, re.IGNORECASE):
+            return True
         if re.match(predicate, after, re.IGNORECASE):
             return True
         if re.search("(?:" + collection + ")|(?:" + existence + ")", before, re.IGNORECASE) and re.match(boundary, after, re.IGNORECASE):
@@ -130,8 +132,13 @@ def contradicts_empty_bundle(text):
     records = r"(?:(?:qualifying|test|collector|evidence|failure|retry|hang|crash|duration(?:-regression)?)\s+)*records?\b"
     assertion = r"\b(?:recorded|found|collected|contains?|includes?|reports?|lists?|supplies|observed|there (?:is|are|was|were))\s+"
     reverse = r"\b" + count + records + r"\s+(?:(?:is|are|was|were)\s+(?:present|available|recorded|found|collected|omitted)|exists?)\b"
+    denial = (
+        r"(?:\b(?:not|never)\s+"
+        r"|\b(?:it is not true that|there is no evidence that|no evidence that)\s+"
+        r"(?:(?:the\s+)?(?:collector|bundle|metadata|evidence)\s+)?)$"
+    )
     for match in re.finditer("(?:" + assertion + count + records + ")|(?:" + reverse + ")", text, re.IGNORECASE):
-        if not re.search(r"\b(?:not|never)\s+$", text[:match.start()], re.IGNORECASE):
+        if not re.search(denial, text[:match.start()], re.IGNORECASE):
             return True
     return False
 
