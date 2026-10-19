@@ -4,6 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -11,6 +12,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { outcomeStatus } from "./outcome-status.mjs";
 
 const script = join(dirname(fileURLToPath(import.meta.url)), "adapt-agent-results.mjs");
 const dashboardScript = join(
@@ -619,6 +621,15 @@ test("preserves a native target-agent activation failure", () => {
     assert.equal(verdict.stateReason.code, "target_agent_not_activated");
     assert.equal(verdict.passed, false);
     assert.match(verdict.reason, /target agent did not activate/);
+    assert.equal(verdict.conclusive, true);
+    assert.equal(verdict.underpowered, false);
+    assert.equal(verdict.activationContract.passed, true);
+    const artifacts = join(root, "artifacts");
+    mkdirSync(artifacts);
+    renameSync(output, join(artifacts, "vally-results-native"));
+    const status = outcomeStatus(artifacts, [{ name: "native" }]);
+    assert.equal(status.state, "failure");
+    assert.match(status.description, /1 activation failures/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

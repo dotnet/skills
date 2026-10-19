@@ -50,6 +50,9 @@ succeeded. Invalid or underpowered results without a proven regression produce
 an error, not an improvement claim. A conclusive `VALID_NO_CHANGE` is non-gating
 but is explicitly reported as unproven; only an all-`VALID_PASS` matrix is called
 improved. Preference-only losses remain report-only under the existing policy.
+Uniqueness is keyed on target path and model, not the display name. A powered,
+conclusive native `target_agent_not_activated` reason is an activation failure
+even when the separate dormancy contract passes and state is `VALID_NO_CHANGE`.
 
 Older trusted workflows mapped executor success directly to "Evaluation passed".
 In particular, the October 16 runs for PRs #1277 and #1280 reported five/six

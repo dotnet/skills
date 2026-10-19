@@ -20,6 +20,9 @@
 > fields are malformed evidence, not an implicit quality pass.
 > Conclusive evidence also requires an evaluated activation contract with a
 > boolean `passed`; absent, malformed or unevaluated contracts cannot pass.
+> Target path/model identities must be unique regardless of display name.
+> A conclusive, powered native `target_agent_not_activated` reason fails the
+> activation gate even if its separate dormancy contract passes.
 >
 > The current Vally workflow makes one targeted recovery attempt for executor
 > `session.idle` timeouts before adaptation. See

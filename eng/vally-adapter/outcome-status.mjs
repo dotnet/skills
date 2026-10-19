@@ -53,8 +53,9 @@ export function outcomeStatus(root, entries) {
         throw new Error(`Malformed evaluation result: ${path}`);
       }
       const verdict = data.verdicts[0];
-      const identity = [verdict.skillPath, verdict.skillName, verdict.model ?? data.model];
-      if (identity.some((part) => typeof part !== "string" || !part)
+      const identity = [verdict.skillPath, verdict.model ?? data.model];
+      if (typeof verdict.skillName !== "string" || !verdict.skillName
+        || identity.some((part) => typeof part !== "string" || !part)
         || identities.has(JSON.stringify(identity))) {
         throw new Error(`Missing or duplicate evaluation identity: ${path}`);
       }
@@ -77,8 +78,10 @@ export function outcomeStatus(root, entries) {
   }
   const regressions = verdicts.filter((verdict) => verdict.state === "VALID_REGRESSION").length;
   const activationFailures = verdicts.filter((verdict) =>
-    verdict.activationContract?.evaluated !== false
-    && verdict.activationContract?.passed === false).length;
+    (verdict.activationContract?.evaluated !== false
+      && verdict.activationContract?.passed === false)
+    || (verdict.conclusive && !verdict.underpowered
+      && verdict.stateReason?.code === "target_agent_not_activated")).length;
   const invalid = verdicts.filter((verdict) =>
     verdict.state === "INVALID_INCONCLUSIVE" || verdict.conclusive === false
     || verdict.underpowered === true).length;

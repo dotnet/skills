@@ -67,6 +67,16 @@ test("activation violations fail even when preference state is positive", (t) =>
   assert.equal(outcomeStatus(f.root, entries).state, "failure");
 });
 
+test("target path and model cannot be duplicated under a different display name", (t) => {
+  const f = fixture(t, ["VALID_PASS", "VALID_PASS"]);
+  f.results[1].verdicts[0].skillPath = f.results[0].verdicts[0].skillPath;
+  f.saveResults();
+  assert.throws(() => outcomeStatus(f.root, entries), /duplicate evaluation identity/);
+  f.results[1].model = "other-model";
+  f.saveResults();
+  assert.equal(outcomeStatus(f.root, entries).state, "success");
+});
+
 test("every verdict requires explicit boolean validity fields", (t) => {
   for (const state of ["VALID_PASS", "VALID_NO_CHANGE", "VALID_REGRESSION", "INVALID_INCONCLUSIVE"]) {
     for (const field of ["conclusive", "underpowered"]) {
@@ -102,6 +112,7 @@ test("conclusive evidence requires an evaluated boolean activation contract", (t
   assert.equal(outcomeStatus(failed.root, entries).state, "failure");
   const f = fixture(t, ["INVALID_INCONCLUSIVE"]);
   delete f.results[0].verdicts[0].activationContract;
+  f.results[0].verdicts[0].stateReason = { code: "target_agent_not_activated" };
   f.saveResults();
   assert.equal(outcomeStatus(f.root, entries).state, "error");
 });
@@ -119,6 +130,7 @@ test("missing, duplicate, malformed and incomplete artifacts never pass", (t) =>
     (f) => { f.results[0].schemaVersion = 99; f.saveResults(); },
     (f) => { f.results[0].verdicts[0].state = "UNKNOWN"; f.saveResults(); },
     (f) => { delete f.results[0].verdicts[0].skillPath; f.saveResults(); },
+    (f) => { delete f.results[0].verdicts[0].skillName; f.saveResults(); },
     (f) => { f.results[1] = f.results[0]; f.saveResults(); },
     (f) => mkdirSync(join(f.root, "vally-results-unexpected")),
   ]) {
