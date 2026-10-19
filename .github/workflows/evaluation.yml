@@ -1088,7 +1088,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           EXPECTED_ENTRIES: ${{ needs.discover.outputs.entries }}
         run: |
-          if [[ "${{ needs.evaluate.result }}" == "skipped" && "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
+          if [[ "${{ needs.evaluate.result }}" == "skipped" && "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" == "false" ]]; then
             STATE="success"
             DESC="No skills or agents to evaluate"
           elif [[ "${{ needs.gate.outputs.is_fork }}" == "true" ]]; then

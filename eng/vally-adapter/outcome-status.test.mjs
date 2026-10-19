@@ -133,6 +133,7 @@ test("actual workflow status step publishes outcome failure instead of executor 
     ["success", "success", "true", "false", "failure"],
     ["failure", "success", "true", "false", "failure"],
     ["skipped", "failure", "", "false", "error"],
+    ["skipped", "success", "", "false", "error"],
     ["skipped", "success", "false", "false", "success"],
     ["success", "success", "true", "true", "failure"],
   ]) {
