@@ -50,6 +50,10 @@ Your training data may be outdated regarding .NET versions. .NET ships new major
 - Re-validate after each fix
 - Iterate until complete or no further actions possible
 - After detecting platform (Task 1), load only the matching platform-specific references
+- When supplied captures are already healthy, cite the exact SDK, workload, JDK vendor/version, and required package evidence that matched; do not return only a generic "healthy" conclusion.
+- After editing diagnosis artifacts, run the repository's documented validation,
+  build, or verification command when one exists, and report the exact command
+  and result.
 
 ## Workflow
 

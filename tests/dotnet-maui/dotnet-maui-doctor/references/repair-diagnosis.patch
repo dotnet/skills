@@ -1,0 +1,41 @@
+diff --git a/repair-environment/diagnosis.json b/repair-environment/diagnosis.json
+--- a/repair-environment/diagnosis.json
++++ b/repair-environment/diagnosis.json
+@@ -1,5 +1,20 @@
+ {
+-  "status": "healthy",
+-  "no_actions_executed": false,
+-  "issues": []
++  "status": "degraded",
++  "no_actions_executed": true,
++  "issues": [
++    {
++      "id": "jdk-vendor",
++      "detected_vendor": "Temurin",
++      "recommended_vendor": "Microsoft",
++      "recommended_version": "17.0.12"
++    },
++    {
++      "id": "android-packages",
++      "missing": [
++        "build-tools;35.0.0",
++        "cmdline-tools;12.0",
++        "platforms;android-35"
++      ]
++    }
++  ]
+ }
+diff --git a/repair-environment/diagnosis.md b/repair-environment/diagnosis.md
+--- a/repair-environment/diagnosis.md
++++ b/repair-environment/diagnosis.md
+@@ -3 +3,9 @@
+-The captured environment is healthy. Run `dotnet workload update` before the next build.
++The captured environment is degraded.
++
++- Replace Temurin with Microsoft OpenJDK 17.0.12. The vendor comes from the captured
++  toolchain policy; the recommended version comes from the Android workload manifest.
++- Install the missing Android SDK packages: `build-tools;35.0.0`,
++  `cmdline-tools;12.0`, and `platforms;android-35`.
++- Keep the recorded workload version pinned when preparing remediation commands.
++
++No installation commands were run. Network access and installation permission were disabled.

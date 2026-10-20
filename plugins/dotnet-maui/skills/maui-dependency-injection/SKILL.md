@@ -45,6 +45,7 @@ license: MIT
 |---|---|---|
 | Registering a Page or ViewModel | Prefer `AddTransient` | A fresh instance per navigation avoids stale state, and a Singleton page cannot be re-added to the visual tree after it is removed. Singleton is defensible for a genuinely single-instance page (e.g. a root tab you want to keep warm) |
 | Registering shared/expensive state | `AddSingleton` | One instance app-wide (settings, DB connection, `HttpClient` handler) |
+| Combining shared cached state with HTTP | Use a named client through `IHttpClientFactory` from the singleton, **or** make the typed-client consumer transient and move cache state to a separate singleton | Typed clients are transient; a singleton must not constructor-capture one and pin it beyond its intended lifetime |
 | Tempted to use `AddScoped` | Use `AddTransient` (or `AddSingleton` if sharing is intended) | MAUI has **no** built-in request scope like ASP.NET Core's HTTP pipeline. MAUI does create one `IServiceScope` per window, so a Scoped service lives as long as that window — and resolved from the root provider it behaves like a Singleton. Neither gives you per-navigation freshness |
 | Navigating to a DI-registered page | Register the page **and** its ViewModel, then `Routing.RegisterRoute` | `Shell.Current.GoToAsync` resolves the page through DI and injects its constructor dependencies |
 | Platform-specific implementation | `#if` per platform **with every platform covered** | A missing platform branch leaves the service unregistered and throws at resolution time |
@@ -52,6 +53,65 @@ license: MIT
 **Do not** introduce DI into a project that isn't using it, swap a working service
 lifetime, or add an interface purely for symmetry — only when the user asked or it
 fixes a real defect.
+
+**One abstraction, one registration — and no captive typed client.** Never register
+the same service abstraction with both
+`AddSingleton<TService, TImplementation>()` and
+`AddHttpClient<TService, TImplementation>()` (or any other second lifetime). A
+single `TService` resolution uses one registration, so the later registration can
+replace the intended singleton semantics.
+
+Also do not make a singleton facade constructor-capture a typed client. Typed
+clients are transient; retaining one in a singleton pins that instance and defeats
+the intended factory-managed client/handler lifecycle. Use one of these safe
+ownership models:
+
+### Option A — singleton facade + named client factory
+
+The singleton owns cache state, but creates a named `HttpClient` for each operation:
+
+```csharp
+builder.Services.AddHttpClient("products", client =>
+    client.BaseAddress = new Uri("https://api.example.com/"));
+builder.Services.AddSingleton<IDataService, DataService>();
+```
+
+```csharp
+public sealed class DataService(IHttpClientFactory clients) : IDataService
+{
+    readonly Dictionary<int, Product> _cache = [];
+
+    public async Task<Product> GetAsync(int id)
+    {
+        if (_cache.TryGetValue(id, out var cached))
+            return cached;
+
+        using HttpClient client = clients.CreateClient("products");
+        Product product = (await client.GetFromJsonAsync<Product>($"products/{id}"))!;
+        _cache[id] = product;
+        return product;
+    }
+}
+```
+
+### Option B — transient typed consumer + separate singleton cache
+
+The typed client remains transient and receives a separate app-wide cache:
+
+```csharp
+builder.Services.AddSingleton<IProductCache, ProductCache>();
+builder.Services.AddHttpClient<IDataService, DataService>();
+```
+
+```csharp
+public sealed class DataService(HttpClient client, IProductCache cache) : IDataService
+{
+    // The transient service uses the shared cache; it does not own app-wide state.
+}
+```
+
+If the HTTP client is the whole stateless service and no shared cache is required,
+register only the typed client.
 
 **Answer narrowly, but completely.** When you recommend a lifetime change, show the
 registration code, and give the realistic alternatives rather than a single verdict —
@@ -69,7 +129,7 @@ var db = scope.ServiceProvider.GetRequiredService<MyDbContext>();
 ## Workflow
 
 1. Identify all services, ViewModels, and Pages that need to participate in dependency injection.
-2. Choose the correct lifetime for each type — `AddSingleton` for shared services, `AddTransient` for Pages and ViewModels.
+2. Choose the correct lifetime for each type — `AddSingleton` for shared services, `AddTransient` for Pages and ViewModels — and confirm each service abstraction is registered exactly once.
 3. Register all types in `MauiProgram.CreateMauiApp()` on `builder.Services`, grouping by category (services, HTTP, ViewModels, Pages).
 4. Register Pages as Shell routes in `AppShell.xaml.cs` so Shell navigation auto-resolves the full dependency graph.
 5. Wire each Page to its ViewModel via constructor injection, assigning the ViewModel as `BindingContext`.
@@ -100,13 +160,14 @@ public static MauiApp CreateMauiApp()
     var builder = MauiApp.CreateBuilder();
     builder.UseMauiApp<App>();
 
-    // Services — Singleton for shared state
+    // Shared state/cache facade. It injects IHttpClientFactory, not a typed client.
     builder.Services.AddSingleton<IDataService, DataService>();
     builder.Services.AddSingleton<ISettingsService, SettingsService>();
 
-    // HTTP — use typed or named clients via IHttpClientFactory
+    // Named HTTP client used per operation by the singleton facade
     // Requires NuGet: Microsoft.Extensions.Http
-    builder.Services.AddHttpClient<IApiClient, ApiClient>();
+    builder.Services.AddHttpClient("data-api", client =>
+        client.BaseAddress = new Uri("https://api.example.com/"));
 
     // ViewModels — Transient for fresh state per navigation
     builder.Services.AddTransient<MainViewModel>();
@@ -281,12 +342,36 @@ Pages declared in Shell XAML via `<ShellContent ContentTemplate="{DataTemplate v
 Pages reached through `Routing.RegisterRoute` + `GoToAsync` are different: they go through `ActivatorUtilities.GetServiceOrCreateInstance` (`Routing.cs`), which injects registered dependencies even if the page type itself was never registered, and **throws** if a required dependency cannot be resolved.
 
 ```csharp
-// Registering the page and its dependencies keeps both paths working
+// Route navigation: register the page and its dependencies
 builder.Services.AddTransient<DetailPage>();
 builder.Services.AddTransient<DetailViewModel>();
 ```
 
-If you need DI for a tab/flyout page, give it a parameterless constructor that resolves what it needs, or navigate to it by route instead of embedding it in `ContentTemplate`.
+**Preferred fix:** navigate to the injected page through a registered route.
+
+If the page must remain a tab/flyout hierarchy page, keep service resolution in
+the composition root by replacing the type-only XAML template with a factory in
+`AppShell.xaml.cs`:
+
+```csharp
+public AppShell(IServiceProvider services)
+{
+    InitializeComponent();
+    DetailShellContent.ContentTemplate =
+        new DataTemplate(() => services.GetRequiredService<DetailPage>());
+}
+```
+
+Name the `ShellContent` with `x:Name="DetailShellContent"` and remove its type-only
+`ContentTemplate` from XAML. This factory is practical only when `AppShell` itself
+is created through DI and `DetailPage` plus its dependencies are registered.
+
+A parameterless constructor is honest only when the page genuinely has no
+required constructor services and can receive optional state after construction.
+Do **not** add a parameterless page constructor that pulls services from
+`Handler.MauiContext`, `IPlatformApplication.Current`, or another global provider;
+the handler is not attached during construction and the service-locator pattern
+hides required dependencies.
 
 ### 3. XAML Resource Parsing vs. DI Timing
 
@@ -336,6 +421,8 @@ See the rule table above: `AddScoped` gives you either window lifetime or Single
 ## Checklist
 
 - [ ] Every Page and ViewModel that needs injection is registered in `MauiProgram.cs`
+- [ ] Every service abstraction has one unambiguous production registration
+- [ ] No singleton constructor-captures a typed HTTP client
 - [ ] Pages and ViewModels use `AddTransient`; shared services use `AddSingleton`
 - [ ] Constructor injection used everywhere possible; service locator only as last resort
 - [ ] Interfaces defined for services that need test substitution

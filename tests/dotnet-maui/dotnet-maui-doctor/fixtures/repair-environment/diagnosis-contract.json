@@ -1,0 +1,24 @@
+{
+  "status": "degraded",
+  "no_actions_executed": true,
+  "issues": {
+    "jdk-vendor": {
+      "fields": [
+        "detected_vendor",
+        "recommended_vendor",
+        "recommended_version"
+      ]
+    },
+    "android-packages": {
+      "fields": [
+        "missing"
+      ]
+    }
+  },
+  "report_requirements": [
+    "state why the captured environment is degraded",
+    "identify the required JDK vendor and version",
+    "list every missing required Android package",
+    "state that no installation action was executed"
+  ]
+}

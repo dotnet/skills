@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "maui-theming-system-theme",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Define the palette once and apply the pairs through implicit styles in App.xaml:\n\n```xml\n<Application.Resources>\n    <ResourceDictionary>\n        <Color x:Key=\"LightPageBackground\">#FFFFFF</Color>\n        <Color x:Key=\"DarkPageBackground\">#1E1E1E</Color>\n        <Color x:Key=\"LightPrimaryText\">#222222</Color>\n        <Color x:Key=\"DarkPrimaryText\">#F2F2F2</Color>\n\n        <Style TargetType=\"ContentPage\"\n               ApplyToDerivedTypes=\"True\">\n            <Setter Property=\"BackgroundColor\"\n                    Value=\"{AppThemeBinding\n                        Light={StaticResource LightPageBackground},\n                        Dark={StaticResource DarkPageBackground}}\" />\n        </Style>\n\n        <Style TargetType=\"Label\">\n            <Setter Property=\"TextColor\"\n                    Value=\"{AppThemeBinding\n                        Light={StaticResource LightPrimaryText},\n                        Dark={StaticResource DarkPrimaryText}}\" />\n        </Style>\n    </ResourceDictionary>\n</Application.Resources>\n```\n\nPages and labels now inherit system light/dark colors without repeating literals. For a one-off code-built control:\n\n```csharp\nvar label = new Label { Text = \"Status\" };\nlabel.SetAppThemeColor(\n    Label.TextColorProperty,\n    Colors.DarkGreen,\n    Colors.LightGreen);\nlabel.SetAppTheme<double>(\n    Label.FontSizeProperty,\n    14,\n    16);\n```\n\nSetAppThemeColor is the color-specific helper; SetAppTheme<T> handles other bindable property types."
+    }
+  ]
+}

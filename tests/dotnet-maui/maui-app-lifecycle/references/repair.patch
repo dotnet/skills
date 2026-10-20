@@ -1,0 +1,10 @@
+diff --git a/App.cs b/App.cs
+--- a/App.cs
++++ b/App.cs
+@@ -12,4 +12,4 @@
+-    protected override void OnDeactivated()
++    protected override void OnStopped()
+     {
+-        base.OnDeactivated();
++        base.OnStopped();
+         Preferences.Set("draft_text", _viewModel.DraftText);

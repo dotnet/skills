@@ -57,8 +57,16 @@ and "it actually updates the UI".
 | A binding falls back to reflection (XC0022 / XC0023) | Add the right `x:DataType` for that binding scope; for XC0023 remove the explicit `x:DataType="{x:Null}"` | `x:DataType="x:Object"` to silence it — this disables compile-time checking |
 | A `DataTemplate` inherits `x:DataType` from an outer scope (XC0024) | Give the `DataTemplate` its **own** `x:DataType` | Leaving it to resolve against the wrong type |
 | ViewModel change notification | `ObservableObject` + `[ObservableProperty]`, or implement `INotifyPropertyChanged` | A plain POCO base class — bindings will never update |
+| Showing an async command | Include the real awaited operation and assign the resulting properties | An empty method or a comment such as `/* load here */` |
 | Bindings show blank | Check `BindingContext` is actually set | Assuming the binding path is wrong |
 | Enforcing compiled bindings | Set `MauiEnableXamlCBindingWithSourceCompilation` to `true`, **then** `<WarningsAsErrors>XC0022;XC0025</WarningsAsErrors>` | Promoting `XC0025` without the switch if the project uses `Source=` / `RelativeSource` bindings |
+| Updating bound state after async work | A command invoked by the UI normally resumes on its captured UI context after `await`; dispatch only when execution is actually on a worker thread | Claiming that `PropertyChanged` itself makes every background update safe |
+| Auditing already-correct bindings | Name the page and template `x:DataType` scopes and the project enforcement switches, then leave files unchanged | Refactoring merely to demonstrate the guidance |
+
+When a question is specifically about an XC0025 failure and its existing
+`x:DataType` scopes are already correct, answer that problem narrowly: enable
+Source compilation, rebuild cleanly, then promote XC0025. Add XC0022 only when
+the project also wants to enforce untyped ordinary bindings.
 
 **Do not** restructure a ViewModel or add a converter that the user did not ask for
 and that fixes no real defect. Adding `x:DataType` is different: when you are
@@ -102,6 +110,12 @@ anti-pattern — it disables compile-time checking and reintroduces reflection.
 ```
 
 ### DataTemplate always needs its own x:DataType
+
+At compile time a `DataTemplate` can inherit the outer `x:DataType`, which is
+why XC0024 exists. At runtime the template's `BindingContext` is the item.
+Describe both facts: do not say the template "does not inherit" the outer type
+at all; say that the inherited compile-time type is wrong for the item context,
+so the template needs its own `x:DataType`.
 
 ```xml
 <CollectionView ItemsSource="{Binding People}">
@@ -235,24 +249,52 @@ public class MainViewModel : INotifyPropertyChanged
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-public partial class MainViewModel : ObservableObject
+public partial class ProductDetailViewModel : ObservableObject
 {
+    private readonly IProductService _products;
+    private readonly int _productId;
+
+    public ProductDetailViewModel(IProductService products, int productId)
+    {
+        _products = products;
+        _productId = productId;
+    }
+
     [ObservableProperty]
-    private string _title = string.Empty;
+    private string _name = string.Empty;
+
+    [ObservableProperty]
+    private decimal _price;
+
+    [ObservableProperty]
+    private bool _isAvailable;
 
     [RelayCommand]
-    private async Task LoadDataAsync() { /* ... */ }
+    private async Task LoadAsync()
+    {
+        var product = await _products.GetByIdAsync(_productId);
+        Name = product.Name;
+        Price = product.Price;
+        IsAvailable = product.IsAvailable;
+    }
 }
 ```
 
-The source generator creates the `Title` property, `PropertyChanged` raise,
-and `LoadDataCommand` automatically.
+The source generator creates the notifying `Name`, `Price`, and `IsAvailable`
+properties and an asynchronous `LoadCommand`. A command example must show the
+actual awaited dependency call and resulting property assignments; do not leave
+the operation as a placeholder.
 
 ---
 
 ## Value Converters — IValueConverter
 
 Implement `Convert` (source → target) and `ConvertBack` (target → source):
+
+When the user asks to create or show a converter, the final answer must include
+all three runnable pieces: the complete converter class, its XAML resource
+registration, and the consuming binding. Do not replace code blocks with headings,
+placeholders, or a prose-only summary.
 
 ```csharp
 public class IntToBoolConverter : IValueConverter
@@ -378,21 +420,41 @@ entry.SetBinding(Entry.TextProperty,
     converter: new IntToStringConverter());
 ```
 
+The property expression identifies the source property for both directions.
+Do **not** invent a separate target-control setter lambda for a two-way binding;
+this overload uses the same getter expression plus `mode: BindingMode.TwoWay`.
+The optional `source:` parameter is valid when the binding must use a source
+object other than the target's current `BindingContext`.
+
 ---
 
 ## Threading
 
-MAUI automatically marshals `PropertyChanged` to the UI thread — you can raise
-it from any thread. **However**, direct `ObservableCollection` mutations
-(Add / Remove) from background threads may crash:
+A `RelayCommand` started by a UI interaction normally captures the UI
+`SynchronizationContext`, so code after an ordinary `await` resumes on the UI
+thread. Do not add dispatcher code to that common path without evidence that
+the continuation moved to a worker thread.
+
+If code deliberately uses `Task.Run`, `ConfigureAwait(false)`, a timer callback,
+or another worker-thread source, explicitly marshal UI-bound updates. In
+particular, `ObservableCollection` raises `CollectionChanged` on the thread that
+mutates it; `Add`, `Remove`, and `Clear` must occur on the main thread:
 
 ```csharp
-// ✅ Safe — PropertyChanged is auto-marshalled
-await Task.Run(() => Title = "Loaded");
+var loaded = await Task.Run(() => repository.LoadItems());
 
-// ⚠️ ObservableCollection.Add — dispatch to UI thread
-MainThread.BeginInvokeOnMainThread(() => Items.Add(newItem));
+await MainThread.InvokeOnMainThreadAsync(() =>
+{
+    Items.Clear();
+    foreach (var item in loaded)
+        Items.Add(item);
+});
 ```
+
+Do not justify a background update by saying "`PropertyChanged` is
+auto-marshalled." First identify the execution context. Use
+`MainThread.IsMainThread` when diagnosing an uncertain callback, and dispatch
+the complete bound-state update when it is false.
 
 ---
 

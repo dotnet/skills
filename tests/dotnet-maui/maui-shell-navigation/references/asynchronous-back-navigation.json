@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "maui-shell-back-guard",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Put the asynchronous guard in `AppShell.xaml.cs` so it covers toolbar, hardware, and programmatic pop navigation:\n\n```csharp\nprotected override async void OnNavigating(ShellNavigatingEventArgs args)\n{\n    base.OnNavigating(args);\n\n    if (!HasUnsavedChanges ||\n        args.Source != ShellNavigationSource.Pop)\n        return;\n\n    var deferral = args.GetDeferral();\n    try\n    {\n        bool discard = await CurrentPage.DisplayAlert(\n            \"Discard changes?\",\n            \"Your edits have not been saved.\",\n            \"Discard\",\n            \"Stay\");\n\n        if (!discard)\n            args.Cancel();\n    }\n    finally\n    {\n        deferral.Complete();\n    }\n}\n```\n\nThe `finally` block completes the deferral even if the dialog throws. On `EditProductPage`, keep the normal back action but change its presentation:\n\n```xml\n<ContentPage xmlns=\"http://schemas.microsoft.com/dotnet/2021/maui\"\n             xmlns:x=\"http://schemas.microsoft.com/winfx/2009/xaml\"\n             x:Class=\"Shop.EditProductPage\">\n    <Shell.BackButtonBehavior>\n        <BackButtonBehavior TextOverride=\"Cancel\"\n                            IsVisible=\"True\"\n                            IsEnabled=\"True\" />\n    </Shell.BackButtonBehavior>\n    <!-- form content -->\n</ContentPage>\n```\n\nWith no custom command, the button keeps Shell's normal back behavior while displaying `Cancel`; that pop enters `OnNavigating`, where choosing Stay cancels it."
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "maui-collectionview-selection-refresh",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "```xml\n<RefreshView IsRefreshing=\"{Binding IsRefreshing, Mode=TwoWay}\"\n             Command=\"{Binding RefreshCommand}\">\n    <CollectionView ItemsSource=\"{Binding Results}\"\n                    SelectionMode=\"Single\"\n                    SelectedItem=\"{Binding SelectedResult, Mode=TwoWay}\">\n        <CollectionView.ItemTemplate>\n            <DataTemplate x:DataType=\"models:SearchResult\">\n                <Label Text=\"{Binding Title}\" Padding=\"8\" />\n            </DataTemplate>\n        </CollectionView.ItemTemplate>\n    </CollectionView>\n</RefreshView>\n```\n\n`SelectedResult` now receives the selected object in the view model. The refresh command must clear the busy state even when reload fails:\n\n```csharp\npublic ObservableCollection<SearchResult> Results { get; } = [];\npublic SearchResult? SelectedResult { get; set; }\npublic bool IsRefreshing { get; set; }\n\nprivate async Task RefreshAsync()\n{\n    try\n    {\n        IsRefreshing = true;\n        var latest = await api.GetResultsAsync();\n        Results.Clear();\n        foreach (var item in latest)\n            Results.Add(item);\n    }\n    finally\n    {\n        IsRefreshing = false;\n    }\n}\n```\n\n`RefreshCommand` should invoke `RefreshAsync` and the properties should raise change notifications."
+    }
+  ]
+}

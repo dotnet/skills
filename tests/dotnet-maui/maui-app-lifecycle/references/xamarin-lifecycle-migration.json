@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "maui-lifecycle-xamarin-migration",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Replace the Application-wide overrides with a Window subclass and return one instance for each window:\n\n```csharp\npublic partial class App : Application\n{\n    protected override Window CreateWindow(IActivationState? activationState)\n        => new AppWindow(new AppShell());\n}\n\npublic sealed class AppWindow : Window\n{\n    public AppWindow(Page page) : base(page)\n    {\n        Created += HandleCreated;\n    }\n\n    private static void HandleCreated(object? sender, EventArgs e)\n        => AppServices.EnsureStarted(); // old OnStart intent\n\n    protected override void OnStopped()\n    {\n        base.OnStopped();\n        DraftState.Save(); // old OnSleep intent\n    }\n\n    protected override void OnResumed()\n    {\n        base.OnResumed();\n        DraftState.Restore(); // old OnResume intent\n    }\n}\n```\n\nWindow.Created preserves one-time startup intent for each new window, OnStopped is the real background transition, and OnResumed is a return after Stopped. OnActivated is different because it can recur whenever a window regains focus. Keeping these callbacks on each Window prevents one document window from representing every window in an iPad or desktop process."
+    }
+  ]
+}

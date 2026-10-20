@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "maui-binding-observable-product",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "A complete CommunityToolkit implementation is:\n\n```csharp\nusing CommunityToolkit.Mvvm.ComponentModel;\nusing CommunityToolkit.Mvvm.Input;\n\npublic partial class ProductDetailViewModel : ObservableObject\n{\n    private readonly IProductService _products;\n\n    public ProductDetailViewModel(IProductService products)\n        => _products = products;\n\n    [ObservableProperty]\n    private string name = string.Empty;\n\n    [ObservableProperty]\n    private decimal price;\n\n    [ObservableProperty]\n    private bool isAvailable;\n\n    [RelayCommand]\n    private async Task LoadAsync()\n    {\n        var product = await _products.GetProductAsync();\n        Name = product.Name;\n        Price = product.Price;\n        IsAvailable = product.IsAvailable;\n    }\n}\n```\n\nObservableObject supplies INotifyPropertyChanged, and each ObservableProperty generates a notifying public property. RelayCommand turns LoadAsync into an asynchronous LoadCommand, so the UI remains responsive while data is fetched."
+    }
+  ]
+}

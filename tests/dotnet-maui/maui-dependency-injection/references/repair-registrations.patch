@@ -1,0 +1,20 @@
+diff --git a/repair/MauiProgram.cs b/repair/MauiProgram.cs
+--- a/repair/MauiProgram.cs
++++ b/repair/MauiProgram.cs
+@@ -8,9 +8,9 @@
+         builder.UseMauiApp<App>();
+-
+-        builder.Services.AddScoped<IInventoryService, InventoryService>();
+-        builder.Services.AddSingleton<InventoryViewModel>();
+-        builder.Services.AddSingleton<InventoryPage>();
+-        builder.Services.AddSingleton<ItemDetailsViewModel>();
+-        builder.Services.AddSingleton<ItemDetailsPage>();
+-
++
++        builder.Services.AddSingleton<IInventoryService, InventoryService>();
++        builder.Services.AddTransient<InventoryViewModel>();
++        builder.Services.AddTransient<InventoryPage>();
++        builder.Services.AddTransient<ItemDetailsViewModel>();
++        builder.Services.AddTransient<ItemDetailsPage>();
++
+         return builder.Build();

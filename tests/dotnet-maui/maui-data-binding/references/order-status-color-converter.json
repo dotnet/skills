@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "maui-binding-order-status-converter",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Implement the one-way converter:\n\n```csharp\nusing System.Globalization;\n\npublic sealed class OrderStatusToColorConverter : IValueConverter\n{\n    public object Convert(\n        object? value,\n        Type targetType,\n        object? parameter,\n        CultureInfo culture) =>\n        value is OrderStatus status\n            ? status switch\n            {\n                OrderStatus.Pending => Colors.Orange,\n                OrderStatus.Shipped => Colors.DodgerBlue,\n                OrderStatus.Delivered => Colors.Green,\n                OrderStatus.Cancelled => Colors.Red,\n                _ => Colors.Gray\n            }\n            : Colors.Gray;\n\n    public object ConvertBack(\n        object? value,\n        Type targetType,\n        object? parameter,\n        CultureInfo culture) =>\n        throw new NotSupportedException();\n}\n```\n\nRegister and consume it in XAML:\n\n```xml\n<ContentPage\n    xmlns=\"http://schemas.microsoft.com/dotnet/2021/maui\"\n    xmlns:x=\"http://schemas.microsoft.com/winfx/2009/xaml\"\n    xmlns:local=\"clr-namespace:Orders\">\n    <ContentPage.Resources>\n        <local:OrderStatusToColorConverter\n            x:Key=\"OrderStatusToColor\" />\n    </ContentPage.Resources>\n\n    <Label Text=\"{Binding Status}\"\n           TextColor=\"{Binding Status,\n               Converter={StaticResource OrderStatusToColor}}\" />\n</ContentPage>\n```\n\nEvery declared status has a color, and null, an unexpected enum value, or another input type safely falls back to Gray."
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:views="clr-namespace:Shop.Views"
+       x:Class="Shop.AppShell">
+    <FlyoutItem Title="Home">
+        <ShellContent>
+            <views:HomePage />
+        </ShellContent>
+    </FlyoutItem>
+    <FlyoutItem Title="Orders">
+        <ShellContent>
+            <views:OrdersPage />
+        </ShellContent>
+    </FlyoutItem>
+</Shell>

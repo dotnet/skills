@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "maui-di-routed-details",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Register the complete dependency graph in `MauiProgram.CreateMauiApp()`:\n\n```csharp\nbuilder.Services.AddSingleton<IDataService, DataService>();\nbuilder.Services.AddTransient<DetailViewModel>();\nbuilder.Services.AddTransient<DetailPage>();\n```\n\nRegister the route once when the shell is constructed:\n\n```csharp\npublic AppShell()\n{\n    InitializeComponent();\n    Routing.RegisterRoute(\"details\", typeof(DetailPage));\n}\n```\n\nConstructor injection then flows through the view model and page:\n\n```csharp\npublic sealed class DetailViewModel\n{\n    private readonly IDataService _data;\n    public DetailViewModel(IDataService data) => _data = data;\n}\n\npublic partial class DetailPage : ContentPage\n{\n    public DetailPage(DetailViewModel viewModel)\n    {\n        InitializeComponent();\n        BindingContext = viewModel;\n    }\n}\n```\n\nNavigate through the registered route and await completion:\n\n```csharp\nawait Shell.Current.GoToAsync(\"details\");\n```"
+    }
+  ]
+}
