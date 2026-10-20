@@ -149,16 +149,36 @@ function materializeRestraintGolden(item) {
 
 function materializeScopeGolden(item) {
   const work = path.join(runRoot, `golden-${item.contract}`);
-  const fixtureRoot = path.join(work, "fixtures", item.fixture);
+  const fixtureRoot = item.contract === "complete-api-scope"
+    ? path.join(work, "workspace")
+    : path.join(work, "fixtures", item.fixture);
   fs.mkdirSync(path.dirname(fixtureRoot), { recursive: true });
-  copySource(path.join(scenarioDirectory, "fixtures", item.fixture), fixtureRoot);
+  if (item.contract === "complete-api-scope") {
+    copySource(
+      path.join(scenarioDirectory, "fixtures", item.fixture),
+      path.join(fixtureRoot, "CompleteTodoApi"),
+    );
+    write(
+      fixtureRoot,
+      "create-datadriven-aspnetcore/SKILL.md",
+      "---\nname: create-datadriven-aspnetcore\n---\nRunner-staged skill.\n",
+    );
+  } else {
+    copySource(path.join(scenarioDirectory, "fixtures", item.fixture), fixtureRoot);
+  }
   if (item.patch) {
     const patch = path.join(scenarioDirectory, "references", item.patch);
     const applied = applyPatch(work, patch);
     if (applied.status !== 0) throw new Error(`Could not apply ${item.patch}:\n${applied.stderr || applied.stdout}`);
   }
   goldenRoots.set(item.contract, fixtureRoot);
-  expectScopePass(item.contract, fixtureRoot, "golden file set");
+  expectScopePass(
+    item.contract,
+    fixtureRoot,
+    item.contract === "complete-api-scope"
+      ? "golden file set with runner-staged skill"
+      : "golden file set",
+  );
 }
 
 function stagedFiles(root) {
@@ -182,15 +202,18 @@ function digest(root, relativeFile) {
 }
 
 function scopeIsValid(contract, root) {
-  const files = stagedFiles(root);
   if (contract === "complete-api-scope") {
+    const fixtureRoot = path.join(root, "CompleteTodoApi");
+    const files = stagedFiles(root)
+      .filter((file) => !file.startsWith("create-datadriven-aspnetcore/"));
     return JSON.stringify(files) === JSON.stringify([
-      "CompleteTodoApi.csproj",
-      "CompleteTodoEndpoints.cs",
+      "CompleteTodoApi/CompleteTodoApi.csproj",
+      "CompleteTodoApi/CompleteTodoEndpoints.cs",
     ]) &&
-      digest(root, "CompleteTodoEndpoints.cs") === "d40d2d1e48974e6396fdbff3c8046bea8ce5f424834f1fe7786b09545b581d87" &&
-      digest(root, "CompleteTodoApi.csproj") === "85504278f61edf39ab8321c61f47b8532cdcc0efec2a29f7b4a42086fbe63c93";
+      digest(fixtureRoot, "CompleteTodoEndpoints.cs") === "d40d2d1e48974e6396fdbff3c8046bea8ce5f424834f1fe7786b09545b581d87" &&
+      digest(fixtureRoot, "CompleteTodoApi.csproj") === "85504278f61edf39ab8321c61f47b8532cdcc0efec2a29f7b4a42086fbe63c93";
   }
+  const files = stagedFiles(root);
   return JSON.stringify(files) === JSON.stringify([
     "CsvReportWriter.cs",
     "Program.cs",
@@ -225,17 +248,23 @@ function scopeMutations() {
   scopeMutation("complete-api-scope", "duplicate endpoint source", (root) =>
     write(
       root,
-      "DuplicateTodoEndpoints.cs",
+      "CompleteTodoApi/DuplicateTodoEndpoints.cs",
       "public static class DuplicateTodoEndpoints { public static void MapDuplicateTodoEndpoints() { } }\n",
     ));
   scopeMutation("complete-api-scope", "added endpoint helper", (root) =>
     write(
       root,
-      "TodoEndpointValidationHelper.cs",
+      "CompleteTodoApi/TodoEndpointValidationHelper.cs",
       "public static class TodoEndpointValidationHelper { public static bool IsValid(string title) => !string.IsNullOrWhiteSpace(title); }\n",
     ));
   scopeMutation("complete-api-scope", "added endpoint configuration", (root) =>
-    write(root, "appsettings.json", "{\"TodoEndpoints\":{\"Enabled\":true}}\n"));
+    write(root, "CompleteTodoApi/appsettings.json", "{\"TodoEndpoints\":{\"Enabled\":true}}\n"));
+  scopeMutation("complete-api-scope", "root-level duplicate endpoint source", (root) =>
+    write(
+      root,
+      "DuplicateTodoEndpoints.cs",
+      "public static class DuplicateTodoEndpoints { public static void MapDuplicateTodoEndpoints() { } }\n",
+    ));
 
   scopeMutation("csv-dormancy-scope", "non-EF AppDbContext", (root) =>
     write(root, "AppDbContext.cs", "namespace Utility; public sealed class AppDbContext { }\n"));

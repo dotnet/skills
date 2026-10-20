@@ -621,15 +621,15 @@ stimuli:
 
   - name: Leave complete Minimal API CRUD unchanged
     prompt: |
-      Review CompleteTodoEndpoints.cs for these requirements: list/by-id/create/update/delete
+      Review CompleteTodoApi/CompleteTodoEndpoints.cs for these requirements: list/by-id/create/update/delete
       routes, server-assigned IDs, non-empty title validation, async EF Core calls, correct status
       codes, and useful OpenAPI metadata. Fix only a gap in those requirements. If they are already
       complete, explain why and leave the file unchanged.
     tags: { capability: idempotent-complete-api-review, risk: low, journey: verify-existing-api }
     environment:
       files:
-        - { src: fixtures/already-complete/CompleteTodoEndpoints.cs, dest: CompleteTodoEndpoints.cs }
-        - { src: fixtures/already-complete/CompleteTodoApi.csproj, dest: CompleteTodoApi.csproj }
+        - { src: fixtures/already-complete/CompleteTodoEndpoints.cs, dest: CompleteTodoApi/CompleteTodoEndpoints.cs }
+        - { src: fixtures/already-complete/CompleteTodoApi.csproj, dest: CompleteTodoApi/CompleteTodoApi.csproj }
     golden_trajectory:
       inline:
         schema_version: "ATIF-v1.6"
@@ -643,11 +643,11 @@ stimuli:
               - tool_call_id: inspect-complete-api
                 function_name: read_files
                 arguments:
-                  paths: [CompleteTodoEndpoints.cs, CompleteTodoApi.csproj]
+                  paths: [CompleteTodoApi/CompleteTodoEndpoints.cs, CompleteTodoApi/CompleteTodoApi.csproj]
               - tool_call_id: build-complete-api
                 function_name: run_command
                 arguments:
-                  command: dotnet build CompleteTodoApi.csproj --nologo
+                  command: dotnet build CompleteTodoApi/CompleteTodoApi.csproj --nologo
             observation:
               results:
                 - { source_call_id: inspect-complete-api, content: "Found list/by-id/create/update/delete routes, server-assigned IDs, whitespace Title validation, async EF calls, Created/NoContent/NotFound paths, and unique OpenAPI names/descriptions/responses." }
@@ -679,22 +679,24 @@ stimuli:
                 }
                 return result.sort();
               }
-              const source = digest("CompleteTodoEndpoints.cs");
-              const project = digest("CompleteTodoApi.csproj");
-              const files = stagedFiles(".");
+              const fixtureRoot = "CompleteTodoApi";
+              const source = digest(path.join(fixtureRoot, "CompleteTodoEndpoints.cs"));
+              const project = digest(path.join(fixtureRoot, "CompleteTodoApi.csproj"));
+              const files = stagedFiles(".")
+                .filter(file => !file.startsWith("create-datadriven-aspnetcore/"));
               process.exit(
                 source === "d40d2d1e48974e6396fdbff3c8046bea8ce5f424834f1fe7786b09545b581d87"
                 && project === "85504278f61edf39ab8321c61f47b8532cdcc0efec2a29f7b4a42086fbe63c93"
                 && JSON.stringify(files) === JSON.stringify([
-                  "CompleteTodoApi.csproj",
-                  "CompleteTodoEndpoints.cs"
+                  "CompleteTodoApi/CompleteTodoApi.csproj",
+                  "CompleteTodoApi/CompleteTodoEndpoints.cs"
                 ])
                 ? 0 : 1);
           expected_exit_code: 0
       - type: run-command
         config:
           command: dotnet
-          args: [build, CompleteTodoApi.csproj, --nologo]
+          args: [build, CompleteTodoApi/CompleteTodoApi.csproj, --nologo]
           expected_exit_code: 0
           stdout_matches: (Build succeeded|0 Error)
           timeout: 4m
