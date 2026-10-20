@@ -1,33 +1,710 @@
 name: dotnet-aot-compat
 description: Evaluates the dotnet-upgrade/dotnet-aot-compat skill
 type: capability
-config:
-  timeout: 1050s
+defaults:
+  timeout: 18m
+  runs: 1
 stimuli:
-  - name: Make Azure.ResourceManager AOT-compatible
-    prompt: Make the project in the before/ directory AOT-compatible. Do not consult the after/ directory.
+  - name: Replace closed-set command discovery with static registration
+    prompt: |
+      This console app owns its complete set of command implementations, but it currently scans its own assembly and
+      activates every ICommand with reflection. Remove that runtime discovery so the project builds with its enabled
+      compatibility analyzers and still registers both commands with the same names and behavior. Do not suppress the
+      diagnostics or preserve the whole assembly.
+    tags:
+      capability: replace-runtime-discovery
+      risk: high
+      journey: remove-reflection
     environment:
       files:
-        - src: .
+        - src: fixtures/common/global.json
+          dest: global.json
+        - src: fixtures/common/NuGet.Config
+          dest: NuGet.Config
+        - src: fixtures/static-registration
           dest: .
+      commands: &remove-evaluator-helpers
+        - python -c "import shutil; shutil.rmtree('.eval', ignore_errors=True)"
+    graders:
+      - type: file-not-contains
+        config:
+          path: CommandRegistry.cs
+          value: Activator.CreateInstance
+      - type: file-not-contains
+        config:
+          path: CommandRegistry.cs
+          value: .GetTypes(
+      - type: run-command
+        config:
+          command: >-
+            python -c "from pathlib import Path; import hashlib,subprocess;
+            norm=lambda p: Path(p).read_bytes().replace(b'\r\n',b'\n');
+            assert hashlib.sha256(norm('Commands.cs')).hexdigest()=='382bd3e70b611d63478ac863c6d212320a2a31182d4a1a35ac0a56d44fe75633';
+            assert hashlib.sha256(norm('Program.cs')).hexdigest()=='1b64a395b466270d5cbd153198a81f58e0cf87fb9cac834aa18ea0d8fc270f73';
+            assert hashlib.sha256(norm('StaticRegistration.csproj')).hexdigest()=='d81f521c2c56beaf0d2cceb5feadb63e920f013f4b17cccc48d4bb0c6cf3b61b';
+            s=Path('CommandRegistry.cs').read_text();
+            assert 'Activator.CreateInstance' not in s and '.GetTypes(' not in s;
+            assert 'UnconditionalSuppressMessage' not in s and '#pragma warning disable' not in s;
+            assert 'new AddCommand' in s and 'new MultiplyCommand' in s;
+            assert not any(Path(p).exists() for p in ('.editorconfig','.globalconfig','Directory.Build.props','Directory.Build.targets'));
+            assert not list(Path('.').glob('*.rsp'));
+            assert all(x not in Path(p).read_text() for p in Path('.').glob('*.csproj')
+            for x in ('NoWarn','WarningsNotAsErrors','<TreatWarningsAsErrors>false'));
+            r=subprocess.run(['dotnet','build','StaticRegistration.csproj','--nologo','--verbosity','minimal','-warnaserror'],
+            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True); print(r.stdout); assert r.returncode==0;
+            r=subprocess.run(['dotnet','run','--project','StaticRegistration.csproj','--no-build'],
+            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True); print(r.stdout); assert r.returncode==0 and 'PASS' in r.stdout"
+          expected_exit_code: 0
+          stdout_matches: PASS
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Replaced assembly enumeration and runtime construction with direct references to the two known command types
+      - Preserved the command names, return values, and case-sensitive registry behavior
+      - Left the project analyzer-clean without warning suppressions or broad member preservation
+      - Reported the actual build and runtime verification result
+
+  - name: Propagate a constructor requirement through a descriptor
+    prompt: |
+      Fix the trimming analyzer failure in this project without changing its public behavior. Plugin types remain
+      supplied as Type values through PluginDescriptor, and the factory must continue to create them. Express only the
+      member requirement that Activator.CreateInstance needs, and keep the warning visible if a future caller cannot
+      satisfy that contract.
+    tags:
+      capability: preserve-constructor-dataflow
+      risk: high
+      journey: fix-trim-warning
+    environment:
+      files:
+        - src: fixtures/common/global.json
+          dest: global.json
+        - src: fixtures/common/NuGet.Config
+          dest: NuGet.Config
+        - src: fixtures/dam-activation
+          dest: .
+      commands: *remove-evaluator-helpers
     graders:
       - type: file-contains
         config:
-          path: before/Azure.ResourceManager.csproj
-          value: IsAotCompatible
+          path: PluginFactory.cs
+          value: PublicParameterlessConstructor
+      - type: file-not-contains
+        config:
+          path: PluginFactory.cs
+          value: DynamicallyAccessedMemberTypes.All
+      - type: run-command
+        config:
+          command: >-
+            python -c "from pathlib import Path; import hashlib,subprocess;
+            norm=lambda p: Path(p).read_bytes().replace(b'\r\n',b'\n');
+            assert hashlib.sha256(norm('Program.cs')).hexdigest()=='bf9f28501a402a29ba4ce14ce2543f179025b4798a58165d08881574f7ad3209';
+            assert hashlib.sha256(norm('DamActivation.csproj')).hexdigest()=='d81f521c2c56beaf0d2cceb5feadb63e920f013f4b17cccc48d4bb0c6cf3b61b';
+            s=Path('PluginFactory.cs').read_text();
+            assert 'DynamicallyAccessedMembers' in s and 'PublicParameterlessConstructor' in s;
+            assert 'DynamicallyAccessedMemberTypes.All' not in s and 'UnconditionalSuppressMessage' not in s;
+            assert 'RequiresUnreferencedCode' not in s and '#pragma warning disable' not in s;
+            assert not any(Path(p).exists() for p in ('.editorconfig','.globalconfig','Directory.Build.props','Directory.Build.targets'));
+            assert not list(Path('.').glob('*.rsp'));
+            assert all(x not in Path(p).read_text() for p in Path('.').glob('*.csproj')
+            for x in ('NoWarn','WarningsNotAsErrors','<TreatWarningsAsErrors>false'));
+            r=subprocess.run(['dotnet','build','DamActivation.csproj','--nologo','--verbosity','minimal','-warnaserror'],
+            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True); print(r.stdout); assert r.returncode==0;
+            r=subprocess.run(['dotnet','run','--project','DamActivation.csproj','--no-build'],
+            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True); print(r.stdout); assert r.returncode==0 and 'PASS' in r.stdout"
+          expected_exit_code: 0
+          stdout_matches: PASS
+          timeout: 5m
+      - type: exit-success
       - type: prompt
     rubric:
-      - Added IsAotCompatible to the .csproj
-      - Built with AOT/trim analyzers enabled and identified IL warnings
-      - Used DynamicallyAccessedMembers annotations to preserve annotation flow where possible
-      - Used RequiresUnreferencedCode only as a last resort for fundamentally reflection-dependent code
-      - "Did NOT use #pragma warning disable or UnconditionalSuppressMessage for any IL warning. Warnings hidden via
-        suppression do not count as resolved."
-      - Iteratively rebuilt to verify warnings were resolved, working from innermost call sites outward
-      - Used source-generated System.Text.Json instead of reflection-based JSON serialization
-      - "Final build produces 0 IL warnings. Warnings suppressed via #pragma or [UnconditionalSuppressMessage] still
-        count as unresolved."
-    constraints:
-      expect_tools:
-        - bash
-        - dotnet
+      - Carried the public parameterless-constructor requirement from the descriptor input through its stored Type value
+      - Preserved reflection because the caller-selected type remains part of the intended API
+      - Avoided preserving unrelated members, hiding the warning, or marking analyzable code as generally unsafe
+      - Verified both the analyzer-clean build and the original activation behavior
+
+  - name: Remove Type from an untyped argument bag
+    prompt: |
+      RequestDispatcher boxes a handler Type into object[] with the ordinary request arguments. The trim analyzer can
+      no longer follow the constructor requirement through that bag. Refactor the API and its caller so the Type keeps
+      a precise contract while the remaining request values can stay in object[]. Preserve the dispatch result and do
+      not suppress the warning.
+    tags:
+      capability: repair-boxed-type-flow
+      risk: high
+      journey: fix-trim-warning
+    environment:
+      files:
+        - src: fixtures/common/global.json
+          dest: global.json
+        - src: fixtures/common/NuGet.Config
+          dest: NuGet.Config
+        - src: fixtures/boxed-type-flow
+          dest: .
+      commands: *remove-evaluator-helpers
+    graders:
+      - type: file-contains
+        config:
+          path: RequestDispatcher.cs
+          value: PublicParameterlessConstructor
+      - type: file-not-contains
+        config:
+          path: RequestDispatcher.cs
+          value: (Type)arguments[
+      - type: run-command
+        config:
+          command: >-
+            python -c "from pathlib import Path; import hashlib,subprocess;
+            norm=lambda p: Path(p).read_bytes().replace(b'\r\n',b'\n');
+            assert hashlib.sha256(norm('BoxedTypeFlow.csproj')).hexdigest()=='d81f521c2c56beaf0d2cceb5feadb63e920f013f4b17cccc48d4bb0c6cf3b61b';
+            s=Path('RequestDispatcher.cs').read_text(); p=Path('Program.cs').read_text();
+            assert 'DynamicallyAccessedMembers' in s and 'PublicParameterlessConstructor' in s;
+            assert '(Type)arguments[' not in s and 'Dispatch(typeof(EchoHandler)' in p;
+            assert 'if (result != \"HELLO\")' in p and 'throw new InvalidOperationException' in p;
+            assert 'DynamicallyAccessedMemberTypes.All' not in s and 'UnconditionalSuppressMessage' not in s;
+            assert '#pragma warning disable' not in s;
+            assert not any(Path(x).exists() for x in ('.editorconfig','.globalconfig','Directory.Build.props','Directory.Build.targets'));
+            assert not list(Path('.').glob('*.rsp'));
+            assert all(x not in Path(c).read_text() for c in Path('.').glob('*.csproj')
+            for x in ('NoWarn','WarningsNotAsErrors','<TreatWarningsAsErrors>false'));
+            r=subprocess.run(['dotnet','build','BoxedTypeFlow.csproj','--nologo','--verbosity','minimal','-warnaserror'],
+            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True); print(r.stdout); assert r.returncode==0;
+            r=subprocess.run(['dotnet','run','--project','BoxedTypeFlow.csproj','--no-build'],
+            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True); print(r.stdout); assert r.returncode==0 and 'PASS' in r.stdout"
+          expected_exit_code: 0
+          stdout_matches: PASS
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Moved the handler Type to a dedicated parameter whose constructor requirement survives the call chain
+      - Kept only ordinary request data in the object array and updated the caller consistently
+      - Preserved the uppercase dispatch behavior without broad preservation or warning suppression
+      - Reported the analyzer-clean build and runtime check
+
+  - name: Isolate a JIT-only formatter behind a working fallback
+    prompt: |
+      Keep the emitted formatter as the fast path for runtimes that support dynamic code, but make FormatterFactory
+      usable under Native AOT by selecting the existing StaticFormatter there. The analyzer should be clean. Any
+      suppression must cover only a diagnostic proven false by the runtime guard and must explain that invariant.
+    tags:
+      capability: isolate-dynamic-code
+      risk: high
+      journey: support-native-aot
+    environment:
+      files:
+        - src: fixtures/common/global.json
+          dest: global.json
+        - src: fixtures/common/NuGet.Config
+          dest: NuGet.Config
+        - src: fixtures/dynamic-code-island
+          dest: .
+      commands: *remove-evaluator-helpers
+    graders:
+      - type: file-contains
+        config:
+          path: FormatterFactory.cs
+          value: RuntimeFeature.IsDynamicCodeSupported
+      - type: file-contains
+        config:
+          path: FormatterFactory.cs
+          value: new StaticFormatter
+      - type: run-command
+        config:
+          command: >-
+            python -c "from pathlib import Path; import hashlib,subprocess;
+            norm=lambda p: Path(p).read_bytes().replace(b'\r\n',b'\n');
+            assert hashlib.sha256(norm('Program.cs')).hexdigest()=='c470c5d0fdc48140d537efb2db64253ce77348e4054364b8ec9f17bcf6996bd6';
+            assert hashlib.sha256(norm('DynamicCodeIsland.csproj')).hexdigest()=='d81f521c2c56beaf0d2cceb5feadb63e920f013f4b17cccc48d4bb0c6cf3b61b';
+            s=Path('FormatterFactory.cs').read_text();
+            assert 'RuntimeFeature.IsDynamicCodeSupported' in s and 'new StaticFormatter' in s;
+            assert '#pragma warning disable' not in s;
+            assert 'UnconditionalSuppressMessage' not in s or ('\"AOT\"' in s and '\"IL3050\"' in s and 'Justification' in s);
+            assert not any(Path(p).exists() for p in ('.editorconfig','.globalconfig','Directory.Build.props','Directory.Build.targets'));
+            assert not list(Path('.').glob('*.rsp'));
+            assert all(x not in Path(p).read_text() for p in Path('.').glob('*.csproj')
+            for x in ('NoWarn','WarningsNotAsErrors','<TreatWarningsAsErrors>false'));
+            r=subprocess.run(['dotnet','build','DynamicCodeIsland.csproj','--nologo','--verbosity','minimal','-warnaserror'],
+            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True); print(r.stdout); assert r.returncode==0;
+            r=subprocess.run(['dotnet','run','--project','DynamicCodeIsland.csproj','--no-build'],
+            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True); print(r.stdout); assert r.returncode==0 and 'PASS' in r.stdout"
+          expected_exit_code: 0
+          stdout_matches: PASS
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Centralized the dynamic-code decision and retained a behaviorally equivalent static implementation
+      - Scoped any IL3050 suppression to the guarded construction point with a concrete justification
+      - Did not use the runtime feature check as a substitute for a trimming contract
+      - Verified the build and formatter behavior
+
+  - name: Mark an open-ended generic factory honestly
+    prompt: |
+      RuntimeGenericFactory intentionally receives an open generic type and argument Type from a plugin at runtime.
+      That extensibility contract cannot be replaced with a closed list. Make the public API accurately communicate
+      both limitations so the library builds with its analyzers, without claiming that a suppression or broad member
+      annotation makes arbitrary native code available.
+    tags:
+      capability: declare-runtime-generic-boundary
+      risk: high
+      journey: design-compatible-api
+    environment:
+      files:
+        - src: fixtures/common/global.json
+          dest: global.json
+        - src: fixtures/common/NuGet.Config
+          dest: NuGet.Config
+        - src: fixtures/open-generic-boundary
+          dest: .
+      commands: *remove-evaluator-helpers
+    graders:
+      - type: file-contains
+        config:
+          path: RuntimeGenericFactory.cs
+          value: RequiresDynamicCode
+      - type: file-contains
+        config:
+          path: RuntimeGenericFactory.cs
+          value: RequiresUnreferencedCode
+      - type: run-command
+        config:
+          command: >-
+            python -c "from pathlib import Path; import hashlib,subprocess;
+            norm=lambda p: Path(p).read_bytes().replace(b'\r\n',b'\n');
+            assert hashlib.sha256(norm('OpenGenericBoundary.csproj')).hexdigest()=='9bfbf1b1a84eb2b18639521387d83b60a9438e59394601d5abe6d4b238d2ec41';
+            s=Path('RuntimeGenericFactory.cs').read_text();
+            assert 'RequiresDynamicCode' in s and 'RequiresUnreferencedCode' in s;
+            assert 'UnconditionalSuppressMessage' not in s and '#pragma warning disable' not in s;
+            assert not any(Path(p).exists() for p in ('.editorconfig','.globalconfig','Directory.Build.props','Directory.Build.targets'));
+            assert not list(Path('.').glob('*.rsp'));
+            assert all(x not in Path(p).read_text() for p in Path('.').glob('*.csproj')
+            for x in ('NoWarn','WarningsNotAsErrors','<TreatWarningsAsErrors>false'));
+            r=subprocess.run(['dotnet','build','OpenGenericBoundary.csproj','--nologo','--verbosity','minimal','-warnaserror'],
+            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True); print(r.stdout); assert r.returncode==0"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Exposed both the runtime-code-generation and trimming limitations at the caller-visible boundary
+      - Kept the intentional open-ended plugin contract rather than inventing a closed registry
+      - Avoided unconditional suppression, pragma suppression, or a false claim that all generic instantiations exist
+      - Verified the analyzer-clean library build
+
+  - name: Replace reflective JSON metadata with generated metadata
+    prompt: |
+      Fix the IL2026 and IL3050 failures in this small serializer while preserving its JSON output. Message is owned by
+      this project and is the only serialized type. Remove runtime metadata discovery instead of propagating or
+      suppressing the warnings, then run the supplied program.
+    tags:
+      capability: use-generated-json-metadata
+      risk: high
+      journey: remove-reflection
+    environment:
+      files:
+        - src: fixtures/common/global.json
+          dest: global.json
+        - src: fixtures/common/NuGet.Config
+          dest: NuGet.Config
+        - src: fixtures/json-source-generation
+          dest: .
+      commands: *remove-evaluator-helpers
+    graders:
+      - type: file-contains
+        config:
+          path: MessageSerializer.cs
+          value: JsonSerializerContext
+      - type: file-contains
+        config:
+          path: MessageSerializer.cs
+          value: Default.Message
+      - type: run-command
+        config:
+          command: >-
+            python -c "from pathlib import Path; import hashlib,subprocess;
+            norm=lambda p: Path(p).read_bytes().replace(b'\r\n',b'\n');
+            assert hashlib.sha256(norm('Program.cs')).hexdigest()=='bca523ee60f0bc834eb27b86d756f10a7934fabdef26e96c65f1f9e9a69a235a';
+            assert hashlib.sha256(norm('JsonSourceGeneration.csproj')).hexdigest()=='d81f521c2c56beaf0d2cceb5feadb63e920f013f4b17cccc48d4bb0c6cf3b61b';
+            s=Path('MessageSerializer.cs').read_text();
+            all_sources='\\n'.join(p.read_text() for p in Path('.').glob('*.cs'));
+            assert 'JsonSerializerContext' in all_sources and 'JsonSerializable' in all_sources;
+            assert 'Default.Message' in s and 'Serialize((object)' not in s and 'new JsonSerializerOptions' not in s;
+            assert 'RequiresUnreferencedCode' not in all_sources and 'UnconditionalSuppressMessage' not in all_sources;
+            assert '#pragma warning disable' not in all_sources;
+            assert not any(Path(p).exists() for p in ('.editorconfig','.globalconfig','Directory.Build.props','Directory.Build.targets'));
+            assert not list(Path('.').glob('*.rsp'));
+            assert all(x not in Path(p).read_text() for p in Path('.').glob('*.csproj')
+            for x in ('NoWarn','WarningsNotAsErrors','<TreatWarningsAsErrors>false'));
+            r=subprocess.run(['dotnet','build','JsonSourceGeneration.csproj','--nologo','--verbosity','minimal','-warnaserror'],
+            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True); print(r.stdout); assert r.returncode==0;
+            r=subprocess.run(['dotnet','run','--project','JsonSourceGeneration.csproj','--no-build'],
+            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True); print(r.stdout); assert r.returncode==0 and 'PASS' in r.stdout"
+          expected_exit_code: 0
+          stdout_matches: PASS
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Added generated metadata for Message and used it at the serialization call
+      - Preserved the exact Text and Priority JSON values
+      - Removed the reflection-oriented overload without moving the warnings to callers or suppressing them
+      - Reported the analyzer-clean build and runtime verification
+
+  - name: Replace a fixed private-field lookup with a static accessor
+    prompt: |
+      CounterInterop must read the fixed `_count` field from the sealed VendorCounter type, which comes from a package
+      we cannot change. Remove the FieldInfo lookup and keep the same result on .NET 9. The field name and owning type
+      are compile-time constants; do not keep reflection or hide warnings.
+    tags:
+      capability: replace-private-member-reflection
+      risk: medium
+      journey: remove-reflection
+    environment:
+      files:
+        - src: fixtures/common/global.json
+          dest: global.json
+        - src: fixtures/common/NuGet.Config
+          dest: NuGet.Config
+        - src: fixtures/unsafe-accessor
+          dest: .
+      commands: *remove-evaluator-helpers
+    graders:
+      - type: file-contains
+        config:
+          path: CounterInterop.cs
+          value: UnsafeAccessorKind.Field
+      - type: file-not-contains
+        config:
+          path: CounterInterop.cs
+          value: .GetField(
+      - type: run-command
+        config:
+          command: >-
+            python -c "from pathlib import Path; import hashlib,subprocess;
+            norm=lambda p: Path(p).read_bytes().replace(b'\r\n',b'\n');
+            assert hashlib.sha256(norm('VendorCounter.cs')).hexdigest()=='02f739adcba2b68d70e919b84558f851c47d58d3174f38cb19f512e233c040f7';
+            assert hashlib.sha256(norm('Program.cs')).hexdigest()=='dfbde32d2fec4e3262cdbd0d05d51825ad4f68c9d8343bc604f2d1ab5bafce50';
+            assert hashlib.sha256(norm('UnsafeAccessor.csproj')).hexdigest()=='d81f521c2c56beaf0d2cceb5feadb63e920f013f4b17cccc48d4bb0c6cf3b61b';
+            s=Path('CounterInterop.cs').read_text();
+            assert 'UnsafeAccessor' in s and 'UnsafeAccessorKind.Field' in s;
+            assert 'Name' in s and '\"_count\"' in s and '.GetField(' not in s and 'FieldInfo' not in s;
+            assert 'RequiresUnreferencedCode' not in s and 'UnconditionalSuppressMessage' not in s;
+            assert not any(Path(p).exists() for p in ('.editorconfig','.globalconfig','Directory.Build.props','Directory.Build.targets'));
+            assert not list(Path('.').glob('*.rsp'));
+            assert all(x not in Path(p).read_text() for p in Path('.').glob('*.csproj')
+            for x in ('NoWarn','WarningsNotAsErrors','<TreatWarningsAsErrors>false'));
+            r=subprocess.run(['dotnet','build','UnsafeAccessor.csproj','--nologo','--verbosity','minimal','-warnaserror'],
+            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True); print(r.stdout); assert r.returncode==0;
+            r=subprocess.run(['dotnet','run','--project','UnsafeAccessor.csproj','--no-build'],
+            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True); print(r.stdout); assert r.returncode==0 and 'PASS' in r.stdout"
+          expected_exit_code: 0
+          stdout_matches: PASS
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Replaced reflection with a compiler-bound field accessor whose signature names the fixed target type
+      - Used a distinct C# accessor method name and the correct field accessor shape
+      - Preserved the counter value without broad preservation, caller warnings, or suppression
+      - Verified the build and runtime behavior
+
+  - name: Preserve an intentional caller-selected assembly scan as a warning boundary
+    prompt: |
+      PluginCatalog is deliberately a dynamic extension point: callers pass an arbitrary assembly path, so replacing
+      it with a fixed registry would break the contract. Make the library analyzer-clean by exposing the real trimming
+      limitation to callers. Do not suppress it, root an entire assembly, or imply that the scan is safe in trimmed
+      applications.
+    tags:
+      capability: declare-assembly-scanning-boundary
+      risk: high
+      journey: design-compatible-api
+    environment:
+      files:
+        - src: fixtures/common/global.json
+          dest: global.json
+        - src: fixtures/common/NuGet.Config
+          dest: NuGet.Config
+        - src: fixtures/intentional-scanning-boundary
+          dest: .
+      commands: *remove-evaluator-helpers
+    graders:
+      - type: file-contains
+        config:
+          path: PluginCatalog.cs
+          value: RequiresUnreferencedCode
+      - type: file-not-contains
+        config:
+          path: PluginCatalog.cs
+          value: UnconditionalSuppressMessage
+      - type: run-command
+        config:
+          command: >-
+            python -c "from pathlib import Path; import hashlib,subprocess;
+            norm=lambda p: Path(p).read_bytes().replace(b'\r\n',b'\n');
+            assert hashlib.sha256(norm('IntentionalScanningBoundary.csproj')).hexdigest()=='9bfbf1b1a84eb2b18639521387d83b60a9438e59394601d5abe6d4b238d2ec41';
+            s=Path('PluginCatalog.cs').read_text(); lower=s.lower();
+            assert 'RequiresUnreferencedCode' in s and 'assembly' in lower;
+            assert any(word in lower for word in ('scan','discover','load','reflect'));
+            assert 'UnconditionalSuppressMessage' not in s and 'DynamicallyAccessedMemberTypes.All' not in s;
+            assert '#pragma warning disable' not in s;
+            assert not any(Path(p).exists() for p in ('.editorconfig','.globalconfig','Directory.Build.props','Directory.Build.targets'));
+            assert not list(Path('.').glob('*.rsp'));
+            assert all(x not in Path(p).read_text() for p in Path('.').glob('*.csproj')
+            for x in ('NoWarn','WarningsNotAsErrors','<TreatWarningsAsErrors>false'));
+            r=subprocess.run(['dotnet','build','IntentionalScanningBoundary.csproj','--nologo','--verbosity','minimal','-warnaserror'],
+            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True); print(r.stdout); assert r.returncode==0"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Kept the caller-selected assembly behavior and marked its public boundary as unsupported for trimming
+      - Used a message that explains why loaded types cannot be statically retained
+      - Rejected broad preservation and suppression as false compatibility claims
+      - Verified the analyzer-clean library build
+
+  - name: Configure a trimmable library with a permanent JIT-only feature
+    prompt: |
+      This library targets netstandard2.1 and net9.0. Its optional proxy API intentionally uses Reflection.Emit and
+      will remain JIT-only, but the rest of the net9.0 surface should be checked for trimming problems. Configure the
+      strongest honest compatibility property without producing warnings on the older target, then build all target
+      frameworks.
+    tags:
+      capability: select-trimmable-property
+      risk: medium
+      journey: configure-library-analysis
+    environment:
+      files:
+        - src: fixtures/common/global.json
+          dest: global.json
+        - src: fixtures/common/NuGet.Config
+          dest: NuGet.Config
+        - src: fixtures/trimmable-jit-library
+          dest: .
+      commands: *remove-evaluator-helpers
+    graders:
+      - type: file-contains
+        config:
+          path: TrimmableJitLibrary.csproj
+          value: IsTrimmable
+      - type: file-not-contains
+        config:
+          path: TrimmableJitLibrary.csproj
+          value: <IsAotCompatible
+      - type: run-command
+        config:
+          command: >-
+            python -c "from pathlib import Path; import hashlib,subprocess;
+            norm=lambda p: Path(p).read_bytes().replace(b'\r\n',b'\n');
+            assert hashlib.sha256(norm('DynamicProxyFactory.cs')).hexdigest()=='018e5bd2f61aaf1272acaa184ab64604dfc03778271c171d7db1ae5dcfd5cf31';
+            p=Path('TrimmableJitLibrary.csproj').read_text();
+            assert '<IsTrimmable' in p and 'Condition=' in p and '<IsAotCompatible' not in p;
+            assert not any(Path(x).exists() for x in ('.editorconfig','.globalconfig','Directory.Build.props','Directory.Build.targets'));
+            assert not list(Path('.').glob('*.rsp'));
+            assert all(x not in Path(c).read_text() for c in Path('.').glob('*.csproj')
+            for x in ('NoWarn','WarningsNotAsErrors','<TreatWarningsAsErrors>false'));
+            r=subprocess.run(['dotnet','build','TrimmableJitLibrary.csproj','--nologo','--verbosity','minimal','-warnaserror'],
+            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True); print(r.stdout); assert r.returncode==0"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Enabled trimming analysis only on compatible target frameworks
+      - Did not claim Native AOT support while the intentional emitted-code API remains
+      - Kept both target frameworks buildable without NETSDK1212 or analyzer warnings
+      - Reported the all-target build result
+
+  - name: Upgrade a clean library to the strongest compatibility declaration
+    prompt: |
+      This net9.0 library already enables trim analysis and contains no JIT-only or runtime-discovery features. Update
+      the project to make the strongest accurate compatibility declaration without redundant properties, then verify
+      the library remains warning-free.
+    tags:
+      capability: select-aot-compatible-property
+      risk: medium
+      journey: configure-library-analysis
+    environment:
+      files:
+        - src: fixtures/common/global.json
+          dest: global.json
+        - src: fixtures/common/NuGet.Config
+          dest: NuGet.Config
+        - src: fixtures/aot-compatible-library
+          dest: .
+      commands: *remove-evaluator-helpers
+    graders:
+      - type: file-contains
+        config:
+          path: AotCompatibleLibrary.csproj
+          value: <IsAotCompatible>true</IsAotCompatible>
+      - type: file-not-contains
+        config:
+          path: AotCompatibleLibrary.csproj
+          value: <IsTrimmable
+      - type: run-command
+        config:
+          command: >-
+            python -c "from pathlib import Path; import hashlib,subprocess;
+            norm=lambda p: Path(p).read_bytes().replace(b'\r\n',b'\n');
+            assert hashlib.sha256(norm('Slug.cs')).hexdigest()=='4c875a2b50467024c05850b75bca5d75f2c6ad5c88bc718af28f06baebcbf7c4';
+            p=Path('AotCompatibleLibrary.csproj').read_text();
+            assert '<IsAotCompatible>true</IsAotCompatible>' in p and '<IsTrimmable' not in p;
+            assert not any(Path(x).exists() for x in ('.editorconfig','.globalconfig','Directory.Build.props','Directory.Build.targets'));
+            assert not list(Path('.').glob('*.rsp'));
+            assert all(x not in Path(c).read_text() for c in Path('.').glob('*.csproj')
+            for x in ('NoWarn','WarningsNotAsErrors','<TreatWarningsAsErrors>false'));
+            r=subprocess.run(['dotnet','build','AotCompatibleLibrary.csproj','--nologo','--verbosity','minimal','-warnaserror'],
+            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True); print(r.stdout); assert r.returncode==0"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Replaced the narrower trim-only declaration with the AOT compatibility declaration
+      - Avoided keeping redundant project properties
+      - Did not add annotations or suppressions to reflection-free source
+      - Verified the warning-free library build
+
+  - name: Leave an already-compatible project unchanged
+    prompt: |
+      Review this small net9.0 app for AOT and trimming work. It already declares compatibility, builds with warnings
+      treated as errors, and has no reflection or dynamic-code paths. If the supplied build and runtime check confirm
+      that state, leave every source and project file byte-for-byte unchanged and report that no migration is needed.
+    tags:
+      capability: recognize-already-compatible
+      risk: low
+      journey: verify-existing-compatibility
+    environment:
+      files:
+        - src: fixtures/common/global.json
+          dest: global.json
+        - src: fixtures/common/NuGet.Config
+          dest: NuGet.Config
+        - src: fixtures/already-compatible
+          dest: .
+      commands: *remove-evaluator-helpers
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(already compatible|no (changes|migration|work) (are |is )?(needed|required)|left.*unchanged)
+      - type: run-command
+        config:
+          command: >-
+            python -c "from pathlib import Path; import hashlib,subprocess;
+            norm=lambda p: Path(p).read_bytes().replace(b'\r\n',b'\n');
+            assert hashlib.sha256(norm('AlreadyCompatible.csproj')).hexdigest()=='d81f521c2c56beaf0d2cceb5feadb63e920f013f4b17cccc48d4bb0c6cf3b61b';
+            assert hashlib.sha256(norm('Program.cs')).hexdigest()=='9eeeecb0ca5688badfb2cea6fd3808ed287ffab70459b9596b59d6f64dd7d63c';
+            assert not any(Path(x).exists() for x in ('.editorconfig','.globalconfig','Directory.Build.props','Directory.Build.targets'));
+            assert not list(Path('.').glob('*.rsp'));
+            assert all(x not in Path(c).read_text() for c in Path('.').glob('*.csproj')
+            for x in ('NoWarn','WarningsNotAsErrors','<TreatWarningsAsErrors>false'));
+            r=subprocess.run(['dotnet','build','AlreadyCompatible.csproj','--nologo','--verbosity','minimal','-warnaserror'],
+            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True); print(r.stdout); assert r.returncode==0;
+            r=subprocess.run(['dotnet','run','--project','AlreadyCompatible.csproj','--no-build'],
+            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True); print(r.stdout); assert r.returncode==0 and 'PASS' in r.stdout"
+          expected_exit_code: 0
+          stdout_matches: PASS
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Confirmed the project declaration, analyzer-clean build, and runtime behavior before concluding
+      - Left the complete source and project configuration unchanged
+      - Did not invent warnings, annotations, suppressions, or redundant properties
+      - Reported that no compatibility migration was required
+
+  - name: Stay dormant for ordinary JIT reflection semantics
+    prompt: |
+      My net9.0 service is deployed normally with the JIT. It is not trimmed and will not use Native AOT. A helper
+      calls GetProperties with Public and Instance binding flags, and I need an explanation of whether inherited
+      public properties are returned and how hidden properties behave. Please explain the runtime reflection semantics
+      only; I am not changing deployment mode.
+    expect_activation: false
+    tags:
+      capability: boundary-jit-reflection
+      risk: routing
+      journey: avoid-over-broad-activation
+    graders:
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Answered the BindingFlags and inherited-property question directly
+      - Did not turn an ordinary runtime-reflection question into a trimming or AOT migration
+      - Did not apply AOT compatibility remediation to an explicitly JIT-only application
+      - Did not propose compatibility properties, annotations, generated registration, or publishing changes
+
+  - name: Stay dormant for JIT-only reflection performance work
+    prompt: |
+      BenchmarkDotNet shows Activator.CreateInstance is slower than a cached delegate in a JIT-only net9.0 service.
+      Help me design a benchmark and reduce the hot-path latency. We do not trim or publish with Native AOT, and there
+      are no IL analyzer warnings.
+    expect_activation: false
+    tags:
+      capability: boundary-jit-performance
+      risk: routing
+      journey: avoid-over-broad-activation
+    graders:
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Focused on benchmark validity, caching, allocations, and JIT runtime performance
+      - Did not apply AOT compatibility guidance to a performance-only request
+      - Did not introduce trim annotations or claim that reflection must be removed for compatibility
+      - Kept the response within the stated non-AOT deployment
+
+  - name: Stay dormant for an unrelated analyzer warning
+    prompt: |
+      Fix CA2000 in this ordinary net9.0 method: a FileStream is created and returned only on one branch, while another
+      branch throws before ownership transfers. I need correct disposal and exception behavior. There are no IL2xxx or
+      IL3xxx diagnostics and this project is not being trimmed.
+    expect_activation: false
+    tags:
+      capability: boundary-non-il-analyzer
+      risk: routing
+      journey: redirect-out-of-scope
+    graders:
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Addressed resource ownership and disposal for CA2000
+      - Did not apply trimming or AOT remediation to an unrelated analyzer diagnostic
+      - Did not redirect the request into reflection, trimming, or Native AOT work
+      - Preserved the exception and ownership semantics described by the user
+
+  - name: Stay dormant for native binary publishing
+    prompt: |
+      The app already has IsAotCompatible=true, zero analyzer warnings, and a passing native smoke test. Give me the
+      release command and deployment checklist to publish a self-contained linux-x64 Native AOT binary and package it
+      in our container image. Do not review or change the source.
+    expect_activation: false
+    tags:
+      capability: boundary-native-publishing
+      risk: routing
+      journey: redirect-out-of-scope
+    graders:
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Provided publishing and deployment guidance for the already-compatible project
+      - Did not apply source-compatibility remediation when the request was only to publish
+      - Did not restart source migration or analyzer-warning remediation
+      - Kept the response read-only as requested
+
+  - name: Stay dormant for .NET Framework modernization planning
+    prompt: |
+      Our net48 WinForms application uses reflection for add-ins. We are planning a future move to modern .NET, but
+      today I only need a staged framework-migration plan and a risk inventory. Do not edit the current project.
+    expect_activation: false
+    tags:
+      capability: boundary-net-framework
+      risk: routing
+      journey: defer-until-retargeted
+    graders:
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Treated the request as .NET Framework modernization planning
+      - Did not apply modern trimming attributes or compatibility properties to the net48 project
+      - Kept the current project unchanged and identified retargeting as a prerequisite for later AOT work
