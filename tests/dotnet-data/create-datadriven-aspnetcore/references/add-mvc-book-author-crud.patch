@@ -455,14 +455,16 @@ diff --git a/fixtures/mvc-existing-dbcontext/Models/Book.cs b/fixtures/mvc-exist
 index aed126c..39c0ae4 100644
 --- a/fixtures/mvc-existing-dbcontext/Models/Book.cs
 +++ b/fixtures/mvc-existing-dbcontext/Models/Book.cs
-@@ -13,6 +13,7 @@ public class Book
+@@ -13,7 +13,8 @@ public class Book
      [Range(1, 10000)]
      public int PublicationYear { get; set; }
 
 +    [Range(1, int.MaxValue, ErrorMessage = "Select an author.")]
      public int AuthorId { get; set; }
 
-     public Author Author { get; set; } = null!;
+-    public Author Author { get; set; } = null!;
++    public Author? Author { get; set; }
+ }
 diff --git a/fixtures/mvc-existing-dbcontext/Program.cs b/fixtures/mvc-existing-dbcontext/Program.cs
 index b41301d..ba5a5d5 100644
 --- a/fixtures/mvc-existing-dbcontext/Program.cs

@@ -1254,6 +1254,16 @@ function validateMvc() {
   checkContext("CatalogDbContext", ["Book", "Author"], false);
   const contextClasses = [...cs.matchAll(/class\s+(\w+)[^{:\n]*(?::[^{\n]*\bDbContext\b|\([^)]*DbContextOptions)/g)].map((match) => match[1]);
   fail(contextClasses.length === 1 && contextClasses[0] === "CatalogDbContext", "MVC must reuse CatalogDbContext and must not add a second DbContext.");
+  const bookModel = requireFile(/(?:^|\/)Models\/Book\.cs$/i, "Book model");
+  const authorNavigation = activeSource(bookModel).match(
+    /((?:\[[^\]\r\n]+\]\s*)*)public\s+(?:virtual\s+)?Author(\?)?\s+Author\b/,
+  );
+  fail(
+    Boolean(authorNavigation) &&
+      (authorNavigation[2] === "?" ||
+        /\bValidateNever(?:Attribute)?\b/.test(authorNavigation[1])),
+    "Book.Author must not be implicitly required during scalar form validation.",
+  );
 
   validateController("Book");
   validateController("Author");

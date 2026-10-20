@@ -189,7 +189,7 @@ function scopeIsValid(contract, root) {
       "CompleteTodoEndpoints.cs",
     ]) &&
       digest(root, "CompleteTodoEndpoints.cs") === "d40d2d1e48974e6396fdbff3c8046bea8ce5f424834f1fe7786b09545b581d87" &&
-      digest(root, "CompleteTodoApi.csproj") === "1d58c3bb174ef3ea30ac7cc78ee70972379196cd7a22177dfcfdeeb6af9057e7";
+      digest(root, "CompleteTodoApi.csproj") === "85504278f61edf39ab8321c61f47b8532cdcc0efec2a29f7b4a42086fbe63c93";
   }
   return JSON.stringify(files) === JSON.stringify([
     "CsvReportWriter.cs",
@@ -2086,6 +2086,27 @@ function testMvcEditLayouts() {
     ));
 }
 
+function testMvcNavigationValidationLayouts() {
+  const root = cloneForMutation("mvc", "validate-never-navigation-layout");
+  replace(
+    root,
+    "Models/Book.cs",
+    "using System.ComponentModel.DataAnnotations;",
+    `using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;`,
+    1,
+  );
+  replace(
+    root,
+    "Models/Book.cs",
+    "    public Author? Author { get; set; }",
+    `    [ValidateNever]
+    public Author Author { get; set; } = null!;`,
+    1,
+  );
+  expectPass("mvc", root, "ValidateNever navigation layout");
+}
+
 function mvcMutations() {
   const books = "Controllers/BooksController.cs";
   mutation("mvc", "remove list flow", (root) =>
@@ -2127,6 +2148,42 @@ function mvcMutations() {
     replace(root, books, "context.Books.Remove(book)", "_ = book"));
   mutation("mvc", "remove validation", (root) =>
     replace(root, books, /ModelState\.IsValid/g, "true"));
+  mutation("mvc", "Book navigation is implicitly required", (root) =>
+    replace(root, "Models/Book.cs", "public Author? Author { get; set; }", "public Author Author { get; set; } = null!;", 1));
+  mutation("mvc", "commented nullable Book navigation decoy", (root) =>
+    replace(
+      root,
+      "Models/Book.cs",
+      "    public Author? Author { get; set; }",
+      `    // public Author? Author { get; set; }
+    public Author Author { get; set; } = null!;`,
+      1,
+    ));
+  mutation("mvc", "ValidateNever applied to AuthorId instead of Book navigation", (root) => {
+    replace(
+      root,
+      "Models/Book.cs",
+      "using System.ComponentModel.DataAnnotations;",
+      `using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;`,
+      1,
+    );
+    replace(
+      root,
+      "Models/Book.cs",
+      "    public int AuthorId { get; set; }",
+      `    [ValidateNever]
+    public int AuthorId { get; set; }`,
+      1,
+    );
+    replace(
+      root,
+      "Models/Book.cs",
+      "    public Author? Author { get; set; }",
+      "    public Author Author { get; set; } = null!;",
+      1,
+    );
+  });
   for (const action of ["Create", "Edit"]) {
     mutation("mvc", `Book ${action} removes submitted AuthorId validation`, (root) =>
       replace(
@@ -3082,6 +3139,7 @@ try {
   razorMutations();
   todoMutations();
   testMvcEditLayouts();
+  testMvcNavigationValidationLayouts();
   mvcMutations();
   testParentApiHandlerLayouts();
   testParentApiErrorConditionLayouts();
