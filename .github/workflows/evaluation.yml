@@ -898,7 +898,7 @@ jobs:
 
       - name: Download all result artifacts
         if: needs.evaluate.result != 'skipped'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: vally-results-*
           path: all-results/
@@ -1129,7 +1129,7 @@ jobs:
           persist-credentials: false
 
       - name: Download evaluation artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: vally-results-*
           path: all-results/
@@ -1341,7 +1341,7 @@ jobs:
       - name: Download evaluation artifacts
         id: download
         if: steps.auth.outcome == 'success' && steps.checkout.outcome == 'success'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: vally-results-*
           path: all-results/
@@ -1509,7 +1509,7 @@ jobs:
           persist-credentials: false
 
       - name: Download evaluation artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: vally-results-*
           path: all-results/
@@ -1721,7 +1721,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 20
 
