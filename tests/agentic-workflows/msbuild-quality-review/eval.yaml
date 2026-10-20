@@ -104,13 +104,12 @@ stimuli:
       - Identified the shared source-tree Version.cs output and concrete collision/stale-content risk across consumers and target frameworks.
       - Proposed isolated intermediate output and sound cleanup/incremental ownership rather than generic performance advice.
   - name: Accept a valid required import in the packed layout
-    expect_activation: true
     prompt: |
       A contributor added a package import. Review the supplied diff, full
       files, and packaging map in inputs/ to decide whether an actionable
       defect exists. Read RESULT_SCHEMA.md, write result.json, and briefly
       explain your proposed action. Do not build or modify the package.
-    tags: {capability: packed-import-validation, risk: false-import-warning, journey: review-package-extension}
+    tags: {capability: packed-import-validation, risk: false-import-warning, journey: review-package-extension, expect_activation: "true"}
     environment:
       files: [*contract, *grader, {src: fixtures/packed, dest: inputs}, {src: fixtures/packed/workflow-context.json, dest: workflow-context.json}]
     graders:
@@ -135,13 +134,12 @@ stimuli:
       - Chose no-op because the nuspec supplies the required imported target at the projected package path.
       - Did not flag normalized evaluator backslashes or require an Exists guard that would hide a broken required package contract.
   - name: Preserve explicit FSharp compilation order
-    expect_activation: true
     prompt: |
       Review the changed project and its two source files in inputs/.
       Decide whether the added entries introduce an actionable defect.
       Read RESULT_SCHEMA.md, write the proposed action to result.json,
       and explain it. Leave all source and configuration unchanged.
-    tags: {capability: language-item-semantics, risk: broken-source-order, journey: review-fsharp-project}
+    tags: {capability: language-item-semantics, risk: broken-source-order, journey: review-fsharp-project, expect_activation: "true"}
     environment:
       files: [*contract, *grader, {src: fixtures/fsharp, dest: inputs}, {src: fixtures/fsharp/workflow-context.json, dest: workflow-context.json}]
     graders:
@@ -166,13 +164,12 @@ stimuli:
       - Chose no-op for the correct explicit F# source order.
       - Did not recommend removing ordered Compile Include entries based on C# SDK assumptions.
   - name: Filter intentionally broken fixture changes
-    expect_activation: true
     prompt: |
       Review the changed project infrastructure listed in inputs/context.json
       using the supplied repository exclusions. Read RESULT_SCHEMA.md,
       write the proposed action to result.json, and summarize the decision.
       Do not execute or repair the intentionally broken sample files.
-    tags: {capability: exclusion-filtering, risk: fixture-noise, journey: review-test-assets}
+    tags: {capability: exclusion-filtering, risk: fixture-noise, journey: review-test-assets, expect_activation: "true"}
     environment:
       files: [*contract, *grader, {src: fixtures/excluded, dest: inputs}, {src: fixtures/excluded/workflow-context.json, dest: workflow-context.json}]
     graders:
@@ -197,13 +194,12 @@ stimuli:
       - Applied both common fixture exclusions and the configured test-assets exclusion, resulting in no-op.
       - Did not review, fix, or publish warnings for excluded files.
   - name: Decline publication after the base revision changes
-    expect_activation: true
     prompt: |
       Review this changed build policy using the initial and latest PR
       reads in inputs/context.json. Decide what response is safe now.
       Read RESULT_SCHEMA.md, write result.json, and summarize the proposed
       action without executing code or modifying the repository.
-    tags: {capability: review-base-freshness, risk: obsolete-review, journey: handle-base-update}
+    tags: {capability: review-base-freshness, risk: obsolete-review, journey: handle-base-update, expect_activation: "true"}
     environment:
       files: [*contract, *grader, {src: fixtures/stale, dest: inputs}, {src: fixtures/stale/workflow-context.json, dest: workflow-context.json}]
     graders:
@@ -228,13 +224,12 @@ stimuli:
       - Chose no-op because the base revision moved even though the PR head did not.
       - Did not propose submitting a review against an obsolete analysis snapshot.
   - name: Avoid findings when the changed file cannot be read
-    expect_activation: true
     prompt: |
       The PR file listing and read diagnostics are in inputs/context.json.
       Decide whether a supported review can be proposed with this evidence.
       Read RESULT_SCHEMA.md, write the proposed action to result.json,
       and explain any gaps. Do not fetch other data or guess file contents.
-    tags: {capability: incomplete-review-evidence, risk: speculative-finding, journey: handle-truncated-diff}
+    tags: {capability: incomplete-review-evidence, risk: speculative-finding, journey: handle-truncated-diff, expect_activation: "true"}
     environment:
       files: [*contract, *grader, {src: fixtures/missing, dest: inputs}, {src: fixtures/missing/workflow-context.json, dest: workflow-context.json}]
     graders:

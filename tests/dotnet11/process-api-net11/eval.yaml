@@ -434,8 +434,8 @@ stimuli:
     prompt: |
       I have a .NET 8 console app and I need to start a process 'notepad.exe'.
       Show me a minimal C# program and the `.csproj` XML targeting `net8.0` that starts this process using the traditional Process.Start. Print both in your response.
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: framework-version-boundary
       risk: unsupported-net8-api
       journey: launch-legacy-framework-process
@@ -494,8 +494,8 @@ stimuli:
       I'm on a `.NET 10` project (`net10.0`). I need to run `git` with the argument `status`
       and capture its standard output into a string. Show a minimal C# program and the
       `.csproj` XML targeting `net10.0`, and print both.
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: framework-version-boundary
       risk: unsupported-net10-api
       journey: capture-legacy-framework-output

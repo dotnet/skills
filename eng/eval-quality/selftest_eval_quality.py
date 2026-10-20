@@ -632,6 +632,73 @@ def explicit_regex_flags_are_honored(d):
         ]), f)
 
 
+def nested_regex_flags_are_rejected(d):
+    eval_path = EV(d)
+    with open(eval_path) as f:
+        raw = f.read()
+    with open(eval_path, "w") as f:
+        f.write(raw.replace(
+            "    rubric:\n",
+            "    graders:\n"
+            "      - type: output-matches\n"
+            "        config:\n"
+            "          pattern: (?is)start(?m)^line$\n"
+            "    rubric:\n",
+            1))
+
+
+def conditional_regex_groups_are_rejected(d):
+    eval_path = EV(d)
+    with open(eval_path) as f:
+        raw = f.read()
+    with open(eval_path, "w") as f:
+        f.write(raw.replace(
+            "    rubric:\n",
+            "    graders:\n"
+            "      - type: output-matches\n"
+            "        config:\n"
+            "          pattern: (?i)(a)?value(?(1)a)\n"
+            "    rubric:\n",
+            1))
+
+
+def python_named_regex_groups_are_rejected(d):
+    eval_path = EV(d)
+    with open(eval_path) as f:
+        raw = f.read()
+    with open(eval_path, "w") as f:
+        f.write(raw.replace(
+            "    rubric:\n",
+            "    graders:\n"
+            "      - type: output-matches\n"
+            "        config:\n"
+            "          pattern: (?P<name>Thing)\n"
+            "    rubric:\n",
+            1))
+
+
+def optional_named_backreference_uses_javascript_semantics(d):
+    transcript_grader_with_trajectory(d)
+    eval_path = EV(d)
+    with open(eval_path) as f:
+        raw = f.read()
+    pattern = (
+        r"""(?i)--filter-method\s+(?<quote>["'])?"""
+        r"""(?:\*Checkout_AppliesCoupon\*?|"""
+        r"""(?:[\w.]+\.)?CheckoutTests\.Checkout_AppliesCoupon)"""
+        r"""\k<quote>(?=\s|$)""")
+    with open(eval_path, "w") as f:
+        f.write(raw.replace("pattern: Thing", f"pattern: {pattern}", 1))
+    answer = os.path.join(
+        d, "tests", "demo", "widget", "references", "answer.json")
+    with open(answer, "w") as f:
+        json.dump(atif_document([{
+            "step_id": 1,
+            "source": "agent",
+            "message": "--filter-method *Checkout_AppliesCoupon*",
+        }]), f)
+
+
 def regex_negate_overrides_grader_type(d):
     transcript_grader_with_trajectory(d)
     eval_path = EV(d)
@@ -1386,6 +1453,159 @@ def execution_shard_relocation_with_semantic_change(d):
         f.write("config:\n  timeout: 5m\n")
 
 
+def vally_schema_alias_migration(d):
+    path = EV(d)
+    with open(path, encoding="utf-8") as f:
+        content = f.read()
+    legacy = content.replace("defaults:\n", "config:\n", 1)
+    legacy = legacy.replace(
+        "  - name: Does the thing\n"
+        "    prompt: do it\n",
+        "  - name: Does the thing\n"
+        "    prompt: do it\n"
+        "    constraints:\n"
+        "      expect_tools: [bash]\n",
+        1,
+    )
+    legacy = legacy.replace(
+        "  - name: Does the last thing\n"
+        "    prompt: do the last thing\n",
+        "  - name: Does the last thing\n"
+        "    expect_activation: true\n"
+        "    prompt: do the last thing\n",
+        1,
+    )
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(legacy)
+    subprocess.run(["git", "add", "-A"], cwd=d, check=True)
+    subprocess.run(["git", "commit", "-qm", "legacy vally schema"], cwd=d, check=True)
+
+    current = legacy.replace("config:\n", "defaults:\n", 1)
+    current = current.replace(
+        "    constraints:\n"
+        "      expect_tools: [bash]\n",
+        "    graders:\n"
+        "      - type: tool-calls\n"
+        "        config:\n"
+        "          required: [bash]\n",
+        1,
+    )
+    current = current.replace(
+        "    expect_activation: true\n",
+        "    tags:\n"
+        '      expect_activation: "true"\n',
+        1,
+    )
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(current)
+
+
+def vally_schema_alias_migration_with_semantic_change(d):
+    vally_schema_alias_migration(d)
+    path = EV(d)
+    with open(path, encoding="utf-8") as f:
+        content = f.read()
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content.replace("prompt: do it", "prompt: do it differently", 1))
+
+
+def vally_reject_all_skills_migration(d, omit_plugin_skill=False):
+    with open(os.path.join(d, "plugins", "demo", "skills", "widget", "SKILL.md"), "w") as f:
+        f.write("# Widget\n")
+    os.makedirs(os.path.join(d, "plugins", "demo", "skills", "helper"))
+    with open(os.path.join(d, "plugins", "demo", "skills", "helper", "SKILL.md"), "w") as f:
+        f.write("# Helper\n")
+    path = EV(d)
+    with open(path, encoding="utf-8") as f:
+        content = f.read()
+    legacy = content.replace(
+        "  - name: Does the thing\n"
+        "    prompt: do it\n",
+        "  - name: Does the thing\n"
+        "    prompt: do it\n"
+        "    constraints:\n"
+        "      reject_skills: ['*']\n",
+        1,
+    )
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(legacy)
+    subprocess.run(["git", "add", "-A"], cwd=d, check=True)
+    subprocess.run(["git", "commit", "-qm", "legacy reject all skills"], cwd=d, check=True)
+
+    disallowed = "[widget]" if omit_plugin_skill else "[helper, widget]"
+    current = legacy.replace(
+        "    constraints:\n"
+        "      reject_skills: ['*']\n",
+        "    graders:\n"
+        "      - type: skill-invocation\n"
+        "        config:\n"
+        f"          disallowed: {disallowed}\n",
+        1,
+    )
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(current)
+
+
+def vally_reject_all_skills_migration_complete(d):
+    vally_reject_all_skills_migration(d)
+
+
+def vally_reject_all_skills_migration_incomplete(d):
+    vally_reject_all_skills_migration(d, omit_plugin_skill=True)
+
+
+def vally_skill_wildcard_correction(d):
+    with open(os.path.join(d, "plugins", "demo", "skills", "widget", "SKILL.md"), "w") as f:
+        f.write("# Widget\n")
+    path = EV(d)
+    with open(path, encoding="utf-8") as f:
+        content = f.read()
+    wildcard = content.replace(
+        "  - name: Does the thing\n"
+        "    prompt: do it\n",
+        "  - name: Does the thing\n"
+        "    prompt: do it\n"
+        "    graders:\n"
+        "      - type: skill-invocation\n"
+        "        config:\n"
+        "          disallowed: ['*']\n",
+        1,
+    )
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(wildcard)
+    subprocess.run(["git", "add", "-A"], cwd=d, check=True)
+    subprocess.run(["git", "commit", "-qm", "unsupported skill wildcard"], cwd=d, check=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(wildcard.replace("disallowed: ['*']", "disallowed: [widget]", 1))
+
+
+def vally_regex_migration(d):
+    path = EV(d)
+    with open(path, encoding="utf-8") as f:
+        content = f.read()
+    legacy = content.replace(
+        "    rubric:\n",
+        "    graders:\n"
+        "      - type: output-matches\n"
+        "        config:\n"
+        "          pattern: (?i)--filter-method\\s+(?<quote>[\"'])?"
+        "(?:\\*Checkout_AppliesCoupon\\*?|(?:[\\w.]+\\.)?"
+        "CheckoutTests\\.Checkout_AppliesCoupon)(?(quote)\\k<quote>)(?=\\s|$)\n"
+        "    rubric:\n",
+        1)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(legacy)
+    subprocess.run(["git", "add", "-A"], cwd=d, check=True)
+    subprocess.run(["git", "commit", "-qm", "legacy vally regex"], cwd=d, check=True)
+
+    current = legacy.replace(
+        "(?(quote)\\k<quote>)",
+        "\\k<quote>",
+        1)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(current)
+
+
 def preexisting_deprecated_config_with_unrelated_change(d):
     path = EV(d)
     with open(path) as f:
@@ -1474,8 +1694,7 @@ def grandfathered_reports_its_arithmetic(d):
 
 
 def grandfathered_config_alias_reports_its_runs(d):
-    # Vally 0.14 still loads this alias but warns. The repository gate requires
-    # one current settings spelling so the deprecated shape cannot return.
+    # The repository gate keeps the removed alias from returning.
     write_single_stimulus(d, runs=4, settings_key="config")
     write_allowlist(d, SPEC)
 
@@ -1485,12 +1704,15 @@ def wildcard_rejects_target_skill(d):
         f.write(
             "  - name: Decline off-target request\n"
             "    prompt: write me something else\n"
-            "    expect_activation: false\n"
+            "    tags:\n"
+            '      expect_activation: "false"\n'
             "    rubric:\n"
             "      - Did not derail into widget analysis\n"
-            "    constraints:\n"
-            "      reject_skills:\n"
-            '        - "*"\n'
+            "    graders:\n"
+            "      - type: skill-invocation\n"
+            "        config:\n"
+            "          disallowed:\n"
+            '            - "*"\n'
         )
 
 
@@ -1501,9 +1723,11 @@ def wildcard_reject_on_capability(d):
             "    prompt: analyze this widget\n"
             "    rubric:\n"
             "      - Completed the widget analysis\n"
-            "    constraints:\n"
-            "      reject_skills:\n"
-            '        - "*"\n'
+            "    graders:\n"
+            "      - type: skill-invocation\n"
+            "        config:\n"
+            "          disallowed:\n"
+            '            - "*"\n'
         )
 
 
@@ -1512,12 +1736,15 @@ def named_reject_on_dormancy_guard(d):
         f.write(
             "  - name: Decline named off-target request\n"
             "    prompt: write me something else\n"
-            "    expect_activation: false\n"
+            "    tags:\n"
+            '      expect_activation: "false"\n'
             "    rubric:\n"
             "      - Did not derail into widget analysis\n"
-            "    constraints:\n"
-            "      reject_skills:\n"
-            "        - widget\n"
+            "    graders:\n"
+            "      - type: skill-invocation\n"
+            "        config:\n"
+            "          disallowed:\n"
+            "            - widget\n"
         )
 
 
@@ -1526,11 +1753,14 @@ def scalar_reject_on_dormancy_guard(d):
         f.write(
             "  - name: Decline malformed off-target request\n"
             "    prompt: write me something else\n"
-            "    expect_activation: false\n"
+            "    tags:\n"
+            '      expect_activation: "false"\n'
             "    rubric:\n"
             "      - Did not derail into widget analysis\n"
-            "    constraints:\n"
-            "      reject_skills: widget\n"
+            "    graders:\n"
+            "      - type: skill-invocation\n"
+            "        config:\n"
+            "          disallowed: widget\n"
         )
 
 
@@ -1539,7 +1769,8 @@ def guard_ok(d):
         f.write(
             "  - name: Decline off-target request\n"
             "    prompt: write me something else\n"
-            "    expect_activation: false\n"
+            "    tags:\n"
+            '      expect_activation: "false"\n'
             "    rubric:\n"
             "      - Did not derail into widget analysis\n"
         )
@@ -1555,7 +1786,8 @@ def dormancy_does_not_satisfy_preference_floor(d):
         "    rubric:\n"
         "      - Did the last thing\n",
         "  - name: Does the last thing\n"
-        "    expect_activation: false\n"
+        "    tags:\n"
+        '      expect_activation: "false"\n'
         "    prompt: do the last thing\n"
         "    rubric:\n"
         "      - Stayed dormant and did not derail the request\n",
@@ -1819,6 +2051,14 @@ results = [
          unflagged_regex_is_not_multiline, expect_fail=True),
     case("explicit output regex flags are honored",
          explicit_regex_flags_are_honored, expect_fail=False),
+    case("nested output regex flags are rejected",
+         nested_regex_flags_are_rejected, expect_fail=True),
+    case("conditional output regex groups are rejected",
+         conditional_regex_groups_are_rejected, expect_fail=True),
+    case("Python named output regex groups are rejected",
+         python_named_regex_groups_are_rejected, expect_fail=True),
+    case("optional named backreferences use JavaScript semantics",
+         optional_named_backreference_uses_javascript_semantics, expect_fail=False),
     case("regex negate overrides the grader type",
          regex_negate_overrides_grader_type, expect_fail=False),
     case("contains case and negate settings are honored",
@@ -1919,6 +2159,30 @@ results = [
     output_case("pure execution shard metadata relocation is non-semantic",
                 execution_shard_metadata_relocation,
                 "enforced 0 changed eval suite(s) of 1 total against HEAD",
+                gate_args=("--base-ref", "HEAD")),
+    output_case("removed Vally aliases migrate without semantic scope",
+                vally_schema_alias_migration,
+                "enforced 0 changed eval suite(s) of 1 total against HEAD",
+                gate_args=("--base-ref", "HEAD")),
+    output_case("reject-all skill migration enumerates every plugin skill",
+                vally_reject_all_skills_migration_complete,
+                "enforced 0 changed eval suite(s) of 1 total against HEAD",
+                gate_args=("--base-ref", "HEAD")),
+    output_case("incomplete reject-all skill migration remains semantic",
+                vally_reject_all_skills_migration_incomplete,
+                "enforced 1 changed eval suite(s) of 1 total against HEAD",
+                gate_args=("--base-ref", "HEAD")),
+    output_case("Vally skill wildcard correction remains migration-only",
+                vally_skill_wildcard_correction,
+                "enforced 0 changed eval suite(s) of 1 total against HEAD",
+                gate_args=("--base-ref", "HEAD")),
+    output_case("removed Vally regex forms migrate without semantic scope",
+                vally_regex_migration,
+                "enforced 0 changed eval suite(s) of 1 total against HEAD",
+                gate_args=("--base-ref", "HEAD")),
+    output_case("schema migration plus semantic edit remains enforced",
+                vally_schema_alias_migration_with_semantic_change,
+                "enforced 1 changed eval suite(s) of 1 total against HEAD",
                 gate_args=("--base-ref", "HEAD")),
     output_case("execution shard value change remains semantic",
                 execution_shard_value_change,

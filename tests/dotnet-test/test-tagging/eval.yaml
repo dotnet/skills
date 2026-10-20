@@ -1,7 +1,7 @@
 name: test-tagging
 description: Evaluates the dotnet-test/test-tagging skill
 type: capability
-config:
+defaults:
   timeout: 10m
 stimuli:
   - name: Tag an untagged MSTest test suite
@@ -139,7 +139,8 @@ stimuli:
     # `reject_skills: ["*"]`: forcing the skilled arm skill-free makes it
     # identical to the baseline arm, so the head-to-head score becomes pure
     # judge noise rather than a measurement.
-    expect_activation: false
+    tags:
+      expect_activation: "false"
     environment:
       files:
         - src: ./fixtures/decline-request-to-write-new-tests/PaymentGateway.cs
@@ -331,7 +332,8 @@ stimuli:
       Our Cobertura report shows 88% line coverage but 52% branch coverage.
       PaymentService.Authorize has condition-coverage="50% (1/2)" on its fraud
       check. Explain what outcome is missing and what test would exercise it.
-    expect_activation: false
+    tags:
+      expect_activation: "false"
     graders:
       - type: prompt
     rubric:
@@ -343,7 +345,8 @@ stimuli:
       My existing tests execute the null-check in CheckoutService.Submit.
       Determine whether they would still pass if that guard were removed, and
       add a focused edge-case test if the bug would survive.
-    expect_activation: false
+    tags:
+      expect_activation: "false"
     graders:
       - type: prompt
     rubric:
@@ -355,7 +358,8 @@ stimuli:
       Calculate the CRAP score for CheckoutService.Submit only. Its cyclomatic
       complexity is 8 and its coverage is 50%. Tell me whether this one method
       is safe to refactor.
-    expect_activation: false
+    tags:
+      expect_activation: "false"
     graders:
       - type: prompt
     rubric:

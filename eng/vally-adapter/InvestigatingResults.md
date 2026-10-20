@@ -1,6 +1,6 @@
 # Investigating Evaluation Results (Vally)
 
-This guide is for AI agents (and humans) investigating non-passing, invalid, or warning-bearing skill and custom-agent evaluation results. Skills are produced by the **Vally** harness via `eng/vally-adapter/adapt.mjs`; custom agents use the native Copilot SDK lane and `eng/vally-adapter/adapt-agent-results.mjs` because Vally 0.14 cannot register custom agents. Both lanes emit the same result schema.
+This guide is for AI agents (and humans) investigating non-passing, invalid, or warning-bearing skill and custom-agent evaluation results. Skills are produced by the **Vally** harness via `eng/vally-adapter/adapt.mjs`; custom agents use the native Copilot SDK lane and `eng/vally-adapter/adapt-agent-results.mjs` because Vally cannot register custom agents. Both lanes emit the same result schema.
 
 For the end-to-end architecture, decision policy, metric definitions, and
 historical examples, start with the
@@ -36,8 +36,9 @@ than manufacturing an unsupported custom approval prompt. Explicit shell
 denial remains enforced. Baseline identity includes this execution contract:
 do not reuse recordings from the older workspace/permission behavior.
 
-Native agent stimuli may opt in to `deny_shell: true`. Unlike the post-run
-`reject_tools` constraint, this rejects actual shell execution in all arms
+Native agent stimuli may opt in with the quoted string tag
+`tags.deny_shell: "true"`. Unlike the post-run `tool-calls` grader, this rejects
+actual shell execution in all arms
 without changing file-tool permissions or the existing sandbox. Setup and
 post-run command graders still execute under evaluator control. A
 `ShellDenied` assertion requires an evaluator-recorded `evaluator.shell_denied`
@@ -80,7 +81,7 @@ workflows default to `gpt-5.6-sol`; they do not choose the PR evaluation models.
 ### SDK startup failures
 
 `Cannot set session filesystem provider while sessions are active` can indicate
-an SDK startup race, not a skill or judge failure. In SDK 1.0.11 and 1.0.13, concurrent
+an SDK startup race, not a skill or judge failure. In SDK 1.0.11, 1.0.13, and 1.0.14, concurrent
 startup calls can create multiple transports, and session creation can use a
 connection before its filesystem provider is ready. The trusted
 `eng/evaluation-tools/vally.mjs` launcher loads a version-checked startup guard.
@@ -142,7 +143,7 @@ Verdict Evidence** table shows the latest retained result per executor model:
 the authoritative preference-eligible distinct-stimulus W/T/L vote, discordant
 count, exact one-sided sign-test p-value, and net win. It shows how many
 dormancy stimuli were retained but excluded from preference inference. The
-table also separates expected dormancy (`expect_activation: false`) and
+table also separates expected dormancy (`tags.expect_activation: "false"`) and
 non-model-invocable reference skills from missing or unexpected activation,
 and exposes compact paired-judge excerpts plus source links when the result
 contains them.
@@ -247,7 +248,7 @@ Consumers that need the old all-stimulus view must read
 `excludedScenarioEvidence` alongside `scenarioEvidence`, or use
 `scenarios[]`/`comparisonTrialEvidence`.
 
-No eval syntax migration is required: existing `expect_activation: false`
+No eval syntax migration is required: existing `tags.expect_activation: "false"`
 annotations automatically become activation-contract-only evidence. The
 authoring floor is intentionally stricter because dormancy no longer counts
 toward five preference cases; `check_eval_quality.py` reports the eligible and
@@ -258,7 +259,7 @@ Dormancy excludes a stimulus only from preference inference and expected
 activation. It does not suppress objective task-completion evidence: if a
 native-agent baseline completes and the isolated target run does not, the
 adapter retains `native_completion_regression` even for
-`expect_activation: false`.
+`tags.expect_activation: "false"`.
 
 The adapter's zero-dependency YAML scanner follows PyYAML's Boolean spellings
 for `false` (`false`/`False`/`FALSE`, `no`/`No`/`NO`, and
@@ -275,7 +276,7 @@ so a rename, typo, or missing result cannot silently erase contract evidence.
 `measurementInvalidEvals` is the fail-closed subset: missing baseline or skilled
 records, unresolved judge or pairing failures, malformed reports, and other
 adapter failures. This includes an eval spec that the adapter cannot read:
-without that file it cannot enforce `expect_activation: false`, so it writes an
+without that file it cannot enforce `tags.expect_activation: "false"`, so it writes an
 `eval_spec_unreadable` invalid verdict instead of assuming that every stimulus
 should activate. The subset excludes only the explicit `underpowered`
 eval-design state. The workflow requires this list to be empty and also checks
@@ -520,7 +521,7 @@ The agent didn't finish within the eval's `config.timeout`. Either the task is t
 
 ### 3. Activation contract failed (`stateReason.code == "activation_contract_failed"`)
 
-An explicit dormancy scenario (`expect_activation: false`) activated the
+An explicit dormancy scenario (`tags.expect_activation: "false"`) activated the
 isolated target skill. This is deterministic routing evidence, so it blocks a
 pass even though the scenario's judge preference is excluded from the sign
 test. Narrow the skill description or routing boundary. Plugin activation is

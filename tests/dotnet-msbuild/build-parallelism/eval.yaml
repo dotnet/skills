@@ -242,8 +242,8 @@ stimuli:
       A PostgreSQL query over the Orders table takes eight seconds. EXPLAIN
       ANALYZE shows a full table scan on CustomerId. What database change
       should we investigate first?
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: dormancy-database-query
       risk: routing
       journey: boundary-condition

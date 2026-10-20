@@ -11,17 +11,64 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging;
 
-// These checks reproduce intentional fixture defects; they are not expected application outcomes.
-await CheckFilteredCase();
-await CheckDirectoryContexts();
-await CheckQueueEnumeration();
-await CheckImportBoundaries();
-await CheckStatementGraph();
-await CheckPostingWrites();
-CheckModelCoverage();
-CheckQueryConstruction();
-CheckHistoryCursor();
-Console.WriteLine("All fixture invariants passed. SQL Server checks used metadata and query translation only.");
+var selectedCase = args switch
+{
+    [] => "all",
+    ["--case", var value] => value,
+    _ => throw new ArgumentException("Usage: dotnet run --project fixture-validation -- [--case <name>]")
+};
+
+await RunCase(selectedCase);
+
+static async Task RunCase(string selectedCase)
+{
+    switch (selectedCase)
+    {
+        case "all":
+            foreach (var caseName in new[]
+            {
+                "customer-search",
+                "order-operations",
+                "paging-sorting",
+                "route-planning",
+                "clean-data-access",
+                "saved-search",
+                "statement-export"
+            })
+            {
+                await RunCase(caseName);
+            }
+            Console.WriteLine("All fixture invariants passed. SQL Server checks used metadata and query translation only.");
+            break;
+        case "customer-search":
+            await CheckDirectoryContexts();
+            CheckDirectoryTranslation();
+            break;
+        case "order-operations":
+            await CheckQueueEnumeration();
+            await CheckImportBoundaries();
+            break;
+        case "paging-sorting":
+            CheckHistoryCursor();
+            break;
+        case "route-planning":
+            CheckModelCoverage();
+            break;
+        case "clean-data-access":
+            await CheckCleanDataAccess();
+            break;
+        case "saved-search":
+            CheckSavedSearchConstruction();
+            break;
+        case "statement-export":
+            await CheckFilteredCase();
+            await CheckStatementGraph();
+            await CheckPostingWrites();
+            break;
+        default:
+            throw new ArgumentOutOfRangeException(nameof(selectedCase), selectedCase, "Unknown fixture validation case.");
+    }
+}
 
 static async Task CheckFilteredCase()
 {
@@ -272,6 +319,66 @@ static async Task CheckPostingWrites()
     Console.WriteLine("PASS posting: stale overwrite, revision bypass and non-atomic receipt failure reproduced.");
 }
 
+static async Task CheckCleanDataAccess()
+{
+    await using var connection = new SqliteConnection("Data Source=:memory:");
+    await connection.OpenAsync();
+    var options = new DbContextOptionsBuilder<CommerceDbContext>().UseSqlite(connection).Options;
+    await using var db = new CommerceDbContext(options);
+    await db.Database.EnsureCreatedAsync();
+    db.Employees.Add(new Employee { Id = 1, DisplayName = "Avery" });
+    db.Customers.Add(new Customer { Id = 1, TenantId = 7, AccountManagerId = 1, Name = "Cedar" });
+    db.Orders.Add(new Order
+    {
+        Id = 1,
+        TenantId = 7,
+        CustomerId = 1,
+        CreatedAt = new DateTime(2026, 10, 1),
+        Total = 20,
+        Status = "Open"
+    });
+    db.Invoices.Add(new Invoice { Id = 1, TenantId = 7, CustomerId = 1, Amount = 15 });
+    db.AuditEntries.AddRange(
+        new AuditEntry
+        {
+            Id = 1,
+            TenantId = 7,
+            CreatedAt = new DateTime(2026, 10, 2),
+            Category = "Billing",
+            Notes = "Expected"
+        },
+        new AuditEntry
+        {
+            Id = 2,
+            TenantId = 7,
+            CreatedAt = new DateTime(2026, 10, 3),
+            Category = "Operations",
+            Notes = "Excluded"
+        });
+    await db.SaveChangesAsync();
+    db.ChangeTracker.Clear();
+
+    var service = new CleanDataAccessService(db);
+    Require(await service.HasOpenOrdersAsync(7, default), "The indexed existence query must find the open order.");
+    Require((await service.GetCustomerAsync(1, default)).Orders.Count == 1,
+        "The bounded customer graph must retain its order.");
+    Require((await service.GetNextPageAsync(7, 0, 10, default)).Select(row => row.Id).SequenceEqual(new[] { 1 }),
+        "The keyset page must preserve its ordered row.");
+    Require(await service.BuildSnapshotAsync(1, default) == new BillingSnapshot(1, 15),
+        "Sequential scalar queries must preserve both snapshot values.");
+    var auditEntries = await service.GetAuditCategoryAsync("Billing", default);
+    Require(auditEntries.Select(entry => entry.Id).SequenceEqual(new long[] { 1 }) &&
+        auditEntries[0].Category == "Billing",
+        "The parameterized audit query must return only the requested category.");
+    Require((await service.GetReviewBatchAsync(7, default)).Count == 1,
+        "The bounded review batch must include the unreviewed order.");
+    await service.MarkReviewedAsync(7, new[] { 1 }, default);
+    db.ChangeTracker.Clear();
+    Require(await db.Orders.Where(order => order.Id == 1).Select(order => order.IsReviewed).SingleAsync(),
+        "The bounded review mutation must save once and persist.");
+    Console.WriteLine("PASS clean data access: sound bounded, sequential, and set-preserving paths execute correctly.");
+}
+
 static void CheckModelCoverage()
 {
     var options = new DbContextOptionsBuilder<RouteDbContext>()
@@ -289,7 +396,7 @@ static void CheckModelCoverage()
     Console.WriteLine("PASS route model: convention-created FK index exists but date prefix is uncovered.");
 }
 
-static void CheckQueryConstruction()
+static void CheckSavedSearchConstruction()
 {
     var compilations = 0;
     var options = new DbContextOptionsBuilder<OrderSearchDbContext>()
@@ -331,9 +438,14 @@ static void CheckQueryConstruction()
         !structural.Contains("DECLARE @", StringComparison.Ordinal),
         "An ordinary fixed status must remain a SQL literal.");
 
-    var directoryOptions = new DbContextOptionsBuilder<DirectoryDbContext>()
+    Console.WriteLine("PASS saved search: dynamic literals, parameter overrides and EF translation reuse verified.");
+}
+
+static void CheckDirectoryTranslation()
+{
+    var options = new DbContextOptionsBuilder<DirectoryDbContext>()
         .UseSqlServer("Server=(localdb)\\MSSQLLocalDB;Database=FixtureValidation;Trusted_Connection=True").Options;
-    using var directory = new DirectoryDbContext(directoryOptions);
+    using var directory = new DirectoryDbContext(options);
     try
     {
         directory.Customers.Where(DirectoryMatching.NameHint("Ced")).ToQueryString();
@@ -343,7 +455,7 @@ static void CheckQueryConstruction()
     {
     }
 
-    Console.WriteLine("PASS query construction: dynamic literals, parameter overrides, EF translation reuse and unsupported overload verified.");
+    Console.WriteLine("PASS directory query: unsupported StringComparison translation reproduced.");
 }
 
 static void CheckHistoryCursor()
