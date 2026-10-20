@@ -303,7 +303,6 @@ stimuli:
       - Separates current connectivity from future uncached package availability
 
   - name: Leave recorded build errors to build diagnosis
-    expect_activation: false
     prompt: |-
       My .NET build wrote a binlog containing CS0246 for Newtonsoft.Json in
       Services.csproj. I already confirmed the binlog reader connects and works.
@@ -312,6 +311,7 @@ stimuli:
       capability: recorded-build-error-boundary
       risk: hijacking-build-diagnosis
       journey: fix-project-dependency
+      expect_activation: "false"
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6
@@ -334,7 +334,6 @@ stimuli:
       - Does not recommend reinstalling a working reader or changing its feeds
 
   - name: Leave binlog capture to build logging
-    expect_activation: false
     prompt: |-
       Show me a PowerShell command that builds a .NET project and captures a
       uniquely named binary log. I am not asking to install or connect any reader.
@@ -343,6 +342,7 @@ stimuli:
       capability: binlog-capture-boundary
       risk: unnecessary-server-repair
       journey: capture-build-log
+      expect_activation: "false"
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6
@@ -367,7 +367,6 @@ stimuli:
       - Does not initiate package lookup, installation, or MCP connection troubleshooting
 
   - name: Do not apply binlog-specific diagnosis to another server
-    expect_activation: false
     prompt: |-
       My PostgreSQL MCP server reports CONNECTION_CLOSED. It launches a Node.js
       database adapter; this workspace does not use .NET. What startup evidence
@@ -376,6 +375,7 @@ stimuli:
       capability: unrelated-server-boundary
       risk: wrong-runtime-diagnosis
       journey: investigate-database-adapter
+      expect_activation: "false"
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6
