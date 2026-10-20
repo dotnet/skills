@@ -1,0 +1,132 @@
+diff --git a/advanced-multi-complexity/Directory.Packages.props b/advanced-multi-complexity/Directory.Packages.props
+new file mode 100644
+--- /dev/null
++++ b/advanced-multi-complexity/Directory.Packages.props
+@@ -0,0 +1,21 @@
++<Project>
++  <PropertyGroup>
++    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
++  </PropertyGroup>
++  <ItemGroup>
++    <PackageVersion Include="Contoso.Hosting" Version="9.0.0" />
++    <PackageVersion Include="Contoso.Json" Version="10.0.0" />
++    <PackageVersion Include="Contoso.Logging" Version="1.1.0" />
++    <PackageVersion Include="Contoso.Telemetry" Version="1.1.0" />
++    <PackageVersion Include="Contoso.Testing" Version="2.0.0" />
++  </ItemGroup>
++  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
++    <PackageVersion Include="Fabrikam.MvcJson" Version="9.0.0" />
++  </ItemGroup>
++  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
++    <PackageVersion Include="Fabrikam.MvcJson" Version="8.0.0" />
++  </ItemGroup>
++  <ItemGroup>
++    <PackageVersion Include="Fabrikam.Storage" Version="2.2.0" />
++  </ItemGroup>
++</Project>
+diff --git a/advanced-multi-complexity/Directory.Build.props b/advanced-multi-complexity/Directory.Build.props
+--- a/advanced-multi-complexity/Directory.Build.props
++++ b/advanced-multi-complexity/Directory.Build.props
+@@ -1,8 +1,6 @@
+ <Project>
+   <PropertyGroup>
+     <ImplicitUsings>enable</ImplicitUsings>
+-    <StorageVersion>2.2.0</StorageVersion>
+-    <HostingVersion>9.0.0</HostingVersion>
+   </PropertyGroup>
+   <Import Project="Common.props" />
+ </Project>
+diff --git a/advanced-multi-complexity/Common.props b/advanced-multi-complexity/Common.props
+--- a/advanced-multi-complexity/Common.props
++++ b/advanced-multi-complexity/Common.props
+@@ -1,5 +1,5 @@
+ <Project>
+   <ItemGroup>
+-    <PackageReference Include="Contoso.Logging" Version="1.1.0" />
++    <PackageReference Include="Contoso.Logging" />
+   </ItemGroup>
+ </Project>
+diff --git a/advanced-multi-complexity/Api/Api.csproj b/advanced-multi-complexity/Api/Api.csproj
+--- a/advanced-multi-complexity/Api/Api.csproj
++++ b/advanced-multi-complexity/Api/Api.csproj
+@@ -4,13 +4,13 @@
+     <TargetFramework>net8.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Contoso.Json" Version="10.0.0" />
+-    <PackageReference Include="Fabrikam.Storage" Version="$(StorageVersion)" />
++    <PackageReference Include="Contoso.Json" />
++    <PackageReference Include="Fabrikam.Storage" />
+   </ItemGroup>
+   <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
+-    <PackageReference Include="Fabrikam.MvcJson" Version="9.0.0" />
++    <PackageReference Include="Fabrikam.MvcJson" />
+   </ItemGroup>
+   <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+-    <PackageReference Include="Fabrikam.MvcJson" Version="8.0.0" />
++    <PackageReference Include="Fabrikam.MvcJson" />
+   </ItemGroup>
+ </Project>
+diff --git a/advanced-multi-complexity/Core/Core.csproj b/advanced-multi-complexity/Core/Core.csproj
+--- a/advanced-multi-complexity/Core/Core.csproj
++++ b/advanced-multi-complexity/Core/Core.csproj
+@@ -3,7 +3,7 @@
+     <TargetFramework>net8.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Contoso.Json" Version="9.0.0" />
+-    <PackageReference Include="Contoso.Hosting" Version="$(HostingVersion)" />
++    <PackageReference Include="Contoso.Json" />
++    <PackageReference Include="Contoso.Hosting" />
+   </ItemGroup>
+ </Project>
+diff --git a/advanced-multi-complexity/Legacy/Legacy.csproj b/advanced-multi-complexity/Legacy/Legacy.csproj
+--- a/advanced-multi-complexity/Legacy/Legacy.csproj
++++ b/advanced-multi-complexity/Legacy/Legacy.csproj
+@@ -3,7 +3,7 @@
+     <TargetFramework>net8.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Contoso.Json" Version="8.0.0" />
+-    <PackageReference Include="Fabrikam.Storage" Version="2.0.0" />
++    <PackageReference Include="Contoso.Json" />
++    <PackageReference Include="Fabrikam.Storage" />
+   </ItemGroup>
+ </Project>
+diff --git a/advanced-multi-complexity/Tests/Tests.csproj b/advanced-multi-complexity/Tests/Tests.csproj
+--- a/advanced-multi-complexity/Tests/Tests.csproj
++++ b/advanced-multi-complexity/Tests/Tests.csproj
+@@ -3,7 +3,7 @@
+     <TargetFramework>net8.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Contoso.Testing" Version="2.0.0" />
+-    <PackageReference Include="Contoso.Json" Version="10.0.0" />
++    <PackageReference Include="Contoso.Testing" />
++    <PackageReference Include="Contoso.Json" />
+   </ItemGroup>
+ </Project>
+diff --git a/advanced-multi-complexity/Web/Web.csproj b/advanced-multi-complexity/Web/Web.csproj
+--- a/advanced-multi-complexity/Web/Web.csproj
++++ b/advanced-multi-complexity/Web/Web.csproj
+@@ -4,7 +4,7 @@
+     <TargetFramework>net8.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Contoso.Json" Version="10.0.0" />
+-    <PackageReference Include="Contoso.Telemetry" Version="1.1.0" />
++    <PackageReference Include="Contoso.Json" />
++    <PackageReference Include="Contoso.Telemetry" />
+   </ItemGroup>
+ </Project>
+diff --git a/advanced-multi-complexity/convert-to-cpm.md b/advanced-multi-complexity/convert-to-cpm.md
+new file mode 100644
+--- /dev/null
++++ b/advanced-multi-complexity/convert-to-cpm.md
+@@ -0,0 +1,6 @@
++# Central Package Management conversion
++
++## Outcome
++Shared, conditional, property-based, and literal versions were centralized.
++
++Baseline and after-conversion build/package evidence was retained for review.

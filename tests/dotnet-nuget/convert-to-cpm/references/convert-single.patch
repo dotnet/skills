@@ -1,0 +1,43 @@
+diff --git a/simple-single-project/Directory.Packages.props b/simple-single-project/Directory.Packages.props
+new file mode 100644
+--- /dev/null
++++ b/simple-single-project/Directory.Packages.props
+@@ -0,0 +1,10 @@
++<Project>
++  <PropertyGroup>
++    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
++  </PropertyGroup>
++  <ItemGroup>
++    <PackageVersion Include="Contoso.Json" Version="9.0.0" />
++    <PackageVersion Include="Contoso.Logging" Version="1.0.0" />
++    <PackageVersion Include="Contoso.Resilience" Version="2.0.0" />
++  </ItemGroup>
++</Project>
+diff --git a/simple-single-project/MyApp/MyApp.csproj b/simple-single-project/MyApp/MyApp.csproj
+--- a/simple-single-project/MyApp/MyApp.csproj
++++ b/simple-single-project/MyApp/MyApp.csproj
+@@ -4,8 +4,8 @@
+     <TargetFramework>net8.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Contoso.Logging" Version="1.0.0" />
+-    <PackageReference Include="Contoso.Json" Version="9.0.0" />
+-    <PackageReference Include="Contoso.Resilience" Version="2.0.0" />
++    <PackageReference Include="Contoso.Logging" />
++    <PackageReference Include="Contoso.Json" />
++    <PackageReference Include="Contoso.Resilience" />
+   </ItemGroup>
+ </Project>
+diff --git a/simple-single-project/convert-to-cpm.md b/simple-single-project/convert-to-cpm.md
+new file mode 100644
+--- /dev/null
++++ b/simple-single-project/convert-to-cpm.md
+@@ -0,0 +1,8 @@
++# Central Package Management conversion
++
++## Outcome
++Package versions were centralized without resolved-version changes.
++
++Restore, build, and application execution passed after conversion.
++
++`baseline.binlog`, `after-cpm.binlog`, both package snapshots, and this report were retained.

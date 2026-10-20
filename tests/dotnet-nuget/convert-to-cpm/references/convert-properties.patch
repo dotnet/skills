@@ -1,0 +1,64 @@
+diff --git a/moderate-msbuild-properties/Directory.Build.props b/moderate-msbuild-properties/Directory.Build.props
+--- a/moderate-msbuild-properties/Directory.Build.props
++++ b/moderate-msbuild-properties/Directory.Build.props
+@@ -1,7 +1,5 @@
+ <Project>
+   <PropertyGroup>
+-    <TelemetryVersion>1.1.0</TelemetryVersion>
+-    <DIVersion>9.0.0</DIVersion>
+     <OutputPath>$(MSBuildThisFileDirectory)artifacts\$(MSBuildProjectName)\</OutputPath>
+   </PropertyGroup>
+ </Project>
+diff --git a/moderate-msbuild-properties/Directory.Packages.props b/moderate-msbuild-properties/Directory.Packages.props
+new file mode 100644
+--- /dev/null
++++ b/moderate-msbuild-properties/Directory.Packages.props
+@@ -0,0 +1,11 @@
++<Project>
++  <PropertyGroup>
++    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
++  </PropertyGroup>
++  <ItemGroup>
++    <PackageVersion Include="Contoso.DependencyInjection" Version="9.0.0" />
++    <PackageVersion Include="Contoso.DependencyInjection.Abstractions" Version="9.0.0" />
++    <PackageVersion Include="Contoso.OpenApi" Version="8.0.0" />
++    <PackageVersion Include="Contoso.Telemetry" Version="1.1.0" />
++  </ItemGroup>
++</Project>
+diff --git a/moderate-msbuild-properties/Api/Api.csproj b/moderate-msbuild-properties/Api/Api.csproj
+--- a/moderate-msbuild-properties/Api/Api.csproj
++++ b/moderate-msbuild-properties/Api/Api.csproj
+@@ -4,7 +4,7 @@
+     <TargetFramework>net8.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Contoso.Telemetry" Version="$(TelemetryVersion)" />
+-    <PackageReference Include="Contoso.OpenApi" Version="8.0.0" />
++    <PackageReference Include="Contoso.Telemetry" />
++    <PackageReference Include="Contoso.OpenApi" />
+   </ItemGroup>
+ </Project>
+diff --git a/moderate-msbuild-properties/Data/Data.csproj b/moderate-msbuild-properties/Data/Data.csproj
+--- a/moderate-msbuild-properties/Data/Data.csproj
++++ b/moderate-msbuild-properties/Data/Data.csproj
+@@ -3,7 +3,7 @@
+     <TargetFramework>net8.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Contoso.DependencyInjection" Version="$(DIVersion)" />
+-    <PackageReference Include="Contoso.DependencyInjection.Abstractions" Version="$(DIVersion)" />
++    <PackageReference Include="Contoso.DependencyInjection" />
++    <PackageReference Include="Contoso.DependencyInjection.Abstractions" />
+   </ItemGroup>
+ </Project>
+diff --git a/moderate-msbuild-properties/convert-to-cpm.md b/moderate-msbuild-properties/convert-to-cpm.md
+new file mode 100644
+--- /dev/null
++++ b/moderate-msbuild-properties/convert-to-cpm.md
+@@ -0,0 +1,6 @@
++# Central Package Management conversion
++
++## Outcome
++Package version properties were inlined and unrelated build properties were preserved.
++
++Baseline and after-conversion build/package evidence was retained for review.

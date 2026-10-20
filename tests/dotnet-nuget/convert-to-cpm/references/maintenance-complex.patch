@@ -1,0 +1,25 @@
+diff --git a/advanced-multi-complexity/Core/Core.csproj b/advanced-multi-complexity/Core/Core.csproj
+--- a/advanced-multi-complexity/Core/Core.csproj
++++ b/advanced-multi-complexity/Core/Core.csproj
+@@ -3,7 +3,7 @@
+     <TargetFramework>net8.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Contoso.Json" Version="9.0.0" />
++    <PackageReference Include="Contoso.Json" Version="10.0.0" />
+     <PackageReference Include="Contoso.Hosting" Version="$(HostingVersion)" />
+   </ItemGroup>
+ </Project>
+diff --git a/advanced-multi-complexity/Legacy/Legacy.csproj b/advanced-multi-complexity/Legacy/Legacy.csproj
+--- a/advanced-multi-complexity/Legacy/Legacy.csproj
++++ b/advanced-multi-complexity/Legacy/Legacy.csproj
+@@ -3,7 +3,7 @@
+     <TargetFramework>net8.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Contoso.Json" Version="8.0.0" />
+-    <PackageReference Include="Fabrikam.Storage" Version="2.0.0" />
++    <PackageReference Include="Contoso.Json" Version="10.0.0" />
++    <PackageReference Include="Fabrikam.Storage" Version="2.2.0" />
+   </ItemGroup>
+ </Project>
