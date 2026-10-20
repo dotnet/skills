@@ -70,7 +70,7 @@ on:
         type: string
         required: false
       matrix_profile:
-        description: "Cross-family model matrix (IMPACT-ANALYSIS.md §10). default = claude-sonnet-5 + gpt-5.6-luna; mid = claude-haiku-4.5 + mai-code-1.1-flash + gpt-5.3-codex; sol = gpt-5.6-sol only; full = default + mid (5 models); newer = gpt-6-astra + claude-opus-5."
+        description: "Cross-family executor model matrix; judge-only replay uses rejudge_run_ids instead."
         type: choice
         required: false
         default: default
@@ -85,6 +85,29 @@ on:
         type: boolean
         required: false
         default: false
+      rejudge_run_ids:
+        description: "Judge only: comma-separated completed evaluation run IDs with saved artifacts (no executors)."
+        type: string
+        required: false
+      rejudge_artifact:
+        description: "Judge only: exact artifact name for a small pilot; leave blank to replay all artifacts in the selected runs."
+        type: string
+        required: false
+      rejudge_executor_prefix:
+        description: "Judge only: model suffix prefix to select artifacts in all mode (default gpt-; blank selects all models)."
+        type: string
+        required: false
+        default: gpt-
+      rejudge_original:
+        description: "Judge only: recorded judge in the saved source artifacts."
+        type: string
+        required: false
+        default: claude-haiku-4.5
+      rejudge_candidate:
+        description: "Judge only: candidate judge for the saved-output replay."
+        type: string
+        required: false
+        default: claude-haiku-5.5
 
   # Same-repo PRs: post initial status
   pull_request:
@@ -316,6 +339,8 @@ jobs:
   # ==========================================================================
   gate:
     if: >-
+      inputs.rejudge_run_ids == '' &&
+      (
       (github.event.issue.pull_request &&
        startsWith(github.event.comment.body, '/evaluate'))
       ||
@@ -329,6 +354,7 @@ jobs:
       ||
       (github.event_name == 'workflow_dispatch' &&
        inputs.pr_number != '')
+      )
     runs-on: ubuntu-latest
     # Cap concurrent gate jobs per PR: a burst of /evaluate comments cannot fan
     # out into unbounded runners. The gate is cheap (permission check + bind);
@@ -734,6 +760,7 @@ jobs:
     needs: gate
     if: >-
       always() &&
+      inputs.rejudge_run_ids == '' &&
       (((needs.gate.result == 'success' && needs.gate.outputs.should_eval == 'true')) || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.pr_number == '')) &&
       (github.event_name != 'schedule' || github.repository == 'dotnet/skills')
     runs-on: ubuntu-latest
@@ -861,6 +888,35 @@ jobs:
     # This job is a top-level caller, so `secrets.COPILOT_PAT_*` resolves from the
     # existing ORG secrets — the same pool the scheduled validate-pat-pool workflow
     # reads — so no `copilot-pat-pool` environment-secret configuration is needed.
+    secrets:
+      COPILOT_PAT_0: ${{ secrets.COPILOT_PAT_0 }}
+      COPILOT_PAT_1: ${{ secrets.COPILOT_PAT_1 }}
+      COPILOT_PAT_2: ${{ secrets.COPILOT_PAT_2 }}
+      COPILOT_PAT_3: ${{ secrets.COPILOT_PAT_3 }}
+      COPILOT_PAT_4: ${{ secrets.COPILOT_PAT_4 }}
+      COPILOT_PAT_5: ${{ secrets.COPILOT_PAT_5 }}
+      COPILOT_PAT_6: ${{ secrets.COPILOT_PAT_6 }}
+      COPILOT_PAT_7: ${{ secrets.COPILOT_PAT_7 }}
+      COPILOT_PAT_8: ${{ secrets.COPILOT_PAT_8 }}
+      COPILOT_PAT_9: ${{ secrets.COPILOT_PAT_9 }}
+
+  judge-only-replay:
+    permissions:
+      actions: read
+      contents: read
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      inputs.rejudge_run_ids != '' &&
+      github.repository == 'dotnet/skills'
+    uses: ./.github/workflows/evaluation-judge-replay.yml
+    with:
+      run_ids: ${{ inputs.rejudge_run_ids }}
+      artifact_name: ${{ inputs.rejudge_artifact }}
+      executor_prefix: ${{ inputs.rejudge_executor_prefix }}
+      original_judge: ${{ inputs.rejudge_original }}
+      candidate_judge: ${{ inputs.rejudge_candidate }}
+      pr_number: ${{ inputs.pr_number }}
+      publish_eval_data: ${{ inputs.publish_eval_data }}
     secrets:
       COPILOT_PAT_0: ${{ secrets.COPILOT_PAT_0 }}
       COPILOT_PAT_1: ${{ secrets.COPILOT_PAT_1 }}
@@ -1696,6 +1752,7 @@ jobs:
     if: >-
       always() &&
       !cancelled() &&
+      inputs.rejudge_run_ids == '' &&
       (
         (needs.discover.result == 'success' && needs.discover.outputs.has_plugins == 'true' && github.event_name == 'schedule') ||
         (
