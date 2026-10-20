@@ -751,6 +751,20 @@ function recordsForBase(records, base) {
   });
 }
 
+function resourceBase(records, segment, entity) {
+  const escapedSegment = segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const candidates = new Set();
+  for (const record of records) {
+    if (typeof record.route !== "string") continue;
+    const base = record.route
+      .replace(/\/\{[^/}]*id[^/}]*\}\/?$/i, "")
+      .replace(/\/+$/, "");
+    if (new RegExp(`/${escapedSegment}$`, "i").test(base)) candidates.add(base);
+  }
+  fail(candidates.size === 1, `${entity} routes must use one consistent /${segment} resource base.`);
+  return [...candidates][0] ?? `/${segment}`;
+}
+
 function checkApiCrud(records, base, entity, options = {}) {
   const scoped = recordsForBase(records, base);
   const list = scoped.find((record) => record.verb === "GET" && !/\{[^}]*id/i.test(record.route));
@@ -851,9 +865,22 @@ function httpRequestBlocks(http) {
   }).filter((block) => block.method);
 }
 
+function requestPath(block) {
+  return block.url
+    .replace(/[?#].*$/, "")
+    .replace(/^https?:\/\/[^/]+/i, "")
+    .replace(/^\{\{[^}]+\}\}/, "")
+    .replace(/\/+/g, "/")
+    .replace(/\/+$/, "");
+}
+
 function routeIdExpression(block, base) {
-  const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return block.url.match(new RegExp(`${escaped}/([^/?#\\s]+)`, "i"))?.[1] ?? "";
+  const normalizedBase = base.replace(/\/+$/, "");
+  const path = requestPath(block);
+  const prefix = `${normalizedBase}/`;
+  if (!path.toLowerCase().startsWith(prefix.toLowerCase())) return "";
+  const id = path.slice(prefix.length);
+  return id && !id.includes("/") ? id : "";
 }
 
 function responseIdExpression(expression, requestName) {
@@ -871,9 +898,14 @@ function responseIdVariables(http, createBlock) {
     if (responseIdExpression(match[2], createBlock.name)) variables.add(match[1].toLowerCase());
   }
 
+  const handlerSource = [...createBlock.source.matchAll(/>\s*\{%([\s\S]*?)%\}/g)]
+    .map((match) => match[1])
+    .join("\n")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
   const handlerSet =
     /(?:client\.(?:global|environment|variables)|request\.variables)\.set\s*\(\s*["']([A-Za-z_][\w.-]*)["']\s*,\s*response\.body(?:\.\$)?(?:\.id|\[['"]id['"]\])\s*\)/gim;
-  for (const match of createBlock.source.matchAll(handlerSet)) {
+  for (const match of handlerSource.matchAll(handlerSet)) {
     variables.add(match[1].toLowerCase());
   }
   return variables;
@@ -972,14 +1004,16 @@ function checkHttpCrud(base, entity, options = {}) {
   const http = joined(/\.http$/i);
   fail(Boolean(http.trim()), `${entity} executable .http workflow is missing.`);
   if (!http.trim()) return;
-  const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const blocks = httpRequestBlocks(http);
+  const normalizedBase = base.replace(/\/+$/, "");
   const flows = {
     list: blocks.find((block) =>
-      block.method === "GET" && new RegExp(`${escaped}(?:\\?|$)`, "i").test(block.url)),
+      block.method === "GET" &&
+      requestPath(block).toLowerCase() === normalizedBase.toLowerCase()),
     details: blocks.find((block) => block.method === "GET" && routeIdExpression(block, base)),
     create: blocks.find((block) =>
-      block.method === "POST" && new RegExp(`${escaped}(?:\\?|$)`, "i").test(block.url)),
+      block.method === "POST" &&
+      requestPath(block).toLowerCase() === normalizedBase.toLowerCase()),
     update: blocks.find((block) =>
       ["PUT", "PATCH"].includes(block.method) && routeIdExpression(block, base)),
     delete: blocks.find((block) => block.method === "DELETE" && routeIdExpression(block, base)),
@@ -1012,12 +1046,11 @@ function checkHttpCrud(base, entity, options = {}) {
   }
 
   if (options.requireCreatedIdReuse && flows.create) {
-    fail(Boolean(flows.create.name), `${entity} .http POST must have a request name for response reuse.`);
     const variables = responseIdVariables(http, flows.create);
     for (const block of dependentBlocks) {
       const id = routeIdExpression(block, base);
       fail(
-        Boolean(flows.create.name) && usesCreatedResponseId(id, flows.create, variables),
+        usesCreatedResponseId(id, flows.create, variables),
         `${entity} .http ${block.method} by-id request must reuse the id returned by POST.`,
       );
     }
@@ -1135,12 +1168,13 @@ function validateTodoApi() {
     "The Todo API host does not invoke MapTodoEndpoints().",
   );
   const records = matching(/\.cs$/i).flatMap((file) => endpointRecords(file.text, cs));
-  checkApiCrud(records, "/api/todos", "Todo", {
+  const todoBase = resourceBase(records, "todos", "Todo");
+  checkApiCrud(records, todoBase, "Todo", {
     validation: true,
     validationType: "TodoRequest",
     validationField: "Title",
   });
-  checkHttpCrud("/api/todos", "Todo", {
+  checkHttpCrud(todoBase, "Todo", {
     requireCreateDependency: true,
     requireCreatedIdReuse: true,
     requestFields: ["title", "isComplete"],
@@ -1319,12 +1353,14 @@ function validateParentApi() {
   );
 
   const records = matching(/\.cs$/i).flatMap((file) => endpointRecords(file.text, cs));
-  const category = checkApiCrud(records, "/api/categories", "Category", {
+  const categoryBase = resourceBase(records, "categories", "Category");
+  const productBase = resourceBase(records, "products", "Product");
+  const category = checkApiCrud(records, categoryBase, "Category", {
     validation: true,
     validationType: "CategoryRequest",
     validationField: "Name",
   });
-  const product = checkApiCrud(records, "/api/products", "Product", {
+  const product = checkApiCrud(records, productBase, "Product", {
     validation: true,
     validationType: "ProductRequest",
     validationField: "Name",
@@ -1338,27 +1374,31 @@ function validateParentApi() {
     );
   }
 
-  const categoryHttp = checkHttpCrud("/api/categories", "Category", {
+  const categoryHttp = checkHttpCrud(categoryBase, "Category", {
     requireCreateDependency: true,
     requireCreatedIdReuse: true,
     requestFields: ["name"],
   });
-  const productHttp = checkHttpCrud("/api/products", "Product", {
+  const productHttp = checkHttpCrud(productBase, "Product", {
     requireCreateDependency: true,
     requireCreatedIdReuse: true,
     requestFields: ["name", "price", "categoryId"],
   });
   const http = joined(/\.http$/i);
-  const categoryPost = http.search(/\bPOST\s+[^\n]*\/api\/categories\b/i);
-  const productPost = http.search(/\bPOST\s+[^\n]*\/api\/products\b/i);
-  fail(categoryPost >= 0 && productPost > categoryPost, "The .http workflow must create a Category before a Product.");
   const categoryCreate = categoryHttp?.flows.create;
   const productCreate = productHttp?.flows.create;
   if (categoryCreate && productCreate) {
+    fail(
+      categoryCreate.index < productCreate.index,
+      "The .http workflow must create a Category before a Product.",
+    );
     const categoryVariables = responseIdVariables(http, categoryCreate);
     fail(
-      Boolean(categoryCreate.name) &&
-        usesCreatedResponseId(jsonFieldValue(productCreate, "categoryId"), categoryCreate, categoryVariables),
+      usesCreatedResponseId(
+        jsonFieldValue(productCreate, "categoryId"),
+        categoryCreate,
+        categoryVariables,
+      ),
       "Product creation must reuse the Category id returned by POST.",
     );
   }

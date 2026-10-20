@@ -993,6 +993,15 @@ function testEndpointRouteConstantLayouts() {
 }
 
 function testTodoHttpLayouts() {
+  const mismatchedPrefixRoot = cloneForMutation("todo-api", "mismatched-prefix-routes");
+  replace(mismatchedPrefixRoot, "Endpoints/TodoEndpoints.cs", /\/api\/todos/g, "/todos");
+  expectFailure("todo-api", mismatchedPrefixRoot, "endpoint and HTTP route prefix mismatch");
+
+  const prefixlessRoot = cloneForMutation("todo-api", "prefixless-routes");
+  replace(prefixlessRoot, "Endpoints/TodoEndpoints.cs", /\/api\/todos/g, "/todos");
+  replace(prefixlessRoot, "TodoApi.http", /\/api\/todos/g, "/todos");
+  expectPass("todo-api", prefixlessRoot, "resource routes without /api prefix");
+
   const namedResponseRoot = cloneForMutation("todo-api", "named-response-without-jsonpath-root");
   replace(namedResponseRoot, "TodoApi.http", /\.response\.body\.\$\.id/g, ".response.body.id");
   expectPass("todo-api", namedResponseRoot, "named response body id layout");
@@ -1015,7 +1024,22 @@ function testTodoHttpLayouts() {
     /\{\{createTodo\.response\.body\.\$\.id\}\}/g,
     "{{todoId}}",
   );
-  expectPass("todo-api", handlerVariableRoot, "response-handler id variable layout");
+  replace(handlerVariableRoot, "TodoApi.http", "# @name createTodo\n", "", 1);
+  expectPass("todo-api", handlerVariableRoot, "unnamed response-handler id variable layout");
+
+  const commentedHandlerRoot = cloneForMutation(
+    "todo-api",
+    "commented-response-handler-variable",
+    handlerVariableRoot,
+  );
+  replace(
+    commentedHandlerRoot,
+    "TodoApi.http",
+    '  client.global.set("todoId", response.body.id);',
+    '  // client.global.set("todoId", response.body.id);',
+    1,
+  );
+  expectFailure("todo-api", commentedHandlerRoot, "commented response-handler capture");
 
   const assignedVariableRoot = cloneForMutation("todo-api", "named-response-assigned-variable");
   replace(
@@ -1037,6 +1061,18 @@ function testTodoHttpLayouts() {
 }
 
 function testParentApiHttpLayouts() {
+  const mismatchedPrefixRoot = cloneForMutation("parent-api", "mismatched-prefix-routes");
+  replace(mismatchedPrefixRoot, "Endpoints/ProductEndpoints.cs", /\/api\/categories/g, "/categories");
+  replace(mismatchedPrefixRoot, "Endpoints/ProductEndpoints.cs", /\/api\/products/g, "/products");
+  expectFailure("parent-api", mismatchedPrefixRoot, "endpoint and HTTP route prefix mismatch");
+
+  const prefixlessRoot = cloneForMutation("parent-api", "prefixless-routes");
+  replace(prefixlessRoot, "Endpoints/ProductEndpoints.cs", /\/api\/categories/g, "/categories");
+  replace(prefixlessRoot, "Endpoints/ProductEndpoints.cs", /\/api\/products/g, "/products");
+  replace(prefixlessRoot, "ParentChildApi.http", /\/api\/categories/g, "/categories");
+  replace(prefixlessRoot, "ParentChildApi.http", /\/api\/products/g, "/products");
+  expectPass("parent-api", prefixlessRoot, "resource routes without /api prefix");
+
   const namedResponseRoot = cloneForMutation("parent-api", "named-response-without-jsonpath-root");
   replace(namedResponseRoot, "ParentChildApi.http", /\.response\.body\.\$\.id/g, ".response.body.id");
   expectPass("parent-api", namedResponseRoot, "named response body id layout");
@@ -1076,7 +1112,23 @@ function testParentApiHttpLayouts() {
     /\{\{createProduct\.response\.body\.\$\.id\}\}/g,
     "{{productId}}",
   );
-  expectPass("parent-api", handlerVariableRoot, "response-handler id variable layout");
+  replace(handlerVariableRoot, "ParentChildApi.http", "# @name createCategory\n", "", 1);
+  replace(handlerVariableRoot, "ParentChildApi.http", "# @name createProduct\n", "", 1);
+  expectPass("parent-api", handlerVariableRoot, "unnamed response-handler id variable layout");
+
+  const commentedHandlerRoot = cloneForMutation(
+    "parent-api",
+    "commented-response-handler-variable",
+    handlerVariableRoot,
+  );
+  replace(
+    commentedHandlerRoot,
+    "ParentChildApi.http",
+    '  client.global.set("categoryId", response.body.id);',
+    '  // client.global.set("categoryId", response.body.id);',
+    1,
+  );
+  expectFailure("parent-api", commentedHandlerRoot, "commented Category response-handler capture");
 
   const assignedVariableRoot = cloneForMutation("parent-api", "named-response-assigned-variables");
   replace(
