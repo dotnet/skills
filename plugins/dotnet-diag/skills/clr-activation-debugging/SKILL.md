@@ -6,7 +6,11 @@ description: >-
   runtime, fails to load any runtime, shows unexpected .NET 3.5 Feature-on-Demand
   (FOD) dialogs, unexpectedly does NOT show FOD dialogs, loads both v2 and v4
   into the same process causing failures, or any time someone is wondering
-  "what is happening with .NET Framework activation?"
+  "what is happening with .NET Framework activation?" DO NOT USE FOR modern
+  .NET hostfxr/hostpolicy framework resolution, roll-forward, or runtimeconfig.json
+  failures, or for post-startup FileNotFoundException, Fusion/fuslogvw, assembly
+  binding, probing-path, or binding-redirect failures; this skill covers only
+  the .NET Framework mscoree.dll shim.
 license: MIT
 ---
 

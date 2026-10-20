@@ -1,0 +1,12 @@
+*** Assembly Binder Log Entry  (3/5/2026 @ 10:25:00 AM) ***
+The operation failed.
+Bind result: hr = 0x80070002. The system cannot find the file specified.
+Assembly manager loaded from: C:\Windows\Microsoft.NET\Framework64\v4.0.30319\clr.dll
+Running under executable C:\Apps\FrameworkApp\FrameworkApp.exe
+LOG: This bind starts in default load context.
+LOG: Using application configuration file: C:\Apps\FrameworkApp\FrameworkApp.exe.Config
+LOG: Post-policy reference: Contoso.Reporting, Version=4.2.0.0, Culture=neutral, PublicKeyToken=0123456789abcdef
+LOG: Attempting download of new URL file:///C:/Apps/FrameworkApp/Contoso.Reporting.DLL.
+ERR: Failed to complete setup of assembly (hr = 0x80070002). Probing terminated.
+System.IO.FileNotFoundException: Could not load file or assembly 'Contoso.Reporting, Version=4.2.0.0'.
+LOG: All probing URLs attempted and failed.

@@ -1,6 +1,6 @@
 ---
 name: dotnet-trace-collect
-description: Guide developers through capturing diagnostic artifacts to diagnose production .NET performance issues. Use when the user needs help choosing diagnostic tools, collecting performance data, or understanding tool trade-offs across different environments (Windows/Linux, .NET Framework/modern .NET, container/non-container).
+description: Guide developers through capturing performance traces for production .NET issues. Use when the user needs help choosing a trace tool, collecting CPU, GC, networking, assembly-loading, or thread-time data, or understanding trace-tool trade-offs across Windows/Linux, .NET Framework/modern .NET, and containers. DO NOT USE FOR analyzing an already-collected .nettrace or .etl file, or when the requested artifact is a process or crash dump; use trace-analysis tooling for existing traces and dump-collect for modern .NET dump capture.
 license: MIT
 ---
 
@@ -136,9 +136,21 @@ When dumps are needed (memory leaks, hangs), **do not provide dump collection co
 Excessive GC requires a **trace** to analyze GC events, pause times, and allocation patterns — a dump is not sufficient.
 
 - **Windows (PerfView)**: Use `PerfView collect /GCCollectOnly` to capture GC events.
-- **Linux (dotnet-trace)**: Use `dotnet-trace collect -p <PID> --profile gc-verbose`.
-- **Linux .NET 10+ with root**: Use `dotnet-trace collect-linux --profile gc-verbose` for richer data with native stacks.
+- **Linux (dotnet-trace)**: Use the standard collector for a bounded GC window.
+- **Linux .NET 10+ with root**: Use `collect-linux` when native stacks are required.
 - **Containers**: `dotnet-monitor` can capture GC traces via its REST API (`/trace?profile=gc-verbose`).
+
+```bash
+# .NET 8/9 Linux: 45-second GC trace
+dotnet-trace collect -p <PID> --profile gc-verbose --duration 00:00:00:45 -o gc.nettrace
+
+# .NET 10+ Linux with root: 45-second GC trace with native stacks
+sudo dotnet-trace collect-linux --profile gc-verbose --duration 00:00:00:45 -o gc.nettrace
+```
+
+`dotnet-trace --duration` uses the strict `dd:hh:mm:ss` format. Include all four fields:
+`00:00:00:30` is 30 seconds, `00:00:30:00` is 30 minutes. Do not emit three-field
+durations such as `00:00:30`.
 
 #### Slow Requests
 
@@ -219,6 +231,10 @@ Key guidance to include:
 5. **Long-running repros** (Windows/PerfView): show how to use trigger arguments and circular buffer settings.
 6. **Output location**: Where the collected file will be saved and how to copy it off the target for analysis.
 7. **Artifact handoff checklist**: Include runtime version, OS/kernel, container image tag or build SHA, PID/process name, UTC collection start/end timestamps, exact command used, and final artifact path when handing traces to someone else for analysis.
+
+For an exact-command request, lead with one directly executable command. Keep the response to the
+command plus only the prerequisites or output-handling notes needed for that scenario. Do not add
+unrequested installation, analysis, or alternative-tool sections.
 
 ### Step 4: Recommend analysis approach
 
