@@ -25,7 +25,7 @@ public sealed class OrderServiceTests
     public void GetFinalPrice_AppliesDiscountAndTax()
     {
         // Mocking a DTO — a real instance would be simpler
-        var mockCustomer = new Mock<CustomerDto>("1", "Alice", "alice@example.com", "Gold");
+        var mockCustomer = new Mock<CustomerDto>(1, "Alice", "alice@example.com", "Gold");
 
         _mockPricing.Setup(p => p.CalculateDiscount(It.IsAny<CustomerDto>(), 100m)).Returns(10m);
         _mockPricing.Setup(p => p.ApplyTax(90m, "US")).Returns(97.2m);
