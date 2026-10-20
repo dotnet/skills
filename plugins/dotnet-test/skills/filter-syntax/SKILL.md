@@ -9,6 +9,13 @@ license: MIT
 # Test Filter Syntax Reference
 
 Filter syntax depends on the **platform** and **test framework**.
+This reference owns filter expressions, not runner command selection.
+Use the `run-tests` decision table to place the filter flags:
+a supported VSTest-mode MTP bridge requires `--`, including legacy MTP 1.x
+on SDK 10. MTP 2+ cannot bridge on SDK 10+, regardless of separator. Native
+MTP normally passes flags directly (an explicit app-argument delimiter is also
+allowed). Mode and package compatibility, not SDK version alone, decide the
+command. The MTP examples below are argument fragments.
 
 ## VSTest filters (MSTest, xUnit v2, NUnit on VSTest)
 
@@ -63,14 +70,11 @@ dotnet test --filter "ClassName=MyNamespace.ClassA|ClassName=MyNamespace.ClassB"
 
 ## MTP filters — MSTest and NUnit
 
-MSTest and NUnit on MTP use the **same `--filter` syntax** as VSTest (same properties, operators, and combinators). The only difference is how the flag is passed:
+MSTest and NUnit on MTP use the **same `--filter` expression syntax** as
+VSTest (same properties, operators and combinators):
 
 ```bash
-# .NET SDK 8/9 (after --)
-dotnet test -- --filter "Name~LoginTest"
-
-# .NET SDK 10+ (direct)
-dotnet test --filter "Name~LoginTest"
+--filter "Name~LoginTest"
 ```
 
 ## MTP filters — xUnit (v3)
@@ -91,14 +95,10 @@ xUnit v3 on MTP uses **framework-specific filter flags** instead of the generic 
 Multiple values can be specified with a single flag: `--filter-class Foo Bar`.
 
 ```bash
-# .NET SDK 8/9
-dotnet test -- --filter-class "MyNamespace.LoginTests"
-
-# .NET SDK 10+
-dotnet test --filter-class "MyNamespace.LoginTests"
+--filter-class "MyNamespace.LoginTests"
 
 # Combine: namespace + trait
-dotnet test --filter-namespace "MyApp.Tests.Integration" --filter-trait "Category=Smoke"
+--filter-namespace "MyApp.Tests.Integration" --filter-trait "Category=Smoke"
 ```
 
 ### xUnit v3 query filter language
@@ -113,7 +113,7 @@ Each segment matches against: assembly name, namespace, class name, method name.
 
 ```shell
 # xUnit.net v3 MTP — using query language (assembly/namespace/class/method[trait])
-dotnet test -- --filter-query "/*/*/*IntegrationTests*/*[Category=Smoke]"
+--filter-query "/*/*/*IntegrationTests*/*[Category=Smoke]"
 ```
 
 ## MTP filters — TUnit
@@ -138,25 +138,25 @@ Wildcards (`*`) are supported in any segment. Filter operators can be appended t
 
 ```bash
 # All tests in a class
-dotnet run --treenode-filter "/*/*/LoginTests/*"
+--treenode-filter "/*/*/LoginTests/*"
 
 # A specific test
-dotnet run --treenode-filter "/*/*/*/AcceptCookiesTest"
+--treenode-filter "/*/*/*/AcceptCookiesTest"
 
 # By namespace prefix (wildcard)
-dotnet run --treenode-filter "/*/MyProject.Tests.Api*/*/*"
+--treenode-filter "/*/MyProject.Tests.Api*/*/*"
 
 # By custom property
-dotnet run --treenode-filter "/*/*/*/*[Category=Smoke]"
+--treenode-filter "/*/*/*/*[Category=Smoke]"
 
 # Exclude by property
-dotnet run --treenode-filter "/*/*/*/*[Category!=Slow]"
+--treenode-filter "/*/*/*/*[Category!=Slow]"
 
 # OR across classes
-dotnet run --treenode-filter "/*/*/(LoginTests)|(SignupTests)/*"
+--treenode-filter "/*/*/(LoginTests)|(SignupTests)/*"
 
 # Combined: namespace + property
-dotnet run --treenode-filter "/*/MyProject.Tests.Integration/*/*/*[Priority=Critical]"
+--treenode-filter "/*/MyProject.Tests.Integration/*/*/*[Priority=Critical]"
 ```
 
 ## VSTest → MTP filter translation (for migration)

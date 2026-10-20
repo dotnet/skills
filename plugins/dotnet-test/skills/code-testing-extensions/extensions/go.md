@@ -132,7 +132,10 @@ Go has no reflection-based mocking framework that's universally adopted. Pick wh
 - **Interfaces + hand-written fakes** (most idiomatic) — define a small interface in the consumer package and pass a struct that implements it
 - **`gomock` / `mockgen`** — if the repo has `//go:generate mockgen ...` directives or `mocks/` directories, regenerate via `go generate ./...` rather than editing generated files
 - **`testify/mock`** — used in many repos; instantiate with `new(MockX)` and chain `.On("Method", ...).Return(...)`
-- **`httptest`** — for HTTP clients/servers; spin up `httptest.NewServer` instead of mocking `http.Client`
+- **`httptest`** — use `NewRecorder` for handler-only unit tests and
+  `httptest.NewServer` when the requested client/server transport behavior
+  needs a loopback connection. It allocates an ephemeral port; close the server
+  with `t.Cleanup` and bound client requests with context/deadlines.
 
 Always prefer dependency injection over global function patching. If a test needs more than 3 mocks, flag it as a design smell.
 
@@ -153,6 +156,9 @@ go mod tidy
 
 Run `go mod tidy` after any `go get` to keep `go.sum` consistent. Never edit `go.sum` by hand.
 
-## Skip Coverage Tools
+## Coverage when requested
 
-Do not configure or run coverage tools (`-cover`, `-coverprofile`, `go tool cover`). Coverage is measured separately by the evaluation harness.
+Follow the [shared coverage policy](../../code-testing/unit-test-generation.prompt.md#test-scope-guidelines).
+Reuse the repository's `-cover`/`-coverprofile` workflow when measurement is
+required; inspect the report and requested threshold rather than assuming
+an external harness will collect it.

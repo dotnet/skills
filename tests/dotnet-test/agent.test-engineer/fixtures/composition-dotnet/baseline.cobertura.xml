@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<coverage line-rate="0.473684" lines-covered="9" lines-valid="19" branch-rate="0.444444" branches-covered="8" branches-valid="18">
+  <sources><source>.</source></sources>
+  <packages>
+    <package name="Dispatch" line-rate="0.473684" branch-rate="0.444444">
+      <classes>
+        <class name="Dispatch.Policy" filename="Policy.cs" line-rate="0.444444" branch-rate="0.4375">
+          <methods>
+            <method name="Authorize" signature="(int,bool,bool,bool,bool,bool,bool)" complexity="8" line-rate="0.533333" branch-rate="0.5">
+              <lines>
+                <line number="8" hits="4" branch="true" condition-coverage="100% (2/2)" />
+                <line number="9" hits="1" />
+                <line number="10" hits="3" branch="true" condition-coverage="100% (2/2)" />
+                <line number="11" hits="1" />
+                <line number="12" hits="2" branch="true" condition-coverage="100% (2/2)" />
+                <line number="13" hits="1" />
+                <line number="14" hits="1" branch="true" condition-coverage="50% (1/2)" />
+                <line number="15" hits="1" />
+                <line number="16" hits="0" branch="true" condition-coverage="0% (0/2)" />
+                <line number="17" hits="0" />
+                <line number="18" hits="0" branch="true" condition-coverage="0% (0/2)" />
+                <line number="19" hits="0" />
+                <line number="20" hits="0" branch="true" condition-coverage="0% (0/2)" />
+                <line number="21" hits="0" />
+                <line number="22" hits="0" />
+              </lines>
+            </method>
+            <method name="Label" signature="(bool)" complexity="2" line-rate="0" branch-rate="0">
+              <lines>
+                <line number="27" hits="0" branch="true" condition-coverage="0% (0/2)" />
+                <line number="28" hits="0" />
+                <line number="29" hits="0" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="8" hits="4" /><line number="9" hits="1" />
+            <line number="10" hits="3" /><line number="11" hits="1" />
+            <line number="12" hits="2" /><line number="13" hits="1" />
+            <line number="14" hits="1" /><line number="15" hits="1" />
+            <line number="16" hits="0" /><line number="17" hits="0" />
+            <line number="18" hits="0" /><line number="19" hits="0" />
+            <line number="20" hits="0" /><line number="21" hits="0" />
+            <line number="22" hits="0" /><line number="27" hits="0" />
+            <line number="28" hits="0" /><line number="29" hits="0" />
+          </lines>
+        </class>
+        <class name="Dispatch.Freight" filename="Freight.cs" line-rate="1" branch-rate="0.5">
+          <methods>
+            <method name="Quote" signature="(bool)" complexity="2" line-rate="1" branch-rate="0.5">
+              <lines><line number="7" hits="1" branch="true" condition-coverage="50% (1/2)" /></lines>
+            </method>
+          </methods>
+          <lines><line number="7" hits="1" branch="true" condition-coverage="50% (1/2)" /></lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>

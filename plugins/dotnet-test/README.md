@@ -14,7 +14,7 @@ PowerShell (Pester), and C++ (GoogleTest/Catch2/doctest/Boost.Test).
 ## When to use this plugin
 
 - **Run tests** *(.NET only)* — execute SDK-style projects with `dotnet test`, or preserve a classic project's checked-in MSBuild + VSTest/MSTest command
-- **Generate tests** *(polyglot)* — scaffold comprehensive unit tests for any language via a multi-agent pipeline
+- **Generate tests** *(polyglot)* — plan, generate, execute, review and repair tests with one bounded workflow owner
 - **Migrate tests** *(.NET only)* — see the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin (MSTest v1/v2 → v3 → v4, xUnit v2 → v3, xUnit → MSTest, VSTest → Microsoft.Testing.Platform)
 - **Audit test quality** *(polyglot)* — detect anti-patterns, test smells, assertion gaps, and (for .NET) coverage risks
 - **Validate changed behavior** *(polyglot)* — bind regression/feature detection evidence to exact revisions, without mistaking static predictions or build failures for proof
@@ -37,6 +37,52 @@ PowerShell (Pester), and C++ (GoogleTest/Catch2/doctest/Boost.Test).
 | **code-testing** | Implicit entry skill for generating, repairing, and strengthening tests; broad work delegates to `test-engineer` |
 | **scaffold-dotnet-test-project** *(.NET)* | Create a missing test project or repair its project/solution/filter wiring |
 | **writing-mstest-tests** | Version-compatible MSTest authoring for modern and classic projects, including MSTest 3.x/4.x APIs |
+
+Generation reuses one inventory and available evidence. Static source-to-test
+pairing locates candidate test files; it is not behavioral coverage. Existing
+measured coverage helps select missing paths, while assertion and gap reviews
+feed targeted repairs followed by fresh validation. Sound tests stay unchanged.
+CRAP ranking is opt-in to risk-prioritization intent with reliable matching
+coverage/complexity. Missing, stale or unsupported metrics remain unknown: they
+do not trigger tool installation, collection or production refactors. Bundled
+coverage/CRAP analysis is .NET-only; other languages require verified native
+evidence. Focused additions stay inline; only broad multi-dimensional quality
+work warrants the existing auditor, without duplicating its reviews.
+
+The composition evals include report-based priorities, quality-feedback repairs,
+stale-data restraint and an already-sound no-op. Replay their golden workspaces
+and mutation controls with:
+
+```powershell
+python -B tests\dotnet-test\agent.test-engineer\graders\test_composition.py -v
+```
+
+This deterministic replay is not model-execution or improvement evidence; the
+native `test-engineer` evaluation lane supplies that separately.
+
+Focused operation-eval contracts verify Python repairs and valid failing regressions,
+Rust inline-test boundaries, and Go HTTP/filesystem behavior. They authenticate the
+complete workspace and staged support files before and after execution; allowed edits
+and generated outputs stay within each operation's `work` directory. The healthy
+repair no-op remains a single inspection-only case, not evidence of agent test execution.
+
+The Go case instruments a separate replay copy with an authenticated standard-library
+AST probe. It registers ownership checks at test/subtest entry, verifies server cleanup
+and destinations inside owned temporary directories, and accepts cleanup registered
+before resource creation. Single-function table-driven tests are judged by behavioral
+mutations, not a minimum function count. Helpers need a standard `testing.T`/`testing.TB`
+owner for this fixture probe; unsupported ownership is reported rather than guessed.
+The probe does not change delivered tests or add a public analysis tool.
+
+The fixture-only migration replay helper contains child processes in POSIX process
+groups or a Windows job assigned before grader code starts, and cleans up descendants
+on timeout/interruption. This does not implement Vally comparison recovery or native
+agent trace grading. Focused offline checks:
+
+```powershell
+python -B tests\dotnet-test\code-testing\graders\test_operation_contract.py -v
+python -B tests\dotnet-test-migration\graders\test_replay_timeouts.py -v
+```
 
 ### Test migration
 

@@ -190,6 +190,8 @@ poetry run python manage.py test app_label.tests.test_module
 
 Fix test defects and rerun without weakening required assertions. Retain explicitly requested regression cases when they expose a production defect or an environment/collection blocker, and report the exact command, failure, and remaining work rather than claiming success. Do not skip, xfail, or delete required cases to manufacture a green suite. Remove only speculative out-of-scope cases, and disclose any scope reduction.
 
-## Skip Coverage Tools
+## Coverage when requested
 
-Do not configure or run coverage tools (coverage.py, pytest-cov). Coverage is measured separately by the evaluation harness.
+Follow the [shared coverage policy](../../code-testing/unit-test-generation.prompt.md#test-scope-guidelines).
+Reuse configured coverage.py or pytest-cov when measurement is required; do
+not add plugins by default or assume a harness collects the report.

@@ -53,6 +53,10 @@ audit; leave this agent dormant.
 
 ## Workflow
 
+Use the [shared analysis context](../skills/test-analysis-extensions/references/analysis-context.md)
+as the single inventory/evidence ledger across selected dimensions. Supply it
+to each consumer with the caller's permissions; each keeps its own rubric.
+
 ### 1. Bound and identify the suite
 
 Read repository instructions first. Limit discovery to the project, package, or

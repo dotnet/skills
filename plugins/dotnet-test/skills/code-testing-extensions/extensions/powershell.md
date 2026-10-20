@@ -48,15 +48,25 @@ This catches placement and discovery mistakes on turn 1 instead of after dozens 
 
 ### Harness Discovery Check
 
-Before reporting success, run the **harness-equivalent** discovery command from the repo root and confirm the test count went up by at least the number of tests you generated. CI/msbench/coverage harnesses do not know which directory you targeted with `-Path`; they invoke Pester from the repo root with default discovery, so a test that passes via `Invoke-Pester -Path ./tools/Foo.Tests.ps1` is still worthless if `Invoke-Pester` from the repo root does not enumerate it.
+Before reporting success, use the repository's configured discovery/CI entry
+point, working directory, paths and filters, not just the changed test file.
+Confirm each intended case using its container, expanded name and data-case
+identity in Pester's returned tests/report. Repairs can keep counts unchanged;
+parameterized rows and test blocks need not have the same cardinality.
 
 ```powershell
-# From repo root — mirrors what a generic harness sees
+# For a repository that uses default root discovery; preserve configured paths/filters.
 $result = Invoke-Pester -Configuration @{ Run = @{ PassThru = $true; SkipRun = $true } }
+"$($result.Result): discovery result"
+$result.Tests | Select-Object ExpandedPath, ExpandedName
 "$($result.TotalCount) tests discovered"
 ```
 
-If the count did not increase, your `*.Tests.ps1` file is outside the harness discovery root. Move it to the convention the repo's existing tests use (or, if there are no existing tests, prefer the repo root's `tests/`, `Tests/`, `tst/`, `test/`, or co-locate next to the source). Do **not** report success until the harness-equivalent command sees your new tests.
+Capture discovery errors and the process exit before interpreting results.
+An unchanged count alone does not prove the file is misplaced. If an intended
+case is missing, inspect paths, filters, names and data expansion, then fix the
+proven registration/placement defect. Never move tests or add redundant cases
+just to increase the count. Discovery does not prove test passage.
 
 ## Rule #1: Investigate the Repo First
 
@@ -206,6 +216,9 @@ Most `Should` operators are self-explanatory. These are the ones agents get wron
 - Windows ships Pester 3.4.0 — if v5 is needed: `Install-Module Pester -Force -SkipPublisherCheck`
 - Check `$PSVersionTable.PSEdition` to detect Core vs Desktop
 
-## Skip Coverage Tools
+## Coverage when requested
 
-Do not configure or run coverage tools (Pester CodeCoverage, JaCoCo export). Coverage is measured separately by the evaluation harness.
+Follow the [shared coverage policy](../../code-testing/unit-test-generation.prompt.md#test-scope-guidelines).
+Reuse the repository's Pester CodeCoverage configuration when measurement is
+required, preserving its selected paths and report format. Do not assume a
+harness collects the requested artifact.
