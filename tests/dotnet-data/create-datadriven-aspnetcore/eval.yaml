@@ -710,8 +710,7 @@ stimuli:
       WriteRow(TextWriter writer, string title, decimal total). Write one CSV row, quote and escape
       the title, and format the decimal with invariant culture. Keep the existing ReportWriter
       unchanged and follow the project's existing API and conventions.
-    expect_activation: false
-    tags: { capability: boundary-non-aspnet-project, risk: routing, journey: redirect-non-web-code-generation }
+    tags: { capability: boundary-non-aspnet-project, risk: routing, journey: redirect-non-web-code-generation, expect_activation: "false" }
     environment:
       files:
         - { src: fixtures/non-web, dest: fixtures/non-web }
