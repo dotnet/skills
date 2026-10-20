@@ -1,0 +1,13 @@
+diff --git a/app/Program.cs b/app/Program.cs
+--- a/app/Program.cs
++++ b/app/Program.cs
+@@ -7,8 +7,7 @@ var options = new JsonSerializerOptions
+     TypeInfoResolver = new DefaultJsonTypeInfoResolver()
+ };
+ 
+-JsonTypeInfo<Order> typeInfo =
+-    (JsonTypeInfo<Order>)options.GetTypeInfo(typeof(Order));
++JsonTypeInfo<Order> typeInfo = options.GetTypeInfo<Order>();
+ var order = JsonSerializer.Deserialize(json, typeInfo)!;
+ 
+ Console.WriteLine($"{order.Id}|{order.Total}");

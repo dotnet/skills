@@ -1,0 +1,25 @@
+diff --git a/app/Program.cs b/app/Program.cs
+--- a/app/Program.cs
++++ b/app/Program.cs
+@@ -6,19 +6,8 @@ var options = new JsonSerializerOptions
+     TypeInfoResolver = MessageContext.Default
+ };
+ 
+-var known = options.GetTypeInfo<KnownMessage>() is not null;
+-var unknown = true;
+-try
+-{
+-    _ = options.GetTypeInfo<UnknownMessage>();
+-}
+-catch (NotSupportedException)
+-{
+-    unknown = false;
+-}
+-
+-Console.WriteLine($"Known={known}");
+-Console.WriteLine($"Unknown={unknown}");
++Console.WriteLine($"Known={options.TryGetTypeInfo<KnownMessage>(out _)}");
++Console.WriteLine($"Unknown={options.TryGetTypeInfo<UnknownMessage>(out _)}");
+ 
+ record KnownMessage(string Text);
+ record UnknownMessage(string Text);
