@@ -895,10 +895,74 @@ function testEndpointHostMappingLayouts() {
 }
 
 function testPatchTodoLayout() {
+  const mismatchRoot = cloneForMutation("todo-api", "patch-request-put-endpoint-mismatch");
+  replace(mismatchRoot, "TodoApi.http", "\nPUT ", "\nPATCH ");
+  expectFailure("todo-api", mismatchRoot, "PATCH request mapped only as PUT");
+
   const root = cloneForMutation("todo-api", "patch-layout");
   replace(root, "Endpoints/TodoEndpoints.cs", "group.MapPut", "group.MapPatch");
   replace(root, "TodoApi.http", "\nPUT ", "\nPATCH ");
   expectPass("todo-api", root, "PATCH update layout");
+
+  const dualVerbRoot = cloneForMutation("todo-api", "put-and-patch-layout");
+  const putBlock = `        group.MapPut("/{id:int}", UpdateTodoAsync)
+            .WithName("UpdateTodoItem")
+            .WithSummary("Update a todo item")
+            .WithDescription("Replaces the editable values of an existing todo item.")
+            .Accepts<TodoRequest>("application/json")
+            .Produces<TodoItem>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .Produces(StatusCodes.Status404NotFound);`;
+  replace(
+    dualVerbRoot,
+    "Endpoints/TodoEndpoints.cs",
+    putBlock,
+    `${putBlock}
+
+        group.MapPatch("/{id:int}", UpdateTodoAsync)
+            .WithName("PatchTodoItem")
+            .WithSummary("Patch a todo item")
+            .WithDescription("Updates the editable values of an existing todo item.")
+            .Accepts<TodoRequest>("application/json")
+            .Produces<TodoItem>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .Produces(StatusCodes.Status404NotFound);`,
+    1,
+  );
+  replace(dualVerbRoot, "TodoApi.http", "\nPUT ", "\nPATCH ");
+  expectPass("todo-api", dualVerbRoot, "PATCH workflow when PUT and PATCH are both mapped");
+
+  const categoryMismatchRoot = cloneForMutation(
+    "parent-api",
+    "category-patch-request-put-endpoint-mismatch",
+  );
+  replace(
+    categoryMismatchRoot,
+    "ParentChildApi.http",
+    "\nPUT {{ParentChildApi_HostAddress}}/api/categories/",
+    "\nPATCH {{ParentChildApi_HostAddress}}/api/categories/",
+    1,
+  );
+  expectFailure("parent-api", categoryMismatchRoot, "Category PATCH request mapped only as PUT");
+
+  const productMismatchRoot = cloneForMutation(
+    "parent-api",
+    "product-patch-request-put-endpoint-mismatch",
+  );
+  replace(
+    productMismatchRoot,
+    "ParentChildApi.http",
+    "\nPUT {{ParentChildApi_HostAddress}}/api/products/",
+    "\nPATCH {{ParentChildApi_HostAddress}}/api/products/",
+    1,
+  );
+  expectFailure("parent-api", productMismatchRoot, "Product PATCH request mapped only as PUT");
+
+  const parentRoot = cloneForMutation("parent-api", "patch-layout");
+  replace(parentRoot, "Endpoints/ProductEndpoints.cs", "categories.MapPut", "categories.MapPatch");
+  replace(parentRoot, "Endpoints/ProductEndpoints.cs", "products.MapPut", "products.MapPatch");
+  replace(parentRoot, "ParentChildApi.http", "\nPUT ", "\nPATCH ");
+  expectPass("parent-api", parentRoot, "matching Category and Product PATCH update layout");
 }
 
 function testRouteGroupConstantLayouts() {
@@ -2371,6 +2435,39 @@ function parentApiMutations() {
     replace(root, "Program.cs", "app.MapProductEndpoints();", "// app.MapProductEndpoints();", 1));
   mutation("parent-api", "Product route base mismatch", (root) =>
     replace(root, endpoints, 'MapGroup("/api/products")', 'MapGroup("/api/products-broken")', 1));
+  mutation("parent-api", "Category deleted before Product workflow", (root) => {
+    const source = read(root, http);
+    const deleteBlock = source.match(/### Delete the now-empty category[\s\S]*$/)?.[0];
+    if (!deleteBlock) throw new Error("Could not find Category delete request block");
+    const withoutDelete = source.replace(`\n\n${deleteBlock}`, "");
+    write(
+      root,
+      http,
+      withoutDelete.replace(
+        "### Create a product with the returned category id",
+        `${deleteBlock}\n\n### Create a product with the returned category id`,
+      ),
+    );
+  });
+  mutation("parent-api", "Category deleted before final Product requests", (root) => {
+    const source = read(root, http);
+    const productDelete = source.match(/### Delete the created product[\s\S]*?(?=\n\n###)/)?.[0];
+    const categoryDelete = source.match(/### Delete the now-empty category[\s\S]*$/)?.[0];
+    if (!productDelete || !categoryDelete) {
+      throw new Error("Could not find Product and Category delete request blocks");
+    }
+    const withoutDeletes = source
+      .replace(`\n\n${productDelete}`, "")
+      .replace(`\n\n${categoryDelete}`, "");
+    write(
+      root,
+      http,
+      withoutDeletes.replace(
+        "### Update the created product",
+        `${productDelete}\n\n${categoryDelete}\n\n### Update the created product`,
+      ),
+    );
+  });
   mutation("parent-api", "remove list flow", (root) =>
     replace(root, endpoints, ".ToListAsync()", ".ToList()", 1));
   mutation("parent-api", "remove by-id flow", (root) =>

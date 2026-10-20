@@ -770,7 +770,8 @@ function checkApiCrud(records, base, entity, options = {}) {
   const list = scoped.find((record) => record.verb === "GET" && !/\{[^}]*id/i.test(record.route));
   const details = scoped.find((record) => record.verb === "GET" && /\{[^}]*id/i.test(record.route));
   const create = scoped.find((record) => record.verb === "POST");
-  const update = scoped.find((record) => /^(PUT|PATCH)$/.test(record.verb));
+  const updates = scoped.filter((record) => /^(PUT|PATCH)$/.test(record.verb));
+  const update = updates[0];
   const remove = scoped.find((record) => record.verb === "DELETE");
 
   fail(Boolean(list), `${entity} list route is missing.`);
@@ -848,7 +849,16 @@ function checkApiCrud(records, base, entity, options = {}) {
   }
 
   checkMetadata(scoped, entity);
-  return { scoped, list, details, create, update, remove };
+  return {
+    scoped,
+    list,
+    details,
+    create,
+    update,
+    updates,
+    updateVerbs: [...new Set(updates.map((record) => record.verb))],
+    remove,
+  };
 }
 
 function httpRequestBlocks(http) {
@@ -1006,6 +1016,9 @@ function checkHttpCrud(base, entity, options = {}) {
   if (!http.trim()) return;
   const blocks = httpRequestBlocks(http);
   const normalizedBase = base.replace(/\/+$/, "");
+  const updateMethods = options.updateMethods?.length
+    ? options.updateMethods
+    : ["PUT", "PATCH"];
   const flows = {
     list: blocks.find((block) =>
       block.method === "GET" &&
@@ -1015,7 +1028,7 @@ function checkHttpCrud(base, entity, options = {}) {
       block.method === "POST" &&
       requestPath(block).toLowerCase() === normalizedBase.toLowerCase()),
     update: blocks.find((block) =>
-      ["PUT", "PATCH"].includes(block.method) && routeIdExpression(block, base)),
+      updateMethods.includes(block.method) && routeIdExpression(block, base)),
     delete: blocks.find((block) => block.method === "DELETE" && routeIdExpression(block, base)),
   };
   const dependentBlocks = blocks.filter((block) =>
@@ -1169,7 +1182,7 @@ function validateTodoApi() {
   );
   const records = matching(/\.cs$/i).flatMap((file) => endpointRecords(file.text, cs));
   const todoBase = resourceBase(records, "todos", "Todo");
-  checkApiCrud(records, todoBase, "Todo", {
+  const todo = checkApiCrud(records, todoBase, "Todo", {
     validation: true,
     validationType: "TodoRequest",
     validationField: "Title",
@@ -1178,6 +1191,7 @@ function validateTodoApi() {
     requireCreateDependency: true,
     requireCreatedIdReuse: true,
     requestFields: ["title", "isComplete"],
+    updateMethods: todo.updateVerbs,
   });
 }
 
@@ -1378,11 +1392,13 @@ function validateParentApi() {
     requireCreateDependency: true,
     requireCreatedIdReuse: true,
     requestFields: ["name"],
+    updateMethods: category.updateVerbs,
   });
   const productHttp = checkHttpCrud(productBase, "Product", {
     requireCreateDependency: true,
     requireCreatedIdReuse: true,
     requestFields: ["name", "price", "categoryId"],
+    updateMethods: product.updateVerbs,
   });
   const http = joined(/\.http$/i);
   const categoryCreate = categoryHttp?.flows.create;
@@ -1400,6 +1416,18 @@ function validateParentApi() {
         categoryVariables,
       ),
       "Product creation must reuse the Category id returned by POST.",
+    );
+  }
+  if (categoryHttp?.flows.delete && productHttp?.flows.delete) {
+    const productRequestIndexes = productHttp.blocks
+      .filter((block) =>
+        requestPath(block).toLowerCase() === productBase.toLowerCase() ||
+        Boolean(routeIdExpression(block, productBase)))
+      .map((block) => block.index);
+    fail(
+      productRequestIndexes.length > 0 &&
+        categoryHttp.flows.delete.index > Math.max(...productRequestIndexes),
+      "The .http workflow must delete the Category only after the complete Product workflow.",
     );
   }
 }
