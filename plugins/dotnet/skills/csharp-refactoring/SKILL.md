@@ -156,6 +156,11 @@ needs `[TypeForwardedTo]` in the original assembly; a move within one assembly d
 *rename* needs an `[Obsolete]` shim, not a forwarder. For a provably local/private change, skip these
 checks.
 
+When PublicApiAnalyzers files govern a public rename, keep the old signature in
+`PublicAPI.Shipped.txt` and add the new signature to `PublicAPI.Unshipped.txt`.
+`PublicAPI.Shipped.txt` is immutable history: never add the new name there.
+Do not report the rename complete until both records are correct.
+
 ## Stop an in-scope refactor when
 
 - The baseline is already red (you can't prove you preserved behavior).
