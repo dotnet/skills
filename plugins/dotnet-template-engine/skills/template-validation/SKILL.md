@@ -7,7 +7,8 @@ description: >
   USE FOR: checking template.json files for errors before publishing or testing,
   diagnosing why a template doesn't appear after installation, reviewing template
   parameter definitions for type mismatches and missing defaults, finding shortName
-  conflicts with dotnet CLI commands, validating post-action and constraint configuration.
+  conflicts with dotnet CLI commands, diagnosing malformed template JSON with an exact
+  parse location, validating post-action and constraint configuration.
   DO NOT USE FOR: finding or using existing templates (use template-discovery),
   creating projects from templates (use template-instantiation), creating templates
   from existing projects (use template-authoring).
@@ -92,6 +93,9 @@ For each symbol in the `symbols` object:
     - ERROR if `choices` is empty
     - ERROR if `defaultValue` is not in the choices list
     - WARNING if optional (not `isRequired`) and no `defaultValue` — users get unexpected behavior
+    - The fix must use a JSON object keyed by choice value, with each value containing metadata
+      such as `displayName`; do not emit a string array because that is not the template-engine
+      choice schema
   - If `datatype: "bool"`:
     - ERROR if `defaultValue` is not a valid boolean
   - If `datatype: "int"`:

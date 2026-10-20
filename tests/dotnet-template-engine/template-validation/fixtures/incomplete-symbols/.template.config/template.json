@@ -3,6 +3,8 @@
   "classifications": ["Web", "API"],
   "identity": "Contoso.Templates.ConfigurableApi",
   "name": "Contoso Configurable API",
+  "description": "Creates a configurable API.",
+  "defaultName": "ConfigurableApi",
   "shortName": "contoso-configurable-api",
   "sourceName": "ConfigurableApi",
   "tags": {
@@ -12,11 +14,13 @@
   "symbols": {
     "EnableCaching": {
       "datatype": "bool",
-      "defaultValue": "true"
+      "defaultValue": "true",
+      "description": "Enable response caching."
     },
     "Color": {
       "type": "parameter",
       "datatype": "choice",
+      "description": "Select the accent color.",
       "choices": []
     }
   }

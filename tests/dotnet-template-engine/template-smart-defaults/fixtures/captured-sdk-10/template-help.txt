@@ -1,0 +1,19 @@
+Captured with .NET SDK 10.0.100. These are the relevant choices from sequential
+template help captures.
+
+[worker]
+Frameworks: net8.0, net9.0, net10.0 (default net10.0)
+Options: --aot, --use-program-main
+
+[console]
+Frameworks: net8.0, net9.0, net10.0 (default net10.0)
+Options: --aot, --use-program-main
+
+[webapi]
+Frameworks: net8.0, net9.0, net10.0 (default net10.0)
+Auth: --auth None|IndividualB2C|SingleOrg|Windows (default None)
+Options: --aot, --use-controllers, --no-https
+Constraints:
+  --aot is available only with --auth None and without --use-controllers.
+  net6.0 is not an available framework choice.
+  Minimal APIs are the default when --use-controllers is omitted.

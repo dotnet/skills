@@ -1,0 +1,16 @@
+diff --git a/src/ExistingApp/ExistingApp.csproj b/src/ExistingApp/ExistingApp.csproj
+--- a/src/ExistingApp/ExistingApp.csproj
++++ b/src/ExistingApp/ExistingApp.csproj
+@@ -4,5 +4,6 @@
+     <TargetFramework>net10.0</TargetFramework>
+     <ImplicitUsings>enable</ImplicitUsings>
+     <Nullable>enable</Nullable>
++    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+   </PropertyGroup>
+ </Project>
+diff --git a/src/ExistingApp/Program.cs b/src/ExistingApp/Program.cs
+--- a/src/ExistingApp/Program.cs
++++ b/src/ExistingApp/Program.cs
+@@ -1 +1 @@
+-Console.WriteLine("Original existing application");
++Console.WriteLine("Updated existing application");

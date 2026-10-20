@@ -8,8 +8,11 @@ description: >
   flags are mutually exclusive, filling unset related parameters during project creation,
   explaining why a default was applied and ensuring an explicit user value is never
   overridden.
-  DO NOT USE FOR: creating the project itself (use template-instantiation), finding or
-  comparing templates (use template-discovery and template-comparison), authoring or
+  ONLY USE after a template is selected and related parameters must be filled,
+  preserved, or checked for conflicts.
+  DO NOT USE FOR: choosing or comparing templates before parameters are selected (use
+  template-discovery or template-comparison), creating the project itself (use
+  template-instantiation), authoring or
   validating custom templates (use template-authoring and template-validation).
 license: MIT
 ---
@@ -53,8 +56,9 @@ they only fill gaps and never override a value the user set explicitly.
 For advice-only prompts that say "don't create files", make the displayed command safe to run
 by appending `--dry-run`. If a scenario needs a named example and the user omitted the name,
 choose a short descriptive sample name and mark it `Source = rule`. Do not add a name when the
-user asked for a command containing only explicitly requested choices or when the template can
-demonstrate those choices safely without one.
+user asked for a command containing only explicitly requested choices, when the request is about
+preserving workspace-provided values, or when the template can demonstrate those choices safely
+without one. Never invent `--name` merely to make an advice-only dry-run look complete.
 
 ### Required output
 
