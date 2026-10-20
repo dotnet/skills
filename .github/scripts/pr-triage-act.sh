@@ -535,7 +535,7 @@ EOF
       fi
       body=$(cat <<EOF
 <!-- pr-triage:fingerprint=maintainer-ping/B:$HEAD_SHA_SHORT:$TODAY -->
-✅ Evaluation passed for \`$HEAD_SHA_SHORT\`. No CODEOWNERS entry matched the changed paths; cc $MERGE_APPROVERS_TEAM — please review.
+✅ Evaluation checks completed without gating failures for \`$HEAD_SHA_SHORT\`; this does not certify improvement or default readiness. No CODEOWNERS entry matched the changed paths; cc $MERGE_APPROVERS_TEAM — please review the detailed results.
 EOF
 )
     else
@@ -550,7 +550,7 @@ EOF
       fi
       body=$(cat <<EOF
 <!-- pr-triage:fingerprint=maintainer-ping/A:$HEAD_SHA_SHORT:$TODAY -->
-✅ Evaluation passed for \`$HEAD_SHA_SHORT\`. cc $owners_str — please review.
+✅ Evaluation checks completed without gating failures for \`$HEAD_SHA_SHORT\`; this does not certify improvement or default readiness. cc $owners_str — please review the detailed results.
 EOF
 )
     fi

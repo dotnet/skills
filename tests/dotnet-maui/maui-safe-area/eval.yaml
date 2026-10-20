@@ -1,108 +1,495 @@
 name: maui-safe-area
 description: Evaluates the dotnet-maui/maui-safe-area skill
 type: capability
-config:
-  timeout: 2m
 stimuli:
-  - name: Handle notch and status bar safe areas on iOS
-    prompt: |
-      I just upgraded my .NET MAUI app from .NET 9 to .NET 10. On iOS, my content
-      is now going behind the status bar and the Dynamic Island notch area. In .NET 9
-      I was using `ios:Page.UseSafeArea="True"` and it worked fine. What's the correct
-      way to handle this in .NET 10? Show me the XAML.
-    graders:
-      - type: output-contains
-        config:
-          substring: SafeAreaEdges
-      - type: output-matches
-        config:
-          pattern: (?i)SafeAreaEdges.{0,20}Container
-      - type: output-matches
-        config:
-          pattern: (?i)obsolete|legacy|deprecated|replaced
-      - type: output-matches
-        config:
-          pattern: (?i)cross.?platform|all platforms
-      - type: prompt
-    rubric:
-      - Recommends SafeAreaEdges="Container" as the replacement for ios:Page.UseSafeArea="True"
-      - Explains that UseSafeArea is obsolete/legacy in .NET 10 and should be migrated
-      - Highlights that SafeAreaEdges is cross-platform, unlike the old iOS-only API
-      - Provides correct XAML syntax showing the migration
-  - name: Edge-to-edge layout with SafeAreaEdges
-    prompt: |
-      I'm building a photo viewer page in my .NET MAUI app targeting .NET 10. I want
-      the image to fill the entire screen edge-to-edge, going behind the status bar
-      and navigation bar. But my image still has padding around it even though I set
-      SafeAreaEdges="None" on the ContentPage. What am I missing?
-    graders:
-      - type: output-contains
-        config:
-          substring: SafeAreaEdges
-      - type: output-contains
-        config:
-          substring: None
-      - type: output-matches
-        config:
-          pattern: (?i)layout|Grid|StackLayout
-      - type: output-matches
-        config:
-          pattern: (?i)Container|default
-      - type: prompt
-    rubric:
-      - Identifies that child layouts default to SafeAreaEdges="Container" even when the page is set to None
-      - Recommends setting SafeAreaEdges="None" on BOTH the ContentPage and the child layout (Grid, etc.)
-      - Provides complete XAML example showing None on both page and layout
-      - Does not suggest using legacy IgnoreSafeArea or UseSafeArea APIs
-  - name: Keyboard avoidance with safe area for chat UI
-    prompt: |
-      I'm building a chat messaging screen in .NET MAUI targeting .NET 10. When the
-      keyboard opens, it covers my text input at the bottom of the screen. In .NET 9
-      I used WindowSoftInputModeAdjust.Resize but that doesn't seem to work anymore.
-      How do I make the input bar move up when the keyboard appears?
-    graders:
-      - type: output-contains
-        config:
-          substring: SoftInput
-      - type: output-contains
-        config:
-          substring: SafeAreaEdges
-      - type: output-matches
-        config:
-          pattern: (?i)Container.*SoftInput|SoftInput.*Container
-      - type: output-matches
-        config:
-          pattern: (?i)ScrollView
-      - type: prompt
-    rubric:
-      - Recommends per-edge SafeAreaEdges with SoftInput on the bottom edge for keyboard avoidance
-      - Shows the four-value XAML syntax like SafeAreaEdges="Container, Container, Container, SoftInput"
-      - Warns that SoftInput on ScrollView directly has no effect and suggests a wrapper layout
-      - Explains that WindowSoftInputModeAdjust.Resize is replaced by the new SafeAreaEdges API in .NET 10
-  - name: Avoid deprecated UseSafeArea in new .NET 10 project
-    prompt: |
-      I'm starting a new .NET MAUI project on .NET 10. I found a tutorial that says
-      to add `ios:Page.UseSafeArea="True"` to my ContentPage to handle the iPhone
-      notch. Is this the right approach? Also, the tutorial mentions using
-      `IgnoreSafeArea="True"` on a Grid for a background image. Are these correct
-      for .NET 10?
-    graders:
-      - type: output-contains
-        config:
-          substring: SafeAreaEdges
-      - type: output-matches
-        config:
-          pattern: (?i)obsolete|legacy|deprecated|old|replaced|do not use
-      - type: output-matches
-        config:
-          pattern: (?i)SafeArea(Edges|Regions)
-      - type: output-matches
-        config:
-          pattern: (?i)\.NET 10|net10
-      - type: prompt
-    rubric:
-      - Warns that ios:Page.UseSafeArea is obsolete/legacy and should not be used in new .NET 10 code
-      - Warns that IgnoreSafeArea is also obsolete and replaced by SafeAreaEdges="None"
-      - Recommends SafeAreaEdges="Container" as replacement for UseSafeArea="True"
-      - Recommends SafeAreaEdges="None" as replacement for IgnoreSafeArea="True"
-      - Mentions that SafeAreaEdges is the new cross-platform API introduced in .NET 10
+- name: Handle notch and status bar safe areas on iOS
+  prompt: |
+    I just upgraded my .NET MAUI app from .NET 9 to .NET 10. On iOS, my content
+    is now going behind the status bar and the Dynamic Island notch area. In .NET 9
+    I was using `ios:Page.UseSafeArea="True"` and it worked fine. What's the correct
+    way to handle this in .NET 10? Show me the XAML.
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: SafeAreaEdges
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Recommends SafeAreaEdges="Container" as the replacement for ios:Page.UseSafeArea="True"
+  - Explains that UseSafeArea is obsolete/legacy in .NET 10 and should be migrated
+  - Highlights that SafeAreaEdges is cross-platform, unlike the old iOS-only API
+  - Provides correct XAML syntax showing the migration
+  tags:
+    capability: handle-notch-and-status-bar-safe-areas-on-ios
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: For .NET 10 use <ContentPage SafeAreaEdges="Container"> to protect the notch and system
+          bars across platforms. Replace the legacy iOS-only UseSafeArea setting when migrating. Check
+          child policies and avoid redundant padding.
+- name: Edge-to-edge layout with SafeAreaEdges
+  prompt: |
+    I'm building a photo viewer page in my .NET MAUI app targeting .NET 10. I want
+    the image to fill the entire screen edge-to-edge, going behind the status bar
+    and navigation bar. But my image still has padding around it even though I set
+    SafeAreaEdges="None" on the ContentPage. What am I missing?
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: None
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Identifies that child layouts default to SafeAreaEdges="Container" even when the page is set to None
+  - Recommends setting SafeAreaEdges="None" on BOTH the ContentPage and the child layout (Grid, etc.)
+  - Provides complete XAML example showing None on both page and layout
+  - Does not suggest using legacy IgnoreSafeArea or UseSafeArea APIs
+  tags:
+    capability: edge-to-edge-layout-with-safeareaedges
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: <ContentPage SafeAreaEdges="None"><Grid SafeAreaEdges="None"><Image Source="photo.jpg"
+          Aspect="AspectFill" /></Grid></ContentPage> allows the hero path to extend edge-to-edge. The
+          page policy does not erase a layout child's Container default; do not use obsolete IgnoreSafeArea
+          for new .NET 10 markup.
+- name: Keyboard avoidance with safe area for chat UI
+  prompt: |
+    I'm building a chat messaging screen in .NET MAUI targeting .NET 10. When the
+    keyboard opens, it covers my text input at the bottom of the screen. In .NET 9
+    I used WindowSoftInputModeAdjust.Resize but that doesn't seem to work anymore.
+    How do I make the input bar move up when the keyboard appears?
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (SoftInput|All)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+      scoring: binary
+      prompt: |
+        Evaluate the proposed chat layout for correctness, not a required layout technique.
+        Score 1 only if the composer stays keyboard-reachable and the requested container edges
+        are protected without duplicate insets or unsupported leaf-control assignments.
+        Accept a shared page/layout policy, separately protected regions, or a supported
+        direct ScrollView policy with the composer inside its protected content. A policy
+        on only the scroller cannot protect a sibling input bar. MAUI 10 ScrollView exposes
+        SoftInput/All and Android consumes IME insets directly; do not reject that API or
+        require a wrapper universally. Do not accept a blanket claim of native keyboard
+        success on every platform based on property assignment. Container alone is not
+        keyboard protection. Resize was not removed. Otherwise score 0.
+  rubric:
+  - Provides a valid keyboard-aware layout keeping the composer above input while protecting container
+    edges.
+  - Covers the actual composer with a supported keyboard policy; accepts direct scroller policies or
+    page/layout ownership when appropriate to the target platform and control hierarchy.
+  - '.NET 10 SafeAreaRegions.SoftInput is a documented keyboard/soft-input policy;
+    All includes it. SafeAreaEdges="Container, Container, Container, SoftInput" is valid
+    left/top/right/bottom syntax on a Grid. Do not reject these APIs as nonexistent
+    or demand a custom keyboard listener instead. Insets/padding can change the
+    available layout space without changing the native window size; actual native
+    configuration and device behavior still require platform testing.'
+  - Does not claim WindowSoftInputModeAdjust.Resize was removed or promise device validation without evidence.
+  tags:
+    capability: keyboard-avoidance-with-safe-area-for-chat-ui
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: '<ContentPage><Grid RowDefinitions="*,Auto" SafeAreaEdges="Container, Container, Container,
+          SoftInput"><ScrollView Grid.Row="0"><VerticalStackLayout /></ScrollView><Grid Grid.Row="1" ColumnDefinitions="*,Auto"
+          ColumnSpacing="10"><Entry /><Button Grid.Column="1" Text="Send" /></Grid></Grid></ContentPage>
+          makes the shared Grid handle keyboard avoidance for both the scroller and its sibling composer.
+          ScrollView also exposes SoftInput/All and Android consumes IME insets directly; that does not
+          protect a sibling composer or prove keyboard behavior on every platform.
+          Resize still exists: do not claim removal. Test keyboard and native window configuration on
+          the actual platform.'
+- name: Avoid deprecated UseSafeArea in new .NET 10 project
+  prompt: |
+    I'm starting a new .NET MAUI project on .NET 10. I found a tutorial that says
+    to add `ios:Page.UseSafeArea="True"` to my ContentPage to handle the iPhone
+    notch. Is this the right approach? Also, the tutorial mentions using
+    `IgnoreSafeArea="True"` on a Grid for a background image. Are these correct
+    for .NET 10?
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (SafeAreaEdges|Container)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Warns that ios:Page.UseSafeArea is obsolete/legacy and should not be used in new .NET 10 code
+  - Warns that IgnoreSafeArea is also obsolete and replaced by SafeAreaEdges="None"
+  - Recommends SafeAreaEdges="Container" as replacement for UseSafeArea="True"
+  - Recommends SafeAreaEdges="None" as replacement for IgnoreSafeArea="True"
+  - Mentions that SafeAreaEdges is the new cross-platform API introduced in .NET 10
+  tags:
+    capability: avoid-deprecated-usesafearea-in-new-net-10-project
+    risk: incorrect-guidance
+    journey: implement-feature
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: In a new .NET 10 project replace the legacy iOS-only UseSafeArea mechanism with SafeAreaEdges="Container".
+          Replace IgnoreSafeArea with SafeAreaEdges="None" on the background path. The new policy is cross-platform;
+          do not backport .NET 10 APIs to a .NET 9 branch.
+- name: Different policy for hero and editor
+  prompt: On my .NET 10 MAUI article screen the cover image should extend under system bars, but the body
+    text and a bottom comment editor must remain usable with the keyboard. Show a layout that does not
+    apply duplicate insets to every child.
+  tags:
+    capability: mixed-regions
+    risk: double-insets
+    journey: read-and-comment
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)(keyboard|editor)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Allows the decorative image behind system bars while keeping text and input usable, without stacking
+    duplicate insets.
+  - SafeAreaEdges is available on the supported containers, not on Label or Editor in MAUI 10.
+    Do not require or accept SafeAreaEdges assignments on those leaf controls; use the owning
+    page/layout/Border. An omitted opt-out on a layout that defaults to Container is not
+    automatically equivalent to an explicit None policy.
+  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Assign edge-to-edge None only to the hero path; apply container/keyboard protection to
+          the body/editor at an appropriate wrapper, not redundantly to each descendant.
+- name: ScrollView keyboard wrapper
+  prompt: In a .NET 10 MAUI form, setting keyboard avoidance directly on the ScrollView seems to do nothing.
+    The submit button must stay reachable. What should own the keyboard inset and how do I keep the form
+    scrollable?
+  tags:
+    capability: scroll-wrapper
+    risk: unreachable-submit
+    journey: submit-form
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)(SoftInput|SafeAreaEdges[\s="'.]+All|keyboard.{0,40}(inset|aware|avoid))
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+      scoring: binary
+      prompt: |
+        This is an all-or-nothing correctness contract, not a partial-credit layout score.
+        Score 1 only for a concrete keyboard-aware solution keeping the form scrollable
+        and Submit reachable. Accept a page/layout policy or a supported direct
+        ScrollView.SafeAreaEdges policy whose protected content includes Submit.
+        MAUI 10 Android consumes IME insets on ScrollView; SoftInput/All are not
+        categorically unsupported. Check platform/MAUI patch, window configuration and
+        bounded scrolling when a direct setup reportedly fails. A scroller-only policy
+        cannot protect a sibling button. Container/None alone do not avoid the keyboard.
+        Blanket direct-API denial or claims that setting a property proves native keyboard
+        success on every platform are fatal: score the whole answer 0 even if its proposed
+        layout is otherwise valid. Do not average those defects away. One valid design
+        suffices; the response need not enumerate alternatives. Do not demand a custom
+        keyboard service or a wrapper if a valid alternative meets the outcome.
+        Otherwise score 0.
+  rubric:
+  - Keeps the submit control reachable with a scrollable form using an element that supports keyboard
+    insets. On .NET 10, SafeAreaEdges.All includes keyboard protection and SoftInput is the keyboard
+    region. Accept a keyboard-aware page/layout or a supported direct ScrollView policy covering
+    the form and submit control. Diagnose platform/version and bounded scrolling when the reported
+    direct policy does not work; do not categorically claim ScrollView ignores SoftInput.
+  - Does not falsely claim ScrollView SoftInput/All is absent or ignored on every platform,
+    or infer native keyboard success everywhere from a property assignment.
+  - One valid design suffices; equivalent correct solutions need not enumerate alternatives
+    or reproduce a particular sample's syntax.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Use a ContentPage with SafeAreaEdges="All" and a Grid with RowDefinitions="*,Auto";
+          put the ScrollView in the bounded star row and Submit in the Auto row. The page protects
+          both. Alternatively a supported direct scroller policy can protect a form whose submit
+          control is inside the scroller. Check the target platform/MAUI patch and scrolling constraints
+          when that direct setup fails; Android MAUI 10 consumes IME insets directly. Do not infer
+          native iOS keyboard success merely from assigning the property.
+- name: Maintain a net9 branch
+  prompt: Our MAUI release branch still targets .NET 9. A proposed fix uses the new cross-platform per-edge
+    safe-area API and no longer builds. How should we handle the iPhone notch on this branch without upgrading
+    its target framework?
+  tags:
+    capability: version-boundary
+    risk: unsupported-api
+    journey: maintain-release
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)(9|legacy|iOS)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Provides code supported by the existing release target and avoids requiring a framework upgrade.
+  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Respect the .NET 9 target and use its supported iOS safe-area mechanism; do not insist
+          on .NET 10-only APIs or a toolchain upgrade.
+- name: Landscape inset change
+  prompt: My .NET 10 MAUI photo detail screen works in portrait, but its controls overlap the side notch
+    after rotation. Someone suggested hardcoding a top margin of 44. Is that a robust fix?
+  tags:
+    capability: rotation
+    risk: hardcoded-insets
+    journey: rotate-photo
+  graders:
+  - type: exit-success
+  - type: output-matches
+    config:
+      pattern: (?i)(SafeAreaEdges|safe.area|runtime.{0,40}insets|insets.{0,40}runtime)
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Maintains usable content after orientation changes instead of relying on one device's fixed notch
+    dimensions.
+  - Accepts equivalent correct solutions without requiring one sample's syntax or procedure.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Use runtime safe-area policy for container edges instead of fixed notch dimensions; verify
+          portrait and landscape on relevant devices.
+- name: Repair supplied executable contract
+  prompt: This .NET 10 chat-layout factory does not compile. Fix the unsupported spacing member in Program.cs
+    without changing the intended 10-unit gap or its screen/keyboard edge policy. Run the supplied checks.
+    Do not claim to have tested a keyboard on a device. The supplied files are in your working
+    directory; inspect and edit only that copy, not fixture originals elsewhere.
+  tags:
+    capability: executable-repair
+    risk: broken-code
+    journey: repair-feature
+  environment:
+    files:
+    - src: fixtures/repair
+      dest: .
+    commands:
+    - python3 -c "import hashlib,pathlib; assert hashlib.sha256(pathlib.Path('Program.cs').read_bytes()).hexdigest() == '3aed7ad8290e44fb3cf8dec7b145eddd950f469cb398f5c38c6173d341619072', 'Fixture changed before trial setup'"
+  graders:
+  - type: run-command
+    config:
+      command: 'python3 -c ''import hashlib,pathlib; expected={''"''"''Fixture.csproj''"''"'': ''"''"''daaa2155aa040b8c8e421ae545be8d52233f1ed82cac1a46cb39949fb371962c''"''"'',
+        ''"''"''Checks.cs''"''"'': ''"''"''ef75eabad5acdddc7278b754138acf61fff9fb437c564d8851d22f81cd868523''"''"'',
+        ''"''"''Directory.Build.props''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
+        ''"''"''Directory.Build.targets''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"''};
+        assert all(pathlib.Path(p).is_file() and hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()==h
+        for p,h in expected.items())'''
+  - type: diff-not-contains
+    config:
+      pattern: '(?m)^(?:diff --git (?!a/Program\.cs b/Program\.cs$|a/(?:bin|obj)/[^\r\n]+ b/(?:bin|obj)/[^\r\n]+$|"a/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+" "b/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+"$)|rename (?:from|to) (?!(?:bin|obj)/|"(?:bin|obj)/))'
+  - &id001
+    type: run-command
+    config:
+      command: dotnet run --project Fixture.csproj --verbosity quiet
+      expected_exit_code: 0
+      timeout: 120s
+      stdout_matches: 'PASS: behavior-contract'
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+      - diff
+  rubric:
+  - Repairs the stated defect without changing protected files or weakening checks.
+    The supplied factory has no multiple-row geometry, and Checks.cs specifies a 10-unit ColumnSpacing.
+    Grid.Spacing is unsupported, so it had no valid prior uniform row-spacing behavior to preserve.
+    Do not require RowSpacing=10; both column-only and harmless additional row-spacing solutions are valid.
+  - Reports only validation actually performed and distinguishes object-model checks from native/device
+    behavior.
+  golden_patch:
+    path: goldens/repair.patch
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: 'Expected result: the supplied defect is corrected in Program.cs without changing the
+          public contract. The executable checks verify platform-neutral code against real MAUI 10.0.0
+          assemblies; they are not device, native layout, navigation or lifecycle execution evidence.'
+- name: Preserve working supplied implementation
+  prompt: Review the supplied implementation for the behavior checked by Checks.cs. Run the checks; if
+    it already satisfies that contract, do not edit, delete, rename, or add any non-generated workspace files.
+    Explain any platform-specific validation limitations rather than rewriting working code.
+    The supplied files are in your working directory; inspect only that copy, not fixture originals elsewhere.
+  tags:
+    capability: working-code-preservation
+    risk: unnecessary-rewrite
+    journey: review-working-code
+  environment:
+    files:
+    - src: fixtures/working
+      dest: .
+    commands:
+    - python3 -c "import hashlib,pathlib; assert hashlib.sha256(pathlib.Path('Program.cs').read_bytes()).hexdigest() == 'e68196ae330c8d0103994b4d429202c03ed3d29779f4edd7ab085b1445da0f79', 'Fixture changed before trial setup'"
+  graders:
+  - type: run-command
+    config:
+      command: 'python3 -c ''import hashlib,pathlib; expected={''"''"''Fixture.csproj''"''"'': ''"''"''daaa2155aa040b8c8e421ae545be8d52233f1ed82cac1a46cb39949fb371962c''"''"'',
+        ''"''"''Checks.cs''"''"'': ''"''"''ef75eabad5acdddc7278b754138acf61fff9fb437c564d8851d22f81cd868523''"''"'',
+        ''"''"''Directory.Build.props''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
+        ''"''"''Directory.Build.targets''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
+        ''"''"''Program.cs''"''"'': ''"''"''e68196ae330c8d0103994b4d429202c03ed3d29779f4edd7ab085b1445da0f79''"''"''};
+        assert all(pathlib.Path(p).is_file() and hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()==h
+        for p,h in expected.items())'''
+  - type: diff-not-contains
+    config:
+      pattern: '(?m)^(?:diff --git (?!a/(?:bin|obj)/[^\r\n]+ b/(?:bin|obj)/[^\r\n]+$|"a/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+" "b/(?:bin|obj)/(?:[^"\\\r\n]|\\.)+"$)|rename (?:from|to) (?!(?:bin|obj)/|"(?:bin|obj)/))'
+  - *id001
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Leaves the complete supplied source/project file set byte-identical when the checks already pass.
+  - Separates platform-neutral evidence from unperformed native/device validation.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: The supplied implementation satisfies the requested object-model contract; leave every
+          supplied file unchanged. Platform-neutral checks do not establish behavior on a device.
+- name: Web CSS notch padding
+  prompt: My responsive website overlaps the iPhone notch in Safari. How do I use CSS environment insets
+    and viewport settings? This is HTML/CSS, not a native app.
+  expect_activation: false
+  tags:
+    capability: routing-boundary
+    risk: off-target-activation
+    journey: use-other-platform
+  graders:
+  - type: exit-success
+  - type: output-not-matches
+    config:
+      pattern: <ContentPage\b[^>]*SafeAreaEdges\s*=
+  - type: prompt
+    config:
+      evidence:
+      - trajectory
+  rubric:
+  - Recognizes the requested platform/control boundary and gives appropriate guidance.
+  - Treats the native app workflow as out of scope; does not apply its APIs, edit unrelated files, or
+    install tools.
+  golden_trajectory:
+    inline:
+      schema_version: ATIF-v1.2
+      session_id: expected-response
+      agent:
+        name: reference
+        version: '1'
+        model_name: curated
+      steps:
+      - step_id: 1
+        source: agent
+        message: Use CSS env(safe-area-inset-*) and appropriate viewport-fit configuration, not native
+          MAUI markup.
+defaults:
+  timeout: 6m
+  runs: 1

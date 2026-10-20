@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { test } from 'node:test';
 import { CopilotClient } from '@github/copilot-sdk';
+import { LocalSessionFsHandler } from './node_modules/@microsoft/vally/dist/executor/local-session-fs-handler.js';
+import { closeWorkspace } from './workspace-session-fs.mjs';
 import './sdk-startup.mjs';
 
 function deferred() {
@@ -130,3 +134,89 @@ test('ready clients still create sessions concurrently', async () => {
   await Promise.all(sessions);
   assert.equal(calls.filter(c => c === 'spawn').length, 1);
 });
+
+for (const method of ['createSession', 'resumeSession']) {
+test(`${method} leaves non-local provider factories unchanged`, async () => {
+  const { client, entered, release } = clientFixture();
+  const starting = client.start();
+  await entered.promise;
+  release.resolve();
+  await starting;
+  const provider = { readFile: async () => 'non-local provider' };
+  const config = {
+    workingDirectory: '/does-not-exist',
+    createSessionFsProvider: () => provider,
+  };
+  const factory = config.createSessionFsProvider;
+  client.setupSessionFs = (session, options) => {
+    assert.equal(options.createSessionFsProvider(session), provider);
+  };
+  try {
+    if (method === 'createSession') await client.createSession(config);
+    else await client.resumeSession('trial', config);
+    assert.equal(config.createSessionFsProvider, factory);
+  } finally {
+    await client.stop();
+  }
+});
+
+test(`${method} installs rooted workspace access and preserves the synchronous provider factory and session argument`, async () => {
+  const { client, entered, release } = clientFixture();
+  const starting = client.start();
+  await entered.promise;
+  release.resolve();
+  await starting;
+  const root = await mkdtemp(path.join(process.cwd(), '.workspace-fs-test-'));
+  try {
+    const workspace = path.join(root, 'workspace');
+    const logs = path.join(root, 'logs');
+    await Promise.all([workspace, logs].map(file => mkdir(file)));
+    const file = path.join(workspace, 'reference.md');
+    await writeFile(file, 'actual reference\n');
+    const provider = new LocalSessionFsHandler(logs);
+    await assert.rejects(provider.stat(file), /escapes root/);
+    await assert.rejects(provider.readFile(file), /escapes root/);
+    let suppliedSession;
+    let installedProvider;
+    const config = {
+      workingDirectory: workspace,
+      createSessionFsProvider: session => { suppliedSession = session; return provider; },
+    };
+    client.setupSessionFs = (session, options) => {
+      installedProvider = options.createSessionFsProvider(session);
+      assert.equal(suppliedSession, session);
+      assert.equal(installedProvider.then, undefined);
+    };
+    const originalFactory = config.createSessionFsProvider;
+    const openSession = () => method === 'createSession'
+      ? client.createSession(config) : client.resumeSession('trial', config);
+    await openSession();
+    assert.equal(config.createSessionFsProvider, originalFactory);
+    if (['linux', 'darwin'].includes(process.platform) && ['x64', 'arm64'].includes(process.arch)) {
+      assert.equal(typeof installedProvider[closeWorkspace], 'function', 'build the pinned helper first');
+      assert.equal((await installedProvider.stat(file)).isFile, true);
+      assert.equal(await installedProvider.readFile(file), 'actual reference\n');
+      await installedProvider.writeFile(file, 'native patch\n');
+      assert.equal(await installedProvider.readFile(file), 'native patch\n');
+      await client.stop();
+      await assert.rejects(installedProvider.readFile(file),
+        { code: 'ERR_EVALUATION_WORKSPACE_PROVIDER_CLOSED' });
+      await openSession();
+      assert.equal(await installedProvider.readFile(file), 'native patch\n');
+      delete client.forceStop;
+      await client.forceStop();
+      await assert.rejects(installedProvider.readFile(file),
+        { code: 'ERR_EVALUATION_WORKSPACE_PROVIDER_CLOSED' });
+    } else {
+      const rejection = { code: 'ERR_EVALUATION_WORKSPACE_ISOLATION_REQUIRED' };
+      await assert.rejects(installedProvider.stat(file), rejection);
+      await assert.rejects(installedProvider.readFile(file), rejection);
+    }
+    await installedProvider.writeFile('events.jsonl', 'session log\n');
+    assert.equal(await installedProvider.readFile('events.jsonl'), 'session log\n');
+  } finally {
+    await client.stop();
+    await rm(root, { recursive: true });
+  }
+});
+}

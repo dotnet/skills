@@ -1,0 +1,11 @@
+--- a/Program.cs
++++ b/Program.cs
+@@ -10,7 +10,7 @@
+         {
+             if (_theme == value) return;
+             _theme = value;
+-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("theme"));
++            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Theme)));
+         }
+     }
+ }

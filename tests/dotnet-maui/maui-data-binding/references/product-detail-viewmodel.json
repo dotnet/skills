@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.2",
+  "session_id": "expected-response",
+  "agent": {
+    "name": "reference",
+    "version": "1",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "This option uses CommunityToolkit.Mvvm 8.4.0; reference that package in\nthe project. A manual notifying implementation is also valid.\n\n```csharp\nusing System.Threading.Tasks;\nusing CommunityToolkit.Mvvm.ComponentModel;\nusing CommunityToolkit.Mvvm.Input;\n\nnamespace MyApp.ViewModels;\n\npublic sealed partial class ProductDetailViewModel : ObservableObject\n{\n    private readonly IProductService _products;\n\n    public ProductDetailViewModel(IProductService products) =>\n        _products = products;\n\n    [ObservableProperty]\n    private string name = string.Empty;\n\n    [ObservableProperty]\n    private decimal price;\n\n    [ObservableProperty]\n    private bool isAvailable;\n\n    [RelayCommand]\n    private async Task LoadAsync()\n    {\n        var product = await _products.GetProductAsync();\n        Name = product.Name;\n        Price = product.Price;\n        IsAvailable = product.IsAvailable;\n    }\n}\n\npublic interface IProductService\n{\n    Task<Product> GetProductAsync();\n}\n\npublic sealed record Product(string Name, decimal Price, bool IsAvailable);\n```\n\nThe generator exposes Name, Price and IsAvailable with setters that\nraise PropertyChanged for those public names. LoadAsync generates the\nasynchronous LoadCommand without an unrequested parameter. Bind to\nthose public members and assign the ViewModel as BindingContext.\n"
+    }
+  ]
+}

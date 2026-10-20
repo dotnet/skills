@@ -1,36 +1,14 @@
-# Linux Platform Requirements
+# Linux Android scope
 
-⚠️ **Linux has limited support** - Android targets only.
+Linux is not a host for iOS, Mac Catalyst, or Windows MAUI builds. For Android
+CI use `maui-android`, not the full `maui` umbrella. Check the selected SDK's
+Linux distribution/architecture requirements and MAUI release support separately;
+do not imply all MAUI tooling has the same Linux support as Windows/macOS.
 
-## Required Components
+Requirements are the project-resolved SDK/workload set, compatible JDK and
+Android SDK packages. Microsoft OpenJDK is recommended/tested, not a rule that
+all other vendors necessarily fail. Use the manifest's version range and
+project API target to discover exact requirements.
 
-| Component | Requirement | Notes |
-|-----------|-------------|-------|
-| .NET SDK | Active support | Query releases-index.json |
-| Java JDK | Per WorkloadDependencies | Microsoft OpenJDK **only** |
-| Android SDK | Per WorkloadDependencies | Use packages array |
-
-## Required Workloads
-
-| Workload | Required | Purpose |
-|----------|----------|---------|
-| `maui-android` | ✅ Yes | MAUI for Android |
-| `android` | ✅ Yes | Android targets |
-
-**Important**: Use `maui-android` NOT `maui` on Linux. The `maui` workload is a meta-workload that includes iOS/Mac dependencies which won't install on Linux.
-
-## Limitations
-
-- ❌ No iOS support (requires macOS)
-- ❌ No Mac Catalyst support (requires macOS)
-- ❌ No Windows support (requires Windows)
-
-## Android Development
-
-| Component | Source | Notes |
-|-----------|--------|-------|
-| Java JDK | `jdk.version` from WorkloadDependencies | Microsoft OpenJDK **only** |
-| Android SDK | `androidsdk` from WorkloadDependencies | Use packages array |
-| Platform Tools | `androidsdk.packages` | ADB, fastboot |
-| Build Tools | `androidsdk.buildToolsVersion` | AAPT2, dx |
-| KVM | Enabled | For emulator acceleration |
+Headless builds do not need an emulator, KVM or system images. Do not install
+Apple/Windows workloads or modify hypervisor/system Java defaults.

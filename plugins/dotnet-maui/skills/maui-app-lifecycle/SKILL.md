@@ -113,33 +113,83 @@ protected override Window CreateWindow(IActivationState? activationState)
 ## Workflow: Save and Restore State on Background
 
 1. **Identify transient state** — draft text, scroll position, form inputs, timer values.
-2. **Save in `OnStopped`** — use `Preferences` for small values or file serialization for larger state.
-3. **Restore in `OnResumed`** — read back saved values and apply to your view model.
-4. **Also save in `OnDestroying`** on Android — the back button can skip `Stopped` entirely.
-5. **Keep handlers fast** — complete within 1–2 seconds to avoid ANR on Android or watchdog kills on iOS.
+2. **Persist as state changes** — use `Preferences` for small values or file serialization for larger state. Debounce frequent edits if needed; lifecycle callbacks are supplemental flush points, not the only durable save.
+3. **Load on cold start** before showing the draft. `Resumed` does not fire after process death or on first launch. Guard initialization so normal foreground entry does not overwrite newer in-memory edits.
+4. **Flush opportunistically in `OnStopped` / `OnDestroying`** — neither event is guaranteed before process termination. A back action can bypass `Stopped`; adding `Destroying` still does not guarantee a final save.
+5. **Keep handlers fast** — the OS can suspend or terminate the app; do not depend on a fixed time allowance or on an `async void` handler finishing.
 
 ```csharp
-protected override void OnStopped()
+public sealed class DraftWindow : Window
 {
-    base.OnStopped();
-    Preferences.Set("draft_text", _viewModel.DraftText);
-    Preferences.Set("scroll_y", _viewModel.ScrollY);
-}
+    readonly NoteViewModel _viewModel;
+    readonly string _draftKey;
+    bool _draftLoaded;
 
-protected override void OnResumed()
-{
-    base.OnResumed();
-    _viewModel.DraftText = Preferences.Get("draft_text", string.Empty);
-    _viewModel.ScrollY = Preferences.Get("scroll_y", 0.0);
-}
+    public DraftWindow(Page page, NoteViewModel viewModel, string draftKey) : base(page)
+    {
+        _viewModel = viewModel;
+        _draftKey = draftKey;
+        _viewModel.PropertyChanged += OnStateChanged;
+    }
 
-protected override void OnDestroying()
-{
-    base.OnDestroying();
-    // Android back-button can skip Stopped
-    Preferences.Set("draft_text", _viewModel.DraftText);
+    protected override void OnActivated()
+    {
+        base.OnActivated();
+        if (_draftLoaded)
+            return;
+        _viewModel.DraftText = Preferences.Get(_draftKey, string.Empty);
+        _viewModel.ScrollY = Preferences.Get($"{_draftKey}:scroll", 0.0);
+        _draftLoaded = true;
+    }
+
+    void OnStateChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(e.PropertyName) ||
+            e.PropertyName is nameof(NoteViewModel.DraftText) or nameof(NoteViewModel.ScrollY))
+            SaveState();
+    }
+
+    public void SaveState()
+    {
+        if (!_draftLoaded)
+            return;
+        Preferences.Set(_draftKey, _viewModel.DraftText);
+        Preferences.Set($"{_draftKey}:scroll", _viewModel.ScrollY);
+    }
+
+    protected override void OnStopped()
+    {
+        base.OnStopped();
+        SaveState();
+    }
+
+    protected override void OnResumed()
+    {
+        base.OnResumed();
+        // Resume surviving work; do not replace live edits with an older snapshot.
+    }
+
+    protected override void OnDestroying()
+    {
+        base.OnDestroying();
+        _viewModel.PropertyChanged -= OnStateChanged;
+        SaveState(); // Best-effort flush, not a guaranteed termination notification.
+    }
 }
 ```
+
+Pass the **same** ViewModel used by the editor page, not an assumed
+`Window.BindingContext` or `AppShell.BindingContext`. For example, a
+`NotePage(NoteViewModel vm)` constructor sets `BindingContext = vm` after
+`InitializeComponent()`, and `CreateWindow` returns
+`new DraftWindow(new NotePage(vm), vm, documentDraftKey)`.
+For Shell, retain the Shell root but pass the actual editor's ViewModel explicitly.
+Use a stable, document-specific key when windows edit different documents.
+`NoteViewModel` implements `INotifyPropertyChanged` and raises notifications after
+both draft-text and scroll-position changes. The page updates those same
+properties from its edit/scroll handlers. Initialization notifications and teardown
+before first activation cannot overwrite an unloaded draft. Debounce frequent
+changes if necessary, but preserve both fields in each durable snapshot.
 
 ## Platform Lifecycle Mapping
 
@@ -215,10 +265,10 @@ builder.ConfigureLifecycleEvents(events =>
 
 2. **Deactivated ≠ Stopped.** A dialog, split-screen, or notification pull-down triggers `Deactivated` without `Stopped`. Do not perform heavy saves in `OnDeactivated` — the app may never actually background.
 
-3. **Android back button skips Stopped.** On Android, pressing back may call `Destroying` directly without `Stopped`. Place critical save logic in both `OnStopped` and `OnDestroying`.
+3. **No guaranteed final callback.** Back navigation can bypass `Stopped`, and process death can bypass both `Stopped` and `Destroying`. Save critical state during ordinary changes and reload it on cold start; lifecycle saves only supplement that policy.
 
-4. **Multi-window apps fire events independently.** On iPad, Mac Catalyst, and desktop Windows each `Window` instance fires its own lifecycle events. Do not assume a single global lifecycle.
+4. **Multi-window ownership is not service isolation.** Each window owns its document identity, edit state and subscriptions. A shared persistence service or event publisher is valid when operations identify the document and each window removes only its own exact handler/delegate. Do not demand separate stores/services or ban shared events. Make saves dirty-aware/idempotent rather than blindly writing twice when both `Stopped` and `Destroying` occur.
 
-5. **Long-running handlers cause kills.** Android enforces a ~5 second ANR timeout; iOS has limited background execution time. Keep lifecycle handlers synchronous and fast — use `Preferences` for quick saves, not database writes.
+5. **Lifecycle events confer no background-execution entitlement.** An awaited upload does not gain a guaranteed execution window by starting in `Stopped`. Do not apply a universal Android ANR deadline to asynchronous work or promise that Windows will simply keep running. Persist pending intent/checkpoints and retry idempotently. If execution while suspended is actually required, verify the target platform's supported transfer/job facility and its constraints; scheduling one still does not guarantee completion after force-stop, network failure or OS policy changes.
 
 6. **Do not use legacy Xamarin.Forms lifecycle methods.** `Application.OnStart()`, `Application.OnSleep()`, and `Application.OnResume()` exist for backward compatibility but bypass Window-level events. In .NET MAUI, prefer `Window` lifecycle events (`OnActivated`, `OnStopped`, `OnResumed`, etc.) for correct multi-window behavior.

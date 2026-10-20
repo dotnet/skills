@@ -63,6 +63,33 @@ evidence merely because its rejection events survived.
 
 > Note: the linter (`skill-validator check`) is a **separate** workflow (`skill-check.yml`) and is unrelated to these eval results.
 
+### Commit status is an outcome gate, not just execution health
+
+The trusted `report-status` job checks every expected `vally-results-*` matrix
+artifact through `outcome-status.mjs`. Missing, malformed, duplicate or incomplete
+accounting produces an error, including missing or non-boolean `conclusive` and
+`underpowered` fields. Conclusive evidence also requires an explicitly evaluated
+activation contract with a boolean `passed`; an omitted, malformed or unevaluated
+contract cannot clear the gate. The status job explicitly checks out the repository's
+default branch, not a review event's PR merge commit, before running tooling with
+the status-writing token. An objective `VALID_REGRESSION` or explicit
+activation-contract failure produces failure, even when the executor job
+succeeded. Invalid or underpowered results without a proven regression produce
+an error, not an improvement claim. A conclusive `VALID_NO_CHANGE` is non-gating
+but is explicitly reported as unproven; only an all-`VALID_PASS` matrix is called
+improved. Preference-only losses remain report-only under the existing policy.
+Uniqueness is keyed on target path and model, not the display name. A powered,
+conclusive native `target_agent_not_activated` reason is an activation failure
+even when the separate dormancy contract passes and state is `VALID_NO_CHANGE`.
+
+Older trusted workflows mapped executor success directly to "Evaluation passed".
+In particular, the October 16 runs for PRs #1277 and #1280 reported five/six
+objective regressions and eight/four invalid or underpowered results despite a
+green status and subsequent maintainer ping. Read their authoritative detailed
+results, not those historical pings. The correction does not rescore old votes,
+retroactively change statuses, or certify unmeasured PR harness changes: the
+trusted workflow must contain this gate before it can apply to a new run.
+
 ## Using this guide with an AI agent
 
 When an evaluation has a non-pass or warning, the PR comment includes a ready-to-use prompt. Copy it to your AI agent. The agent downloads the artifacts, reads this guide, analyzes the `results.json` files, and suggests fixes.
@@ -89,6 +116,104 @@ sessions. It does not reduce trial concurrency or suppress startup failures.
 Both evaluation and comparison commands use this launcher through `PATH`.
 When updating the SDK, reassess the guard and run
 `node --test eng/evaluation-tools/*.test.mjs` before removing it.
+
+### Existing workspace files reported missing or native patches rejected
+
+With Vally 0.14 and Copilot runtime 1.0.80, native `view` can report
+`Path does not exist` for a file that a shell reader opens at the exact same
+absolute path. This is not necessarily a missing fixture/reference. Instrumented
+provider calls reproduce the cause: native `view` calls the session-fs provider's
+`stat` with the workspace path, but Vally's `LocalSessionFsHandler` confines paths
+to the separate session-log root and rejects the request as a root escape.
+
+The same mismatch affects native `apply_patch` writes. A read-only repair makes
+`view` work but leaves editing broken: SDK events can show repeated
+`Session filesystem path escapes root` failures before the model falls back to
+shell edits. Inspect `tool.execution_complete.data.error`, not just the shorter
+normalized tool result. This can affect one executor family more than another
+and inflate its turns/cost even when the final answer and comparison complete.
+
+The version-checked launcher now uses a native, traversal-resistant workspace
+provider on Linux/macOS amd64/arm64. It captures a directory descriptor before
+the agent starts; each operation inherits that descriptor into a pinned Go
+1.27.1 helper using `os.Root`. It never reopens an operation's workspace pathname
+after a JavaScript canonicalization check. Root-path replacement leaves the
+capability anchored to the original directory. Canonical ancestor aliases are
+validated against the captured descriptor at initialization, not before each
+operation. Workspace removal and cross-root rename are explicitly rejected.
+
+All ten workspace operations use rooted APIs. Metadata is obtained by passing
+an already-rooted file descriptor to Node's `fstat`, preserving the SDK's size,
+mtime and platform birthtime without pathname reopening. This metadata path
+requires a readable target. Helpers have bounded time/output limits and explicit
+errors; descriptors close on normal or forced SDK client shutdown. Relative
+session paths and absolute log-root paths (including nested log roots), outside
+delegation and other provider implementations retain their original behavior.
+The wrapper rejects any absolute operation path with a raw `..` component before
+normalization, including both rename operands and missing-helper calls, with
+`ERR_EVALUATION_WORKSPACE_PARENT_TRAVERSAL`. Lexically collapsing `symlink/..`
+could select a different file. This restriction also applies to absolute log or
+outside paths; relative session-log APIs remain unchanged.
+
+Workspace `writeFile` writes, syncs and closes an exclusively created temporary
+file in a captured parent-directory capability before rooted rename publishes
+it. Partial writes, short writes and disk errors before publication leave an
+existing target intact (or a new target absent). Existing permission bits are
+retained. Existing targets must first pass a rooted, non-truncating
+writable open; a writable directory alone cannot bypass a read-only target.
+Replacement changes inode identity: existing hard links continue to
+refer to the old file. Symlink/special-file write targets reject explicitly;
+read and append retain their existing rooted semantics. This is not an atomic
+read-modify-write transaction with other writers. Append can still partially
+mutate a file on failure; SDK 1.0.11 has no exported `SessionFsWriteFailure` or
+changed-target error field, so its generic adapter errors do not establish
+unchanged state. A helper timeout or lost response after publication is also
+indeterminate; inspect the target before retrying.
+
+Without the built helper, or on unsupported hosts, workspace extensions still
+reject with `ERR_EVALUATION_WORKSPACE_ISOLATION_REQUIRED`; there is no trust flag
+or unsafe fallback. SDK 1.0.11 catches all provider `exists` errors and returns
+`{ exists: false }` without an error field. That upstream limitation remains:
+inspect read/stat/mutation error events rather than treating existence alone as
+permission or reliability evidence. Shell fallback does not prove native success.
+
+Build and test the helper before running the launcher directly:
+
+```bash
+cd eng/evaluation-tools/workspace-root
+GOTOOLCHAIN=go1.27.1 go test ./...
+GOTOOLCHAIN=go1.27.1 go build -o ../workspace-root-helper .
+cd ../../..
+node --test eng/evaluation-tools/*.test.mjs
+```
+
+CI builds the helper from the trusted workflow revision before token selection.
+The default local `eng/run-skill-evals.sh` now builds it and uses the pinned
+launcher rather than fetching an unpatched Vally through npx; a custom `VALLY`
+still explicitly selects its own toolchain. Offline lint/oracle need no provider
+and do not prove native functionality. Provider tests cover actual SDK
+read/stat/write, every operation, intermediate-parent swaps, entire-root
+replacement, missing-helper rejection, aliases and shutdown.
+
+The previous host-filesystem workspace overlay has been removed. Its separate
+canonicalization and pathname-based operation permitted an intermediate-parent
+symlink swap to redirect reads and mutations outside the workspace. Native
+`os.Root` descriptor-relative traversal addresses that class on the supported
+hosts; JavaScript checks alone do not. This is not a whole-host sandbox: Vally
+0.14's executor uses `approveAll`; tool permissions do not establish an
+independent adversarial boundary. The original log provider, shell tools and
+grader host are not hardened by this provider. Root authorization assumes trusted
+initial workspace setup. `os.Root` does not isolate privileged mount changes,
+devices, hard-link inode sharing, or compromised runtime binaries. Absolute
+symlinks are rejected; relative symlinks contained in the root work.
+See [Go's traversal-resistant filesystem guidance](https://go.dev/blog/osroot).
+GOOS=js/WASI implementations must not replace the native build.
+
+Reassess this compatibility layer on a Vally/SDK upgrade. A local launcher fix
+does not retroactively repair earlier trajectories, and CI uses its trusted
+harness revision; verify that revision before attributing the fix to an official
+run. Read actual `session.start.data.copilotVersion`, not just the installed
+package manifest or a shell CLI's version, when comparing runtime provenance.
 
 ### Investigation steps
 
