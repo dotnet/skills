@@ -345,8 +345,8 @@ stimuli:
       A Node.js service merges two JSON configuration objects, but its shallow
       object spread replaces nested settings. How should we implement a safe
       deep merge for these JavaScript objects?
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: boundary-javascript-configuration
       risk: medium
       journey: decline-off-target

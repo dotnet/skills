@@ -55,7 +55,7 @@ function writeAgentEval(root, scenarioCount = 5, nonActivationScenarios = []) {
     const name = `Scenario ${index + 1}`;
     return `
   - name: ${name}
-${nonActivation.has(name) ? "    expect_activation: false\n" : ""}    prompt: Route this request.
+${nonActivation.has(name) ? '    tags:\n      expect_activation: "false"\n' : ""}    prompt: Route this request.
     rubric:
       - Completed the task`;
   });

@@ -3,7 +3,7 @@ tags:
   executionShard: c
 description: Evaluates the dotnet-test/mtp-hot-reload skill
 type: capability
-config:
+defaults:
   timeout: 10m
 # PR #1076 predeclared this next-experiment breadth before implementation:
 # exercise xUnit v3's distinct persistent-host filter syntax rather than adding
@@ -22,6 +22,12 @@ stimuli:
         - src: ./fixtures/suggest-hot-reload-for-failing-test-in-mtp-project-sdk-9/global.json
           dest: global.json
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: Microsoft\.Testing\.Extensions\.HotReload
@@ -36,11 +42,6 @@ stimuli:
       - Provides a complete setup for a persistent edit-and-rerun loop that matches the project as configured
       - Explains how the host remains active and reacts to subsequent edits
       - Does not execute or modify the project for this advisory request
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Suggest hot reload for failing test in MTP project (SDK 10)
     prompt: My RemoveStock_ExceedsAvailable_ThrowsException test is failing. I want a host to keep running and rerun it
       after every edit. Show me how to set up MTP hot reload for this test project, but do not run or modify anything.
@@ -53,6 +54,12 @@ stimuli:
         - src: ./fixtures/suggest-hot-reload-for-failing-test-in-mtp-project-sdk-10/global.json
           dest: global.json
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: Microsoft\.Testing\.Extensions\.HotReload
@@ -67,11 +74,6 @@ stimuli:
       - Provides a complete setup for a persistent edit-and-rerun loop that matches the native test application
       - Clearly explains the supported host experience and its user-visible limitation
       - Does not execute or modify the project for this advisory request
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Enable hot reload when package already installed
     prompt: I have a test project with some failing tests. I see Microsoft.Testing.Extensions.HotReload is already in the
       project. Show me how to start a long-lived host that automatically reruns tests after each edit, but do not run or
@@ -85,6 +87,12 @@ stimuli:
         - src: ./fixtures/enable-hot-reload-when-package-already-installed/global.json
           dest: global.json
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: TESTINGPLATFORM_HOTRELOAD_ENABLED
@@ -99,11 +107,6 @@ stimuli:
       - Gives the remaining steps needed to start the persistent edit-and-rerun loop
       - Does not tell the user to reinstall a dependency already present in the project
       - Explains what happens after the host starts
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Suggest launchSettings.json configuration for hot reload
     prompt: I want to set up hot reload for my test project so it's always enabled when I run from the command line. I don't
       want to set the environment variable every time.
@@ -142,6 +145,12 @@ stimuli:
         - src: ./fixtures/use-dotnet-run-not-dotnet-test-for-hot-reload/global.json
           dest: global.json
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: dotnet run
@@ -149,11 +158,6 @@ stimuli:
     rubric:
       - Selects the command that starts the persistent host rather than a one-time test invocation
       - Briefly explains the supported host experience without running or modifying anything
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: "Negative: VSTest project cannot use MTP hot reload"
     prompt: I have some failing tests and want to use hot reload to iterate faster. Can you set it up for me?
     environment:
@@ -163,6 +167,13 @@ stimuli:
         - src: ./fixtures/negative-vstest-project-cannot-use-mtp-hot-reload/ShippingCalculatorTests.cs
           dest: ShippingCalculatorTests.cs
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - bash
+          disallowed:
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: (VSTest|not.*MTP|not.*Microsoft\.Testing\.Platform|migrate|upgrade)
@@ -183,12 +194,6 @@ stimuli:
       - Correctly explains whether hot reload is available for the project as configured
       - Does not modify the project or apply settings that cannot work with its current platform
       - Gives valid next options without starting an unrequested migration
-    constraints:
-      expect_tools:
-        - bash
-      reject_tools:
-        - edit
-        - create
   - name: Run specific failing test with hot reload filter
     prompt: I only want to hot-reload iterate on the ProcessPayment_NegativeAmount_ThrowsException test. Give me the
       command that filters to just that test while using hot reload, but do not run or modify anything.
@@ -201,6 +206,13 @@ stimuli:
         - src: ./fixtures/run-specific-failing-test-with-hot-reload-filter/global.json
           dest: global.json
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
+
       - type: output-matches
         config:
           pattern: dotnet run
@@ -214,12 +226,6 @@ stimuli:
     rubric:
       - Gives one runnable command that starts the persistent host and limits reruns to the requested test
       - Includes the activation prerequisite without executing or modifying the project
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
-
   - name: Filter an xUnit v3 hot-reload host to one test
     prompt: |
       The hot-reload package is installed and
@@ -235,23 +241,24 @@ stimuli:
         - src: ./fixtures/xunit-v3-filtered-hot-reload/global.json
           dest: global.json
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
+
       - type: output-matches
         config:
           pattern: dotnet run
       - type: output-matches
         config:
-          pattern: (?i)--filter-method\s+(?<quote>["'])?(?:\*Checkout_AppliesCoupon\*?|(?:[\w.]+\.)?CheckoutTests\.Checkout_AppliesCoupon)(?(quote)\k<quote>)(?=\s|$)
+          pattern: (?i)--filter-method\s+(?<quote>["'])?(?:\*Checkout_AppliesCoupon\*?|(?:[\w.]+\.)?CheckoutTests\.Checkout_AppliesCoupon)\k<quote>(?=\s|$)
       - type: prompt
     rubric:
       - Starts the persistent xUnit v3 test host and limits reruns to the requested test
       - Uses a filter accepted by the configured framework
       - Does not execute or modify the project
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
-
   - name: Restart the host after an unsupported hot reload edit
     prompt: |
       The MTP hot-reload host is already running with:
@@ -318,9 +325,16 @@ stimuli:
         - src: ./fixtures/enable-hot-reload-when-package-already-installed/global.json
           dest: global.json
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
+
       - type: output-matches
         config:
-          pattern: '(?is)(?:(?m)^[ \t]*(?:[-*]\s*)?(?:[$>]\s*)?`?dotnet\s+run\b.{0,500}TESTINGPLATFORM_HOTRELOAD_ENABLED\s*=\s*["'']?1["'']?(?!\d)|(?m)^[ \t]*(?:[-*]\s*)?(?:[$>]\s*)?(?:`?(?:\$env:|export\s+|set\s+)?TESTINGPLATFORM_HOTRELOAD_ENABLED\s*=\s*["'']?1["'']?).{0,500}^[ \t]*(?:[-*]\s*)?(?:[$>]\s*)?`?dotnet\s+run\b|(?m)^[ \t]*(?:[-*]\s*)?(?:[$>]\s*)?`?TESTINGPLATFORM_HOTRELOAD_ENABLED\s*=\s*["'']?1["'']?\s+`?dotnet\s+run\b)'
+          pattern: '(?ims)(?:^[ \t]*(?:[-*]\s*)?(?:[$>]\s*)?`?dotnet\s+run\b.{0,500}TESTINGPLATFORM_HOTRELOAD_ENABLED\s*=\s*["'']?1["'']?(?!\d)|^[ \t]*(?:[-*]\s*)?(?:[$>]\s*)?(?:`?(?:\$env:|export\s+|set\s+)?TESTINGPLATFORM_HOTRELOAD_ENABLED\s*=\s*["'']?1["'']?).{0,500}^[ \t]*(?:[-*]\s*)?(?:[$>]\s*)?`?dotnet\s+run\b|^[ \t]*(?:[-*]\s*)?(?:[$>]\s*)?`?TESTINGPLATFORM_HOTRELOAD_ENABLED\s*=\s*["'']?1["'']?\s+`?dotnet\s+run\b)'
       - type: output-not-matches
         config:
           pattern: '(?im)^(?![^\r\n]*\b(?:(?:don''t|do not)(?:\s+need\s+to)?\s+(?:(?:re)?install|add(?:\s+\S+)?\s+package|run\s+`?dotnet\s+add)|no need(?: to)?\s+(?:(?:re)?install|add(?:\s+\S+)?\s+package|run\s+`?dotnet\s+add)|not needed|not necessary)\b)[^\r\n]*(?:\bdotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b)'
@@ -332,19 +346,14 @@ stimuli:
       - Identifies the missing activation setting as the reason edits are not picked up
       - Gives a valid way to set the activation setting before restarting the existing persistent host
       - Preserves the already installed dependency and the requested no-mutation workflow
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
-
   - name: Decline Test Explorer hot reload integration
     prompt: |
       I only want Visual Studio Code Test Explorer to automatically rerun the
       affected tests after every source edit. Is that an editor feature, and
       can it be enabled without using or configuring an MTP console host?
       Do not modify the project.
-    expect_activation: false
+    tags:
+      expect_activation: "false"
     environment:
       files:
         - src: ./fixtures/enable-hot-reload-when-package-already-installed/TestProject.csproj
@@ -354,6 +363,12 @@ stimuli:
         - src: ./fixtures/enable-hot-reload-when-package-already-installed/global.json
           dest: global.json
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: (?is)(?=.*Test Explorer.{0,120}(not supported|does not support|no support))(?=.*(?:console(?:-based| mode| host)|supported console))
@@ -366,8 +381,3 @@ stimuli:
       - The hot-reload setup workflow stayed dormant rather than treating the editor-integration request as setup work
       - Does not claim to have configured unsupported editor integration or alter project setup
       - Directs the user to the supported console-based persistent test-host workflow
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create

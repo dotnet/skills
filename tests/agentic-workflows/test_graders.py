@@ -556,14 +556,17 @@ class GraderTests(unittest.TestCase):
             self.assertEqual(len(document["stimuli"]), len({item["name"] for item in document["stimuli"]}))
             for stimulus in document["stimuli"]:
                 self.assertNotIn(package, stimulus["prompt"])
-                self.assertTrue(stimulus.get("expect_activation", True))
-                self.assertEqual({"capability", "risk", "journey"}, set(stimulus["tags"]))
+                self.assertEqual("true", stimulus["tags"].get("expect_activation", "true"))
+                self.assertEqual(
+                    {"capability", "risk", "journey"},
+                    set(stimulus["tags"]) - {"expect_activation"},
+                )
                 self.assertNotIn("reject_skills", stimulus.get("constraints", {}))
                 files = stimulus["environment"]["files"]
                 fixture = next(item for item in files if item["dest"] == "inputs")
                 case = f"{prefix}/{Path(fixture['src']).name}"
                 if OPTIONS[case].expected_action == "noop":
-                    self.assertIs(stimulus["expect_activation"], True)
+                    self.assertEqual("true", stimulus["tags"]["expect_activation"])
                 expression_file = next(item for item in files if item["dest"] == "workflow-context.json")
                 self.assertEqual(fixture["src"] + "/workflow-context.json", expression_file["src"])
                 self.assertNotIn(case, covered)
