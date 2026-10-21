@@ -459,8 +459,8 @@ stimuli:
     prompt: |
       I need you to write comprehensive unit tests for the ShoppingCart class.
       Generate tests that cover all methods with good coverage.
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: scope-boundary-enforcement
       risk: unrequested-test-generation
       journey: audit-test-suite-health

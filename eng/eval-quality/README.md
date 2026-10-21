@@ -4,6 +4,10 @@
 result. Most were first found only after an eval mysteriously lost to its own
 baseline or won every trial and still failed.
 
+The checker requires Python 3, PyYAML, and Node.js on `PATH`. Node.js compiles
+and evaluates output regular expressions with the same JavaScript `RegExp`
+semantics that Vally uses.
+
 Run it from the repository root:
 
 ```bash
@@ -36,7 +40,7 @@ Apply these checks before treating a passing gate as a good eval:
    graders.
 6. **Mutation rejection:** a realistic broken result fails the grader that protects the behavior.
 7. **Restraint:** rewrite skills include an already-correct no-op case, and routing boundaries use
-   `expect_activation: false` without `reject_skills`.
+   `tags.expect_activation: "false"` without a disallowed `skill-invocation` grader.
 8. **Power:** task breadth is sized for the expected tie rate, not only the five-stimulus floor.
 9. **Production execution:** Vally parses skill evals, the native SDK lane parses agent evals, and
    each eval completes under normal worker concurrency and its declared time budget.
@@ -53,7 +57,11 @@ focused change, but editing that suite requires it to meet the current rules.
 The one non-semantic exception is moving an unchanged `executionShard` value
 from the rejected legacy top-level key into `tags.executionShard`; the gate
 compares normalized base/current content and ignores the suite only when that
-metadata relocation is its sole change.
+metadata relocation is its sole change. The same narrow normalization applies
+when a suite changes only to replace removed Vally aliases: `config` to
+`defaults`, activation and shell-denial metadata to quoted string tags, and
+legacy expected/rejected tool or skill constraints to built-in graders. Any
+other content difference keeps the suite in scope.
 Use `--all` for a repository-wide migration audit.
 
 ## Failing checks
@@ -201,7 +209,7 @@ have hijacked the request. The head-to-head score is then biased or pure judge
 noise. Across four dormancy evals using this pattern the same guard scored −0.4,
 +0.4, +0.4 and 0, and twice cost a skill its pass.
 
-For an off-target request, use `expect_activation: false` **alone** (see
+For an off-target request, use `tags.expect_activation: "false"` **alone** (see
 `agent.test-quality-auditor`, `agent.test-migration`,
 `system-text-json-net11`), so the skill is actually loaded and the guard
 measures the real property. The gate rejects every dormancy guard that also
@@ -226,7 +234,7 @@ The repository gate therefore collapses repeated runs to one majority-direction
 vote per preference-eligible stimulus, then applies an exact one-sided **sign
 test**: more stimulus wins than losses at `p ≤ 0.05`. Five in-scope stimuli run
 three times produce 15 paired runs for reliability analysis, but only five gate
-votes. A sixth `expect_activation: false` stimulus is separate activation
+votes. A sixth `tags.expect_activation: "false"` stimulus is separate activation
 contract evidence and does not increase that count.
 
 The sign test cannot reach 5% on fewer than five discordant (non-tie) votes:
@@ -313,8 +321,10 @@ silent clone of the "production code unavailable" one:
   - name: Grade C# tests with the production code available
     prompt: |            # <- overwritten
       ...
-    constraints:
-      reject_tools: [edit, create]
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
     prompt: |            # <- leftover tail; this is the one that survives
       ...Payments.Tests/PaymentGatewayTests.cs...
 ```
@@ -331,10 +341,8 @@ scenario that merely lost its `- name:` line is restored rather than dropped.
 
 ### 10. Deprecated top-level `config:` alias
 
-Vally 0.14 warns when it loads the deprecated top-level `config:` alias and
-throws if a later edit adds `defaults:` beside it. The gate requires
-`defaults:` so every eval uses one settings schema and cannot drift into the
-mixed-key failure.
+Current Vally releases reject the removed top-level `config:` alias. The gate
+requires `defaults:` so every eval uses the supported settings schema.
 
 Rename `config:` to `defaults:` and preserve its `timeout`, `runs`, and other
 settings. Do not keep both keys.

@@ -2330,6 +2330,10 @@ esac
         tool_path = "eng/evaluation-tools/**"
         for event in ("pull_request", "push"):
             self.assertEqual(triggers[event]["paths"].count(tool_path), 1)
+            self.assertEqual(
+                triggers[event]["paths"].count("tests/**/eval.yaml"),
+                1,
+            )
 
         job = workflow["jobs"]["evaluation-tools"]
         self.assertEqual(job["runs-on"], "ubuntu-latest")
@@ -2351,6 +2355,11 @@ esac
         self.assertIn(
             "import.meta.resolve('@github/copilot-linux-x64/sdk')",
             smoke_script,
+        )
+        corpus_lint = steps["Validate full eval corpus"]["run"]
+        self.assertEqual(
+            corpus_lint,
+            "node eng/evaluation-tools/lint-corpus.mjs tests",
         )
 
     def test_path_safety_helper_changes_run_workflow_tests(self) -> None:

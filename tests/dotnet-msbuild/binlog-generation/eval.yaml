@@ -345,8 +345,8 @@ stimuli:
       Update maven-project/pom.xml so the Java reporting service compiles for
       Java 21 instead of Java 17. Which Maven property or compiler-plugin
       setting should change?
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: boundary-non-msbuild
       risk: medium
       journey: decline-off-target

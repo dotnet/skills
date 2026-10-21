@@ -222,6 +222,12 @@ stimuli:
 
               Priority: start with TaxService.Apply — it ties for the most uncovered lines (5) and has the highest complexity (8) and CRAP (72), so it is both the biggest coverage lever and the biggest risk. Then add one more member to close the remaining gap: Apply (5) + Validate (4) = 9 uncovered lines recovered, reaching exactly 34 of 42 (81%); Apply + Calculate (5) would reach 35 (83%) and also retire more complexity. Resolve alone cannot finish the job.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: (?i)(34\s*(?:of|/)\s*42|35\s*(?:of|/)\s*42|81(?:\.\d+)?%|83(?:\.\d+)?%)
@@ -232,11 +238,6 @@ stimuli:
       - Explained that fully covering the 5-line Apply hotspot reaches only 30 of 42 lines, about 71%, so it is insufficient alone
       - Prioritized Apply first because it ties for most uncovered lines and has the highest complexity
       - Gave at least one concrete sufficient combination, such as Apply plus Validate reaching 34/42 or Apply plus Calculate reaching 35/42
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Analyse a CI Cobertura report without re-running tests or installing tools
     tags:
       capability: analyse-a-ci-cobertura-report-without-re-running-tests-or-installing-tools
@@ -333,6 +334,12 @@ stimuli:
       branches exercised. Explain what the line number hides and which branch
       outcomes need tests. Do not run tools.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: Enroll
@@ -347,13 +354,9 @@ stimuli:
       - Recommended tests that force the opposite Enroll condition outcomes, not merely more line execution
       - Did not infer which Enroll outcome is missing or invent source-like predicates from `1/2`; explained that
         compound predicates may require independent operand and short-circuit combinations when the source warrants them
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Stay dormant for test trait distribution
     tags:
+      expect_activation: "false"
       capability: stay-dormant-for-test-trait-distribution
       risk: incorrect-skill-activation
       journey: route-sibling-request
@@ -361,7 +364,6 @@ stimuli:
       Audit my existing NUnit suite by classifying every test as happy path,
       error path, boundary, or critical path. Add the appropriate Category
       attributes and report the count in each group.
-    expect_activation: false
     graders:
       - type: prompt
     rubric:
@@ -371,6 +373,7 @@ stimuli:
       - Did not attempt coverage or CRAP analysis
   - name: Stay dormant for behavioral gap analysis
     tags:
+      expect_activation: "false"
       capability: stay-dormant-for-behavioral-gap-analysis
       risk: incorrect-skill-activation
       journey: route-sibling-request
@@ -378,7 +381,6 @@ stimuli:
       My existing tests execute the null-check in CheckoutService.Submit.
       Would they still pass if that guard were removed? Explain what production
       and test evidence you would need to decide. Do not modify files.
-    expect_activation: false
     graders:
       - type: prompt
     rubric:
@@ -387,6 +389,7 @@ stimuli:
       - Did not attempt coverage or CRAP analysis
   - name: Stay dormant for one-member CRAP analysis
     tags:
+      expect_activation: "false"
       capability: stay-dormant-for-one-member-crap-analysis
       risk: incorrect-skill-activation
       journey: route-sibling-request
@@ -394,7 +397,6 @@ stimuli:
       Calculate the CRAP score for CheckoutService.Submit only. Its cyclomatic
       complexity is 8 and its coverage is 50%. Tell me whether this one method
       is safe to refactor.
-    expect_activation: false
     graders:
       - type: prompt
     rubric:
@@ -403,6 +405,7 @@ stimuli:
       - Did not attempt project-wide coverage analysis
   - name: Stay dormant for static source-to-test pairing
     tags:
+      expect_activation: "false"
       capability: stay-dormant-for-static-source-to-test-pairing
       risk: incorrect-skill-activation
       journey: route-sibling-request
@@ -410,7 +413,6 @@ stimuli:
       List every production source file in my repository that has no
       corresponding test file, grouped by project. I have not attached the
       repository tree yet.
-    expect_activation: false
     graders:
       - type: prompt
     rubric:

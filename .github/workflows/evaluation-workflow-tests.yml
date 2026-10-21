@@ -28,6 +28,7 @@ on:
       - "eng/dashboard/**"
       - "eng/vally-adapter/**"
       - "eng/skill-validator/src/**"
+      - "tests/**/eval.yaml"
   push:
     branches: [main]
     paths:
@@ -56,6 +57,7 @@ on:
       - "eng/dashboard/**"
       - "eng/vally-adapter/**"
       - "eng/skill-validator/src/**"
+      - "tests/**/eval.yaml"
   workflow_dispatch:
 
 permissions:
@@ -108,6 +110,9 @@ jobs:
           node vally.mjs --version
           node_modules/.bin/copilot --version
           node --input-type=module -e "import.meta.resolve('@github/copilot-linux-x64/sdk')"
+
+      - name: Validate full eval corpus
+        run: node eng/evaluation-tools/lint-corpus.mjs tests
 
       - name: Test SDK startup ordering without model calls
         run: node --test eng/evaluation-tools/*.test.mjs

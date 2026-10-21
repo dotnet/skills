@@ -22,6 +22,7 @@ stimuli:
       capability: project-wide-pytest-generation
       risk: missed-boundary-coverage
       journey: generate-multimodule-python-suite
+
     constraints:
       reject_agents: [test-engineer]
     environment:
@@ -86,6 +87,7 @@ stimuli:
       capability: classic-mstest-suite-extension
       risk: legacy-project-drift
       journey: extend-classic-dotnet-suite
+
     constraints:
       reject_agents: [test-engineer]
     environment:
@@ -191,6 +193,7 @@ stimuli:
       capability: cross-package-go-test-generation
       risk: collaborator-path-omission
       journey: generate-go-module-suite
+
     constraints:
       reject_agents: [test-engineer]
     environment:
@@ -257,6 +260,7 @@ stimuli:
       capability: layered-vitest-suite-generation
       risk: async-integration-gaps
       journey: generate-typescript-cart-suite
+
     constraints:
       reject_agents: [test-engineer]
     environment:
@@ -312,6 +316,7 @@ stimuli:
       capability: project-wide-xunit-generation
       risk: time-boundary-gaps
       journey: generate-dotnet-order-suite
+
     constraints:
       reject_agents: [test-engineer]
     environment:
@@ -356,11 +361,12 @@ stimuli:
       truncation. Keep production code and pytest configuration unchanged.
       Run the tests and report the implementation and validation evidence
       for each requested behavior.
-    deny_shell: true
+
     constraints:
       reject_agents: [test-engineer]
       reject_shell_retries: true
     tags:
+      deny_shell: "true"
       capability: test-generation-with-unrun-validation
       risk: false-validation-success
       journey: generate-tests-under-permission-denial
@@ -494,6 +500,7 @@ stimuli:
       capability: focused-pytest-generation
       risk: unnecessary-pipeline-fanout
       journey: extend-one-python-function
+
     constraints:
       reject_agents: [test-engineer]
     environment:
@@ -541,6 +548,7 @@ stimuli:
       capability: test-repair
       risk: weakened-assertions
       journey: repair-mstest-suite
+
     constraints:
       reject_agents: [test-engineer]
     environment:
@@ -591,6 +599,7 @@ stimuli:
       capability: read-only-test-audit
       risk: unintended-test-edits
       journey: audit-weak-mstest-suite
+
     constraints:
       reject_agents: [test-engineer]
     environment:
@@ -639,6 +648,7 @@ stimuli:
       capability: focused-public-assertion-review
       risk: redundant-audit-orchestration
       journey: assess-assertions-through-public-entry
+
     constraints:
       reject_agents: [test-engineer, test-quality-auditor]
     environment:
