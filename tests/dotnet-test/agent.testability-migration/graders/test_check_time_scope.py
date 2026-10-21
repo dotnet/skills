@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from check_time_scope import export_body, verify
+from check_time_scope import export_body, validate_program, verify
 
 
 TARGET = """
@@ -44,6 +44,70 @@ public class Subscription
 
 
 class TimeScopeTests(unittest.TestCase):
+    def test_supported_clock_registration_forms_pass(self):
+        original = "var builder = CreateBuilder();\nvar app = builder.Build();\napp.Run();\n"
+        for registration in (
+            "builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);",
+            "builder.Services.AddSingleton(TimeProvider.System);",
+            "builder.Services.AddSingleton<System.TimeProvider>(System.TimeProvider.System);",
+            "builder.Services.AddSingleton<TimeProvider>(_ => TimeProvider.System);",
+            "builder.Services.AddSingleton<TimeProvider>(static services => TimeProvider.System);",
+            "builder.Services.TryAddSingleton<TimeProvider>(TimeProvider.System);",
+            "builder.Services.AddSingleton(typeof(TimeProvider), TimeProvider.System);",
+        ):
+            with self.subTest(registration=registration):
+                validate_program(
+                    original.replace("var app =", registration + "\nvar app ="),
+                    original,
+                )
+
+    def test_token_only_clock_registration_mutations_fail(self):
+        original = "var builder = CreateBuilder();\nvar app = builder.Build();\napp.Run();\n"
+        for registration in (
+            "builder.Services.AddSingleton(nameof(TimeProvider.System));",
+            'builder.Services.AddSingleton("TimeProvider.System");',
+            "builder.Services.AddSingleton(typeof(string), TimeProvider.System);",
+            "builder.Services.AddSingleton<TimeProvider>(_ => null);",
+            "builder.Services.Remove(TimeProvider.System);",
+        ):
+            with self.subTest(registration=registration):
+                with self.assertRaisesRegex(ValueError, "unrelated Program statement"):
+                    validate_program(
+                        original.replace("var app =", registration + "\nvar app ="),
+                        original,
+                    )
+
+    def test_clock_registration_after_host_build_fails(self):
+        original = "var builder = CreateBuilder();\nvar app = builder.Build();\napp.Run();\n"
+        with self.assertRaisesRegex(ValueError, "before builder.Build"):
+            validate_program(
+                original.replace(
+                    "app.Run();",
+                    "builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);\napp.Run();",
+                ),
+                original,
+            )
+
+    def test_production_clock_registration_is_required_not_just_a_comment(self):
+        original = "var builder = CreateBuilder();\nRun(builder);\n"
+        for current in (original, original + "// TimeProvider.System registration goes here\n"):
+            with self.subTest(current=current):
+                with self.assertRaisesRegex(ValueError, "production TimeProvider registration"):
+                    validate_program(current, original)
+        validate_program(
+            "var builder = CreateBuilder();\n"
+            "builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);\n"
+            "Run(builder);\n",
+            original,
+        )
+        validate_program(
+            "var builder = CreateBuilder();\n"
+            "builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);\n"
+            "builder.Services.AddTransient<FullPipeline.Services.SubscriptionManager>();\n"
+            "Run(builder);\n",
+            original,
+        )
+
     def test_unique_target_body_is_extracted(self):
         self.assertIn("WriteAllText", export_body(TARGET))
 
@@ -201,6 +265,12 @@ class TimeScopeTests(unittest.TestCase):
             try:
                 os.chdir(workspace)
                 source.write_text(migrated, encoding="utf-8")
+                program.write_text(
+                    "var builder = CreateBuilder();\n"
+                    "builder.Services.AddSingleton(TimeProvider.System);\n"
+                    "Run(builder);\n",
+                    encoding="utf-8",
+                )
                 verify()
                 source.write_text(migrated.replace('Plan = "trial"', 'Plan = "changed"'), encoding="utf-8")
                 with self.assertRaisesRegex(ValueError, "CreateTrial"):

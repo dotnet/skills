@@ -1,15 +1,14 @@
 ---
 name: grade-tests
 description: >
-  Grade a curated list of individual tests for readiness, A-F quality, and
-  concrete improvements. ALWAYS USE FOR: grade tests, review only a named test,
-  per-test readiness decisions, or quality bands for supplied methods, bodies,
-  file spans, or bounded PR diffs, including existing tests. Produce a PR-ready
-  Pass, Failed, Uncertain, or Not applicable table; unresolved or empty scopes
-  omit the grade. Compose read-only per-test mutation evidence when available.
-  Polyglot: .NET, Python, TS/JS, Java, Go, Ruby, Rust, Swift, Kotlin,
-  PowerShell, C++. DO NOT USE FOR: suite-wide audits (test-engineer or
-  test-anti-patterns), writing or fixing tests, or measuring coverage.
+  Grade curated individual tests for readiness, A-F quality and improvements.
+  ALWAYS USE FOR: grade tests, review only a named test, per-test readiness or
+  quality bands for supplied methods, bodies, file spans or bounded PR diffs,
+  including existing tests. Return Pass/Failed/Uncertain/Not applicable;
+  unresolved/empty scopes omit grades. Compose read-only per-test evidence.
+  Polyglot. DO NOT USE FOR: suite audits (test-engineer/test-anti-patterns),
+  concrete fix/feature detection proof (test-value-evidence), writing/fixing
+  tests, or coverage.
 license: MIT
 ---
 
@@ -36,14 +35,12 @@ After Step 0 admits a bounded scope, enforce these grading invariants:
 - A **B** quality grade does not require a Failed result; a complete focused
   test may have no actionable change.
 
-> **Language-specific guidance**: If the caller supplies the matching bundled
-> extension file path, read it directly. Otherwise call `test-analysis-extensions`
-> to discover available extension files, then read the file matching the
-> target codebase's language and framework (e.g., `extensions/dotnet.md`,
-> `extensions/python.md`, `extensions/typescript.md`, `extensions/go.md`).
-> You MUST read the relevant extension file before scoring assertions or
-> anti-patterns, because assertion APIs and idiomatic patterns differ
-> significantly across frameworks.
+> **Language-specific guidance**: Read the caller-provided matching extension
+> file, or the runtime-listed `test-analysis-extensions` catalog and its matching
+> language file. The reference-only helper is not an invocable skill. If its
+> files are absent, use the embedded rubric and pinned framework APIs; mark an
+> essential unresolved framework construct Uncertain instead of guessing or
+> searching installation directories.
 
 ## Why a Decision Result Plus Quality Detail
 
@@ -109,12 +106,12 @@ If a valid bounded scope resolves to zero eligible tests, return
 ### Step 1: Detect language and load extension
 
 Identify the target codebase's language and test framework from the file
-extensions and the test method markers in the provided list. Call the
-`test-analysis-extensions` skill unless the caller already supplied the matching
-bundled extension file path. In either case, read that extension file (e.g.,
-`extensions/dotnet.md` for MSTest/xUnit/NUnit/TUnit, `extensions/python.md`
-for pytest, `extensions/typescript.md` for Jest/Vitest, `extensions/go.md`
-for the standard `testing` package). If the input contains tests from
+extensions and the test method markers in the provided list. Read the matching
+caller-provided extension file directly; otherwise read the matching
+`extensions/` file relative to the runtime-listed `test-analysis-extensions`
+catalog (`dotnet.md`, `python.md`, `typescript.md`, `go.md`, etc.).
+Use the catalog for other languages, not a skill invocation.
+If the input contains tests from
 multiple languages, load each relevant extension and grade each test using
 its language's conventions.
 
@@ -190,7 +187,7 @@ assertion in the test body. Score from highest to lowest:
 
 | Sub-grade | Pattern |
 |-----------|---------|
-| **A** | At least one meaningful value assertion (equality / structural / exception / state) plus, where appropriate, additional checks (negative, type, collection contents). Mock-call verifications (`Verify`, `toHaveBeenCalledWith`, `Should -Invoke`) and bare assertion forms (pytest `assert`, Go `if got != want { t.Errorf(...) }`, Rust `assert!()`) count as real assertions. |
+| **A** | Pins a richer contract through structural equality or nonredundant related observables (such as returned values plus required state/interaction checks), or qualifies for the exception/error calibration below. Grade predicate depth, not assertion count. Mock-call verifications and bare language assertions count normally. |
 | **B** | One clear meaningful assertion that verifies the behavior under test. |
 | **C** | Only trivial assertions (single `IsNotNull` / `toBeDefined` / `assert x is not None`), or assertions that leave a meaningful part of the test's claimed result unchecked. A focused single-field claim does not require unrelated fields. |
 | **D** | One self-referential / tautological assertion (`Assert.AreEqual(x, x)`, `assert dto.name == dto.name`, round-trip identity without a non-trivial input), or broad exception assertions (`Assert.ThrowsException<Exception>`). |
@@ -312,6 +309,12 @@ Convert sub-grades to numeric points: A=4, B=3, C=2, D=1, F=0.
   is **F**, the overall grade is **F**; if the worst sub-grade is **D**,
   the overall grade is at most **D**; and so on. A test that fails on any
   one dimension cannot earn a higher overall grade than that dimension.
+
+Apply the cap after the weighted mapping, not instead of it. For example,
+Assertion B, Anti-pattern A, Structure A gives `3.55`: the provisional weighted
+grade is A, but the final grade is **B (80-89)**. A focused scalar equality can
+therefore be **B / Pass** with no actionable finding; do not invent a weakness
+or missing sibling behavior to justify that grade.
 
 Report the **letter grade** and the **score band** (not a single 0–100
 number). False precision invites bikeshedding; bands keep the conversation

@@ -7,6 +7,10 @@ stimuli:
   - name: AOT implies a compatible framework
     prompt: "Create a native AOT worker service. I haven't picked a target framework — choose an appropriate one for me and explain why. Don't write any files yet, just tell me the parameters you'd use."
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
       - type: exit-success
       - type: output-matches
         config:
@@ -30,12 +34,13 @@ stimuli:
       - The agent chose a current, AOT-capable framework rather than an arbitrary one
       - The agent explained why native AOT requires a suitable target framework
       - The displayed command is safe to run without creating files
-    constraints:
-      expect_tools:
-        - skill
   - name: Auth implies HTTPS stays enabled
     prompt: "I want to create a webapi with SingleOrg authentication. Give me the exact `dotnet new` command you'd run, then a brief explanation. Don't create anything yet."
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
       - type: exit-success
       - type: output-matches
         config:
@@ -59,12 +64,13 @@ stimuli:
       - The agent explained that authentication flows require HTTPS
       - The agent made clear which parameter values it chose and why
       - The displayed command is safe to run without creating files
-    constraints:
-      expect_tools:
-        - skill
   - name: Controllers exclude the minimal-API flag
     prompt: "Create a web API that uses controllers. Give me the exact `dotnet new` command you'd run, then explain. Do not create files."
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
       - type: exit-success
       - type: output-matches
         config:
@@ -88,12 +94,14 @@ stimuli:
       - The agent did NOT also pass a minimal-API flag (the two are mutually exclusive)
       - The agent explained the reasoning
       - The displayed command is safe to run without creating files
-    constraints:
-      expect_tools:
-        - skill
   - name: Never override an explicit user value
     prompt: "Create a native AOT console app, but I specifically want it targeting net8.0 — keep it on net8.0 no matter what. Give me the exact `dotnet new` command you'd run and the parameters you'd use."
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: output-contains
         config:
@@ -113,10 +121,6 @@ stimuli:
       - The agent respected the explicit net8.0 framework the user set
       - The agent did NOT override the user value with a newer framework despite AOT being requested
       - The agent explained that it kept the user's explicit choice and only filled unset parameters
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Treat the workspace framework as an explicit choice
     prompt: |
       This repository's projects all target net9.0 and its global.json intentionally
@@ -125,6 +129,11 @@ stimuli:
       Show the selected values, where each came from, why it was chosen, and the exact
       command. Don't create files.
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: output-matches
         config:
@@ -153,10 +162,6 @@ stimuli:
       - Native AOT is enabled without replacing the compatible workspace framework with a newer default
       - The parameter summary distinguishes workspace-provided values from values chosen to fill gaps
       - The displayed command is safe to run without creating files
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Preserve an explicit minimal API choice
     prompt: |
       I want a minimal-API webapi targeting net9.0, not controllers. Fill any
@@ -164,6 +169,11 @@ stimuli:
       choices, explain why, and give the exact `dotnet new` command you would run.
       Do not create the project.
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: output-matches
         config:
@@ -189,10 +199,6 @@ stimuli:
       - The agent does not add the mutually exclusive controllers flag
       - The parameter summary separates preserved values from any genuine gap-fill
       - The displayed command is safe to run without creating files
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Preserve explicit no-auth and no-HTTPS choices
     prompt: |
       I want a webapi with no authentication, and I explicitly want HTTPS disabled
@@ -200,6 +206,10 @@ stimuli:
       from me versus any values you filled in, explain the result, and give the exact
       command. Don't create files.
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
       - type: exit-success
       - type: output-matches
         config:
@@ -222,6 +232,3 @@ stimuli:
       - Both choices are identified as user-supplied rather than assumptions made by the response
       - Apart from the dry-run safety option, the exact command contains only the requested auth and no-https flags
       - The displayed command is safe to run without creating files
-    constraints:
-      expect_tools:
-        - skill

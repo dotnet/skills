@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Security.Cryptography;
+using System.Text;
 using SkillValidator;
 using SkillValidator.Evaluate;
 
@@ -28,6 +30,18 @@ public class BaselineStoreTests
 
     private static string TempPath() =>
         Path.Combine(Path.GetTempPath(), $"sv-baseline-test-{Guid.NewGuid():N}.json");
+
+    [TestMethod]
+    public void ExecutionContractChangesInvalidateLegacyBaselineIdentity()
+    {
+        var scenario = Scenario("legacy", "Inspect the project.");
+        var inputs = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes("\0no-setup\0")));
+        var legacyCriteria = $"turns=\0tokens=\0timeout={scenario.Timeout}\0";
+        var legacyTarget = Convert.ToHexStringLower(SHA256.HashData(
+            Encoding.UTF8.GetBytes(inputs + "\0criteria\0" + legacyCriteria)));
+
+        Assert.AreNotEqual(legacyTarget, BaselineStore.ComputeTargetSha(scenario, null));
+    }
 
     [TestMethod]
     public void OfflineWorkflowPolicyChangesIdentityWithoutRequiringADenialProbe()

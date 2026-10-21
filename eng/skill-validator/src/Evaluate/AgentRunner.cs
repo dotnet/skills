@@ -69,6 +69,7 @@ internal sealed class RunEventBuffer
 
 public static class AgentRunner
 {
+    internal const string ExecutionContractVersion = "workspace-and-typed-shell-permissions-v3";
     private static readonly HashSet<string> EvaluatorOnlySetupEntries =
         new(StringComparer.OrdinalIgnoreCase)
         {
@@ -318,6 +319,7 @@ public static class AgentRunner
             "git diff --check",
             "git status",
             "git status --short",
+            "Get-Location",
             "ls",
             "pwd",
         ],
@@ -368,6 +370,10 @@ public static class AgentRunner
         if (request.PossiblePaths is not { Length: > 0 }
             && !IsAllowedPathlessShellCommand(request.FullCommandText))
         {
+            var scopedPaths = GetScopedDotnetCommandPaths(request.FullCommandText);
+            if (scopedPaths is not null)
+                return CheckPermissions(scopedPaths, workDir, skillPath, log, runLabel, pluginRoot, additionalAllowedDirs);
+
             var labelSuffix = runLabel is not null ? $" ({runLabel})" : "";
             log?.Invoke($"      ❌ Denying unclassified shell permission request{labelSuffix}");
             return false;
@@ -381,6 +387,84 @@ public static class AgentRunner
             runLabel,
             pluginRoot,
             additionalAllowedDirs);
+    }
+
+    internal static IReadOnlyList<string>? GetScopedDotnetCommandPaths(string? command)
+    {
+        if (string.IsNullOrWhiteSpace(command)
+            || command.IndexOfAny(['$', '`', ';', '&', '|', '<', '>', '\r', '\n', '(', ')', '{', '}']) >= 0)
+            return null;
+
+        var matches = Regex.Matches(command, "\"[^\"]*\"|'[^']*'|[^\\s\"']+");
+        var words = new List<string>();
+        var position = 0;
+        foreach (Match match in matches)
+        {
+            if (!string.IsNullOrWhiteSpace(command[position..match.Index]))
+                return null;
+            words.Add(match.Value[0] is '"' or '\'' ? match.Value[1..^1] : match.Value);
+            position = match.Index + match.Length;
+        }
+        if (!string.IsNullOrWhiteSpace(command[position..]) || words.Count < 2
+            || !words[0].Equals("dotnet", StringComparison.OrdinalIgnoreCase)
+            || words[1] is not ("build" or "test" or "run")
+            || words.Any(word => word.StartsWith('@')))
+            return null;
+
+        var paths = new List<string>();
+        var hasProject = false;
+        for (var index = 2; index < words.Count; index++)
+        {
+            var word = words[index];
+            if (word.StartsWith("--verbosity:", StringComparison.Ordinal)
+                || word.StartsWith("--verbosity=", StringComparison.Ordinal))
+            {
+                var value = word["--verbosity:".Length..];
+                if (value is not ("q" or "quiet" or "m" or "minimal" or "n" or "normal" or "d" or "detailed" or "diag" or "diagnostic"))
+                    return null;
+                continue;
+            }
+            if (word is "--no-restore" or "--no-build" or "--nologo" or "--no-incremental"
+                or "--list-tests" or "--report-trx")
+                continue;
+            if (word is "--project" or "--solution" or "--output" or "-o" or "--results-directory"
+                or "--report-trx-filename")
+            {
+                if (++index >= words.Count || string.IsNullOrWhiteSpace(words[index])
+                    || words[index].StartsWith('~'))
+                    return null;
+                paths.Add(words[index]);
+                hasProject |= word is "--project" or "--solution";
+                continue;
+            }
+            if (word is "--verbosity" or "-v" or "--configuration" or "-c" or "--framework" or "-f"
+                or "--filter" or "--logger" or "--collect")
+            {
+                if (++index >= words.Count || string.IsNullOrWhiteSpace(words[index]))
+                    return null;
+                var value = words[index];
+                if (word is "--logger" && value != "trx"
+                    || word is "--collect" && value is not ("Code Coverage" or "XPlat Code Coverage")
+                    || word is "--verbosity" or "-v" && value is not ("q" or "quiet" or "m" or "minimal" or "n" or "normal" or "d" or "detailed" or "diag" or "diagnostic")
+                    || word is "--configuration" or "-c" or "--framework" or "-f"
+                        && !Regex.IsMatch(value, "^[A-Za-z0-9._-]+$")
+                    || word == "--filter" && value.IndexOfAny(['/', '\\', ':']) >= 0)
+                    return null;
+                continue;
+            }
+            if (!word.StartsWith('-') && !hasProject)
+            {
+                if (word.StartsWith('~'))
+                    return null;
+                paths.Add(word);
+                hasProject = true;
+                continue;
+            }
+            return null;
+        }
+        if (words[1] == "run" && !hasProject)
+            return null;
+        return paths.Count > 0 ? paths : ["."];
     }
 
     internal static bool MayCreateFileSystemLink(string? command)
@@ -667,6 +751,30 @@ public static class AgentRunner
             .Where(d => !string.IsNullOrEmpty(d))
             .ToList();
 
+        var referenceCatalogs = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var stagedRoot in additionalAllowedDirs)
+        {
+            foreach (var stagedSkill in await SkillDiscovery.DiscoverSkills(stagedRoot, stagedRoot))
+            {
+                if (stagedSkill.DisableModelInvocation)
+                    referenceCatalogs.TryAdd(Path.GetFileName(stagedSkill.Path), stagedSkill.SkillMdPath);
+            }
+        }
+
+        var workspaceContext = $"The project workspace for this run is `{Path.GetFullPath(workDir)}`. "
+            + "File tools accept project-relative paths; prefer them over retyping temporary directory identifiers. "
+            + "Resolve project-relative paths against this workspace. "
+            + "A skill's base directory contains reference material, not the project. "
+            + "Do not search the parent evaluation directory or other scenario workspaces.";
+        if (referenceCatalogs.Count > 0)
+        {
+            workspaceContext += "\nReference-only catalogs are files, not callable skills. "
+                + "Read their bundled resources only when needed. Language files are in the "
+                + "catalog's extensions subdirectory (for example extensions/dotnet.md), "
+                + "not beside SKILL.md:\n"
+                + string.Join('\n', referenceCatalogs.Select(entry => $"- `{entry.Key}`: `{entry.Value}`"));
+        }
+
         // Agents should access only the staged copies, never the original skill
         // or plugin tree. Custom-agent prompts are already loaded into memory.
         // The staged roots above contain all runtime skill content and are the
@@ -722,6 +830,11 @@ public static class AgentRunner
             Model = model,
             Streaming = true,
             WorkingDirectory = workDir,
+            SystemMessage = new SystemMessageConfig
+            {
+                Mode = SystemMessageMode.Append,
+                Content = workspaceContext,
+            },
             SkillDirectories = [.. skillDirs, .. noiseDirs],
             ConfigDirectory = configDir,
             McpServers = sdkMcp,
@@ -780,14 +893,15 @@ public static class AgentRunner
 
                     if (IsShellTool(input.ToolName))
                     {
-                        if (denyShell)
-                            RecordShellDenial(input.SessionId ?? invocation?.SessionId);
+                        if (!denyShell)
+                            return Task.FromResult<PreToolUseHookOutput?>(null);
+
+                        RecordShellDenial(input.SessionId ?? invocation?.SessionId);
                         return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
                         {
-                            PermissionDecision = denyShell ? "deny" : "ask",
-                            PermissionDecisionReason = denyShell
-                                ? "All shell execution is denied by evaluation policy; file tools retain their existing permissions"
-                                : "Validate shell command paths",
+                            PermissionDecision = "deny",
+                            PermissionDecisionReason =
+                                "All shell execution is denied by evaluation policy; file tools retain their existing permissions",
                         });
                     }
 

@@ -1,17 +1,14 @@
 ---
 name: test-gap-analysis
 description: >-
-  Pseudo-mutation analysis ONLY: answer whether tests would catch a bug if
-  production code changed, which meaningful changes would still pass, or which
-  caller-visible mutations existing assertions would miss; verify candidates
-  when requested, then optionally close verified gaps. Includes explicit
-  read-only per-test composition for grading. Activate for behavioral blind
-  spots tied to production behavior. Polyglot. DO NOT USE FOR: suite taxonomy,
-  metadata, or distribution reports (test-tagging); .NET line-vs-branch or
-  Cobertura interpretation, arithmetic, plateaus, project-wide coverage gaps,
-  or coverage-backed test/CRAP priorities (coverage-analysis; use native
-  coverage tooling outside .NET); named-target CRAP (crap-score); new suites
-  (code-testing); assertion/smell audits; or mutation tools.
+  Find caller-visible production changes existing tests would miss through
+  pseudo-mutation analysis; verify candidates or close gaps only when requested.
+  Includes read-only per-test composition for grading. Polyglot.
+  USE FOR: would tests catch a bug, behavioral blind spots, surviving mutations.
+  DO NOT USE FOR: concrete fix/feature revision proof (test-value-evidence);
+  suite taxonomy (test-tagging); .NET coverage, Cobertura, plateaus or
+  coverage-backed priorities (coverage-analysis); named CRAP (crap-score);
+  new suites (code-testing); assertion/smell audits; mutation tools.
 license: MIT
 ---
 
@@ -61,13 +58,18 @@ state predicates (including derived booleans), identity, and formatting. Private
 code is in scope only to trace an allowed outcome.
 
 Do not expand a focused request into a repository audit, plan artifact, or
-dashboard. Use source and tests directly for familiar frameworks. Invoke
-`test-analysis-extensions` only when discovery or assertion semantics are
-unclear.
+dashboard. Use source and tests directly for familiar frameworks. When discovery
+or assertion semantics are unclear, read the matching language file relative
+to the caller-provided or runtime-listed `test-analysis-extensions` catalog;
+do not invoke the reference-only helper or search installation directories.
+If absent, state the limitation and use the pinned APIs and rules here.
 
 ### 2. Establish one baseline
 
-Run the narrowest existing test command once. Choose it from the project
+For a source-only advisory review, skip execution and label empirical survival
+unverified. A baseline is required when the user requests execution or survivor
+verification, or when closing gaps with tests. Run the narrowest existing test
+command once. Choose it from the project
 manifest; Microsoft.Testing.Platform executables may require `dotnet run`.
 Confirm tests executed: exit 0 with build-only output is not green. If that one
 attempt cannot run the suite, do not troubleshoot the runner or try alternate

@@ -195,6 +195,12 @@ stimuli:
         - src: fixtures/self-referential/ConfigService.Tests/ConfigService.Tests.csproj
           dest: ConfigService.Tests/ConfigService.Tests.csproj
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: (self.referent|tautolog|identity|input.*equals.*output|circular|same.*value|trivial.*round.?trip|round.?trip|set.*get|write.*read|proves
@@ -217,11 +223,6 @@ stimuli:
         break it (special characters, nulls, empty strings), rather than dismissing or endorsing it outright
       - "Recommended concrete improvements: test actual default values, test invalid keys, test formatted string
         structure, test edge-case serialization inputs"
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Judge assertion strength in a shallow Jest suite
     prompt: |
       These Jest tests for our OrderService all pass and the file looks busy,
@@ -336,6 +337,13 @@ stimuli:
         - src: fixtures/calibration-boundaries/CalibratedAssertions.Tests/CalibrationTests.cs
           dest: CalibratedAssertions.Tests/CalibrationTests.cs
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
+
       - type: output-matches
         config:
           pattern: Ping_ReturnsResponse
@@ -357,12 +365,6 @@ stimuli:
       - Treated ParseInvalid_ThrowsFormatException as complete for its stated exception behavior despite having one assertion
       - Treated Save_PersistsRecord as meaningful state verification rather than dismissing its boolean assertion as trivial
       - Concluded that two of the five methods are weak and recommended concrete expected-value checks for them
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
-
   - name: Recognize structural and interaction checks in Jest while flagging vacuous tests
     tags:
       capability: recognize-structural-and-interaction-checks-in-jest-while-flagging-vacuous-tests

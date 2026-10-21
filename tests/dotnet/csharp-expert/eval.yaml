@@ -19,9 +19,10 @@ stimuli:
       files:
         - src: fixtures/aspnet-minimal
           dest: .
-    constraints:
-      reject_tools: [bash, edit, create]
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, edit, create]
       - type: output-matches
         config:
           pattern: (?=[\s\S]*\bdotnet-webapi\b)(?=[\s\S]*\bdotnet-aspnetcore\b)(?=[\s\S]*(multipart|file upload))(?=[\s\S]*(stream|buffer))(?=[\s\S]*(size|limit))
@@ -50,9 +51,10 @@ stimuli:
       files:
         - src: fixtures/blazor-components
           dest: .
-    constraints:
-      reject_tools: [bash, edit, create]
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, edit, create]
       - type: output-matches
         config:
           pattern: (?=[\s\S]*\bauthor-component\b)(?=[\s\S]*\bdotnet-blazor\b)(?=[\s\S]*(parameter|RenderFragment))(?=[\s\S]*(content|RenderFragment))(?=[\s\S]*(callback|EventCallback))
@@ -80,9 +82,10 @@ stimuli:
       files:
         - src: fixtures/maui-binding
           dest: .
-    constraints:
-      reject_tools: [bash, edit, create]
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, edit, create]
       - type: output-matches
         config:
           pattern: (?=[\s\S]*\bmaui-data-binding\b)(?=[\s\S]*\bdotnet-maui\b)(?=[\s\S]*(XAML|binding))(?=[\s\S]*(notification|property change|INotifyPropertyChanged))
@@ -114,9 +117,10 @@ stimuli:
           dest: global.json
         - src: fixtures/ef-orders
           dest: .
-    constraints:
-      reject_tools: [bash, edit, create]
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, edit, create]
       - type: output-matches
         config:
           pattern: (?=[\s\S]*\boptimizing-ef-core-queries\b)(?=[\s\S]*\bdotnet-data\b)(?=[\s\S]*(round trip|N\+1))(?=[\s\S]*(order|line))(?=[\s\S]*(shape|result))
@@ -193,9 +197,10 @@ stimuli:
           node -e "const fs=require('fs'); fs.mkdirSync('.eval-baseline',{recursive:true});
           for(const file of ['CalculatorTests.cs','TestProject.csproj','global.json'])
           fs.copyFileSync(file,'.eval-baseline/'+file+'.snapshot');"
-    constraints:
-      reject_tools: [bash, edit, create]
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, edit, create]
       - type: output-matches
         config:
           pattern: (?=[\s\S]*\bmigrate-nunit-to-mstest\b)(?=[\s\S]*\bdotnet-test-migration\b)(?=[\s\S]*TestCase)(?=[\s\S]*DataRow)(?=[\s\S]*SetUp)(?=[\s\S]*TestInitialize)(?=[\s\S]*TearDown)(?=[\s\S]*TestCleanup)
@@ -238,9 +243,10 @@ stimuli:
           node -e "const fs=require('fs'); fs.mkdirSync('.eval-baseline',{recursive:true});
           for(const file of ['App.csproj','Program.cs'])
           fs.copyFileSync(file,'.eval-baseline/'+file+'.snapshot');"
-    constraints:
-      reject_tools: [bash, edit, create]
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, edit, create]
       - type: output-matches
         config:
           pattern: (?=[\s\S]*\bmigrate-dotnet8-to-dotnet9\b)(?=[\s\S]*\bdotnet-upgrade\b)(?=[\s\S]*net8\.0)(?=[\s\S]*net9\.0)(?=[\s\S]*(compatib|breaking))
@@ -274,9 +280,10 @@ stimuli:
       identify the maintained specialist that can collect vendor-neutral CPU and allocation evidence
       when no hot method is known. Explain how to make it available, but do not start collection or
       claim a cause yet.
-    constraints:
-      reject_tools: [bash, edit, create]
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, edit, create]
       - type: output-matches
         config:
           pattern: (?=[\s\S]*\bdotnet-trace-collect\b)(?=[\s\S]*\bdotnet-diag\b)(?=[\s\S]*(deployed|process))(?=[\s\S]*CPU)(?=[\s\S]*allocation)(?=[\s\S]*(source|code|hot method))(?=[\s\S]*(no cause|before|unknown))
@@ -302,9 +309,10 @@ stimuli:
       I am preparing a one-file C# utility that calls an HTTP endpoint and prints selected JSON
       fields without a project. Which specialist owns that workflow, and how do I make it available
       in Copilot CLI? Do not write the utility yet.
-    constraints:
-      reject_tools: [bash, edit, create]
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, edit, create]
       - type: output-matches
         config:
           pattern: (?=[\s\S]*\bcsharp-scripts\b)(?=[\s\S]*\bdotnet-advanced\b)(?=[\s\S]*(one-file|file-based))(?=[\s\S]*(without (a )?project|no project))(?=[\s\S]*HTTP)(?=[\s\S]*JSON)
@@ -356,9 +364,10 @@ stimuli:
       Contoso.Blazor template by short name, then author a reusable Blazor form component with
       validation. Present them in order and explain how to make them available in Copilot CLI. Do
       not create the project yet.
-    constraints:
-      reject_tools: [bash, edit, create]
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, edit, create]
       - type: output-matches
         config:
           pattern: /plugin marketplace add\s+dotnet/skills[\s\S]*dotnet-template-engine@dotnet-agent-skills[\s\S]*dotnet-blazor@dotnet-agent-skills
@@ -381,6 +390,7 @@ stimuli:
 
   - name: Stay dormant for a Python request
     tags:
+      expect_activation: "false"
       capability: dormancy
       solution: non-dotnet
       risk: low
@@ -396,7 +406,6 @@ stimuli:
       result = orders.merge(customers, on="customer_id", how="inner")
       result.to_parquet("joined.parquet")
       ```
-    expect_activation: false
     graders:
       - type: exit-success
       - type: prompt
@@ -426,9 +435,10 @@ stimuli:
           node -e "const fs=require('fs'); fs.mkdirSync('.eval-baseline',{recursive:true});
           for(const file of ['CalculatorTests.cs','TestProject.csproj','global.json'])
           fs.copyFileSync(file,'.eval-baseline/'+file+'.snapshot');"
-    constraints:
-      reject_tools: [bash, edit, create]
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, edit, create]
       - type: output-matches
         config:
           pattern: (?=[\s\S]*\bmigrate-nunit-to-mstest\b)(?=[\s\S]*\bdotnet-test-migration\b)(?=[\s\S]*(Codex|codex|/plugins))(?=[\s\S]*TestCase)(?=[\s\S]*DataRow)(?=[\s\S]*SetUp)(?=[\s\S]*TestInitialize)(?=[\s\S]*TearDown)(?=[\s\S]*TestCleanup)
@@ -474,9 +484,10 @@ stimuli:
           node -e "const fs=require('fs'); fs.mkdirSync('.eval-baseline',{recursive:true});
           for(const file of ['global.json','Program.cs','DiagnosticsApp.csproj'])
           fs.copyFileSync(file,'.eval-baseline/'+file+'.snapshot');"
-    constraints:
-      reject_tools: [bash, edit, create]
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, edit, create]
       - type: output-matches
         config:
           pattern: (LSP|language.server)[\s\S]*diagnostic

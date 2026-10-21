@@ -20,9 +20,10 @@ license: MIT
 
 Quick, pragmatic analysis of test code in any supported language for anti-patterns and quality issues that undermine test reliability, maintainability, and diagnostic value.
 
-> **Language-specific guidance**: Try `test-analysis-extensions` once. If it is
-> unavailable, continue immediately with this skill's built-in framework rules;
-> never block the audit on the helper.
+> **Language-specific guidance**: Read the caller-provided or runtime-listed
+> `test-analysis-extensions` catalog and its matching language file when needed.
+> Do not invoke the reference-only
+> helper. If its files are absent, use the built-in framework rules below.
 
 ## When to Use
 
@@ -73,8 +74,10 @@ file that a permitted reader can access; never ask the user to paste it. If
 every permitted reader fails, report the exact blocker without bypassing
 security boundaries.
 
-Identify the language and framework. Try the matching
-`test-analysis-extensions` guidance once; if unavailable, use the catalog below.
+Identify the language and framework. Read the matching bundled reference when
+needed, resolving its filename relative to the supplied catalog.
+Check only that known reference directory, never installation directories.
+If unavailable, use the catalog below and report the reference limitation.
 
 ### Step 2: Gather the test code
 

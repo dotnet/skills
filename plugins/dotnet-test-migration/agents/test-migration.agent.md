@@ -106,17 +106,17 @@ Some migrations must happen in sequence:
 
 | Starting Point | Target | Required Steps |
 |---|---|---|
-| MSTest v1/v2 | MSTest v4 | `migrate-mstest-v1v2-to-v3` → `migrate-mstest-v3-to-v4` (two steps, commit between) |
+| MSTest v1/v2 | MSTest v4 | `migrate-mstest-v1v2-to-v3` → `migrate-mstest-v3-to-v4` (two steps, validate between) |
 | MSTest v1/v2 | MSTest v3 + MTP | `migrate-mstest-v1v2-to-v3` → `migrate-vstest-to-mtp` |
 | MSTest v3 | MSTest v4 + MTP | `migrate-mstest-v3-to-v4` → `migrate-vstest-to-mtp` (order flexible) |
 | xUnit v2 | xUnit v3 | `migrate-xunit-to-xunit-v3` (single step; v3 has native MTP support) |
 | xUnit v2 or v3 | MSTest v4 | `migrate-xunit-to-mstest` (single step; preserves current test platform — VSTest stays VSTest, MTP stays MTP) |
-| xUnit v2 or v3 | MSTest v4 + MTP | `migrate-xunit-to-mstest` → `migrate-vstest-to-mtp` (only if the project was on VSTest before; commit between) |
+| xUnit v2 or v3 | MSTest v4 + MTP | `migrate-xunit-to-mstest` → `migrate-vstest-to-mtp` (only if the project was on VSTest before; validate between) |
 | NUnit 3 or 4 | MSTest v4 | `migrate-nunit-to-mstest` (single step; preserves current test platform — VSTest stays VSTest, MTP stays MTP) |
-| NUnit 3 or 4 | MSTest v4 + MTP | `migrate-nunit-to-mstest` → `migrate-vstest-to-mtp` (only if the project was on VSTest before; commit between) |
+| NUnit 3 or 4 | MSTest v4 + MTP | `migrate-nunit-to-mstest` → `migrate-vstest-to-mtp` (only if the project was on VSTest before; validate between) |
 | Any framework | MTP only | `migrate-vstest-to-mtp` (single step) |
 
-**Always commit between migration steps.** Each step should leave the project in a buildable, test-passing state.
+**Always validate between migration steps.** Each step should leave the project in a buildable, test-passing state. Commit only when the user explicitly requests commits; validation does not authorize staging, committing, or pushing.
 
 ## Decision Rules
 
@@ -142,7 +142,7 @@ Some migrations must happen in sequence:
 
 ## Safety Rules
 
-1. **Never mix migration steps in a single pass** — complete one migration, verify build + tests, commit, then start the next
+1. **Never mix migration steps in a single pass** — complete one migration, verify build + tests, then start the next; commit only on explicit user request
 2. **Always verify build and tests after each migration** — run `dotnet build` and `dotnet test` before declaring success
 3. **Never modify non-test projects** unless the migration skill explicitly requires it (e.g., shared `Directory.Build.props`)
 4. **Respect the user's scope** — if they ask to migrate one project, do not migrate others

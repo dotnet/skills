@@ -28,8 +28,9 @@ does not authorize the exhaustive execution procedure below.
 | TypeScript/JavaScript | Remove rejected-promise/error path; alter nullish coalescing; confuse truthiness with exact value; skip awaited behavior |
 | Java/Kotlin | Remove validation/exception; change nullable/default handling; alter collection or stream predicate |
 
-When framework-specific test discovery or assertion APIs are unclear, invoke
-`test-analysis-extensions` and read only the matching language extension.
+When framework-specific discovery or assertion APIs are unclear, read only the
+matching language file relative to the supplied `test-analysis-extensions`
+catalog. The helper is reference-only, not an invocable skill.
 
 ## Equivalence and noise filters
 

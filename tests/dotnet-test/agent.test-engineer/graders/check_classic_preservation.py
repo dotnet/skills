@@ -50,6 +50,10 @@ def state(root, *, verify):
         raise ValueError(f"Missing or symlinked tests directory: {tests}")
     files = {}
     for path in sorted(tests.iterdir()):
+        if path.name in {"bin", "obj", "TestResults"}:
+            if path.is_symlink() or not path.is_dir():
+                raise ValueError(f"Unexpected build-output entry: {path}")
+            continue
         if path.name in ALLOWED_NEW_FILES:
             if not verify:
                 raise ValueError(f"Baseline unexpectedly contains generated test file: {path}")

@@ -17,6 +17,7 @@ PowerShell (Pester), and C++ (GoogleTest/Catch2/doctest/Boost.Test).
 - **Generate tests** *(polyglot)* — scaffold comprehensive unit tests for any language via a multi-agent pipeline
 - **Migrate tests** *(.NET only)* — see the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin (MSTest v1/v2 → v3 → v4, xUnit v2 → v3, xUnit → MSTest, VSTest → Microsoft.Testing.Platform)
 - **Audit test quality** *(polyglot)* — detect anti-patterns, test smells, assertion gaps, and (for .NET) coverage risks
+- **Validate changed behavior** *(polyglot)* — bind regression/feature detection evidence to exact revisions, without mistaking static predictions or build failures for proof
 - **Improve testability** *(.NET only)* — find static dependencies, generate wrappers, and migrate call sites to injectable abstractions
 - **Measure coverage** *(.NET only)* — collect code coverage, compute CRAP scores, and surface risk hotspots
 
@@ -43,7 +44,7 @@ Moved to the [`dotnet-test-migration`](../dotnet-test-migration/) plugin (`migra
 
 ### Test quality & analysis *(polyglot)*
 
-These six skills are all polyglot. They work across all supported languages by loading a per-language reference file from `test-analysis-extensions`. `grade-tests` additionally embeds its own decision and scoring rubric so per-test Pass / Failed / Uncertain outcomes and supporting A-F quality grades stay consistent across calls.
+These seven skills are all polyglot. The suite-analysis skills use per-language reference files from `test-analysis-extensions`. `grade-tests` additionally embeds its own decision and scoring rubric so per-test Pass / Failed / Uncertain outcomes and supporting A-F quality grades stay consistent across calls. `test-value-evidence` is self-contained and assesses changed contracts rather than grading tests or auditing the suite.
 
 | Skill | Description |
 |---|---|
@@ -51,6 +52,7 @@ These six skills are all polyglot. They work across all supported languages by l
 | **test-smell-detection** | Deep formal audit using academic test smell taxonomy (19 smell types, any language) |
 | **assertion-quality** | Measure assertion variety and depth — find shallow tests that barely verify anything (any language) |
 | **test-gap-analysis** | Analyze test blind spots through pseudo-mutations, expose read-only per-test evidence for grading, and verify or close gaps only when requested (any language) |
+| **test-value-evidence** | Prove tests detect the actual pre-fix defect or buildable missing/wrong feature behavior; distinguish paired execution, static predictions, survival, equivalence, and missing evidence (any language) |
 | **test-tagging** | Tag tests with standardized traits (smoke, regression, boundary, critical-path, etc.); auto-edits where the framework has canonical syntax, report-only otherwise |
 | **grade-tests** | Assess curated tests with Pass, Failed, or Uncertain decisions, A-F quality detail, notes, and concrete improvement actions; unresolved or empty scopes omit the grade, and a valid empty scope returns Not applicable (any language) |
 
@@ -85,6 +87,44 @@ requested assertions reject wrong costs/flags while production stays
 byte-for-byte unchanged. The CLI integration needs Copilot access via
 an existing token or authenticated GitHub CLI; it does not change user settings.
 
+`test-value-evidence` separates change-specific detection proof from this
+grading contract and from general suite blind spots. Its canonical
+[`SKILL.md`](skills/test-value-evidence/SKILL.md) has no bundled dependencies;
+single-file consumers can vendor exact upstream bytes, record the producer
+commit/blob and SHA-256, and keep repository-specific adapters outside the
+canonical file. It does not enforce CI or authorize publication.
+
+Focused offline calibration:
+
+```powershell
+python -B tests\dotnet-test\test-value-evidence\test_regressions.py -v
+```
+
+This replays ten evidence-report goldens and three routing goldens, rejects misleading alternatives,
+checks complete workspace scope and native discovery, and runs the same three boundary
+tests against the actual defective and fixed bytes in fresh owned experiment
+directories. The production command grader starts Python in isolated mode
+before authenticating its staged helper, preventing workspace module shadowing, and
+replays exit codes, the named assertion, and all test counts without trusting
+narrated or stale red results. Its captured replay proves behavioral detection,
+not what the model executor itself ran. Recorder conformance is tested separately
+from the model-facing prompts, with authenticated calls in original-to-fixed order. Each call
+checks the source and unchanged-test digests before executing captured bytes in
+an isolated child; records include those digests, the named assertion, counts,
+and actual exits. Temporary test edits cannot manufacture accepted red evidence.
+The model-facing patch case asks for a minimal correction and a static assessment
+without command execution; it does not prescribe this evaluator's recorder API.
+Calibration also rejects unrelated edits, extra files, altered
+helpers, and skipped or misattributed results.
+Only the allowed changed production file may omit its terminal LF; preserved
+test bytes and all other product content remain exact. It is not a measured
+model-vs-baseline verdict. The
+Vally eval adds static-edit and advisory cases plus three sibling-routing
+dormancy guards; run it through the repository's normal evaluation entry point.
+The current model-facing matrix does not certify authorized paired execution;
+that path is calibrated offline and still needs trusted host instrumentation
+before it can be graded without directing the model to evaluator-specific APIs.
+
 ### Coverage & risk *(.NET only)*
 
 | Skill | Description |
@@ -114,7 +154,9 @@ For non-.NET languages, use the native coverage tool: `coverage.py`/`pytest-cov`
 
 Three reference skills (`code-testing-extensions`, `test-analysis-extensions`,
 and `filter-syntax`) set `disable-model-invocation: true`, so the CLI keeps them
-out of the model-facing skill menu and a consumer loads them by name. They
+out of model invocation. Consumers read their bundled files directly from
+supplied/runtime-listed catalog paths, resolving language files relative to
+that catalog rather than the project workspace. They
 deliberately have no direct `tests/dotnet-test/<skill>/eval.yaml`: the
 experiment's skilled arm loads a single skill, which the model could never
 invoke here, so such an eval would compare two identical arms and score judge
@@ -143,6 +185,14 @@ Use this single entry-point agent for end-to-end test work:
 | Agent | Purpose |
 |---|---|
 | **test-engineer** | Generates, repairs, runs, audits, and improves tests while coordinating the internal specialists below |
+
+Focused quality reviews use one matching skill directly. Broad audits retain
+per-test/behavior evidence, reconcile summary counts, and give a risk-ranked
+repair order without automatically grading every test. Dependency migrations
+include the real production construction/DI wiring; a compiling injectable
+class alone is not a complete migration. Mechanical clock replacements preserve
+read count and UTC/local semantics, with consistency corrections planned
+separately.
 
 > **Test framework/platform migration** is handled by the `test-migration` agent in the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin.
 
@@ -183,11 +233,17 @@ work that benefits from separate context.
 ### For polyglot skills and agents
 
 The `test-engineer` agent, `code-testing` skill, generation workers, internal
-quality auditor, and six test-analysis skills (`test-anti-patterns`,
+quality auditor, and seven test-analysis skills (`test-anti-patterns`,
 `test-smell-detection`, `assertion-quality`, `test-gap-analysis`,
-`test-tagging`, `grade-tests`) work with any supported language above. You just
-need a working test runtime for the target language (for example `pytest`,
+`test-tagging`, `grade-tests`, `test-value-evidence`) work with any supported
+language above. Execution requires a working test runtime for the target
+language (for example `pytest`,
 `npm test`, `mvn`, `go`, `cargo test`, Pester, or CMake plus a C++ test runner).
+
+`test-value-evidence` can also assess a change statically in read-only mode when
+execution is unavailable or unauthorized. This does not require a working
+runtime; the result must distinguish static predictions and missing evidence
+from executed proof.
 
 ### For .NET-only skills and agents
 

@@ -225,6 +225,37 @@ public class BuildSessionConfigTests
     {
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
         Assert.AreEqual("C:\\tmp\\work", config.WorkingDirectory);
+        Assert.AreEqual(SystemMessageMode.Append, config.SystemMessage!.Mode);
+        Assert.Contains(Path.GetFullPath("C:\\tmp\\work"), config.SystemMessage.Content!);
+        Assert.Contains("not the project", config.SystemMessage.Content!);
+    }
+
+    [TestMethod]
+    public async Task ExposesOnlyStagedReferenceCatalogsAsFilesInWorkspaceContext()
+    {
+        var source = Path.Combine(Path.GetTempPath(), $"sv-reference-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(source);
+        var markdown = "---\nname: reference-data\ndisable-model-invocation: true\n---\n# Catalog";
+        var sourceFile = Path.Combine(source, "SKILL.md");
+        await File.WriteAllTextAsync(sourceFile, markdown);
+        var reference = new SkillInfo("reference-data", "Reference data", source, sourceFile, markdown,
+            DisableModelInvocation: true);
+        try
+        {
+            var config = await AgentRunner.BuildSessionConfig(
+                null, null, "gpt-4.1", AgentRunner.GetEvaluationRoot(),
+                additionalSkills: [reference]);
+            var staged = Path.Combine(Assert.ContainsSingle(config.SkillDirectories!), Path.GetFileName(source), "SKILL.md");
+            Assert.Contains(staged, config.SystemMessage!.Content!);
+            Assert.Contains("files, not callable skills", config.SystemMessage.Content!);
+            Assert.DoesNotContain(sourceFile, config.SystemMessage.Content!);
+            Assert.IsTrue(File.Exists(staged));
+        }
+        finally
+        {
+            Directory.Delete(source, recursive: true);
+            await AgentRunner.CleanupWorkDirs();
+        }
     }
 
     [TestMethod]
@@ -536,7 +567,7 @@ public class BuildSessionConfigTests
             new PreToolUseHookInput { ToolName = toolName, ToolArgs = args },
             null!);
 
-        Assert.AreEqual("ask", result!.PermissionDecision);
+        Assert.IsNull(result);
     }
 
     [TestMethod]
@@ -874,9 +905,68 @@ public class BuildSessionConfigTests
     [DataRow("  DOTNET   TEST  ")]
     [DataRow("git status --short")]
     [DataRow("pwd")]
+    [DataRow("Get-Location")]
     public void AllowsOnlyKnownPathlessShellCommands(string command)
     {
         Assert.IsTrue(AgentRunner.IsAllowedPathlessShellCommand(command));
+    }
+
+    [TestMethod]
+    [DataRow("dotnet build FullPipeline --nologo --verbosity quiet", "FullPipeline")]
+    [DataRow("dotnet build FullPipeline --no-restore --verbosity:minimal", "FullPipeline")]
+    [DataRow("dotnet run --project \".eval/TimeContract/TimeContract.csproj\" --no-restore", ".eval/TimeContract/TimeContract.csproj")]
+    [DataRow("dotnet test --project Tests.csproj --report-trx", "Tests.csproj")]
+    [DataRow("dotnet test Tests.csproj --filter FullyQualifiedName~ClockTests", "Tests.csproj")]
+    public void RecoversScopedDotnetPathsWhenPowerShellMetadataOmitsThem(string command, string expected)
+    {
+        Assert.Contains(expected, AgentRunner.GetScopedDotnetCommandPaths(command)!);
+    }
+
+    [TestMethod]
+    [DataRow("dotnet build a.csproj; Remove-Item outside")]
+    [DataRow("dotnet test $(Get-Content path.txt)")]
+    [DataRow("dotnet build a.csproj -p:CustomBeforeMicrosoftCommonTargets=outside.targets")]
+    [DataRow("dotnet run --project a.csproj -- --outside")]
+    [DataRow("dotnet build \"unterminated")]
+    [DataRow("python -c 'print(1)'")]
+    [DataRow("dotnet build a.csproj --configuration ../outside")]
+    [DataRow("dotnet build ~/outside.csproj")]
+    [DataRow("dotnet build '~user/outside.csproj'")]
+    [DataRow("dotnet build --project ~/outside.csproj")]
+    [DataRow("dotnet build --solution ~/outside.sln")]
+    [DataRow("dotnet build a.csproj --output ~/outside")]
+    [DataRow("dotnet test a.csproj --results-directory ~/results")]
+    [DataRow("dotnet test a.csproj --report-trx-filename ~/results.trx")]
+    [DataRow("dotnet build @options.rsp")]
+    [DataRow("dotnet build \"@options.rsp\"")]
+    [DataRow("dotnet build a.csproj @options.rsp")]
+    [DataRow("dotnet build --project @options.rsp")]
+    [DataRow("dotnet build a.csproj --output @options.rsp")]
+    public void ScopedDotnetFallbackRejectsUnknownOrComputedShellForms(string command)
+    {
+        Assert.IsNull(AgentRunner.GetScopedDotnetCommandPaths(command));
+    }
+
+    [TestMethod]
+    public async Task ScopedDotnetFallbackStillRejectsOutsideProjects()
+    {
+        var workDir = AgentRunner.GetEvaluationRoot();
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false, Commands = [], PossiblePaths = [], PossibleUrls = [],
+            HasWriteFileRedirection = false, Intention = "Build scoped project",
+            FullCommandText = "dotnet build local.csproj --nologo",
+        };
+        Assert.AreEqual("approve-once", (await config.OnPermissionRequest!(request, null!)).Kind);
+        request.FullCommandText = "dotnet build ../outside.csproj --nologo";
+        Assert.AreEqual("reject", (await config.OnPermissionRequest!(request, null!)).Kind);
+        request.FullCommandText = "dotnet build ~/outside.csproj";
+        Assert.AreEqual("reject", (await config.OnPermissionRequest!(request, null!)).Kind);
+        request.FullCommandText = "dotnet build @options.rsp";
+        Assert.AreEqual("reject", (await config.OnPermissionRequest!(request, null!)).Kind);
+        request.FullCommandText = "dotnet test local.csproj --filter FullyQualifiedName~ClockTests";
+        Assert.AreEqual("approve-once", (await config.OnPermissionRequest!(request, null!)).Kind);
     }
 
     [TestMethod]

@@ -1,4 +1,4 @@
-"""A time-only migration must leave the unique export method unchanged."""
+"""Time-only migrations preserve unrelated behavior and wire the production clock."""
 
 import json
 from pathlib import Path
@@ -149,17 +149,44 @@ def validate_program(current_source, original_source):
     current = top_level_statements(current_source)
     position = 0
     additions = []
-    for statement in current:
+    for index, statement in enumerate(current):
         if position < len(original) and statement == original[position]:
             position += 1
         else:
-            additions.append(statement)
+            additions.append((index, statement))
     if position != len(original):
         raise ValueError("Time-only migration removed or changed existing Program statements")
-    if len(additions) > 1:
-        raise ValueError("Time-only migration added unrelated Program statements")
-    if additions and not {"builder", "Services", "TimeProvider", "System"}.issubset(additions[0]):
-        raise ValueError("Time-only migration added an unrelated Program statement")
+    clock_registrations = 0
+    manager_registrations = 0
+    clock_type = r"(?:global::)?(?:System\.)?TimeProvider"
+    clock_instance = clock_type + r"\.System"
+    clock_method = r"builder\.Services\.(?:AddSingleton|TryAddSingleton)"
+    clock_forms = (
+        clock_method + rf"(?:<{clock_type}>)?\({clock_instance}\);",
+        clock_method + rf"<{clock_type}>\((?:static)?[A-Za-z_]\w*=>{clock_instance}\);",
+        clock_method + rf"\(typeof\({clock_type}\),{clock_instance}\);",
+    )
+    manager_form = (
+        r"builder\.Services\.(?:AddSingleton|AddScoped|AddTransient)"
+        r"<(?:global::)?(?:FullPipeline\.Services\.)?SubscriptionManager>\(\);"
+    )
+    build_index = next(
+        (index for index, statement in enumerate(current)
+         if re.search(r"\bbuilder\.Build\(", "".join(statement))),
+        len(current),
+    )
+    for index, statement in additions:
+        expression = "".join(statement)
+        if any(re.fullmatch(form, expression) for form in clock_forms):
+            if index >= build_index:
+                raise ValueError("Production TimeProvider must be registered before builder.Build")
+            clock_registrations += 1
+        elif re.fullmatch(manager_form, expression):
+            manager_registrations += 1
+        else:
+            raise ValueError("Time-only migration added an unrelated Program statement")
+    if clock_registrations != 1 or manager_registrations > 1:
+        raise ValueError("Time-only migration requires one production TimeProvider registration")
 
 
 def baseline_bytes(baseline, path):

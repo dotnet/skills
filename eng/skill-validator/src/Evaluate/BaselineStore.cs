@@ -318,6 +318,7 @@ internal sealed class BaselineStore
     private static string CriteriaString(EvalScenario scenario)
     {
         var sb = new StringBuilder();
+        sb.Append("executor=").Append(AgentRunner.ExecutionContractVersion).Append('\0');
         sb.Append("turns=").Append(scenario.MaxTurns?.ToString() ?? "").Append('\0');
         sb.Append("tokens=").Append(scenario.MaxTokens?.ToString() ?? "").Append('\0');
         sb.Append("timeout=").Append(scenario.Timeout).Append('\0');
