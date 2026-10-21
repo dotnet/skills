@@ -3,344 +3,6 @@
   "entries": {
     "Efficiency": [
       {
-        "tool": "customSmallerIsBetter",
-        "commit": {
-          "id": "8d670fa76aaac45b336d8ded05a7601785fb2121",
-          "author": {
-            "name": "Abhitej John",
-            "username": "AbhitejJohn"
-          },
-          "timestamp": "2026-10-06T16:56:01+00:00",
-          "url": "https://github.com/dotnet/skills/commit/8d670fa76aaac45b336d8ded05a7601785fb2121",
-          "message": "Merge pull request #1240 from dotnet/abhitejjohn-eval-authoring-quality-bar"
-        },
-        "model": "claude-sonnet-5",
-        "date": 1791391010124,
-        "benches": [
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.47,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Time",
-            "overfitting": "moderate",
-            "value": 12.8
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.47,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Tokens In",
-            "overfitting": "moderate",
-            "value": 45085.0
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.47,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Time",
-            "overfitting": "moderate",
-            "value": 11.9
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.47,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Tokens In",
-            "overfitting": "moderate",
-            "value": 45459.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Time",
-            "value": 16.0
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Tokens In",
-            "value": 38670.0
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.7,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Time",
-            "overfitting": "high",
-            "value": 18.0
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.7,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Tokens In",
-            "overfitting": "high",
-            "value": 99050.0
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.7,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Time",
-            "overfitting": "high",
-            "value": 72.3
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.7,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Tokens In",
-            "overfitting": "high",
-            "value": 155205.0
-          },
-          {
-            "unit": "seconds",
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Time",
-            "value": 13.0
-          },
-          {
-            "unit": "tokens",
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Tokens In",
-            "value": 36746.0
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.7,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Time",
-            "overfitting": "high",
-            "value": 17.0
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.7,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Tokens In",
-            "overfitting": "high",
-            "value": 71915.0
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.7,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Time",
-            "overfitting": "high",
-            "value": 17.3
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.7,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Tokens In",
-            "overfitting": "high",
-            "value": 99825.0
-          },
-          {
-            "unit": "seconds",
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Time",
-            "value": 107.9
-          },
-          {
-            "unit": "tokens",
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Tokens In",
-            "value": 553562.0
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.7,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Time",
-            "overfitting": "high",
-            "value": 90.3
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.7,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Tokens In",
-            "overfitting": "high",
-            "value": 682066.0
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.7,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Time",
-            "overfitting": "high",
-            "value": 91.8
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.7,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Tokens In",
-            "overfitting": "high",
-            "value": 726223.0
-          },
-          {
-            "unit": "seconds",
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Time",
-            "value": 147.8
-          },
-          {
-            "unit": "tokens",
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Tokens In",
-            "value": 979703.0
-          }
-        ]
-      },
-      {
-        "tool": "customSmallerIsBetter",
-        "commit": {
-          "id": "8d670fa76aaac45b336d8ded05a7601785fb2121",
-          "author": {
-            "name": "Abhitej John",
-            "username": "AbhitejJohn"
-          },
-          "timestamp": "2026-10-06T16:56:01+00:00",
-          "url": "https://github.com/dotnet/skills/commit/8d670fa76aaac45b336d8ded05a7601785fb2121",
-          "message": "Merge pull request #1240 from dotnet/abhitejjohn-eval-authoring-quality-bar"
-        },
-        "model": "gpt-5.6-luna",
-        "date": 1791391010169,
-        "benches": [
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.36,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Time",
-            "overfitting": "moderate",
-            "value": 12.6
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.36,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Tokens In",
-            "overfitting": "moderate",
-            "value": 29182.0
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.36,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Time",
-            "overfitting": "moderate",
-            "value": 19.9
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.36,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Tokens In",
-            "overfitting": "moderate",
-            "value": 47158.0
-          },
-          {
-            "unit": "seconds",
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Time",
-            "value": 32.6
-          },
-          {
-            "unit": "tokens",
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Tokens In",
-            "value": 39185.0
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.46,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Time",
-            "overfitting": "moderate",
-            "value": 43.9
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.46,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Tokens In",
-            "overfitting": "moderate",
-            "value": 238225.0
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.46,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Time",
-            "overfitting": "moderate",
-            "value": 10.3
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.46,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Tokens In",
-            "overfitting": "moderate",
-            "value": 63732.0
-          },
-          {
-            "unit": "seconds",
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Time",
-            "value": 33.9
-          },
-          {
-            "unit": "tokens",
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Tokens In",
-            "value": 80369.0
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.46,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Time",
-            "overfitting": "moderate",
-            "value": 16.8
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.46,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Tokens In",
-            "overfitting": "moderate",
-            "value": 46677.0
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.46,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Time",
-            "overfitting": "moderate",
-            "value": 15.3
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.46,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Tokens In",
-            "overfitting": "moderate",
-            "value": 46817.0
-          },
-          {
-            "unit": "seconds",
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Time",
-            "value": 15.5
-          },
-          {
-            "unit": "tokens",
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Tokens In",
-            "value": 36544.0
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.46,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Time",
-            "overfitting": "moderate",
-            "value": 100.9
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.46,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Tokens In",
-            "overfitting": "moderate",
-            "value": 607228.0
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.46,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Time",
-            "overfitting": "moderate",
-            "value": 78.1
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.46,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Tokens In",
-            "overfitting": "moderate",
-            "value": 388272.0
-          },
-          {
-            "unit": "seconds",
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Time",
-            "value": 107.0
-          },
-          {
-            "unit": "tokens",
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Tokens In",
-            "value": 424777.0
-          }
-        ]
-      },
-      {
         "commit": {
           "url": "https://github.com/dotnet/skills/commit/a660de83c2f9cad071a5d568f7d77041ccd07059",
           "timestamp": "2026-10-07T12:32:21+00:00",
@@ -4482,603 +4144,339 @@
         },
         "date": 1792529799060,
         "model": "mai-code-1.1-flash"
+      },
+      {
+        "benches": [
+          {
+            "value": 13.0,
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 41123.0,
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 11.4,
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 41382.0,
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 19.4,
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 18032.0,
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 20.7,
+            "overfittingScore": 0.64,
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "high"
+          },
+          {
+            "value": 116505.0,
+            "overfittingScore": 0.64,
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "high"
+          },
+          {
+            "value": 54.3,
+            "overfittingScore": 0.64,
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "high"
+          },
+          {
+            "value": 144532.0,
+            "overfittingScore": 0.64,
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "high"
+          },
+          {
+            "value": 62.6,
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 79419.0,
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 24.6,
+            "overfittingScore": 0.64,
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "high"
+          },
+          {
+            "value": 167441.0,
+            "overfittingScore": 0.64,
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "high"
+          },
+          {
+            "value": 34.8,
+            "overfittingScore": 0.64,
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "high"
+          },
+          {
+            "value": 253384.0,
+            "overfittingScore": 0.64,
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "high"
+          },
+          {
+            "value": 20.4,
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 32581.0,
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 83.9,
+            "overfittingScore": 0.64,
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "high"
+          },
+          {
+            "value": 759964.0,
+            "overfittingScore": 0.64,
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "high"
+          },
+          {
+            "value": 92.4,
+            "overfittingScore": 0.64,
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "high"
+          },
+          {
+            "value": 742086.0,
+            "overfittingScore": 0.64,
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "high"
+          },
+          {
+            "value": 127.0,
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 540647.0,
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Tokens In",
+            "unit": "tokens"
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-10-20T21:36:01+00:00",
+          "message": "Merge pull request #1309 from dotnet/abhitejjohn-finish-vally-018-migration",
+          "url": "https://github.com/dotnet/skills/commit/c848e7fffab05c594f9b954c6f3beb373d108447",
+          "id": "c848e7fffab05c594f9b954c6f3beb373d108447",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          }
+        },
+        "date": 1792609309445,
+        "tool": "customSmallerIsBetter",
+        "model": "claude-sonnet-5"
+      },
+      {
+        "benches": [
+          {
+            "value": 12.7,
+            "overfittingScore": 0.25,
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate"
+          },
+          {
+            "value": 25370.0,
+            "overfittingScore": 0.25,
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate"
+          },
+          {
+            "value": 19.2,
+            "overfittingScore": 0.25,
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate"
+          },
+          {
+            "value": 57237.0,
+            "overfittingScore": 0.25,
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate"
+          },
+          {
+            "value": 23.4,
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 31847.0,
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 10.4,
+            "overfittingScore": 0.6,
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "high"
+          },
+          {
+            "value": 54832.0,
+            "overfittingScore": 0.6,
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "high"
+          },
+          {
+            "value": 9.5,
+            "overfittingScore": 0.6,
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "high"
+          },
+          {
+            "value": 55592.0,
+            "overfittingScore": 0.6,
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "high"
+          },
+          {
+            "value": 27.7,
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 64434.0,
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 18.9,
+            "overfittingScore": 0.6,
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "high"
+          },
+          {
+            "value": 40479.0,
+            "overfittingScore": 0.6,
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "high"
+          },
+          {
+            "value": 17.7,
+            "overfittingScore": 0.6,
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "high"
+          },
+          {
+            "value": 56573.0,
+            "overfittingScore": 0.6,
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "high"
+          },
+          {
+            "value": 17.8,
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 29569.0,
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 61.8,
+            "overfittingScore": 0.6,
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "high"
+          },
+          {
+            "value": 252977.0,
+            "overfittingScore": 0.6,
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "high"
+          },
+          {
+            "value": 55.5,
+            "overfittingScore": 0.6,
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "high"
+          },
+          {
+            "value": 260804.0,
+            "overfittingScore": 0.6,
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "high"
+          },
+          {
+            "value": 105.6,
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 441737.0,
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Tokens In",
+            "unit": "tokens"
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-10-20T21:36:01+00:00",
+          "message": "Merge pull request #1309 from dotnet/abhitejjohn-finish-vally-018-migration",
+          "url": "https://github.com/dotnet/skills/commit/c848e7fffab05c594f9b954c6f3beb373d108447",
+          "id": "c848e7fffab05c594f9b954c6f3beb373d108447",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          }
+        },
+        "date": 1792609309515,
+        "tool": "customSmallerIsBetter",
+        "model": "gpt-5.6-luna"
       }
     ],
     "Quality": [
-      {
-        "model": "claude-sonnet-5",
-        "benches": [
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.47,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Quality",
-            "overfitting": "moderate",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.47,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Quality",
-            "overfitting": "moderate",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Quality",
-            "value": 9.285714149475098
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.7,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Quality",
-            "overfitting": "high",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.7,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Quality",
-            "overfitting": "high",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Quality",
-            "value": 6.4285712242126465
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.7,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Quality",
-            "overfitting": "high",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.7,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Quality",
-            "overfitting": "high",
-            "value": 9.5
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Quality",
-            "value": 9.5
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.7,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Quality",
-            "overfitting": "high",
-            "value": 5.192307472229004
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.7,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Quality",
-            "overfitting": "high",
-            "value": 5.961538314819336
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Quality",
-            "value": 2.884615421295166
-          }
-        ],
-        "tool": "customBiggerIsBetter",
-        "commit": {
-          "id": "8d670fa76aaac45b336d8ded05a7601785fb2121",
-          "author": {
-            "name": "Abhitej John",
-            "username": "AbhitejJohn"
-          },
-          "timestamp": "2026-10-06T16:56:01+00:00",
-          "url": "https://github.com/dotnet/skills/commit/8d670fa76aaac45b336d8ded05a7601785fb2121",
-          "message": "Merge pull request #1240 from dotnet/abhitejjohn-eval-authoring-quality-bar"
-        },
-        "verdictEvidence": [
-          {
-            "skillName": "convert-blazor-server-to-webapp",
-            "skillKind": "invocable",
-            "state": "INVALID_INCONCLUSIVE",
-            "stateReason": {
-              "code": "underpowered",
-              "phase": "eval_design"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +100.0% (1W/0T/0L over 1 preference-eligible stimulus vote(s), sign test p=0.500), mean preference +100.0% across 1 paired run(s) — underpowered (1 preference-eligible stimulus vote(s); a credible verdict needs at least 5, and this eval won every one of them) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
-            "noChangeDiagnosis": null,
-            "gateEvidence": {
-              "stimulusVoteCount": 1,
-              "wins": 1,
-              "ties": 0,
-              "losses": 0,
-              "discordant": 1,
-              "direction": "better",
-              "pValue": 0.5,
-              "alpha": 0.05,
-              "netWin": 1,
-              "minimumNetWin": 0.2,
-              "minCredibleStimuli": 5,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": true,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "Explicit dormancy expectations are evaluated independently of preference",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": true,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Blazor Server app with CascadingAuthenticationState",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Blazor Server app with CascadingAuthenticationState",
-                "direction": "better",
-                "rationale": "B satisfies every listed migration requirement and provides the appropriate App/Routes split. A has two substantive migration defects: it leaves the obsolete CascadingAuthenticationState wrapper in place and orders antiforgery before authentication/authorization."
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/8d670fa76aaac45b336d8ded05a7601785fb2121/plugins/dotnet-aspnetcore/skills/convert-blazor-server-to-webapp/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/8d670fa76aaac45b336d8ded05a7601785fb2121/tests/dotnet-aspnetcore/convert-blazor-server-to-webapp/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/8d670fa76aaac45b336d8ded05a7601785fb2121"
-              }
-            ]
-          },
-          {
-            "skillName": "dotnet-webapi",
-            "skillKind": "invocable",
-            "state": "INVALID_INCONCLUSIVE",
-            "stateReason": {
-              "code": "underpowered",
-              "phase": "eval_design"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +66.7% (2W/1T/0L over 3 preference-eligible stimulus vote(s), sign test p=0.250), mean preference +46.7% across 3 paired run(s) — underpowered (3 preference-eligible stimulus vote(s); a credible verdict needs at least 5) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
-            "noChangeDiagnosis": null,
-            "gateEvidence": {
-              "stimulusVoteCount": 3,
-              "wins": 2,
-              "ties": 1,
-              "losses": 0,
-              "discordant": 2,
-              "direction": "better",
-              "pValue": 0.25,
-              "alpha": 0.05,
-              "netWin": 0.6666666666666666,
-              "minimumNetWin": 0.2,
-              "minCredibleStimuli": 5,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": true,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "Explicit dormancy expectations are evaluated independently of preference",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": true,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Add a new API endpoint to an existing controller-based project",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Add error handling with ProblemDetails and IExceptionHandler",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Add a new API endpoint to an existing controller-based project",
-                "direction": "better",
-                "rationale": "B satisfies most specified API-quality conventions, including cancellation support, sealed record DTOs, documentation, and a correct CreatedAtAction target. However, it has a substantive omission: CreateOrderRequest lacks the required placedAt field. A covers that field but misses several explicit rubric requirements and has an invalid CreatedAtAction target, leaving B modestly better overall."
-              },
-              {
-                "scenarioName": "Add error handling with ProblemDetails and IExceptionHandler",
-                "direction": "better",
-                "rationale": "B is a usable drop-in implementation with code, registrations, ordering guidance, and a Middleware path. A's final output is only a high-level verification claim and summary, so it does not actually show the requested implementation."
-              },
-              {
-                "scenarioName": "Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics",
-                "direction": "none",
-                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/8d670fa76aaac45b336d8ded05a7601785fb2121/plugins/dotnet-aspnetcore/skills/dotnet-webapi/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/8d670fa76aaac45b336d8ded05a7601785fb2121/tests/dotnet-aspnetcore/dotnet-webapi/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/8d670fa76aaac45b336d8ded05a7601785fb2121"
-              }
-            ]
-          }
-        ],
-        "date": 1791391010124
-      },
-      {
-        "model": "gpt-5.6-luna",
-        "benches": [
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.36,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Quality",
-            "overfitting": "moderate",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.36,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Quality",
-            "overfitting": "moderate",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Quality",
-            "value": 8.928571701049805
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.46,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Quality",
-            "overfitting": "moderate",
-            "value": 3.9285714626312256
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.46,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Quality",
-            "overfitting": "moderate",
-            "value": 1.4285714626312256
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Quality",
-            "value": 1.7857142686843872
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.46,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Quality",
-            "overfitting": "moderate",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.46,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Quality",
-            "overfitting": "moderate",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Quality",
-            "value": 9.5
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.46,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Quality",
-            "overfitting": "moderate",
-            "value": 2.884615421295166
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.46,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Quality",
-            "overfitting": "moderate",
-            "value": 2.5
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Quality",
-            "value": 1.7307692766189575
-          }
-        ],
-        "tool": "customBiggerIsBetter",
-        "commit": {
-          "id": "8d670fa76aaac45b336d8ded05a7601785fb2121",
-          "author": {
-            "name": "Abhitej John",
-            "username": "AbhitejJohn"
-          },
-          "timestamp": "2026-10-06T16:56:01+00:00",
-          "url": "https://github.com/dotnet/skills/commit/8d670fa76aaac45b336d8ded05a7601785fb2121",
-          "message": "Merge pull request #1240 from dotnet/abhitejjohn-eval-authoring-quality-bar"
-        },
-        "verdictEvidence": [
-          {
-            "skillName": "convert-blazor-server-to-webapp",
-            "skillKind": "invocable",
-            "state": "INVALID_INCONCLUSIVE",
-            "stateReason": {
-              "code": "underpowered",
-              "phase": "eval_design"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +100.0% (1W/0T/0L over 1 preference-eligible stimulus vote(s), sign test p=0.500), mean preference +100.0% across 1 paired run(s) — underpowered (1 preference-eligible stimulus vote(s); a credible verdict needs at least 5, and this eval won every one of them) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
-            "noChangeDiagnosis": null,
-            "gateEvidence": {
-              "stimulusVoteCount": 1,
-              "wins": 1,
-              "ties": 0,
-              "losses": 0,
-              "discordant": 1,
-              "direction": "better",
-              "pValue": 0.5,
-              "alpha": 0.05,
-              "netWin": 1,
-              "minimumNetWin": 0.2,
-              "minCredibleStimuli": 5,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": true,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "Explicit dormancy expectations are evaluated independently of preference",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": true,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Blazor Server app with CascadingAuthenticationState",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Blazor Server app with CascadingAuthenticationState",
-                "direction": "better",
-                "rationale": "Response B provides a correct .NET 8 Blazor Web App migration, while Response A contains a critical architectural error by retaining the CascadingAuthenticationState component wrapper in App.razor. In .NET 8, this wrapper is redundant and incorrect when using AddCascadingAuthenticationState() in Program.cs. Additionally, Response B follows better practices such as placing RenderMode imports in _Imports.razor and using component-idiomatic environment checking via dependency injection. Response A's approach would result in a non-functional authentication setup.\""
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/8d670fa76aaac45b336d8ded05a7601785fb2121/plugins/dotnet-aspnetcore/skills/convert-blazor-server-to-webapp/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/8d670fa76aaac45b336d8ded05a7601785fb2121/tests/dotnet-aspnetcore/convert-blazor-server-to-webapp/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/8d670fa76aaac45b336d8ded05a7601785fb2121"
-              }
-            ]
-          },
-          {
-            "skillName": "dotnet-webapi",
-            "skillKind": "invocable",
-            "state": "INVALID_INCONCLUSIVE",
-            "stateReason": {
-              "code": "underpowered",
-              "phase": "eval_design"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +100.0% (3W/0T/0L over 3 preference-eligible stimulus vote(s), sign test p=0.125), mean preference +60.0% across 3 paired run(s) — underpowered (3 preference-eligible stimulus vote(s); a credible verdict needs at least 5, and this eval won every one of them) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
-            "noChangeDiagnosis": null,
-            "gateEvidence": {
-              "stimulusVoteCount": 3,
-              "wins": 3,
-              "ties": 0,
-              "losses": 0,
-              "discordant": 3,
-              "direction": "better",
-              "pValue": 0.12500000000000003,
-              "alpha": 0.05,
-              "netWin": 1,
-              "minimumNetWin": 0.2,
-              "minCredibleStimuli": 5,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": true,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "Explicit dormancy expectations are evaluated independently of preference",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": true,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Add a new API endpoint to an existing controller-based project",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Add error handling with ProblemDetails and IExceptionHandler",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Add a new API endpoint to an existing controller-based project",
-                "direction": "better",
-                "rationale": "Response B delivers a more complete and professionally structured implementation that explicitly addresses all major rubric criteria, particularly the technical requirements around DateTimeOffset, CancellationToken, sealed records, and proper HTTP semantics. While both responses successfully create the OrdersController with the required endpoints, Response B demonstrates better adherence to best practices through explicit documentation of these design choices. Response A provides a functional solution but lacks explicit mention of several key implementation details, making Response B the better overall choice for production-quality code.\""
-              },
-              {
-                "scenarioName": "Add error handling with ProblemDetails and IExceptionHandler",
-                "direction": "better",
-                "rationale": "Response B is slightly better overall. While Response A has a marginal technical advantage in using IProblemDetailsService, it critically fails the file organization requirement by defining the handler inline in Program.cs instead of placing it in the Middleware/ folder. Response B demonstrates superior architecture and practices: proper file separation, logging for debugging, inclusion of UseStatusCodePages() for comprehensive error handling, and clear documentation with a summary table. Response B also follows established ASP.NET Core project conventions better, making it more maintainable and professional. The only technical point favoring Response A (IProblemDetailsService) is outweighed by Response B's organizational correctness and additional best practices.\""
-              },
-              {
-                "scenarioName": "Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics",
-                "direction": "better",
-                "rationale": "Response B delivers a modern, best-practices ASP.NET Core Web API implementation that aligns significantly better with the rubric criteria. It uses minimal APIs with MapGet/MapPost (criterion 1), TypedResults with explicit return types (criterion 3), CancellationToken in endpoint signatures (criterion 6), DateTimeOffset timestamps (criterion 7), and built-in .NET 10 OpenAPI support (criterion 10). Response A uses the legacy controller-based pattern with implicit typing, lacks CancellationToken support, and leaves the timestamp type unspecified. Both provide 201 Created responses, service interfaces, and string enum serialization. However, the controller-based architecture in Response A is fundamentally misaligned with modern .NET 9+ best practices that the rubric emphasizes, making Response B substantially superior.\""
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/8d670fa76aaac45b336d8ded05a7601785fb2121/plugins/dotnet-aspnetcore/skills/dotnet-webapi/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/8d670fa76aaac45b336d8ded05a7601785fb2121/tests/dotnet-aspnetcore/dotnet-webapi/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/8d670fa76aaac45b336d8ded05a7601785fb2121"
-              }
-            ]
-          }
-        ],
-        "date": 1791391010169
-      },
       {
         "date": 1791470045574,
         "tool": "customBiggerIsBetter",
@@ -12510,263 +11908,603 @@
             "value": 2.115384578704834
           }
         ]
+      },
+      {
+        "tool": "customBiggerIsBetter",
+        "model": "claude-sonnet-5",
+        "date": 1792609309445,
+        "commit": {
+          "timestamp": "2026-10-20T21:36:01+00:00",
+          "message": "Merge pull request #1309 from dotnet/abhitejjohn-finish-vally-018-migration",
+          "url": "https://github.com/dotnet/skills/commit/c848e7fffab05c594f9b954c6f3beb373d108447",
+          "id": "c848e7fffab05c594f9b954c6f3beb373d108447",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          }
+        },
+        "verdictEvidence": [
+          {
+            "skillName": "convert-blazor-server-to-webapp",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "INVALID_INCONCLUSIVE",
+            "stateReason": {
+              "code": "underpowered",
+              "phase": "eval_design"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +100.0% (1W/0T/0L over 1 preference-eligible stimulus vote(s), sign test p=0.500), mean preference +100.0% across 1 paired run(s) — underpowered (1 preference-eligible stimulus vote(s); a credible verdict needs at least 5, and this eval won every one of them) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
+            "noChangeDiagnosis": null,
+            "gateEvidence": {
+              "stimulusVoteCount": 1,
+              "wins": 1,
+              "ties": 0,
+              "losses": 0,
+              "discordant": 1,
+              "direction": "better",
+              "pValue": 0.5,
+              "alpha": 0.05,
+              "netWin": 1,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Blazor Server app with CascadingAuthenticationState",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Blazor Server app with CascadingAuthenticationState",
+                "direction": "better",
+                "rationale": "B satisfies every explicit rubric requirement and provides a coherent .NET 8 Web App migration. A has the correct broad migration structure and interactive rendering, but misses the required authentication-state service registration and puts antiforgery in the explicitly wrong middleware position; these are substantive defects in the requested authentication conversion."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/c848e7fffab05c594f9b954c6f3beb373d108447/plugins/dotnet-aspnetcore/skills/convert-blazor-server-to-webapp/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/c848e7fffab05c594f9b954c6f3beb373d108447/tests/dotnet-aspnetcore/convert-blazor-server-to-webapp/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/c848e7fffab05c594f9b954c6f3beb373d108447"
+              }
+            ]
+          },
+          {
+            "skillName": "dotnet-webapi",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "INVALID_INCONCLUSIVE",
+            "stateReason": {
+              "code": "underpowered",
+              "phase": "eval_design"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +33.3% (1W/2T/0L over 3 preference-eligible stimulus vote(s), sign test p=0.500), mean preference +33.3% across 3 paired run(s) — underpowered (3 preference-eligible stimulus vote(s); a credible verdict needs at least 5) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
+            "noChangeDiagnosis": null,
+            "gateEvidence": {
+              "stimulusVoteCount": 3,
+              "wins": 1,
+              "ties": 2,
+              "losses": 0,
+              "discordant": 1,
+              "direction": "better",
+              "pValue": 0.5,
+              "alpha": 0.05,
+              "netWin": 0.3333333333333333,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Add a new API endpoint to an existing controller-based project",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Add error handling with ProblemDetails and IExceptionHandler",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Add a new API endpoint to an existing controller-based project",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Add error handling with ProblemDetails and IExceptionHandler",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics",
+                "direction": "better",
+                "rationale": "B directly follows the requested modern minimal-API architecture and satisfies the key type-safety, immutable-DTO, cancellation, and fluent OpenAPI-metadata requirements while retaining the required behavior. A is functional and has a service layer, 201 creation, DateTimeOffset, enum serialization, and built-in OpenAPI, but its controller-based mutable synchronous design misses several explicit rubric requirements."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/c848e7fffab05c594f9b954c6f3beb373d108447/plugins/dotnet-aspnetcore/skills/dotnet-webapi/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/c848e7fffab05c594f9b954c6f3beb373d108447/tests/dotnet-aspnetcore/convert-blazor-server-to-webapp/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/c848e7fffab05c594f9b954c6f3beb373d108447"
+              }
+            ]
+          }
+        ],
+        "benches": [
+          {
+            "value": 9.642857551574707,
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.928571701049805,
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.64,
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.64,
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high"
+          },
+          {
+            "value": 6.4285712242126465,
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 9.5,
+            "overfittingScore": 0.64,
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high"
+          },
+          {
+            "value": 9.5,
+            "overfittingScore": 0.64,
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high"
+          },
+          {
+            "value": 9.0,
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 6.92307710647583,
+            "overfittingScore": 0.64,
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high"
+          },
+          {
+            "value": 3.846153736114502,
+            "overfittingScore": 0.64,
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high"
+          },
+          {
+            "value": 1.923076868057251,
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Quality",
+            "unit": "Score (0-10)"
+          }
+        ]
+      },
+      {
+        "tool": "customBiggerIsBetter",
+        "model": "gpt-5.6-luna",
+        "date": 1792609309515,
+        "commit": {
+          "timestamp": "2026-10-20T21:36:01+00:00",
+          "message": "Merge pull request #1309 from dotnet/abhitejjohn-finish-vally-018-migration",
+          "url": "https://github.com/dotnet/skills/commit/c848e7fffab05c594f9b954c6f3beb373d108447",
+          "id": "c848e7fffab05c594f9b954c6f3beb373d108447",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          }
+        },
+        "verdictEvidence": [
+          {
+            "skillName": "convert-blazor-server-to-webapp",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "INVALID_INCONCLUSIVE",
+            "stateReason": {
+              "code": "underpowered",
+              "phase": "eval_design"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +100.0% (1W/0T/0L over 1 preference-eligible stimulus vote(s), sign test p=0.500), mean preference +100.0% across 1 paired run(s) — underpowered (1 preference-eligible stimulus vote(s); a credible verdict needs at least 5, and this eval won every one of them) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
+            "noChangeDiagnosis": null,
+            "gateEvidence": {
+              "stimulusVoteCount": 1,
+              "wins": 1,
+              "ties": 0,
+              "losses": 0,
+              "discordant": 1,
+              "direction": "better",
+              "pValue": 0.5,
+              "alpha": 0.05,
+              "netWin": 1,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Blazor Server app with CascadingAuthenticationState",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Blazor Server app with CascadingAuthenticationState",
+                "direction": "better",
+                "rationale": "Response B is significantly better because it passes all five rubric criteria, while Response A fails two critical criteria: (1) it retains the CascadingAuthenticationState wrapper in Routes.razor when it should be removed with .NET 8 Blazor Web App patterns, and (2) it completely omits the UseAntiforgery() middleware which is important for CSRF protection. Response B also provides more complete and production-ready code with proper error handling UI and additional guidance about required imports.\""
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/c848e7fffab05c594f9b954c6f3beb373d108447/plugins/dotnet-aspnetcore/skills/convert-blazor-server-to-webapp/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/c848e7fffab05c594f9b954c6f3beb373d108447/tests/dotnet-aspnetcore/convert-blazor-server-to-webapp/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/c848e7fffab05c594f9b954c6f3beb373d108447"
+              }
+            ]
+          },
+          {
+            "skillName": "dotnet-webapi",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "INVALID_INCONCLUSIVE",
+            "stateReason": {
+              "code": "underpowered",
+              "phase": "eval_design"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +0.0% (0W/3T/0L over 3 preference-eligible stimulus vote(s), sign test p=1.000), mean preference +0.0% across 3 paired run(s) — underpowered (3 preference-eligible stimulus vote(s); a credible verdict needs at least 5) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
+            "noChangeDiagnosis": null,
+            "gateEvidence": {
+              "stimulusVoteCount": 3,
+              "wins": 0,
+              "ties": 3,
+              "losses": 0,
+              "discordant": 0,
+              "direction": "none",
+              "pValue": 1,
+              "alpha": 0.05,
+              "netWin": 0,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Add a new API endpoint to an existing controller-based project",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Add error handling with ProblemDetails and IExceptionHandler",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Add a new API endpoint to an existing controller-based project",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Add error handling with ProblemDetails and IExceptionHandler",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/c848e7fffab05c594f9b954c6f3beb373d108447/plugins/dotnet-aspnetcore/skills/dotnet-webapi/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/c848e7fffab05c594f9b954c6f3beb373d108447/tests/dotnet-aspnetcore/convert-blazor-server-to-webapp/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/c848e7fffab05c594f9b954c6f3beb373d108447"
+              }
+            ]
+          }
+        ],
+        "benches": [
+          {
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.25,
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate"
+          },
+          {
+            "value": 7.5,
+            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 1.4285714626312256,
+            "overfittingScore": 0.6,
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high"
+          },
+          {
+            "value": 1.4285714626312256,
+            "overfittingScore": 0.6,
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high"
+          },
+          {
+            "value": 1.7857142686843872,
+            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.6,
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high"
+          },
+          {
+            "value": 10.0,
+            "overfittingScore": 0.6,
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high"
+          },
+          {
+            "value": 9.5,
+            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 3.076923131942749,
+            "overfittingScore": 0.6,
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high"
+          },
+          {
+            "value": 3.076923131942749,
+            "overfittingScore": 0.6,
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high"
+          },
+          {
+            "value": 1.7307692766189575,
+            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Quality",
+            "unit": "Score (0-10)"
+          }
+        ]
       }
     ],
     "SkillValue": [
-      {
-        "skills": [
-          {
-            "timedOut": false,
-            "baseAvailable": 1,
-            "treatmentFail": 0,
-            "skill": "convert-blazor-server-to-webapp",
-            "pairedN": 1,
-            "baseline": {
-              "cacheRead": 29678.0,
-              "tokensOut": 1498.0,
-              "tokens": 38670.0,
-              "tokensIn": 37172.0,
-              "n": 1,
-              "cacheWrite": 7490.0,
-              "timeMs": 16038.0
-            },
-            "passTotal": 1,
-            "preference": {
-              "practicalPassed": true,
-              "count": 1,
-              "conclusive": true,
-              "underpowered": true,
-              "wins": 1,
-              "minCredibleStimuli": 5,
-              "direction": "better",
-              "losses": 0,
-              "pValue": 0.5,
-              "alpha": 0.05,
-              "netWin": 1,
-              "ties": 0
-            },
-            "treatmentOnlyPass": 0,
-            "baselineFail": 0,
-            "activationExpected": 1,
-            "bothPass": 1,
-            "treatment": {
-              "cacheRead": 30020.0,
-              "tokensOut": 1319.0,
-              "tokens": 45085.0,
-              "tokensIn": 43766.0,
-              "n": 1,
-              "cacheWrite": 13742.0,
-              "timeMs": 12767.0
-            },
-            "activationFired": 1,
-            "bothFail": 0,
-            "activationContract": {
-              "passed": true,
-              "count": 0,
-              "violated": 0,
-              "evaluated": true
-            },
-            "baselineOnlyPass": 0,
-            "treatAvailable": 1,
-            "hasPassData": true
-          },
-          {
-            "timedOut": false,
-            "baseAvailable": 3,
-            "treatmentFail": 1,
-            "skill": "dotnet-webapi",
-            "pairedN": 3,
-            "baseline": {
-              "cacheRead": 498197.6666666667,
-              "tokensOut": 6848.666666666667,
-              "tokens": 523337.0,
-              "tokensIn": 516488.3333333333,
-              "n": 3,
-              "cacheWrite": 18250.666666666668,
-              "timeMs": 89568.33333333333
-            },
-            "passTotal": 3,
-            "preference": {
-              "practicalPassed": true,
-              "count": 3,
-              "conclusive": true,
-              "underpowered": true,
-              "wins": 2,
-              "minCredibleStimuli": 5,
-              "direction": "better",
-              "losses": 0,
-              "pValue": 0.25,
-              "alpha": 0.05,
-              "netWin": 0.6666666666666666,
-              "ties": 1
-            },
-            "treatmentOnlyPass": 1,
-            "baselineFail": 2,
-            "activationExpected": 3,
-            "bothPass": 1,
-            "treatment": {
-              "cacheRead": 261746.0,
-              "tokensOut": 3633.3333333333335,
-              "tokens": 284343.6666666667,
-              "tokensIn": 280710.3333333333,
-              "n": 3,
-              "cacheWrite": 18945.0,
-              "timeMs": 41759.666666666664
-            },
-            "activationFired": 3,
-            "bothFail": 1,
-            "activationContract": {
-              "passed": true,
-              "count": 0,
-              "violated": 0,
-              "evaluated": true
-            },
-            "baselineOnlyPass": 0,
-            "treatAvailable": 3,
-            "hasPassData": true
-          }
-        ],
-        "commit": {
-          "id": "8d670fa76aaac45b336d8ded05a7601785fb2121",
-          "author": {
-            "name": "Abhitej John",
-            "username": "AbhitejJohn"
-          },
-          "timestamp": "2026-10-06T16:56:01+00:00",
-          "url": "https://github.com/dotnet/skills/commit/8d670fa76aaac45b336d8ded05a7601785fb2121",
-          "message": "Merge pull request #1240 from dotnet/abhitejjohn-eval-authoring-quality-bar"
-        },
-        "model": "claude-sonnet-5",
-        "date": 1791391010124,
-        "judgeModel": "gpt-5.6-terra"
-      },
-      {
-        "skills": [
-          {
-            "timedOut": false,
-            "baseAvailable": 1,
-            "treatmentFail": 0,
-            "skill": "convert-blazor-server-to-webapp",
-            "pairedN": 1,
-            "baseline": {
-              "cacheRead": 24378.0,
-              "tokensOut": 2416.0,
-              "tokens": 39185.0,
-              "tokensIn": 36769.0,
-              "n": 1,
-              "cacheWrite": 12382.0,
-              "timeMs": 32628.0
-            },
-            "passTotal": 1,
-            "preference": {
-              "practicalPassed": true,
-              "count": 1,
-              "conclusive": true,
-              "underpowered": true,
-              "wins": 1,
-              "minCredibleStimuli": 5,
-              "direction": "better",
-              "losses": 0,
-              "pValue": 0.5,
-              "alpha": 0.05,
-              "netWin": 1,
-              "ties": 0
-            },
-            "treatmentOnlyPass": 1,
-            "baselineFail": 1,
-            "activationExpected": 1,
-            "bothPass": 0,
-            "treatment": {
-              "cacheRead": 12286.0,
-              "tokensOut": 979.0,
-              "tokens": 29182.0,
-              "tokensIn": 28203.0,
-              "n": 1,
-              "cacheWrite": 15911.0,
-              "timeMs": 12573.0
-            },
-            "activationFired": 1,
-            "bothFail": 0,
-            "activationContract": {
-              "passed": true,
-              "count": 0,
-              "violated": 0,
-              "evaluated": true
-            },
-            "baselineOnlyPass": 0,
-            "treatAvailable": 1,
-            "hasPassData": true
-          },
-          {
-            "timedOut": false,
-            "baseAvailable": 3,
-            "treatmentFail": 2,
-            "skill": "dotnet-webapi",
-            "pairedN": 3,
-            "baseline": {
-              "cacheRead": 159875.66666666666,
-              "tokensOut": 4050.0,
-              "tokens": 180563.33333333334,
-              "tokensIn": 176513.33333333334,
-              "n": 3,
-              "cacheWrite": 16605.666666666668,
-              "timeMs": 52113.0
-            },
-            "passTotal": 3,
-            "preference": {
-              "practicalPassed": true,
-              "count": 3,
-              "conclusive": true,
-              "underpowered": true,
-              "wins": 3,
-              "minCredibleStimuli": 5,
-              "direction": "better",
-              "losses": 0,
-              "pValue": 0.12500000000000003,
-              "alpha": 0.05,
-              "netWin": 1,
-              "ties": 0
-            },
-            "treatmentOnlyPass": 0,
-            "baselineFail": 2,
-            "activationExpected": 3,
-            "bothPass": 1,
-            "treatment": {
-              "cacheRead": 270247.0,
-              "tokensOut": 4517.0,
-              "tokens": 297376.6666666667,
-              "tokensIn": 292859.6666666667,
-              "n": 3,
-              "cacheWrite": 22570.666666666668,
-              "timeMs": 53884.0
-            },
-            "activationFired": 3,
-            "bothFail": 2,
-            "activationContract": {
-              "passed": true,
-              "count": 0,
-              "violated": 0,
-              "evaluated": true
-            },
-            "baselineOnlyPass": 0,
-            "treatAvailable": 3,
-            "hasPassData": true
-          }
-        ],
-        "commit": {
-          "id": "8d670fa76aaac45b336d8ded05a7601785fb2121",
-          "author": {
-            "name": "Abhitej John",
-            "username": "AbhitejJohn"
-          },
-          "timestamp": "2026-10-06T16:56:01+00:00",
-          "url": "https://github.com/dotnet/skills/commit/8d670fa76aaac45b336d8ded05a7601785fb2121",
-          "message": "Merge pull request #1240 from dotnet/abhitejjohn-eval-authoring-quality-bar"
-        },
-        "model": "gpt-5.6-luna",
-        "date": 1791391010169,
-        "judgeModel": "claude-haiku-4.5"
-      },
       {
         "commit": {
           "url": "https://github.com/dotnet/skills/commit/a660de83c2f9cad071a5d568f7d77041ccd07059",
@@ -15941,9 +15679,263 @@
         "judgeModel": "gpt-5.6-terra",
         "date": 1792529799060,
         "model": "mai-code-1.1-flash"
+      },
+      {
+        "judgeModel": "gpt-5.6-terra",
+        "skills": [
+          {
+            "activationFired": 1,
+            "treatment": {
+              "tokens": 41123.0,
+              "tokensOut": 1445.0,
+              "timeMs": 12989.0,
+              "n": 1,
+              "cacheRead": 16828.0,
+              "tokensIn": 39678.0,
+              "cacheWrite": 22846.0
+            },
+            "hasPassData": true,
+            "baselineFail": 1,
+            "bothPass": 0,
+            "treatAvailable": 1,
+            "skill": "convert-blazor-server-to-webapp",
+            "treatmentFail": 0,
+            "bothFail": 0,
+            "baseline": {
+              "tokens": 18032.0,
+              "tokensOut": 2048.0,
+              "timeMs": 19434.0,
+              "n": 1,
+              "cacheRead": 8663.0,
+              "tokensIn": 15984.0,
+              "cacheWrite": 7319.0
+            },
+            "timedOut": false,
+            "baseAvailable": 1,
+            "preference": {
+              "minCredibleStimuli": 5,
+              "ties": 0,
+              "wins": 1,
+              "alpha": 0.05,
+              "practicalPassed": true,
+              "direction": "better",
+              "conclusive": true,
+              "losses": 0,
+              "underpowered": true,
+              "count": 1,
+              "pValue": 0.5,
+              "netWin": 1
+            },
+            "treatmentOnlyPass": 1,
+            "passTotal": 1,
+            "pairedN": 1,
+            "activationExpected": 1,
+            "activationContract": {
+              "evaluated": true,
+              "passed": true,
+              "count": 0,
+              "violated": 0
+            },
+            "baselineOnlyPass": 0
+          },
+          {
+            "activationFired": 3,
+            "treatment": {
+              "tokens": 347970.0,
+              "tokensOut": 3985.0,
+              "timeMs": 43061.333333333336,
+              "n": 3,
+              "cacheRead": 321265.6666666667,
+              "tokensIn": 343985.0,
+              "cacheWrite": 22694.0
+            },
+            "hasPassData": true,
+            "baselineFail": 2,
+            "bothPass": 1,
+            "treatAvailable": 3,
+            "skill": "dotnet-webapi",
+            "treatmentFail": 1,
+            "bothFail": 1,
+            "baseline": {
+              "tokens": 217549.0,
+              "tokensOut": 4252.0,
+              "timeMs": 69987.66666666667,
+              "n": 3,
+              "cacheRead": 202195.66666666666,
+              "tokensIn": 213297.0,
+              "cacheWrite": 11080.0
+            },
+            "timedOut": false,
+            "baseAvailable": 3,
+            "preference": {
+              "minCredibleStimuli": 5,
+              "ties": 2,
+              "wins": 1,
+              "alpha": 0.05,
+              "practicalPassed": true,
+              "direction": "better",
+              "conclusive": true,
+              "losses": 0,
+              "underpowered": true,
+              "count": 3,
+              "pValue": 0.5,
+              "netWin": 0.3333333333333333
+            },
+            "treatmentOnlyPass": 1,
+            "passTotal": 3,
+            "pairedN": 3,
+            "activationExpected": 3,
+            "activationContract": {
+              "evaluated": true,
+              "passed": true,
+              "count": 0,
+              "violated": 0
+            },
+            "baselineOnlyPass": 0
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-10-20T21:36:01+00:00",
+          "message": "Merge pull request #1309 from dotnet/abhitejjohn-finish-vally-018-migration",
+          "url": "https://github.com/dotnet/skills/commit/c848e7fffab05c594f9b954c6f3beb373d108447",
+          "id": "c848e7fffab05c594f9b954c6f3beb373d108447",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          }
+        },
+        "date": 1792609309445,
+        "model": "claude-sonnet-5"
+      },
+      {
+        "judgeModel": "claude-haiku-4.5",
+        "skills": [
+          {
+            "activationFired": 1,
+            "treatment": {
+              "tokens": 25370.0,
+              "tokensOut": 1218.0,
+              "timeMs": 12734.0,
+              "n": 1,
+              "cacheRead": 10268.0,
+              "tokensIn": 24152.0,
+              "cacheWrite": 13878.0
+            },
+            "hasPassData": true,
+            "baselineFail": 1,
+            "bothPass": 0,
+            "treatAvailable": 1,
+            "skill": "convert-blazor-server-to-webapp",
+            "treatmentFail": 0,
+            "bothFail": 0,
+            "baseline": {
+              "tokens": 31847.0,
+              "tokensOut": 1937.0,
+              "timeMs": 23390.0,
+              "n": 1,
+              "cacheRead": 19763.0,
+              "tokensIn": 29910.0,
+              "cacheWrite": 10138.0
+            },
+            "timedOut": false,
+            "baseAvailable": 1,
+            "preference": {
+              "minCredibleStimuli": 5,
+              "ties": 0,
+              "wins": 1,
+              "alpha": 0.05,
+              "practicalPassed": true,
+              "direction": "better",
+              "conclusive": true,
+              "losses": 0,
+              "underpowered": true,
+              "count": 1,
+              "pValue": 0.5,
+              "netWin": 1
+            },
+            "treatmentOnlyPass": 1,
+            "passTotal": 1,
+            "pairedN": 1,
+            "activationExpected": 1,
+            "activationContract": {
+              "evaluated": true,
+              "passed": true,
+              "count": 0,
+              "violated": 0
+            },
+            "baselineOnlyPass": 0
+          },
+          {
+            "activationFired": 3,
+            "treatment": {
+              "tokens": 116096.0,
+              "tokensOut": 2055.3333333333335,
+              "timeMs": 30385.666666666668,
+              "n": 3,
+              "cacheRead": 96968.66666666667,
+              "tokensIn": 114040.66666666667,
+              "cacheWrite": 17051.0
+            },
+            "hasPassData": true,
+            "baselineFail": 2,
+            "bothPass": 1,
+            "treatAvailable": 3,
+            "skill": "dotnet-webapi",
+            "treatmentFail": 2,
+            "bothFail": 2,
+            "baseline": {
+              "tokens": 178580.0,
+              "tokensOut": 2627.0,
+              "timeMs": 50367.333333333336,
+              "n": 3,
+              "cacheRead": 162681.0,
+              "tokensIn": 175953.0,
+              "cacheWrite": 13233.0
+            },
+            "timedOut": false,
+            "baseAvailable": 3,
+            "preference": {
+              "minCredibleStimuli": 5,
+              "ties": 3,
+              "wins": 0,
+              "alpha": 0.05,
+              "practicalPassed": false,
+              "direction": "none",
+              "conclusive": true,
+              "losses": 0,
+              "underpowered": true,
+              "count": 3,
+              "pValue": 1,
+              "netWin": 0
+            },
+            "treatmentOnlyPass": 0,
+            "passTotal": 3,
+            "pairedN": 3,
+            "activationExpected": 3,
+            "activationContract": {
+              "evaluated": true,
+              "passed": true,
+              "count": 0,
+              "violated": 0
+            },
+            "baselineOnlyPass": 0
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-10-20T21:36:01+00:00",
+          "message": "Merge pull request #1309 from dotnet/abhitejjohn-finish-vally-018-migration",
+          "url": "https://github.com/dotnet/skills/commit/c848e7fffab05c594f9b954c6f3beb373d108447",
+          "id": "c848e7fffab05c594f9b954c6f3beb373d108447",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          }
+        },
+        "date": 1792609309515,
+        "model": "gpt-5.6-luna"
       }
     ]
   },
-  "lastUpdate": 1792529799060,
+  "lastUpdate": 1792609309515,
   "schemaVersion": 2
 }
