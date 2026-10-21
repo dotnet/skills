@@ -71,7 +71,8 @@ A `MeterListener` only sees measurements recorded **after** `Start()`. In a
 short-lived CLI this is the difference between output and silence:
 
 ```csharp
-var listener = BuildListener(meter);   // Start() called inside
+var listener = new MeterListener();    // see "The pattern" for the full wiring
+listener.Start();                      // BEFORE any Record/Add
 // ... all recording happens after this point ...
 listener.RecordObservableInstruments(); // pull observable gauges once before exit
 listener.Dispose();
@@ -87,30 +88,69 @@ process that exits without it reports nothing for them.
 ## The pattern
 
 Use `System.Diagnostics.Metrics.Meter` to define a counter and a histogram, drive
-time measurement with `TimeProvider.System`, and flush a snapshot on exit.
+time measurement with `TimeProvider.System`, and pull the observables on exit.
 
 ```csharp
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Text.Json;
 
 var meter = new Meter("MyTool", "1.0.0");                       // stable name = metric identity
 var runs = meter.CreateCounter<int>("tool.runs", "{run}", "Number of executions");
 var duration = meter.CreateHistogram<double>("tool.step.duration", "ms", "Duration per step");
 
-using var listener = new MetricListener(meter);                 // BEFORE the first measurement
+// One JSON object per reading, on its own line (the output contract below).
+static void WriteReading(Instrument inst, double value, ReadOnlySpan<KeyValuePair<string, object?>> tags)
+{
+    var tagsObj = tags.ToArray().ToDictionary(t => t.Key, t => t.Value?.ToString() ?? "");
+    Console.WriteLine(JsonSerializer.Serialize(new {
+        meter = inst.Meter.Name, instrument = inst.Name,
+        unit = inst.Unit, description = inst.Description,
+        value, tags = tagsObj, timestamp = DateTimeOffset.UtcNow,
+    }));
+}
+
+// Wire a listener BEFORE the first measurement, or the readings are lost.
+var listener = new MeterListener();
+listener.InstrumentPublished = (instrument, l) => {
+    if (instrument.Meter.Name == meter.Name) l.EnableMeasurementEvents(instrument);
+};
+listener.SetMeasurementEventCallback<int>((inst, value, tags, state) =>
+    WriteReading(inst, value, tags));
+listener.SetMeasurementEventCallback<double>((inst, value, tags, state) =>
+    WriteReading(inst, value, tags));
+listener.Start();                                               // measurements before this are dropped
 
 var clock = TimeProvider.System;                                // injectable, testable clock
-var start = clock.GetTimestamp();
+var timing = duration.Enabled;                                  // read once: it can flip at runtime
+var start = timing ? clock.GetTimestamp() : default;            // the idle path pays no clock read
 
 // ... work ...
 
-if (duration.Enabled)                                           // skip tag building when idle
+if (timing)                                                     // skip tag building when idle
     duration.Record(clock.GetElapsedTime(start).TotalMilliseconds,
                     new TagList { { "step", "compile" } });
 runs.Add(1);
 
-listener.Flush();                                               // pull observables before exit
+// Lifecycle, in order: setup + callbacks (above), final poll, disposal.
+listener.RecordObservableInstruments();                          // observable instruments ONLY
+listener.Dispose();
+meter.Dispose();
 ```
+
+`InstrumentPublished` + `EnableMeasurementEvents` is what opts each instrument in;
+without it the callback is never invoked and the process prints nothing (measured,
+not assumed). `MeterListener` has no `Flush` — the pull method is
+`RecordObservableInstruments()`, and it matters for **observable instruments only**:
+it does **not** flush counters, histograms, or synchronous gauges. Those are
+delivered through the callbacks as they are recorded, so a process that records them
+and then exits has already emitted every reading — but an observable gauge emits
+nothing at all unless the final poll happens.
+
+Note the hot path: when the only reason for timing is telemetry, the clock read
+belongs behind the same `Instrument.Enabled` check as the tag building. Otherwise the
+"idle" path still pays the timing cost the guard was meant to avoid. Read `Enabled`
+into a local once so the start stamp and the record decision cannot disagree.
 
 Substitute a test `TimeProvider` (e.g. `Microsoft.Extensions.Time.Testing.FakeTimeProvider`)
 to assert on recorded durations without sleeping.
@@ -158,8 +198,11 @@ check — not the instrument definitions.
 
 - `Meter`/`Counter`/`Histogram` are built into `System.Diagnostics.DiagnosticSource`
   (no extra NuGet package for the API itself).
-- For production scraping, attach an `IMetricsListener` or export to OTLP; this
-  skill intentionally stays at the smallest useful surface.
+- For production scraping, attach a listener (`MeterListener` from
+  `System.Diagnostics.Metrics`, or `IMetricsListener` from
+  `Microsoft.Extensions.Diagnostics.Abstractions` when you already use metrics
+  configuration/DI) or export to OTLP; this skill intentionally stays at the
+  smallest useful surface.
 - Keep the meter name stable — it becomes the metric namespace downstream. The
   meter *version* string is safe to bump; the name is not.
 - One instrument + a tag beats one instrument per value, but keep tag values
