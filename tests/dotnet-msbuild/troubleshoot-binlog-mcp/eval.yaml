@@ -303,12 +303,12 @@ stimuli:
       - Separates current connectivity from future uncached package availability
 
   - name: Leave recorded build errors to build diagnosis
-    expect_activation: false
     prompt: |-
       My .NET build wrote a binlog containing CS0246 for Newtonsoft.Json in
       Services.csproj. I already confirmed the binlog reader connects and works.
       What kind of project change would address that compiler error? Advice only.
     tags:
+      expect_activation: "false"
       capability: recorded-build-error-boundary
       risk: hijacking-build-diagnosis
       journey: fix-project-dependency
@@ -334,12 +334,12 @@ stimuli:
       - Does not recommend reinstalling a working reader or changing its feeds
 
   - name: Leave binlog capture to build logging
-    expect_activation: false
     prompt: |-
       Show me a PowerShell command that builds a .NET project and captures a
       uniquely named binary log. I am not asking to install or connect any reader.
       Do not execute the command.
     tags:
+      expect_activation: "false"
       capability: binlog-capture-boundary
       risk: unnecessary-server-repair
       journey: capture-build-log
@@ -367,12 +367,12 @@ stimuli:
       - Does not initiate package lookup, installation, or MCP connection troubleshooting
 
   - name: Do not apply binlog-specific diagnosis to another server
-    expect_activation: false
     prompt: |-
       My PostgreSQL MCP server reports CONNECTION_CLOSED. It launches a Node.js
       database adapter; this workspace does not use .NET. What startup evidence
       should I collect before diagnosing it? Advice only.
     tags:
+      expect_activation: "false"
       capability: unrelated-server-boundary
       risk: wrong-runtime-diagnosis
       journey: investigate-database-adapter
