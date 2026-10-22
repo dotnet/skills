@@ -848,6 +848,45 @@ test("dormancy does not suppress an objective native completion regression", () 
   }
 });
 
+test("native dormancy tags preserve agent completion and activation evidence", () => {
+  for (const activated of [false, true]) {
+    const root = mkdtempSync(join(tmpdir(), "agent-adapter-tagged-dormancy-"));
+    try {
+      const evalFile = writeAgentEval(root, 6, ["Scenario 6"]);
+      const path = join(root, evalFile);
+      writeFileSync(path, readFileSync(path, "utf8").replace(
+        "    expect_activation: false",
+        '    tags:\n      expect_activation: "false"',
+      ));
+      const scenarios = [1, 2, 3, 4, 5, 6].map(winningScenario);
+      scenarios[5].expectActivation = false;
+      scenarios[5].subagentActivationIsolated.invokedAgents = activated ? ["router"] : [];
+      scenarios[5].baseline.metrics.taskCompleted = true;
+      scenarios[5].skilledIsolated.metrics.taskCompleted = false;
+      const { output, result } = runAdapter(root, {
+        skillName: "router",
+        skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
+        skillKind: "agent",
+        passed: false,
+        failureKind: "completion_regression",
+        scenarios,
+      });
+      assert.equal(result.status, 0, result.stderr);
+      const verdict = JSON.parse(
+        readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+      ).verdicts[0];
+      assert.equal(verdict.signTest.wins, 5);
+      assert.equal(verdict.excludedScenarioEvidence.count, 1);
+      assert.equal(verdict.stateReason.code,
+        activated ? "activation_contract_failed" : "native_completion_regression");
+      assert.equal(verdict.passed, false);
+      assert.equal(verdict.regressed, !activated);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
 test("dormancy activation-contract failure remains the headline over completion regression", () => {
   const root = mkdtempSync(join(tmpdir(), "agent-adapter-dormant-activation-completion-"));
   try {

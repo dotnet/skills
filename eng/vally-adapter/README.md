@@ -240,12 +240,25 @@ result invalid. They are not counted as skill losses.
 
 ### 7. Separate preference stimuli from activation contracts
 
-`expect_activation: false` declares an off-target case where the isolated
+String-valued `tags.expect_activation: "false"` declares an off-target case where the isolated
 target skill must stay dormant. Correct dormancy makes the skilled arm
 behaviorally equivalent to baseline, so its head-to-head preference is a tie or
 judge noise by construction. Schema version 4 therefore retains the comparison
 under `excludedScenarioEvidence` and `scenarios[]`, but excludes it from the
 sign test and net win.
+
+Use the native stimulus `tags` mapping so stock Vally 0.18 accepts the spec:
+
+```yaml
+tags:
+  expect_activation: "false"
+```
+
+The shared skill/native-agent reader and quality gate retain historical top-level
+Boolean `expect_activation: false` support. Tagged values must be strings
+`"false"` or `"true"`; malformed values or conflicting old/new declarations
+fail explicitly instead of silently dropping a contract. The zero-dependency
+adapter supports block and flow mappings, not aliased `tags` mappings.
 
 The same scenario becomes an isolated-arm activation contract. Unexpected
 target-skill activation blocks a pass with

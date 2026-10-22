@@ -169,13 +169,18 @@ have hijacked the request. The head-to-head score is then biased or pure judge
 noise. Across four dormancy evals using this pattern the same guard scored −0.4,
 +0.4, +0.4 and 0, and twice cost a skill its pass.
 
-For an off-target request, use `expect_activation: false` **alone** (see
-`agent.test-quality-auditor`, `agent.test-migration`,
-`system-text-json-net11`), so the skill is actually loaded and the guard
+For an off-target request, use native string-valued
+`tags: {expect_activation: "false"}` **without `reject_skills`**, so stock
+Vally 0.18 accepts the metadata, the skill is actually loaded, and the guard
 measures the real property. The gate rejects every dormancy guard that also
 sets `reject_skills`, and rejects a wildcard on any direct skill stimulus.
 Named exclusions on an on-target stimulus remain valid when they exclude only
 unrelated sibling skills.
+
+Historical top-level Boolean `expect_activation: false` remains readable.
+Tagged values must be the strings `"false"` or `"true"`; invalid values and
+conflicting legacy/tagged declarations are errors. Both representations preserve
+the same dormancy constraints and preference-eligible stimulus counts.
 
 Adapter schema version 4 treats the case as an
 isolated target-skill activation contract: correct dormancy passes, unexpected

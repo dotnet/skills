@@ -1402,26 +1402,44 @@ def check_stimulus_names(spec: str, doc: dict) -> None:
         seen.add(name)
 
 
+def has_dormancy_contract(stimulus: dict) -> bool:
+    tags = stimulus.get("tags")
+    return stimulus.get("expect_activation") is False or (
+        isinstance(tags, dict) and tags.get("expect_activation") == "false")
+
+
 def check_skill_constraints(spec: str, doc: dict) -> None:
     for stim in doc.get("stimuli") or []:
         if not isinstance(stim, dict):
             continue
+        tags = stim.get("tags")
+        if isinstance(tags, dict) and "expect_activation" in tags:
+            tagged = tags["expect_activation"]
+            if not isinstance(tagged, str) or tagged not in ("false", "true"):
+                errors.append(
+                    f"{spec}: stimulus '{stim.get('name')}' tags.expect_activation must be "
+                    'the string "false" or "true"')
+            elif isinstance(stim.get("expect_activation"), bool) and (
+                    tagged == "true") != stim["expect_activation"]:
+                errors.append(
+                    f"{spec}: stimulus '{stim.get('name')}' has conflicting "
+                    "expect_activation metadata")
         constraints = stim.get("constraints")
         rejected = constraints.get("reject_skills") if isinstance(constraints, dict) else []
         rejected = rejected or []
         has_wildcard = rejected == "*" or (
             isinstance(rejected, list) and "*" in rejected)
-        if stim.get("expect_activation") is False and rejected:
+        if has_dormancy_contract(stim) and rejected:
             errors.append(
                 f"{spec}: dormancy guard '{stim.get('name')}' also sets reject_skills; that can "
                 f"remove the target skill from the skilled arm and make the comparison identical "
-                f"to baseline. Use expect_activation: false alone")
+                f'to baseline. Use tags.expect_activation: "false" without reject_skills')
         elif has_wildcard:
             errors.append(
                 f"{spec}: stimulus '{stim.get('name')}' sets reject_skills: ['*']; that prevents "
                 f"the skilled arm from using the target skill. Remove the wildcard. For an "
-                f"off-target routing case, use expect_activation: false and an anti-hijack rubric")
-        if stim.get("expect_activation") is not False:
+                f'off-target routing case, use tags.expect_activation: "false" and an anti-hijack rubric')
+        if not has_dormancy_contract(stim):
             continue
         name = stim.get("name")
         rubric = " ".join(str(r) for r in (stim.get("rubric") or [])).lower()
@@ -1515,15 +1533,15 @@ def eval_evidence_counts(doc: dict) -> tuple[int, int, int, int]:
     """(preference stimuli, dormancy stimuli, runs, preference paired runs).
 
     The preference gate gives each non-dormancy stimulus one vote. Explicit
-    `expect_activation: false` stimuli are activation-contract evidence and do
+    String-valued `tags.expect_activation: "false"` (or historical top-level
+    `expect_activation: false`) stimuli are activation-contract evidence and do
     not enter preference inference. `defaults.runs` (or its deprecated
     `config.runs` alias) measures reliability within a stimulus and does not
     increase the cross-task sample size.
     """
     stimuli = [stimulus for stimulus in (doc.get("stimuli") or [])
                if isinstance(stimulus, dict)]
-    dormancy = sum(stimulus.get("expect_activation") is False
-                   for stimulus in stimuli)
+    dormancy = sum(has_dormancy_contract(stimulus) for stimulus in stimuli)
     preference = len(stimuli) - dormancy
     settings = doc.get("defaults") or doc.get("config") or {}
     runs = settings.get("runs", 1)

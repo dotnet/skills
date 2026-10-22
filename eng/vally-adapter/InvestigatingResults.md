@@ -194,8 +194,11 @@ Consumers that need the old all-stimulus view must read
 `excludedScenarioEvidence` alongside `scenarioEvidence`, or use
 `scenarios[]`/`comparisonTrialEvidence`.
 
-No eval syntax migration is required: existing `expect_activation: false`
-annotations automatically become activation-contract-only evidence. The
+For stock Vally 0.18, carry dormancy in native string-valued stimulus metadata:
+`tags: {expect_activation: "false"}`. The adapter and quality reader still accept
+historical top-level Boolean `expect_activation: false` inputs; either form
+produces identical activation-contract-only evidence. This metadata relocation
+does not change result schemas or historical results. The
 authoring floor is intentionally stricter because dormancy no longer counts
 toward five preference cases; `check_eval_quality.py` reports the eligible and
 dormancy counts separately. Historical schema-version-3 results remain
@@ -207,9 +210,13 @@ native-agent baseline completes and the isolated target run does not, the
 adapter retains `native_completion_regression` even for
 `expect_activation: false`.
 
-The adapter's zero-dependency YAML scanner follows PyYAML's Boolean spellings
+The adapter's zero-dependency YAML scanner follows PyYAML's historical Boolean spellings
 for `false` (`false`/`False`/`FALSE`, `no`/`No`/`NO`, and
-`off`/`Off`/`OFF`) and supports block and flow-mapping stimulus items.
+`off`/`Off`/`OFF`) and supports block and flow-mapping stimulus items and tags.
+Native tag values must be the quoted strings `"false"` or `"true"`. Malformed
+tags, unsupported aliased tag mappings, and conflicting legacy/tagged values
+fail explicitly; the skill adapter uses its existing `eval_spec_unreadable`
+invalid-verdict path. They cannot silently restore a dormancy stimulus to preference voting.
 An annotation that matches no observed stimulus is retained under
 `activationContract.unmatchedDormancyStimuli` and fails the activation contract
 so a rename, typo, or missing result cannot silently erase contract evidence.

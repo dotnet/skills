@@ -234,11 +234,9 @@ function evalIdentity(evalFile) {
   return { skill, plugin, skillPath: `plugins/${plugin}/skills/${skill}` };
 }
 
-// Read the set of stimulus names annotated `expect_activation: false` from an
-// eval spec. Vally itself ignores this field (its loader validates known keys
-// by type but tolerates extras); the adapter uses it so a scenario where the
-// skill is *expected to stay dormant* isn't flagged on the dashboard as a
-// missing activation. This is a deliberately small, block-scalar-aware YAML
+// Read native string-valued tags.expect_activation and historical top-level
+// Boolean annotations. Dormancy is adapter metadata, not an executor setting.
+// This is a deliberately small, block-scalar-aware YAML
 // scan rather than a full parser so the adapter keeps its zero-dependency
 // contract (no `yaml` module is guaranteed on CI runners). Reading the spec is
 // required because silently defaulting to expect-activation can remove an
@@ -265,6 +263,8 @@ function readNonActivationStimuli(evalFile, repoRoot) {
   };
   const isFalsey = (v) =>
     /^(?:false|False|FALSE|no|No|NO|off|Off|OFF)(?:\s+#.*)?$/.test(v.trim());
+  const isTruthy = (v) =>
+    /^(?:true|True|TRUE|yes|Yes|YES|on|On|ON)(?:\s+#.*)?$/.test(v.trim());
   const result = new Set();
 
   const flowMappingEntries = (value) => {
@@ -317,21 +317,53 @@ function readNonActivationStimuli(evalFile, repoRoot) {
   let itemDashIndent = null; // indent of each stimulus item's leading dash
   let keyIndent = null; // column where an item's mapping keys begin
   let curName = null;
-  let curNonActivation = false;
+  let curLegacyActivation = null;
+  let curTaggedActivation = null;
+  let inTags = false;
+  let tagIndent = null;
   const flush = () => {
-    if (curName != null && curNonActivation) result.add(curName);
+    if (curLegacyActivation !== null && curTaggedActivation !== null &&
+        curLegacyActivation !== curTaggedActivation) {
+      throw new Error(`conflicting expect_activation metadata for ${curName} in ${evalFile}`);
+    }
+    if (curName != null && (curLegacyActivation === false || curTaggedActivation === false)) {
+      result.add(curName);
+    }
     curName = null;
-    curNonActivation = false;
+    curLegacyActivation = null;
+    curTaggedActivation = null;
+    inTags = false;
+    tagIndent = null;
+  };
+  const applyTagEntry = (entry) => {
+    const kv = /^\s*(["']?)expect_activation\1:\s?(.*?)\s*$/.exec(entry);
+    if (!kv) return;
+    const value = /^(["'])(false|true)\1(?:\s+#.*)?$/.exec(kv[2].trim());
+    if (!value) {
+      throw new Error(`tags.expect_activation must be the string "false" or "true" for ${curName} in ${evalFile}`);
+    }
+    curTaggedActivation = value[2] === "true";
   };
   const applyKey = (key, val) => {
     if (key === "name" && curName === null) curName = unquote(val);
-    else if (key === "expect_activation") curNonActivation = isFalsey(val);
+    else if (key === "expect_activation") {
+      curLegacyActivation = isFalsey(val) ? false : isTruthy(val) ? true : null;
+    } else if (key === "tags") {
+      const entries = flowMappingEntries(val);
+      if (entries) {
+        for (const entry of entries) applyTagEntry(entry);
+      } else if (val.trim() === "" || val.trim().startsWith("#")) {
+        inTags = true;
+      } else {
+        throw new Error(`unsupported tags mapping for ${curName} in ${evalFile}; use a block or flow mapping`);
+      }
+    }
   };
   // Skip a block scalar's body: every following line that is blank or indented
   // deeper than the owning key, so prompt text can't be misread as keys.
-  const skipBlockScalar = (val) => {
+  const skipBlockScalar = (val, ownerIndent = keyIndent) => {
     if (!/^[|>]/.test(val.trim())) return;
-    while (i + 1 < lines.length && (lines[i + 1].trim() === "" || indentOf(lines[i + 1]) > keyIndent)) {
+    while (i + 1 < lines.length && (lines[i + 1].trim() === "" || indentOf(lines[i + 1]) > ownerIndent)) {
       i++;
     }
   };
@@ -365,6 +397,17 @@ function readNonActivationStimuli(evalFile, repoRoot) {
       flush();
       break;
     }
+    if (inTags && ind > keyIndent) {
+      tagIndent ??= ind;
+      if (ind === tagIndent) {
+        const entry = line.slice(ind);
+        applyTagEntry(entry);
+        const kv = /^[A-Za-z0-9_]+:\s?(.*)$/.exec(entry);
+        if (kv) skipBlockScalar(kv[1], ind);
+      }
+      continue;
+    }
+    inTags = false;
 
     // Only mapping keys at the item's key column belong to the stimulus itself;
     // deeper lines (grader entries, block-scalar bodies) are ignored.

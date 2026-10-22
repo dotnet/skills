@@ -1524,6 +1524,51 @@ def dormancy_does_not_satisfy_preference_floor(d):
         f.write(raw)
 
 
+def _tag_dormancy_annotations(d):
+    path = EV(d)
+    with open(path) as f:
+        raw = f.read()
+    with open(path, "w") as f:
+        f.write(raw.replace(
+            "    expect_activation: false\n",
+            '    tags:\n      expect_activation: "false"\n'))
+
+
+def tagged_guard_ok(d):
+    guard_ok(d)
+    _tag_dormancy_annotations(d)
+
+
+def tagged_named_reject(d):
+    named_reject_on_dormancy_guard(d)
+    _tag_dormancy_annotations(d)
+
+
+def tagged_dormancy_floor(d):
+    dormancy_does_not_satisfy_preference_floor(d)
+    _tag_dormancy_annotations(d)
+
+
+def malformed_dormancy_tag(d):
+    tagged_guard_ok(d)
+    path = EV(d)
+    with open(path) as f:
+        raw = f.read()
+    with open(path, "w") as f:
+        f.write(raw.replace('expect_activation: "false"', "expect_activation: false"))
+
+
+def conflicting_dormancy_metadata(d):
+    tagged_guard_ok(d)
+    path = EV(d)
+    with open(path) as f:
+        raw = f.read()
+    with open(path, "w") as f:
+        f.write(raw.replace(
+            '      expect_activation: "false"\n',
+            '      expect_activation: "false"\n    expect_activation: true\n'))
+
+
 # --- reference skills -------------------------------------------------------
 # `disable-model-invocation: true` hides a skill from the model-facing menu, so
 # the skilled arm cannot reach it either and the eval scores baseline against
@@ -1907,6 +1952,19 @@ results = [
     case("well-formed dormancy guard", guard_ok, expect_fail=False),
     case("dormancy evidence cannot satisfy preference floor",
          dormancy_does_not_satisfy_preference_floor, expect_fail=True),
+    output_case("native string-valued dormancy tag preserves counts",
+                tagged_guard_ok,
+                "5 preference stimulus/stimuli + 1 dormancy contract(s)"),
+    failing_output_case("tagged dormancy guard cannot reject a skill",
+                        tagged_named_reject, "also sets reject_skills"),
+    case("tagged dormancy cannot satisfy preference floor",
+         tagged_dormancy_floor, expect_fail=True),
+    failing_output_case("dormancy tag must be a canonical string",
+                        malformed_dormancy_tag,
+                        'tags.expect_activation must be the string "false" or "true"'),
+    failing_output_case("conflicting dormancy declarations fail closed",
+                        conflicting_dormancy_metadata,
+                        "conflicting expect_activation metadata"),
     output_case("reference skill carrying a direct-activation eval",
                 reference_skill_with_a_direct_eval,
                 "1 reference skill(s) carry a direct-activation eval"),

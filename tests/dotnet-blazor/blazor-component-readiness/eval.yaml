@@ -1291,16 +1291,16 @@ stimuli:
           expected_exit_code: 0
       - type: exit-success
 
-  # Vally 0.14 does not enforce expect_activation during execution. The adapter
-  # consumes it after the run as activation-contract metadata; the deterministic
+  # Dormancy is adapter metadata carried in native string-valued tags.
+  # The adapter consumes it after the run; the deterministic
   # graders below independently score the requested off-target behavior.
   - name: Stay dormant for ordinary component authoring
     tags:
       capability: scope-boundary-enforcement
       risk: unrequested-readiness-assessment
       journey: author-blazor-component
+      expect_activation: "false"
     prompt: Create a reusable Blazor date-range picker with keyboard navigation and form validation.
-    expect_activation: false
     graders:
       - type: output-matches
         config:
@@ -1330,8 +1330,8 @@ stimuli:
       capability: scope-boundary-enforcement
       risk: unrequested-readiness-assessment
       journey: debug-blazor-application
+      expect_activation: "false"
     prompt: My Blazor page throws after navigation when a scoped service is disposed. Help me debug it.
-    expect_activation: false
     graders:
       - type: output-matches
         config:
@@ -1361,8 +1361,8 @@ stimuli:
       capability: scope-boundary-enforcement
       risk: unrequested-readiness-assessment
       journey: review-framework-regressions
+      expect_activation: "false"
     prompt: Review this ASP.NET Core framework pull request for regressions in interactive server rendering.
-    expect_activation: false
     graders:
       - type: output-matches
         config:
@@ -1389,8 +1389,8 @@ stimuli:
       capability: scope-boundary-enforcement
       risk: unrequested-readiness-assessment
       journey: create-nuget-package
+      expect_activation: "false"
     prompt: Help me pack a class library with symbols, Source Link, and deterministic builds.
-    expect_activation: false
     graders:
       - type: output-matches
         config:

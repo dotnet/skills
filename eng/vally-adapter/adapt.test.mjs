@@ -883,6 +883,110 @@ test("dormancy parser reads flow-mapping stimuli", () => {
   }
 });
 
+test("dormancy tags support block and flow mappings without reading nested text", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-dormancy-tags-"));
+  try {
+    writeFileSync(join(root, "eval.yaml"), [
+      "stimuli:",
+      "  - name: Block",
+      "    tags:",
+      '      expect_activation: "false" # contract',
+      "      note: |",
+      '        expect_activation: "true"',
+      "  - name: FlowTags",
+      "    tags: {expect_activation: 'false', capability: routing}",
+      '  - {name: FlowStimulus, tags: {"expect_activation": "false"}}',
+      "  - name: Both",
+      "    expect_activation: false",
+      '    tags: {expect_activation: "false"}',
+      "  - name: Active",
+      '    tags: {expect_activation: "true"}',
+      "  - name: PromptOnly",
+      "    prompt: |",
+      "      tags:",
+      '        expect_activation: "false"',
+      "  - name: GraderOnly",
+      "    graders:",
+      "      - type: prompt",
+      '        tags: {expect_activation: "false"}',
+      "",
+    ].join("\n"));
+    assert.deepEqual([...readNonActivationStimuli("eval.yaml", root)],
+      ["Block", "FlowTags", "FlowStimulus", "Both"]);
+    writeFileSync(join(root, "eval.yaml"), [
+      "stimuli:",
+      "- name: ZeroIndent",
+      "  tags:",
+      '    expect_activation: "false"',
+      "- name: Active",
+      '  tags: {expect_activation: "true"}',
+      "",
+    ].join("\n"));
+    assert.deepEqual([...readNonActivationStimuli("eval.yaml", root)], ["ZeroIndent"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("malformed and conflicting dormancy tags fail rather than erase contracts", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-dormancy-invalid-tags-"));
+  try {
+    for (const [metadata, expected] of [
+      ["    tags: {expect_activation: false}", /must be the string/],
+      ['    tags: {expect_activation: "off"}', /must be the string/],
+      ['    expect_activation: true\n    tags: {expect_activation: "false"}', /conflicting/],
+      ['    tags: {expect_activation: "true"}\n    expect_activation: false', /conflicting/],
+      ["    tags: *unresolved", /unsupported tags mapping/],
+    ]) {
+      writeFileSync(join(root, "eval.yaml"), `stimuli:\n  - name: Guard\n${metadata}\n`);
+      assert.throws(() => readNonActivationStimuli("eval.yaml", root), expected);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("native and legacy dormancy metadata produce identical activation and preference evidence", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-dormancy-parity-"));
+  try {
+    const report = reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, -0.4]);
+    for (const trial of report.stimuli.flatMap((stimulus) => stimulus.trials)) {
+      trial.baselinePassed = true;
+      trial.treatmentPassed = true;
+    }
+    for (const activated of [false, true]) {
+      const roles = {
+        ...EMPTY_ROLES,
+        skilledByStim: new Map([["Scenario 6", [{
+          trajectory: {
+            events: activated ? [{ type: "skill.invoked", data: { name: IDENTITY.skill } }] : [],
+            metrics: {},
+          },
+        }]]]),
+      };
+      const verdicts = [];
+      for (const metadata of [
+        "    expect_activation: false",
+        '    tags:\n      expect_activation: "false"',
+        '    tags: {expect_activation: "false"}',
+      ]) {
+        writeFileSync(join(root, "eval.yaml"), `stimuli:\n  - name: Scenario 6\n${metadata}\n`);
+        verdicts.push(comparisonToVerdict(report, IDENTITY, roles,
+          readNonActivationStimuli("eval.yaml", root)));
+      }
+      assert.deepEqual(verdicts[1], verdicts[0]);
+      assert.deepEqual(verdicts[2], verdicts[0]);
+      assert.equal(verdicts[0].stimulusVoteCount, 5);
+      assert.equal(verdicts[0].excludedScenarioEvidence.count, 1);
+      assert.equal(verdicts[0].completionTransitions.bothPassed, 6);
+      assert.equal(verdicts[0].activationContract.passed, !activated);
+      assert.equal(verdicts[0].passed, !activated);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("a retry fills only errored slots and freezes successful judgments", () => {
   const primary = reportFromRepeatedScores([null, 0.4, 0.4, 0.4, 0.4]);
   primary.stimuli[0].trials[0] = {

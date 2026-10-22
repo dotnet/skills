@@ -51,6 +51,10 @@
 > `VALID_REGRESSION` even when preference evidence has fewer than five eligible
 > stimuli, including on an `expect_activation: false` scenario. Execution,
 > timeout, missing-arm, and comparison-invalid evidence still takes precedence.
+> For stock Vally 0.18, new specs carry that annotation as the native string tag
+> `tags: {expect_activation: "false"}`. The shared adapter and quality reader
+> retain historical top-level Boolean annotations with identical activation
+> and preference-exclusion semantics; this does not migrate historical results.
 > Both completion values must be explicit booleans; a missing isolated
 > completion value remains measurement-invalid instead of becoming a regression.
 > `practicalSignificance` adds the 20% net-win floor. Objective completion is a
