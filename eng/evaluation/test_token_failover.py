@@ -2347,9 +2347,16 @@ esac
         smoke_script = steps["Smoke test evaluation tools"]["run"]
         self.assertIn("node_modules/.bin/vally --version", smoke_script)
         self.assertIn("node vally.mjs --version", smoke_script)
+        test_script = steps[
+            "Test evaluation tooling and MSBuild contracts without model calls"
+        ]["run"]
         self.assertIn(
             "node --test eng/evaluation-tools/*.test.mjs",
-            steps["Test SDK startup ordering without model calls"]["run"],
+            test_script,
+        )
+        self.assertIn(
+            "tests/dotnet/msbuild/graders/check-contracts.test.mjs",
+            test_script,
         )
         self.assertIn("node_modules/.bin/copilot --version", smoke_script)
         self.assertIn(

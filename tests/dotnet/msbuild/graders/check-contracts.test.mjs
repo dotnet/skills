@@ -111,6 +111,17 @@ test("incremental matrix catches stale membership and accepts the replayable rep
   verify(root, "incremental");
 });
 
+for (const path of ["extra.json", join("nested", "extra.json")]) {
+  test(`incremental matrix rejects an added spec at ${path}`, (t) => {
+    const root = fixture(t, "incremental");
+    golden(root, "incremental-membership.patch");
+    const file = join(root, "project", "Specs", path);
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, '{"name":"Extra submitted input"}\n');
+    assert.throws(() => verify(root, "incremental"), /Read-only spec inputs changed/);
+  });
+}
+
 test("incremental matrix rejects always-running generation", (t) => {
   const root = fixture(t, "incremental");
   golden(root, "incremental-membership.patch");

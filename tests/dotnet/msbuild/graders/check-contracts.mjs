@@ -178,6 +178,13 @@ export function verify(root, scenario) {
     assert.ok(existsSync(file), `Read-only fixture changed: ${path}`);
     assert.equal(digest(file), hash, `Read-only fixture changed: ${path}`);
   }
+  if (scenario === "incremental") {
+    const specs = Object.fromEntries(Object.entries(original.files)
+      .filter(([path]) => path.startsWith("Specs/"))
+      .map(([path, hash]) => [path.slice("Specs/".length), hash]));
+    assert.deepEqual(fileHashes(join(root, "project", "Specs")), specs,
+      "Read-only spec inputs changed");
+  }
   if (scenario === "packed-import") {
     const feed = join(root, "project", "feed");
     assert.ok(existsSync(feed), "Supplied package feed changed: directory is missing");
