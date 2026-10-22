@@ -450,11 +450,11 @@ stimuli:
       capability: no-op-already-converted
       risk: routing
       journey: decline-off-target
+      expect_activation: "false"
     prompt: |
       This project is already a current Blazor Web App. Verify that no legacy
       Blazor Server conversion work remains, explain that briefly, and do not
       modify any files.
-    expect_activation: false
     environment:
       files:
         - src: fixtures/global.json
@@ -524,11 +524,11 @@ stimuli:
       capability: dormancy-webassembly
       risk: routing
       journey: decline-off-target
+      expect_activation: "false"
     prompt: |
       Migrate my hosted Blazor WebAssembly solution to the newest supported
       hosted WebAssembly layout. It has separate Client, Server, and Shared
       projects and downloads the client runtime into the browser.
-    expect_activation: false
     graders:
       - type: exit-success
       - type: prompt

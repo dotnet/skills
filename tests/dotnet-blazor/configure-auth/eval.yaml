@@ -361,11 +361,11 @@ stimuli:
       capability: routing-boundary
       risk: routing
       journey: decline-off-target
+      expect_activation: "false"
     prompt: |
       Add a per-user theme preference service so unrelated interactive Blazor
       components can switch between light and dark mode and update together.
       There are no users, roles, claims, login pages, or authorization rules.
-    expect_activation: false
     graders:
       - type: prompt
     rubric:

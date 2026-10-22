@@ -514,11 +514,11 @@ stimuli:
       capability: routing-boundary
       risk: routing
       journey: decline-off-target
+      expect_activation: "false"
     prompt: |
       Write one reusable RatingBadge component. It receives a numeric rating,
       renders filled and empty stars, and raises EventCallback<int> when the user
       selects a new value. No page layout or sibling components are involved.
-    expect_activation: false
     graders:
       - type: prompt
     rubric:

@@ -405,11 +405,11 @@ stimuli:
       capability: routing-boundary
       risk: routing
       journey: decline-off-target
+      expect_activation: "false"
     prompt: |
       Add a static SSR /about page that reads company information from a
       server-side service and renders it once. The app has no interactive render
       mode and there is no prerender-to-interactive handoff.
-    expect_activation: false
     graders:
       - type: prompt
     rubric:

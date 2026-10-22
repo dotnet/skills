@@ -365,11 +365,11 @@ stimuli:
       capability: routing-boundary
       risk: routing
       journey: decline-off-target
+      expect_activation: "false"
     prompt: |
       Write a ProductList parent and ProductCard child. The parent passes each
       Product to its card, and clicking a card sends that Product directly back
       to the parent so it can navigate. No other component needs the selection.
-    expect_activation: false
     graders:
       - type: prompt
     rubric:

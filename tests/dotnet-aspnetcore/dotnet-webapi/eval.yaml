@@ -419,11 +419,11 @@ stimuli:
       capability: dormancy-blazor
       risk: routing
       journey: decline-off-target
+      expect_activation: "false"
     prompt: |
       Build a Blazor component with an EditForm for editing a customer profile.
       Add validation messages, disable the submit button while saving, and show a
       success banner after the component's injected profile client completes.
-    expect_activation: false
     graders:
       - type: exit-success
       - type: prompt
@@ -438,10 +438,10 @@ stimuli:
       capability: dormancy-signalr
       risk: routing
       journey: decline-off-target
+      expect_activation: "false"
     prompt: |
       Add a SignalR ChatHub with a SendMessage method that broadcasts the user
       and message to connected clients. Register and map the hub at /chatHub.
-    expect_activation: false
     graders:
       - type: exit-success
       - type: prompt

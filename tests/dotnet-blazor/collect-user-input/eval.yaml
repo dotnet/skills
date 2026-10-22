@@ -372,11 +372,11 @@ stimuli:
       capability: routing-boundary
       risk: routing
       journey: decline-off-target
+      expect_activation: "false"
     prompt: |
       Write a reusable ProductCard Blazor component that only displays a product
       name, price, and image and notifies its parent when the card is selected.
       There are no editable fields or validation rules.
-    expect_activation: false
     graders:
       - type: prompt
     rubric:

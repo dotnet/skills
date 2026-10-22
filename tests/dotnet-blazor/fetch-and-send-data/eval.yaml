@@ -438,11 +438,11 @@ stimuli:
       capability: routing-boundary
       risk: routing
       journey: decline-off-target
+      expect_activation: "false"
     prompt: |
       Add an EditForm where a duplicate email returned by a registration service
       appears beside the Email field and clears when the user edits that field.
       The data service already exists; the problem is form validation behavior.
-    expect_activation: false
     graders:
       - type: prompt
     rubric:

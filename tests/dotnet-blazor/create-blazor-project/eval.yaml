@@ -350,11 +350,11 @@ stimuli:
       capability: routing-boundary
       risk: routing
       journey: decline-off-target
+      expect_activation: "false"
     prompt: |
       I already have a Blazor Web App using Interactive Server. Add a reusable
       sortable ProductTable component to the existing project. Do not scaffold a
       new application or change its render mode.
-    expect_activation: false
     graders:
       - type: prompt
     rubric:

@@ -403,11 +403,11 @@ stimuli:
       capability: routing-boundary
       risk: routing
       journey: decline-off-target
+      expect_activation: "false"
     prompt: |
       Make a card grid switch from four columns to one column below 768px. This
       is purely presentational; no component state or C# callback needs the
       viewport width. Use the simplest built-in web approach.
-    expect_activation: false
     graders:
       - type: prompt
     rubric:

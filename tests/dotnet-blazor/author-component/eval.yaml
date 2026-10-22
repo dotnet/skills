@@ -374,11 +374,11 @@ stimuli:
       capability: routing-boundary
       risk: routing
       journey: decline-off-target
+      expect_activation: "false"
     prompt: |
       Build a Blazor registration form with EditForm, data annotations, inline
       ValidationMessage components, and server-returned field errors that clear
       when the user edits a field.
-    expect_activation: false
     graders:
       - type: prompt
     rubric:
