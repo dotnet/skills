@@ -551,7 +551,7 @@ stimuli:
           dest: tests/Billing.Tests/GraderChecks/DiscountPolicyContractChecks.cs
     graders:
       # Grader-owned implementer of only the shipped RateFor contract, plus Describe label checks
-      # on it and on TierDiscountPolicy; editing the writable canary cannot hide a break here.
+      # on it and via a concrete TierDiscountPolicy call; editing the writable canary cannot hide a break here.
       - *grader-checks
       # ThirdPartyPolicy stands in for a downstream package's implementation. An abstract
       # interface member only compiles if that implementer is edited, which real consumers
@@ -578,7 +578,8 @@ stimuli:
     rubric:
       - "Recognized that adding an abstract member to a shipped public interface breaks every existing implementer, including ones in other packages"
       - "Used a default interface implementation (or an equivalent non-breaking design) so the downstream ThirdPartyPolicy compiles unchanged"
-      - "Recorded the new interface member in the unshipped API baseline and kept the build and tests green on net8.0 and net10.0"
+      - "Made Describe callable on the concrete TierDiscountPolicy (a public member, not only the interface default) and recorded each new public member in the unshipped API baseline"
+      - "Kept the build and tests green on net8.0 and net10.0"
 
   - name: Review a green pull request for consumer-breaking changes
     tags:

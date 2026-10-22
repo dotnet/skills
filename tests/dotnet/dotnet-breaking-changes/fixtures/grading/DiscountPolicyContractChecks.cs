@@ -5,7 +5,8 @@ namespace Billing.GraderChecks;
 
 // Staged only for grading. ShippedContractPolicy implements only the shipped contract, like a
 // downstream package that cannot be edited: an abstract Describe fails to compile here even if
-// the in-repo ThirdPartyPolicy canary was changed. Describe must also return real labels.
+// the in-repo ThirdPartyPolicy canary was changed. Describe must also return real labels and be
+// callable on the concrete TierDiscountPolicy, as the prompt asks.
 public class DiscountPolicyContractChecks
 {
     private sealed class ShippedContractPolicy : IDiscountPolicy
@@ -19,7 +20,8 @@ public class DiscountPolicyContractChecks
         IDiscountPolicy external = new ShippedContractPolicy();
         Assert.False(string.IsNullOrWhiteSpace(external.Describe("gold")));
 
-        IDiscountPolicy builtIn = new TierDiscountPolicy();
+        // Concrete-type call: a default interface member alone is not callable here.
+        var builtIn = new TierDiscountPolicy();
         var gold = builtIn.Describe("gold");
         var silver = builtIn.Describe("silver");
         Assert.False(string.IsNullOrWhiteSpace(gold));
