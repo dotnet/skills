@@ -136,10 +136,12 @@ stimuli:
                       assert configuration.stdout.strip() == 'Release', 'preserve the effective Release configuration'
                       for supplied in [False, True]:
                           (bin_dir / 'git-calls').unlink(missing_ok=True)
-                          command = [dotnet, 'msbuild', str(probe_path), '-nologo', '-verbosity:quiet',
-                                     '-nodeReuse:false', '-target:GetAssemblyAttributes', '-getProperty:ObservedInformationalVersion']
                           if supplied:
-                              command.append('-p:GitCommit=' + commit)
+                              command = [dotnet, args[0], str(probe_path), *args[2:]]
+                          else:
+                              command = [dotnet, 'msbuild', str(probe_path)]
+                          command.extend(['-nologo', '-verbosity:quiet', '-nodeReuse:false',
+                                          '-target:GetAssemblyAttributes', '-getProperty:ObservedInformationalVersion'])
                           result = subprocess.run(
                               command, cwd=bin_dir, env=dict(env, PATH=tmp + os.pathsep + os.environ['PATH']),
                               capture_output=True, text=True, timeout=30,

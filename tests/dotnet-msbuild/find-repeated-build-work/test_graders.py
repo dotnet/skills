@@ -93,6 +93,32 @@ class GraderTests(unittest.TestCase):
         result = self.grade(work, script, accepted=False)
         self.assertIn("the commit and version must be ready", result.stderr)
 
+    def test_git_stamp_replays_recorded_build_arguments(self):
+        variants = (
+            (False, "", "'$(Configuration)' == 'Debug'"),
+            (False, "", "'$(Configuration)' == 'Release'"),
+            (False, "-p:StampMode=ci", "'$(StampMode)' != 'ci'"),
+            (True, "-p:StampMode=ci", "'$(Configuration)' == 'Debug' or '$(StampMode)' == 'ci'"),
+        )
+        for accepted, argument, condition in variants:
+            with self.subTest(argument=argument, condition=condition):
+                work, script = self.workspace("invariant-per-project-exec")
+                base = work / "git-stamp"
+                if argument:
+                    wrapper = base / "build.sh"
+                    wrapper.write_text(
+                        wrapper.read_text(encoding="utf-8").replace(
+                            "dotnet build Contoso.slnx", f"dotnet build Contoso.slnx {argument}",
+                        ), encoding="utf-8",
+                    )
+                path = base / "Directory.Build.targets"
+                tree = ET.parse(path)
+                tree.getroot().find("Target").set("Condition", condition)
+                tree.write(path, encoding="utf-8")
+                result = self.grade(work, script, accepted=accepted)
+                if not accepted:
+                    self.assertIn("the commit and version must be ready", result.stderr)
+
     def test_conditional_reference_updates_are_evaluated_by_msbuild(self):
         work, script = self.workspace("global-property-instances")
         base = work / "shared-project-instances"
