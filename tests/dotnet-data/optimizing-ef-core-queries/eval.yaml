@@ -165,7 +165,7 @@ stimuli:
       - "Identifies that ApplyCategoryDiscount saves changes once per product inside the loop, issuing a round-trip per row, and recommends a single set-based update"
       - "Recognizes that CountActiveProducts loads the entire product table into memory before counting, and that the count should be performed by the database"
 
-  - name: Split independent collection loads without changing results
+  - name: Speed up customer detail for large accounts
     prompt: |
       GetCustomerDetail in SalesOperationsService.cs becomes very slow for customers with many
       orders, order lines, and invoices. Optimize only that method, preserve its signature and
@@ -332,12 +332,13 @@ stimuli:
       - Preserved the public method contract and did not replace eager loading with lazy loading
       - Explained that independent collection joins duplicate rows and parent data
 
-  - name: Keep a hot status queue server-side and identify its missing index
+  - name: Speed up the frequently refreshed fulfillment queue
     prompt: |
       GetPendingOrders in SalesOperationsService.cs powers a fulfillment queue that refreshes every
       few seconds and now scans millions of rows. Optimize the method without changing its signature
-      or returned rows. The database schema is managed by a DBA rather than EF migrations, so also
-      state the supporting index the DBA should review. Do not edit anything under perf/.
+      or returned rows. The database schema is managed by a DBA rather than this application, so
+      identify any separate schema-side follow-up the DBA should consider. Do not edit anything
+      under perf/.
     tags:
       capability: server-filter-with-index-recommendation
       risk: high
