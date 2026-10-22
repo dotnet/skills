@@ -783,8 +783,6 @@ stimuli:
     prompt: |
       legit-per-project-calls/perf-summary.txt is the performance summary of the CI build. Tell me whether any task runs
       more often than it should and is worth changing. Do not modify any file.
-    constraints:
-      reject_tools: [edit, create]
     tags:
       capability: legitimate-per-project-work
       risk: medium
@@ -811,6 +809,9 @@ stimuli:
 
               Verdict: no repeated work worth changing
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
       - type: run-command
         config:
           command: python
@@ -848,8 +849,6 @@ stimuli:
       negligible-repeat/perf-summary.txt is the performance summary of the nightly build, and
       negligible-repeat/Directory.Build.targets is the repository's shared build logic. Tell me whether any work in this
       build is done more often than necessary and whether it is worth changing. Do not modify any file.
-    constraints:
-      reject_tools: [edit, create]
     tags:
       capability: negligible-win-stop-condition
       risk: medium
@@ -875,6 +874,9 @@ stimuli:
 
               Verdict: no repeated work worth changing
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
       - type: run-command
         config:
           command: python
@@ -911,8 +913,6 @@ stimuli:
     prompt: |
       Review audit/evidence.txt from our product build. Can we reduce the Git process launches without changing the
       revision stamped into any project? Explain the safe scope and likely benefit. Do not edit files or run a build.
-    constraints:
-      reject_tools: [edit, create]
     tags: { capability: repository-working-directory-partition, risk: high, journey: audit }
     environment:
       files:
@@ -934,6 +934,9 @@ stimuli:
 
               Verdict: proposed removal of 22 executions; wall-clock not validated
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
       - type: run-command
         config:
           command: python
@@ -966,8 +969,6 @@ stimuli:
     prompt: |
       audit/evidence.txt lists the Shared builds in one invocation. Which of those builds can be avoided while still
       shipping both framework assemblies and preserving component branding? Recommend a change, without editing or building.
-    constraints:
-      reject_tools: [edit, create]
     tags: { capability: required-property-partition, risk: high, journey: audit }
     environment:
       files:
@@ -989,6 +990,9 @@ stimuli:
 
               Verdict: proposed removal of 4 executions; estimated project-time saving 8.04 s; wall-clock not validated
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
       - type: run-command
         config:
           command: python
@@ -1007,8 +1011,6 @@ stimuli:
     prompt: |
       The Shared builds in audit/evidence.txt look identical. How should we avoid unnecessary work without losing
       the slice diagnostics or the Release framework settings? Do not change files or execute the build.
-    constraints:
-      reject_tools: [edit, create]
     tags: { capability: msbuild-task-property-removal, risk: high, journey: audit }
     environment:
       files:
@@ -1030,6 +1032,9 @@ stimuli:
 
               Verdict: proposed removal of 2 executions; wall-clock not validated
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
       - type: run-command
         config:
           command: python
@@ -1048,8 +1053,6 @@ stimuli:
     prompt: |
       Can we replace the sixty generator launches described in audit/evidence.txt with one process in this release?
       Review the available interface and advise; do not modify files or run commands against the build.
-    constraints:
-      reject_tools: [edit, create]
     tags: { capability: unsupported-generator-batching, risk: high, journey: audit }
     environment:
       files:
@@ -1071,6 +1074,9 @@ stimuli:
 
               Verdict: no supported reduction in generator processes under the supplied constraints
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
       - type: run-command
         config:
           command: python
@@ -1089,8 +1095,6 @@ stimuli:
     prompt: |
       Suggest a lower-startup-cost version of the generation step in audit/evidence.txt without changing generated APIs.
       Work only from the supplied evidence; do not edit files or execute a build.
-    constraints:
-      reject_tools: [edit, create]
     tags: { capability: generator-metadata-partition, risk: high, journey: audit }
     environment:
       files:
@@ -1112,6 +1116,9 @@ stimuli:
 
               Verdict: proposed removal of 118 startups; wall-clock not validated
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
       - type: run-command
         config:
           command: python
@@ -1130,8 +1137,6 @@ stimuli:
     prompt: |
       How can the generation in audit/evidence.txt start fewer processes on this invocation without touching the files
       that are already current? Recommend the change without editing files or running the build.
-    constraints:
-      reject_tools: [edit, create]
     tags: { capability: partial-incremental-batching, risk: high, journey: audit }
     environment:
       files:
@@ -1153,6 +1158,9 @@ stimuli:
 
               Verdict: proposed removal of 2 startups; 117 current outputs unchanged; wall-clock not validated
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
       - type: run-command
         config:
           command: python
@@ -1171,8 +1179,6 @@ stimuli:
     prompt: |
       Our new pre-build probe did not reduce child process launches. Diagnose audit/evidence.txt and suggest a fix
       that also works when a developer builds a single project. Do not edit files or run the build.
-    constraints:
-      reject_tools: [edit, create]
     tags: { capability: orchestrator-local-property-propagation, risk: high, journey: audit }
     environment:
       files:
@@ -1194,6 +1200,9 @@ stimuli:
 
               Verdict: proposed removal of 20 executions; wall-clock not validated
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
       - type: run-command
         config:
           command: python
@@ -1212,8 +1221,6 @@ stimuli:
     prompt: |
       The team expected the flag in audit/evidence.txt to cache the catalog version for the whole invocation. Explain
       why the counts disagree and how to reduce them safely. This is a read-only review; do not build or edit.
-    constraints:
-      reject_tools: [edit, create]
     tags: { capability: project-instance-flag-scope, risk: medium, journey: audit }
     environment:
       files:
@@ -1235,6 +1242,9 @@ stimuli:
 
               Verdict: proposed removal of 31 executions; wall-clock not validated
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
       - type: run-command
         config:
           command: python
@@ -1253,8 +1263,6 @@ stimuli:
     prompt: |
       Can the settings generator in audit/evidence.txt do less work while retaining both build configurations?
       Explain the necessary ordering and output handling. Do not edit files or run a build.
-    constraints:
-      reject_tools: [edit, create]
     tags: { capability: generated-input-identity-partition, risk: high, journey: audit }
     environment:
       files:
@@ -1276,6 +1284,9 @@ stimuli:
 
               Verdict: proposed removal of 10 executions while preserving both variants; wall-clock not validated
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
       - type: run-command
         config:
           command: python
@@ -1294,8 +1305,6 @@ stimuli:
     prompt: |
       Use audit/evidence.txt to estimate the benefit of the tool's list mode. How much time is actually removable,
       and does the worker count change that estimate? No edits or new build runs, please.
-    constraints:
-      reject_tools: [edit, create]
     tags: { capability: sequential-startup-cost-accounting, risk: medium, journey: audit }
     environment:
       files:
@@ -1317,6 +1326,9 @@ stimuli:
 
               Verdict: proposed removal of 199 startups; modeled wall-clock saving about 79.6 s, not validated
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
       - type: run-command
         config:
           command: python
@@ -1335,8 +1347,6 @@ stimuli:
     prompt: |
       The total probe time in audit/evidence.txt is large. Estimate what computing the value in the wrapper would save,
       using the supplied timeline rather than just the task total. Do not edit or run the build.
-    constraints:
-      reject_tools: [edit, create]
     tags: { capability: observed-overlap-stage-accounting, risk: medium, journey: audit }
     environment:
       files:
@@ -1358,6 +1368,9 @@ stimuli:
 
               Verdict: proposed removal of 71 executions; modeled wall-clock saving 3.3 s, not validated
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
       - type: run-command
         config:
           command: python
@@ -1376,8 +1389,6 @@ stimuli:
     prompt: |
       Would moving the inventory probe to the wrapper make the build in audit/evidence.txt faster? Compare it with
       computing the value inside Inventory. Explain your recommendation without editing or running anything.
-    constraints:
-      reject_tools: [edit, create]
     tags: { capability: noncritical-work-hoisting-regression, risk: high, journey: audit }
     environment:
       files:
@@ -1399,6 +1410,9 @@ stimuli:
 
               Verdict: wrapper hoisting risks a 2 s regression; branch-local deduplication has no modeled wall-clock benefit
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
       - type: run-command
         config:
           command: python
@@ -1417,8 +1431,6 @@ stimuli:
     prompt: |
       Why does the failing invocation in audit/evidence.txt run the tool so many times after the preflight? Recommend
       safe failure behavior while keeping direct project builds supported. Do not modify files or invoke the build.
-    constraints:
-      reject_tools: [edit, create]
     tags: { capability: failed-preflight-error-propagation, risk: high, journey: audit }
     environment:
       files:
@@ -1440,6 +1452,9 @@ stimuli:
 
               Verdict: proposed removal of 16 redundant failed attempts; preserve the original failure, not a success fallback
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
       - type: run-command
         config:
           command: python
@@ -1458,8 +1473,6 @@ stimuli:
     prompt: |
       Review the twenty-four process launches in audit/evidence.txt. Are any removable under the release contract,
       and what would be unsafe to share? Do not change files or execute the build.
-    constraints:
-      reject_tools: [edit, create]
     tags: { capability: intentionally-nondeterministic-project-work, risk: high, journey: audit }
     environment:
       files:
@@ -1481,6 +1494,9 @@ stimuli:
 
               Verdict: no safely removable identity-generation work with the current tool contract
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
       - type: run-command
         config:
           command: python
@@ -1499,8 +1515,6 @@ stimuli:
     prompt: |
       The source corruption in audit/evidence.txt is rare and the task time is tiny. Should we change this step?
       Recommend safe ordering and rerun behavior without modifying files or running a build.
-    constraints:
-      reject_tools: [edit, create]
     tags: { capability: correctness-race-overrides-timing-threshold, risk: high, journey: audit }
     environment:
       files:
@@ -1522,6 +1536,9 @@ stimuli:
 
               Verdict: proposed correctness fix removing 7 concurrent writers; negligible timing benefit, not validated
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
       - type: run-command
         config:
           command: python
@@ -1540,8 +1557,6 @@ stimuli:
     prompt: |
       Both consumers in audit/evidence.txt need the revision. Explain why it is computed twice and recommend how
       to compute it once without breaking Build-only or Pack-only use. Do not modify files or execute the build.
-    constraints:
-      reject_tools: [edit, create]
     tags: { capability: same-instance-cross-target-sharing, risk: medium, journey: audit }
     environment:
       files:
@@ -1563,6 +1578,9 @@ stimuli:
 
               Verdict: proposed removal of 1 execution; both standalone entry paths retained; wall-clock not validated
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
       - type: run-command
         config:
           command: python
@@ -1581,8 +1599,8 @@ stimuli:
     prompt: |
       A binlog shows Shared.csproj evaluated five times under different global properties. Evaluation accounts for
       almost all the delay, but its targets and tasks execute only once. How should I investigate that cost?
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: dormancy-property-variant-evaluation
       risk: routing
       journey: boundary-condition
@@ -1611,8 +1629,8 @@ stimuli:
       Build.proj builds Shared.csproj concurrently with PublishReadyToRun=true and PublishReadyToRun=false.
       We need both variants, but they use the same bin and obj directories and overwrite each other's files.
       How should I stop the failures without dropping either variant?
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: dormancy-property-variant-output-collision
       risk: routing
       journey: boundary-condition
@@ -1640,8 +1658,8 @@ stimuli:
     prompt: |
       Our .NET solution builds slowly in CI, but we do not have timings or logs that show where the time goes.
       What should we collect first before deciding what to change?
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: dormancy-unranked-build-slowness
       risk: routing
       journey: boundary-condition
@@ -1669,8 +1687,8 @@ stimuli:
     prompt: |
       On a second dotnet build of an unchanged checkout, CoreCompile still runs for every project instead of being skipped.
       Why does MSBuild not treat the projects as up to date?
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: dormancy-no-op-rebuild
       risk: routing
       journey: boundary-condition
@@ -1700,8 +1718,8 @@ stimuli:
     prompt: |
       Our CI runs dotnet restore, dotnet build and dotnet test for the same solution. The logs show NuGet restore three
       times. How can we avoid the unnecessary restore work without skipping required package downloads?
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: dormancy-repeated-restores
       risk: routing
       journey: boundary-condition
@@ -1731,8 +1749,8 @@ stimuli:
       dotnet build spends about 35 seconds before the first target starts, then compilation finishes in two seconds.
       Directory.Build.props has recursive globs and the repository imports many props and targets files. How should I
       investigate that startup delay?
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: dormancy-slow-evaluation
       risk: routing
       journey: boundary-condition
@@ -1763,8 +1781,8 @@ stimuli:
       files with BuildInParallel enabled. The binlog shows each project compiling once, but most worker nodes are idle
       while Core, Api and Web build one after another along their ProjectReference chain. Raising -m does not reduce
       elapsed time. How should I investigate and improve this?
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: dormancy-serial-project-chain
       risk: routing
       journey: boundary-condition
