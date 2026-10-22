@@ -901,6 +901,11 @@ test("dormancy tags support block and flow mappings without reading nested text"
       "  - name: Both",
       "    expect_activation: false",
       '    tags: {expect_activation: "false"}',
+      "  - name: SpacedPlain",
+      "    tags :",
+      '      expect_activation : "false"',
+      "  - name: SpacedQuoted",
+      '    tags: {"expect_activation" : "false"}',
       "  - name: Active",
       '    tags: {expect_activation: "true"}',
       "  - name: PromptOnly",
@@ -916,7 +921,7 @@ test("dormancy tags support block and flow mappings without reading nested text"
       "",
     ].join("\n"));
     assert.deepEqual([...readNonActivationStimuli("eval.yaml", root)],
-      ["Block", "FlowTags", "FlowStimulus", "Both"]);
+      ["Block", "FlowTags", "FlowStimulus", "Both", "SpacedPlain", "SpacedQuoted"]);
     writeFileSync(join(root, "eval.yaml"), [
       "stimuli:",
       "- name: ZeroIndent",

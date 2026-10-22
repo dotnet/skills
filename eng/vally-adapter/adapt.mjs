@@ -336,13 +336,13 @@ function readNonActivationStimuli(evalFile, repoRoot) {
     tagIndent = null;
   };
   const applyTagEntry = (entry) => {
-    const key = /^\s*("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:]+):/.exec(entry)?.[1].trim();
+    const kv = /^\s*("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:]+)\s*:\s?(.*?)\s*$/.exec(entry);
+    const key = kv?.[1].trim();
     if (key === "<<" || /^[!&*?]/.test(entry.trim()) ||
         (key?.startsWith('"') && key.includes("\\"))) {
       throw new Error(`unsupported tags key for ${curName} in ${evalFile}; use literal keys without merges`);
     }
-    const kv = /^\s*(["']?)expect_activation\1:\s?(.*?)\s*$/.exec(entry);
-    if (!kv) return;
+    if (!kv || unquote(key) !== "expect_activation") return;
     const value = /^(["'])(false|true)\1(?:\s+#.*)?$/.exec(kv[2].trim());
     if (!value) {
       throw new Error(`tags.expect_activation must be the string "false" or "true" for ${curName} in ${evalFile}`);
@@ -386,11 +386,11 @@ function readNonActivationStimuli(evalFile, repoRoot) {
       const flowEntries = flowMappingEntries(rest);
       if (flowEntries) {
         for (const entry of flowEntries) {
-          const kv = /^\s*([A-Za-z0-9_]+):\s?(.*?)\s*$/.exec(entry);
+          const kv = /^\s*([A-Za-z0-9_]+)\s*:\s?(.*?)\s*$/.exec(entry);
           if (kv) applyKey(kv[1], kv[2]);
         }
       } else {
-        const kv = /^([A-Za-z0-9_]+):\s?(.*)$/.exec(rest);
+        const kv = /^([A-Za-z0-9_]+)\s*:\s?(.*)$/.exec(rest);
         if (kv) {
           applyKey(kv[1], kv[2]);
           skipBlockScalar(kv[2]);
@@ -417,7 +417,7 @@ function readNonActivationStimuli(evalFile, repoRoot) {
     // Only mapping keys at the item's key column belong to the stimulus itself;
     // deeper lines (grader entries, block-scalar bodies) are ignored.
     if (keyIndent !== null && ind === keyIndent) {
-      const kv = /^([A-Za-z0-9_]+):\s?(.*)$/.exec(line.slice(keyIndent));
+      const kv = /^([A-Za-z0-9_]+)\s*:\s?(.*)$/.exec(line.slice(keyIndent));
       if (kv) {
         applyKey(kv[1], kv[2]);
         skipBlockScalar(kv[2]);
