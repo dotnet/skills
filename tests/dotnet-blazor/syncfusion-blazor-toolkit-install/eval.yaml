@@ -455,9 +455,9 @@ stimuli:
       capability: dormancy
       risk: api-hijack
       journey: defer-component-api
+      expect_activation: "false"
     prompt: |
       How do I bind grid columns and handle a row-selected event with open-source Syncfusion Blazor components?
-    expect_activation: false
     graders:
       - type: output-not-matches
         config:
@@ -474,10 +474,10 @@ stimuli:
       capability: dormancy
       risk: project-creation-hijack
       journey: defer-project-creation
+      expect_activation: "false"
     prompt: |
       Create a brand new Blazor Web App for me from scratch with the right template options,
       solution layout, and a sensible folder structure.
-    expect_activation: false
     graders:
       - type: output-not-matches
         config:
@@ -493,10 +493,10 @@ stimuli:
       capability: dormancy
       risk: maui-hybrid-hijack
       journey: defer-maui-hybrid
+      expect_activation: "false"
     prompt: |
       I have a .NET MAUI Blazor Hybrid app on net10.0 and want to use open-source Syncfusion
       Blazor components in it. Where do I register the services and which file hosts the page?
-    expect_activation: false
     graders:
       - type: output-not-matches
         config:
